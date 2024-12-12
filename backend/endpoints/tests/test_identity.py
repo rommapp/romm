@@ -74,6 +74,7 @@ def test_add_user_from_admin_user(client, access_token, new_user_role):
         params={
             "username": "new_user",
             "password": "new_user_password",
+            "email": "new_user@example.com",
             "role": new_user_role.value,
         },
         headers={"Authorization": f"Bearer {access_token}"},
@@ -124,6 +125,7 @@ def test_add_user_from_unauthorized_user(
             params={
                 "username": "new_user",
                 "password": "new_user_password",
+                "email": "new_user@example.com",
                 "role": Role.VIEWER.value,
             },
             headers={"Authorization": f"Bearer {access_token}"},
@@ -137,6 +139,7 @@ def test_add_user_with_existing_username(client, access_token, admin_user):
         params={
             "username": admin_user.username,
             "password": "new_user_password",
+            "email": "new_user@example.com",
             "role": Role.VIEWER.value,
         },
         headers={"Authorization": f"Bearer {access_token}"},
