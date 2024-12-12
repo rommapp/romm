@@ -11,6 +11,7 @@ import { useDisplay } from "vuetify";
 const user = ref({
   username: "",
   password: "",
+  email: "",
   role: "viewer",
 });
 const { lgAndUp } = useDisplay();
@@ -74,6 +75,19 @@ function closeDialog() {
                 rounded="0"
                 variant="outlined"
                 label="Password"
+                required
+                hide-details
+                clearable
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-text-field
+                v-model="user.email"
+                rounded="0"
+                variant="outlined"
+                label="email"
                 required
                 hide-details
                 clearable
