@@ -15,7 +15,7 @@ from exceptions.auth_exceptions import (
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
-from handler.auth import auth_handler, oauth_handler, open_id_handler
+from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
 from utils.router import APIRouter
 
@@ -248,9 +248,7 @@ async def auth_openid(request: Request):
         raise OIDCNotConfiguredException
 
     token = await oauth.openid.authorize_access_token(request)
-    potential_user = await open_id_handler.get_current_active_user_from_openid_token(
-        token
-    )
+    potential_user = await oidc_handler.get_current_active_user_from_openid_token(token)
     if not potential_user:
         raise AuthCredentialsException
 
