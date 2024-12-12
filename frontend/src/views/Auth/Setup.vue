@@ -121,6 +121,7 @@ async function finishWizard() {
                           visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
                         "
                         @click:append-inner="visiblePassword = !visiblePassword"
+                        @keydown.enter="filledAdminUser && next()"
                         variant="underlined"
                       />
                     </v-form>

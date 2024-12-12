@@ -160,6 +160,18 @@ async def update_user(
             form_data.password
         )
 
+    if form_data.email and form_data.email != db_user.email:
+        existing_user = db_user_handler.get_user_by_email(form_data.email.lower())
+        if existing_user:
+            msg = f"User with email {form_data.email} already exists"
+            log.error(msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=msg,
+            )
+
+        cleaned_data["email"] = form_data.email.lower()
+
     # You can't change your own role
     if form_data.role and request.user.id != id:
         cleaned_data["role"] = Role[form_data.role.upper()]  # type: ignore[assignment]
