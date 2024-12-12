@@ -25,13 +25,16 @@ router = APIRouter()
     [],
     status_code=status.HTTP_201_CREATED,
 )
-def add_user(request: Request, username: str, password: str, role: str) -> UserSchema:
+def add_user(
+    request: Request, username: str, password: str, email: str, role: str
+) -> UserSchema:
     """Create user endpoint
 
     Args:
         request (Request): Fastapi Requests object
         username (str): User username
         password (str): User password
+        email (str): User email
         role (str): RomM Role object represented as string
 
     Returns:
@@ -48,9 +51,18 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
             detail="Forbidden",
         )
 
-    existing_user = db_user_handler.get_user_by_username(username)
-    if existing_user:
-        msg = f"Username {username} already exists"
+    existing_username = db_user_handler.get_user_by_username(username.lower())
+    if existing_username:
+        msg = f"Username {username.lower()} already exists"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+    existing_email = db_user_handler.get_user_by_email(email.lower())
+    if existing_email:
+        msg = f"Uesr with email {email.lower()} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -58,8 +70,9 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         )
 
     user = User(
-        username=username,
+        username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
+        email=email.lower(),
         role=Role[role.upper()],
     )
 
