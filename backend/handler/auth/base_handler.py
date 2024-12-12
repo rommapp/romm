@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Final
 
 import httpx
-from config import OIDC_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
+from config import OIDC_ENABLED, OIDC_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
 from exceptions.auth_exceptions import OAuthCredentialsException
 from fastapi import HTTPException, status
 from joserfc import jwt
@@ -160,6 +160,9 @@ class OAuthHandler:
 
 class OpenIDHandler:
     def __init__(self) -> None:
+        if not OIDC_ENABLED:
+            return
+
         jwks_url = f"{OIDC_SERVER_APPLICATION_URL}/jwks/"
         with httpx.Client() as httpx_client:
             try:
@@ -174,6 +177,9 @@ class OpenIDHandler:
 
     async def get_current_active_user_from_openid_token(self, token: Any):
         from handler.database import db_user_handler
+
+        if not OIDC_ENABLED:
+            return None
 
         id_token = token.get("id_token")
 
