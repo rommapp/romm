@@ -51,8 +51,8 @@ def add_user(
             detail="Forbidden",
         )
 
-    existing_username = db_user_handler.get_user_by_username(username.lower())
-    if existing_username:
+    existing_user_by_username = db_user_handler.get_user_by_username(username.lower())
+    if existing_user_by_username:
         msg = f"Username {username.lower()} already exists"
         log.error(msg)
         raise HTTPException(
@@ -60,8 +60,8 @@ def add_user(
             detail=msg,
         )
 
-    existing_email = db_user_handler.get_user_by_email(email.lower())
-    if existing_email:
+    existing_user_by_email = db_user_handler.get_user_by_email(email.lower())
+    if existing_user_by_email:
         msg = f"Uesr with email {email.lower()} already exists"
         log.error(msg)
         raise HTTPException(
@@ -76,7 +76,7 @@ def add_user(
         role=Role[role.upper()],
     )
 
-    return UserSchema.model_validate(db_user_handler.add_user(user))
+    return db_user_handler.add_user(user)
 
 
 @protected_route(router.get, "/users", [Scope.USERS_READ])
@@ -90,7 +90,7 @@ def get_users(request: Request) -> list[UserSchema]:
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
+    return [u for u in db_user_handler.get_users()]
 
 
 @protected_route(router.get, "/users/me", [Scope.ME_READ])
@@ -122,7 +122,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return UserSchema.model_validate(user)
+    return user
 
 
 @protected_route(router.put, "/users/{id}", [Scope.ME_WRITE])
@@ -215,7 +215,7 @@ async def update_user(
         if request.user.id == id and creds_updated:
             request.session.clear()
 
-    return UserSchema.model_validate(db_user_handler.get_user(id))
+    return db_user_handler.get_user(id)
 
 
 @protected_route(router.delete, "/users/{id}", [Scope.USERS_WRITE])
