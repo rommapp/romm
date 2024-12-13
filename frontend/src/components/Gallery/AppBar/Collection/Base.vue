@@ -5,27 +5,14 @@ import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.v
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
-import CollectionCard from "@/components/common/Collection/Card.vue";
-import RSection from "@/components/common/RSection.vue";
-import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import storeNavigation from "@/stores/navigation";
-import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
 const { xs } = useDisplay();
-const emitter = inject<Emitter<Events>>("emitter");
-const viewportWidth = ref(window.innerWidth);
-const auth = storeAuth();
-const romsStore = storeRoms();
-const { currentCollection } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
 const { activeCollectionInfoDrawer } = storeToRefs(navigationStore);
-const open = ref(false);
 </script>
 
 <template>

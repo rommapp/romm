@@ -5,12 +5,25 @@ import storeHeartbeat from "@/stores/heartbeat";
 import api from "@/services/api/index";
 import userApi from "@/services/api/user";
 import router from "@/plugins/router";
-import { onBeforeMount } from "vue";
+import languageStore from "@/stores/language";
+import { storeToRefs } from "pinia";
+import { onBeforeMount, ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
 const heartbeat = storeHeartbeat();
 const auth = storeAuth();
 const configStore = storeConfig();
+const { locale } = useI18n();
+const storeLanguage = languageStore();
+const { defaultLanguage, languages } = storeToRefs(storeLanguage);
+const selectedLanguage = ref(
+  languages.value.find(
+    (lang) => lang.value === localStorage.getItem("settings.locale"),
+  ) || defaultLanguage.value,
+);
+locale.value = selectedLanguage.value.value;
+storeLanguage.setLanguage(selectedLanguage.value);
 
 // Functions
 onBeforeMount(async () => {

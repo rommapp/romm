@@ -11,8 +11,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
@@ -92,9 +94,9 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>Adding</span>
+        <span>{{ t("rom.adding-to-collection-part1") }}</span>
         <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
-        <span>games to collection</span>
+        <span>{{ t("rom.adding-to-collection-part2") }}</span>
       </v-row>
     </template>
     <template #prepend>
@@ -102,7 +104,7 @@ function closeDialog() {
         v-model="selectedCollection"
         class="pa-3"
         density="default"
-        label="Collection"
+        :label="t('common.collection')"
         item-title="name"
         :items="collectionsStore.allCollections"
         variant="outlined"
@@ -174,7 +176,7 @@ function closeDialog() {
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
-            Cancel
+            {{ t("common.cancel") }}
           </v-btn>
           <v-btn
             class="bg-terciary text-romm-green"
@@ -182,7 +184,7 @@ function closeDialog() {
             :variant="!selectedCollection ? 'plain' : 'flat'"
             @click="addRomsToCollection"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>

@@ -11,6 +11,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 type MatchedSource = {
   url_cover: string | undefined;
@@ -19,6 +20,7 @@ type MatchedSource = {
 };
 
 // Props
+const { t } = useI18n();
 const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
@@ -229,7 +231,7 @@ onBeforeUnmount(() => {
     :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #header>
-      <span class="ml-4">Filter:</span>
+      <span class="ml-4">{{ t("common.filter") }}:</span>
       <v-tooltip
         location="top"
         class="tooltip"
@@ -298,7 +300,7 @@ onBeforeUnmount(() => {
             class="bg-terciary"
             v-model="searchTerm"
             :disabled="searching"
-            label="Search"
+            :label="t('common.search')"
             hide-details
             clearable
           />
@@ -306,7 +308,7 @@ onBeforeUnmount(() => {
         <v-col cols="4" sm="3">
           <v-select
             :disabled="searching"
-            label="by"
+            :label="t('rom.by')"
             class="bg-terciary"
             :items="['ID', 'Name']"
             v-model="searchBy"
@@ -371,7 +373,9 @@ onBeforeUnmount(() => {
           <v-col cols="12">
             <v-row no-gutters class="mt-4 justify-center text-center">
               <v-col>
-                <span class="text-body-1">Select a cover image</span>
+                <span class="text-body-1">{{
+                  t("rom.select-cover-image")
+                }}</span>
               </v-col>
             </v-row>
           </v-col>
@@ -436,19 +440,21 @@ onBeforeUnmount(() => {
                       ? "mdi-checkbox-outline"
                       : "mdi-checkbox-blank-outline"
                   }}</v-icon
-                  >Rename file to match {{ selectedCover?.name }} title</v-chip
+                  >{{
+                    t("rom.rename-file-part1", { source: selectedCover?.name })
+                  }}</v-chip
                 >
                 <v-list-item v-if="renameAsSource" class="mt-2">
-                  <span>File will be renamed</span>
+                  <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
-                  <span>from</span
+                  <span>{{ t("rom.rename-file-part3") }}</span
                   ><span class="text-romm-accent-1 ml-1"
                     >{{ rom?.file_name_no_tags }}.{{
                       rom?.file_extension
                     }}</span
                   >
                   <br />
-                  <span class="mx-1">to</span
+                  <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
                   ><span class="text-romm-accent-2"
                     >{{ selectedMatchRom?.name }}.{{
                       rom?.file_extension
@@ -456,7 +462,7 @@ onBeforeUnmount(() => {
                   >
                   <br />
                   <span class="text-caption font-italic font-weight-bold"
-                    >*File name tags won't be affected</span
+                    >*{{ t("rom.rename-file-part5") }}</span
                   >
                 </v-list-item>
               </v-col>
@@ -466,7 +472,7 @@ onBeforeUnmount(() => {
             <v-row no-gutters class="my-4 justify-center">
               <v-btn-group divided density="compact">
                 <v-btn class="bg-terciary" @click="backToMatched">
-                  Cancel
+                  {{ t("common.cancel") }}
                 </v-btn>
                 <v-btn
                   class="text-romm-green bg-terciary"
@@ -474,7 +480,7 @@ onBeforeUnmount(() => {
                   :variant="selectedCover == undefined ? 'plain' : 'flat'"
                   @click="confirm"
                 >
-                  Confirm
+                  {{ t("common.confirm") }}
                 </v-btn>
               </v-btn-group>
             </v-row>
@@ -485,10 +491,20 @@ onBeforeUnmount(() => {
     <template #footer>
       <v-row no-gutters class="text-center">
         <v-col>
-          <v-chip variant="text">Results found:</v-chip>
-          <v-chip size="small" class="ml-1 text-romm-accent-1" label>{{
-            matchedRoms.length
-          }}</v-chip>
+          <v-chip label class="pr-0" size="small"
+            >{{ t("rom.results-found") }}:<v-chip
+              color="romm-accent-1"
+              class="ml-2 px-2"
+              label
+              >{{ !searching ? matchedRoms.length : ""
+              }}<v-progress-circular
+                v-if="searching"
+                :width="1"
+                :size="10"
+                color="romm-accent-1"
+                indeterminate
+            /></v-chip>
+          </v-chip>
         </v-col>
       </v-row>
     </template>

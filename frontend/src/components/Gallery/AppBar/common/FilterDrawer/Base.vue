@@ -9,11 +9,13 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, nextTick } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
-
 const {
   activeFilterDrawer,
   selectedGenre,
@@ -29,40 +31,40 @@ const {
   selectedStatus,
   filterStatuses,
 } = storeToRefs(galleryFilterStore);
-
 const filters = [
   {
-    label: "Genre",
+    label: t("platform.genre"),
     selected: selectedGenre,
     items: filterGenres,
   },
   {
-    label: "Franchise",
+    label: t("platform.franchise"),
     selected: selectedFranchise,
     items: filterFranchises,
   },
   {
-    label: "Collection",
+    label: t("platform.collection"),
     selected: selectedCollection,
     items: filterCollections,
   },
   {
-    label: "Company",
+    label: t("platform.company"),
     selected: selectedCompany,
     items: filterCompanies,
   },
   {
-    label: "Age Rating",
+    label: t("platform.age-rating"),
     selected: selectedAgeRating,
     items: filterAgeRatings,
   },
   {
-    label: "Status",
+    label: t("platform.status"),
     selected: selectedStatus,
     items: filterStatuses,
   },
 ];
 
+// Functions
 function resetFilters() {
   selectedGenre.value = null;
   selectedFranchise.value = null;
@@ -108,7 +110,7 @@ function resetFilters() {
       </v-list-item>
       <v-list-item class="justify-center d-flex">
         <v-btn size="small" variant="tonal" @click="resetFilters">
-          Reset filters
+          {{ t("platform.reset-filters") }}
         </v-btn>
       </v-list-item>
     </v-list>

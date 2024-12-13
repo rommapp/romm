@@ -4,8 +4,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const link = ref("");
@@ -30,9 +32,7 @@ function closeDialog() {
   >
     <template #content>
       <v-row class="justify-center text-center pa-2" no-gutters>
-        <v-list-item
-          >Can't copy link to clipboard, copy it manually:</v-list-item
-        >
+        <v-list-item>{{ t("rom.cant-copy-link") }}:</v-list-item>
       </v-row>
       <v-row class="justify-center text-center pa-2 mb-3" no-gutters>
         <v-list-item class="bg-terciary">{{ link }}</v-list-item>

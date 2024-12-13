@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
 </script>
 <template>
@@ -40,7 +43,7 @@ const heartbeatStore = storeHeartbeat();
             style="text-decoration: none"
             href="https://discord.com/invite/P5HtHnhUDH"
             target="_blank"
-            >Join to our Discord</a
+            >{{ t("settings.join-discord") }}</a
           ></span
         >
       </v-hover>
