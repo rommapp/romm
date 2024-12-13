@@ -163,6 +163,8 @@ class OpenIDHandler:
         if not OIDC_ENABLED:
             return
 
+        # Fetch the public key from the OIDC server
+        # JWKS (JSON Web Key Sets) response is a JSON object with a keys array
         jwks_url = f"{OIDC_SERVER_APPLICATION_URL}/jwks/"
         with httpx.Client() as httpx_client:
             try:

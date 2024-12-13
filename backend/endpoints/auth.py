@@ -8,7 +8,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import (
     AuthCredentialsException,
-    OIDCDisableException,
+    OIDCDisabledException,
     OIDCNotConfiguredException,
     UserDisabledException,
 )
@@ -208,7 +208,7 @@ async def login_via_openid(request: Request):
         request (Request): Fastapi Request object
 
     Raises:
-        OIDCDisableException: OAuth is disabled
+        OIDCDisabledException: OAuth is disabled
         OIDCNotConfiguredException: OAuth not configured
 
     Returns:
@@ -216,7 +216,7 @@ async def login_via_openid(request: Request):
     """
 
     if not OIDC_ENABLED:
-        raise OIDCDisableException
+        raise OIDCDisabledException
 
     if not oauth.openid:
         raise OIDCNotConfiguredException
@@ -232,7 +232,7 @@ async def auth_openid(request: Request):
         request (Request): Fastapi Request object
 
     Raises:
-        OIDCDisableException: OAuth is disabled
+        OIDCDisabledException: OAuth is disabled
         OIDCNotConfiguredException: OAuth not configured
         AuthCredentialsException: Invalid credentials
         UserDisabledException: Auth is disabled
@@ -242,28 +242,30 @@ async def auth_openid(request: Request):
     """
 
     if not OIDC_ENABLED:
-        raise OIDCDisableException
+        raise OIDCDisabledException
 
     if not oauth.openid:
         raise OIDCNotConfiguredException
 
     token = await oauth.openid.authorize_access_token(request)
-    potential_user = await oidc_handler.get_current_active_user_from_openid_token(token)
+    potential_user, _claims = (
+        await oidc_handler.get_current_active_user_from_openid_token(token)
+    )
     if not potential_user:
         raise AuthCredentialsException
 
-    user, _claims = potential_user
-
-    if not user:
+    if not potential_user:
         raise AuthCredentialsException
 
-    if not user.enabled:
+    if not potential_user.enabled:
         raise UserDisabledException
 
-    request.session.update({"iss": "romm:auth", "sub": user.username})
+    request.session.update({"iss": "romm:auth", "sub": potential_user.username})
 
     # Update last login and active times
     now = datetime.now(timezone.utc)
-    db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
+    db_user_handler.update_user(
+        potential_user.id, {"last_login": now, "last_active": now}
+    )
 
     return RedirectResponse(url="/")
