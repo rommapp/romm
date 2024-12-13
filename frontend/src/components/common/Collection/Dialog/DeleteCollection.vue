@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RAvatar from "@/components/common/Collection/RAvatar.vue";
+import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import collectionApi from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
@@ -8,7 +8,10 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const router = useRouter();
 const { lgAndUp } = useDisplay();
 const collectionsStore = storeCollections();
@@ -20,6 +23,7 @@ emitter?.on("showDeleteCollectionDialog", (collectionToDelete) => {
   show.value = true;
 });
 
+// Functions
 async function deleteCollection() {
   if (!collection.value) return;
 
@@ -69,18 +73,26 @@ function closeDialog() {
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
-        <span>Removing collection</span>
-        <r-avatar class="ml-1" :collection="collection" />
-        <span class="ml-1 text-romm-accent-1">{{ collection.name }}.</span>
-        <span class="ml-1">from RomM. Do you confirm?</span>
+        <span>{{ t("collection.removing-collection-1") }}</span>
+        <v-chip class="pl-0 ml-1" label>
+          <r-avatar-collection
+            :collection="collection"
+            :size="35"
+            class="mr-2"
+          />
+          {{ collection.name }}
+        </v-chip>
+        <span class="ml-1">{{ t("collection.removing-collection-2") }}</span>
       </v-row>
     </template>
     <template #append>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn class="bg-terciary text-romm-red" @click="deleteCollection">
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>
