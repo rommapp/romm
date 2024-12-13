@@ -8,7 +8,7 @@ import pydash
 from adapters.services.igdb_types import GameCategory
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from fastapi import HTTPException, status
-from handler.redis_handler import sync_cache
+from handler.redis_handler import async_cache
 from logger.logger import log
 from unidecode import unidecode as uc
 from utils.context import ctx_httpx_client
@@ -699,8 +699,10 @@ class TwitchAuth(MetadataHandler):
             return ""
 
         # Set token in redis to expire in <expires_in> seconds
-        sync_cache.set("romm:twitch_token", token, ex=expires_in - 10)
-        sync_cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)
+        await async_cache.set("romm:twitch_token", token, ex=expires_in - 10)
+        await async_cache.set(
+            "romm:twitch_token_expires_at", time.time() + expires_in - 10
+        )
 
         log.info("Twitch token fetched!")
 
@@ -715,8 +717,8 @@ class TwitchAuth(MetadataHandler):
             return ""
 
         # Fetch the token cache
-        token = sync_cache.get("romm:twitch_token")
-        token_expires_at = sync_cache.get("romm:twitch_token_expires_at")
+        token = await async_cache.get("romm:twitch_token")
+        token_expires_at = await async_cache.get("romm:twitch_token_expires_at")
 
         if not token or time.time() > float(token_expires_at or 0):
             log.warning("Twitch token invalid: fetching a new one...")
