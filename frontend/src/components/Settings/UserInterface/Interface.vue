@@ -3,7 +3,10 @@ import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption
 import RSection from "@/components/common/RSection.vue";
 import { computed, ref } from "vue";
 import { isNull } from "lodash";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 // Initializing refs from localStorage
 const storedShowRecentRoms = localStorage.getItem("settings.showRecentRoms");
 const showRecentRomsRef = ref(
@@ -49,16 +52,16 @@ const statusRef = ref(isNull(storedStatus) ? true : storedStatus === "true");
 
 const homeOptions = computed(() => [
   {
-    title: "Show recently added roms",
-    description: "Show recently added roms section at the home page",
+    title: t("settings.show-recently-added"),
+    description: t("settings.show-recently-added-desc"),
     iconEnabled: "mdi-checkbox-marked-outline",
     iconDisabled: "mdi-checkbox-blank-outline",
     model: showRecentRomsRef,
     modelTrigger: toggleShowRecentRoms,
   },
   {
-    title: "Recently added roms as grid",
-    description: "View recently added rom cards as a grid at the home page",
+    title: t("settings.recently-added-as-grid"),
+    description: t("settings.recently-added-as-grid-desc"),
     iconEnabled: "mdi-view-comfy",
     iconDisabled: "mdi-view-column",
     disabled: !showRecentRomsRef.value,
@@ -66,16 +69,16 @@ const homeOptions = computed(() => [
     modelTrigger: toggleGridRecentRoms,
   },
   {
-    title: "Show platforms",
-    description: "Show platform section at the home page",
+    title: t("settings.show-platforms"),
+    description: t("settings.show-platforms-desc"),
     iconEnabled: "mdi-checkbox-marked-outline",
     iconDisabled: "mdi-checkbox-blank-outline",
     model: showPlatformsRef,
     modelTrigger: toggleShowPlatforms,
   },
   {
-    title: "Platforms as grid",
-    description: "View platform cards as a grid at the home page",
+    title: t("settings.show-platforms-as-grid"),
+    description: t("settings.show-platforms-as-grid-desc"),
     iconEnabled: "mdi-view-comfy",
     iconDisabled: "mdi-view-column",
     disabled: !showPlatformsRef.value,
@@ -83,16 +86,16 @@ const homeOptions = computed(() => [
     modelTrigger: toggleGridPlatforms,
   },
   {
-    title: "Show collections",
-    description: "Show collections section at the home page",
+    title: t("settings.show-collections"),
+    description: t("settings.show-collections-desc"),
     iconEnabled: "mdi-checkbox-marked-outline",
     iconDisabled: "mdi-checkbox-blank-outline",
     model: showCollectionsRef,
     modelTrigger: toggleShowCollections,
   },
   {
-    title: "Collections a grid",
-    description: "View collection cards as a grid at the home page",
+    title: t("settings.show-collections-as-grid"),
+    description: t("settings.show-collections-as-grid-desc"),
     iconEnabled: "mdi-view-comfy",
     iconDisabled: "mdi-view-column",
     disabled: !showCollectionsRef.value,
@@ -103,17 +106,16 @@ const homeOptions = computed(() => [
 
 const galleryOptions = computed(() => [
   {
-    title: "Group roms",
-    description: "Group versions of the same rom together in the gallery",
+    title: t("settings.group-roms"),
+    description: t("settings.group-roms-desc"),
     iconEnabled: "mdi-group",
     iconDisabled: "mdi-ungroup",
     model: groupRomsRef,
     modelTrigger: toggleGroupRoms,
   },
   {
-    title: "Show siblings",
-    description:
-      'Show siblings count in the gallery when "Group roms" option is enabled',
+    title: t("settings.show-siblings"),
+    description: t("settings.show-siblings-desc"),
     iconEnabled: "mdi-account-group-outline",
     iconDisabled: "mdi-account-outline",
     model: siblingsRef,
@@ -121,25 +123,24 @@ const galleryOptions = computed(() => [
     modelTrigger: toggleSiblings,
   },
   {
-    title: "Show regions",
-    description: "Show region flags in the gallery",
+    title: t("settings.show-regions"),
+    description: t("settings.show-regions-desc"),
     iconEnabled: "mdi-flag-outline",
     iconDisabled: "mdi-flag-off-outline",
     model: regionsRef,
     modelTrigger: toggleRegions,
   },
   {
-    title: "Show languages",
-    description: "Show language flags in the gallery",
+    title: t("settings.show-languages"),
+    description: t("settings.show-languages-desc"),
     iconEnabled: "mdi-flag-outline",
     iconDisabled: "mdi-flag-off-outline",
     model: languagesRef,
     modelTrigger: toggleLanguages,
   },
   {
-    title: "Show status",
-    description:
-      "Show status icons in the gallery (backlogged, playing, completed, etc)",
+    title: t("settings.show-status"),
+    description: t("settings.show-status-desc"),
     iconEnabled: "mdi-check-circle-outline",
     iconDisabled: "mdi-close-circle-outline",
     model: statusRef,
@@ -199,11 +200,11 @@ const toggleStatus = (value: boolean) => {
 };
 </script>
 <template>
-  <r-section icon="mdi-palette-swatch-outline" title="Interface">
+  <r-section icon="mdi-palette-swatch-outline" :title="t('settings.interface')">
     <template #content>
-      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2"
-        >Home</v-chip
-      >
+      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2">{{
+        t("settings.home")
+      }}</v-chip>
       <v-divider class="border-opacity-25 mx-2" />
       <v-row class="py-1" no-gutters>
         <v-col
@@ -230,7 +231,7 @@ const toggleStatus = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-view-grid"
         class="ml-2 mt-4"
-        >Gallery</v-chip
+        >{{ t("settings.gallery") }}</v-chip
       >
       <v-divider class="border-opacity-25 mx-2" />
       <v-row class="py-1" no-gutters>

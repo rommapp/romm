@@ -8,8 +8,10 @@ import { formatBytes, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, onMounted, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs, mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedStates = ref<StateSchema[]>([]);
@@ -145,7 +147,7 @@ onMounted(() => {
       </v-chip>
     </template>
     <template #no-data
-      ><span>No states found for {{ rom.name }}</span></template
+      ><span>{{ t("rom.no-states-found") }}</span></template
     >
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">

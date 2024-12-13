@@ -11,8 +11,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const props = defineProps<{ rom: SimpleRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
@@ -95,12 +97,14 @@ async function switchFromFavourites() {
         @click="emitter?.emit('showMatchRomDialog', rom)"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-search-web" class="mr-2" />Manual match
+          <v-icon icon="mdi-search-web" class="mr-2" />{{
+            t("rom.manual-match")
+          }}
         </v-list-item-title>
         <v-list-item-subtitle>
           {{
             !heartbeat.value.ANY_SOURCE_ENABLED
-              ? "No metadata source enabled"
+              ? t("rom.no-metadata-source")
               : ""
           }}
         </v-list-item-subtitle>
@@ -110,7 +114,7 @@ async function switchFromFavourites() {
         @click="emitter?.emit('showEditRomDialog', { ...rom })"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-pencil-box" class="mr-2" />Edit
+          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit-rom") }}
         </v-list-item-title>
       </v-list-item>
       <v-divider />
@@ -125,7 +129,9 @@ async function switchFromFavourites() {
           :icon="collectionsStore.isFav(rom) ? 'mdi-star-outline' : 'mdi-star'"
           class="mr-2"
         />{{
-          `${collectionsStore.isFav(rom) ? "Remove from" : "Add to"} favourites`
+          collectionsStore.isFav(rom)
+            ? t("rom.remove-from-fav")
+            : t("rom.add-to-fav")
         }}
       </v-list-item-title>
     </v-list-item>
@@ -135,8 +141,9 @@ async function switchFromFavourites() {
       @click="emitter?.emit('showAddToCollectionDialog', [{ ...rom }])"
     >
       <v-list-item-title class="d-flex">
-        <v-icon icon="mdi-bookmark-plus-outline" class="mr-2" />Add to
-        collection
+        <v-icon icon="mdi-bookmark-plus-outline" class="mr-2" />{{
+          t("rom.add-to-collection")
+        }}
       </v-list-item-title>
     </v-list-item>
     <template v-if="auth.scopes.includes('roms.write')">
@@ -146,7 +153,7 @@ async function switchFromFavourites() {
         @click="emitter?.emit('showDeleteRomDialog', [rom])"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-delete" class="mr-2" />Delete
+          <v-icon icon="mdi-delete" class="mr-2" />{{ t("rom.delete-rom") }}
         </v-list-item-title>
       </v-list-item>
     </template>

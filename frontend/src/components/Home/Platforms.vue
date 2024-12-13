@@ -4,15 +4,17 @@ import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
 import { isNull } from "lodash";
 import { views } from "@/utils";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const platforms = storePlatforms();
 const gridPlatforms = isNull(localStorage.getItem("settings.gridPlatforms"))
   ? true
   : localStorage.getItem("settings.gridPlatforms") === "true";
 </script>
 <template>
-  <r-section icon="mdi-controller" title="Platforms">
+  <r-section icon="mdi-controller" :title="t('common.platforms')">
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridPlatforms }"
