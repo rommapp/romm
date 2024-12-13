@@ -125,7 +125,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     return UserSchema.model_validate(user)
 
 
-@protected_route(router.put, "/users/{id}", [Scope.USERS_WRITE])
+@protected_route(router.put, "/users/{id}", [Scope.ME_WRITE])
 async def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:

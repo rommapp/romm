@@ -6,8 +6,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
@@ -61,7 +63,7 @@ async function loginOIDC() {
         <v-form @submit.prevent="login">
           <v-text-field
             v-model="username"
-            label="Username"
+            :label="t('login.username')"
             type="text"
             required
             autocomplete="on"
@@ -70,7 +72,7 @@ async function loginOIDC() {
           />
           <v-text-field
             v-model="password"
-            label="Password"
+            :label="t('login.password')"
             :type="visiblePassword ? 'text' : 'password'"
             required
             autocomplete="on"
@@ -87,7 +89,7 @@ async function loginOIDC() {
             :disabled="loggingIn || !username || !password"
             :variant="!username || !password ? 'text' : 'flat'"
           >
-            <span>Login</span>
+            <span>{{ t("login.login") }}</span>
             <template #append>
               <v-icon class="text-romm-accent-1"
                 >mdi-chevron-right-circle-outline</v-icon
@@ -105,8 +107,8 @@ async function loginOIDC() {
           <v-btn
             block
             type="submit"
-            v-if="heartbeatStore.value.OIDC.ENABLED"
             :disabled="loggingIn"
+            v-if="heartbeatStore.value.OIDC.ENABLED"
             :loading="loggingIn"
             :variant="'text'"
             class="bg-terciary"
