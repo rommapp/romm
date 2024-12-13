@@ -1,6 +1,5 @@
 import functools
 import re
-import time
 from typing import Final, NotRequired, TypedDict
 
 import httpx
@@ -664,11 +663,11 @@ class TwitchAuth(MetadataHandler):
         self.timeout = 10
 
     async def _update_twitch_token(self) -> str:
-        token = None
-        expires_in = 0
-
         if not IGDB_API_ENABLED:
             return ""
+
+        token = None
+        expires_in = 0
 
         httpx_client = ctx_httpx_client.get()
         try:
@@ -698,11 +697,8 @@ class TwitchAuth(MetadataHandler):
         if not token or expires_in == 0:
             return ""
 
-        # Set token in redis to expire in <expires_in> seconds
+        # Set token in Redis to expire some seconds before it actually expires.
         await async_cache.set("romm:twitch_token", token, ex=expires_in - 10)
-        await async_cache.set(
-            "romm:twitch_token_expires_at", time.time() + expires_in - 10
-        )
 
         log.info("Twitch token fetched!")
 
@@ -718,9 +714,7 @@ class TwitchAuth(MetadataHandler):
 
         # Fetch the token cache
         token = await async_cache.get("romm:twitch_token")
-        token_expires_at = await async_cache.get("romm:twitch_token_expires_at")
-
-        if not token or time.time() > float(token_expires_at or 0):
+        if not token:
             log.warning("Twitch token invalid: fetching a new one...")
             return await self._update_twitch_token()
 
