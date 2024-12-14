@@ -380,7 +380,7 @@ async function stopScan() {
       >
         <v-icon left>mdi-controller</v-icon>
         <span v-if="xs" class="ml-2">{{
-          t("scan.platforms-scanned", { n_platforms: scanningPlatforms.length })
+          t("scan.platforms-scanned-n", scanningPlatforms.length)
         }}</span>
         <span class="ml-2" v-else>{{
           t("scan.platforms-scanned-with-details", {
@@ -398,11 +398,16 @@ async function stopScan() {
         class="ml-1 my-1"
       >
         <v-icon left> mdi-disc </v-icon>
-        <span class="ml-2">Roms: {{ scanStats.scanned_roms }} scanned</span>
-        <span v-if="!xs">, with {{ scanStats.added_roms }} new</span>
-        <span v-if="!xs"
-          >&nbsp;and {{ scanStats.metadata_roms }} identified</span
-        >
+        <span v-if="xs" class="ml-2">{{
+          t("scan.roms-scanned-n", scanStats.scanned_roms)
+        }}</span>
+        <span class="ml-2" v-else>{{
+          t("scan.roms-scanned-with-details", {
+            n_roms: scanStats.scanned_roms,
+            n_added_roms: scanStats.added_roms,
+            n_identified_roms: scanStats.metadata_roms,
+          })
+        }}</span>
       </v-chip>
     </v-chip>
   </v-bottom-navigation>
