@@ -3,13 +3,14 @@ from decorators.auth import protected_route
 from endpoints.responses.retroachievements import RetroAchievementsGameSchema
 from exceptions.endpoint_exceptions import RomNotFoundInRetroAchievementsException
 from fastapi import Request
-from handler.metadata.ra_handler import RetroAchievementsHandler
+from handler.auth.base_handler import Scope
+from handler.metadata import meta_ra_handler
 from utils.router import APIRouter
 
 router = APIRouter()
 
 
-@protected_route(router.get, "/retroachievements/{id}", ["roms.read"])
+@protected_route(router.get, "/retroachievements/{id}", [Scope.ROMS_READ])
 async def get_rom_retroachievements(
     request: Request, id: int
 ) -> RetroAchievementsGameSchema:
@@ -33,9 +34,7 @@ async def get_rom_retroachievements(
         y=[request.user.ra_api_key],
     )
 
-    game_with_details = await RetroAchievementsHandler._request(
-        RetroAchievementsHandler, str(url)
-    )
+    game_with_details = await meta_ra_handler._request(str(url))
 
     if not game_with_details:
         raise RomNotFoundInRetroAchievementsException(id)
