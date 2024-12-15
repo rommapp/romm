@@ -32,7 +32,7 @@ async function updateUser({
   id,
   avatar,
   ...attrs
-}: UserSchema & {
+}: Partial<UserSchema> & {
   avatar?: File;
   password?: string;
 }): Promise<{ data: UserSchema }> {
@@ -50,27 +50,8 @@ async function updateUser({
         password: attrs.password,
         enabled: attrs.enabled,
         role: attrs.role,
-      },
-    },
-  );
-}
-
-async function updateUserRetroAchievements({
-  id,
-  ra_username,
-  ra_api_key,
-}: {
-  id: number;
-  ra_api_key: string | null;
-  ra_username: string | null;
-}): Promise<{ data: UserSchema }> {
-  return api.put(
-    `/users/${id}/settings`,
-    {},
-    {
-      params: {
-        ra_username,
-        ra_api_key,
+        ra_username: attrs.ra_username,
+        ra_api_key: attrs.ra_api_key,
       },
     },
   );
@@ -87,5 +68,4 @@ export default {
   fetchCurrentUser,
   updateUser,
   deleteUser,
-  updateUserRetroAchievements,
 };

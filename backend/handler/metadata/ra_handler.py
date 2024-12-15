@@ -208,4 +208,4 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
 }
 
 # Reverse lookup
-MOBY_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_RA_ID.items()}
+RA_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_RA_ID.items()}

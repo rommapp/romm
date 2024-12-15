@@ -168,6 +168,12 @@ async def update_user(
     if form_data.enabled is not None and request.user.id != id:
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
+    if form_data.ra_username:
+        cleaned_data["ra_username"] = form_data.ra_username  # type: ignore[assignment]
+
+    if form_data.ra_api_key:
+        cleaned_data["ra_api_key"] = form_data.ra_api_key  # type: ignore[assignment]
+
     if form_data.avatar is not None:
         user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
@@ -189,48 +195,6 @@ async def update_user(
         )
         if request.user.id == id and creds_updated:
             request.session.clear()
-
-    return db_user_handler.get_user(id)
-
-
-@protected_route(router.put, "/users/{id}/settings", [Scope.ME_WRITE])
-async def update_user_settings(
-    request: Request, id: int, form_data: Annotated[UserForm, Depends()]
-) -> UserSchema:
-    """Update user settings endpoint
-
-    Args:
-        request (Request): Fastapi Requests object
-        user_id (int): User internal id
-        form_data (Annotated[UserUpdateForm, Depends): Form Data with user updated info
-
-    Raises:
-        HTTPException: User is not found in database
-
-    Returns:
-        UserSchema: Updated user info
-    """
-
-    db_user = db_user_handler.get_user(id)
-
-    if not db_user:
-        msg = f"Username with id {id} not found"
-        log.error(msg)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
-
-    # Admin users can edit any user, while other users can only edit self
-    if db_user.id != request.user.id and request.user.role != Role.ADMIN:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-
-    cleaned_data = {}
-    if form_data.ra_username:
-        cleaned_data["ra_username"] = form_data.ra_username
-
-    if form_data.ra_api_key:
-        cleaned_data["ra_api_key"] = form_data.ra_api_key
-
-    if cleaned_data:
-        db_user_handler.update_user(id, cleaned_data)
 
     return db_user_handler.get_user(id)
 
