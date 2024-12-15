@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
 if TYPE_CHECKING:
+    from handler.auth.base_handler import Scope
     from models.assets import Save, Screenshot, State
     from models.collection import Collection
     from models.rom import RomUser
@@ -44,7 +45,7 @@ class User(BaseModel, SimpleUser):
     collections: Mapped[list[Collection]] = relationship(back_populates="user")
 
     @property
-    def oauth_scopes(self):
+    def oauth_scopes(self) -> list[Scope]:
         from handler.auth.base_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
 
         if self.role == Role.ADMIN:

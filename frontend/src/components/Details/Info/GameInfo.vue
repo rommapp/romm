@@ -1,18 +1,31 @@
 <script setup lang="ts">
-import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
+import { type FilterType } from "@/stores/galleryFilter";
+import storeGalleryView from "@/stores/galleryView";
+import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import type { DetailedRom } from "@/stores/roms";
+import { storeToRefs } from "pinia";
 import { ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
-const galleryFilterStore = storeGalleryFilter();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
-const filters = ["genres", "franchises", "collections", "companies"] as const;
+const filters = [
+  { value: "genres", name: t("rom.genres") },
+  { value: "franchises", name: t("rom.franchises") },
+  { value: "collections", name: t("rom.collections") },
+  { value: "companies", name: t("rom.companies") },
+] as const;
+const galleryViewStore = storeGalleryView();
+const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 
+// Functions
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "platform",
@@ -25,20 +38,49 @@ function onFilterClick(filter: FilterType, value: string) {
   <v-row no-gutters>
     <v-col>
       <v-divider class="mx-2 my-4" />
+      <v-row
+        v-if="rom.user_collections && rom.user_collections.length > 0"
+        no-gutters
+        class="align-center my-3"
+      >
+        <v-col cols="3" xl="2" class="mr-2">
+          <span>RomM Collections</span>
+        </v-col>
+        <v-col>
+          <v-row no-gutters>
+            <v-col cols="12" v-for="collection in rom.user_collections">
+              <v-chip
+                :to="{
+                  name: 'collection',
+                  params: { collection: collection.id },
+                }"
+                size="large"
+                class="mr-1 mt-1 px-0"
+                label
+              >
+                <template #prepend>
+                  <r-avatar :size="38" :collection="collection" />
+                </template>
+                <span class="px-4">{{ collection.name }}</span>
+              </v-chip>
+            </v-col>
+          </v-row>
+        </v-col>
+      </v-row>
       <template v-for="filter in filters" :key="filter">
         <v-row
-          v-if="rom[filter].length > 0"
+          v-if="rom[filter.value].length > 0"
           class="align-center my-3"
           no-gutters
         >
-          <v-col cols="3" xl="2" class="text-capitalize">
-            <span>{{ filter }}</span>
+          <v-col cols="3" xl="2" class="text-capitalize mr-2">
+            <span>{{ filter.name }}</span>
           </v-col>
           <v-col>
             <v-chip
-              v-for="value in rom[filter]"
+              v-for="value in rom[filter.value]"
               :key="value"
-              @click="onFilterClick(filter, value)"
+              @click="onFilterClick(filter.value, value)"
               size="small"
               variant="outlined"
               class="my-1 mr-2"
@@ -47,6 +89,30 @@ function onFilterClick(filter: FilterType, value: string) {
               {{ value }}
             </v-chip>
           </v-col>
+        </v-row>
+      </template>
+      <!-- Manually add age ratings to display logos -->
+      <template
+        v-if="
+          rom.igdb_metadata?.age_ratings &&
+          rom.igdb_metadata.age_ratings.length > 0
+        "
+      >
+        <v-row no-gutters class="mt-5">
+          <v-col cols="3" xl="2" class="text-capitalize">
+            <span>Age Rating</span>
+          </v-col>
+          <div class="d-flex" :class="{ 'my-2': xs }">
+            <v-img
+              v-for="value in rom.igdb_metadata.age_ratings"
+              :key="value.rating"
+              @click="onFilterClick('age_ratings', value.rating)"
+              :src="value.rating_cover_url"
+              height="50"
+              width="50"
+              class="mr-4 cursor-pointer"
+            />
+          </div>
         </v-row>
       </template>
       <template v-if="rom.summary != ''">
@@ -92,7 +158,7 @@ function onFilterClick(filter: FilterType, value: string) {
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerpolicy="strict-origin-when-cross-origin"
-                  style="aspect-ratio: 16 / 9"
+                  :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                   allowfullscreen
                 ></iframe>
               </v-carousel-item>
@@ -149,7 +215,7 @@ function onFilterClick(filter: FilterType, value: string) {
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerpolicy="strict-origin-when-cross-origin"
-                    style="aspect-ratio: 16 / 9"
+                    :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                     allowfullscreen
                   ></iframe>
                 </v-carousel-item>

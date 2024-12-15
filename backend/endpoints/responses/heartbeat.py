@@ -28,6 +28,10 @@ class EmulationDict(TypedDict):
     DISABLE_RUFFLE_RS: bool
 
 
+class FrontendDict(TypedDict):
+    UPLOAD_TIMEOUT: int
+
+
 class HeartbeatResponse(TypedDict):
     VERSION: str
     SHOW_SETUP_WIZARD: bool
@@ -37,3 +41,4 @@ class HeartbeatResponse(TypedDict):
     METADATA_SOURCES: MetadataSourcesDict
     FS_PLATFORMS: list
     EMULATION: EmulationDict
+    FRONTEND: FrontendDict

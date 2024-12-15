@@ -123,6 +123,7 @@ class RomSchema(BaseModel):
     collections: list[str]
     companies: list[str]
     game_modes: list[str]
+    age_ratings: list[str]
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
 
@@ -166,12 +167,16 @@ class SimpleRomSchema(RomSchema):
     rom_user: RomUserSchema
 
     @classmethod
-    def from_orm_with_request(
-        cls, db_rom: Rom, request: Request
-    ) -> SimpleRomSchema | None:
+    def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         user_id = request.user.id
 
         db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
+
+        return cls.model_validate(db_rom)
+
+    @classmethod
+    def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
+        db_rom.rom_user = rom_user_schema_factory()
 
         return cls.model_validate(db_rom)
 

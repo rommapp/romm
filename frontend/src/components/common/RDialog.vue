@@ -2,7 +2,7 @@
 import EmptyFirmware from "@/components/common/EmptyFirmware.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
-import RommIso from "@/components/common/RommIso.vue";
+import RIsotipo from "@/components/common/RIsotipo.vue";
 import { onMounted, ref, useSlots } from "vue";
 
 // Props
@@ -16,8 +16,8 @@ withDefaults(
     scrollContent?: boolean;
     showRommIcon?: boolean;
     icon?: string | null;
-    width?: string;
-    height?: string;
+    width?: number | string;
+    height?: number | string;
   }>(),
   {
     loadingCondition: false,
@@ -27,8 +27,8 @@ withDefaults(
     scrollContent: false,
     showRommIcon: false,
     icon: null,
-    width: "",
-    height: "",
+    width: "auto",
+    height: "auto",
   },
 );
 const emit = defineEmits(["update:modelValue", "close"]);
@@ -37,7 +37,6 @@ const hasPrependSlot = ref(false);
 const hasAppendSlot = ref(false);
 const hasFooterSlot = ref(false);
 
-// Functions
 function closeDialog() {
   emit("update:modelValue", false);
   emit("close");
@@ -63,10 +62,10 @@ onMounted(() => {
     no-click-animation
     persistent
   >
-    <v-card rounded="0" :height="height">
+    <v-card rounded="0" :min-height="height" :max-height="height">
       <v-toolbar density="compact" class="bg-terciary">
         <v-icon v-if="icon" :icon="icon" class="ml-5" />
-        <romm-iso :size="30" class="mx-4" v-if="showRommIcon" />
+        <r-isotipo :size="30" class="mx-4" v-if="showRommIcon" />
         <slot name="header"></slot>
         <template #append>
           <v-btn
@@ -91,12 +90,12 @@ onMounted(() => {
 
       <v-card-text
         id="r-dialog-content"
-        class="pa-1"
+        class="pa-1 d-flex flex-column"
         :class="{ scroll: scrollContent }"
       >
         <v-row
           v-if="loadingCondition"
-          class="justify-center align-center h-100"
+          class="justify-center align-center flex-grow-1"
           no-gutters
         >
           <v-progress-circular
@@ -109,7 +108,7 @@ onMounted(() => {
 
         <v-row
           v-if="!loadingCondition && emptyStateCondition"
-          class="justify-center align-center h-100"
+          class="justify-center align-center flex-grow-1"
           no-gutters
         >
           <empty-game v-if="emptyStateType == 'game'" />
@@ -118,7 +117,10 @@ onMounted(() => {
           <slot v-else name="emptyState"></slot>
         </v-row>
 
-        <slot name="content"></slot>
+        <slot
+          v-if="!loadingCondition && !emptyStateCondition"
+          name="content"
+        ></slot>
       </v-card-text>
       <v-card-text v-if="hasAppendSlot" class="pa-1">
         <slot name="append"></slot>

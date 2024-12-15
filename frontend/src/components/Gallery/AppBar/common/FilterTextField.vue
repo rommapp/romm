@@ -5,13 +5,14 @@ import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, nextTick } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const { filterSearch } = storeToRefs(galleryFilterStore);
 
-// Functions
 const filterRoms = debounce(() => {
   emitter?.emit("filter", null);
 }, 500);
@@ -25,7 +26,7 @@ function clear() {
   <v-text-field
     v-model="filterSearch"
     prepend-inner-icon="mdi-filter-outline"
-    label="Filter"
+    :label="t('common.filter')"
     rounded="0"
     hide-details
     clearable

@@ -48,10 +48,17 @@ Then create the virtual environment
 poetry install --sync
 ```
 
+If you are on Arch Linux or another Arch-based distro, you need to run the command as follows:
+
+```sh
+# https://bbs.archlinux.org/viewtopic.php?id=296542
+CFLAGS="-Wno-error=incompatible-pointer-types" poetry install --sync
+```
+
 #### - Spin up mariadb in docker
 
 ```sh
-docker-compose up -d
+docker compose up -d
 ```
 
 #### - Run the backend
@@ -118,12 +125,12 @@ trunk check
 ### - Create the test user and database with root user
 
 ```sh
-docker exec -i mariadb mariadb -u root -p<root password> < backend/romm_test/setup.sql
+docker exec -i romm-mariadb-dev mariadb -uroot -p<root password> < backend/romm_test/setup.sql
 ```
 
 ### - Run tests
 
-*\_\_*Migrations will be run automatically when running the tests.\_\_\*
+*\_*Migrations will be run automatically when running the tests.\_\_\_
 
 ```sh
 cd backend

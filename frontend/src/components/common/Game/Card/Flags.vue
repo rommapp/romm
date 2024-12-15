@@ -19,6 +19,9 @@ const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
 const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
+const showStatus = isNull(localStorage.getItem("settings.showStatus"))
+  ? true
+  : localStorage.getItem("settings.showStatus") === "true";
 
 const playingStatus = computed(() => {
   if (props.rom.rom_user.now_playing) return "now_playing";
@@ -51,7 +54,7 @@ const playingStatus = computed(() => {
     </span>
   </v-chip>
   <v-chip
-    v-if="playingStatus"
+    v-if="playingStatus && showStatus"
     class="translucent-dark mr-1 mt-1"
     density="compact"
     :title="getTextForStatus(playingStatus)"

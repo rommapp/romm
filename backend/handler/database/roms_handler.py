@@ -1,4 +1,5 @@
 import functools
+from collections.abc import Iterable
 
 from decorators.database import begin_session
 from models.collection import Collection
@@ -115,6 +116,7 @@ class DBRomsHandler(DBBaseHandler):
         order_by: str = "name",
         order_dir: str = "asc",
         limit: int | None = None,
+        offset: int | None = None,
         query: Query = None,
         session: Session = None,
     ) -> list[Rom]:
@@ -122,7 +124,8 @@ class DBRomsHandler(DBBaseHandler):
             query, platform_id, collection_id, search_term, session
         )
         ordered_query = self._order(filtered_query, order_by, order_dir)
-        limited_query = ordered_query.limit(limit)
+        offset_query = ordered_query.offset(offset)
+        limited_query = offset_query.limit(limit)
         return session.scalars(limited_query).unique().all()
 
     @begin_session
@@ -137,6 +140,27 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             query.filter_by(platform_id=platform_id, file_name=file_name).limit(1)
         )
+
+    @begin_session
+    def get_roms_by_filename(
+        self,
+        platform_id: int,
+        file_names: Iterable[str],
+        query: Query = None,
+        session: Session = None,
+    ) -> dict[str, Rom]:
+        """Retrieve a dictionary of roms by their file names."""
+        query = query or select(Rom)
+        roms = (
+            session.scalars(
+                query.filter(Rom.file_name.in_(file_names)).filter_by(
+                    platform_id=platform_id
+                )
+            )
+            .unique()
+            .all()
+        )
+        return {rom.file_name: rom for rom in roms}
 
     @begin_session
     @with_details
@@ -189,13 +213,25 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def purge_roms(
-        self, platform_id: int, roms: list[str], session: Session = None
-    ) -> int:
-        return session.execute(
+        self, platform_id: int, fs_roms: list[str], session: Session = None
+    ) -> list[Rom]:
+        purged_roms = (
+            session.scalars(
+                select(Rom)
+                .order_by(Rom.file_name.asc())
+                .where(
+                    and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms))
+                )
+            )  # type: ignore[attr-defined]
+            .unique()
+            .all()
+        )
+        session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(roms)))  # type: ignore[attr-defined]
+            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="evaluate")
         )
+        return purged_roms
 
     @begin_session
     def add_rom_user(

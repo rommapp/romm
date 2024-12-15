@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import router from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
@@ -9,8 +9,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
@@ -36,7 +38,6 @@ const itemsPerPage = ref(10);
 const pageCount = ref(0);
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-// Functions
 async function removeRomsFromCollection() {
   if (!selectedCollection.value) return;
   selectedCollection.value.roms = selectedCollection.value.roms.filter(
@@ -67,7 +68,7 @@ async function removeRomsFromCollection() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       romsStore.resetSelection();
       if (selectedCollection.value?.roms.length == 0) {
-        router.push({ name: "dashboard" });
+        router.push({ name: "home" });
       }
       closeDialog();
     });
@@ -98,13 +99,9 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>Removing</span>
+        <span>{{ t("rom.remove-from-collection-part1") }}</span>
         <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
-        <span>games from</span>
-        <span class="text-romm-accent-1 mx-1">{{
-          selectedCollection?.name
-        }}</span>
-        <span>collection.</span>
+        <span>{{ t("rom.remove-from-collection-part2") }}</span>
       </v-row>
     </template>
     <template #content>
@@ -119,14 +116,7 @@ function closeDialog() {
         hide-default-header
       >
         <template #item.name="{ item }">
-          <v-list-item class="px-0">
-            <template #prepend>
-              <r-avatar-rom :rom="item" />
-            </template>
-            <v-row no-gutters
-              ><v-col>{{ item.name }}</v-col></v-row
-            >
-          </v-list-item>
+          <rom-list-item :rom="item" with-filename />
         </template>
         <template #bottom>
           <v-divider />
@@ -159,14 +149,14 @@ function closeDialog() {
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
-            Cancel
+            {{ t("common.cancel") }}
           </v-btn>
           <v-btn
             class="bg-terciary text-romm-red"
             variant="flat"
             @click="removeRomsFromCollection"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>

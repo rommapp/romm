@@ -2,6 +2,7 @@ import os
 import secrets
 from typing import Final
 
+import yarl
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -37,6 +38,15 @@ REDIS_PORT: Final = int(os.environ.get("REDIS_PORT", 6379))
 REDIS_PASSWORD: Final = os.environ.get("REDIS_PASSWORD")
 REDIS_USERNAME: Final = os.environ.get("REDIS_USERNAME", "")
 REDIS_DB: Final = int(os.environ.get("REDIS_DB", 0))
+REDIS_SSL: Final = str_to_bool(os.environ.get("REDIS_SSL", "false"))
+REDIS_URL: Final = yarl.URL.build(
+    scheme="rediss" if REDIS_SSL else "redis",
+    user=REDIS_USERNAME or None,
+    password=REDIS_PASSWORD or None,
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    path=f"/{REDIS_DB}",
+)
 
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
@@ -97,6 +107,14 @@ SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
 # EMULATION
 DISABLE_EMULATOR_JS = str_to_bool(os.environ.get("DISABLE_EMULATOR_JS", "false"))
 DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
+
+# FRONTEND
+UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
+
+# LOGGING
+LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO")
+FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
+NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))

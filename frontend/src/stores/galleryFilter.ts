@@ -7,6 +7,7 @@ const filters = [
   "franchises",
   "collections",
   "companies",
+  "age_ratings",
   "status",
 ] as const;
 
@@ -23,6 +24,7 @@ export default defineStore("galleryFilter", {
     filterFranchises: [] as string[],
     filterCollections: [] as string[],
     filterCompanies: [] as string[],
+    filterAgeRatings: [] as string[],
     filterStatuses: statusFilters,
     filterUnmatched: false,
     filterFavourites: false,
@@ -31,6 +33,7 @@ export default defineStore("galleryFilter", {
     selectedFranchise: null as string | null,
     selectedCollection: null as string | null,
     selectedCompany: null as string | null,
+    selectedAgeRating: null as string | null,
     selectedStatus: null as string | null,
   }),
 
@@ -53,6 +56,9 @@ export default defineStore("galleryFilter", {
     setFilterCompanies(companies: string[]) {
       this.filterCompanies = companies;
     },
+    setFilterAgeRatings(ageRatings: string[]) {
+      this.filterAgeRatings = ageRatings;
+    },
     setSelectedFilterGenre(genre: string) {
       this.selectedGenre = genre;
     },
@@ -64,6 +70,9 @@ export default defineStore("galleryFilter", {
     },
     setSelectedFilterCompany(company: string) {
       this.selectedCompany = company;
+    },
+    setSelectedFilterAgeRating(ageRating: string) {
+      this.selectedAgeRating = ageRating;
     },
     setSelectedFilterStatus(status: string) {
       this.selectedStatus = status;
@@ -96,6 +105,7 @@ export default defineStore("galleryFilter", {
           this.selectedFranchise ||
           this.selectedCollection ||
           this.selectedCompany ||
+          this.selectedAgeRating ||
           this.selectedStatus,
       );
     },
@@ -108,6 +118,7 @@ export default defineStore("galleryFilter", {
       this.selectedFranchise = null;
       this.selectedCollection = null;
       this.selectedCompany = null;
+      this.selectedAgeRating = null;
       this.selectedStatus = null;
     },
   },

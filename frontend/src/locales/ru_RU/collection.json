@@ -1,0 +1,16 @@
+{
+  "search-collection": "Поиск коллекции",
+  "add-collection": "Добавить коллекцию",
+  "edit-collection": "Редактировать коллекцию",
+  "name": "Имя",
+  "description": "Описание",
+  "owner": "Владелец",
+  "public": "Публичный",
+  "public-desc": "Публичный (виден всем)",
+  "private": "Приватный",
+  "private-desc": "Приватный (виден только мне)",
+  "danger-zone": "Опасная зона",
+  "delete-collection": "Удалить коллекцию",
+  "removing-collection-1": "Удаление коллекции",
+  "removing-collection-2": "из RomM. Вы подтверждаете?"
+}

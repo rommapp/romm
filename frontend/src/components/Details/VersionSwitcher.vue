@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import type { RomSchema } from "@/__generated__";
@@ -7,7 +6,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 
 // Props
-const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const router = useRouter();
 const version = ref(props.rom.id);
 

@@ -4,7 +4,7 @@ import { getStatusKeyForText } from "@/utils";
 import { type Platform } from "@/stores/platforms";
 import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
-import { groupBy, uniqBy } from "lodash";
+import { groupBy, isNull, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
 import storeGalleryFilter from "./galleryFilter";
@@ -48,7 +48,9 @@ export default defineStore("roms", {
       });
 
       // Check if roms should be grouped
-      const groupRoms = localStorage.getItem("settings.groupRoms") === "true";
+      const groupRoms = isNull(localStorage.getItem("settings.groupRoms"))
+        ? true
+        : localStorage.getItem("settings.groupRoms") === "true";
       if (!groupRoms) {
         this._grouped = this.allRoms;
         return;
@@ -151,6 +153,9 @@ export default defineStore("roms", {
       }
       if (galleryFilter.selectedCompany) {
         this._filterCompany(galleryFilter.selectedCompany);
+      }
+      if (galleryFilter.selectedAgeRating) {
+        this._filterAgeRating(galleryFilter.selectedAgeRating);
       }
       if (galleryFilter.selectedStatus) {
         this._filterStatus(galleryFilter.selectedStatus);
@@ -256,6 +261,20 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byCompany.intersection(this._filteredIDs);
+    },
+    _filterAgeRating(ageRatingToFilter: string) {
+      const byAgeRating = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.age_ratings.some(
+              (ageRating) => ageRating === ageRatingToFilter,
+            ),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byAgeRating.intersection(this._filteredIDs);
     },
     _filterStatus(statusToFilter: string) {
       const stf = getStatusKeyForText(statusToFilter);
