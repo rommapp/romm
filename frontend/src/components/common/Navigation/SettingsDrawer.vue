@@ -74,9 +74,9 @@ async function logout() {
         append-icon="mdi-account"
         >{{ t("common.profile") }}</v-list-item
       >
-      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-cog"
-        >{{ t("common.user-settings") }}</v-list-item
-      >
+      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-cog">{{
+        t("common.user-settings")
+      }}</v-list-item>
       <v-list-item :to="{ name: 'userInterface' }" append-icon="mdi-palette">{{
         t("common.user-interface")
       }}</v-list-item>
