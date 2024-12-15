@@ -168,6 +168,12 @@ async def update_user(
     if form_data.enabled is not None and request.user.id != id:
         cleaned_data["enabled"] = form_data.enabled  # type: ignore[assignment]
 
+    if form_data.ra_username:
+        cleaned_data["ra_username"] = form_data.ra_username  # type: ignore[assignment]
+
+    if form_data.ra_api_key:
+        cleaned_data["ra_api_key"] = form_data.ra_api_key  # type: ignore[assignment]
+
     if form_data.avatar is not None:
         user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"

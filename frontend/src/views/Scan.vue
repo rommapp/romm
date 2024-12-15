@@ -9,18 +9,26 @@ import storeScanning from "@/stores/scanning";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import storeAuth from "@/stores/auth";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
+const auth = storeAuth();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
 const panels = ref([0]);
 const panelIndex = ref(0);
+const retroAchievements = computed(() => ({
+  name: "RetroAchievements",
+  value: "retro_achievements",
+  logo_path: "/assets/scrappers/ra.webp",
+  disabled: !heartbeat.value.METADATA_SOURCES?.RETROACHIEVEMENTS_ENABLED,
+}));
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
@@ -88,7 +96,10 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
-    apis: metadataSources.value.map((s) => s.value),
+    apis: [
+      ...metadataSources.value.map((s) => s.value),
+      retroAchievements.value.value,
+    ],
   });
 }
 

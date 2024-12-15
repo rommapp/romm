@@ -121,7 +121,7 @@ async def scan_platforms(
         roms_ids = []
 
     if not metadata_sources:
-        metadata_sources = ["igdb", "moby"]
+        metadata_sources = ["igdb", "moby", "retro_achievements"]
 
     sm = _get_socket_manager()
 
@@ -425,9 +425,7 @@ async def scan_handler(_sid: str, options: dict):
     Args:
         options (dict): Socket options
     """
-
     log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
-
     platform_ids = options.get("platforms", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
     roms_ids = options.get("roms_ids", [])
