@@ -33,7 +33,7 @@ function editUser() {
   if (!auth.user) return;
 
   userApi
-    .updateUserRetroAchievements({
+    .updateUser({
       id: auth.user.id,
       ra_api_key: apiKey.value as string,
       ra_username: username.value as string,
