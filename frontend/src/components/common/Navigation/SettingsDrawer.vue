@@ -11,8 +11,10 @@ import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const router = useRouter();
 const auth = storeAuth();
@@ -32,6 +34,7 @@ async function logout() {
       icon: "mdi-check-bold",
       color: "green",
     });
+    navigationStore.switchActiveSettingsDrawer();
   });
 
   await router.push({ name: "login" });
@@ -42,7 +45,7 @@ async function logout() {
   <v-navigation-drawer
     :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="400"
+    width="500"
     v-model="activeSettingsDrawer"
     class="bg-terciary"
   >
@@ -69,36 +72,39 @@ async function logout() {
       <v-list-item
         @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
         append-icon="mdi-account"
-        >Profile</v-list-item
+        >{{ t("common.profile") }}</v-list-item
       >
       <v-list-item :to="{ name: 'settings' }" append-icon="mdi-cog"
-        >Settings</v-list-item
+        >{{ t("common.user-settings") }}</v-list-item
       >
+      <v-list-item :to="{ name: 'userInterface' }" append-icon="mdi-palette">{{
+        t("common.user-interface")
+      }}</v-list-item>
       <v-list-item
         v-if="scopes.includes('platforms.write')"
         append-icon="mdi-table-cog"
-        :to="{ name: 'management' }"
-        >Library Management
+        :to="{ name: 'libraryManagement' }"
+        >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
         :to="{ name: 'administration' }"
         append-icon="mdi-security"
-        >Administration</v-list-item
+        >{{ t("common.administration") }}</v-list-item
       >
       <template v-if="smAndDown">
         <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit"
-          >Logout</v-list-item
-        >
+        <v-list-item @click="logout" append-icon="mdi-location-exit">{{
+          t("common.logout")
+        }}</v-list-item>
       </template>
     </v-list>
     <template v-if="!smAndDown" #append>
       <v-list rounded="0" class="pa-0">
         <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit"
-          >Logout</v-list-item
-        >
+        <v-list-item @click="logout" append-icon="mdi-location-exit">{{
+          t("common.logout")
+        }}</v-list-item>
       </v-list>
     </template>
   </v-navigation-drawer>

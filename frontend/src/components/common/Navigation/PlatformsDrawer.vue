@@ -4,15 +4,16 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 
-// Functions
 function clear() {
   searchText.value = "";
 }
@@ -22,7 +23,7 @@ function clear() {
     :location="smAndDown ? 'top' : 'left'"
     mobile
     @update:model-value="clear"
-    width="400"
+    width="500"
     v-model="activePlatformsDrawer"
     class="bg-terciary"
   >
@@ -35,7 +36,7 @@ function clear() {
         @click:clear="clear"
         @update:model-value=""
         single-line
-        label="Search platform"
+        :label="t('platform.search-platform')"
         variant="solo-filled"
         rounded="0"
       ></v-text-field>

@@ -5,7 +5,6 @@ import EmptyCollection from "@/components/common/EmptyCollection.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
-import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
@@ -15,7 +14,7 @@ import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
@@ -26,11 +25,13 @@ const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const collectionsStore = storeCollections();
+const { allCollections } = storeToRefs(collectionsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
   filteredRoms,
   selectedRoms,
+  currentPlatform,
   currentCollection,
   itemsPerBatch,
   gettingRoms,
@@ -108,6 +109,13 @@ function setFilters() {
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
+        .sort(),
+    ),
+  ]);
+  galleryFilterStore.setFilterAgeRatings([
+    ...new Set(
+      romsStore.filteredRoms
+        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
         .sort(),
     ),
   ]);
@@ -203,29 +211,37 @@ function resetGallery() {
 
 onMounted(async () => {
   const routeCollectionId = Number(route.params.collection);
-  const routeCollection = collectionsStore.get(routeCollectionId);
+  currentPlatform.value = null;
 
-  if (!routeCollection) {
-    await collectionApi
-      .getCollection(routeCollectionId)
-      .then((data) => {
-        collectionsStore.add(data.data);
-        romsStore.setCurrentCollection(data.data);
-      })
-      .catch((error) => {
-        console.log(error);
-        noCollectionError.value = true;
-      });
-  } else {
-    romsStore.setCurrentCollection(routeCollection);
-  }
-  if (!noCollectionError.value) {
-    resetGallery();
-    await fetchRoms();
-    setFilters();
-    window.addEventListener("wheel", onScroll);
-    window.addEventListener("scroll", onScroll);
-  }
+  watch(
+    () => allCollections.value,
+    (collections) => {
+      if (
+        collections.length > 0 &&
+        collections.some((collection) => collection.id === routeCollectionId)
+      ) {
+        const collection = collections.find(
+          (collection) => collection.id === routeCollectionId,
+        );
+
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          (currentCollection.value?.id !== routeCollectionId ||
+            allRoms.value.length === 0) &&
+          collection
+        ) {
+          romsStore.setCurrentCollection(collection);
+          resetGallery();
+          fetchRoms();
+          setFilters();
+        }
+
+        window.addEventListener("wheel", onScroll);
+        window.addEventListener("scroll", onScroll);
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
 });
 
 onBeforeRouteUpdate(async (to, from) => {
@@ -236,22 +252,32 @@ onBeforeRouteUpdate(async (to, from) => {
   resetGallery();
 
   const routeCollectionId = Number(to.params.collection);
-  const routeCollection = collectionsStore.get(routeCollectionId);
-  if (!routeCollection) {
-    const { data } = await collectionApi.getCollection(routeCollectionId);
-    collectionsStore.add(data);
-  } else {
-    romsStore.setCurrentCollection(routeCollection);
-  }
 
-  await fetchRoms();
-  setFilters();
+  watch(
+    () => allCollections.value,
+    (collections) => {
+      if (collections.length > 0) {
+        const collection = collections.find(
+          (collection) => collection.id === routeCollectionId,
+        );
 
-  return true;
+        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+        if (
+          (currentCollection.value?.id !== routeCollectionId ||
+            allRoms.value.length === 0) &&
+          collection
+        ) {
+          romsStore.setCurrentCollection(collection);
+          fetchRoms();
+          setFilters();
+        }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
 });
 
 onBeforeUnmount(() => {
-  romsStore.setCurrentCollection(null);
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
 });
@@ -261,18 +287,13 @@ onBeforeUnmount(() => {
   <template v-if="!noCollectionError">
     <gallery-app-bar-collection />
     <template v-if="filteredRoms.length > 0">
-      <v-row
-        no-gutters
-        class="overflow-hidden"
-        :class="{ 'pa-1': currentView != 2 }"
-      >
+      <v-row v-show="currentView != 2" class="pa-1" no-gutters>
         <!-- Gallery cards view -->
         <!-- v-show instead of v-if to avoid recalculate on view change -->
         <v-col
           v-for="rom in filteredRoms.slice(0, itemsShown)"
-          v-show="currentView != 2"
           :key="rom.id"
-          class="pa-1"
+          class="pa-1 align-self-end"
           :cols="views[currentView]['size-cols']"
           :sm="views[currentView]['size-sm']"
           :md="views[currentView]['size-md']"
@@ -283,11 +304,13 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
+            pointer-on-hover
+            with-link
             show-flags
             show-action-bar
+            show-fav
             transform-scale
             with-border
-            show-fav
             show-platform-icon
             :with-border-romm-accent="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
@@ -297,16 +320,11 @@ onBeforeUnmount(() => {
             @touchend="onGameTouchEnd"
           />
         </v-col>
+      </v-row>
 
-        <!-- Gallery list view -->
-        <v-col v-show="currentView == 2">
-          <game-data-table
-            :class="{
-              'fill-height-desktop': !smAndDown,
-              'fill-height-mobile': smAndDown,
-            }"
-          />
-        </v-col>
+      <!-- Gallery list view -->
+      <v-row v-show="currentView == 2" class="h-100" no-gutters>
+        <game-data-table class="fill-height" />
       </v-row>
       <fab-overlay />
     </template>

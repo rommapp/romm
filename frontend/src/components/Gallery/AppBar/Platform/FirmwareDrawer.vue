@@ -11,8 +11,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref, watch, onMounted } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs, mdAndUp } = useDisplay();
 const auth = storeAuth();
 const romsStore = storeRoms();
@@ -52,9 +54,11 @@ function deleteSelectedFirmware() {
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(
-    Number(currentPlatform.value?.firmware?.length) / itemsPerPage.value,
-  );
+  if (currentPlatform.value?.firmware) {
+    pageCount.value = Math.ceil(
+      Number(currentPlatform.value.firmware.length) / itemsPerPage.value,
+    );
+  }
 }
 
 watch(itemsPerPage, async () => {
@@ -67,7 +71,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <v-navigation-drawer v-model="activeFirmwareDrawer" mobile location="bottom">
+  <v-navigation-drawer
+    v-model="activeFirmwareDrawer"
+    mobile
+    floating
+    location="bottom"
+  >
     <v-data-table
       :items="currentPlatform?.firmware ?? []"
       :width="mdAndUp ? '60vw' : '95vw'"
@@ -165,9 +174,7 @@ onMounted(() => {
         </v-list-item>
       </template>
       <template #no-data
-        ><span
-          >No firmware found for {{ currentPlatform?.name }}</span
-        ></template
+        ><span>{{ t("platform.no-firmware-found") }}</span></template
       >
       <template #item.actions="{ item }">
         <v-btn-group divided density="compact">
