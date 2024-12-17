@@ -28,7 +28,7 @@ services:
 
   romm-postgres-dev:
     image: docker.io/library/postgres:16-alpine
-    container_name: postgresql
+    container_name: romm-postgresql-dev
     restart: unless-stopped
     env_file:
       - .env
