@@ -1,16 +1,19 @@
+import asyncio
 import enum
 from datetime import datetime, timedelta, timezone
-from typing import Final
+from typing import Any, Final, Optional
 
-from config import ROMM_AUTH_SECRET_KEY
-from exceptions.auth_exceptions import OAuthCredentialsException
+import httpx
+from config import OIDC_ENABLED, OIDC_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
+from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
 from joserfc import jwt
-from joserfc.errors import BadSignatureError
-from joserfc.jwk import OctKey
+from joserfc.errors import BadSignatureError, ExpiredTokenError, InvalidPayloadError
+from joserfc.jwk import OctKey, RSAKey
 from logger.logger import log
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
+from utils.context import ctx_httpx_client
 
 ALGORITHM: Final = "HS256"
 DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
@@ -100,27 +103,18 @@ class AuthHandler:
         if not username:
             return None
 
-        try:
-            # Key exists therefore user is probably authenticated
-            user = db_user_handler.get_user_by_username(username)
-            if user is None or not user.enabled:
-                conn.session.clear()
-                log.error(
-                    "User '%s' %s",
-                    username,
-                    "not found" if user is None else "not enabled",
-                )
-                return None
-
-            return user
-        except Exception:
+        # Key exists therefore user is probably authenticated
+        user = db_user_handler.get_user_by_username(username)
+        if user is None or not user.enabled:
             conn.session.clear()
             log.error(
                 "User '%s' %s",
                 username,
-                "not found" if user is None else "is not enabled",
+                "not found" if user is None else "not enabled",
             )
             return None
+
+        return user
 
 
 class OAuthHandler:
@@ -148,7 +142,7 @@ class OAuthHandler:
 
         issuer = payload.claims.get("iss")
         if not issuer or issuer != "romm:oauth":
-            return None
+            return None, None
 
         username = payload.claims.get("sub")
         if username is None:
@@ -159,8 +153,111 @@ class OAuthHandler:
             raise OAuthCredentialsException
 
         if not user.enabled:
+            raise UserDisabledException
+
+        return user, payload.claims
+
+
+class RSAKeyNotFoundError(Exception): ...
+
+
+class OpenIDHandler:
+    RSA_ALGORITHM = "RS256"
+
+    def __init__(self) -> None:
+        self._rsa_key: Optional[RSAKey] = None
+        self._rsa_key_lock = asyncio.Lock()
+
+    async def _fetch_rsa_key(self) -> RSAKey:
+        """
+        Fetch the public key from the OIDC server
+        JWKS (JSON Web Key Sets) response is a JSON object with a keys array
+        """
+        jwks_url = f"{OIDC_SERVER_APPLICATION_URL}/jwks/"
+        log.debug("Fetching JWKS from %s", jwks_url)
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            response = await httpx_client.get(jwks_url, timeout=120)
+            response.raise_for_status()
+            keys = response.json().get("keys", [])
+            if not keys:
+                raise RSAKeyNotFoundError("No RSA keys found in JWKS response.")
+
+            return RSAKey.import_key(keys[0])
+        except (httpx.RequestError, KeyError, RSAKeyNotFoundError) as exc:
+            log.error("Unable to fetch RSA public key: %s", str(exc))
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to fetch RSA public key",
+            ) from exc
+
+    async def get_rsa_key(self) -> RSAKey:
+        """
+        Retrieves the cached RSA public key, or fetches it if not already cached.
+        """
+        if not self._rsa_key:
+            async with self._rsa_key_lock:
+                if not self._rsa_key:  # Double-check in case of concurrent calls
+                    self._rsa_key = await self._fetch_rsa_key()
+        return self._rsa_key
+
+    async def validate_token(self, token: str) -> jwt.Token:
+        """
+        Validates a JWT token using the RSA public key.
+        """
+        try:
+            rsa_key = await self.get_rsa_key()
+            return jwt.decode(token, rsa_key, algorithms=[self.RSA_ALGORITHM])
+        except (BadSignatureError, ExpiredTokenError, InvalidPayloadError) as exc:
+            log.error("Token validation failed: %s", str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+            ) from exc
+
+    async def get_current_active_user_from_openid_token(self, token: Any):
+        from handler.database import db_user_handler
+
+        if not OIDC_ENABLED:
+            return None, None
+
+        id_token = token.get("id_token")
+        if not id_token:
+            log.error("ID Token is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="ID Token is missing from token.",
             )
 
+        payload = await self.validate_token(id_token)
+
+        iss = payload.claims.get("iss")
+        if not iss or OIDC_SERVER_APPLICATION_URL not in str(iss):
+            log.error("Invalid issuer in token: %s", iss)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid issuer in token.",
+            )
+
+        email = payload.claims.get("email")
+        if email is None:
+            log.error("Email is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is missing from token.",
+            )
+
+        user = db_user_handler.get_user_by_email(email)
+        if user is None:
+            log.error("User with email '%s' not found", email)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        if not user.enabled:
+            raise UserDisabledException
+
+        log.info("User successfully authenticated: %s", email)
         return user, payload.claims

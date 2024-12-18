@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
 import { refetchCSRFToken } from "@/services/api/index";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
@@ -9,16 +10,17 @@ import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
+const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
-const logging = ref(false);
+const loggingIn = ref(false);
 
 // Functions
 async function login() {
-  logging.value = true;
+  loggingIn.value = true;
 
   await identityApi
     .login(username.value, password.value)
@@ -43,8 +45,13 @@ async function login() {
       );
     })
     .finally(() => {
-      logging.value = false;
+      loggingIn.value = false;
     });
+}
+
+async function loginOIDC() {
+  loggingIn.value = true;
+  window.open("/api/login/openid", "_self");
 }
 </script>
 
@@ -78,11 +85,36 @@ async function login() {
             type="submit"
             class="bg-terciary"
             block
-            :loading="logging"
-            :disabled="logging || !username || !password"
+            :loading="loggingIn"
+            :disabled="loggingIn || !username || !password"
             :variant="!username || !password ? 'text' : 'flat'"
           >
             <span>{{ t("login.login") }}</span>
+            <template #append>
+              <v-icon class="text-romm-accent-1"
+                >mdi-chevron-right-circle-outline</v-icon
+              >
+            </template>
+            <template #loader>
+              <v-progress-circular
+                color="romm-accent-1"
+                :width="2"
+                :size="20"
+                indeterminate
+              />
+            </template>
+          </v-btn>
+          <v-btn
+            block
+            type="submit"
+            :disabled="loggingIn"
+            v-if="heartbeatStore.value.OIDC.ENABLED"
+            :loading="loggingIn"
+            :variant="'text'"
+            class="bg-terciary"
+            @click="loginOIDC()"
+          >
+            <span>Login with OIDC</span>
             <template #append>
               <v-icon class="text-romm-accent-1"
                 >mdi-chevron-right-circle-outline</v-icon
