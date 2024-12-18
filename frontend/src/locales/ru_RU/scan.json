@@ -17,8 +17,8 @@
   "complete-rescan": "Полное пересканирование",
   "complete-rescan-desc": "Полное пересканирование всех платформ и файлов (самое медленное)",
   "no-new-roms": "Новых/измененных ромов не найдено",
-  "platforms-scanned": "Платформы: {n_platforms} отсканировано",
+  "platforms-scanned-n": "Платформы: {n} отсканировано",
   "platforms-scanned-with-details": "Платформы: {n_platforms} отсканировано, {n_added_platforms} новых и {n_identified_platforms} опознано",
-  "roms-scanned": "Ромы: {n_roms} отсканировано",
-  "roms-scanned-with-details": "Ромы: {n_platforms} отсканировано, {n_added_platforms} новых и {n_identified_platforms} опознано"
+  "roms-scanned-n": "Ромы: {n} отсканировано",
+  "roms-scanned-with-details": "Ромы: {n_roms} отсканировано, {n_added_roms} новых и {n_identified_roms} опознано"
 }
