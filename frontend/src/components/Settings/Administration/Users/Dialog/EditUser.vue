@@ -119,6 +119,19 @@ function closeDialog() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
+              <v-text-field
+                v-model="user.email"
+                rounded="0"
+                variant="outlined"
+                label="email"
+                required
+                hide-details
+                clearable
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
               <v-select
                 v-model="user.role"
                 rounded="0"

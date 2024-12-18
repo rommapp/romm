@@ -27,6 +27,7 @@ export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { MessageResponse } from './models/MessageResponse';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
+export type { OIDCDict } from './models/OIDCDict';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';
 export type { RomFile } from './models/RomFile';
