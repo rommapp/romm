@@ -1,9 +1,9 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import HTTPException
-from handler.auth.base_handler import OpenIDHandler
-from httpx import HTTPStatusError, Request, Response
+from handler.auth.base_handler import OpenIDHandler, ctx_httpx_client
+from httpx import Request, RequestError, Response
 from joserfc.errors import BadSignatureError
 from joserfc.jwt import Token
 
@@ -26,37 +26,48 @@ def mock_oidc_enabled(mocker):
     mocker.patch("handler.auth.base_handler.OIDC_ENABLED", True)
 
 
+@pytest.fixture
+def mock_httpx_client():
+    """Fixture to mock the httpx.AsyncClient and set it in the ContextVar."""
+    mock_client = AsyncMock()
+    token = ctx_httpx_client.set(mock_client)
+    yield mock_client
+    ctx_httpx_client.reset(token)
+
+
+@pytest.fixture
+def mock_request():
+    return Request("GET", f"{OIDC_SERVER_APPLICATION_URL}/jwks/")
+
+
 def test_oidc_disabled_initialization(mock_oidc_disabled):
     """Test that the handler initializes correctly when OIDC is disabled."""
     oidc_handler = OpenIDHandler()
-    assert not hasattr(oidc_handler, "rsa_key")
+    assert oidc_handler._rsa_key is None
 
 
-def test_oidc_enabled_server_unreachable(mocker, mock_oidc_enabled):
+async def test_oidc_enabled_server_unreachable(
+    mock_httpx_client, mock_request, mock_oidc_enabled
+):
     """Test that initialization raises an HTTPException when the OIDC server is unreachable."""
-    # Mock request and response
-    mock_request = Request("GET", f"{OIDC_SERVER_APPLICATION_URL}/jwks/")
-    mock_response = Response(500, request=mock_request)
-
-    # Mock the HTTPStatusError
-    mocker.patch(
-        "httpx.Client.get",
-        side_effect=HTTPStatusError(
-            "Mocked error", request=mock_request, response=mock_response
-        ),
+    mock_httpx_client.get.side_effect = RequestError(
+        "Mocked error", request=mock_request
     )
 
+    oidc_handler = OpenIDHandler()
+    token = {"id_token": "invalid_signature_token"}
     with pytest.raises(HTTPException):
-        OpenIDHandler()
+        await oidc_handler.get_current_active_user_from_openid_token(token)
 
 
-async def test_oidc_valid_token_decoding(mocker, mock_oidc_enabled):
+async def test_oidc_valid_token_decoding(
+    mocker, mock_httpx_client, mock_request, mock_oidc_enabled
+):
     """Test token decoding with valid RSA key and token."""
-    mocker.patch(
-        "httpx.Client.get",
-        return_value=MagicMock(
-            json=lambda: {"keys": [{"kty": "RSA", "n": "fake", "e": "AQAB"}]}
-        ),
+    mock_httpx_client.get.return_value = Response(
+        200,
+        request=mock_request,
+        json={"keys": [{"kty": "RSA", "n": "fake", "e": "AQAB"}]},
     )
     mock_rsa_key = MagicMock()
     mocker.patch(
@@ -80,13 +91,14 @@ async def test_oidc_valid_token_decoding(mocker, mock_oidc_enabled):
     assert claims == mock_jwt_payload.claims
 
 
-async def test_oidc_invalid_token_signature(mocker, mock_oidc_enabled):
+async def test_oidc_invalid_token_signature(
+    mocker, mock_httpx_client, mock_request, mock_oidc_enabled
+):
     """Test token decoding raises exception for invalid signature."""
-    mocker.patch(
-        "httpx.Client.get",
-        return_value=MagicMock(
-            json=lambda: {"keys": [{"kty": "RSA", "n": "fake", "e": "AQAB"}]}
-        ),
+    mock_httpx_client.get.return_value = Response(
+        200,
+        request=mock_request,
+        json={"keys": [{"kty": "RSA", "n": "fake", "e": "AQAB"}]},
     )
     mock_rsa_key = MagicMock()
     mocker.patch(
