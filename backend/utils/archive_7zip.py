@@ -18,7 +18,6 @@ class CallbackIO(Py7zIO):
         self._size = 0
 
     def write(self, s: bytes | bytearray) -> int:
-        print(f"{self.__class__.__name__}: write. filename={self.filename}")
         length = len(s)
         self._size += length
         self.on_write(s)

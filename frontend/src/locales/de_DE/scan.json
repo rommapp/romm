@@ -17,8 +17,8 @@
   "complete-rescan": "Vollständiger Scan",
   "complete-rescan-desc": "Kompletter Neu-Scan aller Plattformen und Dateien (am langsamsten)",
   "no-new-roms": "Keine neuen oder geänderten Roms gefunden",
-  "platforms-scanned": "Plattformen: {n_platforms} gescannt",
+  "platforms-scanned-n": "Plattformen: {n} gescannte | Plattformen: {n} gescannt",
   "platforms-scanned-with-details": "Plattformen: {n_platforms} gescannt, darunter {n_added_platforms} neue und {n_identified_platforms} identifizierte",
-  "roms-scanned": "Roms: {n_roms} scanned",
-  "roms-scanned-with-details": "Roms: {n_platforms} gescannt, dabei {n_added_platforms} neue und {n_identified_platforms} identifizierte"
+  "roms-scanned-n": "Roms: {n} gescannte | Roms: {n} gescannt",
+  "roms-scanned-with-details": "Roms: {n_roms} gescannt, dabei {n_added_roms} neue und {n_identified_roms} identifizierte"
 }

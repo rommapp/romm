@@ -346,14 +346,17 @@ class FSRomsHandler(FSHandler):
             for rom in self._exclude_multi_roms(fs_multi_roms)
         ]
 
-        return [
-            FSRom(
-                multi=rom["multi"],
-                file_name=rom["file_name"],
-                files=self.get_rom_files(rom["file_name"], roms_file_path),
-            )
-            for rom in fs_roms
-        ]
+        return sorted(
+            [
+                FSRom(
+                    multi=rom["multi"],
+                    file_name=rom["file_name"],
+                    files=self.get_rom_files(rom["file_name"], roms_file_path),
+                )
+                for rom in fs_roms
+            ],
+            key=lambda rom: rom["file_name"],
+        )
 
     def file_exists(self, path: str, file_name: str) -> bool:
         """Check if file exists in filesystem
