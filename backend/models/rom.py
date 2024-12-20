@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
@@ -29,10 +29,20 @@ if TYPE_CHECKING:
     from models.user import User
 
 
-class RomFile(TypedDict):
-    filename: str
-    size: int
-    last_modified: float | None
+class RomFile(BaseModel):
+    __tablename__ = "rom_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    file_name: Mapped[str] = mapped_column(String(length=450))
+    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
+    last_modified: Mapped[float | None] = mapped_column(default=None)
+    crc_hash: Mapped[str | None] = mapped_column(String(100))
+    md5_hash: Mapped[str | None] = mapped_column(String(100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(100))
+
+    rom: Mapped[Rom] = relationship(lazy="joined")
 
 
 class Rom(BaseModel):
@@ -49,12 +59,11 @@ class Rom(BaseModel):
         Index("idx_roms_moby_id", "moby_id"),
     )
 
-    file_name: Mapped[str] = mapped_column(String(length=450))
-    file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
-    file_name_no_ext: Mapped[str] = mapped_column(String(length=450))
-    file_extension: Mapped[str] = mapped_column(String(length=100))
-    file_path: Mapped[str] = mapped_column(String(length=1000))
-    file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
+    fs_name: Mapped[str] = mapped_column(String(length=450))
+    fs_name_no_tags: Mapped[str] = mapped_column(String(length=450))
+    fs_name_no_ext: Mapped[str] = mapped_column(String(length=450))
+    fs_extension: Mapped[str] = mapped_column(String(length=100))
+    fs_path: Mapped[str] = mapped_column(String(length=1000))
 
     name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))
@@ -82,8 +91,6 @@ class Rom(BaseModel):
         JSON, default=[], doc="URLs to screenshots stored in IGDB"
     )
 
-    multi: Mapped[bool] = mapped_column(default=False)
-    files: Mapped[list[RomFile] | None] = mapped_column(JSON, default=[])
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
@@ -99,6 +106,7 @@ class Rom(BaseModel):
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
     )
 
+    files: Mapped[list[RomFile]] = relationship(back_populates="rom")
     saves: Mapped[list[Save]] = relationship(back_populates="rom")
     states: Mapped[list[State]] = relationship(back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
@@ -118,7 +126,7 @@ class Rom(BaseModel):
 
     @cached_property
     def full_path(self) -> str:
-        return f"{self.file_path}/{self.file_name}"
+        return f"{self.fs_path}/{self.fs_name}"
 
     @cached_property
     def has_cover(self) -> bool:
@@ -132,6 +140,10 @@ class Rom(BaseModel):
                 f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
             ]
         return screenshots
+
+    @cached_property
+    def multi(self) -> bool:
+        return len(self.files) > 1
 
     def get_collections(self) -> list[Collection]:
         from handler.database import db_rom_handler
@@ -202,7 +214,7 @@ class Rom(BaseModel):
         return f"roms/{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
-        return self.file_name
+        return self.fs_name
 
 
 class RomUserStatus(enum.StrEnum):

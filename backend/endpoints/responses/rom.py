@@ -9,7 +9,7 @@ from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from models.rom import Rom, RomFile, RomUserStatus
+from models.rom import Rom, RomUserStatus
 from pydantic import BaseModel, computed_field
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
@@ -92,6 +92,20 @@ class RomUserSchema(BaseModel):
         ]
 
 
+class RomFileSchema(BaseModel):
+    id: int
+    rom_id: int
+    file_name: str
+    file_path: str
+    file_size_bytes: int
+    created_at: datetime
+    updated_at: datetime
+    last_modified: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class RomSchema(BaseModel):
     id: int
     igdb_id: int | None
@@ -137,10 +151,7 @@ class RomSchema(BaseModel):
     tags: list[str]
 
     multi: bool
-    files: list[RomFile]
-    crc_hash: str | None
-    md5_hash: str | None
-    sha1_hash: str | None
+    files: list[RomFileSchema]
     full_path: str
     created_at: datetime
     updated_at: datetime
