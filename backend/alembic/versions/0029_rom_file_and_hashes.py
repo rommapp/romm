@@ -1,6 +1,6 @@
 """empty message
 
-Revision ID: bd11e20ae1d4
+Revision ID: 0029_rom_file_and_hashes
 Revises: 0028_user_email
 Create Date: 2024-12-19 23:16:11.053536
 
@@ -15,7 +15,7 @@ from handler.scan_handler import ScanType
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "bd11e20ae1d4"
+revision = "0029_rom_file_and_hashes"
 down_revision = "0028_user_email"
 branch_labels = None
 depends_on = None
@@ -51,13 +51,6 @@ def upgrade() -> None:
 
     op.execute(
         """
-        WITH extracted_files AS (
-            SELECT
-                r.id AS rom_id,
-                r.file_path AS file_path,
-                jsonb_array_elements(r.files) AS file_data
-            FROM roms r
-        )
         INSERT INTO rom_files (
             rom_id,
             file_name,
@@ -69,15 +62,20 @@ def upgrade() -> None:
             sha1_hash
         )
         SELECT
-            rom_id,
-            file_data->>'filename' AS file_name,
-            file_path,
-            (file_data->>'size')::BIGINT AS file_size_bytes,
-            (file_data->>'last_modified')::DOUBLE PRECISION AS last_modified,
-            NULL AS crc_hash,
-            NULL AS md5_hash,
-            NULL AS sha1_hash
-        FROM extracted_files;
+            r.id AS rom_id,
+            JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.filename')) AS file_name,
+            r.file_path AS file_path,
+            JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.size')) AS file_size_bytes,
+            JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.last_modified')) AS last_modified,
+            CASE WHEN r.multi = 0 THEN r.crc_hash ELSE NULL END AS crc_hash,
+            CASE WHEN r.multi = 0 THEN r.md5_hash ELSE NULL END AS md5_hash,
+            CASE WHEN r.multi = 0 THEN r.sha1_hash ELSE NULL END AS sha1_hash
+        FROM roms r,
+        JSON_TABLE(r.files, '$[*]' 
+            COLUMNS (
+                file_data JSON PATH '$'
+            )
+        ) AS extracted_files;
         """
     )
 
@@ -186,31 +184,26 @@ def downgrade() -> None:
     op.execute(
         """
         UPDATE roms
-        SET 
-            files = (
-                SELECT jsonb_agg(jsonb_build_object(
-                    'filename', file_name,
-                    'size', file_size_bytes,
-                    'last_modified', last_modified
-                ))
-                FROM rom_files
-                WHERE rom_files.rom_id = roms.id
-            ),
-            multi = (
-                SELECT COUNT(*) > 1
-                FROM rom_files
-                WHERE rom_files.rom_id = roms.id
-            ),
-            file_size_bytes = (
-                SELECT COALESCE(SUM(file_size_bytes), 0)
-                FROM rom_files
-                WHERE rom_files.rom_id = roms.id
-            )
-        WHERE EXISTS (
-            SELECT 1
+        JOIN (
+            SELECT 
+                rom_id,
+                JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'filename', file_name,
+                        'size', file_size_bytes,
+                        'last_modified', last_modified
+                    )
+                ) AS files,
+                COUNT(*) > 1 AS multi,
+                COALESCE(SUM(file_size_bytes), 0) AS total_size
             FROM rom_files
-            WHERE rom_files.rom_id = roms.id
-        );
+            GROUP BY rom_id
+        ) AS aggregated_data
+        ON roms.id = aggregated_data.rom_id
+        SET 
+            roms.files = aggregated_data.files,
+            roms.multi = aggregated_data.multi,
+            roms.file_size_bytes = aggregated_data.total_size;
         """
     )
 
