@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import zlib
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -23,10 +24,10 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.redis_handler import high_prio_queue, redis_client
+from handler.redis_handler import high_prio_queue, low_prio_queue, redis_client
 from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
 from handler.socket_handler import socket_handler
-from logger.formatter import LIGHTYELLOW
+from logger.formatter import LIGHTYELLOW, RED
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.platform import Platform
@@ -37,6 +38,7 @@ from sqlalchemy.inspection import inspect
 from utils.context import initialize_context
 
 STOP_SCAN_FLAG: Final = "scan:stop"
+NON_HASHABLE_PLATFORMS = ["pc", "win", "mac", "linux"]
 
 
 @dataclass
@@ -333,6 +335,41 @@ async def _identify_firmware(
     return scan_stats
 
 
+def _set_rom_hashes(rom_id: int):
+    """Set the hashes for the given rom
+
+    Args:
+        rom_id (int): Rom id
+    """
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        return
+
+    try:
+        rom_hashes = fs_rom_handler.get_rom_hashes(rom.file_name, rom.file_path)
+        db_rom_handler.update_rom(
+            rom_id,
+            {
+                "crc_hash": rom_hashes["crc_hash"],
+                "md5_hash": rom_hashes["md5_hash"],
+                "sha1_hash": rom_hashes["sha1_hash"],
+            },
+        )
+    except zlib.error as e:
+        # Set empty hashes if calculating them fails for corrupted files
+        log.error(
+            f"Hashes of {rom.file_name} couldn't be calculated: {hl(str(e), color=RED)}"
+        )
+        db_rom_handler.update_rom(
+            rom_id,
+            {
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+            },
+        )
+
+
 async def _identify_rom(
     platform: Platform,
     fs_rom: FSRom,
@@ -375,6 +412,16 @@ async def _identify_rom(
     scan_stats.metadata_roms += 1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    # Calculating hashes is expensive, so we only do it if necessary
+    if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
+        # Skip hashing games for platforms that don't have a hash database
+        if platform.slug not in NON_HASHABLE_PLATFORMS:
+            low_prio_queue.enqueue(
+                _set_rom_hashes,
+                _added_rom.id,
+                job_timeout=60 * 15,  # Timeout (15 minutes)
+            )
 
     # Return early if we're only scanning for hashes
     if scan_type == ScanType.HASHES:
