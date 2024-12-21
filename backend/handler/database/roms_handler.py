@@ -4,7 +4,7 @@ from typing import Sequence
 
 from decorators.database import begin_session
 from models.collection import Collection
-from models.rom import Rom, RomUser
+from models.rom import Rom, RomFile, RomUser
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
 
@@ -282,3 +282,38 @@ class DBRomsHandler(DBBaseHandler):
             raise ValueError(f"RomUser with id {id} not found")
 
         return rom_user
+
+    @begin_session
+    def add_rom_file(self, rom_file: RomFile, session: Session = None) -> RomFile:
+        return session.merge(rom_file)
+
+    @begin_session
+    def get_rom_files(self, rom_id: int, session: Session = None) -> Sequence[RomFile]:
+        return session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
+
+    @begin_session
+    def get_rom_file_by_id(self, id: int, session: Session = None) -> RomFile | None:
+        return session.scalar(select(RomFile).filter_by(id=id).limit(1))
+
+    @begin_session
+    def get_rom_file_by_file_name(
+        self, rom_id: int, file_name: str, session: Session = None
+    ) -> RomFile | None:
+        return session.scalar(
+            select(RomFile).filter_by(rom_id=rom_id, file_name=file_name).limit(1)
+        )
+
+    @begin_session
+    def update_rom_file(self, id: int, data: dict, session: Session = None) -> RomFile:
+        session.execute(
+            update(RomFile)
+            .where(RomFile.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+
+        rom_file = self.get_rom_file_by_id(id)
+        if not rom_file:
+            raise ValueError(f"RomFile with id {id} not found")
+
+        return rom_file

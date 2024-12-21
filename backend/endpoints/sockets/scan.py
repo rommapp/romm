@@ -31,7 +31,7 @@ from logger.formatter import LIGHTYELLOW, RED
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
@@ -388,15 +388,9 @@ async def _identify_rom(
         return scan_stats
 
     if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
-        if rom and (
-            rom.fs_name != fs_rom["fs_name"]
-            or rom.multi != fs_rom["multi"]
-            or rom.files != fs_rom["files"]
-        ):
+        if rom and rom.fs_name != fs_rom["fs_name"]:
             # Just to update the filesystem data
             rom.fs_name = fs_rom["fs_name"]
-            rom.multi = fs_rom["multi"]
-            rom.files = fs_rom["files"]
             db_rom_handler.add_rom(rom)
 
         return scan_stats
@@ -414,6 +408,23 @@ async def _identify_rom(
     scan_stats.metadata_roms += 1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    # Create each file entry for the rom
+    db_rom_files = db_rom_handler.get_rom_files(_added_rom.id)
+    for file in fs_rom["files"]:
+        db_rom_file = next(
+            (f for f in db_rom_files if f.file_name == file.file_name), None
+        )
+        db_rom_handler.add_rom_file(
+            RomFile(
+                id=db_rom_file.id if db_rom_file else None,
+                rom_id=_added_rom.id,
+                fs_name=file.file_name,
+                fs_path=file.file_path,
+                file_size_bytes=file.file_size_bytes,
+                last_modified=file.last_modified,
+            )
+        )
 
     # Calculating hashes is expensive, so we only do it if necessary
     if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:

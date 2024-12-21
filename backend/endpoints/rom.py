@@ -393,17 +393,17 @@ async def update_rom(
                 str(data.get("name", rom.name)),
             )
             new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_file(
+            fs_rom_handler.rename_fs_rom(
                 old_name=rom.fs_name,
                 new_name=new_fs_name,
-                file_path=rom.fs_path,
+                fs_path=rom.fs_path,
             )
         elif rom.fs_name != new_fs_name:
             new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_file(
+            fs_rom_handler.rename_fs_rom(
                 old_name=rom.fs_name,
                 new_name=new_fs_name,
-                file_path=rom.fs_path,
+                fs_path=rom.fs_path,
             )
     except RomAlreadyExistsException as exc:
         log.error(exc)
@@ -517,7 +517,7 @@ async def delete_roms(
         if id in delete_from_fs:
             log.info(f"Deleting {rom.fs_name} from filesystem")
             try:
-                fs_rom_handler.remove_file(fs_name=rom.fs_name, file_path=rom.fs_name)
+                fs_rom_handler.remove_from_fs(fs_path=rom.fs_path, fs_name=rom.fs_name)
             except FileNotFoundError as exc:
                 error = (
                     f"Rom file {rom.fs_name} not found for platform {rom.platform_slug}"
