@@ -503,21 +503,21 @@ async def scan_handler(_sid: str, options: dict):
     metadata_sources = options.get("apis", [])
 
     # Uncomment this to run scan in the current process
-    await scan_platforms(
-        platform_ids=platform_ids,
-        scan_type=scan_type,
-        roms_ids=roms_ids,
-        metadata_sources=metadata_sources,
-    )
-
-    # return high_prio_queue.enqueue(
-    #     scan_platforms,
-    #     platform_ids,
-    #     scan_type,
-    #     roms_ids,
-    #     metadata_sources,
-    #     job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
+    # await scan_platforms(
+    #     platform_ids=platform_ids,
+    #     scan_type=scan_type,
+    #     roms_ids=roms_ids,
+    #     metadata_sources=metadata_sources,
     # )
+
+    return high_prio_queue.enqueue(
+        scan_platforms,
+        platform_ids,
+        scan_type,
+        roms_ids,
+        metadata_sources,
+        job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
+    )
 
 
 @socket_handler.socket_server.on("scan:stop")
