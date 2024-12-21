@@ -85,6 +85,10 @@ class FSFirmwareHandler(FSHandler):
         return f"{LIBRARY_BASE_PATH}/{file_path}"
 
     def write_file(self, file: UploadFile, path: str) -> None:
+        if not file.filename:
+            log.error("No file name provided")
+            return
+
         Path(path).mkdir(parents=True, exist_ok=True)
         log.info(f" - Uploading {file.filename}")
         file_location = os.path.join(path, file.filename)

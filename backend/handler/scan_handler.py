@@ -175,18 +175,18 @@ async def scan_rom(
 
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
-    log.info(f"\t · {hl(fs_rom['file_name'])}")
+    log.info(f"\t · {hl(fs_rom['fs_name'])}")
 
     if fs_rom.get("multi", False):
         for file in fs_rom["files"]:
-            log.info(f"\t\t · {file['filename']}")
+            log.info(f"\t\t · {file.file_name}")
 
     # Set default properties
     rom_attrs = {
         **fs_rom,
         "id": rom.id if rom else None,
         "platform_id": platform.id,
-        "name": fs_rom["file_name"],
+        "name": fs_rom["fs_name"],
         "url_cover": "",
         "url_screenshots": [],
     }
@@ -257,7 +257,7 @@ async def scan_rom(
         ):
             main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
             return await meta_igdb_handler.get_rom(
-                rom_attrs["file_name"], main_platform_igdb_id
+                rom_attrs["file_name"], main_platform_igdb_id or platform.igdb_id
             )
 
         return IGDBRom(igdb_id=None)

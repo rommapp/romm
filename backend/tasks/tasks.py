@@ -5,6 +5,7 @@ import httpx
 from exceptions.task_exceptions import SchedulerException
 from handler.redis_handler import low_prio_queue
 from logger.logger import log
+from rq.job import Job
 from rq_scheduler import Scheduler
 from utils.context import ctx_httpx_client
 
@@ -27,7 +28,7 @@ class PeriodicTask(ABC):
     def _get_existing_job(self):
         existing_jobs = tasks_scheduler.get_jobs()
         for job in existing_jobs:
-            if job.func_name == self.func:
+            if isinstance(job, Job) and job.func_name == self.func:
                 return job
 
         return None

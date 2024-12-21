@@ -40,12 +40,12 @@ async def test_scan_rom():
 
         rom = await scan_rom(
             platform,
-            {"file_name": "Paper Mario (USA).z64", "multi": False, "files": files},
+            {"fs_name": "Paper Mario (USA).z64", "multi": False, "files": files},
             ScanType.QUICK,
         )
 
     assert type(rom) is Rom
-    assert rom.file_name == "Paper Mario (USA).z64"
+    assert rom.fs_name == "Paper Mario (USA).z64"
     assert rom.name == "Paper Mario"
     assert rom.igdb_id == 3340
     assert rom.file_size_bytes == 1024
