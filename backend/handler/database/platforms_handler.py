@@ -19,13 +19,7 @@ class DBPlatformsHandler(DBBaseHandler):
         platform = session.merge(platform)
         session.flush()
 
-        new_platform = session.scalar(
-            select(Platform).filter_by(id=platform.id).limit(1)
-        )
-        if not new_platform:
-            raise ValueError("Could not find newly created platform")
-
-        return new_platform
+        return session.query(Platform).filter_by(id=platform.id).one()
 
     @begin_session
     def get_platform(self, id: int, *, session: Session = None) -> Platform | None:

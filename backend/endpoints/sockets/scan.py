@@ -428,8 +428,8 @@ async def _identify_rom(
             RomFile(
                 id=db_rom_file.id if db_rom_file else None,
                 rom_id=_added_rom.id,
-                fs_name=file.file_name,
-                fs_path=file.file_path,
+                file_name=file.file_name,
+                file_path=file.file_path,
                 file_size_bytes=file.file_size_bytes,
                 last_modified=file.last_modified,
             )
@@ -503,21 +503,21 @@ async def scan_handler(_sid: str, options: dict):
     metadata_sources = options.get("apis", [])
 
     # Uncomment this to run scan in the current process
-    # await scan_platforms(
-    #     platform_ids=platform_ids,
-    #     scan_type=scan_type,
-    #     roms_ids=roms_ids,
-    #     metadata_sources=metadata_sources,
-    # )
-
-    return high_prio_queue.enqueue(
-        scan_platforms,
-        platform_ids,
-        scan_type,
-        roms_ids,
-        metadata_sources,
-        job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
+    await scan_platforms(
+        platform_ids=platform_ids,
+        scan_type=scan_type,
+        roms_ids=roms_ids,
+        metadata_sources=metadata_sources,
     )
+
+    # return high_prio_queue.enqueue(
+    #     scan_platforms,
+    #     platform_ids,
+    #     scan_type,
+    #     roms_ids,
+    #     metadata_sources,
+    #     job_timeout=SCAN_TIMEOUT,  # Timeout (default of 4 hours)
+    # )
 
 
 @socket_handler.socket_server.on("scan:stop")

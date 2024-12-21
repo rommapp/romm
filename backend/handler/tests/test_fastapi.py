@@ -32,8 +32,9 @@ async def test_scan_rom():
     async with initialize_context():
         files = [
             RomFile(
-                filename="Paper Mario (USA).z64",
-                size=1024,
+                file_name="Paper Mario (USA).z64",
+                file_path="Paper Mario (USA)",
+                file_size_bytes=1024,
                 last_modified=1620000000,
             )
         ]

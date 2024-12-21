@@ -16,13 +16,7 @@ class DBCollectionsHandler(DBBaseHandler):
         collection = session.merge(collection)
         session.flush()
 
-        new_collection = session.scalar(
-            select(Collection).filter_by(id=collection.id).limit(1)
-        )
-        if not new_collection:
-            raise ValueError("Could not find newly created collection")
-
-        return new_collection
+        return session.query(Collection).filter_by(id=collection.id).one()
 
     @begin_session
     def get_collection(self, id: int, session: Session = None) -> Collection | None:
