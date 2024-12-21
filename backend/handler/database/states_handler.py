@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from decorators.database import begin_session
 from models.assets import State
 from sqlalchemy import and_, delete, select, update
@@ -12,7 +14,7 @@ class DBStatesHandler(DBBaseHandler):
         return session.merge(state)
 
     @begin_session
-    def get_state(self, id: int, session: Session = None) -> State:
+    def get_state(self, id: int, session: Session = None) -> State | None:
         return session.get(State, id)
 
     @begin_session
@@ -27,7 +29,7 @@ class DBStatesHandler(DBBaseHandler):
 
     @begin_session
     def update_state(self, id: int, data: dict, session: Session = None) -> State:
-        return session.execute(
+        return session.scalar(
             update(State)
             .where(State.id == id)
             .values(**data)
@@ -36,7 +38,7 @@ class DBStatesHandler(DBBaseHandler):
 
     @begin_session
     def delete_state(self, id: int, session: Session = None) -> None:
-        return session.execute(
+        session.execute(
             delete(State)
             .where(State.id == id)
             .execution_options(synchronize_session="evaluate")
@@ -45,8 +47,18 @@ class DBStatesHandler(DBBaseHandler):
     @begin_session
     def purge_states(
         self, rom_id: int, user_id: int, states: list[str], session: Session = None
-    ) -> None:
-        return session.execute(
+    ) -> Sequence[State]:
+        purged_states = session.scalars(
+            select(State).filter(
+                and_(
+                    State.rom_id == rom_id,
+                    State.user_id == user_id,
+                    State.file_name.not_in(states),
+                )
+            )
+        ).all()
+
+        session.execute(
             delete(State)
             .where(
                 and_(
@@ -57,3 +69,5 @@ class DBStatesHandler(DBBaseHandler):
             )
             .execution_options(synchronize_session="evaluate")
         )
+
+        return purged_states

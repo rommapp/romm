@@ -8,7 +8,7 @@ import tarfile
 import zipfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, Final, TypedDict
+from typing import Any, Final, Literal, TypedDict
 
 import magic
 import py7zr
@@ -59,7 +59,7 @@ FILE_READ_CHUNK_SIZE = 1024 * 8
 
 class FSRom(TypedDict):
     multi: bool
-    file_name: str
+    fs_name: str
     files: list[RomFile]
 
 
@@ -90,7 +90,9 @@ def read_zip_file(file_path: Path) -> Iterator[bytes]:
             yield chunk
 
 
-def read_tar_file(file_path: Path, mode: str = "r") -> Iterator[bytes]:
+def read_tar_file(
+    file_path: Path, mode: Literal["r", "r:*", "r:", "r:gz", "r:bz2", "r:xz"] = "r"
+) -> Iterator[bytes]:
     try:
         with tarfile.open(file_path, mode) as f:
             for member in f.getmembers():
@@ -339,10 +341,10 @@ class FSRomsHandler(FSHandler):
             raise RomsNotFoundException(platform_fs_slug) from exc
 
         fs_roms: list[dict] = [
-            {"multi": False, "file_name": rom}
+            {"multi": False, "fs_name": rom}
             for rom in self._exclude_files(fs_single_roms, "single")
         ] + [
-            {"multi": True, "file_name": rom}
+            {"multi": True, "fs_name": rom}
             for rom in self._exclude_multi_roms(fs_multi_roms)
         ]
 
@@ -350,12 +352,12 @@ class FSRomsHandler(FSHandler):
             [
                 FSRom(
                     multi=rom["multi"],
-                    file_name=rom["file_name"],
-                    files=self.get_rom_files(rom["file_name"], roms_file_path),
+                    fs_name=rom["fs_name"],
+                    files=self.get_rom_files(rom["fs_name"], roms_file_path),
                 )
                 for rom in fs_roms
             ],
-            key=lambda rom: rom["file_name"],
+            key=lambda rom: rom["fs_name"],
         )
 
     def file_exists(self, path: str, file_name: str) -> bool:

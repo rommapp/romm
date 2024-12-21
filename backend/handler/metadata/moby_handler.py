@@ -310,7 +310,7 @@ class MobyGamesHandler(MetadataHandler):
         return [rom] if rom["moby_id"] else []
 
     async def get_matched_roms_by_name(
-        self, search_term: str, platform_moby_id: int
+        self, search_term: str, platform_moby_id: int | None
     ) -> list[MobyGamesRom]:
         if not MOBY_API_ENABLED:
             return []

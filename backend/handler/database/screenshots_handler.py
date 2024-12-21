@@ -1,6 +1,8 @@
+from typing import Sequence
+
 from decorators.database import begin_session
 from models.assets import Screenshot
-from sqlalchemy import delete, select, update
+from sqlalchemy import and_, delete, select, update
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
@@ -14,7 +16,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         return session.merge(screenshot)
 
     @begin_session
-    def get_screenshot(self, id, session: Session = None) -> Screenshot:
+    def get_screenshot(self, id, session: Session = None) -> Screenshot | None:
         return session.get(Screenshot, id)
 
     @begin_session
@@ -31,7 +33,7 @@ class DBScreenshotsHandler(DBBaseHandler):
     def update_screenshot(
         self, id: int, data: dict, session: Session = None
     ) -> Screenshot:
-        return session.execute(
+        return session.scalar(
             update(Screenshot)
             .where(Screenshot.id == id)
             .values(**data)
@@ -40,7 +42,7 @@ class DBScreenshotsHandler(DBBaseHandler):
 
     @begin_session
     def delete_screenshot(self, id: int, session: Session = None) -> None:
-        return session.execute(
+        session.execute(
             delete(Screenshot)
             .where(Screenshot.id == id)
             .execution_options(synchronize_session="evaluate")
@@ -49,13 +51,27 @@ class DBScreenshotsHandler(DBBaseHandler):
     @begin_session
     def purge_screenshots(
         self, rom_id: int, user_id: int, screenshots: list[str], session: Session = None
-    ) -> None:
-        return session.execute(
+    ) -> Sequence[Screenshot]:
+        purged_screenshots = session.scalars(
+            select(Screenshot).filter(
+                and_(
+                    Screenshot.rom_id == rom_id,
+                    Screenshot.user_id == user_id,
+                    Screenshot.file_name.not_in(screenshots),
+                )
+            )
+        ).all()
+
+        session.execute(
             delete(Screenshot)
             .where(
-                Screenshot.rom_id == rom_id,
-                Screenshot.user_id == user_id,
-                Screenshot.file_name.not_in(screenshots),
+                and_(
+                    Screenshot.rom_id == rom_id,
+                    Screenshot.user_id == user_id,
+                    Screenshot.file_name.not_in(screenshots),
+                )
             )
             .execution_options(synchronize_session="evaluate")
         )
+
+        return purged_screenshots

@@ -145,6 +145,10 @@ class Rom(BaseModel):
     def multi(self) -> bool:
         return len(self.files) > 1
 
+    @cached_property
+    def file_size_bytes(self) -> int:
+        return sum(f.file_size_bytes for f in self.files)
+
     def get_collections(self) -> list[Collection]:
         from handler.database import db_rom_handler
 
