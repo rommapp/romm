@@ -166,18 +166,18 @@ class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
-    def remove_file(self, file_name: str, file_path: str) -> None:
+    def remove_file(self, fs_name: str, file_path: str) -> None:
         try:
-            os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
+            os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{fs_name}")
         except IsADirectoryError:
-            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{file_name}")
+            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{fs_name}")
 
-    def parse_tags(self, file_name: str) -> tuple:
+    def parse_tags(self, fs_name: str) -> tuple:
         rev = ""
         regs = []
         langs = []
         other_tags = []
-        tags = [tag[0] or tag[1] for tag in TAG_REGEX.findall(file_name)]
+        tags = [tag[0] or tag[1] for tag in TAG_REGEX.findall(fs_name)]
         tags = [tag for subtags in tags for tag in subtags.split(",")]
         tags = [tag.strip() for tag in tags]
 
@@ -360,20 +360,20 @@ class FSRomsHandler(FSHandler):
             key=lambda rom: rom["fs_name"],
         )
 
-    def file_exists(self, path: str, file_name: str) -> bool:
+    def file_exists(self, path: str, fs_name: str) -> bool:
         """Check if file exists in filesystem
 
         Args:
             path: path to file
-            file_name: name of file
+            fs_name: name of file
         Returns
             True if file exists in filesystem else False
         """
-        return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{file_name}"))
+        return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{fs_name}"))
 
     def rename_file(self, old_name: str, new_name: str, file_path: str) -> None:
         if new_name != old_name:
-            if self.file_exists(path=file_path, file_name=new_name):
+            if self.file_exists(path=file_path, fs_name=new_name):
                 raise RomAlreadyExistsException(new_name)
 
             os.rename(

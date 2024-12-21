@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
@@ -130,9 +132,11 @@ async def tinfoil_index_feed(
             error="Nintendo Switch platform not found",
         )
 
-    roms: list[Rom] = db_rom_handler.get_roms(platform_id=switch.id)
+    roms = db_rom_handler.get_roms(platform_id=switch.id)
 
-    async def extract_titledb(roms: list[Rom]) -> dict[str, TinfoilFeedTitleDBSchema]:
+    async def extract_titledb(
+        roms: Sequence[Rom],
+    ) -> dict[str, TinfoilFeedTitleDBSchema]:
         titledb = {}
         for rom in roms:
             match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)

@@ -1,5 +1,6 @@
 import functools
 from collections.abc import Iterable
+from typing import Sequence
 
 from decorators.database import begin_session
 from models.collection import Collection
@@ -72,8 +73,8 @@ class DBRomsHandler(DBBaseHandler):
         if search_term:
             data = data.filter(
                 or_(
-                    Rom.file_name.ilike(f"%{search_term}%"),  # type: ignore[attr-defined]
-                    Rom.name.ilike(f"%{search_term}%"),  # type: ignore[attr-defined]
+                    Rom.fs_name.ilike(f"%{search_term}%"),
+                    Rom.name.ilike(f"%{search_term}%"),
                 )
             )
 
@@ -119,7 +120,7 @@ class DBRomsHandler(DBBaseHandler):
         offset: int | None = None,
         query: Query = None,
         session: Session = None,
-    ) -> list[Rom]:
+    ) -> Sequence[Rom]:
         filtered_query = self._filter(
             query, platform_id, collection_id, search_term, session
         )
@@ -130,60 +131,56 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     @with_details
-    def get_rom_by_filename(
+    def get_rom_by_fs_name(
         self,
         platform_id: int,
-        file_name: str,
+        fs_name: str,
         query: Query = None,
         session: Session = None,
     ) -> Rom | None:
         return session.scalar(
-            query.filter_by(platform_id=platform_id, file_name=file_name).limit(1)
+            query.filter_by(platform_id=platform_id, fs_name=fs_name).limit(1)
         )
 
     @begin_session
-    def get_roms_by_filename(
+    def get_roms_by_fs_name(
         self,
         platform_id: int,
-        file_names: Iterable[str],
+        fs_names: Iterable[str],
         query: Query = None,
         session: Session = None,
     ) -> dict[str, Rom]:
-        """Retrieve a dictionary of roms by their file names."""
+        """Retrieve a dictionary of roms by their filesystem names."""
         query = query or select(Rom)
         roms = (
             session.scalars(
-                query.filter(Rom.file_name.in_(file_names)).filter_by(
+                query.filter(Rom.fs_name.in_(fs_names)).filter_by(
                     platform_id=platform_id
                 )
             )
             .unique()
             .all()
         )
-        return {rom.file_name: rom for rom in roms}
+        return {rom.fs_name: rom for rom in roms}
 
     @begin_session
     @with_details
-    def get_rom_by_filename_no_tags(
-        self, file_name_no_tags: str, query: Query = None, session: Session = None
+    def get_rom_by_fs_name_no_tags(
+        self, fs_name_no_tags: str, query: Query = None, session: Session = None
     ) -> Rom | None:
-        return session.scalar(
-            query.filter_by(file_name_no_tags=file_name_no_tags).limit(1)
-        )
+        return session.scalar(query.filter_by(fs_name_no_tags=fs_name_no_tags).limit(1))
 
     @begin_session
     @with_details
-    def get_rom_by_filename_no_ext(
-        self, file_name_no_ext: str, query: Query = None, session: Session = None
+    def get_rom_by_fs_name_no_ext(
+        self, fs_name_no_ext: str, query: Query = None, session: Session = None
     ) -> Rom | None:
-        return session.scalar(
-            query.filter_by(file_name_no_ext=file_name_no_ext).limit(1)
-        )
+        return session.scalar(query.filter_by(fs_name_no_ext=fs_name_no_ext).limit(1))
 
     @begin_session
     def get_rom_collections(
         self, rom: Rom, session: Session = None
-    ) -> list[Collection]:
+    ) -> Sequence[Collection]:
         return (
             session.scalars(
                 select(Collection)
@@ -196,7 +193,7 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:
-        return session.execute(
+        return session.scalar(
             update(Rom)
             .where(Rom.id == id)
             .values(**data)
@@ -204,8 +201,8 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def delete_rom(self, id: int, session: Session = None) -> Rom:
-        return session.execute(
+    def delete_rom(self, id: int, session: Session = None) -> None:
+        session.execute(
             delete(Rom)
             .where(Rom.id == id)
             .execution_options(synchronize_session="evaluate")
@@ -214,21 +211,21 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def purge_roms(
         self, platform_id: int, fs_roms: list[str], session: Session = None
-    ) -> list[Rom]:
+    ) -> Sequence[Rom]:
         purged_roms = (
             session.scalars(
                 select(Rom)
-                .order_by(Rom.file_name.asc())
+                .order_by(Rom.fs_name.asc())
                 .where(
-                    and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms))
+                    and_(Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms))
                 )
-            )  # type: ignore[attr-defined]
+            )
             .unique()
             .all()
         )
         session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.file_name.not_in(fs_roms)))  # type: ignore[attr-defined]
+            .where(and_(Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms)))
             .execution_options(synchronize_session="evaluate")
         )
         return purged_roms
@@ -261,9 +258,13 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         rom_user = self.get_rom_user_by_id(id)
+        if not rom_user:
+            raise ValueError(f"RomUser with id {id} not found")
 
         if data.get("is_main_sibling", False):
             rom = self.get_rom(rom_user.rom_id)
+            if not rom:
+                raise ValueError(f"Rom with id {rom_user.rom_id} not found")
 
             session.execute(
                 update(RomUser)
@@ -276,4 +277,8 @@ class DBRomsHandler(DBBaseHandler):
                 .values(is_main_sibling=False)
             )
 
-        return self.get_rom_user_by_id(id)
+        rom_user = self.get_rom_user_by_id(id)
+        if not rom_user:
+            raise ValueError(f"RomUser with id {id} not found")
+
+        return rom_user

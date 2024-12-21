@@ -116,12 +116,11 @@ class RomSchema(BaseModel):
     platform_slug: str
     platform_name: str
 
-    file_name: str
-    file_name_no_tags: str
-    file_name_no_ext: str
-    file_extension: str
-    file_path: str
-    file_size_bytes: int
+    fs_name: str
+    fs_name_no_tags: str
+    fs_name_no_ext: str
+    fs_extension: str
+    fs_path: str
 
     name: str | None
     slug: str | None
@@ -152,6 +151,7 @@ class RomSchema(BaseModel):
 
     multi: bool
     files: list[RomFileSchema]
+    file_size_bytes: int
     full_path: str
     created_at: datetime
     updated_at: datetime
@@ -165,7 +165,7 @@ class RomSchema(BaseModel):
         return (
             SORT_COMPARE_REGEX.sub(
                 "",
-                self.name or self.file_name_no_tags,
+                self.name or self.fs_name_no_tags,
             )
             .strip()
             .lower()
@@ -220,7 +220,7 @@ class DetailedRomSchema(RomSchema):
             if s.user_id == user_id
         ]
         rom.user_collections = CollectionSchema.for_user(
-            user_id, db_rom.get_collections()
+            user_id, [c for c in db_rom.get_collections()]
         )
 
         return rom
