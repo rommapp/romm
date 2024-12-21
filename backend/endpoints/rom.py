@@ -384,25 +384,25 @@ async def update_rom(
         }
     )
 
-    new_file_name = str(data.get("file_name", rom.fs_name))
+    new_fs_name = str(data.get("fs_name", rom.fs_name))
 
     try:
         if rename_as_source:
-            new_file_name = rom.fs_name.replace(
+            new_fs_name = rom.fs_name.replace(
                 rom.fs_name_no_tags or rom.fs_name_no_ext,
                 str(data.get("name", rom.name)),
             )
-            new_file_name = sanitize_filename(new_file_name)
+            new_fs_name = sanitize_filename(new_fs_name)
             fs_rom_handler.rename_file(
                 old_name=rom.fs_name,
-                new_name=new_file_name,
+                new_name=new_fs_name,
                 file_path=rom.fs_path,
             )
-        elif rom.fs_name != new_file_name:
-            new_file_name = sanitize_filename(new_file_name)
+        elif rom.fs_name != new_fs_name:
+            new_fs_name = sanitize_filename(new_fs_name)
             fs_rom_handler.rename_file(
                 old_name=rom.fs_name,
-                new_name=new_file_name,
+                new_name=new_fs_name,
                 file_path=rom.fs_path,
             )
     except RomAlreadyExistsException as exc:
@@ -413,12 +413,10 @@ async def update_rom(
 
     cleaned_data.update(
         {
-            "file_name": new_file_name,
-            "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
-                new_file_name
-            ),
-            "file_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
-                new_file_name
+            "fs_name": new_fs_name,
+            "fs_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(new_fs_name),
+            "fs_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
+                new_fs_name
             ),
         }
     )
@@ -519,7 +517,7 @@ async def delete_roms(
         if id in delete_from_fs:
             log.info(f"Deleting {rom.fs_name} from filesystem")
             try:
-                fs_rom_handler.remove_file(file_name=rom.fs_name, file_path=rom.fs_name)
+                fs_rom_handler.remove_file(fs_name=rom.fs_name, file_path=rom.fs_name)
             except FileNotFoundError as exc:
                 error = (
                     f"Rom file {rom.fs_name} not found for platform {rom.platform_slug}"

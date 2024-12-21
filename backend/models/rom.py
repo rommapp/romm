@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Sequence
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
@@ -149,7 +149,7 @@ class Rom(BaseModel):
     def file_size_bytes(self) -> int:
         return sum(f.file_size_bytes for f in self.files)
 
-    def get_collections(self) -> list[Collection]:
+    def get_collections(self) -> Sequence[Collection]:
         from handler.database import db_rom_handler
 
         return db_rom_handler.get_rom_collections(self)

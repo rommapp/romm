@@ -415,7 +415,7 @@ class IGDBBaseHandler(MetadataHandler):
         return IGDBPlatform(igdb_id=None, slug=slug)
 
     @check_twitch_token
-    async def get_rom(self, file_name: str, platform_igdb_id: int) -> IGDBRom:
+    async def get_rom(self, fs_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler.filesystem import fs_rom_handler
 
         if not IGDB_API_ENABLED:
@@ -424,17 +424,17 @@ class IGDBBaseHandler(MetadataHandler):
         if not platform_igdb_id:
             return IGDBRom(igdb_id=None)
 
-        search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = IGDBRom(igdb_id=None)
 
         # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(file_name)
+        match = PS2_OPL_REGEX.match(fs_name)
         if platform_igdb_id == PS2_IGDB_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(file_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(fs_name, re.IGNORECASE)
         if platform_igdb_id == PS1_IGDB_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
@@ -448,7 +448,7 @@ class IGDBBaseHandler(MetadataHandler):
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(file_name)
+        match = SWITCH_TITLEDB_REGEX.search(fs_name)
         if platform_igdb_id == SWITCH_IGDB_ID and match:
             search_term, index_entry = await self._switch_titledb_format(
                 match, search_term
@@ -463,7 +463,7 @@ class IGDBBaseHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
+        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
         if platform_igdb_id == SWITCH_IGDB_ID and match:
             search_term, index_entry = await self._switch_productid_format(
                 match, search_term

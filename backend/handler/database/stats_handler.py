@@ -1,6 +1,6 @@
 from decorators.database import begin_session
 from models.assets import Save, Screenshot, State
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
@@ -38,5 +38,8 @@ class DBStatsHandler(DBBaseHandler):
     def get_total_filesize(self, session: Session = None) -> int:
         """Get the total filesize of all roms in the database, in bytes."""
         return (
-            session.scalar(select(func.sum(Rom.file_size_bytes)).select_from(Rom)) or 0
+            session.scalar(
+                select(func.sum(RomFile.file_size_bytes)).select_from(RomFile)
+            )
+            or 0
         )

@@ -212,22 +212,20 @@ async def scan_rom(
         )
 
     # Update properties that don't require metadata
-    file_size = sum([file["size"] for file in rom_attrs["files"]])
-    regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["file_name"])
+    filesize = sum([file["size"] for file in rom_attrs["files"]])
+    regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["fs_name"])
     rom_attrs.update(
         {
-            "file_path": roms_path,
-            "file_name": rom_attrs["file_name"],
-            "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
-                rom_attrs["file_name"]
+            "fs_path": roms_path,
+            "fs_name": rom_attrs["fs_name"],
+            "fs_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
+                rom_attrs["fs_name"]
             ),
-            "file_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
-                rom_attrs["file_name"]
+            "fs_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
+                rom_attrs["fs_name"]
             ),
-            "file_extension": fs_rom_handler.parse_file_extension(
-                rom_attrs["file_name"]
-            ),
-            "file_size_bytes": file_size,
+            "fs_extension": fs_rom_handler.parse_file_extension(rom_attrs["fs_name"]),
+            "fs_size_bytes": filesize,
             "multi": rom_attrs["multi"],
             "regions": regs,
             "revision": rev,
@@ -257,7 +255,7 @@ async def scan_rom(
         ):
             main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
             return await meta_igdb_handler.get_rom(
-                rom_attrs["file_name"], main_platform_igdb_id or platform.igdb_id
+                rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
             )
 
         return IGDBRom(igdb_id=None)
@@ -274,7 +272,7 @@ async def scan_rom(
             )
         ):
             return await meta_moby_handler.get_rom(
-                rom_attrs["file_name"], platform_moby_id=platform.moby_id
+                rom_attrs["fs_name"], platform_moby_id=platform.moby_id
             )
 
         return MobyGamesRom(moby_id=None)
@@ -290,7 +288,7 @@ async def scan_rom(
     # If not found in IGDB or MobyGames
     if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):
         log.warning(
-            emoji.emojize(f"\t   {rom_attrs['file_name']} not identified :cross_mark:")
+            emoji.emojize(f"\t   {rom_attrs['fs_name']} not identified :cross_mark:")
         )
         return Rom(**rom_attrs)
 
