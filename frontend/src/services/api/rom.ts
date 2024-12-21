@@ -146,7 +146,7 @@ async function updateRom({
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
   formData.append("name", rom.name || "");
-  formData.append("file_name", rom.file_name);
+  formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
   formData.append("url_cover", rom.url_cover || "");
   if (rom.artwork) formData.append("artwork", rom.artwork);
