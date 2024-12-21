@@ -325,8 +325,8 @@ class MobyGamesHandler(MetadataHandler):
         matched_roms = (await self._request(str(url))).get("games", [])
 
         return [
-            MobyGamesRom(  # type: ignore[misc]
-                {
+            MobyGamesRom(
+                {  # type: ignore[misc]
                     k: v
                     for k, v in {
                         "moby_id": rom["game_id"],

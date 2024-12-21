@@ -236,6 +236,8 @@ class IGDBBaseHandler(MetadataHandler):
 
     async def _request(self, url: str, data: str, timeout: int = 120) -> list:
         httpx_client = ctx_httpx_client.get()
+        masked_headers = {}
+
         try:
             masked_headers = self._mask_sensitive_values(self.headers)
             log.debug(
@@ -637,7 +639,7 @@ class IGDBBaseHandler(MetadataHandler):
                             )
                         ),
                         "url_screenshots": [
-                            self._normalize_cover_url(s.get("url", "")).replace(
+                            self._normalize_cover_url(s.get("url", "")).replace(  # type: ignore[attr-defined]
                                 "t_thumb", "t_720p"
                             )
                             for s in rom.get("screenshots", [])
