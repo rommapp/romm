@@ -1,10 +1,16 @@
 import { defineStore } from "pinia";
+import { type RomFileSchema } from "@/__generated__";
 
 export default defineStore("download", {
   state: () => ({
     value: [] as number[],
-    filesToDownload: [] as string[],
+    filesToDownload: [] as RomFileSchema[],
   }),
+
+  getters: {
+    filenamesToDownload: (state) =>
+      state.filesToDownload.map((file) => file.file_name),
+  },
 
   actions: {
     add(id: number) {
@@ -15,7 +21,7 @@ export default defineStore("download", {
     },
     clear() {
       this.value = [] as number[];
-      this.filesToDownload = [] as string[];
+      this.filesToDownload = [] as RomFileSchema[];
     },
   },
 });

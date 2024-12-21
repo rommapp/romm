@@ -234,28 +234,29 @@ class FSRomsHandler(FSHandler):
 
         return [f for f in roms if f not in filtered_files]
 
-    def _build_rom_file(self, file_path: Path, file_name: str) -> RomFile:
-        full_path = Path(file_path, file_name)
+    def _build_rom_file(self, rom_path: str, file_name: str) -> RomFile:
+        abs_file_path = Path(
+            LIBRARY_BASE_PATH, rom_path, file_name
+        )  # Absolute path to roms
 
         return RomFile(
             file_name=file_name,
-            file_path=file_path.name,
-            file_size_bytes=os.stat(full_path).st_size,
-            last_modified=os.path.getmtime(full_path),
+            file_path=rom_path,
+            file_size_bytes=os.stat(abs_file_path).st_size,
+            last_modified=os.path.getmtime(abs_file_path),
         )
 
     def get_rom_files(self, rom: str, roms_path: str) -> list[RomFile]:
+        abs_fs_path = f"{LIBRARY_BASE_PATH}/{roms_path}"  # Absolute path to roms
         rom_files: list[RomFile] = []
 
         # Check if rom is a multi-part rom
-        if os.path.isdir(f"{roms_path}/{rom}"):
-            multi_files = os.listdir(f"{roms_path}/{rom}")
+        if os.path.isdir(f"{abs_fs_path}/{rom}"):
+            multi_files = os.listdir(f"{abs_fs_path}/{rom}")
             for file in self._exclude_files(multi_files, "multi_parts"):
-                path = Path(roms_path, rom)
-                rom_files.append(self._build_rom_file(path, file))
+                rom_files.append(self._build_rom_file(f"{roms_path}/{rom}", file))
         else:
-            path = Path(roms_path)
-            rom_files.append(self._build_rom_file(path, rom))
+            rom_files.append(self._build_rom_file(roms_path, rom))
 
         return rom_files
 
@@ -316,8 +317,6 @@ class FSRomsHandler(FSHandler):
         return crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h
 
     def get_rom_hashes(self, rom: Rom) -> tuple[FileHash, list[FileHash]]:
-        roms_file_path = f"{LIBRARY_BASE_PATH}/{rom.fs_path}"
-
         rom_crc_c = 0
         rom_md5_h = hashlib.md5(usedforsecurity=False)
         rom_sha1_h = hashlib.sha1(usedforsecurity=False)
@@ -326,7 +325,7 @@ class FSRomsHandler(FSHandler):
         hashed_files = []
 
         for file in files:
-            path = Path(roms_file_path, file.file_path, file.file_name)
+            path = Path(LIBRARY_BASE_PATH, file.file_path, file.file_name)
             crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
                 self._calculate_rom_hashes(path, rom_crc_c, rom_md5_h, rom_sha1_h)
             )
@@ -357,16 +356,18 @@ class FSRomsHandler(FSHandler):
         Returns:
             list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH
         """
-        roms_path = self.get_roms_fs_structure(platform_fs_slug)
-        roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
+        rel_roms_path = self.get_roms_fs_structure(
+            platform_fs_slug
+        )  # Relative path to roms
+        abs_fs_path = f"{LIBRARY_BASE_PATH}/{rel_roms_path}"  # Absolute path to roms
 
         try:
-            fs_single_roms = [f for _, f in iter_files(roms_file_path)]
+            fs_single_roms = [f for _, f in iter_files(abs_fs_path)]
         except IndexError as exc:
             raise RomsNotFoundException(platform_fs_slug) from exc
 
         try:
-            fs_multi_roms = [d for _, d in iter_directories(roms_file_path)]
+            fs_multi_roms = [d for _, d in iter_directories(abs_fs_path)]
         except IndexError as exc:
             raise RomsNotFoundException(platform_fs_slug) from exc
 
@@ -383,7 +384,7 @@ class FSRomsHandler(FSHandler):
                 FSRom(
                     multi=rom["multi"],
                     fs_name=rom["fs_name"],
-                    files=self.get_rom_files(rom["fs_name"], roms_file_path),
+                    files=self.get_rom_files(rom["fs_name"], rel_roms_path),
                 )
                 for rom in fs_roms
             ],
@@ -411,6 +412,6 @@ class FSRomsHandler(FSHandler):
                 f"{LIBRARY_BASE_PATH}/{fs_path}/{new_name}",
             )
 
-    def build_upload_file_path(self, fs_slug: str) -> str:
+    def build_upload_fs_path(self, fs_slug: str) -> str:
         file_path = self.get_roms_fs_structure(fs_slug)
         return f"{LIBRARY_BASE_PATH}/{file_path}"
