@@ -7,8 +7,9 @@ import shutil
 import tarfile
 import zipfile
 from collections.abc import Callable, Iterator
+from hashlib import _Hash
 from pathlib import Path
-from typing import Any, Final, Literal, TypedDict
+from typing import Final, Literal, TypedDict
 
 import magic
 import py7zr
@@ -16,7 +17,7 @@ import zipfile_deflate64  # trunk-ignore(ruff/F401): Patches zipfile to support 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
-from models.rom import RomFile
+from models.rom import Rom, RomFile
 from py7zr.exceptions import (
     Bad7zFile,
     DecompressionError,
@@ -61,6 +62,13 @@ class FSRom(TypedDict):
     multi: bool
     fs_name: str
     files: list[RomFile]
+
+
+class FileHash(TypedDict):
+    id: int
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
 
 
 def is_compressed_file(file_path: str) -> bool:
@@ -253,17 +261,31 @@ class FSRomsHandler(FSHandler):
         return rom_files
 
     def _calculate_rom_hashes(
-        self, file_path: Path, crc_c: int, md5_h: Any, sha1_h: Any
-    ) -> tuple[int, Any, Any]:
+        self,
+        file_path: Path,
+        rom_crc_c: int,
+        rom_md5_h: _Hash,
+        rom_sha1_h: _Hash,
+    ) -> tuple[int, int, _Hash, _Hash, _Hash, _Hash]:
         mime = magic.Magic(mime=True)
         file_type = mime.from_file(file_path)
         extension = Path(file_path).suffix.lower()
 
+        crc_c = 0
+        md5_h = hashlib.md5(usedforsecurity=False)
+        sha1_h = hashlib.sha1(usedforsecurity=False)
+
         def update_hashes(chunk: bytes | bytearray):
             md5_h.update(chunk)
+            rom_md5_h.update(chunk)
+
             sha1_h.update(chunk)
+            rom_sha1_h.update(chunk)
+
             nonlocal crc_c
             crc_c = binascii.crc32(chunk, crc_c)
+            nonlocal rom_crc_c
+            rom_crc_c = binascii.crc32(chunk, rom_crc_c)
 
         if extension == ".zip" or file_type == "application/zip":
             for chunk in read_zip_file(file_path):
@@ -292,35 +314,41 @@ class FSRomsHandler(FSHandler):
             for chunk in read_basic_file(file_path):
                 update_hashes(chunk)
 
-        return crc_c, md5_h, sha1_h
+        return crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h
 
-    def get_rom_hashes(self, rom: str, roms_path: str) -> dict[str, str]:
-        roms_file_path = f"{LIBRARY_BASE_PATH}/{roms_path}"
+    def get_rom_hashes(self, rom: Rom) -> tuple[FileHash, list[FileHash]]:
+        roms_file_path = f"{LIBRARY_BASE_PATH}/{rom.fs_path}"
 
-        crc_c = 0
-        md5_h = hashlib.md5(usedforsecurity=False)
-        sha1_h = hashlib.sha1(usedforsecurity=False)
+        rom_crc_c = 0
+        rom_md5_h = hashlib.md5(usedforsecurity=False)
+        rom_sha1_h = hashlib.sha1(usedforsecurity=False)
 
-        # Check if rom is a multi-part rom
-        if os.path.isdir(f"{roms_file_path}/{rom}"):
-            multi_files = os.listdir(f"{roms_file_path}/{rom}")
-            for file in self._exclude_files(multi_files, "multi_parts"):
-                path = Path(roms_file_path, rom, file)
-                # Pass the raw hashes to the next iteration
-                crc_c, md5_h, sha1_h = self._calculate_rom_hashes(
-                    path, crc_c, md5_h, sha1_h
+        files = rom.files
+        hashed_files = []
+
+        for file in files:
+            path = Path(roms_file_path, file.file_path, file.file_name)
+            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                self._calculate_rom_hashes(path, rom_crc_c, rom_md5_h, rom_sha1_h)
+            )
+            hashed_files.append(
+                FileHash(
+                    id=file.id,
+                    crc_hash=crc32_to_hex(crc_c),
+                    md5_hash=md5_h.hexdigest(),
+                    sha1_hash=sha1_h.hexdigest(),
                 )
-        else:
-            path = Path(roms_file_path, rom)
-            crc_c, md5_h, sha1_h = self._calculate_rom_hashes(
-                path, crc_c, md5_h, sha1_h
             )
 
-        return {
-            "crc_hash": crc32_to_hex(crc_c),
-            "md5_hash": md5_h.hexdigest(),
-            "sha1_hash": sha1_h.hexdigest(),
-        }
+        return (
+            FileHash(
+                id=rom.id,
+                crc_hash=crc32_to_hex(rom_crc_c),
+                md5_hash=rom_md5_h.hexdigest(),
+                sha1_hash=rom_sha1_h.hexdigest(),
+            ),
+            hashed_files,
+        )
 
     def get_roms(self, platform_fs_slug: str) -> list[FSRom]:
         """Gets all filesystem roms for a platform

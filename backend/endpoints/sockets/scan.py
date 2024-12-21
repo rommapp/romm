@@ -348,15 +348,24 @@ def _set_rom_hashes(rom_id: int):
         return
 
     try:
-        rom_hashes = fs_rom_handler.get_rom_hashes(rom.fs_name, rom.fs_path)
+        rom_hash, rom_file_hashes = fs_rom_handler.get_rom_hashes(rom)
         db_rom_handler.update_rom(
             rom_id,
             {
-                "crc_hash": rom_hashes["crc_hash"],
-                "md5_hash": rom_hashes["md5_hash"],
-                "sha1_hash": rom_hashes["sha1_hash"],
+                "crc_hash": rom_hash["crc_hash"],
+                "md5_hash": rom_hash["md5_hash"],
+                "sha1_hash": rom_hash["sha1_hash"],
             },
         )
+        for file_hash in rom_file_hashes:
+            db_rom_handler.update_rom_file(
+                file_hash["id"],
+                {
+                    "crc_hash": file_hash["crc_hash"],
+                    "md5_hash": file_hash["md5_hash"],
+                    "sha1_hash": file_hash["sha1_hash"],
+                },
+            )
     except zlib.error as e:
         # Set empty hashes if calculating them fails for corrupted files
         log.error(
