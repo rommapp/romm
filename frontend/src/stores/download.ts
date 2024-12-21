@@ -8,8 +8,7 @@ export default defineStore("download", {
   }),
 
   getters: {
-    filenamesToDownload: (state) =>
-      state.filesToDownload.map((file) => file.file_name),
+    fileIDsToDownload: (state) => state.filesToDownload.map((file) => file.id),
   },
 
   actions: {

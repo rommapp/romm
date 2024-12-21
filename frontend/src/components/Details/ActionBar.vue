@@ -37,7 +37,7 @@ async function copyDownloadLink(rom: DetailedRom) {
     encodeURI(
       getDownloadLink({
         rom,
-        files: downloadStore.filenamesToDownload,
+        fileIDs: downloadStore.fileIDsToDownload,
       }),
     );
   if (navigator.clipboard && window.isSecureContext) {
@@ -63,7 +63,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         @click="
           romApi.downloadRom({
             rom,
-            files: downloadStore.filenamesToDownload,
+            fileIDs: downloadStore.fileIDsToDownload,
           })
         "
       >

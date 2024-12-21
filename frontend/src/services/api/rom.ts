@@ -114,13 +114,13 @@ async function searchRom({
 // Used only for multi-file downloads
 async function downloadRom({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
   const a = document.createElement("a");
-  a.href = getDownloadLink({ rom, files });
+  a.href = getDownloadLink({ rom, fileIDs });
 
   document.body.appendChild(a);
   a.click();
