@@ -95,7 +95,7 @@ class FSResourcesHandler(FSHandler):
         return ""
 
     async def get_cover(
-        self, entity: Rom | Collection | None, overwrite: bool, url_cover: str = ""
+        self, entity: Rom | Collection | None, overwrite: bool, url_cover: str | None
     ) -> tuple[str, str]:
         if not entity:
             return "", ""
@@ -192,9 +192,9 @@ class FSResourcesHandler(FSHandler):
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
     async def get_rom_screenshots(
-        self, rom: Rom | None, url_screenshots: list
+        self, rom: Rom | None, url_screenshots: list | None
     ) -> list[str]:
-        if not rom:
+        if not rom or not url_screenshots:
             return []
 
         path_screenshots: list[str] = []

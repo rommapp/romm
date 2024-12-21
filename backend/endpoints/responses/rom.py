@@ -16,12 +16,12 @@ SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},
+    dict((k, NotRequired[v]) for k, v in get_type_hints(IGDBMetadata).items()),
     total=False,
 )
 RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
+    dict((k, NotRequired[v]) for k, v in get_type_hints(MobyMetadata).items()),
     total=False,
 )
 
@@ -179,16 +179,15 @@ class SimpleRomSchema(RomSchema):
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         user_id = request.user.id
-
-        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-
-        return cls.model_validate(db_rom)
+        rom = cls.model_validate(db_rom)
+        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
+        return rom
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
-        db_rom.rom_user = rom_user_schema_factory()
-
-        return cls.model_validate(db_rom)
+        rom = cls.model_validate(db_rom)
+        rom.rom_user = rom_user_schema_factory()
+        return rom
 
 
 class DetailedRomSchema(RomSchema):
@@ -205,24 +204,26 @@ class DetailedRomSchema(RomSchema):
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         user_id = request.user.id
 
-        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-        db_rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)
-        db_rom.user_saves = [
+        rom = cls.model_validate(db_rom)
+
+        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
+        rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)
+        rom.user_saves = [
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
-        db_rom.user_states = [
+        rom.user_states = [
             StateSchema.model_validate(s) for s in db_rom.states if s.user_id == user_id
         ]
-        db_rom.user_screenshots = [
+        rom.user_screenshots = [
             ScreenshotSchema.model_validate(s)
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        db_rom.user_collections = CollectionSchema.for_user(
+        rom.user_collections = CollectionSchema.for_user(
             user_id, db_rom.get_collections()
         )
 
-        return cls.model_validate(db_rom)
+        return rom
 
 
 class UserNotesSchema(TypedDict):

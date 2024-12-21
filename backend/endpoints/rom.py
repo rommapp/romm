@@ -187,16 +187,16 @@ async def head_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_check = files or [r["filename"] for r in rom.files]
+    files_to_check = files or [r.file_name for r in rom.files]
 
     if not rom.multi:
         # Serve the file directly in development mode for emulatorjs
         if DEV_MODE:
             return FileResponse(
                 path=rom_path,
-                filename=rom.file_name,
+                filename=rom.fs_name,
                 headers={
-                    "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                    "Content-Disposition": f'attachment; filename="{quote(rom.fs_name)}"',
                     "Content-Type": "application/octet-stream",
                     "Content-Length": str(rom.file_size_bytes),
                 },
@@ -204,7 +204,7 @@ async def head_rom_content(
 
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
-            filename=rom.file_name,
+            filename=rom.fs_name,
         )
 
     if len(files_to_check) == 1:
@@ -252,14 +252,14 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_download = sorted(files or [r["filename"] for r in rom.files])
+    files_to_download = sorted(files or [r.file_name for r in rom.files])
 
-    log.info(f"User {current_username} is downloading {rom.file_name}")
+    log.info(f"User {current_username} is downloading {rom.fs_name}")
 
     if not rom.multi:
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
-            filename=rom.file_name,
+            filename=rom.fs_name,
         )
 
     if len(files_to_download) == 1:
@@ -332,7 +332,7 @@ async def update_rom(
                 "igdb_id": None,
                 "sgdb_id": None,
                 "moby_id": None,
-                "name": rom.file_name,
+                "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
                 "path_screenshots": [],
@@ -346,20 +346,20 @@ async def update_rom(
             },
         )
 
-        return DetailedRomSchema.from_orm_with_request(
-            db_rom_handler.get_rom(id), request
-        )
+        rom = db_rom_handler.get_rom(id)
+        if not rom:
+            raise RomNotFoundInDatabaseException(id)
 
-    cleaned_data = {
-        "igdb_id": data.get("igdb_id", None),
-        "moby_id": data.get("moby_id", None),
+        return DetailedRomSchema.from_orm_with_request(rom, request)
+
+    cleaned_data: dict = {
+        "igdb_id": str(data.get("igdb_id", "")),
+        "moby_id": str(data.get("moby_id", "")),
     }
 
-    if (
-        cleaned_data.get("moby_id", "")
-        and int(cleaned_data.get("moby_id", "")) != rom.moby_id
-    ):
-        moby_rom = await meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
+    moby_id: str = cleaned_data["moby_id"]
+    if moby_id and int(moby_id) != rom.moby_id:
+        moby_rom = await meta_moby_handler.get_rom_by_id(int(moby_id))
         cleaned_data.update(moby_rom)
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
@@ -367,11 +367,9 @@ async def update_rom(
         )
         cleaned_data.update({"path_screenshots": path_screenshots})
 
-    if (
-        cleaned_data.get("igdb_id", "")
-        and int(cleaned_data.get("igdb_id", "")) != rom.igdb_id
-    ):
-        igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
+    igdb_id: str = cleaned_data["igdb_id"]
+    if igdb_id and int(igdb_id) != rom.igdb_id:
+        igdb_rom = await meta_igdb_handler.get_rom_by_id(int(igdb_id))
         cleaned_data.update(igdb_rom)
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
@@ -386,26 +384,26 @@ async def update_rom(
         }
     )
 
-    new_file_name = data.get("file_name", rom.file_name)
+    new_file_name = str(data.get("file_name", rom.fs_name))
 
     try:
         if rename_as_source:
-            new_file_name = rom.file_name.replace(
-                rom.file_name_no_tags or rom.file_name_no_ext,
-                data.get("name", rom.name),
+            new_file_name = rom.fs_name.replace(
+                rom.fs_name_no_tags or rom.fs_name_no_ext,
+                str(data.get("name", rom.name)),
             )
             new_file_name = sanitize_filename(new_file_name)
             fs_rom_handler.rename_file(
-                old_name=rom.file_name,
+                old_name=rom.fs_name,
                 new_name=new_file_name,
-                file_path=rom.file_path,
+                file_path=rom.fs_path,
             )
-        elif rom.file_name != new_file_name:
+        elif rom.fs_name != new_file_name:
             new_file_name = sanitize_filename(new_file_name)
             fs_rom_handler.rename_file(
-                old_name=rom.file_name,
+                old_name=rom.fs_name,
                 new_name=new_file_name,
-                file_path=rom.file_path,
+                file_path=rom.fs_path,
             )
     except RomAlreadyExistsException as exc:
         log.error(exc)
@@ -429,7 +427,7 @@ async def update_rom(
         cleaned_data.update(fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
     else:
-        if artwork:
+        if artwork is not None and artwork.filename is not None:
             file_ext = artwork.filename.split(".")[-1]
             (
                 path_cover_l,
@@ -459,15 +457,18 @@ async def update_rom(
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     overwrite=True,
                     entity=rom,
-                    url_cover=data.get("url_cover", ""),
+                    url_cover=str(data.get("url_cover", "")),
                 )
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
 
     db_rom_handler.update_rom(id, cleaned_data)
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
 
-    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
+    return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
 @protected_route(router.post, "/roms/delete", [Scope.ROMS_WRITE])
@@ -497,13 +498,15 @@ async def delete_roms(
         if not rom:
             raise RomNotFoundInDatabaseException(id)
 
-        log.info(f"Deleting {rom.file_name} from database")
+        log.info(f"Deleting {rom.fs_name} from database")
         db_rom_handler.delete_rom(id)
 
         # Update collections to remove the deleted rom
         collections = db_collection_handler.get_collections_by_rom_id(id)
         for collection in collections:
-            collection.roms = [rom_id for rom_id in collection.roms if rom_id != id]
+            collection.roms = set(
+                [rom_id for rom_id in collection.roms if rom_id != id]
+            )
             db_collection_handler.update_collection(
                 collection.id, {"roms": collection.roms}
             )
@@ -514,13 +517,13 @@ async def delete_roms(
             log.error(f"Couldn't find resources to delete for {rom.name}")
 
         if id in delete_from_fs:
-            log.info(f"Deleting {rom.file_name} from filesystem")
+            log.info(f"Deleting {rom.fs_name} from filesystem")
             try:
-                fs_rom_handler.remove_file(
-                    file_name=rom.file_name, file_path=rom.file_path
-                )
+                fs_rom_handler.remove_file(file_name=rom.fs_name, file_path=rom.fs_name)
             except FileNotFoundError as exc:
-                error = f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
+                error = (
+                    f"Rom file {rom.fs_name} not found for platform {rom.platform_slug}"
+                )
                 log.error(error)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=error
@@ -556,5 +559,6 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     ]
 
     cleaned_data = {field: data[field] for field in fields_to_update if field in data}
+    rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
 
-    return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
+    return RomUserSchema.model_validate(rom_user)

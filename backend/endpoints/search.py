@@ -5,8 +5,8 @@ from fastapi import HTTPException, Request, status
 from handler.auth.base_handler import Scope
 from handler.database import db_rom_handler
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
-from handler.metadata.igdb_handler import IGDB_API_ENABLED
-from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
+from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
@@ -43,11 +43,11 @@ async def search_rom(
             detail="No metadata providers enabled",
         )
 
-    rom = db_rom_handler.get_rom(rom_id)
+    rom = db_rom_handler.get_rom(int(rom_id))
     if not rom:
         return []
 
-    search_term = search_term or rom.file_name_no_tags
+    search_term = search_term or rom.fs_name_no_tags
     if not search_term:
         return []
 
@@ -57,7 +57,11 @@ async def search_rom(
     matched_roms: list = []
 
     log.info(f"Searching by {search_by.lower()}: {search_term}")
-    log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.file_name}"))
+    log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.fs_name}"))
+
+    igdb_matched_roms: list[IGDBRom] = []
+    moby_matched_roms: list[MobyGamesRom] = []
+
     if search_by.lower() == "id":
         try:
             igdb_matched_roms = await meta_igdb_handler.get_matched_roms_by_id(
@@ -73,19 +77,20 @@ async def search_rom(
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             ) from exc
     elif search_by.lower() == "name":
+        main_platform_igdb_id = await _get_main_platform_igdb_id(rom.platform)
         igdb_matched_roms = await meta_igdb_handler.get_matched_roms_by_name(
-            search_term, (await _get_main_platform_igdb_id(rom.platform))
+            search_term, main_platform_igdb_id or rom.platform.igdb_id
         )
         moby_matched_roms = await meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
 
     merged_dict = {
-        item["name"]: {**item, "igdb_url_cover": item.pop("url_cover", "")}
+        item["name"]: {**item, "igdb_url_cover": item.pop("url_cover", "")}  # type: ignore
         for item in igdb_matched_roms
     }
     for item in moby_matched_roms:
-        merged_dict[item["name"]] = {
+        merged_dict[item["name"]] = {  # type: ignore
             **item,
             "moby_url_cover": item.pop("url_cover", ""),
             **merged_dict.get(item.get("name", ""), {}),

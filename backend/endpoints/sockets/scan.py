@@ -143,7 +143,9 @@ async def scan_platforms(
 
     try:
         platform_list = [
-            db_platform_handler.get_platform(s).fs_slug for s in platform_ids
+            platform.fs_slug
+            for s in platform_ids
+            if (platform := db_platform_handler.get_platform(s)) is not None
         ] or fs_platforms
 
         if len(platform_list) == 0:
@@ -271,14 +273,14 @@ async def _identify_platform(
     for fs_roms_batch in batched(fs_roms, 200):
         rom_by_filename_map = db_rom_handler.get_roms_by_filename(
             platform_id=platform.id,
-            file_names={fs_rom["file_name"] for fs_rom in fs_roms_batch},
+            file_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
 
         for fs_rom in fs_roms_batch:
             scan_stats += await _identify_rom(
                 platform=platform,
                 fs_rom=fs_rom,
-                rom=rom_by_filename_map.get(fs_rom["file_name"]),
+                rom=rom_by_filename_map.get(fs_rom["fs_name"]),
                 scan_type=scan_type,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
@@ -290,12 +292,12 @@ async def _identify_platform(
     # the folder structure is not correct or the drive is not mounted
     if len(fs_roms) > 0:
         purged_roms = db_rom_handler.purge_roms(
-            platform.id, [rom["file_name"] for rom in fs_roms]
+            platform.id, [rom["fs_name"] for rom in fs_roms]
         )
         if len(purged_roms) > 0:
             log.info("Purging roms not found in the filesystem:")
             for r in purged_roms:
-                log.info(f" - {r.file_name}")
+                log.info(f" - {r.fs_name}")
 
     # Same protection for firmware
     if len(fs_firmware) > 0:
@@ -346,7 +348,7 @@ def _set_rom_hashes(rom_id: int):
         return
 
     try:
-        rom_hashes = fs_rom_handler.get_rom_hashes(rom.file_name, rom.file_path)
+        rom_hashes = fs_rom_handler.get_rom_hashes(rom.fs_name, rom.fs_path)
         db_rom_handler.update_rom(
             rom_id,
             {
@@ -358,7 +360,7 @@ def _set_rom_hashes(rom_id: int):
     except zlib.error as e:
         # Set empty hashes if calculating them fails for corrupted files
         log.error(
-            f"Hashes of {rom.file_name} couldn't be calculated: {hl(str(e), color=RED)}"
+            f"Hashes of {rom.fs_name} couldn't be calculated: {hl(str(e), color=RED)}"
         )
         db_rom_handler.update_rom(
             rom_id,
@@ -387,12 +389,12 @@ async def _identify_rom(
 
     if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
         if rom and (
-            rom.file_name != fs_rom["file_name"]
+            rom.fs_name != fs_rom["fs_name"]
             or rom.multi != fs_rom["multi"]
             or rom.files != fs_rom["files"]
         ):
             # Just to update the filesystem data
-            rom.file_name = fs_rom["file_name"]
+            rom.fs_name = fs_rom["fs_name"]
             rom.multi = fs_rom["multi"]
             rom.files = fs_rom["files"]
             db_rom_handler.add_rom(rom)
