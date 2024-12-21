@@ -166,11 +166,11 @@ class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         pass
 
-    def remove_file(self, fs_name: str, file_path: str) -> None:
+    def remove_from_fs(self, fs_path: str, fs_name: str) -> None:
         try:
-            os.remove(f"{LIBRARY_BASE_PATH}/{file_path}/{fs_name}")
+            os.remove(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}")
         except IsADirectoryError:
-            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{file_path}/{fs_name}")
+            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}")
 
     def parse_tags(self, fs_name: str) -> tuple:
         rev = ""
@@ -227,11 +227,14 @@ class FSRomsHandler(FSHandler):
 
         return [f for f in roms if f not in filtered_files]
 
-    def _build_rom_file(self, path: Path) -> RomFile:
+    def _build_rom_file(self, file_path: Path, file_name: str) -> RomFile:
+        full_path = Path(file_path, file_name)
+
         return RomFile(
-            filename=path.name,
-            size=os.stat(path).st_size,
-            last_modified=os.path.getmtime(path),
+            file_name=file_name,
+            file_path=file_path.name,
+            file_size_bytes=os.stat(full_path).st_size,
+            last_modified=os.path.getmtime(full_path),
         )
 
     def get_rom_files(self, rom: str, roms_path: str) -> list[RomFile]:
@@ -241,11 +244,11 @@ class FSRomsHandler(FSHandler):
         if os.path.isdir(f"{roms_path}/{rom}"):
             multi_files = os.listdir(f"{roms_path}/{rom}")
             for file in self._exclude_files(multi_files, "multi_parts"):
-                path = Path(roms_path, rom, file)
-                rom_files.append(self._build_rom_file(path))
+                path = Path(roms_path, rom)
+                rom_files.append(self._build_rom_file(path, file))
         else:
-            path = Path(roms_path, rom)
-            rom_files.append(self._build_rom_file(path))
+            path = Path(roms_path)
+            rom_files.append(self._build_rom_file(path, rom))
 
         return rom_files
 
@@ -360,7 +363,7 @@ class FSRomsHandler(FSHandler):
             key=lambda rom: rom["fs_name"],
         )
 
-    def file_exists(self, path: str, fs_name: str) -> bool:
+    def file_exists(self, fs_path: str, fs_name: str) -> bool:
         """Check if file exists in filesystem
 
         Args:
@@ -369,16 +372,16 @@ class FSRomsHandler(FSHandler):
         Returns
             True if file exists in filesystem else False
         """
-        return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{path}/{fs_name}"))
+        return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}"))
 
-    def rename_file(self, old_name: str, new_name: str, file_path: str) -> None:
+    def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
         if new_name != old_name:
-            if self.file_exists(path=file_path, fs_name=new_name):
+            if self.file_exists(fs_path=fs_path, fs_name=new_name):
                 raise RomAlreadyExistsException(new_name)
 
             os.rename(
-                f"{LIBRARY_BASE_PATH}/{file_path}/{old_name}",
-                f"{LIBRARY_BASE_PATH}/{file_path}/{new_name}",
+                f"{LIBRARY_BASE_PATH}/{fs_path}/{old_name}",
+                f"{LIBRARY_BASE_PATH}/{fs_path}/{new_name}",
             )
 
     def build_upload_file_path(self, fs_slug: str) -> str:

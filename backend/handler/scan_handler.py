@@ -226,7 +226,6 @@ async def scan_rom(
             ),
             "fs_extension": fs_rom_handler.parse_file_extension(rom_attrs["fs_name"]),
             "fs_size_bytes": filesize,
-            "multi": rom_attrs["multi"],
             "regions": regs,
             "revision": rev,
             "languages": langs,
