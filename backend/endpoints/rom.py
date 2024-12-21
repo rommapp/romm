@@ -64,7 +64,7 @@ async def add_rom(request: Request):
         ) from None
 
     platform_fs_slug = db_platform.fs_slug
-    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
+    roms_path = fs_rom_handler.build_upload_fs_path(platform_fs_slug)
     log.info(f"Uploading file to {platform_fs_slug}")
 
     file_location = Path(f"{roms_path}/{filename}")

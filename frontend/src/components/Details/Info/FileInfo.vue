@@ -92,8 +92,8 @@ watch(
           <v-select
             v-model="downloadStore.filesToDownload"
             :label="rom.fs_name"
-            item-title="fs_name"
-            :items="rom.files.map((f) => f.file_name)"
+            :items="rom.files"
+            item-title="file_name"
             rounded="0"
             density="compact"
             variant="outlined"
@@ -102,7 +102,8 @@ watch(
             hide-details
             clearable
             chips
-          />
+          >
+          </v-select>
         </v-col>
       </v-row>
       <v-row no-gutters class="align-center my-3">
