@@ -47,12 +47,13 @@ class DBFirmwareHandler(DBBaseHandler):
 
     @begin_session
     def update_firmware(self, id: int, data: dict, session: Session = None) -> Firmware:
-        return session.scalar(
+        session.execute(
             update(Firmware)
             .where(Firmware.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        return session.query(Firmware).filter_by(id=id).one()
 
     @begin_session
     def delete_firmware(self, id: int, session: Session = None) -> None:

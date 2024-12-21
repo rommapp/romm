@@ -29,12 +29,13 @@ class DBStatesHandler(DBBaseHandler):
 
     @begin_session
     def update_state(self, id: int, data: dict, session: Session = None) -> State:
-        return session.scalar(
+        session.execute(
             update(State)
             .where(State.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        return session.query(State).filter_by(id=id).one()
 
     @begin_session
     def delete_state(self, id: int, session: Session = None) -> None:

@@ -2,7 +2,6 @@
 import type { SimpleRom } from "@/stores/roms";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import { formatBytes } from "@/utils";
-import { useDisplay } from "vuetify";
 
 // Props
 withDefaults(
@@ -18,7 +17,7 @@ withDefaults(
     withAvatar: true,
     withName: true,
     withFilename: false,
-    withSize: true,
+    withSize: false,
     withLink: false,
   },
 );

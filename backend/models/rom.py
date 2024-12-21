@@ -105,8 +105,7 @@ class Rom(BaseModel):
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
     )
-
-    files: Mapped[list[RomFile]] = relationship(back_populates="rom")
+    files: Mapped[list[RomFile]] = relationship(back_populates="rom", lazy="immediate")
     saves: Mapped[list[Save]] = relationship(back_populates="rom")
     states: Mapped[list[State]] = relationship(back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")

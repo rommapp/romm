@@ -33,12 +33,13 @@ class DBScreenshotsHandler(DBBaseHandler):
     def update_screenshot(
         self, id: int, data: dict, session: Session = None
     ) -> Screenshot:
-        return session.scalar(
+        session.execute(
             update(Screenshot)
             .where(Screenshot.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        return session.query(Screenshot).filter_by(id=id).one()
 
     @begin_session
     def delete_screenshot(self, id: int, session: Session = None) -> None:

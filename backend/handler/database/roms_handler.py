@@ -193,12 +193,13 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:
-        return session.scalar(
+        session.execute(
             update(Rom)
             .where(Rom.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        return session.query(Rom).filter_by(id=id).one()
 
     @begin_session
     def delete_rom(self, id: int, session: Session = None) -> None:
@@ -257,15 +258,9 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_user = self.get_rom_user_by_id(id)
-        if not rom_user:
-            raise ValueError(f"RomUser with id {id} not found")
-
+        rom_user = session.query(RomUser).filter_by(id=id).one()
         if data.get("is_main_sibling", False):
-            rom = self.get_rom(rom_user.rom_id)
-            if not rom:
-                raise ValueError(f"Rom with id {rom_user.rom_id} not found")
-
+            rom = session.query(Rom).filter_by(id=rom_user.rom_id).one()
             session.execute(
                 update(RomUser)
                 .where(
@@ -277,11 +272,7 @@ class DBRomsHandler(DBBaseHandler):
                 .values(is_main_sibling=False)
             )
 
-        rom_user = self.get_rom_user_by_id(id)
-        if not rom_user:
-            raise ValueError(f"RomUser with id {id} not found")
-
-        return rom_user
+        return session.query(RomUser).filter_by(id=id).one()
 
     @begin_session
     def add_rom_file(self, rom_file: RomFile, session: Session = None) -> RomFile:
@@ -312,8 +303,4 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_file = self.get_rom_file_by_id(id)
-        if not rom_file:
-            raise ValueError(f"RomFile with id {id} not found")
-
-        return rom_file
+        return session.query(RomFile).filter_by(id=id).one()

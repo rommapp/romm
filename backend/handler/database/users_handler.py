@@ -29,12 +29,13 @@ class DBUsersHandler(DBBaseHandler):
 
     @begin_session
     def update_user(self, id: int, data: dict, session: Session = None) -> User:
-        return session.scalar(
+        session.execute(
             update(User)
             .where(User.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        return session.query(User).filter_by(id=id).one()
 
     @begin_session
     def get_users(self, session: Session = None) -> Sequence[User]:

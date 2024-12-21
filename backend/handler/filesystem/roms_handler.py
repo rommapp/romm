@@ -7,9 +7,8 @@ import shutil
 import tarfile
 import zipfile
 from collections.abc import Callable, Iterator
-from hashlib import _Hash
 from pathlib import Path
-from typing import Final, Literal, TypedDict
+from typing import Any, Final, Literal, TypedDict
 
 import magic
 import py7zr
@@ -264,9 +263,9 @@ class FSRomsHandler(FSHandler):
         self,
         file_path: Path,
         rom_crc_c: int,
-        rom_md5_h: _Hash,
-        rom_sha1_h: _Hash,
-    ) -> tuple[int, int, _Hash, _Hash, _Hash, _Hash]:
+        rom_md5_h: Any,
+        rom_sha1_h: Any,
+    ) -> tuple[int, int, Any, Any, Any, Any]:
         mime = magic.Magic(mime=True)
         file_type = mime.from_file(file_path)
         extension = Path(file_path).suffix.lower()

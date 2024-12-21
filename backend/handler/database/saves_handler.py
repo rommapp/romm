@@ -29,12 +29,13 @@ class DBSavesHandler(DBBaseHandler):
 
     @begin_session
     def update_save(self, id: int, data: dict, session: Session = None) -> Save:
-        return session.scalar(
+        session.execute(
             update(Save)
             .where(Save.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        return session.query(Save).filter_by(id=id).one()
 
     @begin_session
     def delete_save(self, id: int, session: Session = None) -> None:

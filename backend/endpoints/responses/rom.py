@@ -183,15 +183,13 @@ class SimpleRomSchema(RomSchema):
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         user_id = request.user.id
-        rom = cls.model_validate(db_rom)
-        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-        return rom
+        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
+        return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
-        rom = cls.model_validate(db_rom)
-        rom.rom_user = rom_user_schema_factory()
-        return rom
+        db_rom.rom_user = rom_user_schema_factory()  # type: ignore
+        return cls.model_validate(db_rom)
 
 
 class DetailedRomSchema(RomSchema):
@@ -208,26 +206,24 @@ class DetailedRomSchema(RomSchema):
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         user_id = request.user.id
 
-        rom = cls.model_validate(db_rom)
-
-        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-        rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)
-        rom.user_saves = [
+        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
+        db_rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)  # type: ignore
+        db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
-        rom.user_states = [
+        db_rom.user_states = [  # type: ignore
             StateSchema.model_validate(s) for s in db_rom.states if s.user_id == user_id
         ]
-        rom.user_screenshots = [
+        db_rom.user_screenshots = [  # type: ignore
             ScreenshotSchema.model_validate(s)
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.user_collections = CollectionSchema.for_user(
+        db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
             user_id, [c for c in db_rom.get_collections()]
         )
 
-        return rom
+        return cls.model_validate(db_rom)
 
 
 class UserNotesSchema(TypedDict):
