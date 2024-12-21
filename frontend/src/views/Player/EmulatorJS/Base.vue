@@ -134,7 +134,7 @@ onMounted(async () => {
             src="/assets/emulatorjs/powered_by_emulatorjs.png"
           />
           <v-divider class="my-4" />
-          <rom-list-item :rom="rom" with-filename />
+          <rom-list-item :rom="rom" with-filename with-size />
           <v-divider class="my-4" />
           <v-select
             v-if="supportedCores.length > 1"

@@ -126,7 +126,7 @@ async function unmatchRom() {
 }
 
 async function updateRom() {
-  if (!rom.value?.file_name) {
+  if (!rom.value?.fs_name) {
     emitter?.emit("snackbarShow", {
       msg: "Cannot save: file name is required",
       icon: "mdi-close-circle",
@@ -176,7 +176,7 @@ function closeDialog() {
           <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
-                v-model="rom.file_name"
+                v-model="rom.fs_name"
                 class="py-2"
                 :rules="[(value: string) => !!value]"
                 :label="rom.multi ? t('rom.foldername') : t('rom.filename')"
@@ -190,7 +190,7 @@ function closeDialog() {
                       mdi-folder-file-outline
                     </v-icon>
                     <span>
-                      /romm/library/{{ rom.file_path }}/{{ rom.file_name }}
+                      /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
                     </span>
                   </v-label>
                 </template>

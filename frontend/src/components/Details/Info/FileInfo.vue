@@ -81,7 +81,7 @@ watch(
           <span>{{ t("rom.file") }}</span>
         </v-col>
         <v-col>
-          <span class="text-body-1">{{ rom.file_name }}</span>
+          <span class="text-body-1">{{ rom.fs_name }}</span>
         </v-col>
       </v-row>
       <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
@@ -91,9 +91,9 @@ watch(
         <v-col>
           <v-select
             v-model="downloadStore.filesToDownload"
-            :label="rom.file_name"
-            item-title="file_name"
-            :items="rom.files.map((f) => f.filename)"
+            :label="rom.fs_name"
+            item-title="fs_name"
+            :items="rom.files.map((f) => f.file_name)"
             rounded="0"
             density="compact"
             variant="outlined"
@@ -114,9 +114,7 @@ watch(
             <v-col cols="12">
               <v-chip size="small" class="mr-2 px-0" label>
                 <v-chip label>{{ t("rom.size") }}</v-chip
-                ><span class="px-2">{{
-                  formatBytes(rom.file_size_bytes)
-                }}</span>
+                ><span class="px-2">{{ formatBytes(rom.fs_size_bytes) }}</span>
               </v-chip>
             </v-col>
             <v-col

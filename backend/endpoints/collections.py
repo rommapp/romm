@@ -57,7 +57,7 @@ async def add_collection(
 
     _added_collection = db_collection_handler.add_collection(Collection(**cleaned_data))
 
-    if artwork is not None:
+    if artwork is not None and artwork.filename is not None:
         file_ext = artwork.filename.split(".")[-1]
         (
             path_cover_l,
@@ -82,14 +82,17 @@ async def add_collection(
 
     _added_collection.path_cover_s = path_cover_s
     _added_collection.path_cover_l = path_cover_l
+
     # Update the collection with the cover path and update database
-    return db_collection_handler.update_collection(
+    created_collection = db_collection_handler.update_collection(
         _added_collection.id,
         {
             c: getattr(_added_collection, c)
             for c in inspect(_added_collection).mapper.column_attrs.keys()
         },
     )
+
+    return CollectionSchema.model_validate(created_collection)
 
 
 @protected_route(router.get, "/collections", [Scope.COLLECTIONS_READ])
@@ -105,7 +108,7 @@ def get_collections(request: Request) -> list[CollectionSchema]:
     """
 
     collections = db_collection_handler.get_collections()
-    return CollectionSchema.for_user(request.user.id, collections)
+    return CollectionSchema.for_user(request.user.id, [c for c in collections])
 
 
 @protected_route(router.get, "/collections/{id}", [Scope.COLLECTIONS_READ])
@@ -125,7 +128,7 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    return collection
+    return CollectionSchema.model_validate(collection)
 
 
 @protected_route(router.put, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
@@ -148,6 +151,8 @@ async def update_collection(
     data = await request.form()
 
     collection = db_collection_handler.get_collection(id)
+    if not collection:
+        raise CollectionNotFoundInDatabaseException(id)
 
     if collection.user_id != request.user.id:
         raise CollectionPermissionError(id)
@@ -156,7 +161,7 @@ async def update_collection(
         raise CollectionNotFoundInDatabaseException(id)
 
     try:
-        roms = json.loads(data["roms"])
+        roms = json.loads(data["roms"])  # type: ignore
     except json.JSONDecodeError as e:
         raise ValueError("Invalid list for roms field in update collection") from e
     except KeyError:
@@ -174,7 +179,7 @@ async def update_collection(
         cleaned_data.update(fs_resource_handler.remove_cover(collection))
         cleaned_data.update({"url_cover": ""})
     else:
-        if artwork is not None:
+        if artwork is not None and artwork.filename is not None:
             file_ext = artwork.filename.split(".")[-1]
             (
                 path_cover_l,
@@ -205,13 +210,14 @@ async def update_collection(
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     overwrite=True,
                     entity=collection,
-                    url_cover=data.get("url_cover", ""),
+                    url_cover=data.get("url_cover", ""),  # type: ignore
                 )
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
 
-    return db_collection_handler.update_collection(id, cleaned_data)
+    updated_collection = db_collection_handler.update_collection(id, cleaned_data)
+    return CollectionSchema.model_validate(updated_collection)
 
 
 @protected_route(router.delete, "/collections/{id}", [Scope.COLLECTIONS_WRITE])

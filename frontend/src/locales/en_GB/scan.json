@@ -12,6 +12,8 @@
   "quick-scan-desc": "Scan new files only",
   "unidentified-games": "Unidentified games",
   "unidentified-games-desc": "Scan games with no metadata match",
+  "hashes": "Recalculate hashes",
+  "hashes-desc": "Recalculates hashes for all files",
   "partial-metadata": "Partial metadata",
   "partial-metadata-desc": "Scan games with partial metadata matches",
   "complete-rescan": "Complete rescan",

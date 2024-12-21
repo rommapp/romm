@@ -28,25 +28,28 @@ def add_firmware(
         files (list[UploadFile], optional): List of files to upload
 
     Raises:
-        HTTPException: No files were uploaded
+        HTTPException
 
     Returns:
         AddFirmwareResponse: Standard message response
     """
 
     db_platform = db_platform_handler.get_platform(platform_id)
+    if not db_platform:
+        error = f"Platform with ID {platform_id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
     log.info(f"Uploading firmware to {db_platform.fs_slug}")
-    if files is None:
-        log.error("No files were uploaded")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No files were uploaded",
-        )
 
     uploaded_firmware = []
     firmware_path = fs_firmware_handler.build_upload_file_path(db_platform.fs_slug)
 
     for file in files:
+        if not file.filename:
+            log.warning("Empty filename, skipping")
+            continue
+
         fs_firmware_handler.write_file(file=file, path=firmware_path)
 
         db_firmware = db_firmware_handler.get_firmware_by_filename(
@@ -70,10 +73,14 @@ def add_firmware(
         uploaded_firmware.append(scanned_firmware)
 
     db_platform = db_platform_handler.get_platform(platform_id)
+    if not db_platform:
+        error = f"Platform with ID {platform_id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     return {
         "uploaded": len(files),
-        "firmware": db_platform.firmware,
+        "firmware": [FirmwareSchema.model_validate(f) for f in db_platform.firmware],
     }
 
 
@@ -90,7 +97,10 @@ def get_platform_firmware(
     Returns:
         list[FirmwareSchema]: Firmware stored in the database
     """
-    return db_firmware_handler.list_firmware(platform_id=platform_id)
+    return [
+        FirmwareSchema.model_validate(f)
+        for f in db_firmware_handler.list_firmware(platform_id=platform_id)
+    ]
 
 
 @protected_route(
@@ -108,7 +118,13 @@ def get_firmware(request: Request, id: int) -> FirmwareSchema:
     Returns:
         FirmwareSchema: Firmware stored in the database
     """
-    return FirmwareSchema(**db_firmware_handler.get_firmware(id))
+    firmware = db_firmware_handler.get_firmware(id)
+    if not firmware:
+        error = f"Firmware with ID {id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    return FirmwareSchema.model_validate(firmware)
 
 
 @protected_route(
@@ -129,6 +145,11 @@ def head_firmware_content(request: Request, id: int, file_name: str):
     """
 
     firmware = db_firmware_handler.get_firmware(id)
+    if not firmware:
+        error = f"Firmware with ID {id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
     firmware_path = f"{LIBRARY_BASE_PATH}/{firmware.full_path}"
 
     return FileResponse(
@@ -162,6 +183,11 @@ def get_firmware_content(
     """
 
     firmware = db_firmware_handler.get_firmware(id)
+    if not firmware:
+        error = f"Firmware with ID {id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
     firmware_path = f"{LIBRARY_BASE_PATH}/{firmware.full_path}"
 
     return FileResponse(path=firmware_path, filename=firmware.file_name)
