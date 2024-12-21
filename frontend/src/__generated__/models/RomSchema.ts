@@ -20,6 +20,7 @@ export type RomSchema = {
     fs_name_no_ext: string;
     fs_extension: string;
     fs_path: string;
+    fs_size_bytes: number;
     name: (string | null);
     slug: (string | null);
     summary: (string | null);
@@ -47,7 +48,6 @@ export type RomSchema = {
     sha1_hash: (string | null);
     multi: boolean;
     files: Array<RomFileSchema>;
-    file_size_bytes: number;
     full_path: string;
     created_at: string;
     updated_at: string;

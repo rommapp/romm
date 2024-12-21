@@ -166,7 +166,7 @@ async def tinfoil_index_feed(
                 url=str(
                     request.url_for("get_rom_content", id=rom.id, file_name=rom.fs_name)
                 ),
-                size=rom.file_size_bytes,
+                size=rom.fs_size_bytes,
             )
             for rom in roms
         ],

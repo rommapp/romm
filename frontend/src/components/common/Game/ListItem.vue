@@ -48,7 +48,7 @@ withDefaults(
       <v-row no-gutters>
         <v-col v-if="withSize" cols="auto">
           <v-chip size="x-small" label>{{
-            formatBytes(rom.file_size_bytes)
+            formatBytes(rom.fs_size_bytes)
           }}</v-chip>
         </v-col>
         <v-col>
