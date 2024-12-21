@@ -2,7 +2,6 @@ import binascii
 from base64 import b64encode
 from io import BytesIO
 from shutil import rmtree
-from typing import Annotated
 from urllib.parse import quote
 
 from anyio import Path
@@ -17,7 +16,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.rom import DetailedRomSchema, RomUserSchema, SimpleRomSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import HTTPException, Query, Request, UploadFile, status
+from fastapi import HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from handler.auth.base_handler import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
@@ -168,14 +167,15 @@ async def head_rom_content(
     request: Request,
     id: int,
     file_name: str,
-    files: Annotated[list[str] | None, Query()] = None,
+    file_ids: list[int] | None = None,
 ):
     """Head rom content endpoint
 
     Args:
         request (Request): Fastapi Request object
         id (int): Rom internal id
-        file_name (str): Required due to a bug in emulatorjs
+        file_name (str): File name to download
+        file_ids (list[int]): List of file ids to download for multi-part roms
 
     Returns:
         FileResponse: Returns the response with headers
@@ -186,12 +186,14 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_check = files or [r.file_name for r in rom.files]
+    file_ids = file_ids or []
+    files = db_rom_handler.get_rom_files(rom.id)
+    files = [f for f in files if f.id in file_ids or not file_ids]
 
     if not rom.multi:
         # Serve the file directly in development mode for emulatorjs
         if DEV_MODE:
+            rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
             return FileResponse(
                 path=rom_path,
                 filename=rom.fs_name,
@@ -207,9 +209,9 @@ async def head_rom_content(
             filename=rom.fs_name,
         )
 
-    if len(files_to_check) == 1:
+    if len(files) == 1:
         return FileRedirectResponse(
-            download_path=Path(f"/library/{rom.full_path}/{files_to_check[0]}"),
+            download_path=Path(f"/library/{files[0].full_path}"),
         )
 
     return Response(
@@ -229,14 +231,14 @@ async def get_rom_content(
     request: Request,
     id: int,
     file_name: str,
-    files: Annotated[list[str] | None, Query()] = None,
+    file_ids: list[str] | None = None,
 ):
     """Download rom endpoint (one single file or multiple zipped files for multi-part roms)
 
     Args:
         request (Request): Fastapi Request object
         id (int): Rom internal id
-        files (Annotated[list[str]  |  None, Query, optional): List of files to download for multi-part roms. Defaults to None.
+        file_ids (list[str]): List of file ids to download for multi-part roms
 
     Returns:
         FileResponse: Returns one file for single file roms
@@ -251,8 +253,9 @@ async def get_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_download = sorted(files or [r.file_name for r in rom.files])
+    file_ids = file_ids or []
+    files = db_rom_handler.get_rom_files(rom.id)
+    files = [f for f in files if f.id in file_ids or not file_ids]
 
     log.info(f"User {current_username} is downloading {rom.fs_name}")
 
@@ -262,23 +265,22 @@ async def get_rom_content(
             filename=rom.fs_name,
         )
 
-    if len(files_to_download) == 1:
+    if len(files) == 1:
         return FileRedirectResponse(
-            download_path=Path(f"/library/{rom.full_path}/{files_to_download[0]}"),
+            download_path=Path(f"/library/{files[0].full_path}"),
         )
 
     content_lines = [
         ZipContentLine(
-            # TODO: Use calculated CRC-32 if available.
-            crc32=None,
-            size_bytes=(await Path(f"{rom_path}/{f}").stat()).st_size,
-            encoded_location=quote(f"/library-zip/{rom.full_path}/{f}"),
-            filename=f,
+            crc32=f.crc_hash,
+            size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
+            encoded_location=quote(f"/library-zip/{f.full_path}"),
+            filename=f.file_name,
         )
-        for f in files_to_download
+        for f in files
     ]
 
-    m3u_encoded_content = "\n".join([f for f in files_to_download]).encode()
+    m3u_encoded_content = "\n".join([f.file_name for f in files]).encode()
     m3u_base64_content = b64encode(m3u_encoded_content).decode()
     m3u_line = ZipContentLine(
         crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),

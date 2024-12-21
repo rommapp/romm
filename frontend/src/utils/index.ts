@@ -88,14 +88,14 @@ export function convertCronExperssion(expression: string) {
  */
 export function getDownloadLink({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
   const queryParams = new URLSearchParams();
-  if (files.length) {
-    files.forEach((file) => queryParams.append("files", file));
+  if (fileIDs.length > 0) {
+    fileIDs.forEach((fileId) => queryParams.append("files", fileId.toString()));
   }
   return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
 }

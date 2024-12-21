@@ -44,6 +44,10 @@ class RomFile(BaseModel):
 
     rom: Mapped[Rom] = relationship(lazy="joined")
 
+    @cached_property
+    def full_path(self) -> str:
+        return f"{self.file_path}/{self.file_name}"
+
 
 class Rom(BaseModel):
     __tablename__ = "roms"
