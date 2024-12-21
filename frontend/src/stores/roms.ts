@@ -174,7 +174,7 @@ export default defineStore("roms", {
           .filter(
             (rom) =>
               rom.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-              rom.file_name?.toLowerCase().includes(searchFilter.toLowerCase()),
+              rom.fs_name?.toLowerCase().includes(searchFilter.toLowerCase()),
           )
           .map((roms) => roms.id),
       );

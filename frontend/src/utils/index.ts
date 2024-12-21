@@ -97,9 +97,7 @@ export function getDownloadLink({
   if (files.length) {
     files.forEach((file) => queryParams.append("files", file));
   }
-  return `/api/roms/${rom.id}/content/${
-    rom.file_name
-  }?${queryParams.toString()}`;
+  return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
 }
 
 /**

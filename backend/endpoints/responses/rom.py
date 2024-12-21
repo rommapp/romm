@@ -149,6 +149,10 @@ class RomSchema(BaseModel):
     languages: list[str]
     tags: list[str]
 
+    crc_hash: str | None
+    md5_hash: str | None
+    sha1_hash: str | None
+
     multi: bool
     files: list[RomFileSchema]
     file_size_bytes: int

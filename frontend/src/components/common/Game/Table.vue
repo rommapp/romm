@@ -160,9 +160,7 @@ onMounted(() => {
             <v-col>{{ item.name }}</v-col></v-row
           >
           <v-row no-gutters
-            ><v-col class="text-romm-accent-1">{{
-              item.file_name
-            }}</v-col></v-row
+            ><v-col class="text-romm-accent-1">{{ item.fs_name }}</v-col></v-row
           >
           <template #append>
             <v-chip

@@ -45,7 +45,7 @@ function onPlay() {
       backgroundColor: "#0D1117",
       openUrlMode: "confirm",
       publicPath: "/assets/ruffle/",
-      url: `/api/roms/${rom.value?.id}/content/${rom.value?.file_name}`,
+      url: `/api/roms/${rom.value?.id}/content/${rom.value?.fs_name}`,
     });
     player.style.width = "100%";
     player.style.height = "100%";
