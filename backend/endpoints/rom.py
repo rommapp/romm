@@ -198,7 +198,7 @@ async def head_rom_content(
                 headers={
                     "Content-Disposition": f'attachment; filename="{quote(rom.fs_name)}"',
                     "Content-Type": "application/octet-stream",
-                    "Content-Length": str(rom.file_size_bytes),
+                    "Content-Length": str(rom.fs_size_bytes),
                 },
             )
 

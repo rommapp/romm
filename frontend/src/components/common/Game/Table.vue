@@ -54,7 +54,7 @@ const HEADERS = [
     title: "Size",
     align: "start",
     sortable: true,
-    key: "file_size_bytes",
+    key: "fs_size_bytes",
   },
   {
     title: "Reg",
@@ -181,9 +181,9 @@ onMounted(() => {
     <template #item.is_fav="{ item }">
       <fav-btn :rom="item" />
     </template>
-    <template #item.file_size_bytes="{ item }">
+    <template #item.fs_size_bytes="{ item }">
       <v-chip size="x-small" label>{{
-        formatBytes(item.file_size_bytes)
+        formatBytes(item.fs_size_bytes)
       }}</v-chip>
     </template>
     <template #item.regions="{ item }">

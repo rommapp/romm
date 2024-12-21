@@ -121,6 +121,7 @@ class RomSchema(BaseModel):
     fs_name_no_ext: str
     fs_extension: str
     fs_path: str
+    fs_size_bytes: int
 
     name: str | None
     slug: str | None
@@ -155,7 +156,6 @@ class RomSchema(BaseModel):
 
     multi: bool
     files: list[RomFileSchema]
-    file_size_bytes: int
     full_path: str
     created_at: datetime
     updated_at: datetime

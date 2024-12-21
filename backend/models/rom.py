@@ -146,7 +146,7 @@ class Rom(BaseModel):
         return len(self.files) > 1
 
     @cached_property
-    def file_size_bytes(self) -> int:
+    def fs_size_bytes(self) -> int:
         return sum(f.file_size_bytes for f in self.files)
 
     def get_collections(self) -> Sequence[Collection]:

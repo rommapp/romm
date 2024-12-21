@@ -114,9 +114,7 @@ watch(
             <v-col cols="12">
               <v-chip size="small" class="mr-2 px-0" label>
                 <v-chip label>{{ t("rom.size") }}</v-chip
-                ><span class="px-2">{{
-                  formatBytes(rom.file_size_bytes)
-                }}</span>
+                ><span class="px-2">{{ formatBytes(rom.fs_size_bytes) }}</span>
               </v-chip>
             </v-col>
             <v-col
