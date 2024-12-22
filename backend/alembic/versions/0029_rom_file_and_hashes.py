@@ -64,7 +64,7 @@ def upgrade() -> None:
         SELECT
             r.id AS rom_id,
             JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.filename')) AS file_name,
-            r.file_path AS file_path,
+            CASE WHEN r.multi = 0 THEN r.file_path ELSE CONCAT(r.file_path, r.file_name) END AS file_path,
             JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.size')) AS file_size_bytes,
             JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.last_modified')) AS last_modified,
             CASE WHEN r.multi = 0 THEN r.crc_hash ELSE NULL END AS crc_hash,
