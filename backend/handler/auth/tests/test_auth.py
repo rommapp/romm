@@ -29,6 +29,7 @@ def test_authenticate_user(admin_user: User):
 async def test_get_current_active_user_from_session(editor_user: User):
     class MockConnection(HTTPConnection):
         def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}}
             self.scope["session"] = {"iss": "romm:auth", "sub": editor_user.username}
 
     conn = MockConnection()
@@ -42,6 +43,7 @@ async def test_get_current_active_user_from_session(editor_user: User):
 async def test_get_current_active_user_from_session_bad_username(editor_user: User):
     class MockConnection(HTTPConnection):
         def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}}
             self.scope["session"] = {"iss": "romm:auth", "sub": "not_real_username"}
 
     conn = MockConnection()
@@ -56,6 +58,7 @@ async def test_get_current_active_user_from_session_bad_username(editor_user: Us
 async def test_get_current_active_user_from_session_disabled_user(editor_user: User):
     class MockConnection(HTTPConnection):
         def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}}
             self.scope["session"] = {"iss": "romm:auth", "sub": editor_user.username}
             self._headers = {}
 
@@ -73,6 +76,7 @@ async def test_get_current_active_user_from_session_disabled_user(editor_user: U
 async def test_hybrid_auth_backend_session(editor_user: User):
     class MockConnection(HTTPConnection):
         def __init__(self):
+            self.scope: dict[str, dict] = {"session": {}}
             self.scope["session"] = {"iss": "romm:auth", "sub": editor_user.username}
 
     backend = HybridAuthBackend()
@@ -90,17 +94,14 @@ async def test_hybrid_auth_backend_session(editor_user: User):
 async def test_hybrid_auth_backend_empty_session_and_headers(editor_user: User):
     class MockConnection(HTTPConnection):
         def __init__(self):
-            self.scope["session"] = {}
+            self.scope: dict[str, dict] = {"session": {}}
             self._headers = {}
 
     backend = HybridAuthBackend()
     conn = MockConnection()
 
     result = await backend.authenticate(conn)
-    assert result is not None
-
-    creds, user = result
-    assert creds.scopes == []
+    assert result is None
 
 
 async def test_hybrid_auth_backend_bearer_auth_header(editor_user: User):
@@ -115,7 +116,7 @@ async def test_hybrid_auth_backend_bearer_auth_header(editor_user: User):
 
     class MockConnection(HTTPConnection):
         def __init__(self):
-            self.scope["session"] = {}
+            self.scope: dict[str, dict] = {"session": {}}
             self._headers = {"Authorization": f"Bearer {access_token}"}
 
     backend = HybridAuthBackend()
@@ -132,7 +133,7 @@ async def test_hybrid_auth_backend_bearer_auth_header(editor_user: User):
 async def test_hybrid_auth_backend_bearer_invalid_token(editor_user: User):
     class MockConnection(HTTPConnection):
         def __init__(self):
-            self.scope["session"] = {}
+            self.scope: dict[str, dict] = {"session": {}}
             self._headers = {"Authorization": "Bearer invalid_token"}
 
     backend = HybridAuthBackend()
@@ -147,7 +148,7 @@ async def test_hybrid_auth_backend_basic_auth_header(editor_user: User):
 
     class MockConnection(HTTPConnection):
         def __init__(self):
-            self.scope["session"] = {}
+            self.scope: dict[str, dict] = {"session": {}}
             self._headers = {"Authorization": f"Basic {token}"}
 
     backend = HybridAuthBackend()
@@ -165,7 +166,7 @@ async def test_hybrid_auth_backend_basic_auth_header(editor_user: User):
 async def test_hybrid_auth_backend_basic_auth_header_unencoded(editor_user: User):
     class MockConnection(HTTPConnection):
         def __init__(self):
-            self.scope["session"] = {}
+            self.scope: dict[str, dict] = {"session": {}}
             self._headers = {"Authorization": "Basic test_editor:test_editor_password"}
 
     backend = HybridAuthBackend()
@@ -178,17 +179,14 @@ async def test_hybrid_auth_backend_basic_auth_header_unencoded(editor_user: User
 async def test_hybrid_auth_backend_invalid_scheme():
     class MockConnection(HTTPConnection):
         def __init__(self):
-            self.scope["session"] = {}
+            self.scope: dict[str, dict] = {"session": {}}
             self._headers = {"Authorization": "Some invalid_scheme"}
 
     backend = HybridAuthBackend()
     conn = MockConnection()
 
     result = await backend.authenticate(conn)
-    assert result is not None
-
-    creds, user = result
-    assert creds.scopes == []
+    assert result is None
 
 
 async def test_hybrid_auth_backend_with_refresh_token(editor_user: User):
@@ -203,17 +201,14 @@ async def test_hybrid_auth_backend_with_refresh_token(editor_user: User):
 
     class MockConnection(HTTPConnection):
         def __init__(self):
-            self.scope["session"] = {}
+            self.scope: dict[str, dict] = {"session": {}}
             self._headers = {"Authorization": f"Bearer {refresh_token}"}
 
     backend = HybridAuthBackend()
     conn = MockConnection()
 
     result = await backend.authenticate(conn)
-    assert result is not None
-
-    creds, user = result
-    assert creds.scopes == []
+    assert result is None
 
 
 async def test_hybrid_auth_backend_scope_subset(editor_user: User):
@@ -229,7 +224,7 @@ async def test_hybrid_auth_backend_scope_subset(editor_user: User):
 
     class MockConnection(HTTPConnection):
         def __init__(self):
-            self.scope["session"] = {}
+            self.scope: dict[str, dict] = {"session": {}}
             self._headers = {"Authorization": f"Bearer {access_token}"}
 
     backend = HybridAuthBackend()
