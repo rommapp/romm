@@ -47,14 +47,18 @@ class DBStatesHandler(DBBaseHandler):
 
     @begin_session
     def purge_states(
-        self, rom_id: int, user_id: int, states: list[str], session: Session = None
+        self,
+        rom_id: int,
+        user_id: int,
+        states_to_keep: list[str],
+        session: Session = None,
     ) -> Sequence[State]:
         purged_states = session.scalars(
             select(State).filter(
                 and_(
                     State.rom_id == rom_id,
                     State.user_id == user_id,
-                    State.file_name.not_in(states),
+                    State.file_name.not_in(states_to_keep),
                 )
             )
         ).all()
@@ -65,7 +69,7 @@ class DBStatesHandler(DBBaseHandler):
                 and_(
                     State.rom_id == rom_id,
                     State.user_id == user_id,
-                    State.file_name.not_in(states),
+                    State.file_name.not_in(states_to_keep),
                 )
             )
             .execution_options(synchronize_session="evaluate")

@@ -53,7 +53,7 @@ def test_roms(rom: Rom, platform: Platform):
     assert rom_1 is not None
     assert rom_1.fs_name == "test_rom.zip"
 
-    db_rom_handler.update_rom(roms[1].id, {"file_name": "test_rom_2_updated"})
+    db_rom_handler.update_rom(roms[1].id, {"fs_name": "test_rom_2_updated"})
     rom_2 = db_rom_handler.get_rom(roms[1].id)
     assert rom_2 is not None
     assert rom_2.fs_name == "test_rom_2_updated"
@@ -63,7 +63,7 @@ def test_roms(rom: Rom, platform: Platform):
     roms = db_rom_handler.get_roms(platform_id=platform.id)
     assert len(roms) == 1
 
-    db_rom_handler.purge_roms(rom_2.platform_id, [rom_2.fs_name])
+    db_rom_handler.purge_roms(rom_2.platform_id, [])
 
     roms = db_rom_handler.get_roms(platform_id=platform.id)
     assert len(roms) == 0

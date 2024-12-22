@@ -51,14 +51,18 @@ class DBScreenshotsHandler(DBBaseHandler):
 
     @begin_session
     def purge_screenshots(
-        self, rom_id: int, user_id: int, screenshots: list[str], session: Session = None
+        self,
+        rom_id: int,
+        user_id: int,
+        screenshots_to_keep: list[str],
+        session: Session = None,
     ) -> Sequence[Screenshot]:
         purged_screenshots = session.scalars(
             select(Screenshot).filter(
                 and_(
                     Screenshot.rom_id == rom_id,
                     Screenshot.user_id == user_id,
-                    Screenshot.file_name.not_in(screenshots),
+                    Screenshot.file_name.not_in(screenshots_to_keep),
                 )
             )
         ).all()
@@ -69,7 +73,7 @@ class DBScreenshotsHandler(DBBaseHandler):
                 and_(
                     Screenshot.rom_id == rom_id,
                     Screenshot.user_id == user_id,
-                    Screenshot.file_name.not_in(screenshots),
+                    Screenshot.file_name.not_in(screenshots_to_keep),
                 )
             )
             .execution_options(synchronize_session="evaluate")
