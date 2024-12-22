@@ -355,8 +355,8 @@ async def update_rom(
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     cleaned_data: dict = {
-        "igdb_id": str(data.get("igdb_id", "")),
-        "moby_id": str(data.get("moby_id", "")),
+        "igdb_id": data.get("igdb_id", None),
+        "moby_id": data.get("moby_id", None),
     }
 
     moby_id: str = cleaned_data["moby_id"]

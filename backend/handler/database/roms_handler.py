@@ -211,14 +211,17 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def purge_roms(
-        self, platform_id: int, fs_roms: list[str], session: Session = None
+        self, platform_id: int, fs_roms_to_keep: list[str], session: Session = None
     ) -> Sequence[Rom]:
         purged_roms = (
             session.scalars(
                 select(Rom)
                 .order_by(Rom.fs_name.asc())
                 .where(
-                    and_(Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms))
+                    and_(
+                        Rom.platform_id == platform_id,
+                        Rom.fs_name.not_in(fs_roms_to_keep),
+                    )
                 )
             )
             .unique()
@@ -226,7 +229,11 @@ class DBRomsHandler(DBBaseHandler):
         )
         session.execute(
             delete(Rom)
-            .where(and_(Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms)))
+            .where(
+                and_(
+                    Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms_to_keep)
+                )
+            )
             .execution_options(synchronize_session="evaluate")
         )
         return purged_roms

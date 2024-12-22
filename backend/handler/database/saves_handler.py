@@ -47,14 +47,18 @@ class DBSavesHandler(DBBaseHandler):
 
     @begin_session
     def purge_saves(
-        self, rom_id: int, user_id: int, saves: list[str], session: Session = None
+        self,
+        rom_id: int,
+        user_id: int,
+        saves_to_keep: list[str],
+        session: Session = None,
     ) -> Sequence[Save]:
         purged_saves = session.scalars(
             select(Save).filter(
                 and_(
                     Save.rom_id == rom_id,
                     Save.user_id == user_id,
-                    Save.file_name.not_in(saves),
+                    Save.file_name.not_in(saves_to_keep),
                 )
             )
         ).all()
@@ -65,7 +69,7 @@ class DBSavesHandler(DBBaseHandler):
                 and_(
                     Save.rom_id == rom_id,
                     Save.user_id == user_id,
-                    Save.file_name.not_in(saves),
+                    Save.file_name.not_in(saves_to_keep),
                 )
             )
             .execution_options(synchronize_session="evaluate")

@@ -112,7 +112,9 @@ async def scan_platform(
         )
     else:
         log.warning(
-            emoji.emojize(f" {platform_attrs['slug']} not identified :cross_mark:")
+            emoji.emojize(
+                f" Platform {platform_attrs['slug']} not identified :cross_mark:"
+            )
         )
 
     return Platform(**platform_attrs)
@@ -288,7 +290,9 @@ async def scan_rom(
     # If not found in IGDB or MobyGames
     if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):
         log.warning(
-            emoji.emojize(f"\t   {rom_attrs['fs_name']} not identified :cross_mark:")
+            emoji.emojize(
+                f"\t   Rom {rom_attrs['fs_name']} not identified :cross_mark:"
+            )
         )
         return Rom(**rom_attrs)
 
