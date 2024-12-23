@@ -111,10 +111,21 @@ async function loginOIDC() {
             v-if="heartbeatStore.value.OIDC.ENABLED"
             :loading="loggingIn"
             :variant="'text'"
-            class="bg-terciary"
+            class="bg-terciary mt-2"
             @click="loginOIDC()"
           >
-            <span>Login with OIDC</span>
+            <span class="pt-1">
+              <v-avatar size="20" class="mr-1">
+                <v-img
+                  v-if="heartbeatStore.value.OIDC.PROVIDER"
+                  :src="`https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/${heartbeatStore.value.OIDC.PROVIDER}.png`"
+                  class="fill-height"
+                >
+                  <template #error> </template>
+                </v-img>
+              </v-avatar>
+              Login with {{ heartbeatStore.value.OIDC.PROVIDER || "OIDC" }}
+            </span>
             <template #append>
               <v-icon class="text-romm-accent-1"
                 >mdi-chevron-right-circle-outline</v-icon

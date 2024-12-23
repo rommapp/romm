@@ -4,6 +4,7 @@ from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    OICD_PROVIDER,
     OIDC_ENABLED,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCHEDULED_RESCAN_CRON,
@@ -64,5 +65,8 @@ def heartbeat() -> HeartbeatResponse:
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
         },
         "FRONTEND": {"UPLOAD_TIMEOUT": UPLOAD_TIMEOUT},
-        "OIDC": {"ENABLED": OIDC_ENABLED},
+        "OIDC": {
+            "ENABLED": OIDC_ENABLED,
+            "PROVIDER": OICD_PROVIDER,
+        },
     }

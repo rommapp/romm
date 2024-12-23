@@ -2,6 +2,7 @@ from typing import Any
 
 from authlib.integrations.starlette_client import OAuth
 from config import (
+    OICD_PROVIDER,
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
     OIDC_ENABLED,
@@ -36,6 +37,7 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 config = Config(
     environ={
         "OIDC_ENABLED": str(OIDC_ENABLED),
+        "OICD_PROVIDER": OICD_PROVIDER,
         "OIDC_CLIENT_ID": OIDC_CLIENT_ID,
         "OIDC_CLIENT_SECRET": OIDC_CLIENT_SECRET,
         "OIDC_REDIRECT_URI": OIDC_REDIRECT_URI,
