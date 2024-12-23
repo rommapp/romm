@@ -5,5 +5,6 @@
 
 export type OIDCDict = {
     ENABLED: boolean;
+    PROVIDER: string;
 };
 
