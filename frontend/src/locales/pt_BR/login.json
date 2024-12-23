@@ -1,5 +1,7 @@
 {
   "username": "Nome de usuário",
   "password": "Senha",
-  "login": "Entrar"
+  "login": "Entrar",
+  "login-oidc": "Entrar com {oidc}",
+  "or": "ou"
 }
