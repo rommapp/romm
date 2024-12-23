@@ -27,6 +27,7 @@ export default defineStore("galleryFilter", {
     filterAgeRatings: [] as string[],
     filterStatuses: statusFilters,
     filterUnmatched: false,
+    filterMatched: false,
     filterFavourites: false,
     filterDuplicates: false,
     selectedGenre: null as string | null,
@@ -79,9 +80,17 @@ export default defineStore("galleryFilter", {
     },
     switchFilterUnmatched() {
       this.filterUnmatched = !this.filterUnmatched;
+      this.filterMatched = false;
     },
     disableFilterUnmatched() {
       this.filterUnmatched = false;
+    },
+    switchFilterMatched() {
+      this.filterMatched = !this.filterMatched;
+      this.filterUnmatched = false;
+    },
+    disableFilterMatched() {
+      this.filterMatched = false;
     },
     switchFilterFavourites() {
       this.filterFavourites = !this.filterFavourites;
@@ -99,6 +108,7 @@ export default defineStore("galleryFilter", {
       return Boolean(
         normalizeString(this.filterSearch).trim() != "" ||
           this.filterUnmatched ||
+          this.filterMatched ||
           this.filterFavourites ||
           this.filterDuplicates ||
           this.selectedGenre ||

@@ -136,6 +136,9 @@ export default defineStore("roms", {
       if (galleryFilter.filterUnmatched) {
         this._filterUnmatched();
       }
+      if (galleryFilter.filterMatched) {
+        this._filterMatched();
+      }
       if (galleryFilter.filterFavourites) {
         this._filterFavourites();
       }
@@ -191,6 +194,16 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byUnmatched.intersection(this._filteredIDs);
+    },
+    _filterMatched() {
+      const byMatched = new Set(
+        this.filteredRoms
+          .filter((rom) => rom.igdb_id || rom.moby_id)
+          .map((roms) => roms.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byMatched.intersection(this._filteredIDs);
     },
     _filterFavourites() {
       const byFavourites = new Set(
