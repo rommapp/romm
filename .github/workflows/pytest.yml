@@ -31,7 +31,7 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install mariadb connectors
         run: |
@@ -43,7 +43,7 @@ jobs:
           pipx install poetry
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: "poetry"
