@@ -78,7 +78,7 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
 
 # OIDC
 OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))
-OICD_PROVIDER: Final = os.environ.get("OICD_PROVIDER", "")
+OIDC_PROVIDER: Final = os.environ.get("OIDC_PROVIDER", "")
 OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "")
 OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "")
 OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
