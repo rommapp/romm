@@ -186,8 +186,9 @@ class OpenIDHandler:
             response = await httpx_client.get(server_metadata_url, timeout=120)
             response.raise_for_status()
 
-            self._server_metadata = response.json()
-            return response.json()
+            json_response = response.json()
+            self._server_metadata = json_response
+            return json_response
         except httpx.RequestError as exc:
             log.error("Unable to fetch server metadata: %s", str(exc))
             raise HTTPException(
