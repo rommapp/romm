@@ -101,6 +101,9 @@ class RomFileSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
     last_modified: datetime
+    crc_hash: str | None
+    md5_hash: str | None
+    sha1_hash: str | None
 
     class Config:
         from_attributes = True
