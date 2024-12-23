@@ -165,16 +165,44 @@ class OpenIDHandler:
     RSA_ALGORITHM = "RS256"
 
     def __init__(self) -> None:
+        self._server_metadata: Optional[dict] = None
         self._rsa_key: Optional[RSAKey] = None
         self._rsa_key_lock = asyncio.Lock()
+
+    async def _fetch_server_metadata(self) -> dict:
+        """
+        Fetch the server metadata from the OIDC server
+        """
+        if self._server_metadata:
+            return self._server_metadata
+
+        server_metadata_url = (
+            f"{OIDC_SERVER_APPLICATION_URL}/.well-known/openid-configuration"
+        )
+        log.info("Fetching server metadata from %s", server_metadata_url)
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            response = await httpx_client.get(server_metadata_url, timeout=120)
+            response.raise_for_status()
+
+            self._server_metadata = response.json()
+            return response.json()
+        except httpx.RequestError as exc:
+            log.error("Unable to fetch server metadata: %s", str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to fetch server metadata",
+            ) from exc
 
     async def _fetch_rsa_key(self) -> RSAKey:
         """
         Fetch the public key from the OIDC server
         JWKS (JSON Web Key Sets) response is a JSON object with a keys array
         """
-        jwks_url = f"{OIDC_SERVER_APPLICATION_URL}/jwks/"
-        log.debug("Fetching JWKS from %s", jwks_url)
+        server_metadata = await self._fetch_server_metadata()
+        jwks_url = server_metadata.get("jwks_uri", "/jwks")
+        log.info("Fetching JWKS from %s", jwks_url)
 
         httpx_client = ctx_httpx_client.get()
         try:
