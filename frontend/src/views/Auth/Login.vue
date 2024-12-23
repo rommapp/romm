@@ -85,10 +85,10 @@ async function loginOIDC() {
           <v-btn
             type="submit"
             class="bg-terciary mt-4"
+            variant="text"
             block
             :loading="loggingIn"
             :disabled="loggingIn || !username || !password || loggingInOIDC"
-            :variant="!username || !password ? 'text' : 'flat'"
           >
             <template #prepend>
               <v-icon>mdi-login</v-icon>
@@ -109,13 +109,13 @@ async function loginOIDC() {
             </template>
           </v-divider>
           <v-btn
+            v-if="heartbeatStore.value.OIDC.ENABLED"
             block
             type="submit"
-            :disabled="loggingInOIDC || loggingIn"
-            v-if="heartbeatStore.value.OIDC.ENABLED"
-            :loading="loggingInOIDC"
-            :variant="'text'"
             class="bg-terciary"
+            variant="text"
+            :disabled="loggingInOIDC || loggingIn"
+            :loading="loggingInOIDC"
             @click="loginOIDC()"
           >
             <template v-if="heartbeatStore.value.OIDC.PROVIDER" #prepend>
