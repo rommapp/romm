@@ -19,6 +19,9 @@ const visiblePassword = ref(false);
 const loggingIn = ref(false);
 const loggingInOIDC = ref(false);
 
+const { ENABLED: oidcEnabled, PROVIDER: oidcProvider } =
+  heartbeatStore.value.OIDC;
+
 // Functions
 async function login() {
   loggingIn.value = true;
@@ -109,7 +112,7 @@ async function loginOIDC() {
             </template>
           </v-divider>
           <v-btn
-            v-if="heartbeatStore.value.OIDC.ENABLED"
+            v-if="oidcEnabled"
             block
             type="submit"
             class="bg-terciary"
@@ -118,18 +121,20 @@ async function loginOIDC() {
             :loading="loggingInOIDC"
             @click="loginOIDC()"
           >
-            <template v-if="heartbeatStore.value.OIDC.PROVIDER" #prepend>
+            <template v-if="oidcProvider" #prepend>
               <v-icon size="20">
                 <v-img
-                  :src="`https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/${heartbeatStore.value.OIDC.PROVIDER}.png`"
+                  :src="`/assets/dashboard-icons/${oidcProvider.toLowerCase()}.png`"
                 >
-                  <template #error><v-icon>mdi-key</v-icon></template>
+                  <template #error>
+                    <v-icon size="20">mdi-key</v-icon>
+                  </template>
                 </v-img>
               </v-icon>
             </template>
             {{
               t("login.login-oidc", {
-                oidc: heartbeatStore.value.OIDC.PROVIDER || "OIDC",
+                oidc: oidcProvider || "OIDC",
               })
             }}
             <template #loader>
