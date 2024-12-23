@@ -17,6 +17,7 @@ const username = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
 const loggingIn = ref(false);
+const loggingInOIDC = ref(false);
 
 // Functions
 async function login() {
@@ -50,7 +51,7 @@ async function login() {
 }
 
 async function loginOIDC() {
-  loggingIn.value = true;
+  loggingInOIDC.value = true;
   window.open("/api/login/openid", "_self");
 }
 </script>
@@ -83,18 +84,16 @@ async function loginOIDC() {
           />
           <v-btn
             type="submit"
-            class="bg-terciary"
+            class="bg-terciary mt-4"
             block
             :loading="loggingIn"
-            :disabled="loggingIn || !username || !password"
+            :disabled="loggingIn || !username || !password || loggingInOIDC"
             :variant="!username || !password ? 'text' : 'flat'"
           >
-            <span>{{ t("login.login") }}</span>
-            <template #append>
-              <v-icon class="text-romm-accent-1"
-                >mdi-chevron-right-circle-outline</v-icon
-              >
+            <template #prepend>
+              <v-icon>mdi-login</v-icon>
             </template>
+            {{ t("login.login") }}
             <template #loader>
               <v-progress-circular
                 color="romm-accent-1"
@@ -104,33 +103,35 @@ async function loginOIDC() {
               />
             </template>
           </v-btn>
+          <v-divider class="my-4">
+            <template #default>
+              <span class="px-1">{{ t("login.or") }}</span>
+            </template>
+          </v-divider>
           <v-btn
             block
             type="submit"
-            :disabled="loggingIn"
+            :disabled="loggingInOIDC || loggingIn"
             v-if="heartbeatStore.value.OIDC.ENABLED"
-            :loading="loggingIn"
+            :loading="loggingInOIDC"
             :variant="'text'"
-            class="bg-terciary mt-2"
+            class="bg-terciary"
             @click="loginOIDC()"
           >
-            <span class="pt-1">
-              <v-avatar size="20" class="mr-1">
+            <template v-if="heartbeatStore.value.OIDC.PROVIDER" #prepend>
+              <v-icon size="20">
                 <v-img
-                  v-if="heartbeatStore.value.OIDC.PROVIDER"
                   :src="`https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/${heartbeatStore.value.OIDC.PROVIDER}.png`"
-                  class="fill-height"
                 >
-                  <template #error> </template>
+                  <template #error><v-icon>mdi-key</v-icon></template>
                 </v-img>
-              </v-avatar>
-              Login with {{ heartbeatStore.value.OIDC.PROVIDER || "OIDC" }}
-            </span>
-            <template #append>
-              <v-icon class="text-romm-accent-1"
-                >mdi-chevron-right-circle-outline</v-icon
-              >
+              </v-icon>
             </template>
+            {{
+              t("login.login-oidc", {
+                oidc: heartbeatStore.value.OIDC.PROVIDER || "OIDC",
+              })
+            }}
             <template #loader>
               <v-progress-circular
                 color="romm-accent-1"
