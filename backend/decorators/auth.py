@@ -5,6 +5,7 @@ from config import (
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
     OIDC_ENABLED,
+    OIDC_PROVIDER,
     OIDC_REDIRECT_URI,
     OIDC_SERVER_APPLICATION_URL,
 )
@@ -36,6 +37,7 @@ oauth2_password_bearer = OAuth2PasswordBearer(
 config = Config(
     environ={
         "OIDC_ENABLED": str(OIDC_ENABLED),
+        "OIDC_PROVIDER": OIDC_PROVIDER,
         "OIDC_CLIENT_ID": OIDC_CLIENT_ID,
         "OIDC_CLIENT_SECRET": OIDC_CLIENT_SECRET,
         "OIDC_REDIRECT_URI": OIDC_REDIRECT_URI,
