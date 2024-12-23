@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
+import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
@@ -73,6 +74,7 @@ function resetFilters() {
   selectedAgeRating.value = null;
   selectedStatus.value = null;
   galleryFilterStore.disableFilterUnmatched();
+  galleryFilterStore.disableFilterMatched();
   galleryFilterStore.disableFilterFavourites();
   nextTick(() => emitter?.emit("filter", null));
 }
@@ -92,6 +94,7 @@ function resetFilters() {
       </v-list-item>
       <v-list-item>
         <filter-unmatched-btn />
+        <filter-matched-btn class="mt-2" />
         <filter-favourites-btn class="mt-2" />
         <filter-duplicates-btn class="mt-2" />
       </v-list-item>
