@@ -112,7 +112,7 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
 
 
 @protected_route(router.put, "/platforms/{id}", [Scope.PLATFORMS_WRITE])
-async def update_platform(request: Request, id: int) -> MessageResponse:
+async def update_platform(request: Request, id: int) -> PlatformSchema:
     """Update platform endpoint
 
     Args:
@@ -130,9 +130,9 @@ async def update_platform(request: Request, id: int) -> MessageResponse:
 
     platform_db.aspect_ratio = data.get("aspect_ratio", platform_db.aspect_ratio)
     platform_db.custom_name = data.get("custom_name", platform_db.custom_name)
-    db_platform_handler.add_platform(platform_db)
+    platform_db = db_platform_handler.add_platform(platform_db)
 
-    return {"msg": "Platform updated successfully"}
+    return platform_db
 
 
 @protected_route(router.delete, "/platforms/{id}", [Scope.PLATFORMS_WRITE])

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from models.platform import DEFAULT_COVER_ASPECT_RATIO
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from .firmware import FirmwareSchema
 
@@ -10,9 +10,9 @@ class PlatformSchema(BaseModel):
     id: int
     slug: str
     fs_slug: str
-    name: str
-    custom_name: str | None = None
     rom_count: int
+    raw_name: str = Field(alias="name")
+    custom_name: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
     moby_id: int | None = None
@@ -30,3 +30,8 @@ class PlatformSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+    @computed_field  # type: ignore
+    @property
+    def name(self) -> str:
+        return self.custom_name or self.raw_name
