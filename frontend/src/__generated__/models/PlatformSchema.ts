@@ -10,6 +10,7 @@ export type PlatformSchema = {
     slug: string;
     fs_slug: string;
     name: string;
+    custom_name?: (string | null);
     rom_count: number;
     igdb_id?: (number | null);
     sgdb_id?: (number | null);

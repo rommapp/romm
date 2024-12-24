@@ -11,6 +11,7 @@ class PlatformSchema(BaseModel):
     slug: str
     fs_slug: str
     name: str
+    custom_name: str | None = None
     rom_count: int
     igdb_id: int | None = None
     sgdb_id: int | None = None

@@ -49,12 +49,31 @@ const aspectRatioOptions = computed(() => [
 ]);
 
 const platformInfoFields = [
+  { key: "name", label: "Name" },
   { key: "slug", label: "Slug" },
   { key: "fs_slug", label: t("platform.filesystem-folder-name") },
   { key: "category", label: t("platform.category") },
   { key: "generation", label: t("platform.generation") },
   { key: "family_name", label: t("platform.family") },
 ];
+
+const isEditable = ref(false);
+
+function toggleEditable() {
+  isEditable.value = !isEditable.value;
+}
+
+function updatePlatformName(newName: string) {
+  if (currentPlatform.value) {
+    currentPlatform.value.custom_name = newName;
+    platformApi.updatePlatform({
+      platform: {
+        ...currentPlatform.value,
+        custom_name: newName,
+      },
+    });
+  }
+}
 
 watch(
   () => currentPlatform.value?.aspect_ratio,
@@ -141,9 +160,24 @@ async function setAspectRatio() {
           class="text-center mt-2"
           v-if="auth.scopes.includes('platforms.write')"
         >
-          <p class="text-h5 font-weight-bold pl-0">
-            <span>{{ currentPlatform.name }}</span>
-          </p>
+          <div class="text-h5 font-weight-bold pl-0">
+            <span v-if="!isEditable">{{
+              currentPlatform.custom_name || currentPlatform.name
+            }}</span>
+            <v-text-field
+              v-else
+              class="text-white"
+              hide-details
+              density="compact"
+              v-model="currentPlatform.custom_name"
+              :readonly="!isEditable"
+              @blur="updatePlatformName(currentPlatform.custom_name as string)"
+              @keyup.enter="
+                updatePlatformName(currentPlatform.custom_name as string);
+                toggleEditable();
+              "
+            />
+          </div>
           <div class="mt-6">
             <v-btn
               class="bg-terciary"
@@ -173,6 +207,14 @@ async function setAspectRatio() {
                   indeterminate
                 />
               </template>
+            </v-btn>
+            <v-btn rounded="4" @click="toggleEditable" class="ml-2 bg-terciary">
+              <template #prepend>
+                <v-icon :color="isEditable ? 'romm-green' : ''">{{
+                  isEditable ? "mdi-check" : "mdi-pencil"
+                }}</v-icon>
+              </template>
+              {{ isEditable ? t("common.confirm") : t("common.edit") }}
             </v-btn>
           </div>
         </div>
