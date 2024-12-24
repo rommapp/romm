@@ -1,5 +1,5 @@
 {
-  "username": "Nome de usuário",
+  "username": "Nome de usuário ou e-mail",
   "password": "Senha",
   "login": "Entrar",
   "login-oidc": "Entrar com {oidc}",
