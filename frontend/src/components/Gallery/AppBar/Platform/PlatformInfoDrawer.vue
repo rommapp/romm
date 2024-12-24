@@ -166,6 +166,7 @@ async function setAspectRatio() {
             }}</span>
             <v-text-field
               v-else
+              variant="outlined"
               class="text-white"
               hide-details
               density="compact"
@@ -180,7 +181,7 @@ async function setAspectRatio() {
           </div>
           <div class="mt-6">
             <v-btn
-              class="bg-terciary"
+              class="bg-terciary my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
               <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
@@ -191,7 +192,7 @@ async function setAspectRatio() {
               rounded="4"
               :loading="scanning"
               @click="scan"
-              class="ml-2 bg-terciary"
+              class="ml-2 my-1 bg-terciary"
             >
               <template #prepend>
                 <v-icon :color="scanning ? '' : 'romm-accent-1'"
@@ -208,7 +209,11 @@ async function setAspectRatio() {
                 />
               </template>
             </v-btn>
-            <v-btn rounded="4" @click="toggleEditable" class="ml-2 bg-terciary">
+            <v-btn
+              rounded="4"
+              @click="toggleEditable"
+              class="ml-2 my-1 bg-terciary"
+            >
               <template #prepend>
                 <v-icon :color="isEditable ? 'romm-green' : ''">{{
                   isEditable ? "mdi-check" : "mdi-pencil"
