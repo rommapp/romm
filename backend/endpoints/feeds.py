@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
@@ -57,7 +59,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                         request.url_for(
                             "get_rom_content",
                             id=rom.id,
-                            file_name=rom.file_name,
+                            file_name=rom.fs_name,
                         )
                     ),
                 ),
@@ -130,15 +132,17 @@ async def tinfoil_index_feed(
             error="Nintendo Switch platform not found",
         )
 
-    roms: list[Rom] = db_rom_handler.get_roms(platform_id=switch.id)
+    roms = db_rom_handler.get_roms(platform_id=switch.id)
 
-    async def extract_titledb(roms: list[Rom]) -> dict[str, TinfoilFeedTitleDBSchema]:
+    async def extract_titledb(
+        roms: Sequence[Rom],
+    ) -> dict[str, TinfoilFeedTitleDBSchema]:
         titledb = {}
         for rom in roms:
-            match = SWITCH_TITLEDB_REGEX.search(rom.file_name)
+            match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
             if match:
                 _search_term, index_entry = (
-                    await meta_igdb_handler._switch_titledb_format(match, rom.file_name)
+                    await meta_igdb_handler._switch_titledb_format(match, rom.fs_name)
                 )
                 if index_entry:
                     titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
@@ -160,11 +164,9 @@ async def tinfoil_index_feed(
         files=[
             TinfoilFeedFileSchema(
                 url=str(
-                    request.url_for(
-                        "get_rom_content", id=rom.id, file_name=rom.file_name
-                    )
+                    request.url_for("get_rom_content", id=rom.id, file_name=rom.fs_name)
                 ),
-                size=rom.file_size_bytes,
+                size=rom.fs_size_bytes,
             )
             for rom in roms
         ],

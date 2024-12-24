@@ -105,15 +105,14 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing refresh token"
             )
 
-        potential_user = await oauth_handler.get_current_active_user_from_bearer_token(
+        user, claims = await oauth_handler.get_current_active_user_from_bearer_token(
             token
         )
-        if not potential_user:
+        if not user or not claims:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
 
-        user, claims = potential_user
         if claims.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"

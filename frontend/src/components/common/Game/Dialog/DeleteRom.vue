@@ -122,7 +122,7 @@ function closeDialog() {
         show-select
       >
         <template #item.name="{ item }">
-          <rom-list-item :rom="item" with-filename>
+          <rom-list-item :rom="item" with-filename with-size>
             <template #append-body>
               <v-row v-if="romsToDeleteFromFs.includes(item.id)" no-gutters>
                 <v-col>

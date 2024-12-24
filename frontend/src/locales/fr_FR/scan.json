@@ -12,6 +12,8 @@
   "quick-scan-desc": "Scanner votre bibliothèque à la recherche de nouveaux fichiers",
   "unidentified-games": "Jeux non identifiés",
   "unidentified-games-desc": "Scanner uniquement les jeux non identifiés par aucune des sources de métadonnées",
+  "hashes": "Recalculer les hachages",
+  "hashes-desc": "Recalculer les hachages de tous les fichiers",
   "partial-metadata": "Métadonnées partielles",
   "partial-metadata-desc": "Scanner uniquement les jeux identifiés avec des métadonnées partielles",
   "complete-rescan": "Scan complet",
