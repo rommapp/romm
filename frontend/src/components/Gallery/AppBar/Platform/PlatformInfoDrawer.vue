@@ -49,12 +49,27 @@ const aspectRatioOptions = computed(() => [
 ]);
 
 const platformInfoFields = [
+  { key: "name", label: "Name" },
   { key: "slug", label: "Slug" },
   { key: "fs_slug", label: t("platform.filesystem-folder-name") },
   { key: "category", label: t("platform.category") },
   { key: "generation", label: t("platform.generation") },
   { key: "family_name", label: t("platform.family") },
 ];
+
+const isEditable = ref(false);
+
+function toggleEditable() {
+  isEditable.value = !isEditable.value;
+}
+
+async function updatePlatformName() {
+  if (!currentPlatform.value) return;
+  const { data: platform } = await platformApi.updatePlatform({
+    platform: currentPlatform.value,
+  });
+  currentPlatform.value = platform;
+}
 
 watch(
   () => currentPlatform.value?.aspect_ratio,
@@ -98,7 +113,7 @@ async function setAspectRatio() {
       })
       .then(({ data }) => {
         emitter?.emit("snackbarShow", {
-          msg: data.msg,
+          msg: "Platform updated successfully",
           icon: "mdi-check-bold",
           color: "green",
         });
@@ -141,12 +156,26 @@ async function setAspectRatio() {
           class="text-center mt-2"
           v-if="auth.scopes.includes('platforms.write')"
         >
-          <p class="text-h5 font-weight-bold pl-0">
-            <span>{{ currentPlatform.name }}</span>
-          </p>
+          <div class="text-h5 font-weight-bold pl-0">
+            <span v-if="!isEditable">{{ currentPlatform.name }}</span>
+            <v-text-field
+              v-else
+              variant="outlined"
+              class="text-white"
+              hide-details
+              density="compact"
+              v-model="currentPlatform.custom_name"
+              :readonly="!isEditable"
+              @blur="updatePlatformName()"
+              @keyup.enter="
+                updatePlatformName();
+                toggleEditable();
+              "
+            />
+          </div>
           <div class="mt-6">
             <v-btn
-              class="bg-terciary"
+              class="bg-terciary my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
               <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
@@ -157,7 +186,7 @@ async function setAspectRatio() {
               rounded="4"
               :loading="scanning"
               @click="scan"
-              class="ml-2 bg-terciary"
+              class="ml-2 my-1 bg-terciary"
             >
               <template #prepend>
                 <v-icon :color="scanning ? '' : 'romm-accent-1'"
@@ -173,6 +202,18 @@ async function setAspectRatio() {
                   indeterminate
                 />
               </template>
+            </v-btn>
+            <v-btn
+              rounded="4"
+              @click="toggleEditable"
+              class="ml-2 my-1 bg-terciary"
+            >
+              <template #prepend>
+                <v-icon :color="isEditable ? 'romm-green' : ''">{{
+                  isEditable ? "mdi-check" : "mdi-pencil"
+                }}</v-icon>
+              </template>
+              {{ isEditable ? t("common.confirm") : t("common.edit") }}
             </v-btn>
           </div>
         </div>
