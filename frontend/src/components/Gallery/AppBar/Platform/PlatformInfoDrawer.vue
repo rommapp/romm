@@ -47,7 +47,6 @@ const aspectRatioOptions = computed(() => [
     source: t("platform.old-squared-cases"),
   },
 ]);
-
 const platformInfoFields = [
   { key: "name", label: "Name" },
   { key: "slug", label: "Slug" },
@@ -56,39 +55,41 @@ const platformInfoFields = [
   { key: "generation", label: t("platform.generation") },
   { key: "family_name", label: t("platform.family") },
 ];
-
+const updatedPlatform = ref({ ...currentPlatform.value });
 const isEditable = ref(false);
 
+// Functions
 function toggleEditable() {
+  updatedPlatform.value = { ...currentPlatform.value };
   isEditable.value = !isEditable.value;
 }
 
-async function updatePlatformName() {
-  if (!currentPlatform.value) return;
-  const { data: platform } = await platformApi.updatePlatform({
-    platform: currentPlatform.value,
-  });
-  currentPlatform.value = platform;
+async function updatePlatform() {
+  if (!updatedPlatform.value) return;
+  const { data: platform } = await platformApi
+    .updatePlatform({
+      platform: updatedPlatform.value,
+    })
+    .then(({ data }) => {
+      emitter?.emit("snackbarShow", {
+        msg: data.msg,
+        icon: "mdi-check-bold",
+        color: "green",
+      });
+      currentPlatform.value = platform;
+    })
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Failed to update platform: ${
+          error.response?.data?.msg || error.message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    });
+  toggleEditable();
 }
 
-watch(
-  () => currentPlatform.value?.aspect_ratio,
-  (aspectRatio) => {
-    if (aspectRatio) {
-      // Find the index of the aspect ratio option that matches the current aspect ratio
-      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
-        (option) => option.name == aspectRatio,
-      );
-      // If a matching aspect ratio option is found, update the selectedAspectRatio
-      if (defaultAspectRatio !== -1) {
-        selectedAspectRatio.value = defaultAspectRatio;
-      }
-    }
-  },
-  { immediate: true }, // Execute the callback immediately with the current value
-);
-
-// Functions
 async function scan() {
   scanningStore.set(true);
 
@@ -132,6 +133,23 @@ async function setAspectRatio() {
       });
   }
 }
+
+watch(
+  () => currentPlatform.value?.aspect_ratio,
+  (aspectRatio) => {
+    if (aspectRatio) {
+      // Find the index of the aspect ratio option that matches the current aspect ratio
+      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
+        (option) => option.name == aspectRatio
+      );
+      // If a matching aspect ratio option is found, update the selectedAspectRatio
+      if (defaultAspectRatio !== -1) {
+        selectedAspectRatio.value = defaultAspectRatio;
+      }
+    }
+  },
+  { immediate: true } // Execute the callback immediately with the current value
+);
 </script>
 
 <template>
@@ -156,21 +174,18 @@ async function setAspectRatio() {
           class="text-center mt-2"
           v-if="auth.scopes.includes('platforms.write')"
         >
-          <div class="text-h5 font-weight-bold pl-0">
-            <span v-if="!isEditable">{{ currentPlatform.name }}</span>
+          <div v-if="!isEditable" class="text-h5 font-weight-bold pl-0">
+            <span>{{ currentPlatform.name }}</span>
+          </div>
+          <div v-else>
             <v-text-field
-              v-else
               variant="outlined"
               class="text-white"
               hide-details
               density="compact"
-              v-model="currentPlatform.custom_name"
+              v-model="updatedPlatform.custom_name"
               :readonly="!isEditable"
-              @blur="updatePlatformName()"
-              @keyup.enter="
-                updatePlatformName();
-                toggleEditable();
-              "
+              @keyup.enter="updatePlatform()"
             />
           </div>
           <div class="mt-6">
@@ -203,9 +218,22 @@ async function setAspectRatio() {
                 />
               </template>
             </v-btn>
+          </div>
+          <div>
             <v-btn
+              v-if="isEditable"
               rounded="4"
               @click="toggleEditable"
+              class="ml-2 my-1 bg-terciary"
+            >
+              <template #prepend>
+                <v-icon color="red">mdi-close</v-icon>
+              </template>
+              {{ t("common.cancel") }}
+            </v-btn>
+            <v-btn
+              rounded="4"
+              @click="isEditable ? updatePlatform() : toggleEditable()"
               class="ml-2 my-1 bg-terciary"
             >
               <template #prepend>
