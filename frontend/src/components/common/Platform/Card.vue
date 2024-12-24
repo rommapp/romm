@@ -17,10 +17,10 @@ defineProps<{ platform: Platform }>();
       <v-card-text>
         <v-row class="pa-1 justify-center bg-primary">
           <div
-            :title="platform.name?.toString()"
+            :title="platform.name.toString()"
             class="px-2 text-truncate text-caption"
           >
-            <span>{{ platform.name }}</span>
+            <span>{{ platform.custom_name || platform.name }}</span>
           </div>
         </v-row>
         <v-row class="pa-1 justify-center">
