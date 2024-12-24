@@ -19,6 +19,7 @@ import type { Emitter } from "mitt";
 import { inject, onMounted, ref, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
 
 // Props
 const { xs } = useDisplay();
@@ -31,6 +32,7 @@ const router = useRouter();
 const route = useRoute();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
+const { filteredRoms, selectedRoms } = storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
 const page = ref(parseInt(window.location.hash.slice(1)) || 1);
 const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
@@ -77,19 +79,16 @@ const HEADERS = [
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
 
-const selectedRomIDs = computed(() =>
-  romsStore.selectedRoms.map((rom) => rom.id),
-);
+const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
 // Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: "rom", params: { rom: row.item.id } });
+  romsStore.resetSelection();
 }
 
 function updateDataTablePages() {
-  pageCount.value = Math.ceil(
-    romsStore.filteredRoms.length / itemsPerPage.value,
-  );
+  pageCount.value = Math.ceil(filteredRoms.value.length / itemsPerPage.value);
 }
 
 function updateUrlHash() {
@@ -102,6 +101,14 @@ function checkIfEJSEmulationSupported(platformSlug: string) {
 
 function checkIfRuffleEmulationSupported(platformSlug: string) {
   return isRuffleEmulationSupported(platformSlug, heartbeatStore.value);
+}
+
+function updateSelectAll() {
+  if (selectedRoms.value.length === filteredRoms.value.length) {
+    romsStore.resetSelection();
+  } else {
+    romsStore.setSelection(filteredRoms.value);
+  }
 }
 
 function updateSelectedRom(rom: SimpleRom) {
@@ -132,8 +139,8 @@ onMounted(() => {
     @click:row="rowClick"
     :items-per-page="itemsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
-    :item-value="(item) => item.id"
-    :items="romsStore.filteredRoms"
+    :item-value="(item: SimpleRom) => item"
+    :items="filteredRoms"
     :headers="HEADERS"
     v-model="selectedRomIDs"
     v-model:page="page"
@@ -143,16 +150,27 @@ onMounted(() => {
     hide-default-footer
     hover
   >
+    <template #header.data-table-select>
+      <v-checkbox-btn
+        :indeterminate="
+          selectedRomIDs.length > 0 &&
+          selectedRomIDs.length < filteredRoms.length
+        "
+        :model-value="selectedRomIDs.length === filteredRoms.length"
+        @click.stop
+        @click="updateSelectAll"
+      />
+    </template>
     <template #item.data-table-select="{ item }">
       <v-checkbox-btn
-        :value="item.id"
+        :model-value="selectedRomIDs.includes(item.id)"
         @click.stop
         @click="updateSelectedRom(item)"
       />
     </template>
     <template #item.name="{ item }">
-      <td class="name-row">
-        <v-list-item class="px-0">
+      <td>
+        <v-list-item :min-width="400" class="px-0">
           <template #prepend>
             <r-avatar-rom :rom="item" />
           </template>
@@ -273,8 +291,3 @@ onMounted(() => {
     </template>
   </v-data-table>
 </template>
-<style scoped>
-.name-row {
-  min-width: 350px;
-}
-</style>
