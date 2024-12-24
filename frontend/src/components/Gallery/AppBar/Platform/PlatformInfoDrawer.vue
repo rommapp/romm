@@ -63,16 +63,12 @@ function toggleEditable() {
   isEditable.value = !isEditable.value;
 }
 
-function updatePlatformName(newName: string) {
-  if (currentPlatform.value) {
-    currentPlatform.value.custom_name = newName;
-    platformApi.updatePlatform({
-      platform: {
-        ...currentPlatform.value,
-        custom_name: newName,
-      },
-    });
-  }
+async function updatePlatformName() {
+  if (!currentPlatform.value) return;
+  const { data: platform } = await platformApi.updatePlatform({
+    platform: currentPlatform.value,
+  });
+  currentPlatform.value = platform;
 }
 
 watch(
@@ -117,7 +113,7 @@ async function setAspectRatio() {
       })
       .then(({ data }) => {
         emitter?.emit("snackbarShow", {
-          msg: data.msg,
+          msg: "Platform updated successfully",
           icon: "mdi-check-bold",
           color: "green",
         });
@@ -161,9 +157,7 @@ async function setAspectRatio() {
           v-if="auth.scopes.includes('platforms.write')"
         >
           <div class="text-h5 font-weight-bold pl-0">
-            <span v-if="!isEditable">{{
-              currentPlatform.custom_name || currentPlatform.name
-            }}</span>
+            <span v-if="!isEditable">{{ currentPlatform.name }}</span>
             <v-text-field
               v-else
               variant="outlined"
@@ -172,9 +166,9 @@ async function setAspectRatio() {
               density="compact"
               v-model="currentPlatform.custom_name"
               :readonly="!isEditable"
-              @blur="updatePlatformName(currentPlatform.custom_name as string)"
+              @blur="updatePlatformName()"
               @keyup.enter="
-                updatePlatformName(currentPlatform.custom_name as string);
+                updatePlatformName();
                 toggleEditable();
               "
             />

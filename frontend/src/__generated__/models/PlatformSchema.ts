@@ -9,9 +9,9 @@ export type PlatformSchema = {
     id: number;
     slug: string;
     fs_slug: string;
-    name: string;
-    custom_name?: (string | null);
     rom_count: number;
+    readonly name: string;
+    custom_name?: (string | null);
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
     moby_id?: (number | null);
