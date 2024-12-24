@@ -83,7 +83,10 @@ class AuthHandler:
     def authenticate_user(self, username: str, password: str):
         from handler.database import db_user_handler
 
-        user = db_user_handler.get_user_by_username(username)
+        user_by_username = db_user_handler.get_user_by_username(username)
+        user_by_email = db_user_handler.get_user_by_email(username)
+        user = user_by_username if user_by_username else user_by_email
+
         if not user:
             return None
 
@@ -104,7 +107,10 @@ class AuthHandler:
             return None
 
         # Key exists therefore user is probably authenticated
-        user = db_user_handler.get_user_by_username(username)
+        user_by_username = db_user_handler.get_user_by_username(username)
+        user_by_email = db_user_handler.get_user_by_email(username)
+        user = user_by_username if user_by_username else user_by_email
+
         if user is None or not user.enabled:
             conn.session.clear()
             log.error(
@@ -148,7 +154,10 @@ class OAuthHandler:
         if username is None:
             raise OAuthCredentialsException
 
-        user = db_user_handler.get_user_by_username(username)
+        user_by_username = db_user_handler.get_user_by_username(username)
+        user_by_email = db_user_handler.get_user_by_email(username)
+        user = user_by_username if user_by_username else user_by_email
+
         if user is None:
             raise OAuthCredentialsException
 
