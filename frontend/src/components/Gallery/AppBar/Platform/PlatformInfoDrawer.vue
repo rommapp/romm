@@ -15,6 +15,7 @@ import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import type { Platform } from "@/stores/platforms";
 
 // Props
 const { t } = useI18n();
@@ -66,13 +67,13 @@ function toggleEditable() {
 
 async function updatePlatform() {
   if (!updatedPlatform.value) return;
-  const { data: platform } = await platformApi
+  await platformApi
     .updatePlatform({
-      platform: updatedPlatform.value,
+      platform: updatedPlatform.value as Platform,
     })
-    .then(({ data }) => {
+    .then(({ data: platform }) => {
       emitter?.emit("snackbarShow", {
-        msg: data.msg,
+        msg: "Platform updated successfully",
         icon: "mdi-check-bold",
         color: "green",
       });
@@ -140,7 +141,7 @@ watch(
     if (aspectRatio) {
       // Find the index of the aspect ratio option that matches the current aspect ratio
       const defaultAspectRatio = aspectRatioOptions.value.findIndex(
-        (option) => option.name == aspectRatio
+        (option) => option.name == aspectRatio,
       );
       // If a matching aspect ratio option is found, update the selectedAspectRatio
       if (defaultAspectRatio !== -1) {
@@ -148,7 +149,7 @@ watch(
       }
     }
   },
-  { immediate: true } // Execute the callback immediately with the current value
+  { immediate: true }, // Execute the callback immediately with the current value
 );
 </script>
 
@@ -175,7 +176,7 @@ watch(
           v-if="auth.scopes.includes('platforms.write')"
         >
           <div v-if="!isEditable" class="text-h5 font-weight-bold pl-0">
-            <span>{{ currentPlatform.name }}</span>
+            <span>{{ currentPlatform.display_name }}</span>
           </div>
           <div v-else>
             <v-text-field
