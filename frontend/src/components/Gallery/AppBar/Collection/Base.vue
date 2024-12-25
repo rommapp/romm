@@ -30,12 +30,6 @@ const { currentCollection } = storeToRefs(romsStore);
     top
   >
     <template #prepend>
-      <!-- <v-btn
-        :color="activeCollectionInfoDrawer ? 'romm-accent-1' : ''"
-        rounded="0"
-        @click="navigationStore.swtichActiveCollectionInfoDrawer"
-        icon="mdi-information"
-      ></v-btn> -->
       <r-avatar
         @click="navigationStore.swtichActiveCollectionInfoDrawer"
         class="collection-icon cursor-pointer"
@@ -64,11 +58,9 @@ const { currentCollection } = storeToRefs(romsStore);
   transition:
     filter 0.15s ease-in-out,
     transform 0.15s ease-in-out;
-  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
 }
 .collection-icon:hover,
 .collection-icon.active {
-  filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-romm-accent-1)));
   transform: scale(1.1);
 }
 </style>
