@@ -11,7 +11,7 @@ export type PlatformSchema = {
     fs_slug: string;
     rom_count: number;
     name: string;
-    custom_name: (string | null);
+    custom_name?: (string | null);
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
     moby_id?: (number | null);

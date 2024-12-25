@@ -67,6 +67,7 @@ function toggleEditable() {
 
 async function updatePlatform() {
   if (!updatedPlatform.value) return;
+  updatedPlatform.value.custom_name = updatedPlatform.value.display_name;
   await platformApi
     .updatePlatform({
       platform: updatedPlatform.value as Platform,
@@ -184,7 +185,7 @@ watch(
               class="text-white"
               hide-details
               density="compact"
-              v-model="updatedPlatform.custom_name"
+              v-model="updatedPlatform.display_name"
               :readonly="!isEditable"
               @keyup.enter="updatePlatform()"
             />
