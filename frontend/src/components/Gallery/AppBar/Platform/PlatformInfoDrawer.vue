@@ -7,15 +7,15 @@ import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
+import type { Platform } from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import type { Platform } from "@/stores/platforms";
+import { useDisplay } from "vuetify";
 
 // Props
 const { t } = useI18n();
@@ -273,18 +273,19 @@ watch(
               v-for="(field, index) in platformInfoFields"
               :key="field.key"
             >
-              <div
-                v-if="
-                  currentPlatform[field.key as keyof typeof currentPlatform]
-                "
-                :class="{ 'mt-4': index !== 0 }"
-              >
+              <div :class="{ 'mt-4': index !== 0 }">
                 <p class="text-subtitle-1 text-decoration-underline">
                   {{ field.label }}
                 </p>
                 <p class="text-subtitle-2">
                   {{
-                    currentPlatform[field.key as keyof typeof currentPlatform]
+                    currentPlatform[
+                      field.key as keyof typeof currentPlatform
+                    ] !== undefined
+                      ? currentPlatform[
+                          field.key as keyof typeof currentPlatform
+                        ]
+                      : "N/A"
                   }}
                 </p>
               </div>
