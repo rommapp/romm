@@ -49,7 +49,7 @@ const aspectRatioOptions = computed(() => [
   },
 ]);
 const platformInfoFields = [
-  { key: "name", label: "Name" },
+  { key: "name", label: t("common.name") },
   { key: "slug", label: "Slug" },
   { key: "fs_slug", label: t("platform.filesystem-folder-name") },
   { key: "category", label: t("platform.category") },
@@ -167,7 +167,6 @@ watch(
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
             <v-btn
-              variant="flat"
               class="bg-terciary"
               v-if="!isEditable"
               @click="toggleEditable"
@@ -175,17 +174,12 @@ watch(
               ><v-icon>mdi-pencil</v-icon></v-btn
             >
             <template v-else>
-              <v-btn
-                @click="toggleEditable"
-                size="small"
-                variant="flat"
-                class="bg-terciary"
+              <v-btn @click="toggleEditable" size="small" class="bg-terciary"
                 ><v-icon color="romm-red">mdi-close</v-icon></v-btn
               >
               <v-btn
                 @click="isEditable ? updatePlatform() : toggleEditable()"
                 size="small"
-                variant="flat"
                 class="bg-terciary ml-1"
                 ><v-icon color="romm-green">mdi-check</v-icon></v-btn
               >
@@ -383,6 +377,7 @@ watch(
 .append-top-right {
   top: 0.2rem;
   right: 0.5rem;
+  z-index: 1;
 }
 .platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));

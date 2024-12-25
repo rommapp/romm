@@ -28,5 +28,6 @@
   "user-interface": "Interface utilisateur",
   "library-management": "Gestion de la bibliothèque",
   "administration": "Administration",
-  "logout": "Se déconnecter"
+  "logout": "Se déconnecter",
+  "name": "Nom"
 }
