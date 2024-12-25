@@ -1,27 +1,33 @@
 <script setup lang="ts">
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
-import EditCollectionDialog from "@/components/common/Collection/Dialog/EditCollection.vue";
 import RSection from "@/components/common/RSection.vue";
+import type { UpdatedCollection } from "@/services/api/collection";
+import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const viewportWidth = ref(window.innerWidth);
+const theme = useTheme();
 const auth = storeAuth();
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
+const imagePreviewUrl = ref<string | undefined>("");
+const removeCover = ref(false);
+const heartbeat = storeHeartbeat();
 const { activeCollectionInfoDrawer } = storeToRefs(navigationStore);
 const collectionInfoFields = [
   {
@@ -33,6 +39,85 @@ const collectionInfoFields = [
     label: t("collection.owner"),
   },
 ];
+const updatedCollection = ref<UpdatedCollection>({} as UpdatedCollection);
+const isEditable = ref(false);
+emitter?.on("updateUrlCover", (url_cover) => {
+  updatedCollection.value.url_cover = url_cover;
+  setArtwork(url_cover);
+});
+
+// Functions
+function showEditable() {
+  updatedCollection.value = { ...currentCollection.value } as UpdatedCollection;
+  imagePreviewUrl.value = "";
+  removeCover.value = false;
+  isEditable.value = true;
+}
+
+function closeEditable() {
+  updatedCollection.value = {} as UpdatedCollection;
+  imagePreviewUrl.value = "";
+  isEditable.value = false;
+}
+
+function triggerFileInput() {
+  const fileInput = document.getElementById("file-input");
+  fileInput?.click();
+}
+
+function previewImage(event: Event) {
+  const input = event.target as HTMLInputElement;
+  if (!input.files) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    setArtwork(reader.result?.toString() || "");
+  };
+  if (input.files[0]) {
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function setArtwork(imageUrl: string) {
+  if (!imageUrl) return;
+  imagePreviewUrl.value = imageUrl;
+  removeCover.value = false;
+}
+
+async function removeArtwork() {
+  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_collection.png`;
+  removeCover.value = true;
+}
+
+async function updateCollection() {
+  if (!updatedCollection.value) return;
+  console.log(updatedCollection.value);
+  await collectionApi
+    .updateCollection({
+      collection: updatedCollection.value,
+      removeCover: removeCover.value,
+    })
+    .then(({ data: collection }) => {
+      emitter?.emit("snackbarShow", {
+        msg: "Platform updated successfully",
+        icon: "mdi-check-bold",
+        color: "green",
+      });
+      currentCollection.value = collection;
+    })
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Failed to update platform: ${
+          error.response?.data?.msg || error.message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    });
+  isEditable.value = !isEditable.value;
+  updatedCollection.value = {} as UpdatedCollection;
+  imagePreviewUrl.value = "";
+}
 </script>
 
 <template>
@@ -45,48 +130,146 @@ const collectionInfoFields = [
   >
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col style="max-width: 240px" cols="12">
-        <div class="text-center justify-center align-center">
+        <div
+          v-if="
+            currentCollection.user__username === auth.user?.username &&
+            auth.scopes.includes('collections.write')
+          "
+          class="text-center justify-center align-center"
+        >
+          <div class="position-absolute append-top-right">
+            <v-btn
+              class="bg-terciary"
+              v-if="!isEditable"
+              @click="showEditable"
+              size="small"
+              ><v-icon>mdi-pencil</v-icon></v-btn
+            >
+            <template v-else>
+              <v-btn @click="closeEditable" size="small" class="bg-terciary"
+                ><v-icon color="romm-red">mdi-close</v-icon></v-btn
+              >
+              <v-btn
+                @click="updateCollection()"
+                size="small"
+                class="bg-terciary ml-1"
+                ><v-icon color="romm-green">mdi-check</v-icon></v-btn
+              >
+            </template>
+          </div>
           <collection-card
             :key="currentCollection.updated_at"
+            :show-title="false"
+            :with-link="false"
             :collection="currentCollection"
-          />
-        </div>
-        <div
-          class="text-center mt-4"
-          v-if="auth.scopes.includes('collections.write')"
-        >
-          <p class="text-h5 font-weight-bold pl-0">
-            <span>{{ currentCollection.name }}</span>
-          </p>
-          <p class="text-subtitle-2">
-            <span>{{ currentCollection.description }}</span>
-          </p>
-          <v-chip class="mt-4" size="small" color="romm-accent-1"
-            ><v-icon class="mr-1">{{
-              currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
-            }}</v-icon
-            >{{
-              currentCollection.is_public
-                ? t("collection.public")
-                : t("collection.private")
-            }}</v-chip
+            :src="imagePreviewUrl"
           >
-          <div class="mt-4">
-            <v-btn
-              v-if="currentCollection.user__username === auth.user?.username"
-              rounded="4"
-              @click="
-                emitter?.emit('showEditCollectionDialog', {
-                  ...currentCollection,
-                })
-              "
-              class="bg-terciary"
+            <template v-if="isEditable" #append-inner>
+              <v-btn-group rounded="0" divided density="compact">
+                <v-btn
+                  title="Search for cover in SteamGridDB"
+                  :disabled="
+                    !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                  "
+                  size="small"
+                  class="translucent-dark"
+                  @click="
+                    emitter?.emit('showSearchCoverDialog', {
+                      term: currentCollection.name as string,
+                      aspectRatio: null,
+                    })
+                  "
+                >
+                  <v-icon size="large">mdi-image-search-outline</v-icon>
+                </v-btn>
+                <v-btn
+                  title="Upload custom cover"
+                  size="small"
+                  class="translucent-dark"
+                  @click="triggerFileInput"
+                >
+                  <v-icon size="large">mdi-upload</v-icon>
+                  <v-file-input
+                    id="file-input"
+                    v-model="updatedCollection.artwork"
+                    accept="image/*"
+                    hide-details
+                    class="file-input"
+                    @change="previewImage"
+                  />
+                </v-btn>
+                <v-btn
+                  title="Remove cover"
+                  size="small"
+                  class="translucent-dark"
+                  @click="removeArtwork"
+                >
+                  <v-icon size="large" class="text-romm-red">mdi-delete</v-icon>
+                </v-btn>
+              </v-btn-group>
+            </template>
+          </collection-card>
+        </div>
+      </v-col>
+      <v-col cols="12">
+        <div class="text-center mt-4">
+          <div v-if="!isEditable">
+            <div>
+              <span class="text-h5 font-weight-bold pl-0">{{
+                currentCollection.name
+              }}</span>
+            </div>
+            <div>
+              <span class="text-subtitle-2">{{
+                currentCollection.description
+              }}</span>
+            </div>
+            <v-chip class="mt-4" size="small" color="romm-accent-1"
+              ><v-icon class="mr-1">{{
+                currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
+              }}</v-icon
+              >{{
+                currentCollection.is_public
+                  ? t("collection.public")
+                  : t("collection.private")
+              }}</v-chip
             >
-              <template #prepend>
-                <v-icon>mdi-pencil-box</v-icon>
-              </template>
-              {{ t("collection.edit-collection") }}
-            </v-btn>
+          </div>
+          <div class="text-center" v-else>
+            <v-text-field
+              class="mt-2"
+              v-model="updatedCollection.name"
+              :label="t('collection.name')"
+              variant="outlined"
+              required
+              density="compact"
+              hide-details
+              @keyup.enter="updateCollection()"
+            />
+            <v-text-field
+              class="mt-4"
+              v-model="updatedCollection.description"
+              :label="t('collection.description')"
+              variant="outlined"
+              required
+              density="compact"
+              hide-details
+              @keyup.enter="updateCollection()"
+            />
+            <v-switch
+              class="mt-2"
+              v-model="updatedCollection.is_public"
+              color="romm-accent-1"
+              false-icon="mdi-lock"
+              true-icon="mdi-lock-open"
+              inset
+              hide-details
+              :label="
+                updatedCollection.is_public
+                  ? t('collection.public-desc')
+                  : t('collection.private-desc')
+              "
+            />
           </div>
         </div>
       </v-col>
@@ -97,12 +280,7 @@ const collectionInfoFields = [
               v-for="(field, index) in collectionInfoFields"
               :key="field.key"
             >
-              <div
-                v-if="
-                  currentCollection[field.key as keyof typeof currentCollection]
-                "
-                :class="{ 'mt-4': index !== 0 }"
-              >
+              <div :class="{ 'mt-4': index !== 0 }">
                 <p class="text-subtitle-1 text-decoration-underline">
                   {{ field.label }}
                 </p>
@@ -110,7 +288,11 @@ const collectionInfoFields = [
                   {{
                     currentCollection[
                       field.key as keyof typeof currentCollection
-                    ]
+                    ] !== undefined
+                      ? currentCollection[
+                          field.key as keyof typeof currentCollection
+                        ]
+                      : "N/A"
                   }}
                 </p>
               </div>
@@ -146,6 +328,12 @@ const collectionInfoFields = [
     </r-section>
   </v-navigation-drawer>
 
-  <edit-collection-dialog />
   <delete-collection-dialog />
 </template>
+<style scoped>
+.append-top-right {
+  top: 0.2rem;
+  right: 0.5rem;
+  z-index: 1;
+}
+</style>
