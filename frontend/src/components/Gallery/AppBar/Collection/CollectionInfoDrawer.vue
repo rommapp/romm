@@ -3,6 +3,7 @@ import CollectionCard from "@/components/common/Collection/Card.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
 import RSection from "@/components/common/RSection.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
+import storeCollection from "@/stores/collections";
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -23,7 +24,9 @@ const viewportWidth = ref(window.innerWidth);
 const theme = useTheme();
 const auth = storeAuth();
 const romsStore = storeRoms();
+const collectionsStore = storeCollection();
 const { currentCollection } = storeToRefs(romsStore);
+const { allCollections } = storeToRefs(collectionsStore);
 const navigationStore = storeNavigation();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -99,15 +102,21 @@ async function updateCollection() {
     })
     .then(({ data: collection }) => {
       emitter?.emit("snackbarShow", {
-        msg: "Platform updated successfully",
+        msg: "Collection updated successfully",
         icon: "mdi-check-bold",
         color: "green",
       });
       currentCollection.value = collection;
+      const index = allCollections.value.findIndex(
+        (p) => p.id === collection.id,
+      );
+      if (index !== -1) {
+        allCollections.value[index] = collection;
+      }
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
-        msg: `Failed to update platform: ${
+        msg: `Failed to update collection: ${
           error.response?.data?.msg || error.message
         }`,
         icon: "mdi-close-circle",
@@ -281,20 +290,18 @@ async function updateCollection() {
               :key="field.key"
             >
               <div :class="{ 'mt-4': index !== 0 }">
-                <p class="text-subtitle-1 text-decoration-underline">
-                  {{ field.label }}
-                </p>
-                <p class="text-subtitle-2">
-                  {{
+                <v-chip size="small" class="mr-2 px-0" label>
+                  <v-chip label>{{ field.label }}</v-chip
+                  ><span class="px-2">{{
                     currentCollection[
                       field.key as keyof typeof currentCollection
-                    ] !== undefined
+                    ]?.toString()
                       ? currentCollection[
                           field.key as keyof typeof currentCollection
                         ]
                       : "N/A"
-                  }}
-                </p>
+                  }}</span>
+                </v-chip>
               </div>
             </template>
           </v-card-text>
@@ -332,8 +339,8 @@ async function updateCollection() {
 </template>
 <style scoped>
 .append-top-right {
-  top: 0.2rem;
-  right: 0.5rem;
+  top: 0.3rem;
+  right: 0.3rem;
   z-index: 1;
 }
 </style>

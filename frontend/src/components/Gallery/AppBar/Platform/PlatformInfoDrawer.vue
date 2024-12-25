@@ -8,6 +8,7 @@ import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import type { Platform } from "@/stores/platforms";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
@@ -24,9 +25,11 @@ const { xs } = useDisplay();
 const viewportWidth = ref(window.innerWidth);
 const heartbeat = storeHeartbeat();
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const { currentPlatform } = storeToRefs(romsStore);
+const { allPlatforms } = storeToRefs(platformsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
@@ -79,6 +82,10 @@ async function updatePlatform() {
         color: "green",
       });
       currentPlatform.value = platform;
+      const index = allPlatforms.value.findIndex((p) => p.id === platform.id);
+      if (index !== -1) {
+        allPlatforms.value[index] = platform;
+      }
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -274,20 +281,18 @@ watch(
               :key="field.key"
             >
               <div :class="{ 'mt-4': index !== 0 }">
-                <p class="text-subtitle-1 text-decoration-underline">
-                  {{ field.label }}
-                </p>
-                <p class="text-subtitle-2">
-                  {{
+                <v-chip size="small" class="mr-2 px-0" label>
+                  <v-chip label>{{ field.label }}</v-chip
+                  ><span class="px-2">{{
                     currentPlatform[
                       field.key as keyof typeof currentPlatform
-                    ] !== undefined
+                    ]?.toString()
                       ? currentPlatform[
                           field.key as keyof typeof currentPlatform
                         ]
                       : "N/A"
-                  }}
-                </p>
+                  }}</span>
+                </v-chip>
               </div>
             </template>
           </v-card-text>
@@ -376,8 +381,8 @@ watch(
 </template>
 <style scoped>
 .append-top-right {
-  top: 0.2rem;
-  right: 0.5rem;
+  top: 0.3rem;
+  right: 0.3rem;
   z-index: 1;
 }
 .platform-icon {
