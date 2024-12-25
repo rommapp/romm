@@ -27,5 +27,6 @@
   "user-interface": "Interfaz de usuario",
   "library-management": "Gestionar biblioteca",
   "administration": "Administración",
-  "logout": "Cerrar sesión"
+  "logout": "Cerrar sesión",
+  "name": "Nombre"
 }

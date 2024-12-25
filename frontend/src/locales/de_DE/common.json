@@ -27,5 +27,6 @@
   "user-interface": "Benutzeroberfläche",
   "library-management": "Bibliothek verwalten",
   "administration": "Administration",
-  "logout": "Ausloggen"
+  "logout": "Ausloggen",
+  "name": "Name"
 }

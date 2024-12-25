@@ -27,5 +27,6 @@
   "user-interface": "User interface",
   "library-management": "Library management",
   "administration": "Administration",
-  "logout": "Logout"
+  "logout": "Logout",
+  "name": "Name"
 }
