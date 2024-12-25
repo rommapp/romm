@@ -165,6 +165,32 @@ watch(
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
+          <div class="position-absolute append-top-right">
+            <v-btn
+              variant="flat"
+              class="bg-terciary"
+              v-if="!isEditable"
+              @click="toggleEditable"
+              size="small"
+              ><v-icon>mdi-pencil</v-icon></v-btn
+            >
+            <template v-else>
+              <v-btn
+                @click="toggleEditable"
+                size="small"
+                variant="flat"
+                class="bg-terciary"
+                ><v-icon color="romm-red">mdi-close</v-icon></v-btn
+              >
+              <v-btn
+                @click="isEditable ? updatePlatform() : toggleEditable()"
+                size="small"
+                variant="flat"
+                class="bg-terciary ml-1"
+                ><v-icon color="romm-green">mdi-check</v-icon></v-btn
+              >
+            </template>
+          </div>
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
@@ -219,31 +245,6 @@ watch(
                   indeterminate
                 />
               </template>
-            </v-btn>
-          </div>
-          <div>
-            <v-btn
-              v-if="isEditable"
-              rounded="4"
-              @click="toggleEditable"
-              class="ml-2 my-1 bg-terciary"
-            >
-              <template #prepend>
-                <v-icon color="red">mdi-close</v-icon>
-              </template>
-              {{ t("common.cancel") }}
-            </v-btn>
-            <v-btn
-              rounded="4"
-              @click="isEditable ? updatePlatform() : toggleEditable()"
-              class="ml-2 my-1 bg-terciary"
-            >
-              <template #prepend>
-                <v-icon :color="isEditable ? 'romm-green' : ''">{{
-                  isEditable ? "mdi-check" : "mdi-pencil"
-                }}</v-icon>
-              </template>
-              {{ isEditable ? t("common.confirm") : t("common.edit") }}
             </v-btn>
           </div>
         </div>
@@ -379,6 +380,10 @@ watch(
   <delete-platform-dialog />
 </template>
 <style scoped>
+.append-top-right {
+  top: 0.2rem;
+  right: 0.5rem;
+}
 .platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
 }
