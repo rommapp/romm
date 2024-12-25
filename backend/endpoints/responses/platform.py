@@ -11,7 +11,7 @@ class PlatformSchema(BaseModel):
     slug: str
     fs_slug: str
     rom_count: int
-    raw_name: str = Field(alias="name")
+    name: str
     custom_name: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
@@ -33,5 +33,5 @@ class PlatformSchema(BaseModel):
 
     @computed_field  # type: ignore
     @property
-    def name(self) -> str:
-        return self.custom_name or self.raw_name
+    def display_name(self) -> str:
+        return self.custom_name or self.name
