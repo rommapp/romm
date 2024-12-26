@@ -1,6 +1,8 @@
-import { normalizeString } from "@/utils";
+import type { PlatformSchema } from "@/__generated__";
+import { normalizeString, romStatusMap } from "@/utils";
 import { defineStore } from "pinia";
-import { romStatusMap } from "@/utils";
+
+export type Platform = PlatformSchema;
 
 const filters = [
   "genres",
@@ -18,7 +20,9 @@ export type FilterType = (typeof filters)[number];
 export default defineStore("galleryFilter", {
   state: () => ({
     activeFilterDrawer: false,
-    filterSearch: "",
+    searchText: "",
+    filterPlatforms: [] as Platform[],
+    filterText: "",
     filters: filters,
     filterGenres: [] as string[],
     filterFranchises: [] as string[],
@@ -42,8 +46,8 @@ export default defineStore("galleryFilter", {
     switchActiveFilterDrawer() {
       this.activeFilterDrawer = !this.activeFilterDrawer;
     },
-    setFilterSearch(filterSearch: string) {
-      this.filterSearch = normalizeString(filterSearch);
+    setFilterPlatforms(platforms: Platform[]) {
+      this.filterPlatforms = platforms;
     },
     setFilterGenres(genres: string[]) {
       this.filterGenres = genres;
@@ -106,7 +110,7 @@ export default defineStore("galleryFilter", {
     },
     isFiltered() {
       return Boolean(
-        normalizeString(this.filterSearch).trim() != "" ||
+        normalizeString(this.filterText).trim() != "" ||
           this.filterUnmatched ||
           this.filterMatched ||
           this.filterFavourites ||

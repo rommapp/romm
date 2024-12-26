@@ -129,8 +129,8 @@ export default defineStore("roms", {
     // Filter roms by gallery filter store state
     setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {
       this._filteredIDs = new Set(roms.map((rom) => rom.id));
-      if (galleryFilter.filterSearch) {
-        this._filterSearch(galleryFilter.filterSearch);
+      if (galleryFilter.filterText) {
+        this._filterText(galleryFilter.filterText);
       }
       if (galleryFilter.filterUnmatched) {
         this._filterUnmatched();
@@ -170,7 +170,7 @@ export default defineStore("roms", {
         );
       }
     },
-    _filterSearch(searchFilter: string) {
+    _filterText(searchFilter: string) {
       const bySearch = new Set(
         this.filteredRoms
           .filter(

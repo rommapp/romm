@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import GalleryAppBarCollection from "@/components/Gallery/AppBar/Collection/Base.vue";
+import GalleryAppBarSearch from "@/components/Gallery/AppBar/Search/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import EmptyCollection from "@/components/common/EmptyCollection.vue";
 import EmptyGame from "@/components/common/EmptyGame.vue";
@@ -13,6 +13,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { normalizeString, views } from "@/utils";
 import type { Emitter } from "mitt";
+import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
@@ -20,12 +21,10 @@ import { useDisplay } from "vuetify";
 
 // Props
 const { smAndDown } = useDisplay();
-const route = useRoute();
 const galleryViewStore = storeGalleryView();
-const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
-const collectionsStore = storeCollections();
-const { allCollections } = storeToRefs(collectionsStore);
+const galleryFilterStore = storeGalleryFilter();
+const { searchText } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -37,52 +36,13 @@ const {
   gettingRoms,
 } = storeToRefs(romsStore);
 const itemsShown = ref(itemsPerBatch.value);
-const noCollectionError = ref(false);
-const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
+const { t } = useI18n();
+const router = useRouter();
 
 // Functions
-async function fetchRoms() {
-  if (gettingRoms.value) return;
-
-  gettingRoms.value = true;
-  emitter?.emit("showLoadingDialog", {
-    loading: gettingRoms.value,
-    scrim: false,
-  });
-
-  await romApi
-    .getRoms({
-      collectionId: romsStore.currentCollection?.id,
-      searchTerm: normalizeString(galleryFilterStore.filterText),
-    })
-    .then(({ data }) => {
-      romsStore.set(data);
-      romsStore.setFiltered(data, galleryFilterStore);
-    })
-    .catch((error) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms for collection ID ${currentCollection.value?.id}: ${error}`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-      console.error(
-        `Couldn't fetch roms for collection ID ${currentCollection.value?.id}: ${error}`,
-      );
-      noCollectionError.value = true;
-    })
-    .finally(() => {
-      gettingRoms.value = false;
-      emitter?.emit("showLoadingDialog", {
-        loading: gettingRoms.value,
-        scrim: false,
-      });
-    });
-}
-
 function setFilters() {
   galleryFilterStore.setFilterGenres([
     ...new Set(
@@ -206,133 +166,74 @@ function resetGallery() {
   galleryFilterStore.reset();
   galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
-  noCollectionError.value = false;
   itemsShown.value = itemsPerBatch.value;
 }
 
 onMounted(async () => {
-  const routeCollectionId = Number(route.params.collection);
   currentPlatform.value = null;
-
-  watch(
-    () => allCollections.value,
-    (collections) => {
-      if (
-        collections.length > 0 &&
-        collections.some((collection) => collection.id === routeCollectionId)
-      ) {
-        const collection = collections.find(
-          (collection) => collection.id === routeCollectionId,
-        );
-
-        // Check if the current platform is different or no ROMs have been loaded
-        if (
-          (currentCollection.value?.id !== routeCollectionId ||
-            allRoms.value.length === 0) &&
-          collection
-        ) {
-          romsStore.setCurrentCollection(collection);
-          resetGallery();
-          fetchRoms();
-          setFilters();
-        }
-
-        window.addEventListener("wheel", onScroll);
-        window.addEventListener("scroll", onScroll);
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
-});
-
-onBeforeRouteUpdate(async (to, from) => {
-  // Triggers when change param of the same route
-  // Reset store if switching to another collection
-  if (to.path === from.path) return true;
-
+  currentCollection.value = null;
   resetGallery();
-
-  const routeCollectionId = Number(to.params.collection);
-
-  watch(
-    () => allCollections.value,
-    (collections) => {
-      if (collections.length > 0) {
-        const collection = collections.find(
-          (collection) => collection.id === routeCollectionId,
-        );
-
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
-        if (
-          (currentCollection.value?.id !== routeCollectionId ||
-            allRoms.value.length === 0) &&
-          collection
-        ) {
-          romsStore.setCurrentCollection(collection);
-          fetchRoms();
-          setFilters();
-        }
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
+  window.addEventListener("wheel", onScroll);
+  window.addEventListener("scroll", onScroll);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
+  searchText.value = "";
 });
 </script>
 
 <template>
-  <template v-if="!noCollectionError">
-    <gallery-app-bar-collection />
-    <template v-if="filteredRoms.length > 0">
-      <v-row v-show="currentView != 2" class="pa-1" no-gutters>
-        <!-- Gallery cards view -->
-        <!-- v-show instead of v-if to avoid recalculate on view change -->
-        <v-col
-          v-for="rom in filteredRoms.slice(0, itemsShown)"
-          :key="rom.id"
-          class="pa-1 align-self-end"
-          :cols="views[currentView]['size-cols']"
-          :sm="views[currentView]['size-sm']"
-          :md="views[currentView]['size-md']"
-          :lg="views[currentView]['size-lg']"
-          :xl="views[currentView]['size-xl']"
-        >
-          <game-card
-            :key="rom.updated_at"
-            :rom="rom"
-            title-on-hover
-            pointer-on-hover
-            with-link
-            show-flags
-            show-action-bar
-            show-fav
-            transform-scale
-            with-border
-            show-platform-icon
-            :with-border-romm-accent="
-              romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
-            "
-            @click="onGameClick"
-            @touchstart="onGameTouchStart"
-            @touchend="onGameTouchEnd"
-          />
-        </v-col>
-      </v-row>
+  <gallery-app-bar-search />
+  <v-row class="align-center" no-gutters>
+    <!-- Removed search-text-field and platform-select -->
+  </v-row>
+  <template v-if="filteredRoms.length > 0">
+    <v-row v-show="currentView != 2" class="pa-1" no-gutters>
+      <!-- Gallery cards view -->
+      <!-- v-show instead of v-if to avoid recalculate on view change -->
+      <v-col
+        v-for="rom in filteredRoms.slice(0, itemsShown)"
+        :key="rom.id"
+        class="pa-1 align-self-end"
+        :cols="views[currentView]['size-cols']"
+        :sm="views[currentView]['size-sm']"
+        :md="views[currentView]['size-md']"
+        :lg="views[currentView]['size-lg']"
+        :xl="views[currentView]['size-xl']"
+      >
+        <game-card
+          :key="rom.updated_at"
+          :rom="rom"
+          title-on-hover
+          pointer-on-hover
+          with-link
+          show-flags
+          show-action-bar
+          show-fav
+          transform-scale
+          with-border
+          show-platform-icon
+          :with-border-romm-accent="
+            romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
+          "
+          @click="onGameClick"
+          @touchstart="onGameTouchStart"
+          @touchend="onGameTouchEnd"
+        />
+      </v-col>
+    </v-row>
 
-      <!-- Gallery list view -->
-      <v-row v-show="currentView == 2" class="h-100" no-gutters>
-        <game-data-table class="fill-height" />
-      </v-row>
-      <fab-overlay />
-    </template>
-    <template v-else>
-      <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
-    </template>
+    <!-- Gallery list view -->
+    <v-row v-show="currentView == 2" class="h-100" no-gutters>
+      <game-data-table class="fill-height" />
+    </v-row>
+    <fab-overlay />
+  </template>
+  <template v-else>
+    <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
   </template>
 
-  <empty-collection v-else />
+  <empty-game v-else />
 </template>
