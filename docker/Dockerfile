@@ -120,7 +120,6 @@ RUN apk add --no-cache \
     mariadb-connector-c \
     p7zip \
     python3 \
-    tini \
     tzdata \
     valkey
 
@@ -152,5 +151,5 @@ VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/re
 EXPOSE 8080 6379/tcp
 WORKDIR /romm
 
-ENTRYPOINT ["/sbin/tini", "--", "/docker-entrypoint.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/init"]
