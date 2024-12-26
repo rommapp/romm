@@ -42,6 +42,7 @@ const collectionInfoFields = [
     label: t("collection.owner"),
   },
 ];
+const updating = ref(false);
 const updatedCollection = ref<UpdatedCollection>({} as UpdatedCollection);
 const isEditable = ref(false);
 emitter?.on("updateUrlCover", (url_cover) => {
@@ -94,7 +95,8 @@ async function removeArtwork() {
 
 async function updateCollection() {
   if (!updatedCollection.value) return;
-  console.log(updatedCollection.value);
+  updating.value = true;
+  isEditable.value = !isEditable.value;
   await collectionApi
     .updateCollection({
       collection: updatedCollection.value,
@@ -123,9 +125,9 @@ async function updateCollection() {
         color: "red",
       });
     });
-  isEditable.value = !isEditable.value;
   updatedCollection.value = {} as UpdatedCollection;
   imagePreviewUrl.value = "";
+  updating.value = false;
 }
 </script>
 
@@ -148,11 +150,21 @@ async function updateCollection() {
         >
           <div class="position-absolute append-top-right">
             <v-btn
-              class="bg-terciary"
               v-if="!isEditable"
+              :loading="updating"
+              class="bg-terciary"
               @click="showEditable"
               size="small"
-              ><v-icon>mdi-pencil</v-icon></v-btn
+            >
+              <template #loader>
+                <v-progress-circular
+                  color="romm-accent-1"
+                  :width="2"
+                  :size="20"
+                  indeterminate
+                />
+              </template>
+              <v-icon>mdi-pencil</v-icon></v-btn
             >
             <template v-else>
               <v-btn @click="closeEditable" size="small" class="bg-terciary"
