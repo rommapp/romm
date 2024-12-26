@@ -15,7 +15,7 @@ from config import (
 from endpoints import (
     auth,
     collections,
-    config,
+    configs,
     feeds,
     firmware,
     heartbeat,
@@ -102,7 +102,7 @@ app.include_router(saves.router, prefix="/api")
 app.include_router(states.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(feeds.router, prefix="/api")
-app.include_router(config.router, prefix="/api")
+app.include_router(configs.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(raw.router, prefix="/api")
 app.include_router(screenshots.router, prefix="/api")

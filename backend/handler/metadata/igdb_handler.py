@@ -1,6 +1,5 @@
 import functools
 import re
-import time
 from typing import Final, NotRequired, TypedDict
 
 import httpx
@@ -8,7 +7,7 @@ import pydash
 from adapters.services.igdb_types import GameCategory
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from fastapi import HTTPException, status
-from handler.redis_handler import sync_cache
+from handler.redis_handler import async_cache
 from logger.logger import log
 from unidecode import unidecode as uc
 from utils.context import ctx_httpx_client
@@ -664,11 +663,11 @@ class TwitchAuth(MetadataHandler):
         self.timeout = 10
 
     async def _update_twitch_token(self) -> str:
-        token = None
-        expires_in = 0
-
         if not IGDB_API_ENABLED:
             return ""
+
+        token = None
+        expires_in = 0
 
         httpx_client = ctx_httpx_client.get()
         try:
@@ -698,9 +697,8 @@ class TwitchAuth(MetadataHandler):
         if not token or expires_in == 0:
             return ""
 
-        # Set token in redis to expire in <expires_in> seconds
-        sync_cache.set("romm:twitch_token", token, ex=expires_in - 10)
-        sync_cache.set("romm:twitch_token_expires_at", time.time() + expires_in - 10)
+        # Set token in Redis to expire some seconds before it actually expires.
+        await async_cache.set("romm:twitch_token", token, ex=expires_in - 10)
 
         log.info("Twitch token fetched!")
 
@@ -715,17 +713,15 @@ class TwitchAuth(MetadataHandler):
             return ""
 
         # Fetch the token cache
-        token = sync_cache.get("romm:twitch_token")
-        token_expires_at = sync_cache.get("romm:twitch_token_expires_at")
-
-        if not token or time.time() > float(token_expires_at or 0):
+        token = await async_cache.get("romm:twitch_token")
+        if not token:
             log.warning("Twitch token invalid: fetching a new one...")
             return await self._update_twitch_token()
 
         return token
 
 
-PLATFORMS_FIELDS = [
+PLATFORMS_FIELDS = (
     "id",
     "name",
     "category",
@@ -734,9 +730,9 @@ PLATFORMS_FIELDS = [
     "platform_family.name",
     "platform_family.slug",
     "platform_logo.url",
-]
+)
 
-GAMES_FIELDS = [
+GAMES_FIELDS = (
     "id",
     "name",
     "slug",
@@ -786,9 +782,9 @@ GAMES_FIELDS = [
     "similar_games.cover.url",
     "age_ratings.rating",
     "videos.video_id",
-]
+)
 
-SEARCH_FIELDS = ["game.id", "name"]
+SEARCH_FIELDS = ("game.id", "name")
 
 # Generated from the following code on https://www.igdb.com/platforms/:
 # Array.from(document.querySelectorAll(".media-body a")).map(a => ({
@@ -796,7 +792,7 @@ SEARCH_FIELDS = ["game.id", "name"]
 #   name: a.innerText
 # }))
 
-IGDB_PLATFORM_LIST = [
+IGDB_PLATFORM_LIST = (
     {"slug": "visionos", "name": "visionOS"},
     {"slug": "meta-quest-3", "name": "Meta Quest 3"},
     {"slug": "atari2600", "name": "Atari 2600"},
@@ -1013,7 +1009,7 @@ IGDB_PLATFORM_LIST = [
     {"slug": "onlive-game-system", "name": "OnLive Game System"},
     {"slug": "vc", "name": "Virtual Console"},
     {"slug": "airconsole", "name": "AirConsole"},
-]
+)
 
 IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
     0: "Unknown",

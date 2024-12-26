@@ -6,8 +6,10 @@ import type { Emitter } from "mitt";
 import storeConfig from "@/stores/config";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { mdAndUp, smAndDown } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -81,14 +83,16 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
             class="bg-terciary text-romm-green"
             :disabled="exclusionValue == ''"
             :variant="exclusionValue == '' ? 'plain' : 'flat'"
             @click="addExclusion"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>

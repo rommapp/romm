@@ -8,6 +8,7 @@ import type { Role } from './Role';
 export type UserSchema = {
     id: number;
     username: string;
+    email: (string | null);
     enabled: boolean;
     role: Role;
     oauth_scopes: Array<string>;

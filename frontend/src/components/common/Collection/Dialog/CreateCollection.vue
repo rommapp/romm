@@ -10,8 +10,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay, useTheme } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const theme = useTheme();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
@@ -117,7 +119,7 @@ function closeDialog() {
             <v-col>
               <v-text-field
                 v-model="collection.name"
-                label="Name"
+                :label="t('collection.name')"
                 variant="outlined"
                 required
                 hide-details
@@ -130,7 +132,7 @@ function closeDialog() {
               <v-text-field
                 v-model="collection.description"
                 class="mt-1"
-                label="Description"
+                :label="t('collection.description')"
                 variant="outlined"
                 required
                 hide-details
@@ -201,14 +203,16 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mt-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
             class="bg-terciary text-romm-green"
             :disabled="!collection.name"
             :variant="!collection.name ? 'plain' : 'flat'"
             @click="createCollection"
           >
-            Create
+            {{ t("common.create") }}
           </v-btn>
         </v-btn-group>
       </v-row>

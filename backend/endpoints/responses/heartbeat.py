@@ -31,6 +31,11 @@ class FrontendDict(TypedDict):
     UPLOAD_TIMEOUT: int
 
 
+class OIDCDict(TypedDict):
+    ENABLED: bool
+    PROVIDER: str
+
+
 class HeartbeatResponse(TypedDict):
     VERSION: str
     SHOW_SETUP_WIZARD: bool
@@ -41,3 +46,4 @@ class HeartbeatResponse(TypedDict):
     FS_PLATFORMS: list
     EMULATION: EmulationDict
     FRONTEND: FrontendDict
+    OIDC: OIDCDict

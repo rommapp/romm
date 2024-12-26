@@ -10,8 +10,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const authStore = storeAuth();
 const configStore = storeConfig();
@@ -20,7 +22,10 @@ const editable = ref(false);
 </script>
 
 <template>
-  <r-section icon="mdi-gamepad-variant" title="Platforms Versions">
+  <r-section
+    icon="mdi-gamepad-variant"
+    :title="t('settings.platforms-versions')"
+  >
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
