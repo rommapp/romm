@@ -17,6 +17,7 @@
   "filter": "Filtrar",
   "add": "Añadir",
   "upload": "Subir",
+  "edit": "Editar",
   "cancel": "Cancelar",
   "confirm": "Confirmar",
   "apply": "Aplicar",
@@ -26,5 +27,6 @@
   "user-interface": "Interfaz de usuario",
   "library-management": "Gestionar biblioteca",
   "administration": "Administración",
-  "logout": "Cerrar sesión"
+  "logout": "Cerrar sesión",
+  "name": "Nombre"
 }

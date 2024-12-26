@@ -15,6 +15,7 @@ import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import type { Platform } from "@/stores/platforms";
 
 // Props
 const { t } = useI18n();
@@ -47,33 +48,50 @@ const aspectRatioOptions = computed(() => [
     source: t("platform.old-squared-cases"),
   },
 ]);
-
 const platformInfoFields = [
+  { key: "name", label: t("common.name") },
   { key: "slug", label: "Slug" },
   { key: "fs_slug", label: t("platform.filesystem-folder-name") },
   { key: "category", label: t("platform.category") },
   { key: "generation", label: t("platform.generation") },
   { key: "family_name", label: t("platform.family") },
 ];
-
-watch(
-  () => currentPlatform.value?.aspect_ratio,
-  (aspectRatio) => {
-    if (aspectRatio) {
-      // Find the index of the aspect ratio option that matches the current aspect ratio
-      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
-        (option) => option.name == aspectRatio,
-      );
-      // If a matching aspect ratio option is found, update the selectedAspectRatio
-      if (defaultAspectRatio !== -1) {
-        selectedAspectRatio.value = defaultAspectRatio;
-      }
-    }
-  },
-  { immediate: true }, // Execute the callback immediately with the current value
-);
+const updatedPlatform = ref({ ...currentPlatform.value });
+const isEditable = ref(false);
 
 // Functions
+function toggleEditable() {
+  updatedPlatform.value = { ...currentPlatform.value };
+  isEditable.value = !isEditable.value;
+}
+
+async function updatePlatform() {
+  if (!updatedPlatform.value) return;
+  updatedPlatform.value.custom_name = updatedPlatform.value.display_name;
+  await platformApi
+    .updatePlatform({
+      platform: updatedPlatform.value as Platform,
+    })
+    .then(({ data: platform }) => {
+      emitter?.emit("snackbarShow", {
+        msg: "Platform updated successfully",
+        icon: "mdi-check-bold",
+        color: "green",
+      });
+      currentPlatform.value = platform;
+    })
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Failed to update platform: ${
+          error.response?.data?.msg || error.message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    });
+  toggleEditable();
+}
+
 async function scan() {
   scanningStore.set(true);
 
@@ -98,7 +116,7 @@ async function setAspectRatio() {
       })
       .then(({ data }) => {
         emitter?.emit("snackbarShow", {
-          msg: data.msg,
+          msg: "Platform updated successfully",
           icon: "mdi-check-bold",
           color: "green",
         });
@@ -117,6 +135,23 @@ async function setAspectRatio() {
       });
   }
 }
+
+watch(
+  () => currentPlatform.value?.aspect_ratio,
+  (aspectRatio) => {
+    if (aspectRatio) {
+      // Find the index of the aspect ratio option that matches the current aspect ratio
+      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
+        (option) => option.name == aspectRatio,
+      );
+      // If a matching aspect ratio option is found, update the selectedAspectRatio
+      if (defaultAspectRatio !== -1) {
+        selectedAspectRatio.value = defaultAspectRatio;
+      }
+    }
+  },
+  { immediate: true }, // Execute the callback immediately with the current value
+);
 </script>
 
 <template>
@@ -130,6 +165,26 @@ async function setAspectRatio() {
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
+          <div class="position-absolute append-top-right">
+            <v-btn
+              class="bg-terciary"
+              v-if="!isEditable"
+              @click="toggleEditable"
+              size="small"
+              ><v-icon>mdi-pencil</v-icon></v-btn
+            >
+            <template v-else>
+              <v-btn @click="toggleEditable" size="small" class="bg-terciary"
+                ><v-icon color="romm-red">mdi-close</v-icon></v-btn
+              >
+              <v-btn
+                @click="isEditable ? updatePlatform() : toggleEditable()"
+                size="small"
+                class="bg-terciary ml-1"
+                ><v-icon color="romm-green">mdi-check</v-icon></v-btn
+              >
+            </template>
+          </div>
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
@@ -141,12 +196,23 @@ async function setAspectRatio() {
           class="text-center mt-2"
           v-if="auth.scopes.includes('platforms.write')"
         >
-          <p class="text-h5 font-weight-bold pl-0">
-            <span>{{ currentPlatform.name }}</span>
-          </p>
+          <div v-if="!isEditable" class="text-h5 font-weight-bold pl-0">
+            <span>{{ currentPlatform.display_name }}</span>
+          </div>
+          <div v-else>
+            <v-text-field
+              variant="outlined"
+              class="text-white"
+              hide-details
+              density="compact"
+              v-model="updatedPlatform.display_name"
+              :readonly="!isEditable"
+              @keyup.enter="updatePlatform()"
+            />
+          </div>
           <div class="mt-6">
             <v-btn
-              class="bg-terciary"
+              class="bg-terciary my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
               <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
@@ -157,7 +223,7 @@ async function setAspectRatio() {
               rounded="4"
               :loading="scanning"
               @click="scan"
-              class="ml-2 bg-terciary"
+              class="ml-2 my-1 bg-terciary"
             >
               <template #prepend>
                 <v-icon :color="scanning ? '' : 'romm-accent-1'"
@@ -308,6 +374,11 @@ async function setAspectRatio() {
   <delete-platform-dialog />
 </template>
 <style scoped>
+.append-top-right {
+  top: 0.2rem;
+  right: 0.5rem;
+  z-index: 1;
+}
 .platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
 }
