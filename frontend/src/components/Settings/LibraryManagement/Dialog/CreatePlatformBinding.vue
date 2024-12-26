@@ -10,8 +10,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const configStore = storeConfig();
@@ -100,7 +102,7 @@ function closeDialog() {
           <v-select
             :items="heartbeat.value.FS_PLATFORMS"
             v-model="fsSlugToCreate"
-            label="Folder name"
+            :label="t('settings.folder-name')"
             variant="outlined"
             required
             hide-details
@@ -114,7 +116,7 @@ function closeDialog() {
           <v-autocomplete
             v-model="selectedPlatform"
             class="text-romm-accent-1"
-            label="RomM platform"
+            :label="t('settings.romm-platform')"
             :items="supportedPlatforms"
             color="romm-accent-1"
             base-color="romm-accent-1"
@@ -159,7 +161,9 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
             class="bg-terciary text-romm-green"
             :disabled="fsSlugToCreate == '' || selectedPlatform?.slug == ''"
@@ -170,7 +174,7 @@ function closeDialog() {
             "
             @click="addBindPlatform"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>

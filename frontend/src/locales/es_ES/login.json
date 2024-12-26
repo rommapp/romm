@@ -1,0 +1,7 @@
+{
+  "username": "Usuario",
+  "password": "Contraseña",
+  "login": "Iniciar sesión",
+  "login-oidc": "Iniciar sesión con {oidc}",
+  "or": "o"
+}

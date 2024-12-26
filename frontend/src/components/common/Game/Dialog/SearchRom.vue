@@ -9,6 +9,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Define types
 type Platform = {
@@ -21,6 +22,7 @@ type SelectItem = {
 };
 
 // Props
+const { t } = useI18n();
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const searching = ref(false);
@@ -116,7 +118,7 @@ onBeforeUnmount(() => {
             @click:clear="searchRoms"
             v-model="searchValue"
             :disabled="searching"
-            label="Search"
+            :label="t('common.search')"
             hide-details
             class="bg-terciary"
           />
@@ -124,7 +126,7 @@ onBeforeUnmount(() => {
         <v-col cols="5" lg="4">
           <v-select
             @click:clear="clearFilter"
-            label="Platform"
+            :label="t('common.platform')"
             class="bg-terciary"
             item-title="platform_name"
             :disabled="platforms.length == 0 || searching"

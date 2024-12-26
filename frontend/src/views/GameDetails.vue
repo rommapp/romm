@@ -20,8 +20,10 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const route = useRoute();
 const tab = ref<
   | "details"
@@ -90,11 +92,7 @@ watch(
     <v-row class="px-5" no-gutters :class="{ 'justify-center': smAndDown }">
       <v-col cols="auto">
         <v-container :width="270" id="artwork-container" class="pa-0">
-          <game-card
-            :show-not-identified="false"
-            :key="currentRom.updated_at"
-            :rom="currentRom"
-          />
+          <game-card :key="currentRom.updated_at" :rom="currentRom" />
           <action-bar class="mt-2" :rom="currentRom" />
           <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>
@@ -117,10 +115,12 @@ watch(
             :class="{ 'mt-4': smAndDown }"
             rounded="0"
           >
-            <v-tab value="details" rounded="0"> Details </v-tab>
-            <v-tab value="saves" rounded="0"> Saves </v-tab>
-            <v-tab value="states" rounded="0"> States </v-tab>
-            <v-tab value="personal" rounded="0"> Personal </v-tab>
+            <v-tab value="details" rounded="0"> {{ t("rom.details") }} </v-tab>
+            <v-tab value="saves" rounded="0"> {{ t("common.saves") }} </v-tab>
+            <v-tab value="states" rounded="0"> {{ t("common.states") }} </v-tab>
+            <v-tab value="personal" rounded="0">
+              {{ t("rom.personal") }}
+            </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -130,7 +130,7 @@ watch(
               value="additionalcontent"
               rounded="0"
             >
-              Additional content
+              {{ t("rom.additional-content") }}
             </v-tab>
             <!-- TODO: user screenshots -->
             <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
@@ -144,7 +144,7 @@ watch(
               value="relatedgames"
               rounded="0"
             >
-              Related Games
+              {{ t("rom.related-content") }}
             </v-tab>
           </v-tabs>
           <v-col cols="12" class="px-2">

@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
+
+// Props
 withDefaults(
   defineProps<{
     enabled?: boolean;
   }>(),
   { enabled: false },
 );
+const { t } = useI18n();
 const emit = defineEmits(["click"]);
 </script>
 <template>
@@ -19,7 +23,7 @@ const emit = defineEmits(["click"]);
       class="text-romm-accent-1"
       @click="$emit('click')"
     >
-      Add
+      {{ t("common.add") }}
     </v-btn>
   </v-expand-transition>
 </template>

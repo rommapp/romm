@@ -6,8 +6,10 @@ import { views } from "@/utils";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { isNull } from "lodash";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
 const router = useRouter();
@@ -16,7 +18,7 @@ const gridRecentRoms = isNull(localStorage.getItem("settings.gridRecentRoms"))
   : localStorage.getItem("settings.gridRecentRoms") === "true";
 </script>
 <template>
-  <r-section icon="mdi-shimmer" title="Recently added">
+  <r-section icon="mdi-shimmer" :title="t('home.recently-added')">
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridRecentRoms }"
@@ -46,8 +48,6 @@ const gridRecentRoms = isNull(localStorage.getItem("settings.gridRecentRoms"))
           />
         </v-col>
       </v-row>
-      <!-- TODO: Check recently added games in the last 30 days -->
-      <!-- TODO: Add a button to upload roms if no roms were uploaded in the last 30 days -->
     </template>
   </r-section>
 </template>
