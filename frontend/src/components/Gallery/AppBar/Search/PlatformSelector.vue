@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import type { Platform } from "@/types/platform";
+import type { Platform } from "@/stores/platforms";
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 
@@ -66,10 +67,10 @@ function filterRoms() {
       romsStore.allRoms.filter(
         (rom) => rom.platform_id === selectedPlatform.value?.id,
       ),
-      storeGalleryFilter,
+      galleryFilterStore,
     );
   } else {
-    romsStore.setFiltered(romsStore.allRoms, storeGalleryFilter);
+    romsStore.setFiltered(romsStore.allRoms, galleryFilterStore);
   }
   setFilters();
 }

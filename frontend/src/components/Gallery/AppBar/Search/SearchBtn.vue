@@ -5,8 +5,9 @@ import storeRoms from "@/stores/roms";
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { storeToRefs } from "pinia";
-import type { Platform } from "@/types/platform";
+import type { Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 
 const romsStore = storeRoms();
 const { t } = useI18n();
@@ -31,7 +32,7 @@ async function fetchRoms() {
           return a.platform_name.localeCompare(b.platform_name);
         });
         romsStore.set(data);
-        romsStore.setFiltered(data, storeGalleryFilter);
+        romsStore.setFiltered(data, galleryFilterStore);
       })
       .catch((error) => {
         emitter?.emit("snackbarShow", {
@@ -45,17 +46,6 @@ async function fetchRoms() {
       .finally(() => {
         searching.value = false;
       });
-    filterPlatforms.value = [
-      ...new Map(
-        romsStore.filteredRoms.map((rom): [string, Platform] => [
-          rom.platform_name,
-          {
-            platform_name: rom.platform_name,
-            platform_slug: rom.platform_slug,
-          },
-        ]),
-      ).values(),
-    ];
     searching.value = false;
     filterRoms();
     galleryFilterStore.activeFilterDrawer = false;
@@ -71,12 +61,12 @@ function filterRoms() {
   if (selectedPlatform.value) {
     romsStore.setFiltered(
       romsStore.allRoms.filter(
-        (rom) => rom.platform_slug === selectedPlatform.value?.platform_slug,
+        (rom) => rom.platform_id === selectedPlatform.value?.id,
       ),
-      storeGalleryFilter,
+      galleryFilterStore,
     );
   } else {
-    romsStore.setFiltered(romsStore.allRoms, storeGalleryFilter);
+    romsStore.setFiltered(romsStore.allRoms, galleryFilterStore);
   }
 }
 </script>
