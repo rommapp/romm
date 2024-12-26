@@ -9,6 +9,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { views } from "@/utils";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
@@ -139,7 +140,7 @@ function onGameTouchEnd() {
 }
 
 function onScroll() {
-  if (currentView != 2) {
+  if (currentView.value != 2) {
     window.setTimeout(async () => {
       const { scrollTop, scrollHeight, clientHeight } =
         document.documentElement;
