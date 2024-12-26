@@ -721,7 +721,7 @@ class TwitchAuth(MetadataHandler):
         return token
 
 
-PLATFORMS_FIELDS = [
+PLATFORMS_FIELDS = (
     "id",
     "name",
     "category",
@@ -730,9 +730,9 @@ PLATFORMS_FIELDS = [
     "platform_family.name",
     "platform_family.slug",
     "platform_logo.url",
-]
+)
 
-GAMES_FIELDS = [
+GAMES_FIELDS = (
     "id",
     "name",
     "slug",
@@ -782,9 +782,9 @@ GAMES_FIELDS = [
     "similar_games.cover.url",
     "age_ratings.rating",
     "videos.video_id",
-]
+)
 
-SEARCH_FIELDS = ["game.id", "name"]
+SEARCH_FIELDS = ("game.id", "name")
 
 # Generated from the following code on https://www.igdb.com/platforms/:
 # Array.from(document.querySelectorAll(".media-body a")).map(a => ({
@@ -792,7 +792,7 @@ SEARCH_FIELDS = ["game.id", "name"]
 #   name: a.innerText
 # }))
 
-IGDB_PLATFORM_LIST = [
+IGDB_PLATFORM_LIST = (
     {"slug": "visionos", "name": "visionOS"},
     {"slug": "meta-quest-3", "name": "Meta Quest 3"},
     {"slug": "atari2600", "name": "Atari 2600"},
@@ -1009,7 +1009,7 @@ IGDB_PLATFORM_LIST = [
     {"slug": "onlive-game-system", "name": "OnLive Game System"},
     {"slug": "vc", "name": "Virtual Console"},
     {"slug": "airconsole", "name": "AirConsole"},
-]
+)
 
 IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
     0: "Unknown",
