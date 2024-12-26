@@ -7,15 +7,16 @@ import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
+import type { Platform } from "@/stores/platforms";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import type { Platform } from "@/stores/platforms";
+import { useDisplay } from "vuetify";
 
 // Props
 const { t } = useI18n();
@@ -24,9 +25,11 @@ const { xs } = useDisplay();
 const viewportWidth = ref(window.innerWidth);
 const heartbeat = storeHeartbeat();
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const { currentPlatform } = storeToRefs(romsStore);
+const { allPlatforms } = storeToRefs(platformsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
@@ -56,17 +59,25 @@ const platformInfoFields = [
   { key: "generation", label: t("platform.generation") },
   { key: "family_name", label: t("platform.family") },
 ];
+const updating = ref(false);
 const updatedPlatform = ref({ ...currentPlatform.value });
 const isEditable = ref(false);
 
 // Functions
-function toggleEditable() {
+function showEditable() {
   updatedPlatform.value = { ...currentPlatform.value };
-  isEditable.value = !isEditable.value;
+  isEditable.value = true;
+}
+
+function closeEditable() {
+  updatedPlatform.value = {};
+  isEditable.value = false;
 }
 
 async function updatePlatform() {
   if (!updatedPlatform.value) return;
+  updating.value = true;
+  isEditable.value = false;
   updatedPlatform.value.custom_name = updatedPlatform.value.display_name;
   await platformApi
     .updatePlatform({
@@ -79,6 +90,10 @@ async function updatePlatform() {
         color: "green",
       });
       currentPlatform.value = platform;
+      const index = allPlatforms.value.findIndex((p) => p.id === platform.id);
+      if (index !== -1) {
+        allPlatforms.value[index] = platform;
+      }
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -89,7 +104,8 @@ async function updatePlatform() {
         color: "red",
       });
     });
-  toggleEditable();
+  updatedPlatform.value = {};
+  updating.value = false;
 }
 
 async function scan() {
@@ -167,18 +183,28 @@ watch(
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
             <v-btn
-              class="bg-terciary"
               v-if="!isEditable"
-              @click="toggleEditable"
+              :loading="updating"
+              class="bg-terciary"
+              @click="showEditable"
               size="small"
-              ><v-icon>mdi-pencil</v-icon></v-btn
+            >
+              <template #loader>
+                <v-progress-circular
+                  color="romm-accent-1"
+                  :width="2"
+                  :size="20"
+                  indeterminate
+                />
+              </template>
+              <v-icon>mdi-pencil</v-icon></v-btn
             >
             <template v-else>
-              <v-btn @click="toggleEditable" size="small" class="bg-terciary"
+              <v-btn @click="closeEditable" size="small" class="bg-terciary"
                 ><v-icon color="romm-red">mdi-close</v-icon></v-btn
               >
               <v-btn
-                @click="isEditable ? updatePlatform() : toggleEditable()"
+                @click="updatePlatform()"
                 size="small"
                 class="bg-terciary ml-1"
                 ><v-icon color="romm-green">mdi-check</v-icon></v-btn
@@ -273,20 +299,19 @@ watch(
               v-for="(field, index) in platformInfoFields"
               :key="field.key"
             >
-              <div
-                v-if="
-                  currentPlatform[field.key as keyof typeof currentPlatform]
-                "
-                :class="{ 'mt-4': index !== 0 }"
-              >
-                <p class="text-subtitle-1 text-decoration-underline">
-                  {{ field.label }}
-                </p>
-                <p class="text-subtitle-2">
-                  {{
-                    currentPlatform[field.key as keyof typeof currentPlatform]
-                  }}
-                </p>
+              <div :class="{ 'mt-4': index !== 0 }">
+                <v-chip size="small" class="mr-2 px-0" label>
+                  <v-chip label>{{ field.label }}</v-chip
+                  ><span class="px-2">{{
+                    currentPlatform[
+                      field.key as keyof typeof currentPlatform
+                    ]?.toString()
+                      ? currentPlatform[
+                          field.key as keyof typeof currentPlatform
+                        ]
+                      : "N/A"
+                  }}</span>
+                </v-chip>
               </div>
             </template>
           </v-card-text>
@@ -375,8 +400,8 @@ watch(
 </template>
 <style scoped>
 .append-top-right {
-  top: 0.2rem;
-  right: 0.5rem;
+  top: 0.3rem;
+  right: 0.3rem;
   z-index: 1;
 }
 .platform-icon {
