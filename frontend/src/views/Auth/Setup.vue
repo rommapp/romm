@@ -37,6 +37,7 @@ const metadataOptions = computed(() => [
 const defaultAdminUser = ref({
   username: "",
   password: "",
+  email: "",
   role: "admin",
 });
 const step = ref(1); // 1: Create admin user, 2: Check metadata sources, 3: Finish
@@ -103,7 +104,16 @@ async function finishWizard() {
                     <v-form @submit.prevent>
                       <v-text-field
                         v-model="defaultAdminUser.username"
-                        label="Username"
+                        label="Username *"
+                        type="text"
+                        required
+                        autocomplete="on"
+                        prepend-inner-icon="mdi-account"
+                        variant="underlined"
+                      />
+                      <v-text-field
+                        v-model="defaultAdminUser.email"
+                        label="Email"
                         type="text"
                         required
                         autocomplete="on"
@@ -112,7 +122,7 @@ async function finishWizard() {
                       />
                       <v-text-field
                         v-model="defaultAdminUser.password"
-                        label="Password"
+                        label="Password *"
                         :type="visiblePassword ? 'text' : 'password'"
                         required
                         autocomplete="on"
@@ -121,6 +131,7 @@ async function finishWizard() {
                           visiblePassword ? 'mdi-eye-off' : 'mdi-eye'
                         "
                         @click:append-inner="visiblePassword = !visiblePassword"
+                        @keydown.enter="filledAdminUser && next()"
                         variant="underlined"
                       />
                     </v-form>

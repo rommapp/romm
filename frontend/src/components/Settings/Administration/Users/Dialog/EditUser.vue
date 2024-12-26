@@ -9,8 +9,10 @@ import { defaultAvatarPath } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const user = ref<UserItem | null>(null);
 const { lgAndUp } = useDisplay();
 const show = ref(false);
@@ -95,7 +97,7 @@ function closeDialog() {
                 v-model="user.username"
                 rounded="0"
                 variant="outlined"
-                label="username"
+                :label="t('settings.username')"
                 required
                 hide-details
                 clearable
@@ -108,7 +110,20 @@ function closeDialog() {
                 v-model="user.password"
                 rounded="0"
                 variant="outlined"
-                label="Password"
+                :label="t('settings.password')"
+                required
+                hide-details
+                clearable
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-text-field
+                v-model="user.email"
+                rounded="0"
+                variant="outlined"
+                label="email"
                 required
                 hide-details
                 clearable
@@ -122,7 +137,7 @@ function closeDialog() {
                 rounded="0"
                 variant="outlined"
                 :items="['viewer', 'editor', 'admin']"
-                label="Role"
+                :label="t('settings.role')"
                 required
                 hide-details
               />
@@ -171,14 +186,16 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
             :variant="!user.username ? 'plain' : 'flat'"
             :disabled="!user.username"
             class="text-romm-green bg-terciary"
             @click="editUser"
           >
-            Apply
+            {{ t("common.apply") }}
           </v-btn>
         </v-btn-group>
       </v-row>

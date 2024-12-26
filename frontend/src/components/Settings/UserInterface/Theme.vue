@@ -5,8 +5,10 @@ import { autoThemeKey, themes } from "@/styles/themes";
 import { isKeyof } from "@/types";
 import { computed, ref } from "vue";
 import { useTheme } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const theme = useTheme();
 const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
 const selectedTheme = ref(isNaN(storedTheme) ? autoThemeKey : storedTheme);
@@ -36,7 +38,7 @@ function toggleTheme() {
 }
 </script>
 <template>
-  <r-section icon="mdi-brush-variant" title="Theme">
+  <r-section icon="mdi-brush-variant" :title="t('settings.theme')">
     <template #content>
       <v-item-group
         v-model="selectedTheme"

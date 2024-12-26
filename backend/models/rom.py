@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -42,6 +43,11 @@ class Rom(BaseModel):
     igdb_id: Mapped[int | None]
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
+
+    __table_args__ = (
+        Index("idx_roms_igdb_id", "igdb_id"),
+        Index("idx_roms_moby_id", "moby_id"),
+    )
 
     file_name: Mapped[str] = mapped_column(String(length=450))
     file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
@@ -109,6 +115,14 @@ class Rom(BaseModel):
     @property
     def platform_name(self) -> str:
         return self.platform.name
+
+    @property
+    def platform_custom_name(self) -> str | None:
+        return self.platform.custom_name
+
+    @property
+    def platform_display_name(self) -> str:
+        return self.platform.custom_name or self.platform.name
 
     @cached_property
     def full_path(self) -> str:

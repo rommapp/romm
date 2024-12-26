@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "author": "Zurdi <https://github.com/zurdi15>",
   "description": "A beautiful, powerful, self-hosted rom manager",
-  "license": "GPL-3.0-only",
+  "license": "AGPL-3.0-only",
   "homepage": "https://github.com/rommapp/romm",
   "repository": {
     "type": "git",
@@ -33,7 +33,7 @@
     "axios": "^1.7.4",
     "core-js": "^3.37.1",
     "cronstrue": "^2.50.0",
-    "emulatorjs": "github:emulatorjs/emulatorjs#v4.1.1",
+    "emulatorjs": "github:emulatorjs/emulatorjs#v4.2.0",
     "file-saver": "^2.0.5",
     "js-cookie": "^3.0.5",
     "jszip": "^3.10.1",
@@ -46,6 +46,7 @@
     "semver": "^7.6.2",
     "socket.io-client": "^4.7.5",
     "vue": "^3.4.27",
+    "vue-i18n": "^10.0.5",
     "vue-router": "^4.3.2",
     "vuetify": "^3.7.4",
     "webfontloader": "^1.6.28"

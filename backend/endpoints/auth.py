@@ -1,13 +1,21 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final
 
+from config import OIDC_ENABLED, OIDC_REDIRECT_URI
+from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.oauth import TokenResponse
-from exceptions.auth_exceptions import AuthCredentialsException, DisabledException
+from exceptions.auth_exceptions import (
+    AuthCredentialsException,
+    OIDCDisabledException,
+    OIDCNotConfiguredException,
+    UserDisabledException,
+)
 from fastapi import Depends, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
-from handler.auth import auth_handler, oauth_handler
+from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
 from utils.router import APIRouter
 
@@ -15,6 +23,58 @@ ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
 
 router = APIRouter()
+
+
+# Session authentication endpoints
+@router.post("/login")
+def login(
+    request: Request,
+    credentials=Depends(HTTPBasic()),  # noqa
+) -> MessageResponse:
+    """Session login endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        credentials: Defaults to Depends(HTTPBasic()).
+
+    Raises:
+        CredentialsException: Invalid credentials
+        UserDisabledException: Auth is disabled
+
+    Returns:
+        MessageResponse: Standard message response
+    """
+
+    user = auth_handler.authenticate_user(credentials.username, credentials.password)
+    if not user:
+        raise AuthCredentialsException
+
+    if not user.enabled:
+        raise UserDisabledException
+
+    request.session.update({"iss": "romm:auth", "sub": user.username})
+
+    # Update last login and active times
+    now = datetime.now(timezone.utc)
+    db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
+
+    return {"msg": "Successfully logged in"}
+
+
+@router.post("/logout")
+def logout(request: Request) -> MessageResponse:
+    """Session logout endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        MessageResponse: Standard message response
+    """
+
+    request.session.clear()
+
+    return {"msg": "Successfully logged out"}
 
 
 @router.post("/token")
@@ -45,9 +105,15 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Missing refresh token"
             )
 
-        user, claims = await oauth_handler.get_current_active_user_from_bearer_token(
+        potential_user = await oauth_handler.get_current_active_user_from_bearer_token(
             token
         )
+        if not potential_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+            )
+
+        user, claims = potential_user
         if claims.get("type") != "refresh":
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
@@ -133,51 +199,73 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
     }
 
 
-@router.post("/login")
-def login(
-    request: Request, credentials=Depends(HTTPBasic())  # noqa
-) -> MessageResponse:
-    """Session login endpoint
+# OIDC login and callback endpoints
+@router.get("/login/openid")
+async def login_via_openid(request: Request):
+    """OIDC login endpoint
 
     Args:
         request (Request): Fastapi Request object
-        credentials: Defaults to Depends(HTTPBasic()).
 
     Raises:
-        CredentialsException: Invalid credentials
-        DisabledException: Auth is disabled
+        OIDCDisabledException: OAuth is disabled
+        OIDCNotConfiguredException: OAuth not configured
 
     Returns:
-        MessageResponse: Standard message response
+        RedirectResponse: Redirect to OIDC provider
     """
 
-    user = auth_handler.authenticate_user(credentials.username, credentials.password)
-    if not user:
+    if not OIDC_ENABLED:
+        raise OIDCDisabledException
+
+    if not oauth.openid:
+        raise OIDCNotConfiguredException
+
+    return await oauth.openid.authorize_redirect(request, OIDC_REDIRECT_URI)
+
+
+@router.get("/oauth/openid")
+async def auth_openid(request: Request):
+    """OIDC callback endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Raises:
+        OIDCDisabledException: OAuth is disabled
+        OIDCNotConfiguredException: OAuth not configured
+        AuthCredentialsException: Invalid credentials
+        UserDisabledException: Auth is disabled
+
+    Returns:
+        RedirectResponse: Redirect to home page
+    """
+
+    if not OIDC_ENABLED:
+        raise OIDCDisabledException
+
+    if not oauth.openid:
+        raise OIDCNotConfiguredException
+
+    token = await oauth.openid.authorize_access_token(request)
+    potential_user, _claims = (
+        await oidc_handler.get_current_active_user_from_openid_token(token)
+    )
+    if not potential_user:
         raise AuthCredentialsException
 
-    if not user.enabled:
-        raise DisabledException
+    if not potential_user:
+        raise AuthCredentialsException
 
-    request.session.update({"iss": "romm:auth", "sub": user.username})
+    if not potential_user.enabled:
+        raise UserDisabledException
+
+    request.session.update({"iss": "romm:auth", "sub": potential_user.username})
 
     # Update last login and active times
     now = datetime.now(timezone.utc)
-    db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
+    db_user_handler.update_user(
+        potential_user.id, {"last_login": now, "last_active": now}
+    )
 
-    return {"msg": "Successfully logged in"}
-
-
-@router.post("/logout")
-def logout(request: Request) -> MessageResponse:
-    """Session logout endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        MessageResponse: Standard message response
-    """
-
-    request.session.clear()
-
-    return {"msg": "Successfully logged out"}
+    return RedirectResponse(url="/")
