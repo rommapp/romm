@@ -1,22 +1,30 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
 import { refetchCSRFToken } from "@/services/api/index";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
+const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
-const logging = ref(false);
+const loggingIn = ref(false);
+const loggingInOIDC = ref(false);
+
+const { ENABLED: oidcEnabled, PROVIDER: oidcProvider } =
+  heartbeatStore.value.OIDC;
 
 // Functions
 async function login() {
-  logging.value = true;
+  loggingIn.value = true;
 
   await identityApi
     .login(username.value, password.value)
@@ -41,8 +49,13 @@ async function login() {
       );
     })
     .finally(() => {
-      logging.value = false;
+      loggingIn.value = false;
     });
+}
+
+async function loginOIDC() {
+  loggingInOIDC.value = true;
+  window.open("/api/login/openid", "_self");
 }
 </script>
 
@@ -54,7 +67,7 @@ async function login() {
         <v-form @submit.prevent="login">
           <v-text-field
             v-model="username"
-            label="Username"
+            :label="t('login.username')"
             type="text"
             required
             autocomplete="on"
@@ -63,7 +76,7 @@ async function login() {
           />
           <v-text-field
             v-model="password"
-            label="Password"
+            :label="t('login.password')"
             :type="visiblePassword ? 'text' : 'password'"
             required
             autocomplete="on"
@@ -74,18 +87,56 @@ async function login() {
           />
           <v-btn
             type="submit"
-            class="bg-terciary"
+            class="bg-terciary mt-4"
+            variant="text"
             block
-            :loading="logging"
-            :disabled="logging || !username || !password"
-            :variant="!username || !password ? 'text' : 'flat'"
+            :loading="loggingIn"
+            :disabled="loggingIn || !username || !password || loggingInOIDC"
           >
-            <span>Login</span>
-            <template #append>
-              <v-icon class="text-romm-accent-1"
-                >mdi-chevron-right-circle-outline</v-icon
-              >
+            <template #prepend>
+              <v-icon>mdi-login</v-icon>
             </template>
+            {{ t("login.login") }}
+            <template #loader>
+              <v-progress-circular
+                color="romm-accent-1"
+                :width="2"
+                :size="20"
+                indeterminate
+              />
+            </template>
+          </v-btn>
+          <v-divider class="my-4">
+            <template #default>
+              <span class="px-1">{{ t("login.or") }}</span>
+            </template>
+          </v-divider>
+          <v-btn
+            v-if="oidcEnabled"
+            block
+            type="submit"
+            class="bg-terciary"
+            variant="text"
+            :disabled="loggingInOIDC || loggingIn"
+            :loading="loggingInOIDC"
+            @click="loginOIDC()"
+          >
+            <template v-if="oidcProvider" #prepend>
+              <v-icon size="20">
+                <v-img
+                  :src="`/assets/dashboard-icons/${oidcProvider.toLowerCase()}.png`"
+                >
+                  <template #error>
+                    <v-icon size="20">mdi-key</v-icon>
+                  </template>
+                </v-img>
+              </v-icon>
+            </template>
+            {{
+              t("login.login-oidc", {
+                oidc: oidcProvider || "OIDC",
+              })
+            }}
             <template #loader>
               <v-progress-circular
                 color="romm-accent-1"

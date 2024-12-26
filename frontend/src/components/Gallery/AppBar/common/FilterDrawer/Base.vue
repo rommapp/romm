@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
+import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
@@ -9,11 +10,13 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, nextTick } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
-
 const {
   activeFilterDrawer,
   selectedGenre,
@@ -29,40 +32,40 @@ const {
   selectedStatus,
   filterStatuses,
 } = storeToRefs(galleryFilterStore);
-
 const filters = [
   {
-    label: "Genre",
+    label: t("platform.genre"),
     selected: selectedGenre,
     items: filterGenres,
   },
   {
-    label: "Franchise",
+    label: t("platform.franchise"),
     selected: selectedFranchise,
     items: filterFranchises,
   },
   {
-    label: "Collection",
+    label: t("platform.collection"),
     selected: selectedCollection,
     items: filterCollections,
   },
   {
-    label: "Company",
+    label: t("platform.company"),
     selected: selectedCompany,
     items: filterCompanies,
   },
   {
-    label: "Age Rating",
+    label: t("platform.age-rating"),
     selected: selectedAgeRating,
     items: filterAgeRatings,
   },
   {
-    label: "Status",
+    label: t("platform.status"),
     selected: selectedStatus,
     items: filterStatuses,
   },
 ];
 
+// Functions
 function resetFilters() {
   selectedGenre.value = null;
   selectedFranchise.value = null;
@@ -71,6 +74,7 @@ function resetFilters() {
   selectedAgeRating.value = null;
   selectedStatus.value = null;
   galleryFilterStore.disableFilterUnmatched();
+  galleryFilterStore.disableFilterMatched();
   galleryFilterStore.disableFilterFavourites();
   nextTick(() => emitter?.emit("filter", null));
 }
@@ -90,6 +94,7 @@ function resetFilters() {
       </v-list-item>
       <v-list-item>
         <filter-unmatched-btn />
+        <filter-matched-btn class="mt-2" />
         <filter-favourites-btn class="mt-2" />
         <filter-duplicates-btn class="mt-2" />
       </v-list-item>
@@ -108,7 +113,7 @@ function resetFilters() {
       </v-list-item>
       <v-list-item class="justify-center d-flex">
         <v-btn size="small" variant="tonal" @click="resetFilters">
-          Reset filters
+          {{ t("platform.reset-filters") }}
         </v-btn>
       </v-list-item>
     </v-list>

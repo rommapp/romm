@@ -4,28 +4,19 @@ import CollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/Collect
 import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
+import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
-import CollectionCard from "@/components/common/Collection/Card.vue";
-import RSection from "@/components/common/RSection.vue";
-import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import storeNavigation from "@/stores/navigation";
-import { inject, ref } from "vue";
+import storeRoms from "@/stores/roms";
 import { useDisplay } from "vuetify";
 
 // Props
 const { xs } = useDisplay();
-const emitter = inject<Emitter<Events>>("emitter");
-const viewportWidth = ref(window.innerWidth);
-const auth = storeAuth();
-const romsStore = storeRoms();
-const { currentCollection } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
 const { activeCollectionInfoDrawer } = storeToRefs(navigationStore);
-const open = ref(false);
+const romsStore = storeRoms();
+const { currentCollection } = storeToRefs(romsStore);
 </script>
 
 <template>
@@ -39,12 +30,13 @@ const open = ref(false);
     top
   >
     <template #prepend>
-      <v-btn
-        :color="activeCollectionInfoDrawer ? 'romm-accent-1' : ''"
-        rounded="0"
+      <r-avatar
         @click="navigationStore.swtichActiveCollectionInfoDrawer"
-        icon="mdi-information"
-      ></v-btn>
+        class="collection-icon cursor-pointer"
+        v-if="currentCollection"
+        :size="75"
+        :collection="currentCollection"
+      />
       <filter-btn />
     </template>
     <filter-text-field v-if="!xs" />
@@ -61,5 +53,14 @@ const open = ref(false);
 <style scoped>
 #gallery-app-bar {
   z-index: 999 !important;
+}
+.collection-icon {
+  transition:
+    filter 0.15s ease-in-out,
+    transform 0.15s ease-in-out;
+}
+.collection-icon:hover,
+.collection-icon.active {
+  transform: scale(1.1);
 }
 </style>

@@ -4,15 +4,17 @@ import RSection from "@/components/common/RSection.vue";
 import storeCollections from "@/stores/collections";
 import { views } from "@/utils";
 import { isNull } from "lodash";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const collections = storeCollections();
 const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
   ? true
   : localStorage.getItem("settings.gridCollections") === "true";
 </script>
 <template>
-  <r-section icon="mdi-bookmark-box-multiple" title="Collections">
+  <r-section icon="mdi-bookmark-box-multiple" :title="t('common.collections')">
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
