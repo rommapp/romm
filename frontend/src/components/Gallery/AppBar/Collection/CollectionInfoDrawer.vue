@@ -245,7 +245,10 @@ async function updateCollection() {
                 currentCollection.description
               }}</span>
             </div>
-            <v-chip class="mt-4" size="small" color="romm-accent-1"
+            <v-chip
+              class="mt-4"
+              size="small"
+              :color="currentCollection.is_public ? 'romm-accent-1' : ''"
               ><v-icon class="mr-1">{{
                 currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
               }}</v-icon
