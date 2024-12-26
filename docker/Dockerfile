@@ -22,6 +22,15 @@ RUN npm ci
 COPY ./frontend ./
 RUN npm run build
 
+ARG EMULATORJS_VERSION=4.2.0
+
+RUN apk update && apk add 7zip wget
+RUN mkdir -p dist/assets/emulatorjs && \
+    cd dist/assets/emulatorjs && \
+    wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
+    7z x -y "${EMULATORJS_VERSION}.7z" -o. data && \
+    mv -f data/* . && \
+    rm -rf data "${EMULATORJS_VERSION}.7z"
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 

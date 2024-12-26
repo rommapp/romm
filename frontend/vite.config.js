@@ -52,10 +52,6 @@ export default defineConfig(({ mode }) => {
       viteStaticCopy({
         targets: [
           {
-            src: "node_modules/emulatorjs/data/*",
-            dest: "assets/emulatorjs/",
-          },
-          {
             src: "node_modules/@ruffle-rs/ruffle/*",
             dest: "assets/ruffle/",
           },
