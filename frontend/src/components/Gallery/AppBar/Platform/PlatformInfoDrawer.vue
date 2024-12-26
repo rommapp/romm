@@ -59,17 +59,25 @@ const platformInfoFields = [
   { key: "generation", label: t("platform.generation") },
   { key: "family_name", label: t("platform.family") },
 ];
+const updating = ref(false);
 const updatedPlatform = ref({ ...currentPlatform.value });
 const isEditable = ref(false);
 
 // Functions
-function toggleEditable() {
+function showEditable() {
   updatedPlatform.value = { ...currentPlatform.value };
-  isEditable.value = !isEditable.value;
+  isEditable.value = true;
+}
+
+function closeEditable() {
+  updatedPlatform.value = {};
+  isEditable.value = false;
 }
 
 async function updatePlatform() {
   if (!updatedPlatform.value) return;
+  updating.value = true;
+  isEditable.value = false;
   updatedPlatform.value.custom_name = updatedPlatform.value.display_name;
   await platformApi
     .updatePlatform({
@@ -96,7 +104,8 @@ async function updatePlatform() {
         color: "red",
       });
     });
-  toggleEditable();
+  updatedPlatform.value = {};
+  updating.value = false;
 }
 
 async function scan() {
@@ -174,18 +183,28 @@ watch(
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
             <v-btn
-              class="bg-terciary"
               v-if="!isEditable"
-              @click="toggleEditable"
+              :loading="updating"
+              class="bg-terciary"
+              @click="showEditable"
               size="small"
-              ><v-icon>mdi-pencil</v-icon></v-btn
+            >
+              <template #loader>
+                <v-progress-circular
+                  color="romm-accent-1"
+                  :width="2"
+                  :size="20"
+                  indeterminate
+                />
+              </template>
+              <v-icon>mdi-pencil</v-icon></v-btn
             >
             <template v-else>
-              <v-btn @click="toggleEditable" size="small" class="bg-terciary"
+              <v-btn @click="closeEditable" size="small" class="bg-terciary"
                 ><v-icon color="romm-red">mdi-close</v-icon></v-btn
               >
               <v-btn
-                @click="isEditable ? updatePlatform() : toggleEditable()"
+                @click="updatePlatform()"
                 size="small"
                 class="bg-terciary ml-1"
                 ><v-icon color="romm-green">mdi-check</v-icon></v-btn
