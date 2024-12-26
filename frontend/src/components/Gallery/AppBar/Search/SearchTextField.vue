@@ -4,10 +4,11 @@ import storeRoms from "@/stores/roms";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
-import type { Platform } from "@/types/platform";
+import type { Platform } from "@/stores/platforms";
 import { useI18n } from "vue-i18n";
 
 // Props
@@ -73,7 +74,7 @@ async function fetchRoms() {
           return a.platform_name.localeCompare(b.platform_name);
         });
         romsStore.set(data);
-        romsStore.setFiltered(data, storeGalleryFilter);
+        romsStore.setFiltered(data, galleryFilterStore);
       })
       .catch((error) => {
         emitter?.emit("snackbarShow", {
@@ -96,7 +97,7 @@ async function fetchRoms() {
           return [rom.platform_name, platform];
         }),
       ).values(),
-    ]);
+    ] as Platform[]);
     setFilters();
     searching.value = false;
     galleryFilterStore.activeFilterDrawer = false;
