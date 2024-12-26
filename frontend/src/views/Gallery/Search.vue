@@ -1,22 +1,18 @@
 <script setup lang="ts">
 import GalleryAppBarSearch from "@/components/Gallery/AppBar/Search/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import EmptyCollection from "@/components/common/EmptyCollection.vue";
-import EmptyGame from "@/components/common/EmptyGame.vue";
+import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
+import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
-import romApi from "@/services/api/rom";
-import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { normalizeString, views } from "@/utils";
-import type { Emitter } from "mitt";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -41,6 +37,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 const { t } = useI18n();
 const router = useRouter();
+const initialSearch = ref(false);
 
 // Functions
 function setFilters() {
@@ -186,9 +183,6 @@ onBeforeUnmount(() => {
 
 <template>
   <gallery-app-bar-search />
-  <v-row class="align-center" no-gutters>
-    <!-- Removed search-text-field and platform-select -->
-  </v-row>
   <template v-if="filteredRoms.length > 0">
     <v-row v-show="currentView != 2" class="pa-1" no-gutters>
       <!-- Gallery cards view -->
@@ -232,8 +226,9 @@ onBeforeUnmount(() => {
     <fab-overlay />
   </template>
   <template v-else>
-    <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+    <empty-game
+      v-if="!gettingRoms && galleryFilterStore.isFiltered() && initialSearch"
+    />
+    <empty-search v-else-if="!initialSearch" />
   </template>
-
-  <empty-game v-else />
 </template>

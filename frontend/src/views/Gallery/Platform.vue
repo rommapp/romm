@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import EmptyGame from "@/components/common/EmptyGame.vue";
-import EmptyPlatform from "@/components/common/EmptyPlatform.vue";
+import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
+import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import romApi from "@/services/api/rom";
