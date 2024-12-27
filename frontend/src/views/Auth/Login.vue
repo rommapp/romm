@@ -106,46 +106,47 @@ async function loginOIDC() {
               />
             </template>
           </v-btn>
-          <v-divider class="my-4">
-            <template #default>
-              <span class="px-1">{{ t("login.or") }}</span>
-            </template>
-          </v-divider>
-          <v-btn
-            v-if="oidcEnabled"
-            block
-            type="submit"
-            class="bg-terciary"
-            variant="text"
-            :disabled="loggingInOIDC || loggingIn"
-            :loading="loggingInOIDC"
-            @click="loginOIDC()"
-          >
-            <template v-if="oidcProvider" #prepend>
-              <v-icon size="20">
-                <v-img
-                  :src="`/assets/dashboard-icons/${oidcProvider.toLowerCase()}.png`"
-                >
-                  <template #error>
-                    <v-icon size="20">mdi-key</v-icon>
-                  </template>
-                </v-img>
-              </v-icon>
-            </template>
-            {{
-              t("login.login-oidc", {
-                oidc: oidcProvider || "OIDC",
-              })
-            }}
-            <template #loader>
-              <v-progress-circular
-                color="romm-accent-1"
-                :width="2"
-                :size="20"
-                indeterminate
-              />
-            </template>
-          </v-btn>
+          <template v-if="oidcEnabled">
+            <v-divider class="my-4">
+              <template #default>
+                <span class="px-1">{{ t("login.or") }}</span>
+              </template>
+            </v-divider>
+            <v-btn
+              block
+              type="submit"
+              class="bg-terciary"
+              variant="text"
+              :disabled="loggingInOIDC || loggingIn"
+              :loading="loggingInOIDC"
+              @click="loginOIDC()"
+            >
+              <template v-if="oidcProvider" #prepend>
+                <v-icon size="20">
+                  <v-img
+                    :src="`/assets/dashboard-icons/${oidcProvider.toLowerCase()}.png`"
+                  >
+                    <template #error>
+                      <v-icon size="20">mdi-key</v-icon>
+                    </template>
+                  </v-img>
+                </v-icon>
+              </template>
+              {{
+                t("login.login-oidc", {
+                  oidc: oidcProvider || "OIDC",
+                })
+              }}
+              <template #loader>
+                <v-progress-circular
+                  color="romm-accent-1"
+                  :width="2"
+                  :size="20"
+                  indeterminate
+                />
+              </template>
+            </v-btn>
+          </template>
         </v-form>
       </v-col>
     </v-row>
