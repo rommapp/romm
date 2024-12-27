@@ -109,7 +109,7 @@ const routes = [
       },
       {
         path: ":pathMatch(.*)*",
-        name: "noMatch",
+        name: "404",
         component: () => import("@/views/404.vue"),
       },
     ],
@@ -123,17 +123,11 @@ const router = createRouter({
 
 router.beforeEach(async (to, _from, next) => {
   const heartbeat = storeHeartbeat();
-  if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
-    next({ name: "home" });
-  } else {
-    next();
-  }
-});
-
-router.afterEach((to, from) => {
   const auth = storeAuth();
   const { user } = storeToRefs(auth);
-  if (
+  if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
+    next({ name: "home" });
+  } else if (
     to.name &&
     user.value &&
     ((["scan", "management"].includes(to.name.toString()) &&
@@ -141,8 +135,13 @@ router.afterEach((to, from) => {
       (["administration"].includes(to.name.toString()) &&
         !user.value.oauth_scopes.includes("users.write")))
   ) {
-    router.push(from);
+    next({ name: "404" });
+  } else {
+    next();
   }
+});
+
+router.afterEach(() => {
   // Scroll to top to avoid annoying behaviour on mobile
   window.scrollTo({ top: 0, left: 0 });
 });
