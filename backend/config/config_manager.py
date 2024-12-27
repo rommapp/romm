@@ -83,30 +83,34 @@ class ConfigManager:
             str: database connection string
         """
 
-        if ROMM_DB_DRIVER == "mariadb":
-            if not DB_USER or not DB_PASSWD:
-                log.critical(
-                    "Missing database credentials, check your environment variables!"
-                )
-                sys.exit(3)
-
-            return URL.create(
-                drivername="mariadb+mariadbconnector",
-                username=DB_USER,
-                password=DB_PASSWD,
-                host=DB_HOST,
-                port=DB_PORT,
-                database=DB_NAME,
-            )
-
         # DEPRECATED
         if ROMM_DB_DRIVER == "sqlite":
             log.critical("Sqlite is not supported anymore, migrate to mariaDB")
             sys.exit(6)
         # DEPRECATED
 
-        log.critical(f"{ROMM_DB_DRIVER} database not supported")
-        sys.exit(3)
+        if ROMM_DB_DRIVER == "mariadb":
+            driver = "mariadb+mariadbconnector"
+        elif ROMM_DB_DRIVER == "mysql":
+            driver = "mysql+mysqlconnector"
+        else:
+            log.critical(f"{ROMM_DB_DRIVER} database not supported")
+            sys.exit(3)
+
+        if not DB_USER or not DB_PASSWD:
+            log.critical(
+                "Missing database credentials, check your environment variables!"
+            )
+            sys.exit(3)
+
+        return URL.create(
+            drivername=driver,
+            username=DB_USER,
+            password=DB_PASSWD,
+            host=DB_HOST,
+            port=DB_PORT,
+            database=DB_NAME,
+        )
 
     def _parse_config(self):
         """Parses each entry in the config.yml"""

@@ -25,12 +25,13 @@ RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
-# MARIADB
+# DATABASE
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
 DB_PORT: Final = int(os.environ.get("DB_PORT", 3306))
 DB_USER: Final = os.environ.get("DB_USER")
 DB_PASSWD: Final = os.environ.get("DB_PASSWD")
 DB_NAME: Final = os.environ.get("DB_NAME", "romm")
+ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # REDIS
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "127.0.0.1")
@@ -61,9 +62,6 @@ STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
 
 # MOBYGAMES
 MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
-
-# DB DRIVERS
-ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
