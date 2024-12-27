@@ -141,41 +141,42 @@ async function updateCollection() {
   >
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col style="max-width: 240px" cols="12">
-        <div
-          v-if="
-            currentCollection.user__username === auth.user?.username &&
-            auth.scopes.includes('collections.write')
-          "
-          class="text-center justify-center align-center"
-        >
+        <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
-            <v-btn
-              v-if="!isEditable"
-              :loading="updating"
-              class="bg-terciary"
-              @click="showEditable"
-              size="small"
+            <template
+              v-if="
+                currentCollection.user__username === auth.user?.username &&
+                auth.scopes.includes('collections.write')
+              "
             >
-              <template #loader>
-                <v-progress-circular
-                  color="romm-accent-1"
-                  :width="2"
-                  :size="20"
-                  indeterminate
-                />
-              </template>
-              <v-icon>mdi-pencil</v-icon></v-btn
-            >
-            <template v-else>
-              <v-btn @click="closeEditable" size="small" class="bg-terciary"
-                ><v-icon color="romm-red">mdi-close</v-icon></v-btn
-              >
               <v-btn
-                @click="updateCollection()"
+                v-if="!isEditable"
+                :loading="updating"
+                class="bg-terciary"
+                @click="showEditable"
                 size="small"
-                class="bg-terciary ml-1"
-                ><v-icon color="romm-green">mdi-check</v-icon></v-btn
               >
+                <template #loader>
+                  <v-progress-circular
+                    color="romm-accent-1"
+                    :width="2"
+                    :size="20"
+                    indeterminate
+                  />
+                </template>
+                <v-icon>mdi-pencil</v-icon></v-btn
+              >
+              <template v-else>
+                <v-btn @click="closeEditable" size="small" class="bg-terciary"
+                  ><v-icon color="romm-red">mdi-close</v-icon></v-btn
+                >
+                <v-btn
+                  @click="updateCollection()"
+                  size="small"
+                  class="bg-terciary ml-1"
+                  ><v-icon color="romm-green">mdi-check</v-icon></v-btn
+                >
+              </template>
             </template>
           </div>
           <collection-card
