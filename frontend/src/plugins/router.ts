@@ -125,25 +125,29 @@ router.beforeEach(async (to, _from, next) => {
   const heartbeat = storeHeartbeat();
   const auth = storeAuth();
   const { user } = storeToRefs(auth);
-  if (heartbeat.value.SHOW_SETUP_WIZARD && to.name !== "setup") {
+
+  if (heartbeat.value.SHOW_SETUP_WIZARD && to.name?.toString() !== "setup") {
     next({ name: "setup" });
-  }
-  if (
-    (to.name == "login" && user.value && !heartbeat.value.SHOW_SETUP_WIZARD) ||
-    (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD)
-  ) {
-    next({ name: "home" });
-  } else if (to.name !== "login" && !user.value) {
-    next({ name: "login" });
-  } else if (
-    to.name &&
-    user.value &&
-    ((["scan", "management"].includes(to.name.toString()) &&
-      !user.value.oauth_scopes.includes("platforms.write")) ||
-      (["administration"].includes(to.name.toString()) &&
-        !user.value.oauth_scopes.includes("users.write")))
-  ) {
-    next({ name: "404" });
+  } else if (!heartbeat.value.SHOW_SETUP_WIZARD) {
+    if (
+      (to.name?.toString() === "login" || to.name?.toString() === "setup") &&
+      user.value
+    ) {
+      next({ name: "home" });
+    } else if (to.name?.toString() !== "login" && !user.value) {
+      next({ name: "login" });
+    } else if (
+      to.name &&
+      user.value &&
+      ((["scan", "management"].includes(to.name.toString()) &&
+        !user.value.oauth_scopes.includes("platforms.write")) ||
+        (["administration"].includes(to.name.toString()) &&
+          !user.value.oauth_scopes.includes("users.write")))
+    ) {
+      next({ name: "404" });
+    } else {
+      next();
+    }
   } else {
     next();
   }
