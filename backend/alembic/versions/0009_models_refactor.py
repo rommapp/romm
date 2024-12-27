@@ -80,13 +80,13 @@ def upgrade() -> None:
             "url_screenshots",
             existing_type=mysql.LONGTEXT(charset="utf8mb4", collation="utf8mb4_bin"),
             nullable=True,
-            existing_server_default=sa.text("'[]'"),
+            existing_server_default=sa.text("(JSON_ARRAY())"),
         )
         batch_op.alter_column(
             "path_screenshots",
             existing_type=mysql.LONGTEXT(charset="utf8mb4", collation="utf8mb4_bin"),
             nullable=True,
-            existing_server_default=sa.text("'[]'"),
+            existing_server_default=sa.text("(JSON_ARRAY())"),
         )
 
     try:
@@ -127,13 +127,13 @@ def downgrade() -> None:
             "path_screenshots",
             existing_type=mysql.LONGTEXT(charset="utf8mb4", collation="utf8mb4_bin"),
             nullable=False,
-            existing_server_default=sa.text("'[]'"),
+            existing_server_default=sa.text("(JSON_ARRAY())"),
         )
         batch_op.alter_column(
             "url_screenshots",
             existing_type=mysql.LONGTEXT(charset="utf8mb4", collation="utf8mb4_bin"),
             nullable=False,
-            existing_server_default=sa.text("'[]'"),
+            existing_server_default=sa.text("(JSON_ARRAY())"),
         )
         batch_op.alter_column(
             "file_size_units", existing_type=mysql.VARCHAR(length=10), nullable=True
