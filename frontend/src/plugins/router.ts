@@ -1,6 +1,8 @@
 // Composables
 import { createRouter, createWebHistory } from "vue-router";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeAuth from "@/stores/auth";
+import { storeToRefs } from "pinia";
 
 const routes = [
   {
@@ -107,7 +109,7 @@ const routes = [
       },
       {
         path: ":pathMatch(.*)*",
-        name: "noMatch",
+        name: "404",
         component: () => import("@/views/404.vue"),
       },
     ],
@@ -121,8 +123,27 @@ const router = createRouter({
 
 router.beforeEach(async (to, _from, next) => {
   const heartbeat = storeHeartbeat();
-  if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
+  const auth = storeAuth();
+  const { user } = storeToRefs(auth);
+  if (heartbeat.value.SHOW_SETUP_WIZARD && to.name !== "setup") {
+    next({ name: "setup" });
+  }
+  if (
+    (to.name == "login" && user.value && !heartbeat.value.SHOW_SETUP_WIZARD) ||
+    (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD)
+  ) {
     next({ name: "home" });
+  } else if (to.name !== "login" && !user.value) {
+    next({ name: "login" });
+  } else if (
+    to.name &&
+    user.value &&
+    ((["scan", "management"].includes(to.name.toString()) &&
+      !user.value.oauth_scopes.includes("platforms.write")) ||
+      (["administration"].includes(to.name.toString()) &&
+        !user.value.oauth_scopes.includes("users.write")))
+  ) {
+    next({ name: "404" });
   } else {
     next();
   }
