@@ -119,5 +119,8 @@ LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO")
 FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
 NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
 
+# SENTRY
+SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)
+
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))
