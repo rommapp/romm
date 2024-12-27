@@ -11,7 +11,7 @@ import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";
 import { createApp } from "vue";
 
-async function _initializeData() {
+async function initializeData() {
   const heartbeat = storeHeartbeat();
   const auth = storeAuth();
   const configStore = storeConfig();
@@ -21,20 +21,16 @@ async function _initializeData() {
     const { data: heartbeatData } = await api.get("/heartbeat");
     heartbeat.set(heartbeatData);
 
-    if (heartbeatData.SHOW_SETUP_WIZARD) {
-      router.push({ name: "setup" });
-    } else {
-      try {
-        const { data: user } = await userApi.fetchCurrentUser();
-        auth.setUser(user);
-      } catch (userError) {
-        console.error("Error loading user: ", userError);
-      }
-
-      // Obtener configuración
-      const { data: configData } = await api.get("/config");
-      configStore.set(configData);
+    try {
+      const { data: userData } = await userApi.fetchCurrentUser();
+      auth.setUser(userData);
+    } catch (userError) {
+      console.error("Error loading user: ", userError);
     }
+
+    // Obtener configuración
+    const { data: configData } = await api.get("/config");
+    configStore.set(configData);
   } catch (error) {
     console.error("Error during initialization: ", error);
   }
@@ -46,7 +42,7 @@ async function initializeApp() {
   // Registrar vuetify + pinia + i18n + emitter
   registerPlugins(app);
 
-  await _initializeData();
+  await initializeData();
 
   app.use(router);
 

@@ -125,8 +125,16 @@ router.beforeEach(async (to, _from, next) => {
   const heartbeat = storeHeartbeat();
   const auth = storeAuth();
   const { user } = storeToRefs(auth);
-  if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
+  if (heartbeat.value.SHOW_SETUP_WIZARD && to.name !== "setup") {
+    next({ name: "setup" });
+  }
+  if (
+    (to.name == "login" && user.value && !heartbeat.value.SHOW_SETUP_WIZARD) ||
+    (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD)
+  ) {
     next({ name: "home" });
+  } else if (to.name !== "login" && !user.value) {
+    next({ name: "login" });
   } else if (
     to.name &&
     user.value &&
