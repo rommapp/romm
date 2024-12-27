@@ -108,7 +108,7 @@ const routes = [
       {
         path: ":pathMatch(.*)*",
         name: "noMatch",
-        component: () => import("@/views/Home.vue"),
+        component: () => import("@/views/404.vue"),
       },
     ],
   },
