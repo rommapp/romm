@@ -44,6 +44,7 @@ python-magic = "^0.4.27"
 # TODO: Move back to `py7zr` official releases, once the following PR is merged and released:
 #       https://github.com/miurahr/py7zr/pull/620
 py7zr = { git = "https://github.com/adamantike/py7zr.git", rev = "54b68426" }
+sentry-sdk = "^2.19"
 streaming-form-data = "^1.16.0"
 zipfile-deflate64 = "^0.2.0"
 colorama = "^0.4.6"
