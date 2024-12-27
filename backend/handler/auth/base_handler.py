@@ -279,11 +279,13 @@ class OpenIDHandler:
                 detail="Email is missing from token.",
             )
 
+        preferred_username = payload.claims.get("preferred_username")
+
         user = db_user_handler.get_user_by_email(email)
         if user is None:
             log.info("User with email '%s' not found, creating new user", email)
             user = User(
-                username=email.split("@")[0],
+                username=preferred_username,
                 hashed_password=str(uuid.uuid4()),
                 email=email,
                 enabled=True,
