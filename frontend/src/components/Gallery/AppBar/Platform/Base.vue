@@ -36,7 +36,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
       :slug="currentPlatform.slug"
       :name="currentPlatform.name"
       :size="36"
-      class="mx-3 platform-icon"
+      class="mx-3 cursor-pointer platform-icon"
       :class="{ active: activePlatformInfoDrawer }"
       @click="navigationStore.switchActivePlatformInfoDrawer"
     />
@@ -59,11 +59,9 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
   z-index: 999 !important;
 }
 .platform-icon {
-  cursor: pointer;
-  transition: filter 0.15s ease-in-out;
-  transition: transform 0.15s ease-in-out;
-}
-.platform-icon {
+  transition:
+    filter 0.15s ease-in-out,
+    transform 0.15s ease-in-out;
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
 }
 .platform-icon:hover,
