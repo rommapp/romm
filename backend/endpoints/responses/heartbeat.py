@@ -33,6 +33,7 @@ class FrontendDict(TypedDict):
 
 class OIDCDict(TypedDict):
     ENABLED: bool
+    PROVIDER: str
 
 
 class HeartbeatResponse(TypedDict):

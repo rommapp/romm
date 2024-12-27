@@ -17,6 +17,7 @@
   "filter": "Filtrar",
   "add": "Adicionar",
   "upload": "Carregar",
+  "edit": "Editar",
   "cancel": "Cancelar",
   "confirm": "Confirmar",
   "apply": "Aplicar",
@@ -26,5 +27,6 @@
   "user-interface": "Interface do usuário",
   "library-management": "Gerenciamento de biblioteca",
   "administration": "Administração",
-  "logout": "Sair"
+  "logout": "Sair",
+  "name": "Nome"
 }

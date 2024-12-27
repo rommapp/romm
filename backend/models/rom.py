@@ -127,6 +127,14 @@ class Rom(BaseModel):
     def platform_name(self) -> str:
         return self.platform.name
 
+    @property
+    def platform_custom_name(self) -> str | None:
+        return self.platform.custom_name
+
+    @property
+    def platform_display_name(self) -> str:
+        return self.platform.custom_name or self.platform.name
+
     @cached_property
     def full_path(self) -> str:
         return f"{self.fs_path}/{self.fs_name}"

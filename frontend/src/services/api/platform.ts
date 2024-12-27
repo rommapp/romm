@@ -30,7 +30,7 @@ async function updatePlatform({
   platform,
 }: {
   platform: Platform;
-}): Promise<{ data: MessageResponse }> {
+}): Promise<{ data: Platform }> {
   return api.put(`/platforms/${platform.id}`, platform);
 }
 

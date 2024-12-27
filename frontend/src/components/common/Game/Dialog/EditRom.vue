@@ -165,7 +165,7 @@ function closeDialog() {
               <v-text-field
                 v-model="rom.name"
                 class="py-2"
-                :label="t('rom.name')"
+                :label="t('common.name')"
                 variant="outlined"
                 required
                 hide-details

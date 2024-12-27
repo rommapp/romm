@@ -38,6 +38,11 @@ const routes = [
         component: () => import("@/views/Home.vue"),
       },
       {
+        path: "search",
+        name: "search",
+        component: () => import("@/views/Gallery/Search.vue"),
+      },
+      {
         path: "platform/:platform",
         name: "platform",
         component: () => import("@/views/Gallery/Platform.vue"),
@@ -68,7 +73,7 @@ const routes = [
         component: () => import("@/views/Scan.vue"),
       },
       {
-        path: "/user-interface",
+        path: "user-interface",
         component: () => import("@/layouts/Settings.vue"),
         children: [
           {
@@ -79,7 +84,7 @@ const routes = [
         ],
       },
       {
-        path: "/library-management",
+        path: "library-management",
         component: () => import("@/layouts/Settings.vue"),
         children: [
           {
@@ -90,7 +95,7 @@ const routes = [
         ],
       },
       {
-        path: "/administration",
+        path: "administration",
         component: () => import("@/layouts/Settings.vue"),
         children: [
           {
@@ -103,7 +108,7 @@ const routes = [
       {
         path: ":pathMatch(.*)*",
         name: "noMatch",
-        component: () => import("@/views/Home.vue"),
+        component: () => import("@/views/404.vue"),
       },
     ],
   },
