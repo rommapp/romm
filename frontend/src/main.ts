@@ -28,7 +28,6 @@ async function initializeData() {
       console.error("Error loading user: ", userError);
     }
 
-    // Obtener configuración
     const { data: configData } = await api.get("/config");
     configStore.set(configData);
   } catch (error) {
