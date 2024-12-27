@@ -6,10 +6,9 @@ import { inject } from "vue";
 const emitter = inject<Emitter<Events>>("emitter");
 </script>
 <template>
-  <v-btn
-    icon="mdi-magnify"
-    variant="flat"
-    rounded="0"
-    @click="emitter?.emit('showSearchRomDialog', null)"
-  />
+  <v-btn icon variant="flat" rounded="0" :to="{ name: 'search' }"
+    ><v-icon :color="$route.name == 'search' ? 'romm-accent-1' : ''"
+      >mdi-magnify</v-icon
+    ></v-btn
+  >
 </template>
