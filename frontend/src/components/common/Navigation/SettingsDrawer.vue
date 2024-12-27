@@ -35,10 +35,9 @@ async function logout() {
       color: "green",
     });
     navigationStore.switchActiveSettingsDrawer();
+    auth.setUser(null);
+    await router.push({ name: "login" });
   });
-
-  await router.push({ name: "login" });
-  auth.setUser(null);
 }
 </script>
 <template>
