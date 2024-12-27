@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
-from sqlalchemy import DateTime, Enum, String
+from sqlalchemy import DateTime, Enum, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
@@ -24,8 +24,6 @@ class Role(enum.Enum):
 
 class User(BaseModel, SimpleUser):
     __tablename__ = "users"
-    __table_args__ = {"extend_existing": True}
-
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     username: Mapped[str] = mapped_column(String(length=255), unique=True, index=True)

@@ -51,18 +51,18 @@ def add_user(
             detail="Forbidden",
         )
 
-    existing_user_by_username = db_user_handler.get_user_by_username(username.lower())
-    if existing_user_by_username:
-        msg = f"Username {username.lower()} already exists"
+    existing_user = db_user_handler.get_user_by_username_or_email(username.lower())
+    if existing_user:
+        msg = f"User with username or email {email.lower()} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=msg,
         )
 
-    existing_user_by_email = db_user_handler.get_user_by_email(email.lower())
-    if existing_user_by_email:
-        msg = f"Uesr with email {email.lower()} already exists"
+    existing_user = db_user_handler.get_user_by_username_or_email(email.lower())
+    if existing_user:
+        msg = f"User with username or email {email.lower()} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -157,9 +157,12 @@ async def update_user(
     cleaned_data = {}
 
     if form_data.username and form_data.username != db_user.username:
-        existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
+        existing_user = db_user_handler.get_user_by_username_or_email(
+            form_data.username.lower()
+        )
+
         if existing_user:
-            msg = f"Username {form_data.username} already exists"
+            msg = f"User with username or email {form_data.username} already exists"
             log.error(msg)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -174,9 +177,12 @@ async def update_user(
         )
 
     if form_data.email and form_data.email != db_user.email:
-        existing_user = db_user_handler.get_user_by_email(form_data.email.lower())
+        existing_user = db_user_handler.get_user_by_username_or_email(
+            form_data.email.lower()
+        )
+
         if existing_user:
-            msg = f"User with email {form_data.email} already exists"
+            msg = f"User with username or email {form_data.email} already exists"
             log.error(msg)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
