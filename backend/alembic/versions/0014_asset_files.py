@@ -33,8 +33,8 @@ SIZE_UNIT_TO_BYTES = {
 
 
 def migrate_to_mysql() -> None:
-    if ROMM_DB_DRIVER != "mariadb":
-        raise Exception("Version 3.0 requires MariaDB as database driver!")
+    if ROMM_DB_DRIVER not in ("mariadb", "mysql"):
+        raise Exception("Version 3.0 requires MariaDB or MySQL as database driver!")
 
     # Skip if sqlite database is not mounted
     if not os.path.exists(f"{SQLITE_DB_BASE_PATH}/romm.db"):
