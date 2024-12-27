@@ -4,7 +4,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Final, Optional
 
 import httpx
-from config import OIDC_ENABLED, OIDC_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
+from config import (
+    OIDC_CREATE_USER,
+    OIDC_ENABLED,
+    OIDC_SERVER_APPLICATION_URL,
+    ROMM_AUTH_SECRET_KEY,
+)
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
 from joserfc import jwt
@@ -247,6 +252,7 @@ class OpenIDHandler:
 
     async def get_current_active_user_from_openid_token(self, token: Any):
         from handler.database import db_user_handler
+        from models.user import Role, User
 
         if not OIDC_ENABLED:
             return None, None
@@ -279,11 +285,21 @@ class OpenIDHandler:
 
         user = db_user_handler.get_user_by_email(email)
         if user is None:
-            log.error("User with email '%s' not found", email)
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
-            )
+            if OIDC_CREATE_USER:
+                log.info("User with email '%s' not found, creating new user", email)
+                user = User(
+                    username=email.split("@")[0],
+                    email=email,
+                    enabled=True,
+                    role=Role.VIEWER,
+                )
+                db_user_handler.add_user(user)
+            else:
+                log.error("User with email '%s' not found", email)
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
 
         if not user.enabled:
             raise UserDisabledException
