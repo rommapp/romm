@@ -23,7 +23,7 @@ withDefaults(
 const navigationStore = storeNavigation();
 const auth = storeAuth();
 const galleryFilter = storeGalleryFilter();
-const isFiltered = normalizeString(galleryFilter.filterSearch).trim() != "";
+const isFiltered = normalizeString(galleryFilter.filterText).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 const scanningStore = storeScanning();
 const { scanningPlatforms, scanning } = storeToRefs(scanningStore);
