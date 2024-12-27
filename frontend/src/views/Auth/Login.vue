@@ -3,7 +3,10 @@ import identityApi from "@/services/api/identity";
 import { refetchCSRFToken } from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
+import userApi from "@/services/api/user";
 import type { Emitter } from "mitt";
+import storeAuth from "@/stores/auth";
+import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -11,6 +14,8 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
+const auth = storeAuth();
+const { user } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref("");
@@ -30,6 +35,12 @@ async function login() {
     .login(username.value, password.value)
     .then(async () => {
       await refetchCSRFToken();
+      try {
+        const { data: userData } = await userApi.fetchCurrentUser();
+        auth.setUser(userData);
+      } catch (userError) {
+        console.error("Error loading user: ", userError);
+      }
       const params = new URLSearchParams(window.location.search);
       router.push(params.get("next") ?? "/");
     })

@@ -226,37 +226,38 @@ onMounted(async () => {
   watch(
     () => allPlatforms.value,
     (platforms) => {
-      if (
-        platforms.length > 0 &&
-        platforms.some((platform) => platform.id === routePlatformId)
-      ) {
-        const platform = platforms.find(
-          (platform) => platform.id === routePlatformId,
-        );
+      if (platforms.length > 0) {
+        if (platforms.some((platform) => platform.id === routePlatformId)) {
+          const platform = platforms.find(
+            (platform) => platform.id === routePlatformId,
+          );
 
-        // Check if the current platform is different or no ROMs have been loaded
-        if (
-          (currentPlatform.value?.id !== routePlatformId ||
-            allRoms.value.length === 0) &&
-          platform
-        ) {
-          romsStore.setCurrentPlatform(platform);
-          resetGallery();
-          fetchRoms();
-          setFilters();
+          // Check if the current platform is different or no ROMs have been loaded
+          if (
+            (currentPlatform.value?.id !== routePlatformId ||
+              allRoms.value.length === 0) &&
+            platform
+          ) {
+            romsStore.setCurrentPlatform(platform);
+            resetGallery();
+            fetchRoms();
+            setFilters();
+          }
+
+          // Check for query params to set filters
+          if (route.query.filter && route.query.value) {
+            const filter = route.query.filter as FilterType;
+            const value = route.query.value as string;
+            filterToSetFilter[filter](value);
+            onFilterChange(); // Update the UI
+            router.replace({ query: {} }); // Clear query params
+          }
+
+          window.addEventListener("wheel", onScroll);
+          window.addEventListener("scroll", onScroll);
+        } else {
+          noPlatformError.value = true;
         }
-
-        // Check for query params to set filters
-        if (route.query.filter && route.query.value) {
-          const filter = route.query.filter as FilterType;
-          const value = route.query.value as string;
-          filterToSetFilter[filter](value);
-          onFilterChange(); // Update the UI
-          router.replace({ query: {} }); // Clear query params
-        }
-
-        window.addEventListener("wheel", onScroll);
-        window.addEventListener("scroll", onScroll);
       }
     },
     { immediate: true }, // Ensure watcher is triggered immediately
@@ -288,6 +289,8 @@ onBeforeRouteUpdate(async (to, from) => {
           romsStore.setCurrentPlatform(platform);
           fetchRoms();
           setFilters();
+        } else {
+          noPlatformError.value = true;
         }
       }
     },
