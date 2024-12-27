@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Final, Optional
 
@@ -165,16 +166,45 @@ class OpenIDHandler:
     RSA_ALGORITHM = "RS256"
 
     def __init__(self) -> None:
+        self._server_metadata: Optional[dict] = None
         self._rsa_key: Optional[RSAKey] = None
         self._rsa_key_lock = asyncio.Lock()
+
+    async def _fetch_server_metadata(self) -> dict:
+        """
+        Fetch the server metadata from the OIDC server
+        """
+        if self._server_metadata:
+            return self._server_metadata
+
+        server_metadata_url = (
+            f"{OIDC_SERVER_APPLICATION_URL}/.well-known/openid-configuration"
+        )
+        log.info("Fetching server metadata from %s", server_metadata_url)
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            response = await httpx_client.get(server_metadata_url, timeout=120)
+            response.raise_for_status()
+
+            json_response = response.json()
+            self._server_metadata = json_response
+            return json_response
+        except httpx.RequestError as exc:
+            log.error("Unable to fetch server metadata: %s", str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to fetch server metadata",
+            ) from exc
 
     async def _fetch_rsa_key(self) -> RSAKey:
         """
         Fetch the public key from the OIDC server
         JWKS (JSON Web Key Sets) response is a JSON object with a keys array
         """
-        jwks_url = f"{OIDC_SERVER_APPLICATION_URL}/jwks/"
-        log.debug("Fetching JWKS from %s", jwks_url)
+        server_metadata = await self._fetch_server_metadata()
+        jwks_url = server_metadata.get("jwks_uri", "/jwks")
+        log.info("Fetching JWKS from %s", jwks_url)
 
         httpx_client = ctx_httpx_client.get()
         try:
@@ -218,6 +248,7 @@ class OpenIDHandler:
 
     async def get_current_active_user_from_openid_token(self, token: Any):
         from handler.database import db_user_handler
+        from models.user import Role, User
 
         if not OIDC_ENABLED:
             return None, None
@@ -248,13 +279,19 @@ class OpenIDHandler:
                 detail="Email is missing from token.",
             )
 
+        preferred_username = payload.claims.get("preferred_username")
+
         user = db_user_handler.get_user_by_email(email)
         if user is None:
-            log.error("User with email '%s' not found", email)
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+            log.info("User with email '%s' not found, creating new user", email)
+            user = User(
+                username=preferred_username,
+                hashed_password=str(uuid.uuid4()),
+                email=email,
+                enabled=True,
+                role=Role.VIEWER,
             )
+            db_user_handler.add_user(user)
 
         if not user.enabled:
             raise UserDisabledException

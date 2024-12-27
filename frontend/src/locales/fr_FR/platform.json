@@ -15,6 +15,7 @@
   "show-firmwares": "Afficher firmwares/BIOS",
   "filter-gallery": "Filtrer la galerie",
   "show-unmatched": "Jeux non identifiés",
+  "show-matched": "Jeux identifiés",
   "show-favourites": "Jeux favoris",
   "show-duplicates": "Jeux doubles",
   "genre": "Genre",

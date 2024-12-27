@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
+import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
+import PlatformSelector from "@/components/Gallery/AppBar/Search/PlatformSelector.vue";
+import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
+import SearchBtn from "@/components/Gallery/AppBar/Search/SearchBtn.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick } from "vue";
+import { inject, nextTick, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
 const { xs } = useDisplay();
+const viewportWidth = ref(window.innerWidth);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const {
@@ -73,6 +78,7 @@ function resetFilters() {
   selectedAgeRating.value = null;
   selectedStatus.value = null;
   galleryFilterStore.disableFilterUnmatched();
+  galleryFilterStore.disableFilterMatched();
   galleryFilterStore.disableFilterFavourites();
   nextTick(() => emitter?.emit("filter", null));
 }
@@ -81,17 +87,37 @@ function resetFilters() {
 <template>
   <v-navigation-drawer
     floating
-    width="300"
     mobile
+    :width="xs ? viewportWidth : '350'"
     @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     v-model="activeFilterDrawer"
   >
     <v-list>
-      <v-list-item v-if="xs">
-        <filter-text-field />
-      </v-list-item>
+      <template v-if="xs">
+        <template v-if="$route.name != 'search'">
+          <v-list-item>
+            <filter-text-field />
+          </v-list-item>
+        </template>
+        <template v-if="$route.name == 'search'">
+          <v-list-item>
+            <v-row no-gutters>
+              <v-col>
+                <search-text-field />
+              </v-col>
+              <v-col cols="auto">
+                <search-btn />
+              </v-col>
+            </v-row>
+          </v-list-item>
+          <v-list-item>
+            <platform-selector />
+          </v-list-item>
+        </template>
+      </template>
       <v-list-item>
         <filter-unmatched-btn />
+        <filter-matched-btn class="mt-2" />
         <filter-favourites-btn class="mt-2" />
         <filter-duplicates-btn class="mt-2" />
       </v-list-item>

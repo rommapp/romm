@@ -38,34 +38,36 @@ from sqlalchemy.inspection import inspect
 from utils.context import initialize_context
 
 STOP_SCAN_FLAG: Final = "scan:stop"
-NON_HASHABLE_PLATFORMS = [
-    "pc",
-    "win",
-    "mac",
-    "linux",
-    "switch",
-    "ps3",
-    "ps4",
-    "ps4--1",
-    "ps5",
-    "wiiu",
-    "xbox-360",
-    "xboxone",
-    "series-x",
-    "android",
-    "ios",
-    "ipad",
-    "amazon-alexa",
-    "amazon-fire-tv",
-    "gear-vr",
-    "meta-quest-2",
-    "meta-quest-3",
-    "oculus-go",
-    "oculus-quest",
-    "oculus-rift",
-    "psvr",
-    "psvr2",
-]
+NON_HASHABLE_PLATFORMS = frozenset(
+    (
+        "amazon-alexa",
+        "amazon-fire-tv",
+        "android",
+        "gear-vr",
+        "ios",
+        "ipad",
+        "linux",
+        "mac",
+        "meta-quest-2",
+        "meta-quest-3",
+        "oculus-go",
+        "oculus-quest",
+        "oculus-rift",
+        "pc",
+        "ps3",
+        "ps4",
+        "ps4--1",
+        "ps5",
+        "psvr",
+        "psvr2",
+        "series-x",
+        "switch",
+        "wiiu",
+        "win",
+        "xbox-360",
+        "xboxone",
+    )
+)
 
 
 @dataclass

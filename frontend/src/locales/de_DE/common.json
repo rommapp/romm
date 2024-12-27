@@ -17,6 +17,7 @@
   "filter": "Filter",
   "add": "Hinzufügen",
   "upload": "Hochladen",
+  "edit": "Bearbeiten",
   "cancel": "Abbrechen",
   "confirm": "Bestätigen",
   "apply": "Anwenden",
@@ -26,5 +27,6 @@
   "user-interface": "Benutzeroberfläche",
   "library-management": "Bibliothek verwalten",
   "administration": "Administration",
-  "logout": "Ausloggen"
+  "logout": "Ausloggen",
+  "name": "Name"
 }

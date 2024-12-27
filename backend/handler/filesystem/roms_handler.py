@@ -36,23 +36,27 @@ from .base_handler import (
     FSHandler,
 )
 
-# list of known compressed file MIME types
-COMPRESSED_MIME_TYPES: Final = [
-    "application/zip",
-    "application/x-tar",
-    "application/x-gzip",
-    "application/x-7z-compressed",
-    "application/x-bzip2",
-]
+# Known compressed file MIME types
+COMPRESSED_MIME_TYPES: Final = frozenset(
+    (
+        "application/x-7z-compressed",
+        "application/x-bzip2",
+        "application/x-gzip",
+        "application/x-tar",
+        "application/zip",
+    )
+)
 
-# list of known file extensions that are compressed
-COMPRESSED_FILE_EXTENSIONS = [
-    ".zip",
-    ".tar",
-    ".gz",
-    ".7z",
-    ".bz2",
-]
+# Known file extensions that are compressed
+COMPRESSED_FILE_EXTENSIONS = frozenset(
+    (
+        ".7z",
+        ".bz2",
+        ".gz",
+        ".tar",
+        ".zip",
+    )
+)
 
 FILE_READ_CHUNK_SIZE = 1024 * 8
 
