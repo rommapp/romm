@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import GalleryAppBarCollection from "@/components/Gallery/AppBar/Collection/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import EmptyCollection from "@/components/common/EmptyCollection.vue";
-import EmptyGame from "@/components/common/EmptyGame.vue";
+import EmptyCollection from "@/components/common/EmptyStates/EmptyCollection.vue";
+import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import romApi from "@/services/api/rom";
@@ -56,7 +56,7 @@ async function fetchRoms() {
   await romApi
     .getRoms({
       collectionId: romsStore.currentCollection?.id,
-      searchTerm: normalizeString(galleryFilterStore.filterSearch),
+      searchTerm: normalizeString(galleryFilterStore.filterText),
     })
     .then(({ data }) => {
       romsStore.set(data);
@@ -204,6 +204,7 @@ function onScroll() {
 function resetGallery() {
   romsStore.reset();
   galleryFilterStore.reset();
+  galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
   noCollectionError.value = false;
   itemsShown.value = itemsPerBatch.value;

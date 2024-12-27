@@ -11,20 +11,20 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
-const { filterSearch } = storeToRefs(galleryFilterStore);
+const { filterText } = storeToRefs(galleryFilterStore);
 
 const filterRoms = debounce(() => {
   emitter?.emit("filter", null);
 }, 500);
 
 function clear() {
-  filterSearch.value = "";
+  filterText.value = "";
 }
 </script>
 
 <template>
   <v-text-field
-    v-model="filterSearch"
+    v-model="filterText"
     prepend-inner-icon="mdi-filter-outline"
     :label="t('common.filter')"
     rounded="0"
