@@ -182,33 +182,35 @@ watch(
       <v-col cols="12">
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
-            <v-btn
-              v-if="!isEditable"
-              :loading="updating"
-              class="bg-terciary"
-              @click="showEditable"
-              size="small"
-            >
-              <template #loader>
-                <v-progress-circular
-                  color="romm-accent-1"
-                  :width="2"
-                  :size="20"
-                  indeterminate
-                />
-              </template>
-              <v-icon>mdi-pencil</v-icon></v-btn
-            >
-            <template v-else>
-              <v-btn @click="closeEditable" size="small" class="bg-terciary"
-                ><v-icon color="romm-red">mdi-close</v-icon></v-btn
-              >
+            <template v-if="auth.scopes.includes('platforms.write')">
               <v-btn
-                @click="updatePlatform()"
+                v-if="!isEditable"
+                :loading="updating"
+                class="bg-terciary"
+                @click="showEditable"
                 size="small"
-                class="bg-terciary ml-1"
-                ><v-icon color="romm-green">mdi-check</v-icon></v-btn
               >
+                <template #loader>
+                  <v-progress-circular
+                    color="romm-accent-1"
+                    :width="2"
+                    :size="20"
+                    indeterminate
+                  />
+                </template>
+                <v-icon>mdi-pencil</v-icon></v-btn
+              >
+              <template v-else>
+                <v-btn @click="closeEditable" size="small" class="bg-terciary"
+                  ><v-icon color="romm-red">mdi-close</v-icon></v-btn
+                >
+                <v-btn
+                  @click="updatePlatform()"
+                  size="small"
+                  class="bg-terciary ml-1"
+                  ><v-icon color="romm-green">mdi-check</v-icon></v-btn
+                >
+              </template>
             </template>
           </div>
           <platform-icon
