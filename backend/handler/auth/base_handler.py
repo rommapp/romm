@@ -5,7 +5,7 @@ from typing import Any, Final, Optional
 
 import httpx
 from config import (
-    CREATE_OIDC_USER,
+    OIDC_CREATE_USER,
     OIDC_ENABLED,
     OIDC_SERVER_APPLICATION_URL,
     ROMM_AUTH_SECRET_KEY,
@@ -285,7 +285,7 @@ class OpenIDHandler:
 
         user = db_user_handler.get_user_by_email(email)
         if user is None:
-            if CREATE_OIDC_USER:
+            if OIDC_CREATE_USER:
                 log.info("User with email '%s' not found, creating new user", email)
                 user = User(
                     username=email.split("@")[0],
