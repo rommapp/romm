@@ -349,6 +349,7 @@ const _EJS_CORES_MAP = {
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
   ps: ["pcsx_rearmed", "mednafen_psx"],
+  psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
   // sega32: ["picodrive"], // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
   gamegear: ["genesis_plus_gx"],
@@ -387,8 +388,23 @@ export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
  * @param platformSlug The platform slug.
  * @returns An array of supported cores.
  */
-export function getSupportedEJSCores(platformSlug: string) {
-  return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+export function getSupportedEJSCores(platformSlug: string): string[] {
+  const cores =
+    _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+  const threadsSupported = isEJSThreadsSupported();
+  return cores.filter(
+    (core) => !areThreadsRequiredForEJSCore(core) || threadsSupported,
+  );
+}
+
+/**
+ * Check if a given EJS core requires threads enabled.
+ *
+ * @param core The core name.
+ * @returns True if threads are required, false otherwise.
+ */
+export function areThreadsRequiredForEJSCore(core: string): boolean {
+  return ["ppsspp"].includes(core);
 }
 
 /**
@@ -403,9 +419,21 @@ export function isEJSEmulationSupported(
   heartbeat: Heartbeat,
 ) {
   return (
-    platformSlug.toLowerCase() in _EJS_CORES_MAP &&
-    !heartbeat.EMULATION.DISABLE_EMULATOR_JS
+    !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
+    getSupportedEJSCores(platformSlug).length > 0
   );
+}
+
+/**
+ * Check if EJS threads are supported.
+ *
+ * EmulatorJS threads are supported if SharedArrayBuffer is available.
+ * Reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer
+ *
+ * @returns True if supported, false otherwise.
+ */
+export function isEJSThreadsSupported(): boolean {
+  return typeof SharedArrayBuffer !== "undefined";
 }
 
 /**
