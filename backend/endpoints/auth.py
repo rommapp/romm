@@ -248,7 +248,7 @@ async def auth_openid(request: Request):
         raise OIDCNotConfiguredException
 
     token = await oauth.openid.authorize_access_token(request)
-    potential_user, _claims = (
+    potential_user, _userinfo = (
         await oidc_handler.get_current_active_user_from_openid_token(token)
     )
     if not potential_user:

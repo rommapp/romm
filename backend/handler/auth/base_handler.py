@@ -1,20 +1,17 @@
-import asyncio
 import enum
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Final, Optional
+from typing import Any, Final
 
-import httpx
-from config import OIDC_ENABLED, OIDC_SERVER_APPLICATION_URL, ROMM_AUTH_SECRET_KEY
+from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
 from joserfc import jwt
-from joserfc.errors import BadSignatureError, ExpiredTokenError, InvalidPayloadError
-from joserfc.jwk import OctKey, RSAKey
+from joserfc.errors import BadSignatureError
+from joserfc.jwk import OctKey
 from logger.logger import log
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
-from utils.context import ctx_httpx_client
 
 ALGORITHM: Final = "HS256"
 DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
@@ -159,7 +156,6 @@ class OAuthHandler:
         return user, payload.claims
 
 
-
 class OpenIDHandler:
     async def get_current_active_user_from_openid_token(self, token: Any):
         from handler.database import db_user_handler
@@ -168,15 +164,22 @@ class OpenIDHandler:
         if not OIDC_ENABLED:
             return None, None
 
-        userinfo = token.get('userinfo')
-        email = userinfo.get('email')
+        userinfo = token.get("userinfo")
+        if userinfo is None:
+            log.error("Userinfo is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Userinfo is missing from token.",
+            )
+
+        email = userinfo.get("email")
         if email is None:
             log.error("Email is missing from token.")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is missing from token.",
             )
-        if userinfo.get('email_verified', None) is not True:
+        if userinfo.get("email_verified", None) is not True:
             log.error("Email is not verified.")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
