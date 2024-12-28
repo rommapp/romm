@@ -91,7 +91,7 @@ RUN if [ "${RUN_EMULATOR_SETUP}" = "true" ]; then \
         rm -f "${RUFFLE_FILE}"; \
     else \
         echo "Skipping Ruffle setup"; \
-    fi"
+    fi
 
 
 FROM alpine:${ALPINE_VERSION} AS nginx-build
