@@ -159,93 +159,8 @@ class OAuthHandler:
         return user, payload.claims
 
 
-class RSAKeyNotFoundError(Exception): ...
-
 
 class OpenIDHandler:
-    RSA_ALGORITHM = "RS256"
-
-    def __init__(self) -> None:
-        self._server_metadata: Optional[dict] = None
-        self._rsa_key: Optional[RSAKey] = None
-        self._rsa_key_lock = asyncio.Lock()
-
-    async def _fetch_server_metadata(self) -> dict:
-        """
-        Fetch the server metadata from the OIDC server
-        """
-        if self._server_metadata:
-            return self._server_metadata
-
-        server_metadata_url = (
-            f"{OIDC_SERVER_APPLICATION_URL}/.well-known/openid-configuration"
-        )
-        log.info("Fetching server metadata from %s", server_metadata_url)
-
-        httpx_client = ctx_httpx_client.get()
-        try:
-            response = await httpx_client.get(server_metadata_url, timeout=120)
-            response.raise_for_status()
-
-            json_response = response.json()
-            self._server_metadata = json_response
-            return json_response
-        except httpx.RequestError as exc:
-            log.error("Unable to fetch server metadata: %s", str(exc))
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Unable to fetch server metadata",
-            ) from exc
-
-    async def _fetch_rsa_key(self) -> RSAKey:
-        """
-        Fetch the public key from the OIDC server
-        JWKS (JSON Web Key Sets) response is a JSON object with a keys array
-        """
-        server_metadata = await self._fetch_server_metadata()
-        jwks_url = server_metadata.get("jwks_uri", "/jwks")
-        log.info("Fetching JWKS from %s", jwks_url)
-
-        httpx_client = ctx_httpx_client.get()
-        try:
-            response = await httpx_client.get(jwks_url, timeout=120)
-            response.raise_for_status()
-            keys = response.json().get("keys", [])
-            if not keys:
-                raise RSAKeyNotFoundError("No RSA keys found in JWKS response.")
-
-            return RSAKey.import_key(keys[0])
-        except (httpx.RequestError, KeyError, RSAKeyNotFoundError) as exc:
-            log.error("Unable to fetch RSA public key: %s", str(exc))
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Unable to fetch RSA public key",
-            ) from exc
-
-    async def get_rsa_key(self) -> RSAKey:
-        """
-        Retrieves the cached RSA public key, or fetches it if not already cached.
-        """
-        if not self._rsa_key:
-            async with self._rsa_key_lock:
-                if not self._rsa_key:  # Double-check in case of concurrent calls
-                    self._rsa_key = await self._fetch_rsa_key()
-        return self._rsa_key
-
-    async def validate_token(self, token: str) -> jwt.Token:
-        """
-        Validates a JWT token using the RSA public key.
-        """
-        try:
-            rsa_key = await self.get_rsa_key()
-            return jwt.decode(token, rsa_key, algorithms=[self.RSA_ALGORITHM])
-        except (BadSignatureError, ExpiredTokenError, InvalidPayloadError) as exc:
-            log.error("Token validation failed: %s", str(exc))
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-            ) from exc
-
     async def get_current_active_user_from_openid_token(self, token: Any):
         from handler.database import db_user_handler
         from models.user import Role, User
@@ -253,30 +168,19 @@ class OpenIDHandler:
         if not OIDC_ENABLED:
             return None, None
 
-        id_token = token.get("id_token")
-        if not id_token:
-            log.error("ID Token is missing from token.")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="ID Token is missing from token.",
-            )
-
-        payload = await self.validate_token(id_token)
-
-        iss = payload.claims.get("iss")
-        if not iss or OIDC_SERVER_APPLICATION_URL not in str(iss):
-            log.error("Invalid issuer in token: %s", iss)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid issuer in token.",
-            )
-
-        email = payload.claims.get("email")
+        userinfo = token.get('userinfo')
+        email = userinfo.get('email')
         if email is None:
             log.error("Email is missing from token.")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is missing from token.",
+            )
+        if userinfo.get('email_verified', None) is not True:
+            log.error("Email is not verified.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is not verified.",
             )
 
         preferred_username = payload.claims.get("preferred_username")
@@ -297,4 +201,4 @@ class OpenIDHandler:
             raise UserDisabledException
 
         log.info("User successfully authenticated: %s", email)
-        return user, payload.claims
+        return user, userinfo
