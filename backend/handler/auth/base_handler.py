@@ -183,7 +183,7 @@ class OpenIDHandler:
                 detail="Email is not verified.",
             )
 
-        preferred_username = payload.claims.get("preferred_username")
+        preferred_username = userinfo.get("preferred_username")
 
         user = db_user_handler.get_user_by_email(email)
         if user is None:
