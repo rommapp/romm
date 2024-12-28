@@ -2,6 +2,7 @@
 #   - frontend-build: Build frontend
 #   - backend-build: Build backend environment
 #   - rahasher-build: Build RAHasher
+#   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
 #   - final-stage: Move everything to final stage
@@ -66,6 +67,33 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
+FROM alpine:${ALPINE_VERSION} AS emulator-stage
+
+RUN apk add --no-cache \
+7zip \
+wget
+
+ARG RUN_EMULATOR_SETUP=true
+ARG EMULATORJS_VERSION=4.2.0
+RUN if [ "${RUN_EMULATOR_SETUP}" = "true" ]; then \
+        wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
+        7z x -y "${EMULATORJS_VERSION}.7z" -oemulatorjs && \
+        rm -rf "${EMULATORJS_VERSION}.7z"; \
+    else \
+        echo "Skipping EmulatorJS setup"; \
+    fi
+
+ARG RUFFLE_VERSION=nightly-2024-12-28
+ARG RUFFLE_FILE=ruffle-nightly-2024_12_28-web-selfhosted.zip
+RUN if [ "${RUN_EMULATOR_SETUP}" = "true" ]; then \
+        wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
+        unzip -o "${RUFFLE_FILE}" -d ruffle && \
+        rm -f "${RUFFLE_FILE}"; \
+    else \
+        echo "Skipping Ruffle setup"; \
+    fi"
+
+
 FROM alpine:${ALPINE_VERSION} AS nginx-build
 
 RUN apk add --no-cache \
@@ -113,9 +141,9 @@ COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
+COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
+COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
-COPY ./frontend/assets/emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
-COPY ./frontend/assets/ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 COPY ./frontend/assets/scrappers ${WEBSERVER_FOLDER}/assets/scrappers
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
