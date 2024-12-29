@@ -4,6 +4,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
@@ -18,6 +19,7 @@ const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
+const heartbeat = storeHeartbeat();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
@@ -28,12 +30,17 @@ const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
-const script = document.createElement("script");
-script.src = "/assets/emulatorjs/loader.js";
-script.async = true;
 
 // Functions
 function onPlay() {
+  const script = document.createElement("script");
+  script.async = true;
+  script.src = heartbeat.value.SYSTEM.SLIM_IMAGE
+    ? "https://cdn.emulatorjs.org/4.2.0/data/loader.js"
+    : "/assets/emulatorjs/loader.js";
+  window.EJS_pathtodata = heartbeat.value.SYSTEM.SLIM_IMAGE
+    ? "https://cdn.emulatorjs.org/4.2.0/data"
+    : "/assets/emulatorjs/";
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
   gameRunning.value = true;

@@ -3,7 +3,6 @@ import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { getSupportedEJSCores } from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
@@ -15,7 +14,6 @@ const props = defineProps<{
   bios: FirmwareSchema | null;
   core: string | null;
 }>();
-const heartbeat = storeHeartbeat();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
@@ -74,10 +72,6 @@ onBeforeUnmount(() => {
 });
 
 onMounted(() => {
-  window.EJS_pathtodata = heartbeat.value.SYSTEM.SLIM_IMAGE
-    ? "https://cdn.emulatorjs.org/4.2.0/data"
-    : "/assets/emulatorjs/";
-
   if (props.save) {
     localStorage.setItem(
       `player:${props.rom.id}:save_id`,
