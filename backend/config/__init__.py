@@ -108,6 +108,7 @@ SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
 )
 
 # EMULATION
+SLIM_IMAGE = str_to_bool(os.environ.get("SLIM_IMAGE", "true"))
 DISABLE_EMULATOR_JS = str_to_bool(os.environ.get("DISABLE_EMULATOR_JS", "false"))
 DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
 

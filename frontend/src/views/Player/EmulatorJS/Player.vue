@@ -3,6 +3,7 @@ import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { getSupportedEJSCores } from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
@@ -14,48 +15,10 @@ const props = defineProps<{
   bios: FirmwareSchema | null;
   core: string | null;
 }>();
+const heartbeat = storeHeartbeat();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
-
-onBeforeUnmount(() => {
-  window.location.reload();
-});
-
-onMounted(() => {
-  if (props.save) {
-    localStorage.setItem(
-      `player:${props.rom.id}:save_id`,
-      props.save.id.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${props.rom.id}:save_id`);
-  }
-
-  if (props.state) {
-    localStorage.setItem(
-      `player:${props.rom.id}:state_id`,
-      props.state.id.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${props.rom.id}:state_id`);
-  }
-
-  if (props.bios) {
-    localStorage.setItem(
-      `player:${props.rom.platform_slug}:bios_id`,
-      props.bios.id.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${props.rom.platform_slug}:bios_id`);
-  }
-
-  if (props.core) {
-    localStorage.setItem(`player:${props.rom.platform_slug}:core`, props.core);
-  } else {
-    localStorage.removeItem(`player:${props.rom.platform_slug}:core`);
-  }
-});
 
 // Declare global variables for EmulatorJS
 declare global {
@@ -96,7 +59,6 @@ window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
 window.EJS_player = "#game";
-window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
@@ -106,6 +68,49 @@ window.EJS_defaultOptions = {
   rewindEnabled: "enabled",
 };
 if (romRef.value.name) window.EJS_gameName = romRef.value.name;
+
+onBeforeUnmount(() => {
+  window.location.reload();
+});
+
+onMounted(() => {
+  window.EJS_pathtodata = heartbeat.value.SYSTEM.SLIM_IMAGE
+    ? "https://cdn.emulatorjs.org/4.2.0/data"
+    : "/assets/emulatorjs/";
+
+  if (props.save) {
+    localStorage.setItem(
+      `player:${props.rom.id}:save_id`,
+      props.save.id.toString(),
+    );
+  } else {
+    localStorage.removeItem(`player:${props.rom.id}:save_id`);
+  }
+
+  if (props.state) {
+    localStorage.setItem(
+      `player:${props.rom.id}:state_id`,
+      props.state.id.toString(),
+    );
+  } else {
+    localStorage.removeItem(`player:${props.rom.id}:state_id`);
+  }
+
+  if (props.bios) {
+    localStorage.setItem(
+      `player:${props.rom.platform_slug}:bios_id`,
+      props.bios.id.toString(),
+    );
+  } else {
+    localStorage.removeItem(`player:${props.rom.platform_slug}:bios_id`);
+  }
+
+  if (props.core) {
+    localStorage.setItem(`player:${props.rom.platform_slug}:core`, props.core);
+  } else {
+    localStorage.removeItem(`player:${props.rom.platform_slug}:core`);
+  }
+});
 
 function buildStateName(): string {
   const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
