@@ -113,11 +113,12 @@ COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
+COPY ./frontend/assets/dashboard-icons ${WEBSERVER_FOLDER}/assets/dashboard-icons
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
 COPY ./frontend/assets/emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
+COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 COPY ./frontend/assets/ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 COPY ./frontend/assets/scrappers ${WEBSERVER_FOLDER}/assets/scrappers
-COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
