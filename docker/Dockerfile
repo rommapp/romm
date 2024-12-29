@@ -170,7 +170,10 @@ COPY --from=production-stage / /
 COPY --from=backend-build /src/.venv /src/.venv
 # Fix virtualenv link to python binary
 RUN ln -sf "$(which python)" /src/.venv/bin/python
-ENV PATH="/src/.venv/bin:${PATH}"
+
+ARG SLIM_IMAGE=false
+ENV PATH="/src/.venv/bin:${PATH}" \
+    SLIM_IMAGE="${SLIM_IMAGE}"
 
 # Declare the supported volumes
 VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]

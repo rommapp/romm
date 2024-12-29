@@ -85,6 +85,9 @@ jobs:
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            RUN_EMULATOR_SETUP=true
+            SLIM_IMAGE=false
 
       - name: Build slim image
         id: build-slim
@@ -98,3 +101,4 @@ jobs:
           labels: ${{ steps.meta-slim.outputs.labels }}
           build-args: |
             RUN_EMULATOR_SETUP=false
+            SLIM_IMAGE=true

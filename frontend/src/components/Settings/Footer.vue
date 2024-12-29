@@ -14,7 +14,7 @@ const heartbeatStore = storeHeartbeat();
   >
     <v-row class="align-center justify-center" no-gutters>
       <span class="text-romm-accent-1">RomM</span>
-      <span class="ml-1">{{ heartbeatStore.value.VERSION }}</span>
+      <span class="ml-1">{{ heartbeatStore.value.SYSTEM.VERSION }}</span>
       <v-icon>mdi-circle-small</v-icon><v-icon>mdi-github</v-icon>
       <v-hover v-slot="{ isHovering, props }">
         <span class="ml-1"

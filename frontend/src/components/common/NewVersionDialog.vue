@@ -5,9 +5,8 @@ import { onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
-const { VERSION } = heartbeat.value;
+const { VERSION } = heartbeat.value.SYSTEM;
 const GITHUB_VERSION = ref(VERSION);
 const latestVersionDismissed = ref(VERSION === "development");
 

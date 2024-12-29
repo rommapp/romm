@@ -92,7 +92,7 @@ async function switchFromFavourites() {
   <v-list rounded="0" class="pa-0">
     <template v-if="auth.scopes.includes('roms.write')">
       <v-list-item
-        :disabled="!heartbeat.value.ANY_SOURCE_ENABLED"
+        :disabled="!heartbeat.value.METADATA_SOURCES.ANY_SOURCE_ENABLED"
         class="py-4 pr-5"
         @click="emitter?.emit('showMatchRomDialog', rom)"
       >
@@ -103,7 +103,7 @@ async function switchFromFavourites() {
         </v-list-item-title>
         <v-list-item-subtitle>
           {{
-            !heartbeat.value.ANY_SOURCE_ENABLED
+            !heartbeat.value.METADATA_SOURCES.ANY_SOURCE_ENABLED
               ? t("rom.no-metadata-source")
               : ""
           }}

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import romApi from "@/services/api/rom";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
 import { isNull } from "lodash";
@@ -13,6 +14,7 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
+const heartbeat = storeHeartbeat();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -26,9 +28,6 @@ declare global {
 }
 
 window.RufflePlayer = window.RufflePlayer || {};
-const script = document.createElement("script");
-script.src = "/assets/ruffle/ruffle.js";
-document.body.appendChild(script);
 
 // Functions
 function onPlay() {
@@ -66,6 +65,12 @@ onMounted(async () => {
     romId: parseInt(route.params.rom as string),
   });
   rom.value = romResponse.data;
+
+  const script = document.createElement("script");
+  script.src = heartbeat.value.SYSTEM.SLIM_IMAGE
+    ? "https://unpkg.com/@ruffle-rs/ruffle@0.1.0-nightly.2024.12.28/ruffle.js"
+    : "/assets/ruffle/ruffle.js";
+  document.body.appendChild(script);
 });
 </script>
 
