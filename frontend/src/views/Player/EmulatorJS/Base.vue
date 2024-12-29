@@ -14,6 +14,8 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
+const EMULATORJS_VERSION = "4.2.0";
+
 // Props
 const { t } = useI18n();
 const route = useRoute();
@@ -36,10 +38,10 @@ function onPlay() {
   const script = document.createElement("script");
   script.async = true;
   script.src = heartbeat.value.SYSTEM.SLIM_IMAGE
-    ? "https://cdn.emulatorjs.org/4.2.0/data/loader.js"
+    ? `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/loader.js`
     : "/assets/emulatorjs/loader.js";
   window.EJS_pathtodata = heartbeat.value.SYSTEM.SLIM_IMAGE
-    ? "https://cdn.emulatorjs.org/4.2.0/data"
+    ? `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`
     : "/assets/emulatorjs/";
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
