@@ -10,12 +10,15 @@ authors = ["Zurdi <zurdi@romm.app>", "Arcane <arcane@romm.app>"]
 [tool.poetry.dependencies]
 python = "^3.12"
 anyio = "^4.4"
-fastapi = "0.110.0"
+fastapi = "0.115.6"
 uvicorn = "0.29.0"
 gunicorn = "22.0.0"
 websockets = "12.0"
 python-socketio = "5.11.1"
-SQLAlchemy = "^2.0.30"
+SQLAlchemy = { version = "^2.0.30", extras = [
+  "mariadb-connector",
+  "mysql-connector",
+] }
 alembic = "1.13.1"
 PyYAML = "6.0.1"
 Unidecode = "1.3.8"
@@ -23,29 +26,32 @@ emoji = "2.10.1"
 python-dotenv = "1.0.1"
 sqlakeyset = "^2.0.1708907391"
 pydash = "^7.0.7"
-mariadb = "1.1.10"
 rq = "^1.16.1"
 redis = "^5.0"
-types-pyyaml = "^6.0.12.20240311"
-types-redis = "^4.6.0.20240311 "
 passlib = { extras = ["bcrypt"], version = "^1.7.4" }
 itsdangerous = "^2.1.2"
 rq-scheduler = "^0.13.1"
 starlette-csrf = "^3.0.0"
 httpx = "^0.27.0"
-python-multipart = "^0.0.9"
-types-passlib = "^1.7.7.20240311"
+python-multipart = "^0.0.18"
 watchdog = "^4.0.0"
 yarl = "^1.14"
 joserfc = "^0.9.0"
 pillow = "^10.3.0"
 certifi = "2024.07.04"
+authlib = "^1.3.1"
 python-magic = "^0.4.27"
 # TODO: Move back to `py7zr` official releases, once the following PR is merged and released:
 #       https://github.com/miurahr/py7zr/pull/620
 py7zr = { git = "https://github.com/adamantike/py7zr.git", rev = "54b68426" }
+sentry-sdk = "^2.19"
 streaming-form-data = "^1.16.0"
 zipfile-deflate64 = "^0.2.0"
+colorama = "^0.4.6"
+types-colorama = "^0.4"
+types-passlib = "^1.7.7.20240311"
+types-pyyaml = "^6.0.12.20240311"
+types-redis = "^4.6.0.20240311 "
 
 [tool.poetry.group.test.dependencies]
 fakeredis = "^2.21.3"

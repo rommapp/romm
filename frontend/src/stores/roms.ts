@@ -1,14 +1,13 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
-import { getStatusKeyForText } from "@/utils";
+import storeCollection, { type Collection } from "@/stores/collections";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
-import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
+import { getStatusKeyForText } from "@/utils";
 import { groupBy, isNull, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
-import storeGalleryFilter from "./galleryFilter";
-import storeCollection from "./collections";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
@@ -130,11 +129,14 @@ export default defineStore("roms", {
     // Filter roms by gallery filter store state
     setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {
       this._filteredIDs = new Set(roms.map((rom) => rom.id));
-      if (galleryFilter.filterSearch) {
-        this._filterSearch(galleryFilter.filterSearch);
+      if (galleryFilter.filterText) {
+        this._filterText(galleryFilter.filterText);
       }
       if (galleryFilter.filterUnmatched) {
         this._filterUnmatched();
+      }
+      if (galleryFilter.filterMatched) {
+        this._filterMatched();
       }
       if (galleryFilter.filterFavourites) {
         this._filterFavourites();
@@ -168,7 +170,7 @@ export default defineStore("roms", {
         );
       }
     },
-    _filterSearch(searchFilter: string) {
+    _filterText(searchFilter: string) {
       const bySearch = new Set(
         this.filteredRoms
           .filter(
@@ -191,6 +193,16 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byUnmatched.intersection(this._filteredIDs);
+    },
+    _filterMatched() {
+      const byMatched = new Set(
+        this.filteredRoms
+          .filter((rom) => rom.igdb_id || rom.moby_id)
+          .map((roms) => roms.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byMatched.intersection(this._filteredIDs);
     },
     _filterFavourites() {
       const byFavourites = new Set(

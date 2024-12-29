@@ -3,6 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -10,6 +11,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 type MatchedSource = {
   url_cover: string | undefined;
@@ -18,10 +20,12 @@ type MatchedSource = {
 };
 
 // Props
+const { t } = useI18n();
 const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
+const galleryViewStore = storeGalleryView();
 const searching = ref(false);
 const route = useRoute();
 const searchTerm = ref("");
@@ -227,7 +231,7 @@ onBeforeUnmount(() => {
     :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #header>
-      <span class="ml-4">Filter:</span>
+      <span class="ml-4">{{ t("common.filter") }}:</span>
       <v-tooltip
         location="top"
         class="tooltip"
@@ -242,10 +246,13 @@ onBeforeUnmount(() => {
           <v-avatar
             @click="toggleSourceFilter('IGDB')"
             v-bind="props"
-            class="ml-3 source-filter"
+            class="ml-3 cursor-pointer opacity-40"
             :class="{
-              filtered: isIGDBFiltered,
-              disabled: !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+              'opacity-100':
+                isIGDBFiltered &&
+                heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
             }"
             size="30"
             rounded="1"
@@ -268,10 +275,13 @@ onBeforeUnmount(() => {
           <v-avatar
             @click="toggleSourceFilter('Mobygames')"
             v-bind="props"
-            class="ml-3 source-filter"
+            class="ml-3 cursor-pointer opacity-40"
             :class="{
-              filtered: isMobyFiltered,
-              disabled: !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+              'opacity-100':
+                isMobyFiltered &&
+                heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED,
             }"
             size="30"
             rounded="1"
@@ -290,7 +300,7 @@ onBeforeUnmount(() => {
             class="bg-terciary"
             v-model="searchTerm"
             :disabled="searching"
-            label="Search"
+            :label="t('common.search')"
             hide-details
             clearable
           />
@@ -298,7 +308,7 @@ onBeforeUnmount(() => {
         <v-col cols="4" sm="3">
           <v-select
             :disabled="searching"
-            label="by"
+            :label="t('rom.by')"
             class="bg-terciary"
             :items="['ID', 'Name']"
             v-model="searchBy"
@@ -320,7 +330,7 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row v-show="!showSelectSource" no-gutters>
+      <v-row class="align-content-start" v-show="!showSelectSource" no-gutters>
         <v-col
           class="pa-1"
           cols="4"
@@ -330,11 +340,12 @@ onBeforeUnmount(() => {
           v-for="matchedRom in filteredMatchedRoms"
         >
           <game-card
+            v-if="rom"
             @click="showSources(matchedRom)"
             :rom="matchedRom"
-            title-on-footer
-            transform-scale
-            title-on-hover
+            transformScale
+            titleOnHover
+            pointerOnHover
           />
         </v-col>
       </v-row>
@@ -362,22 +373,18 @@ onBeforeUnmount(() => {
           <v-col cols="12">
             <v-row no-gutters class="mt-4 justify-center text-center">
               <v-col>
-                <span class="text-body-1">Select a cover image</span>
+                <span class="text-body-1">{{
+                  t("rom.select-cover-image")
+                }}</span>
               </v-col>
             </v-row>
           </v-col>
           <v-col cols="12">
             <v-row class="justify-center mt-4" no-gutters>
-              <v-col
-                :class="{
-                  'source-cover-desktop': !xs,
-                  'source-cover-mobile': xs,
-                }"
-                class="pa-1"
-                v-for="source in sources"
-              >
+              <v-col class="pa-1" cols="auto" v-for="source in sources">
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
+                    :width="xs ? 150 : 220"
                     v-bind="props"
                     class="transform-scale mx-2"
                     :class="{
@@ -394,7 +401,7 @@ onBeforeUnmount(() => {
                           ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                           : source.url_cover
                       "
-                      :aspect-ratio="2 / 3"
+                      :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
                       cover
                       lazy
                     >
@@ -433,19 +440,21 @@ onBeforeUnmount(() => {
                       ? "mdi-checkbox-outline"
                       : "mdi-checkbox-blank-outline"
                   }}</v-icon
-                  >Rename file to match {{ selectedCover?.name }} title</v-chip
+                  >{{
+                    t("rom.rename-file-part1", { source: selectedCover?.name })
+                  }}</v-chip
                 >
                 <v-list-item v-if="renameAsSource" class="mt-2">
-                  <span>File will be renamed</span>
+                  <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
-                  <span>from</span
+                  <span>{{ t("rom.rename-file-part3") }}</span
                   ><span class="text-romm-accent-1 ml-1"
                     >{{ rom?.file_name_no_tags }}.{{
                       rom?.file_extension
                     }}</span
                   >
                   <br />
-                  <span class="mx-1">to</span
+                  <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
                   ><span class="text-romm-accent-2"
                     >{{ selectedMatchRom?.name }}.{{
                       rom?.file_extension
@@ -453,7 +462,7 @@ onBeforeUnmount(() => {
                   >
                   <br />
                   <span class="text-caption font-italic font-weight-bold"
-                    >*File name tags won't be affected</span
+                    >*{{ t("rom.rename-file-part5") }}</span
                   >
                 </v-list-item>
               </v-col>
@@ -463,7 +472,7 @@ onBeforeUnmount(() => {
             <v-row no-gutters class="my-4 justify-center">
               <v-btn-group divided density="compact">
                 <v-btn class="bg-terciary" @click="backToMatched">
-                  Cancel
+                  {{ t("common.cancel") }}
                 </v-btn>
                 <v-btn
                   class="text-romm-green bg-terciary"
@@ -471,7 +480,7 @@ onBeforeUnmount(() => {
                   :variant="selectedCover == undefined ? 'plain' : 'flat'"
                   @click="confirm"
                 >
-                  Confirm
+                  {{ t("common.confirm") }}
                 </v-btn>
               </v-btn-group>
             </v-row>
@@ -482,37 +491,22 @@ onBeforeUnmount(() => {
     <template #footer>
       <v-row no-gutters class="text-center">
         <v-col>
-          <v-chip variant="text">Results found:</v-chip>
-          <v-chip size="small" class="ml-1 text-romm-accent-1" label>{{
-            matchedRoms.length
-          }}</v-chip>
+          <v-chip label class="pr-0" size="small"
+            >{{ t("rom.results-found") }}:<v-chip
+              color="romm-accent-1"
+              class="ml-2 px-2"
+              label
+              >{{ !searching ? matchedRoms.length : ""
+              }}<v-progress-circular
+                v-if="searching"
+                :width="1"
+                :size="10"
+                color="romm-accent-1"
+                indeterminate
+            /></v-chip>
+          </v-chip>
         </v-col>
       </v-row>
     </template>
   </r-dialog>
 </template>
-
-<style scoped>
-.source-filter {
-  cursor: pointer;
-  opacity: 0.4;
-}
-.source-filter.filtered {
-  opacity: 1;
-}
-.source-filter.disabled {
-  cursor: not-allowed !important;
-  opacity: 0.4 !important;
-}
-.select-source-dialog {
-  z-index: 9999 !important;
-}
-.source-cover-desktop {
-  min-width: 220px;
-  max-width: 220px;
-}
-.source-cover-mobile {
-  min-width: 150px;
-  max-width: 150px;
-}
-</style>

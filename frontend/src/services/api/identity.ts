@@ -20,7 +20,7 @@ async function login(
 }
 
 async function logout(): Promise<{ data: MessageResponse }> {
-  return api.post("/logout", {});
+  return api.post("/logout");
 }
 
 export default {

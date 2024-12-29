@@ -107,6 +107,7 @@ class SessionMiddleware:
                 jwt_claims = self._validate_jwt_payload(jwt_payload)
                 scope["session"] = jwt_claims
                 initial_session_was_empty = False
+
             except BadSignatureError:
                 scope["session"] = {}
         else:

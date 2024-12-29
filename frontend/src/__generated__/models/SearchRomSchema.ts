@@ -11,5 +11,6 @@ export type SearchRomSchema = {
     summary: string;
     igdb_url_cover?: string;
     moby_url_cover?: string;
+    platform_id: number;
 };
 

@@ -36,23 +36,27 @@ from .base_handler import (
     FSHandler,
 )
 
-# list of known compressed file MIME types
-COMPRESSED_MIME_TYPES: Final = [
-    "application/zip",
-    "application/x-tar",
-    "application/x-gzip",
-    "application/x-7z-compressed",
-    "application/x-bzip2",
-]
+# Known compressed file MIME types
+COMPRESSED_MIME_TYPES: Final = frozenset(
+    (
+        "application/x-7z-compressed",
+        "application/x-bzip2",
+        "application/x-gzip",
+        "application/x-tar",
+        "application/zip",
+    )
+)
 
-# list of known file extensions that are compressed
-COMPRESSED_FILE_EXTENSIONS = [
-    ".zip",
-    ".tar",
-    ".gz",
-    ".7z",
-    ".bz2",
-]
+# Known file extensions that are compressed
+COMPRESSED_FILE_EXTENSIONS = frozenset(
+    (
+        ".7z",
+        ".bz2",
+        ".gz",
+        ".tar",
+        ".zip",
+    )
+)
 
 FILE_READ_CHUNK_SIZE = 1024 * 8
 
@@ -346,18 +350,17 @@ class FSRomsHandler(FSHandler):
             for rom in self._exclude_multi_roms(fs_multi_roms)
         ]
 
-        return [
-            FSRom(
-                multi=False if len(files := self.get_rom_files(rom["file_name"], roms_file_path)) == 1 else rom["multi"],
-                file_name=(
-                    f"{rom['file_name']}/{files[0].get('filename')}"
-                    if len(files) == 1 and rom["file_name"] != files[0].get('filename')
-                    else rom["file_name"]
-                ),
-                files=files,
-            )
-            for rom in fs_roms
-        ]
+        return sorted(
+            [
+                FSRom(
+                    multi=rom["multi"],
+                    file_name=rom["file_name"],
+                    files=self.get_rom_files(rom["file_name"], roms_file_path),
+                )
+                for rom in fs_roms
+            ],
+            key=lambda rom: rom["file_name"],
+        )
 
     def file_exists(self, path: str, file_name: str) -> bool:
         """Check if file exists in filesystem

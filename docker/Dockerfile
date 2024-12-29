@@ -1,5 +1,5 @@
 # Stages:
-#   - front-build-stage: Build frontend
+#   - frontend-build: Build frontend
 #   - backend-build: Build backend environment
 #   - rahasher-build: Build RAHasher
 #   - nginx-build: Build nginx modules
@@ -13,7 +13,7 @@ ARG NODE_VERSION=20.16
 ARG PYTHON_VERSION=3.12
 
 
-FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS front-build-stage
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS frontend-build
 WORKDIR /front
 
 COPY ./frontend/package*.json ./
@@ -99,10 +99,20 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
 FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
+# Install required packages and dependencies
+RUN apk add --no-cache \
+    bash \
+    libmagic \
+    mariadb-connector-c \
+    p7zip \
+    python3 \
+    tzdata \
+    valkey
+
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 
-COPY --from=front-build-stage /front/dist ${WEBSERVER_FOLDER}
+COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
 COPY ./frontend/assets/emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY ./frontend/assets/ruffle ${WEBSERVER_FOLDER}/assets/ruffle
@@ -112,17 +122,6 @@ COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
     ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
-
-# Install required packages and dependencies
-RUN apk add --no-cache \
-    bash \
-    libmagic \
-    mariadb-connector-c \
-    p7zip \
-    python3 \
-    tini \
-    tzdata \
-    valkey
 
 COPY ./backend /backend
 
@@ -152,5 +151,5 @@ VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/re
 EXPOSE 8080 6379/tcp
 WORKDIR /romm
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/init"]

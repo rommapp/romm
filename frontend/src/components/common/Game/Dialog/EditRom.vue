@@ -2,17 +2,21 @@
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi, { type UpdateRom } from "@/services/api/rom";
+import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref, computed } from "vue";
+import { computed, inject, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const theme = useTheme();
-const { lgAndUp, mdAndUp, smAndUp, smAndDown } = useDisplay();
+const { lgAndUp, mdAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
@@ -20,6 +24,8 @@ const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
+const platfotmsStore = storePlatforms();
+const galleryViewStore = storeGalleryView();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
@@ -30,6 +36,12 @@ emitter?.on("updateUrlCover", (url_cover) => {
   if (!rom.value) return;
   rom.value.url_cover = url_cover;
   setArtwork(url_cover);
+});
+const computedAspectRatio = computed(() => {
+  const ratio = rom.value?.platform_id
+    ? platfotmsStore.getAspectRatio(rom.value?.platform_id)
+    : galleryViewStore.defaultAspectRatioCover;
+  return parseFloat(ratio.toString());
 });
 
 // Functions
@@ -147,13 +159,13 @@ function closeDialog() {
   >
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
-        <v-col cols="12" md="8" lg="8" xl="9">
+        <v-col cols="12" md="8" xl="9">
           <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
                 v-model="rom.name"
                 class="py-2"
-                label="Name"
+                :label="t('common.name')"
                 variant="outlined"
                 required
                 hide-details
@@ -167,24 +179,21 @@ function closeDialog() {
                 v-model="rom.file_name"
                 class="py-2"
                 :rules="[(value: string) => !!value]"
-                label="Filename"
+                :label="rom.multi ? t('rom.foldername') : t('rom.filename')"
                 variant="outlined"
                 required
-                hide-details
                 @keyup.enter="updateRom()"
               >
-                <v-label
-                  v-if="smAndUp"
-                  id="file-name-label"
-                  class="text-caption"
-                >
-                  <v-icon size="small" class="mr-1">
-                    mdi-folder-file-outline
-                  </v-icon>
-                  <span>
-                    /romm/library/{{ rom.file_path }}/{{ rom.file_name }}
-                  </span>
-                </v-label>
+                <template #details>
+                  <v-label class="text-caption text-wrap">
+                    <v-icon size="small" class="mr-2 text-romm-accent-1">
+                      mdi-folder-file-outline
+                    </v-icon>
+                    <span>
+                      /romm/library/{{ rom.file_path }}/{{ rom.file_name }}
+                    </span>
+                  </v-label>
+                </template>
               </v-text-field>
             </v-col>
           </v-row>
@@ -193,7 +202,7 @@ function closeDialog() {
               <v-textarea
                 v-model="rom.summary"
                 class="py-2"
-                label="Summary"
+                :label="t('rom.summary')"
                 variant="outlined"
                 required
                 hide-details
@@ -201,34 +210,14 @@ function closeDialog() {
               />
             </v-col>
           </v-row>
+        </v-col>
+        <v-col cols="12" md="4" xl="3">
           <v-row
-            v-if="mdAndUp"
-            class="justify-space-between mt-4 mb-2 mx-2"
+            class="justify-center"
+            :class="{ 'mt-4': smAndDown }"
             no-gutters
           >
-            <v-btn-group divided density="compact">
-              <v-btn
-                :disabled="noMetadataMatch"
-                :class="` ${
-                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
-                }`"
-                variant="flat"
-                @click="unmatchRom"
-              >
-                Unmatch Rom
-              </v-btn>
-            </v-btn-group>
-            <v-btn-group divided density="compact">
-              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
-                Save
-              </v-btn>
-            </v-btn-group>
-          </v-row>
-        </v-col>
-        <v-col>
-          <v-row class="justify-center">
-            <v-col :class="{ 'mobile-cover': smAndDown, 'pa-8': !smAndDown }">
+            <v-col style="max-width: 240px">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
                   <v-btn-group rounded="0" divided density="compact">
@@ -239,10 +228,10 @@ function closeDialog() {
                       size="small"
                       class="translucent-dark"
                       @click="
-                        emitter?.emit(
-                          'showSearchCoverDialog',
-                          rom?.name as string,
-                        )
+                        emitter?.emit('showSearchCoverDialog', {
+                          term: rom.name as string,
+                          aspectRatio: computedAspectRatio,
+                        })
                       "
                     >
                       <v-icon size="large">mdi-image-search-outline</v-icon>
@@ -276,43 +265,26 @@ function closeDialog() {
               </game-card>
             </v-col>
           </v-row>
-          <v-row v-if="smAndDown" class="justify-space-between pa-4">
-            <v-btn-group divided density="compact" class="my-1">
-              <v-btn
-                :disabled="noMetadataMatch"
-                :class="` ${
-                  noMetadataMatch ? '' : 'bg-terciary text-romm-red'
-                }`"
-                variant="flat"
-                @click="unmatchRom"
-              >
-                Unmatch Rom
-              </v-btn>
-            </v-btn-group>
-            <v-btn-group divided density="compact" class="my-1">
-              <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-              <v-btn class="text-romm-green bg-terciary" @click="updateRom">
-                Save
-              </v-btn>
-            </v-btn-group>
-          </v-row>
         </v-col>
+      </v-row>
+      <v-row class="justify-space-between px-4 py-2 mt-1" no-gutters>
+        <v-btn
+          :disabled="noMetadataMatch"
+          :class="` ${noMetadataMatch ? '' : 'bg-terciary text-romm-red'}`"
+          variant="flat"
+          @click="unmatchRom"
+        >
+          {{ t("rom.unmatch-rom") }}
+        </v-btn>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-terciary" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+            {{ t("common.apply") }}
+          </v-btn>
+        </v-btn-group>
       </v-row>
     </template>
   </r-dialog>
 </template>
-<style scoped>
-.mobile-cover {
-  min-width: 240px;
-  min-height: 330px;
-  max-width: 240px;
-  max-height: 330px;
-}
-</style>
-
-<style>
-#file-name-label {
-  position: absolute;
-  right: 1rem;
-}
-</style>

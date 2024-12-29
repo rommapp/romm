@@ -9,6 +9,7 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Define types
 type Platform = {
@@ -21,6 +22,7 @@ type SelectItem = {
 };
 
 // Props
+const { t } = useI18n();
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const searching = ref(false);
@@ -116,7 +118,7 @@ onBeforeUnmount(() => {
             @click:clear="searchRoms"
             v-model="searchValue"
             :disabled="searching"
-            label="Search"
+            :label="t('common.search')"
             hide-details
             class="bg-terciary"
           />
@@ -124,7 +126,7 @@ onBeforeUnmount(() => {
         <v-col cols="5" lg="4">
           <v-select
             @click:clear="clearFilter"
-            label="Platform"
+            :label="t('common.platform')"
             class="bg-terciary"
             item-title="platform_name"
             :disabled="platforms.length == 0 || searching"
@@ -184,9 +186,9 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #content>
-      <v-row no-gutters>
+      <v-row no-gutters class="align-content-start align-center">
         <v-col
-          class="pa-1"
+          class="pa-1 align-self-end"
           cols="4"
           sm="3"
           md="2"
@@ -194,13 +196,17 @@ onBeforeUnmount(() => {
           v-for="rom in filteredRoms"
         >
           <game-card
+            :key="rom.updated_at"
             :rom="rom"
             @click="onGameClick({ rom, event: $event })"
             title-on-hover
-            show-flags
-            transform-scale
-            show-platform-icon
-            show-fav
+            pointerOnHover
+            withLink
+            showFlags
+            showFav
+            transformScale
+            showActionBar
+            showPlatformIcon
           />
         </v-col>
       </v-row>

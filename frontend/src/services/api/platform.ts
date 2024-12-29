@@ -30,8 +30,8 @@ async function updatePlatform({
   platform,
 }: {
   platform: Platform;
-}): Promise<{ data: MessageResponse }> {
-  return api.delete(`/platforms/${platform.id}`);
+}): Promise<{ data: Platform }> {
+  return api.put(`/platforms/${platform.id}`, platform);
 }
 
 async function deletePlatform({

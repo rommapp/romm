@@ -1,13 +1,15 @@
 import enum
+import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Final
+from typing import Any, Final
 
-from config import ROMM_AUTH_SECRET_KEY
-from exceptions.auth_exceptions import OAuthCredentialsException
+from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY
+from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
+from logger.logger import log
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
 
@@ -101,21 +103,14 @@ class AuthHandler:
 
         # Key exists therefore user is probably authenticated
         user = db_user_handler.get_user_by_username(username)
-        if user is None:
+        if user is None or not user.enabled:
             conn.session.clear()
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User not found",
+            log.error(
+                "User '%s' %s",
+                username,
+                "not found" if user is None else "not enabled",
             )
-
-        if not user.enabled:
-            conn.session.clear()
-
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Inactive user {user.username}",
-            )
+            return None
 
         return user
 
@@ -145,7 +140,7 @@ class OAuthHandler:
 
         issuer = payload.claims.get("iss")
         if not issuer or issuer != "romm:oauth":
-            return None
+            return None, None
 
         username = payload.claims.get("sub")
         if username is None:
@@ -156,8 +151,57 @@ class OAuthHandler:
             raise OAuthCredentialsException
 
         if not user.enabled:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
-            )
+            raise UserDisabledException
 
         return user, payload.claims
+
+
+class OpenIDHandler:
+    async def get_current_active_user_from_openid_token(self, token: Any):
+        from handler.database import db_user_handler
+        from models.user import Role, User
+
+        if not OIDC_ENABLED:
+            return None, None
+
+        userinfo = token.get("userinfo")
+        if userinfo is None:
+            log.error("Userinfo is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Userinfo is missing from token.",
+            )
+
+        email = userinfo.get("email")
+        if email is None:
+            log.error("Email is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is missing from token.",
+            )
+        if userinfo.get("email_verified", None) is not True:
+            log.error("Email is not verified.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is not verified.",
+            )
+
+        preferred_username = userinfo.get("preferred_username")
+
+        user = db_user_handler.get_user_by_email(email)
+        if user is None:
+            log.info("User with email '%s' not found, creating new user", email)
+            user = User(
+                username=preferred_username,
+                hashed_password=str(uuid.uuid4()),
+                email=email,
+                enabled=True,
+                role=Role.VIEWER,
+            )
+            db_user_handler.add_user(user)
+
+        if not user.enabled:
+            raise UserDisabledException
+
+        log.info("User successfully authenticated: %s", email)
+        return user, userinfo

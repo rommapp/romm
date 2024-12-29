@@ -4,11 +4,6 @@ import type { Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
-export type UserItem = User & {
-  password: string;
-  avatar?: File;
-};
-
 export type SnackbarStatus = {
   id?: number;
   msg: string;
@@ -20,12 +15,11 @@ export type SnackbarStatus = {
 export type Events = {
   showDeletePlatformDialog: Platform;
   showCreateCollectionDialog: null;
-  showEditCollectionDialog: Collection;
   showAddToCollectionDialog: SimpleRom[];
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
-  showSearchCoverDialog: string;
+  showSearchCoverDialog: { term: string; aspectRatio: number | null };
   updateUrlCover: string;
   showSearchRomDialog: null;
   showEditRomDialog: SimpleRom;

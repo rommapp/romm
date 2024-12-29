@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import alembic.config
 import endpoints.sockets.scan  # noqa
+import sentry_sdk
 import uvicorn
 from config import (
     DEV_HOST,
@@ -11,11 +12,12 @@ from config import (
     DISABLE_CSRF_PROTECTION,
     IS_PYTEST_RUN,
     ROMM_AUTH_SECRET_KEY,
+    SENTRY_DSN,
 )
 from endpoints import (
     auth,
     collections,
-    config,
+    configs,
     feeds,
     firmware,
     heartbeat,
@@ -47,6 +49,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.httpx_client = ctx_httpx_client.get()
         yield
 
+
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    release="romm@" + get_version(),
+)
 
 app = FastAPI(
     title="RomM API",
@@ -102,7 +109,7 @@ app.include_router(saves.router, prefix="/api")
 app.include_router(states.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(feeds.router, prefix="/api")
-app.include_router(config.router, prefix="/api")
+app.include_router(configs.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(raw.router, prefix="/api")
 app.include_router(screenshots.router, prefix="/api")

@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
 </script>
 <template>
-  <v-bottom-navigation :elevation="0" height="36" class="text-caption">
+  <v-bottom-navigation
+    :elevation="0"
+    height="36"
+    class="bg-terciary text-caption"
+  >
     <v-row class="align-center justify-center" no-gutters>
       <span class="text-romm-accent-1">RomM</span>
       <span class="ml-1">{{ heartbeatStore.value.VERSION }}</span>
@@ -36,7 +43,7 @@ const heartbeatStore = storeHeartbeat();
             style="text-decoration: none"
             href="https://discord.com/invite/P5HtHnhUDH"
             target="_blank"
-            >Join to our Discord</a
+            >{{ t("settings.join-discord") }}</a
           ></span
         >
       </v-hover>
