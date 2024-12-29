@@ -8,7 +8,6 @@ Create Date: 2024-08-29 15:52:56.031850
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "0026_romuser_status_fields"
@@ -21,13 +20,13 @@ def upgrade() -> None:
     with op.batch_alter_table("collections", schema=None) as batch_op:
         batch_op.alter_column(
             "path_cover_l",
-            existing_type=mysql.VARCHAR(length=1000),
+            existing_type=sa.VARCHAR(length=1000),
             type_=sa.Text(),
             existing_nullable=True,
         )
         batch_op.alter_column(
             "path_cover_s",
-            existing_type=mysql.VARCHAR(length=1000),
+            existing_type=sa.VARCHAR(length=1000),
             type_=sa.Text(),
             existing_nullable=True,
         )
@@ -73,12 +72,12 @@ def downgrade() -> None:
         batch_op.alter_column(
             "path_cover_s",
             existing_type=sa.Text(),
-            type_=mysql.VARCHAR(length=1000),
+            type_=sa.VARCHAR(length=1000),
             existing_nullable=True,
         )
         batch_op.alter_column(
             "path_cover_l",
             existing_type=sa.Text(),
-            type_=mysql.VARCHAR(length=1000),
+            type_=sa.VARCHAR(length=1000),
             existing_nullable=True,
         )
