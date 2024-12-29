@@ -10,6 +10,8 @@ import { nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
+const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
+
 // Props
 const { t } = useI18n();
 const route = useRoute();
@@ -68,7 +70,7 @@ onMounted(async () => {
 
   const script = document.createElement("script");
   script.src = heartbeat.value.SYSTEM.SLIM_IMAGE
-    ? "https://unpkg.com/@ruffle-rs/ruffle@0.1.0-nightly.2024.12.28/ruffle.js"
+    ? `https://unpkg.com/@ruffle-rs/ruffle@${RUFFLE_VERSION}/ruffle.js`
     : "/assets/ruffle/ruffle.js";
   document.body.appendChild(script);
 });
