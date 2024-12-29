@@ -77,20 +77,22 @@ ARG SLIM_IMAGE=false
 ARG EMULATORJS_VERSION=4.2.0
 RUN if [ "${SLIM_IMAGE}" = "false" ]; then \
         wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
-        7z x -y "${EMULATORJS_VERSION}.7z" -oemulatorjs && \
+        7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
         rm -rf "${EMULATORJS_VERSION}.7z"; \
     else \
         echo "Skipping EmulatorJS setup"; \
+        mkdir -p /emulatorjs; \
     fi
 
 ARG RUFFLE_VERSION=nightly-2024-12-28
 ARG RUFFLE_FILE=ruffle-nightly-2024_12_28-web-selfhosted.zip
 RUN if [ "${SLIM_IMAGE}" = "false" ]; then \
         wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
-        unzip -o "${RUFFLE_FILE}" -d ruffle && \
+        unzip -o "${RUFFLE_FILE}" -d /ruffle && \
         rm -f "${RUFFLE_FILE}"; \
     else \
         echo "Skipping Ruffle setup"; \
+        mkdir -p /ruffle; \
     fi
 
 
@@ -171,6 +173,7 @@ COPY --from=backend-build /src/.venv /src/.venv
 # Fix virtualenv link to python binary
 RUN ln -sf "$(which python)" /src/.venv/bin/python
 
+ARG SLIM_IMAGE=false
 ENV PATH="/src/.venv/bin:${PATH}" \
     SLIM_IMAGE="${SLIM_IMAGE}"
 
