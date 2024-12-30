@@ -19,7 +19,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -59,12 +58,8 @@ class Rom(BaseModel):
     name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
-    igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        MySQLJSON, default=dict
-    )
-    moby_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        MySQLJSON, default=dict
-    )
+    igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=dict)
+    moby_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSON, default=dict)
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
