@@ -1,20 +1,24 @@
 <script setup lang="ts">
 import Collections from "@/components/Home/Collections.vue";
 import Platforms from "@/components/Home/Platforms.vue";
+import RecentSkeletonLoader from "@/components/Home/RecentSkeletonLoader.vue";
 import RecentAdded from "@/components/Home/RecentAdded.vue";
-import RecentPlayed from "@/components/Home/RecentPlayed.vue";
+import ContinuePlaying from "@/components/Home/ContinuePlaying.vue";
 import Stats from "@/components/Home/Stats.vue";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { isNull } from "lodash";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const romsStore = storeRoms();
-const { recentRoms, recentPlayedRoms } = storeToRefs(romsStore);
+const { recentRoms, continuePlayingRoms: recentPlayedRoms } =
+  storeToRefs(romsStore);
 const platforms = storePlatforms();
 const { filledPlatforms } = storeToRefs(platforms);
 const collections = storeCollections();
@@ -33,24 +37,58 @@ const showPlatforms = isNull(localStorage.getItem("settings.showPlatforms"))
 const showCollections = isNull(localStorage.getItem("settings.showCollections"))
   ? true
   : localStorage.getItem("settings.showCollections") === "true";
+const fetchingRecentAdded = ref(false);
+const fetchingContinuePlaying = ref(false);
 
 // Functions
 onMounted(async () => {
-  await romApi
+  fetchingRecentAdded.value = true;
+  fetchingContinuePlaying.value = true;
+  romApi
     .getRecentRoms()
     .then(({ data: recentData }) => {
       romsStore.setRecentRoms(recentData);
     })
     .catch((error) => {
       console.error(error);
+    })
+    .finally(() => {
+      fetchingRecentAdded.value = false;
+    });
+  romApi
+    .getRecentPlayedRoms()
+    .then(({ data: recentPlayedData }) => {
+      romsStore.setContinuePlayedRoms(recentPlayedData);
+    })
+    .catch((error) => {
+      console.error(error);
+    })
+    .finally(() => {
+      fetchingContinuePlaying.value = false;
     });
 });
 </script>
 
 <template>
   <stats />
-  <recent-added v-if="recentRoms.length > 0 && showRecentRoms" />
-  <recent-played v-if="recentPlayedRoms.length > 0 && showRecentPlayedRoms" />
+  <recent-skeleton-loader
+    v-if="showRecentRoms && fetchingRecentAdded"
+    :title="t('home.recently-added')"
+  />
+  <recent-added
+    v-if="recentRoms.length > 0 && showRecentRoms && !fetchingRecentAdded"
+  />
+  <recent-skeleton-loader
+    v-if="showRecentPlayedRoms && fetchingContinuePlaying"
+    :title="t('home.continue-playing')"
+  />
+  <continue-playing
+    v-if="
+      recentPlayedRoms.length > 0 &&
+      showRecentPlayedRoms &&
+      !fetchingContinuePlaying
+    "
+  />
   <platforms v-if="filledPlatforms.length > 0 && showPlatforms" />
   <collections v-if="allCollections.length > 0 && showCollections" />
 </template>

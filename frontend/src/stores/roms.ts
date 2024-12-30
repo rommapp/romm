@@ -26,7 +26,7 @@ export default defineStore("roms", {
     _filteredIDs: new Set<number>(),
     _selectedIDs: new Set<number>(),
     recentRoms: [] as SimpleRom[],
-    recentPlayedRoms: [] as SimpleRom[],
+    continuePlayingRoms: [] as SimpleRom[],
     lastSelectedIndex: -1,
     selecting: false,
     itemsPerBatch: 72,
@@ -84,8 +84,8 @@ export default defineStore("roms", {
     setRecentRoms(roms: SimpleRom[]) {
       this.recentRoms = roms;
     },
-    setRecentPlayedRoms(roms: SimpleRom[]) {
-      this.recentPlayedRoms = roms;
+    setContinuePlayedRoms(roms: SimpleRom[]) {
+      this.continuePlayingRoms = roms;
     },
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
@@ -101,8 +101,8 @@ export default defineStore("roms", {
     addToRecent(rom: SimpleRom) {
       this.recentRoms = [rom, ...this.recentRoms];
     },
-    addToRecentPlayed(rom: SimpleRom) {
-      this.recentPlayedRoms = [rom, ...this.recentPlayedRoms];
+    addToContinuePlaying(rom: SimpleRom) {
+      this.continuePlayingRoms = [rom, ...this.continuePlayingRoms];
     },
     update(rom: SimpleRom) {
       this.allRoms = this.allRoms.map((value) =>

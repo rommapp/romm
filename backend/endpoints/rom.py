@@ -25,6 +25,7 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
+from models.rom import Rom, RomUser
 from PIL import Image
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
@@ -115,21 +116,45 @@ def get_roms(
 
     Args:
         request (Request): Fastapi Request object
-        id (int, optional): Rom internal id
+        platform_id (int, optional): Platform ID to filter ROMs
+        collection_id (int, optional): Collection ID to filter ROMs
+        search_term (str, optional): Search term to filter ROMs
+        limit (int, optional): Limit the number of ROMs returned
+        offset (int, optional): Offset for pagination
+        order_by (str, optional): Field to order ROMs by
+        order_dir (str, optional): Direction to order ROMs (asc or desc)
+        last_played (bool, optional): Flag to filter ROMs by last played
 
     Returns:
-        list[SimpleRomSchema]: List of roms stored in the database
+        list[DetailedRomSchema]: List of ROMs stored in the database
     """
 
-    roms = db_rom_handler.get_roms(
-        platform_id=platform_id,
-        collection_id=collection_id,
-        search_term=search_term.lower(),
-        order_by=order_by.lower(),
-        order_dir=order_dir.lower(),
-        limit=limit,
-        offset=offset,
-    )
+    if hasattr(Rom, order_by):
+        roms = db_rom_handler.get_roms(
+            platform_id=platform_id,
+            collection_id=collection_id,
+            search_term=search_term.lower(),
+            order_by=order_by.lower(),
+            order_dir=order_dir.lower(),
+            limit=limit,
+            offset=offset,
+        )
+    elif hasattr(RomUser, order_by):
+        roms = db_rom_handler.get_roms_user(
+            user_id=request.user.id,
+            platform_id=platform_id,
+            collection_id=collection_id,
+            search_term=search_term,
+            order_by=order_by,
+            order_dir=order_dir,
+            limit=limit,
+            offset=offset,
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid order_by field",
+        )
 
     roms = [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms]
     return [rom for rom in roms if rom]
