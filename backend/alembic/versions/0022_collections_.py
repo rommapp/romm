@@ -14,7 +14,6 @@ import sqlalchemy as sa
 from alembic import op
 from config import RESOURCES_BASE_PATH
 from sqlalchemy import inspect
-from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "0022_collections"
@@ -117,7 +116,7 @@ def upgrade() -> None:
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
         batch_op.alter_column(
             "is_main_sibling",
-            existing_type=mysql.TINYINT(display_width=1),
+            existing_type=sa.Boolean(),
             nullable=True,
         )
     # ### end Alembic commands ###
@@ -128,7 +127,7 @@ def downgrade() -> None:
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
         batch_op.alter_column(
             "is_main_sibling",
-            existing_type=mysql.TINYINT(display_width=1),
+            existing_type=sa.Boolean(),
             nullable=False,
         )
 

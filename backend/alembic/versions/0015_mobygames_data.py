@@ -8,7 +8,6 @@ Create Date: 2024-02-13 17:57:25.936825
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "0015_mobygames_data"
@@ -24,10 +23,10 @@ def upgrade() -> None:
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("moby_id", sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column("moby_metadata", mysql.JSON(), nullable=True))
+        batch_op.add_column(sa.Column("moby_metadata", sa.JSON(), nullable=True))
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.execute("update roms set moby_metadata = '\\{\\}'")
+        batch_op.execute("update roms set moby_metadata = JSON_OBJECT()")
 
     # ### end Alembic commands ###
 
