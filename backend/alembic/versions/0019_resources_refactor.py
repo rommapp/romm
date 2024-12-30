@@ -85,7 +85,7 @@ def upgrade() -> None:
         connection.execute(
             sa.text(
                 """
-                UPDATE roms 
+                UPDATE roms
                 SET path_cover_s = :path_cover_s,
                     path_cover_l = :path_cover_l,
                     path_screenshots = :path_screenshots
