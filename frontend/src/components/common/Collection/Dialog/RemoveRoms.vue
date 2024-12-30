@@ -116,7 +116,7 @@ function closeDialog() {
         hide-default-header
       >
         <template #item.name="{ item }">
-          <rom-list-item :rom="item" with-filename />
+          <rom-list-item :rom="item" with-filename with-size />
         </template>
         <template #bottom>
           <v-divider />

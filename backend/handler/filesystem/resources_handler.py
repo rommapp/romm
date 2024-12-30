@@ -84,8 +84,7 @@ class FSResourcesHandler(FSHandler):
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
-            fs_slug: short name of the platform
-            file_name: name of rom file
+            entity: Rom or Collection object
             size: size of the cover
         """
         async for matched_file in Path(
@@ -95,7 +94,7 @@ class FSResourcesHandler(FSHandler):
         return ""
 
     async def get_cover(
-        self, entity: Rom | Collection | None, overwrite: bool, url_cover: str = ""
+        self, entity: Rom | Collection | None, overwrite: bool, url_cover: str | None
     ) -> tuple[str, str]:
         if not entity:
             return "", ""
@@ -155,8 +154,7 @@ class FSResourcesHandler(FSHandler):
         """Store roms resources in filesystem
 
         Args:
-            fs_slug: short name of the platform
-            file_name: name of rom
+            rom: Rom object
             url: url to get the screenshot
         """
         screenshot_file = f"{idx}.jpg"
@@ -185,16 +183,15 @@ class FSResourcesHandler(FSHandler):
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
-            fs_slug: short name of the platform
-            file_name: name of rom
+            rom: Rom object
             idx: index number of screenshot
         """
         return f"{rom.fs_resources_path}/screenshots/{idx}.jpg"
 
     async def get_rom_screenshots(
-        self, rom: Rom | None, url_screenshots: list
+        self, rom: Rom | None, url_screenshots: list | None
     ) -> list[str]:
-        if not rom:
+        if not rom or not url_screenshots:
             return []
 
         path_screenshots: list[str] = []

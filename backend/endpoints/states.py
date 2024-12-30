@@ -29,18 +29,15 @@ def add_states(
     current_user = request.user
     log.info(f"Uploading states to {rom.name}")
 
-    if states is None:
-        log.error("No states were uploaded")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No states were uploaded",
-        )
-
     states_path = fs_asset_handler.build_states_file_path(
         user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
     )
 
     for state in states:
+        if not state.filename:
+            log.warning("Skipping file with no filename")
+            continue
+
         fs_asset_handler.write_file(file=state, path=states_path)
 
         # Scan or update state
@@ -73,9 +70,16 @@ def add_states(
         )
 
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     return {
         "uploaded": len(states),
-        "states": [s for s in rom.states if s.user_id == current_user.id],
+        "states": [
+            StateSchema.model_validate(s)
+            for s in rom.states
+            if s.user_id == current_user.id
+        ],
     }
 
 
@@ -105,7 +109,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
     if "file" in data:
-        file: UploadFile = data["file"]
+        file: UploadFile = data["file"]  # type: ignore
         fs_asset_handler.write_file(file=file, path=db_state.file_path)
         db_state_handler.update_state(db_state.id, {"file_size_bytes": file.size})
 
@@ -119,7 +123,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
     )
 
     db_state = db_state_handler.get_state(id)
-    return db_state
+    return StateSchema.model_validate(db_state)
 
 
 @protected_route(router.post, "/states/delete", [Scope.ASSETS_WRITE])
