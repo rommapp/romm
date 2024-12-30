@@ -10,22 +10,22 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const romsStore = storeRoms();
-const { recentPlayedRoms } = storeToRefs(romsStore);
-const gridRecentPlayedRoms = isNull(
-  localStorage.getItem("settings.gridRecentPlayedRoms"),
+const { continuePlayingRoms } = storeToRefs(romsStore);
+const gridContinuePlayingRoms = isNull(
+  localStorage.getItem("settings.gridContinuePlayingRoms"),
 )
   ? true
-  : localStorage.getItem("settings.gridRecentPlayedRoms") === "true";
+  : localStorage.getItem("settings.gridContinuePlayingRoms") === "true";
 </script>
 <template>
-  <r-section icon="mdi-shimmer" :title="t('home.recently-played')">
+  <r-section icon="mdi-shimmer" :title="t('home.continue-playing')">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': !gridRecentPlayedRoms }"
+        :class="{ 'flex-nowrap overflow-x-auto': !gridContinuePlayingRoms }"
         no-gutters
       >
         <v-col
-          v-for="rom in recentPlayedRoms"
+          v-for="rom in continuePlayingRoms"
           :key="rom.id"
           class="px-1 pt-1 pb-2 align-self-end"
           :cols="views[0]['size-cols']"

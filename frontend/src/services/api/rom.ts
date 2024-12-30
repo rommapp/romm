@@ -85,6 +85,12 @@ async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
   });
 }
 
+async function getRecentPlayedRoms(): Promise<{ data: SimpleRom[] }> {
+  return api.get("/roms", {
+    params: { order_by: "last_played", order_dir: "desc", limit: 15 },
+  });
+}
+
 async function getRom({
   romId,
 }: {
@@ -187,6 +193,7 @@ export default {
   uploadRoms,
   getRoms,
   getRecentRoms,
+  getRecentPlayedRoms,
   getRom,
   downloadRom,
   searchRom,
