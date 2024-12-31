@@ -55,7 +55,7 @@ class RomUserSchema(BaseModel):
     rom_id: int
     created_at: datetime
     updated_at: datetime
-    last_played: datetime
+    last_played: datetime | None
     note_raw_markdown: str
     note_is_public: bool
     is_main_sibling: bool

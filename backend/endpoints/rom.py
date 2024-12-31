@@ -27,6 +27,7 @@ from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from models.rom import Rom, RomUser
 from PIL import Image
+from sqlalchemy import func
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -581,5 +582,8 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     ]
 
     cleaned_data = {field: data[field] for field in fields_to_update if field in data}
+
+    if data.get("update_last_played", False):
+        cleaned_data.update({"last_played": func.now()})
 
     return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
