@@ -9,6 +9,7 @@ Create Date: 2024-08-29 15:52:56.031850
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
+from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0026_romuser_status_fields"
@@ -33,7 +34,7 @@ def upgrade() -> None:
             existing_nullable=True,
         )
 
-    if connection.engine.name == "postgresql":
+    if is_postgresql(connection):
         rom_user_status_enum = ENUM(
             "INCOMPLETE",
             "FINISHED",
@@ -80,7 +81,7 @@ def downgrade() -> None:
         batch_op.drop_column("backlogged")
         batch_op.drop_column("last_played")
 
-    if connection.engine.name == "postgresql":
+    if is_postgresql(connection):
         ENUM(name="romuserstatus").drop(connection, checkfirst=False)
 
     with op.batch_alter_table("collections", schema=None) as batch_op:
