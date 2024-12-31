@@ -16,6 +16,22 @@ const storedGridRecentRoms = localStorage.getItem("settings.gridRecentRoms");
 const gridRecentRomsRef = ref(
   isNull(storedGridRecentRoms) ? true : storedGridRecentRoms === "true",
 );
+const storedShowContinuePlaying = localStorage.getItem(
+  "settings.showContinuePlaying",
+);
+const showContinuePlayingRef = ref(
+  isNull(storedShowContinuePlaying)
+    ? true
+    : storedShowContinuePlaying === "true",
+);
+const storedGridContinuePlaying = localStorage.getItem(
+  "settings.gridContinuePlaying",
+);
+const gridContinuePlayingRef = ref(
+  isNull(storedGridContinuePlaying)
+    ? true
+    : storedGridContinuePlaying === "true",
+);
 const storedShowPlatforms = localStorage.getItem("settings.showPlatforms");
 const showPlatformsRef = ref(
   isNull(storedShowPlatforms) ? true : storedShowPlatforms === "true",
@@ -67,6 +83,23 @@ const homeOptions = computed(() => [
     disabled: !showRecentRomsRef.value,
     model: gridRecentRomsRef,
     modelTrigger: toggleGridRecentRoms,
+  },
+  {
+    title: t("settings.show-continue-playing"),
+    description: t("settings.show-continue-playing-desc"),
+    iconEnabled: "mdi-checkbox-marked-outline",
+    iconDisabled: "mdi-checkbox-blank-outline",
+    model: showContinuePlayingRef,
+    modelTrigger: toggleShowContinuePlaying,
+  },
+  {
+    title: t("settings.continue-playing-as-grid"),
+    description: t("settings.continue-playing-as-grid-desc"),
+    iconEnabled: "mdi-view-comfy",
+    iconDisabled: "mdi-view-column",
+    disabled: !showContinuePlayingRef.value,
+    model: gridContinuePlayingRef,
+    modelTrigger: toggleGridContinuePlaying,
   },
   {
     title: t("settings.show-platforms"),
@@ -156,6 +189,14 @@ const toggleShowRecentRoms = (value: boolean) => {
 const toggleGridRecentRoms = (value: boolean) => {
   gridRecentRomsRef.value = value;
   localStorage.setItem("settings.gridRecentRoms", value.toString());
+};
+const toggleShowContinuePlaying = (value: boolean) => {
+  showContinuePlayingRef.value = value;
+  localStorage.setItem("settings.showContinuePlaying", value.toString());
+};
+const toggleGridContinuePlaying = (value: boolean) => {
+  gridContinuePlayingRef.value = value;
+  localStorage.setItem("settings.gridContinuePlaying", value.toString());
 };
 const toggleShowPlatforms = (value: boolean) => {
   showPlatformsRef.value = value;
