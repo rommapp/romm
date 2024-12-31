@@ -70,8 +70,8 @@ const homeOptions = computed(() => [
   {
     title: t("settings.show-recently-added"),
     description: t("settings.show-recently-added-desc"),
-    iconEnabled: "mdi-checkbox-marked-outline",
-    iconDisabled: "mdi-checkbox-blank-outline",
+    iconEnabled: "mdi-shimmer",
+    iconDisabled: "mdi-shimmer",
     model: showRecentRomsRef,
     modelTrigger: toggleShowRecentRoms,
   },
@@ -87,8 +87,8 @@ const homeOptions = computed(() => [
   {
     title: t("settings.show-continue-playing"),
     description: t("settings.show-continue-playing-desc"),
-    iconEnabled: "mdi-checkbox-marked-outline",
-    iconDisabled: "mdi-checkbox-blank-outline",
+    iconEnabled: "mdi-play",
+    iconDisabled: "mdi-play",
     model: showContinuePlayingRef,
     modelTrigger: toggleShowContinuePlaying,
   },
@@ -104,8 +104,8 @@ const homeOptions = computed(() => [
   {
     title: t("settings.show-platforms"),
     description: t("settings.show-platforms-desc"),
-    iconEnabled: "mdi-checkbox-marked-outline",
-    iconDisabled: "mdi-checkbox-blank-outline",
+    iconEnabled: "mdi-controller",
+    iconDisabled: "mdi-controller",
     model: showPlatformsRef,
     modelTrigger: toggleShowPlatforms,
   },
@@ -121,8 +121,8 @@ const homeOptions = computed(() => [
   {
     title: t("settings.show-collections"),
     description: t("settings.show-collections-desc"),
-    iconEnabled: "mdi-checkbox-marked-outline",
-    iconDisabled: "mdi-checkbox-blank-outline",
+    iconEnabled: "mdi-bookmark-box-multiple",
+    iconDisabled: "mdi-bookmark-box-multiple",
     model: showCollectionsRef,
     modelTrigger: toggleShowCollections,
   },
