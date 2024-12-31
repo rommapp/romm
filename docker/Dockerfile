@@ -27,12 +27,15 @@ FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
 # git is needed to install py7zr fork
 # libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
+# libpq-dev is needed to build psycopg-c
+# mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
     git \
+    libffi-dev \
+    libpq-dev \
     mariadb-connector-c-dev \
-    musl-dev \
-    libffi-dev
+    musl-dev
 
 RUN pip install poetry
 
@@ -104,6 +107,7 @@ RUN apk add --no-cache \
     bash \
     libmagic \
     mariadb-connector-c \
+    libpq \
     p7zip \
     python3 \
     tzdata \

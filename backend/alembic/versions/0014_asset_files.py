@@ -32,8 +32,10 @@ SIZE_UNIT_TO_BYTES = {
 
 
 def migrate_to_supported_engine() -> None:
-    if ROMM_DB_DRIVER not in ("mariadb", "mysql"):
-        raise Exception("Version 3.0 requires MariaDB or MySQL as database driver!")
+    if ROMM_DB_DRIVER not in ("mariadb", "mysql", "postgresql"):
+        raise Exception(
+            "Version 3.0 requires MariaDB, MySQL, or PostgreSQL as database driver!"
+        )
 
     # Skip if sqlite database is not mounted
     if not os.path.exists(f"{SQLITE_DB_BASE_PATH}/romm.db"):
@@ -80,6 +82,8 @@ def migrate_to_supported_engine() -> None:
 
 def upgrade() -> None:
     migrate_to_supported_engine()
+
+    connection = op.get_bind()
 
     op.create_table(
         "saves",
@@ -153,13 +157,19 @@ def upgrade() -> None:
 
     # Drop the primary key (slug)
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.drop_constraint(constraint_name="PRIMARY", type_="primary")
+        pk_constraint_name = connection.dialect.get_pk_constraint(
+            connection, table_name="platforms"
+        )["name"]
+        batch_op.drop_constraint(constraint_name=pk_constraint_name, type_="primary")
         batch_op.drop_column("n_roms")
 
     # Switch to new id column as platform primary key
-    op.execute(
-        "ALTER TABLE platforms ADD COLUMN id INTEGER(11) NOT NULL AUTO_INCREMENT PRIMARY KEY"
-    )
+    if connection.engine.name == "postgresql":
+        op.execute("ALTER TABLE platforms ADD COLUMN id SERIAL PRIMARY KEY")
+    else:
+        op.execute(
+            "ALTER TABLE platforms ADD COLUMN id INTEGER(11) NOT NULL AUTO_INCREMENT PRIMARY KEY"
+        )
 
     # Add new columns to roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -187,9 +197,19 @@ def upgrade() -> None:
         batch_op.execute(
             "update roms set file_name_no_ext = regexp_replace(file_name, '\\.[a-z]{2,}$', '')"
         )
-        batch_op.execute(
-            "update roms inner join platforms on roms.platform_slug = platforms.slug set roms.platform_id = platforms.id"
-        )
+        if connection.engine.name == "postgresql":
+            batch_op.execute(
+                """
+                UPDATE roms
+                SET platform_id = platforms.id
+                FROM platforms
+                WHERE roms.platform_slug = platforms.slug
+                """
+            )
+        else:
+            batch_op.execute(
+                "update roms inner join platforms on roms.platform_slug = platforms.slug set roms.platform_id = platforms.id"
+            )
 
     # Process filesize data and prepare for bulk update
     connection = op.get_bind()
@@ -224,6 +244,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    connection = op.get_bind()
+
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column("platform_slug", sa.VARCHAR(length=50), nullable=False)
@@ -242,9 +264,19 @@ def downgrade() -> None:
         batch_op.drop_constraint("fk_platform_id_roms", type_="foreignkey")
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.execute(
-            "update roms inner join platforms on roms.platform_id = platforms.id set roms.platform_slug = platforms.slug"
-        )
+        if connection.engine.name == "postgresql":
+            batch_op.execute(
+                """
+                UPDATE roms
+                SET platform_slug = platforms.slug
+                FROM platforms
+                WHERE roms.platform_id = platforms.id
+                """
+            )
+        else:
+            batch_op.execute(
+                "update roms inner join platforms on roms.platform_id = platforms.id set roms.platform_slug = platforms.slug"
+            )
         batch_op.execute(
             "update roms set url_cover = 'https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png' where url_cover = ''"
         )
