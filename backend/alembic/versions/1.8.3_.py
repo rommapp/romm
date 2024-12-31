@@ -7,6 +7,7 @@ Create Date: 2023-05-17 12:59:44.344356
 """
 
 from alembic import op
+from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "1.8.3"
@@ -27,7 +28,7 @@ def upgrade() -> None:
         batch_op.execute(
             "UPDATE roms SET path_cover_l = REPLACE(path_cover_l, '/romm/resources/', '')"
         )
-        if connection.engine.name == "postgresql":
+        if is_postgresql(connection):
             batch_op.execute(
                 "UPDATE roms SET path_screenshots = REPLACE(path_screenshots::text, '/romm/resources/', '')::jsonb"
             )

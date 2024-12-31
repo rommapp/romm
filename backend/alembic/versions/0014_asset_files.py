@@ -14,6 +14,7 @@ from config import ROMM_DB_DRIVER
 from config.config_manager import SQLITE_DB_BASE_PATH, ConfigManager
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0014_asset_files"
@@ -164,7 +165,7 @@ def upgrade() -> None:
         batch_op.drop_column("n_roms")
 
     # Switch to new id column as platform primary key
-    if connection.engine.name == "postgresql":
+    if is_postgresql(connection):
         op.execute("ALTER TABLE platforms ADD COLUMN id SERIAL PRIMARY KEY")
     else:
         op.execute(
@@ -179,7 +180,7 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column("file_size_bytes", sa.BigInteger(), nullable=False)
         )
-        batch_op.add_column(sa.Column("igdb_metadata", sa.JSON(), nullable=True))
+        batch_op.add_column(sa.Column("igdb_metadata", CustomJSON(), nullable=True))
         batch_op.add_column(sa.Column("platform_id", sa.Integer(), nullable=False))
         batch_op.alter_column(
             "revision",
@@ -197,7 +198,7 @@ def upgrade() -> None:
         batch_op.execute(
             "update roms set file_name_no_ext = regexp_replace(file_name, '\\.[a-z]{2,}$', '')"
         )
-        if connection.engine.name == "postgresql":
+        if is_postgresql(connection):
             batch_op.execute(
                 """
                 UPDATE roms
@@ -264,7 +265,7 @@ def downgrade() -> None:
         batch_op.drop_constraint("fk_platform_id_roms", type_="foreignkey")
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        if connection.engine.name == "postgresql":
+        if is_postgresql(connection):
             batch_op.execute(
                 """
                 UPDATE roms
