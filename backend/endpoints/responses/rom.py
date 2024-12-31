@@ -34,7 +34,7 @@ def rom_user_schema_factory() -> RomUserSchema:
         rom_id=-1,
         created_at=now,
         updated_at=now,
-        last_played=now,
+        last_played=None,
         note_raw_markdown="",
         note_is_public=False,
         is_main_sibling=False,
