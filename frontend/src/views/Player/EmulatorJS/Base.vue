@@ -34,11 +34,13 @@ script.async = true;
 
 // Functions
 function onPlay() {
-  romApi.updateUserRomProps({
-    romId: rom.value.id,
-    data: rom.value.rom_user,
-    updateLastPlayed: true,
-  });
+  if (rom.value) {
+    romApi.updateUserRomProps({
+      romId: rom.value.id,
+      data: rom.value.rom_user,
+      updateLastPlayed: true,
+    });
+  }
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
   gameRunning.value = true;
