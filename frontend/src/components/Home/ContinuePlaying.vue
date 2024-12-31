@@ -18,7 +18,7 @@ const gridContinuePlayingRoms = isNull(
   : localStorage.getItem("settings.gridContinuePlayingRoms") === "true";
 </script>
 <template>
-  <r-section icon="mdi-shimmer" :title="t('home.continue-playing')">
+  <r-section icon="mdi-play" :title="t('home.continue-playing')">
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridContinuePlayingRoms }"
