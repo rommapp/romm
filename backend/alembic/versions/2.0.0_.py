@@ -9,6 +9,7 @@ Create Date: 2023-08-10 22:18:24.012779
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects.postgresql import ENUM
+from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "2.0.0"
@@ -47,5 +48,5 @@ def downgrade() -> None:
 
     op.drop_table("users")
 
-    if connection.engine.name == "postgresql":
+    if is_postgresql(connection):
         ENUM(name="role").drop(connection, checkfirst=False)

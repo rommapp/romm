@@ -8,6 +8,7 @@ Create Date: 2024-08-08 12:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0024_sibling_roms_db_view"
@@ -23,7 +24,7 @@ def upgrade() -> None:
 
     connection = op.get_bind()
     null_safe_equal_operator = (
-        "IS NOT DISTINCT FROM" if connection.engine.name == "postgresql" else "<=>"
+        "IS NOT DISTINCT FROM" if is_postgresql(connection) else "<=>"
     )
 
     connection.execute(

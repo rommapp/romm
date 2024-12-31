@@ -9,6 +9,7 @@ Create Date: 2023-09-12 18:18:27.158732
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.exc import OperationalError
+from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
 revision = "0009_models_refactor"
@@ -84,13 +85,13 @@ def upgrade() -> None:
         )
         batch_op.alter_column(
             "url_screenshots",
-            existing_type=sa.JSON(),
+            existing_type=CustomJSON(),
             nullable=True,
             existing_server_default=sa.text("(JSON_ARRAY())"),
         )
         batch_op.alter_column(
             "path_screenshots",
-            existing_type=sa.JSON(),
+            existing_type=CustomJSON(),
             nullable=True,
             existing_server_default=sa.text("(JSON_ARRAY())"),
         )
@@ -133,13 +134,13 @@ def downgrade() -> None:
 
         batch_op.alter_column(
             "path_screenshots",
-            existing_type=sa.JSON(),
+            existing_type=CustomJSON(),
             nullable=False,
             existing_server_default=sa.text("(JSON_ARRAY())"),
         )
         batch_op.alter_column(
             "url_screenshots",
-            existing_type=sa.JSON(),
+            existing_type=CustomJSON(),
             nullable=False,
             existing_server_default=sa.text("(JSON_ARRAY())"),
         )
