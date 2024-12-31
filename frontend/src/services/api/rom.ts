@@ -182,11 +182,16 @@ async function deleteRoms({
 async function updateUserRomProps({
   romId,
   data,
+  updateLastPlayed = false,
 }: {
   romId: number;
   data: Partial<RomUserSchema>;
+  updateLastPlayed?: boolean;
 }): Promise<{ data: DetailedRom }> {
-  return api.put(`/roms/${romId}/props`, data);
+  return api.put(`/roms/${romId}/props`, {
+    data: data,
+    update_last_played: updateLastPlayed,
+  });
 }
 
 export default {
