@@ -18,6 +18,8 @@ depends_on = None
 
 
 def upgrade() -> None:
+    connection = op.get_bind()
+
     try:
         with op.batch_alter_table("platforms", schema=None) as batch_op:
             batch_op.alter_column(
@@ -34,7 +36,12 @@ def upgrade() -> None:
             )
 
             # Move primary key to slug
-            batch_op.drop_constraint(constraint_name="PRIMARY", type_="primary")
+            pk_constraint_name = connection.dialect.get_pk_constraint(
+                connection, table_name="platforms"
+            )["name"]
+            batch_op.drop_constraint(
+                constraint_name=pk_constraint_name, type_="primary"
+            )
             batch_op.create_primary_key(constraint_name=None, columns=["slug"])
     except ValueError as e:
         print(f"Cannot drop primary key on platforms table: {e}")
@@ -98,6 +105,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    connection = op.get_bind()
+
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.alter_column(
             "igdb_id",
@@ -155,12 +164,18 @@ def downgrade() -> None:
 
     try:
         with op.batch_alter_table("platforms", schema=None) as batch_op:
+            # Move primary key back to fs_slug
+            pk_constraint_name = connection.dialect.get_pk_constraint(
+                connection, table_name="platforms"
+            )["name"]
+            batch_op.drop_constraint(
+                constraint_name=pk_constraint_name, type_="primary"
+            )
+
             batch_op.alter_column(
                 "slug", existing_type=sa.VARCHAR(length=50), nullable=True
             )
 
-            # Move primary key back to fs_slug
-            batch_op.drop_constraint(constraint_name="PRIMARY", type_="primary")
             batch_op.create_primary_key(constraint_name=None, columns=["fs_slug"])
             print("Moved primary key back to fs_slug column on platforms table")
     except ValueError as e:
