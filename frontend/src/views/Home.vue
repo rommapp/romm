@@ -26,11 +26,11 @@ const { allCollections } = storeToRefs(collections);
 const showRecentRoms = isNull(localStorage.getItem("settings.showRecentRoms"))
   ? true
   : localStorage.getItem("settings.showRecentRoms") === "true";
-const showRecentPlayedRoms = isNull(
-  localStorage.getItem("settings.showRecentPlayedRoms"),
+const showContinuePlaying = isNull(
+  localStorage.getItem("settings.showContinuePlaying"),
 )
   ? true
-  : localStorage.getItem("settings.showRecentPlayedRoms") === "true";
+  : localStorage.getItem("settings.showContinuePlaying") === "true";
 const showPlatforms = isNull(localStorage.getItem("settings.showPlatforms"))
   ? true
   : localStorage.getItem("settings.showPlatforms") === "true";
@@ -58,7 +58,9 @@ onMounted(async () => {
   romApi
     .getRecentPlayedRoms()
     .then(({ data: recentPlayedData }) => {
-      romsStore.setContinuePlayedRoms(recentPlayedData);
+      romsStore.setContinuePlayedRoms(
+        recentPlayedData.filter((rom) => rom.rom_user.last_played),
+      );
     })
     .catch((error) => {
       console.error(error);
@@ -79,13 +81,13 @@ onMounted(async () => {
     v-if="recentRoms.length > 0 && showRecentRoms && !fetchingRecentAdded"
   />
   <recent-skeleton-loader
-    v-if="showRecentPlayedRoms && fetchingContinuePlaying"
+    v-if="showContinuePlaying && fetchingContinuePlaying"
     :title="t('home.continue-playing')"
   />
   <continue-playing
     v-if="
       recentPlayedRoms.length > 0 &&
-      showRecentPlayedRoms &&
+      showContinuePlaying &&
       !fetchingContinuePlaying
     "
   />
