@@ -8,6 +8,7 @@ Create Date: 2024-07-07 13:44:25.811184
 
 import sqlalchemy as sa
 from alembic import op
+from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0023_make_columns_non_nullable"
@@ -18,7 +19,7 @@ depends_on = None
 
 def upgrade() -> None:
     connection = op.get_bind()
-    false_value = "FALSE" if connection.engine.name == "postgresql" else "0"
+    false_value = "FALSE" if is_postgresql(connection) else "0"
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.execute("UPDATE platforms SET name = '' WHERE name IS NULL")

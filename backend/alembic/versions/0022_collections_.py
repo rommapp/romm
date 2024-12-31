@@ -14,6 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 from config import RESOURCES_BASE_PATH
 from sqlalchemy import inspect
+from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
 revision = "0022_collections"
@@ -94,7 +95,7 @@ def upgrade() -> None:
             sa.Column("path_cover_l", sa.String(length=1000), nullable=True),
             sa.Column("path_cover_s", sa.String(length=1000), nullable=True),
             sa.Column("url_cover", sa.Text(), nullable=True),
-            sa.Column("roms", sa.JSON(), nullable=False),
+            sa.Column("roms", CustomJSON(), nullable=False),
             sa.Column("user_id", sa.Integer(), nullable=False),
             sa.Column("is_public", sa.Boolean(), nullable=False),
             sa.Column(
