@@ -12,6 +12,7 @@ export default defineStore("language", {
       { value: "pt_BR", name: "Português (Brasil)" },
       { value: "es_ES", name: "Español (España)" },
       { value: "zh_CN", name: "简体中文 (中国)" },
+      { value: "ko_KR", name: "한국어 (대한민국)" },
     ].sort((a, b) => a.name.localeCompare(b.name)),
   }),
 
