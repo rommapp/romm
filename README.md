@@ -40,13 +40,13 @@
 
 # Overview
 
-RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
+RomM (ROM Manager) allows you to scan, enrich, browse and play your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes, and custom tags, RomM is a must-have for anyone who plays on emulators.
 
 ## Features
 
 - Scans your existing games library and enhances it with metadata from [IGDB][igdb-api] and [MobyGames][mobygames-api]
 - Supports a large number of **[platforms][platform-support]**
-- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs]
+- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs] and RuffleRS
 - Share your library with friends while [limiting access and permissions][wiki-authentication]
 - Supports MAME, Nintendo Switch, and Sony Playstation naming schemes
 - Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
@@ -61,14 +61,7 @@ RomM (ROM Manager) allows you to scan, enrich, and browse your game collection w
 
 # Installation
 
-Before running the [image][docker-tags], please ensure that Docker is installed and running on your system.
-
-1. [Generate API keys][wiki-generate-api-keys] for IGDB and/or MobyGames to fetch metadata.
-2. Verify that your library folder structure matches one of the options listed in the [folder structure][folder-structure] section.
-3. Create a docker-compose.yml file by referring to the example [docker-compose.yml][docker-compose-example] file for guidance, and customize it for your setup with [the available environment variables][wiki-env-variables].
-4. Launch the container(s) with `docker-compose up -d`.
-
-> [!NOTE] > **If you are having issues with RomM, please review the [wiki page][wiki-troubleshooting] for troubleshooting steps and common issues.**
+To start using RomM, check out the [Quick Start Guide][wiki-quick-start-guide] in the wiki. If you are having issues with RomM, please review the page for [troubleshooting steps][wiki-troubleshooting] and common issues, or join the [Discord][discord-invite] for support from the community.
 
 # Configuration
 
@@ -202,7 +195,8 @@ Here are a few projects that we think you might like:
 - [EmulatorJS](https://emulatorjs.org/): An embeddable, browser-based emulator
 - [RetroDECK](https://retrodeck.net/): Retro gaming on SteamOS and Linux
 - [ES-DE Frontend](https://es-de.org/): Emulator frontend for Linux, macOS and Windows
-- [Gaseous](https://github.com/gaseous-project/gaseous-server): Another self-hosted ROM manager
+- [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
+- [Retrom](https://github.com/JMBeresford/retrom): A centralized game library/collection management service
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
 <!-- Sections -->
@@ -225,9 +219,8 @@ Here are a few projects that we think you might like:
 [wiki-platforms-icons]: https://github.com/rommapp/romm/wiki/Custom-Platform-Icons
 [wiki-troubleshooting]: https://github.com/rommapp/romm/wiki/Troubleshooting
 [wiki-emulatorjs]: https://github.com/rommapp/romm/wiki/EmulatorJS-Player
-[wiki-env-variables]: https://github.com/rommapp/romm/wiki/Environment-Variables
 [wiki-scheduled-tasks]: https://github.com/rommapp/romm/wiki/Scheduled-Tasks
-[wiki-generate-api-keys]: https://github.com/rommapp/romm/wiki/Generate-API-Keys
+[wiki-quick-start-guide]: https://github.com/rommapp/romm/wiki/Quick-Start-Guide
 
 <!-- Badges -->
 
@@ -247,12 +240,11 @@ Here are a few projects that we think you might like:
 
 [discord-invite-img]: https://invidget.switchblade.xyz/P5HtHnhUDH
 [discord-invite]: https://discord.gg/P5HtHnhUDH
-[oc-donate-img]: https://opencollective.com/romm/donate/button@2x.png?color=blue
+[oc-donate-img]: https://opencollective.com/romm/donate/button.png?color=blue
 [oc-donate]: https://opencollective.com/romm
 
 <!-- External links -->
 
-[docker-tags]: https://hub.docker.com/r/rommapp/romm/tags
 [igdb-api]: https://api-docs.igdb.com/#account-creation
 [mobygames-api]: https://www.mobygames.com/info/api/
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos

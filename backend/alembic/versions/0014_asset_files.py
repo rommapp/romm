@@ -13,8 +13,8 @@ from alembic import op
 from config import ROMM_DB_DRIVER
 from config.config_manager import SQLITE_DB_BASE_PATH, ConfigManager
 from sqlalchemy import create_engine, text
-from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import sessionmaker
+from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0014_asset_files"
@@ -32,26 +32,28 @@ SIZE_UNIT_TO_BYTES = {
 }
 
 
-def migrate_to_mysql() -> None:
-    if ROMM_DB_DRIVER not in ("mariadb", "mysql"):
-        raise Exception("Version 3.0 requires MariaDB or MySQL as database driver!")
+def migrate_to_supported_engine() -> None:
+    if ROMM_DB_DRIVER not in ("mariadb", "mysql", "postgresql"):
+        raise Exception(
+            "Version 3.0 requires MariaDB, MySQL, or PostgreSQL as database driver!"
+        )
 
     # Skip if sqlite database is not mounted
     if not os.path.exists(f"{SQLITE_DB_BASE_PATH}/romm.db"):
         return
 
-    maria_engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
-    maria_session = sessionmaker(bind=maria_engine, expire_on_commit=False)
+    engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
+    session = sessionmaker(bind=engine, expire_on_commit=False)
 
     sqlite_engine = create_engine(
         f"sqlite:////{SQLITE_DB_BASE_PATH}/romm.db", pool_pre_ping=True
     )
     sqlite_session = sessionmaker(bind=sqlite_engine, expire_on_commit=False)
 
-    # Copy all data from sqlite to maria
-    with maria_session.begin() as maria_conn:
+    # Copy all data from sqlite to new database
+    with session.begin() as conn:
         with sqlite_session.begin() as sqlite_conn:
-            maria_conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+            conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
 
             tables = sqlite_conn.execute(
                 text("SELECT name FROM sqlite_master WHERE type='table';")
@@ -67,20 +69,22 @@ def migrate_to_mysql() -> None:
                     text(f"SELECT * FROM {table_name}")  # nosec B608
                 ).fetchall()
 
-                # Insert data into MariaDB table
+                # Insert data into new tables
                 for row in table_data:
                     mapped_row = {f"{i}": value for i, value in enumerate(row, start=1)}
                     columns = ",".join([f":{i}" for i in range(1, len(row) + 1)])
                     insert_query = (
                         f"INSERT INTO {table_name} VALUES ({columns})"  # nosec B608
                     )
-                    maria_conn.execute(text(insert_query), mapped_row)
+                    conn.execute(text(insert_query), mapped_row)
 
-            maria_conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
+            conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
 
 def upgrade() -> None:
-    migrate_to_mysql()
+    migrate_to_supported_engine()
+
+    connection = op.get_bind()
 
     op.create_table(
         "saves",
@@ -154,13 +158,19 @@ def upgrade() -> None:
 
     # Drop the primary key (slug)
     with op.batch_alter_table("platforms", schema=None) as batch_op:
-        batch_op.drop_constraint(constraint_name="PRIMARY", type_="primary")
+        pk_constraint_name = connection.dialect.get_pk_constraint(
+            connection, table_name="platforms"
+        )["name"]
+        batch_op.drop_constraint(constraint_name=pk_constraint_name, type_="primary")
         batch_op.drop_column("n_roms")
 
     # Switch to new id column as platform primary key
-    op.execute(
-        "ALTER TABLE platforms ADD COLUMN id INTEGER(11) NOT NULL AUTO_INCREMENT PRIMARY KEY"
-    )
+    if is_postgresql(connection):
+        op.execute("ALTER TABLE platforms ADD COLUMN id SERIAL PRIMARY KEY")
+    else:
+        op.execute(
+            "ALTER TABLE platforms ADD COLUMN id INTEGER(11) NOT NULL AUTO_INCREMENT PRIMARY KEY"
+        )
 
     # Add new columns to roms table
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -170,27 +180,37 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column("file_size_bytes", sa.BigInteger(), nullable=False)
         )
-        batch_op.add_column(sa.Column("igdb_metadata", mysql.JSON(), nullable=True))
+        batch_op.add_column(sa.Column("igdb_metadata", CustomJSON(), nullable=True))
         batch_op.add_column(sa.Column("platform_id", sa.Integer(), nullable=False))
         batch_op.alter_column(
             "revision",
-            existing_type=mysql.VARCHAR(length=20),
+            existing_type=sa.VARCHAR(length=20),
             type_=sa.String(length=100),
             existing_nullable=True,
         )
 
     # Move data around
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.execute("update roms set igdb_metadata = '\\{\\}'")
+        batch_op.execute("update roms set igdb_metadata = JSON_OBJECT()")
         batch_op.execute(
             "update roms set path_cover_s = '', path_cover_l = '', url_cover = '' where url_cover = 'https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png'"
         )
         batch_op.execute(
             "update roms set file_name_no_ext = regexp_replace(file_name, '\\.[a-z]{2,}$', '')"
         )
-        batch_op.execute(
-            "update roms inner join platforms on roms.platform_slug = platforms.slug set roms.platform_id = platforms.id"
-        )
+        if is_postgresql(connection):
+            batch_op.execute(
+                """
+                UPDATE roms
+                SET platform_id = platforms.id
+                FROM platforms
+                WHERE roms.platform_slug = platforms.slug
+                """
+            )
+        else:
+            batch_op.execute(
+                "update roms inner join platforms on roms.platform_slug = platforms.slug set roms.platform_id = platforms.id"
+            )
 
     # Process filesize data and prepare for bulk update
     connection = op.get_bind()
@@ -225,36 +245,39 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    connection = op.get_bind()
+
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column("platform_slug", mysql.VARCHAR(length=50), nullable=False)
+            sa.Column("platform_slug", sa.VARCHAR(length=50), nullable=False)
         )
         batch_op.add_column(
-            sa.Column("p_igdb_id", mysql.VARCHAR(length=10), nullable=True)
+            sa.Column("p_igdb_id", sa.VARCHAR(length=10), nullable=True)
+        )
+        batch_op.add_column(sa.Column("p_name", sa.VARCHAR(length=150), nullable=True))
+        batch_op.add_column(
+            sa.Column("p_sgdb_id", sa.VARCHAR(length=10), nullable=True)
         )
         batch_op.add_column(
-            sa.Column("p_name", mysql.VARCHAR(length=150), nullable=True)
+            sa.Column("file_size_units", sa.VARCHAR(length=10), nullable=False)
         )
-        batch_op.add_column(
-            sa.Column("p_sgdb_id", mysql.VARCHAR(length=10), nullable=True)
-        )
-        batch_op.add_column(
-            sa.Column("file_size_units", mysql.VARCHAR(length=10), nullable=False)
-        )
-        batch_op.add_column(sa.Column("file_size", mysql.FLOAT(), nullable=False))
+        batch_op.add_column(sa.Column("file_size", sa.FLOAT(), nullable=False))
         batch_op.drop_constraint("fk_platform_id_roms", type_="foreignkey")
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.create_foreign_key(
-            "fk_platform_roms",
-            "platforms",
-            ["platform_slug"],
-            ["slug"],
-            ondelete="CASCADE",
-        )
-        batch_op.execute(
-            "update roms inner join platforms on roms.platform_id = platforms.id set roms.platform_slug = platforms.slug"
-        )
+        if is_postgresql(connection):
+            batch_op.execute(
+                """
+                UPDATE roms
+                SET platform_slug = platforms.slug
+                FROM platforms
+                WHERE roms.platform_id = platforms.id
+                """
+            )
+        else:
+            batch_op.execute(
+                "update roms inner join platforms on roms.platform_id = platforms.id set roms.platform_slug = platforms.slug"
+            )
         batch_op.execute(
             "update roms set url_cover = 'https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png' where url_cover = ''"
         )
@@ -286,7 +309,7 @@ def downgrade() -> None:
         batch_op.alter_column(
             "revision",
             existing_type=sa.String(length=100),
-            type_=mysql.VARCHAR(length=20),
+            type_=sa.VARCHAR(length=20),
             existing_nullable=True,
         )
 
@@ -294,12 +317,22 @@ def downgrade() -> None:
         batch_op.add_column(
             sa.Column(
                 "n_roms",
-                mysql.INTEGER(display_width=11),
+                sa.INTEGER(),
                 autoincrement=False,
                 nullable=True,
             )
         )
         batch_op.drop_column("id")
+        batch_op.create_primary_key(constraint_name=None, columns=["slug"])
+
+    with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.create_foreign_key(
+            "fk_platform_roms",
+            "platforms",
+            ["platform_slug"],
+            ["slug"],
+            ondelete="CASCADE",
+        )
 
     op.drop_table("states")
     op.drop_table("screenshots")

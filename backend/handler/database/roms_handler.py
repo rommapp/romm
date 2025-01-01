@@ -6,6 +6,7 @@ from models.collection import Collection
 from models.rom import Rom, RomUser
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
+from utils.database import json_array_contains_value
 
 from .base_handler import DBBaseHandler
 
@@ -187,7 +188,11 @@ class DBRomsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(Collection)
-                .filter(func.json_contains(Collection.roms, f"{rom.id}"))
+                .filter(
+                    json_array_contains_value(
+                        Collection.roms, str(rom.id), session=session
+                    )
+                )
                 .order_by(Collection.name.asc())
             )
             .unique()
@@ -246,6 +251,34 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(
             select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
         )
+
+    @begin_session
+    @with_simple
+    def get_roms_user(
+        self,
+        *,
+        user_id: int,
+        platform_id: int | None = None,
+        collection_id: int | None = None,
+        search_term: str = "",
+        order_by: str = "name",
+        order_dir: str = "asc",
+        limit: int | None = None,
+        offset: int | None = None,
+        query: Query = None,
+        session: Session = None,
+    ) -> list[Rom]:
+        filtered_query = (
+            query.join(RomUser)
+            .filter(RomUser.user_id == user_id)
+            .order_by(RomUser.last_played.desc())
+        )
+        filtered_query = self._filter(
+            filtered_query, platform_id, collection_id, search_term, session
+        )
+        offset_query = filtered_query.offset(offset)
+        limited_query = offset_query.limit(limit)
+        return session.scalars(limited_query).unique().all()
 
     @begin_session
     def get_rom_user_by_id(self, id: int, session: Session = None) -> RomUser | None:

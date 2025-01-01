@@ -28,12 +28,15 @@ FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
 # git is needed to install py7zr fork
 # libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
+# libpq-dev is needed to build psycopg-c
+# mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
     git \
+    libffi-dev \
+    libpq-dev \
     mariadb-connector-c-dev \
-    musl-dev \
-    libffi-dev
+    musl-dev
 
 RUN pip install poetry
 
@@ -134,6 +137,7 @@ RUN apk add --no-cache \
     bash \
     libmagic \
     mariadb-connector-c \
+    libpq \
     p7zip \
     python3 \
     tzdata \
@@ -141,13 +145,13 @@ RUN apk add --no-cache \
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
-
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+COPY ./frontend/assets/dashboard-icons ${WEBSERVER_FOLDER}/assets/dashboard-icons
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
-COPY ./frontend/assets/scrappers ${WEBSERVER_FOLDER}/assets/scrappers
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
+COPY ./frontend/assets/scrappers ${WEBSERVER_FOLDER}/assets/scrappers
 COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
