@@ -1,0 +1,16 @@
+{
+  "search-collection": "모음집에서 찾기",
+  "add-collection": "모음집 추가",
+  "edit-collection": "모음집 수정",
+  "name": "이름",
+  "description": "설명",
+  "owner": "소유자",
+  "public": "공개",
+  "public-desc": "공개 (모든 사람이 볼 수 있음)",
+  "private": "비공개",
+  "private-desc": "비공개 (나만 볼 수 있음)",
+  "danger-zone": "위험 구역",
+  "delete-collection": "모음집 삭제",
+  "removing-collection-1": "모음집",
+  "removing-collection-2": "을(를) RomM에서 삭제합니다. 정말 삭제하시겠습니까?"
+}
