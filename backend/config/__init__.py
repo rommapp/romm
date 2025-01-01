@@ -82,7 +82,6 @@ DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
 # OIDC
 OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))
 OIDC_PROVIDER: Final = os.environ.get("OIDC_PROVIDER", "")
-OIDC_CREATE_USER: Final = str_to_bool(os.environ.get("OIDC_CREATE_USER", "false"))
 OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "")
 OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "")
 OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
@@ -124,6 +123,9 @@ UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
 LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO")
 FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
 NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
+
+# SENTRY
+SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))
