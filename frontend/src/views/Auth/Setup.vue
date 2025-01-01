@@ -2,6 +2,7 @@
 import router from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api/index";
 import userApi from "@/services/api/user";
+import api from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -55,7 +56,10 @@ async function finishWizard() {
     .createUser(defaultAdminUser.value)
     .then(async () => {
       await refetchCSRFToken();
-      router.push({ name: "login" });
+      await api.get("/heartbeat").then(({ data: heartbeatData }) => {
+        heartbeat.set(heartbeatData);
+        router.push({ name: "login" });
+      });
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {

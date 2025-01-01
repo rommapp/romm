@@ -15,9 +15,11 @@ uvicorn = "0.29.0"
 gunicorn = "22.0.0"
 websockets = "12.0"
 python-socketio = "5.11.1"
+psycopg = { version = "^3.2", extras = ["c"] }
 SQLAlchemy = { version = "^2.0.30", extras = [
   "mariadb-connector",
   "mysql-connector",
+  "postgresql-psycopg",
 ] }
 alembic = "1.13.1"
 PyYAML = "6.0.1"
@@ -44,6 +46,7 @@ python-magic = "^0.4.27"
 # TODO: Move back to `py7zr` official releases, once the following PR is merged and released:
 #       https://github.com/miurahr/py7zr/pull/620
 py7zr = { git = "https://github.com/adamantike/py7zr.git", rev = "54b68426" }
+sentry-sdk = "^2.19"
 streaming-form-data = "^1.16.0"
 zipfile-deflate64 = "^0.2.0"
 colorama = "^0.4.6"

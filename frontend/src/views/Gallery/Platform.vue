@@ -44,7 +44,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
 // Functions
-async function fetchRoms() {
+function fetchRoms() {
   if (gettingRoms.value) return;
 
   gettingRoms.value = true;
@@ -53,7 +53,7 @@ async function fetchRoms() {
     scrim: false,
   });
 
-  await romApi
+  romApi
     .getRoms({
       platformId: romsStore.currentPlatform?.id,
       searchTerm: normalizeString(galleryFilterStore.filterText),
@@ -226,37 +226,38 @@ onMounted(async () => {
   watch(
     () => allPlatforms.value,
     (platforms) => {
-      if (
-        platforms.length > 0 &&
-        platforms.some((platform) => platform.id === routePlatformId)
-      ) {
-        const platform = platforms.find(
-          (platform) => platform.id === routePlatformId,
-        );
+      if (platforms.length > 0) {
+        if (platforms.some((platform) => platform.id === routePlatformId)) {
+          const platform = platforms.find(
+            (platform) => platform.id === routePlatformId,
+          );
 
-        // Check if the current platform is different or no ROMs have been loaded
-        if (
-          (currentPlatform.value?.id !== routePlatformId ||
-            allRoms.value.length === 0) &&
-          platform
-        ) {
-          romsStore.setCurrentPlatform(platform);
-          resetGallery();
-          fetchRoms();
-          setFilters();
+          // Check if the current platform is different or no ROMs have been loaded
+          if (
+            (currentPlatform.value?.id !== routePlatformId ||
+              allRoms.value.length === 0) &&
+            platform
+          ) {
+            romsStore.setCurrentPlatform(platform);
+            resetGallery();
+            fetchRoms();
+            setFilters();
+          }
+
+          // Check for query params to set filters
+          if (route.query.filter && route.query.value) {
+            const filter = route.query.filter as FilterType;
+            const value = route.query.value as string;
+            filterToSetFilter[filter](value);
+            onFilterChange(); // Update the UI
+            router.replace({ query: {} }); // Clear query params
+          }
+
+          window.addEventListener("wheel", onScroll);
+          window.addEventListener("scroll", onScroll);
+        } else {
+          noPlatformError.value = true;
         }
-
-        // Check for query params to set filters
-        if (route.query.filter && route.query.value) {
-          const filter = route.query.filter as FilterType;
-          const value = route.query.value as string;
-          filterToSetFilter[filter](value);
-          onFilterChange(); // Update the UI
-          router.replace({ query: {} }); // Clear query params
-        }
-
-        window.addEventListener("wheel", onScroll);
-        window.addEventListener("scroll", onScroll);
       }
     },
     { immediate: true }, // Ensure watcher is triggered immediately
@@ -288,6 +289,8 @@ onBeforeRouteUpdate(async (to, from) => {
           romsStore.setCurrentPlatform(platform);
           fetchRoms();
           setFilters();
+        } else {
+          noPlatformError.value = true;
         }
       }
     },
@@ -304,6 +307,17 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noPlatformError">
     <gallery-app-bar />
+    <v-row v-if="gettingRoms" no-gutters class="pa-1"
+      ><v-col
+        v-for="_ in 60"
+        class="pa-1 align-self-end"
+        :cols="views[currentView]['size-cols']"
+        :sm="views[currentView]['size-sm']"
+        :md="views[currentView]['size-md']"
+        :lg="views[currentView]['size-lg']"
+        :xl="views[currentView]['size-xl']"
+        ><v-skeleton-loader type="card" /></v-col
+    ></v-row>
     <template v-if="filteredRoms.length > 0">
       <v-row v-show="currentView != 2" class="pa-1" no-gutters>
         <!-- Gallery cards view -->

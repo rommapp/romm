@@ -5,7 +5,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject } from "vue";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import type { Platform } from "@/stores/platforms";
@@ -15,12 +15,12 @@ import { useI18n } from "vue-i18n";
 const { xs } = useDisplay();
 const { t } = useI18n();
 const romsStore = storeRoms();
+const { gettingRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
-const searching = ref(false);
 const platformsStore = storePlatforms();
 const { allPlatforms } = storeToRefs(platformsStore);
 const galleryFilterStore = storeGalleryFilter();
-const { searchText, filterPlatforms } = storeToRefs(galleryFilterStore);
+const { searchText } = storeToRefs(galleryFilterStore);
 
 // Functions
 function setFilters() {
@@ -61,13 +61,13 @@ function setFilters() {
   ]);
 }
 
-async function fetchRoms() {
+function fetchRoms() {
   if (searchText.value) {
     // Auto hide android keyboard
     const inputElement = document.getElementById("search-text-field");
     inputElement?.blur();
-    searching.value = true;
-    await romApi
+    gettingRoms.value = true;
+    romApi
       .getRoms({ searchTerm: searchText.value })
       .then(({ data }) => {
         data = data.sort((a, b) => {
@@ -86,7 +86,7 @@ async function fetchRoms() {
         console.error(`Couldn't fetch roms: ${error}`);
       })
       .finally(() => {
-        searching.value = false;
+        gettingRoms.value = false;
       });
     galleryFilterStore.setFilterPlatforms([
       ...new Map(
@@ -99,7 +99,6 @@ async function fetchRoms() {
       ).values(),
     ] as Platform[]);
     setFilters();
-    searching.value = false;
     galleryFilterStore.activeFilterDrawer = false;
   }
 }
@@ -113,7 +112,7 @@ async function fetchRoms() {
     autofocus
     @keyup.enter="fetchRoms"
     v-model="searchText"
-    :disabled="searching"
+    :disabled="gettingRoms"
     :label="t('common.search')"
     hide-details
     class="bg-terciary"

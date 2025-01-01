@@ -8,8 +8,8 @@ Create Date: 2023-09-12 18:18:27.158732
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mysql
 from sqlalchemy.exc import OperationalError
+from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
 revision = "0009_models_refactor"
@@ -19,23 +19,30 @@ depends_on = None
 
 
 def upgrade() -> None:
+    connection = op.get_bind()
+
     try:
         with op.batch_alter_table("platforms", schema=None) as batch_op:
             batch_op.alter_column(
-                "igdb_id", existing_type=mysql.VARCHAR(length=10), nullable=True
+                "igdb_id", existing_type=sa.VARCHAR(length=10), nullable=True
             )
             batch_op.alter_column(
-                "sgdb_id", existing_type=mysql.VARCHAR(length=10), nullable=True
+                "sgdb_id", existing_type=sa.VARCHAR(length=10), nullable=True
             )
             batch_op.alter_column(
-                "slug", existing_type=mysql.VARCHAR(length=50), nullable=False
+                "slug", existing_type=sa.VARCHAR(length=50), nullable=False
             )
             batch_op.alter_column(
-                "name", existing_type=mysql.VARCHAR(length=400), nullable=True
+                "name", existing_type=sa.VARCHAR(length=400), nullable=True
             )
 
             # Move primary key to slug
-            batch_op.drop_constraint(constraint_name="PRIMARY", type_="primary")
+            pk_constraint_name = connection.dialect.get_pk_constraint(
+                connection, table_name="platforms"
+            )["name"]
+            batch_op.drop_constraint(
+                constraint_name=pk_constraint_name, type_="primary"
+            )
             batch_op.create_primary_key(constraint_name=None, columns=["slug"])
     except ValueError as e:
         print(f"Cannot drop primary key on platforms table: {e}")
@@ -45,46 +52,46 @@ def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.alter_column(
             "r_igdb_id",
-            existing_type=mysql.VARCHAR(length=10),
+            existing_type=sa.VARCHAR(length=10),
             new_column_name="igdb_id",
         )
         batch_op.alter_column(
             "r_sgdb_id",
-            existing_type=mysql.VARCHAR(length=10),
+            existing_type=sa.VARCHAR(length=10),
             new_column_name="sgdb_id",
         )
         batch_op.alter_column(
-            "r_slug", existing_type=mysql.VARCHAR(length=400), new_column_name="slug"
+            "r_slug", existing_type=sa.VARCHAR(length=400), new_column_name="slug"
         )
         batch_op.alter_column(
-            "r_name", existing_type=mysql.VARCHAR(length=350), new_column_name="name"
+            "r_name", existing_type=sa.VARCHAR(length=350), new_column_name="name"
         )
         batch_op.alter_column(
             "p_slug",
-            existing_type=mysql.VARCHAR(length=50),
+            existing_type=sa.VARCHAR(length=50),
             new_column_name="platform_slug",
             nullable=False,
         )
 
         batch_op.alter_column(
-            "file_extension", existing_type=mysql.VARCHAR(length=10), nullable=False
+            "file_extension", existing_type=sa.VARCHAR(length=10), nullable=False
         )
         batch_op.alter_column(
-            "file_path", existing_type=mysql.VARCHAR(length=1000), nullable=False
+            "file_path", existing_type=sa.VARCHAR(length=1000), nullable=False
         )
-        batch_op.alter_column("file_size", existing_type=mysql.FLOAT(), nullable=False)
+        batch_op.alter_column("file_size", existing_type=sa.FLOAT(), nullable=False)
         batch_op.alter_column(
-            "file_size_units", existing_type=mysql.VARCHAR(length=10), nullable=False
+            "file_size_units", existing_type=sa.VARCHAR(length=10), nullable=False
         )
         batch_op.alter_column(
             "url_screenshots",
-            existing_type=mysql.LONGTEXT(charset="utf8mb4", collation="utf8mb4_bin"),
+            existing_type=CustomJSON(),
             nullable=True,
             existing_server_default=sa.text("(JSON_ARRAY())"),
         )
         batch_op.alter_column(
             "path_screenshots",
-            existing_type=mysql.LONGTEXT(charset="utf8mb4", collation="utf8mb4_bin"),
+            existing_type=CustomJSON(),
             nullable=True,
             existing_server_default=sa.text("(JSON_ARRAY())"),
         )
@@ -99,51 +106,53 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    connection = op.get_bind()
+
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.alter_column(
             "igdb_id",
-            existing_type=mysql.VARCHAR(length=10),
+            existing_type=sa.VARCHAR(length=10),
             new_column_name="r_igdb_id",
         )
         batch_op.alter_column(
             "sgdb_id",
-            existing_type=mysql.VARCHAR(length=10),
+            existing_type=sa.VARCHAR(length=10),
             new_column_name="r_sgdb_id",
         )
         batch_op.alter_column(
-            "slug", existing_type=mysql.VARCHAR(length=400), new_column_name="r_slug"
+            "slug", existing_type=sa.VARCHAR(length=400), new_column_name="r_slug"
         )
         batch_op.alter_column(
-            "name", existing_type=mysql.VARCHAR(length=350), new_column_name="r_name"
+            "name", existing_type=sa.VARCHAR(length=350), new_column_name="r_name"
         )
         batch_op.alter_column(
             "platform_slug",
-            existing_type=mysql.VARCHAR(length=50),
+            existing_type=sa.VARCHAR(length=50),
             new_column_name="p_slug",
             nullable=True,
         )
 
         batch_op.alter_column(
             "path_screenshots",
-            existing_type=mysql.LONGTEXT(charset="utf8mb4", collation="utf8mb4_bin"),
+            existing_type=CustomJSON(),
             nullable=False,
             existing_server_default=sa.text("(JSON_ARRAY())"),
         )
         batch_op.alter_column(
             "url_screenshots",
-            existing_type=mysql.LONGTEXT(charset="utf8mb4", collation="utf8mb4_bin"),
+            existing_type=CustomJSON(),
             nullable=False,
             existing_server_default=sa.text("(JSON_ARRAY())"),
         )
         batch_op.alter_column(
-            "file_size_units", existing_type=mysql.VARCHAR(length=10), nullable=True
+            "file_size_units", existing_type=sa.VARCHAR(length=10), nullable=True
         )
-        batch_op.alter_column("file_size", existing_type=mysql.FLOAT(), nullable=True)
+        batch_op.alter_column("file_size", existing_type=sa.FLOAT(), nullable=True)
         batch_op.alter_column(
-            "file_path", existing_type=mysql.VARCHAR(length=1000), nullable=True
+            "file_path", existing_type=sa.VARCHAR(length=1000), nullable=True
         )
         batch_op.alter_column(
-            "file_extension", existing_type=mysql.VARCHAR(length=10), nullable=True
+            "file_extension", existing_type=sa.VARCHAR(length=10), nullable=True
         )
 
     try:
@@ -156,12 +165,18 @@ def downgrade() -> None:
 
     try:
         with op.batch_alter_table("platforms", schema=None) as batch_op:
-            batch_op.alter_column(
-                "slug", existing_type=mysql.VARCHAR(length=50), nullable=True
+            # Move primary key back to fs_slug
+            pk_constraint_name = connection.dialect.get_pk_constraint(
+                connection, table_name="platforms"
+            )["name"]
+            batch_op.drop_constraint(
+                constraint_name=pk_constraint_name, type_="primary"
             )
 
-            # Move primary key back to fs_slug
-            batch_op.drop_constraint(constraint_name="PRIMARY", type_="primary")
+            batch_op.alter_column(
+                "slug", existing_type=sa.VARCHAR(length=50), nullable=True
+            )
+
             batch_op.create_primary_key(constraint_name=None, columns=["fs_slug"])
             print("Moved primary key back to fs_slug column on platforms table")
     except ValueError as e:
