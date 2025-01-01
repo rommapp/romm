@@ -17,11 +17,13 @@ export default defineStore("platforms", {
     filledPlatforms: ({ allPlatforms: all }) =>
       all.filter((p) => p.rom_count > 0),
     filteredPlatforms: ({ allPlatforms: all, searchText }) =>
-      all.filter(
-        (p) =>
-          p.rom_count > 0 &&
-          p.name.toLowerCase().includes(searchText.toLowerCase()),
-      ),
+      all
+        .filter(
+          (p) =>
+            p.rom_count > 0 &&
+            p.display_name.toLowerCase().includes(searchText.toLowerCase()),
+        )
+        .sort((a, b) => a.display_name.localeCompare(b.display_name)),
   },
   actions: {
     _reorder() {

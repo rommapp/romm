@@ -9,23 +9,22 @@ import type { Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 
-const romsStore = storeRoms();
 const { t } = useI18n();
-const searching = ref(false);
+const romsStore = storeRoms();
+const { gettingRoms } = storeToRefs(romsStore);
 const searched = ref(false);
-const searchedRoms = ref<Platform[]>([]);
 const selectedPlatform = ref<Platform | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
-const { searchText, filterPlatforms } = storeToRefs(galleryFilterStore);
+const { searchText } = storeToRefs(galleryFilterStore);
 
-async function fetchRoms() {
+function fetchRoms() {
   if (searchText.value) {
+    gettingRoms.value = true;
     const inputElement = document.getElementById("search-text-field");
     inputElement?.blur();
-    searching.value = true;
     searched.value = true;
-    await romApi
+    romApi
       .getRoms({ searchTerm: searchText.value })
       .then(({ data }) => {
         data = data.sort((a, b) => {
@@ -44,17 +43,11 @@ async function fetchRoms() {
         console.error(`Couldn't fetch roms: ${error}`);
       })
       .finally(() => {
-        searching.value = false;
+        gettingRoms.value = false;
       });
-    searching.value = false;
     filterRoms();
     galleryFilterStore.activeFilterDrawer = false;
   }
-}
-
-function clearFilter() {
-  selectedPlatform.value = null;
-  fetchRoms();
 }
 
 function filterRoms() {
@@ -80,6 +73,6 @@ function filterRoms() {
     rounded="0"
     variant="text"
     icon="mdi-magnify"
-    :disabled="searching || !searchText"
+    :disabled="gettingRoms || !searchText"
   />
 </template>

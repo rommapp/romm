@@ -35,6 +35,14 @@ const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
 
 // Functions
 function onPlay() {
+  if (rom.value) {
+    romApi.updateUserRomProps({
+      romId: rom.value.id,
+      data: rom.value.rom_user,
+      updateLastPlayed: true,
+    });
+  }
+
   const script = document.createElement("script");
   script.async = true;
   script.src = heartbeat.value.SYSTEM.SLIM_IMAGE
@@ -43,6 +51,7 @@ function onPlay() {
   window.EJS_pathtodata = heartbeat.value.SYSTEM.SLIM_IMAGE
     ? `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`
     : "/assets/emulatorjs/";
+
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
   document.body.appendChild(script);
   gameRunning.value = true;

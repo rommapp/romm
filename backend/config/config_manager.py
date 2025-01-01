@@ -93,6 +93,8 @@ class ConfigManager:
             driver = "mariadb+mariadbconnector"
         elif ROMM_DB_DRIVER == "mysql":
             driver = "mysql+mysqlconnector"
+        elif ROMM_DB_DRIVER == "postgresql":
+            driver = "postgresql+psycopg"
         else:
             log.critical(f"{ROMM_DB_DRIVER} database not supported")
             sys.exit(3)
