@@ -15,7 +15,9 @@ export default defineStore("platforms", {
     totalGames: ({ allPlatforms: value }) =>
       value.reduce((count, p) => count + p.rom_count, 0),
     filledPlatforms: ({ allPlatforms: all }) =>
-      all.filter((p) => p.rom_count > 0),
+      all
+        .filter((p) => p.rom_count > 0)
+        .sort((a, b) => a.display_name.localeCompare(b.display_name)),
     filteredPlatforms: ({ allPlatforms: all, searchText }) =>
       all
         .filter(
