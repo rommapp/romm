@@ -15,7 +15,7 @@ import { useI18n } from "vue-i18n";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: "IGDB" | "Mobygames";
+  name: "IGDB" | "Mobygames" | "ScreenScraper";
   logo_path: string;
 };
 
@@ -71,7 +71,8 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
     if (
       (rom.igdb_id && isIGDBFiltered.value) ||
-      (rom.moby_id && isMobyFiltered.value)
+      (rom.moby_id && isMobyFiltered.value) ||
+      rom.ss_id
     ) {
       return true;
     }
@@ -100,7 +101,8 @@ async function searchRom() {
         filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
           if (
             (rom.igdb_id && isIGDBFiltered.value) ||
-            (rom.moby_id && isMobyFiltered.value)
+            (rom.moby_id && isMobyFiltered.value) ||
+            rom.ss_id
           ) {
             return true;
           }
@@ -137,6 +139,11 @@ function showSources(matchedRom: SearchRomSchema) {
     url_cover: matchedRom.moby_url_cover,
     name: "Mobygames",
     logo_path: "/assets/scrappers/moby.png",
+  });
+  sources.value.push({
+    url_cover: matchedRom.ss_url_cover,
+    name: "ScreenScraper",
+    logo_path: "/assets/scrappers/ss.ico",
   });
 }
 
@@ -288,6 +295,35 @@ onBeforeUnmount(() => {
           >
             <v-img src="/assets/scrappers/moby.png" /></v-avatar></template
       ></v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED
+            ? 'Filter Screenscraper matches'
+            : 'Screenscraper source is not enabled'
+        "
+        open-delay="500"
+        ><template #activator="{ props }">
+          <v-avatar
+            @click="toggleSourceFilter('ScreenScraper')"
+            v-bind="props"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isIGDBFiltered &&
+                heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+          >
+            <v-img src="/assets/scrappers/ss.ico" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
     </template>
     <template #toolbar>
       <v-row class="align-center" no-gutters>
