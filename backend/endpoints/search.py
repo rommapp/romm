@@ -85,16 +85,28 @@ async def search_rom(
         moby_matched_roms = await meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
-        await meta_ss_handler.search_rom(search_term)
+        ss_matched_roms = await meta_ss_handler.search_rom(search_term, rom.platform)
 
-    merged_dict = {
-        item["name"]: {**item, "igdb_url_cover": item.pop("url_cover", "")}
-        for item in igdb_matched_roms
-    }
+    merged_dict: dict[str, dict] = {}
+
+    for item in igdb_matched_roms:
+        merged_dict[item["name"]] = {
+            **item,
+            "igdb_url_cover": item.pop("url_cover", ""),
+            **merged_dict.get(item.get("name", ""), {}),
+        }
+
     for item in moby_matched_roms:
         merged_dict[item["name"]] = {
             **item,
             "moby_url_cover": item.pop("url_cover", ""),
+            **merged_dict.get(item.get("name", ""), {}),
+        }
+
+    for item in ss_matched_roms:
+        merged_dict[item["name"]] = {
+            **item,
+            "ss_url_cover": item.pop("url_cover", ""),
             **merged_dict.get(item.get("name", ""), {}),
         }
 

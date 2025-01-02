@@ -21,10 +21,9 @@ const heartbeatStore = storeHeartbeat();
           ><a
             :class="{
               'text-romm-accent-1': isHovering,
-              'text-white': !isHovering,
             }"
             v-bind="props"
-            style="text-decoration: none"
+            style="text-decoration: none; color: inherit"
             href="https://github.com/rommapp/romm"
             target="_blank"
             >Github</a
@@ -37,10 +36,9 @@ const heartbeatStore = storeHeartbeat();
           ><a
             :class="{
               'text-romm-accent-1': isHovering,
-              'text-white': !isHovering,
             }"
             v-bind="props"
-            style="text-decoration: none"
+            style="text-decoration: none; color: inherit"
             href="https://discord.com/invite/P5HtHnhUDH"
             target="_blank"
             >{{ t("settings.join-discord") }}</a

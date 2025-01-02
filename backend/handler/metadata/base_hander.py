@@ -216,6 +216,10 @@ class MetadataHandler:
                         "client_id",
                         "client_secret",
                         "api_key",
+                        "ssid",
+                        "sspassword",
+                        "devid",
+                        "devpassword",
                     }
                     # Leave other keys unchanged
                     else values[key]
