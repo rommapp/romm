@@ -161,12 +161,13 @@ async def tinfoil_index_feed(
             TinfoilFeedFileSchema(
                 url=str(
                     request.url_for(
-                        "get_rom_content", id=rom.id, file_name=rom.file_name
+                        "get_rom_content", id=rom.id, file_name=file.get('filename')
                     )
                 ),
-                size=rom.file_size_bytes,
+                size=rom.files[0].get('size'),
             )
-            for rom in roms
+            for rom in roms if rom.files and len(rom.files) > 0
+            for file in rom.files
         ],
         directories=[],
         success="RomM Switch Library",
