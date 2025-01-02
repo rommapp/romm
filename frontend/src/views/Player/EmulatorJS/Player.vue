@@ -4,7 +4,7 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
-import { getSupportedEJSCores } from "@/utils";
+import { areThreadsRequiredForEJSCore, getSupportedEJSCores } from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -77,6 +77,7 @@ declare global {
     EJS_alignStartButton: "top" | "center" | "bottom";
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
+    EJS_threads: boolean;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     EJS_emulator: any;
     EJS_onGameStart: () => void;
@@ -90,6 +91,7 @@ declare global {
 const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
+window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
 window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
 window.EJS_biosUrl = props.bios
@@ -438,7 +440,7 @@ window.EJS_onGameStart = async () => {
 }
 </style>
 
-<!-- Other config options: https://emulatorjs.org/docs/Options.html -->
+<!-- Other config options: https://emulatorjs.org/docs/options -->
 
 <!-- window.EJS_biosUrl; -->
 <!-- window.EJS_VirtualGamepadSettings; -->
