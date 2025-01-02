@@ -2,7 +2,6 @@
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
-import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
 import { getSupportedEJSCores } from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
@@ -106,21 +105,8 @@ window.EJS_defaultOptions = {
   rewindEnabled: "enabled",
 };
 if (romRef.value.name) window.EJS_gameName = romRef.value.name;
-
-function buildStateName(): string {
-  const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
-  let stateName = `${romName}.state.auto`;
-  if (!states.includes(stateName)) return stateName;
-
-  let i = 1;
-  stateName = `${romName}.state1`;
-  while (states.includes(stateName)) {
-    i++;
-    stateName = `${romName}.state${i}`;
-  }
-
-  return stateName;
+if (stateRef.value) {
+  window.EJS_loadStateURL = stateRef.value.download_path;
 }
 
 function buildSaveName(): string {
@@ -139,32 +125,6 @@ function buildSaveName(): string {
   return saveName;
 }
 
-async function fetchState(): Promise<Uint8Array> {
-  if (stateRef.value) {
-    const { data } = await api.get(
-      stateRef.value.download_path.replace("/api", ""),
-      { responseType: "arraybuffer" },
-    );
-    if (data) {
-      window.EJS_emulator.displayMessage("LOADED FROM ROMM");
-      return new Uint8Array(data);
-    }
-  }
-
-  if (window.EJS_emulator.saveInBrowserSupported()) {
-    const data = await window.EJS_emulator.storage.states.get(
-      window.EJS_emulator.getBaseFileName() + ".state",
-    );
-    if (data) {
-      window.EJS_emulator.displayMessage("LOADED FROM BROWSER");
-      return data;
-    }
-  }
-
-  const file = await window.EJS_emulator.selectFile();
-  return new Uint8Array(await file.arrayBuffer());
-}
-
 function downloadFallback(data: BlobPart, name: string) {
   const url = window.URL.createObjectURL(
     new Blob([data], { type: "application/octet-stream" }),
@@ -176,120 +136,106 @@ function downloadFallback(data: BlobPart, name: string) {
   window.URL.revokeObjectURL(url);
 }
 
-window.EJS_onLoadState = async function () {
-  const state = await fetchState();
-  window.EJS_emulator.gameManager.loadState(state);
-};
-
-window.EJS_onSaveState = function ({
-  state,
-  screenshot,
-}: {
-  screenshot: BlobPart;
-  state: BlobPart;
-}) {
-  if (window.EJS_emulator.saveInBrowserSupported()) {
-    window.EJS_emulator.storage.states.put(
-      window.EJS_emulator.getBaseFileName() + ".state",
-      state,
+const { gameManager } = window.EJS_emulator;
+window.EJS_emulator.gameManager.functions = {
+  ...gameManager.functions,
+  saveSaveFiles: async (...args: unknown[]) => {
+    gameManager.functions.saveSaveFiles(...args);
+    const { exists } = gameManager.FS.analyzePath(
+      gameManager.getSaveFilePath(),
     );
-  }
-  if (stateRef.value) {
-    stateApi
-      .updateState({
-        state: stateRef.value,
-        file: new File([state], stateRef.value.file_name, {
-          type: "application/octet-stream",
-        }),
-      })
-      .then(({ data }) => {
-        stateRef.value = data;
-        window.EJS_emulator.displayMessage("SAVED TO ROMM");
+    if (!exists) return;
 
-        if (stateRef.value.screenshot) {
-          screenshotApi
-            .updateScreenshot({
-              screenshot: stateRef.value.screenshot,
-              file: new File(
-                [screenshot],
-                stateRef.value.screenshot.file_name,
-                {
-                  type: "application/octet-stream",
-                },
-              ),
-            })
-            .then(({ data }) => {
-              if (stateRef.value) stateRef.value.screenshot = data;
-            })
-            .catch((e) => console.log(e));
-        } else {
+    const save = await gameManager.FS.readFile(gameManager.getSaveFilePath());
+    const screenshot = await gameManager.screenshot();
+
+    if (saveRef.value) {
+      saveApi
+        .updateSave({
+          save: saveRef.value,
+          file: new File([save], saveRef.value.file_name, {
+            type: "application/octet-stream",
+          }),
+        })
+        .then(({ data }) => {
+          saveRef.value = data;
+
+          if (saveRef.value.screenshot) {
+            screenshotApi
+              .updateScreenshot({
+                screenshot: saveRef.value.screenshot,
+                file: new File(
+                  [screenshot],
+                  saveRef.value.screenshot.file_name,
+                  {
+                    type: "application/octet-stream",
+                  },
+                ),
+              })
+              .then(({ data }) => {
+                if (saveRef.value) saveRef.value.screenshot = data;
+              })
+              .catch((e) => console.log(e));
+          } else {
+            screenshotApi
+              .uploadScreenshots({
+                rom: romRef.value,
+                screenshots: [
+                  new File([screenshot], `${buildSaveName()}.png`, {
+                    type: "application/octet-stream",
+                  }),
+                ],
+              })
+              .then(({ data }) => {
+                if (saveRef.value)
+                  saveRef.value.screenshot = data.screenshots[0];
+                romRef.value.user_screenshots = data.screenshots;
+                romRef.value.merged_screenshots = data.merged_screenshots;
+              })
+              .catch((e) => console.log(e));
+          }
+        })
+        .catch(() => {
+          downloadFallback(save, saveRef.value?.file_name ?? "save");
+        });
+    } else if (romRef.value) {
+      saveApi
+        .uploadSaves({
+          rom: romRef.value,
+          emulator: window.EJS_core,
+          saves: [
+            new File([save], buildSaveName(), {
+              type: "application/octet-stream",
+            }),
+          ],
+        })
+        .then(({ data }) => {
+          const allSaves = data.saves.sort(
+            (a: SaveSchema, b: SaveSchema) => a.id - b.id,
+          );
+          if (romRef.value) romRef.value.user_saves = allSaves;
+          saveRef.value = allSaves.pop() ?? null;
+
           screenshotApi
             .uploadScreenshots({
               rom: romRef.value,
               screenshots: [
-                new File([screenshot], `${buildStateName()}.png`, {
+                new File([screenshot], `${buildSaveName()}.png`, {
                   type: "application/octet-stream",
                 }),
               ],
             })
             .then(({ data }) => {
-              if (stateRef.value)
-                stateRef.value.screenshot = data.screenshots[0];
               romRef.value.user_screenshots = data.screenshots;
               romRef.value.merged_screenshots = data.merged_screenshots;
             })
             .catch((e) => console.log(e));
-        }
-      })
-      .catch(() => {
-        if (window.EJS_emulator.saveInBrowserSupported()) {
-          window.EJS_emulator.displayMessage("SAVED TO BROWSER");
-        } else {
-          downloadFallback(state, stateRef.value?.file_name ?? "state");
-        }
-      });
-  } else if (romRef.value) {
-    stateApi
-      .uploadStates({
-        rom: romRef.value,
-        emulator: window.EJS_core,
-        states: [
-          new File([state], buildStateName(), {
-            type: "application/octet-stream",
-          }),
-        ],
-      })
-      .then(({ data }) => {
-        const allStates = data.states.sort(
-          (a: StateSchema, b: StateSchema) => a.id - b.id,
-        );
-        if (romRef.value) romRef.value.user_states = allStates;
-        stateRef.value = allStates.pop() ?? null;
-        window.EJS_emulator.displayMessage("SAVED TO ROMM");
-
-        screenshotApi
-          .uploadScreenshots({
-            rom: romRef.value,
-            screenshots: [
-              new File([screenshot], `${buildStateName()}.png`, {
-                type: "application/octet-stream",
-              }),
-            ],
-          })
-          .then(({ data }) => {
-            romRef.value.user_screenshots = data.screenshots;
-            romRef.value.merged_screenshots = data.merged_screenshots;
-          })
-          .catch((e) => console.log(e));
-      })
-      .catch(() => {
-        if (window.EJS_emulator.saveInBrowserSupported()) {
-          window.EJS_emulator.displayMessage("SAVED TO BROWSER");
-        } else {
-          downloadFallback(state, buildStateName());
-        }
-      });
-  }
+        })
+        .catch(() => {
+          downloadFallback(save, buildSaveName());
+        });
+    }
+  },
 };
 
 async function fetchSave(): Promise<Uint8Array> {
@@ -321,102 +267,8 @@ window.EJS_onLoadSave = async function () {
   window.EJS_emulator.gameManager.loadSaveFiles();
 };
 
-window.EJS_onSaveSave = function ({
-  save,
-  screenshot,
-}: {
-  save: BlobPart;
-  screenshot: BlobPart;
-}) {
-  if (saveRef.value) {
-    saveApi
-      .updateSave({
-        save: saveRef.value,
-        file: new File([save], saveRef.value.file_name, {
-          type: "application/octet-stream",
-        }),
-      })
-      .then(({ data }) => {
-        saveRef.value = data;
-
-        if (saveRef.value.screenshot) {
-          screenshotApi
-            .updateScreenshot({
-              screenshot: saveRef.value.screenshot,
-              file: new File([screenshot], saveRef.value.screenshot.file_name, {
-                type: "application/octet-stream",
-              }),
-            })
-            .then(({ data }) => {
-              if (saveRef.value) saveRef.value.screenshot = data;
-            })
-            .catch((e) => console.log(e));
-        } else {
-          screenshotApi
-            .uploadScreenshots({
-              rom: romRef.value,
-              screenshots: [
-                new File([screenshot], `${buildSaveName()}.png`, {
-                  type: "application/octet-stream",
-                }),
-              ],
-            })
-            .then(({ data }) => {
-              if (saveRef.value) saveRef.value.screenshot = data.screenshots[0];
-              romRef.value.user_screenshots = data.screenshots;
-              romRef.value.merged_screenshots = data.merged_screenshots;
-            })
-            .catch((e) => console.log(e));
-        }
-      })
-      .catch(() => {
-        downloadFallback(save, saveRef.value?.file_name ?? "save");
-      });
-  } else if (romRef.value) {
-    saveApi
-      .uploadSaves({
-        rom: romRef.value,
-        emulator: window.EJS_core,
-        saves: [
-          new File([save], buildSaveName(), {
-            type: "application/octet-stream",
-          }),
-        ],
-      })
-      .then(({ data }) => {
-        const allSaves = data.saves.sort(
-          (a: SaveSchema, b: SaveSchema) => a.id - b.id,
-        );
-        if (romRef.value) romRef.value.user_saves = allSaves;
-        saveRef.value = allSaves.pop() ?? null;
-
-        screenshotApi
-          .uploadScreenshots({
-            rom: romRef.value,
-            screenshots: [
-              new File([screenshot], `${buildSaveName()}.png`, {
-                type: "application/octet-stream",
-              }),
-            ],
-          })
-          .then(({ data }) => {
-            romRef.value.user_screenshots = data.screenshots;
-            romRef.value.merged_screenshots = data.merged_screenshots;
-          })
-          .catch((e) => console.log(e));
-      })
-      .catch(() => {
-        downloadFallback(save, buildSaveName());
-      });
-  }
-};
-
 window.EJS_onGameStart = async () => {
-  saveRef.value = props.save;
-  stateRef.value = props.state;
-
   setTimeout(() => {
-    if (stateRef.value) window.EJS_onLoadState();
     if (saveRef.value) window.EJS_onLoadSave();
   }, 10);
 };
