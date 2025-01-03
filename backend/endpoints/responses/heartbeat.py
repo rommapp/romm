@@ -1,10 +1,9 @@
 from typing import TypedDict
 
 
-class SytemDict(TypedDict):
+class SystemDict(TypedDict):
     VERSION: str
     SHOW_SETUP_WIZARD: bool
-    SLIM_IMAGE: bool
 
 
 class WatcherDict(TypedDict):
@@ -48,7 +47,7 @@ class OIDCDict(TypedDict):
 
 
 class HeartbeatResponse(TypedDict):
-    SYSTEM: SytemDict
+    SYSTEM: SystemDict
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
     METADATA_SOURCES: MetadataSourcesDict

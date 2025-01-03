@@ -45,7 +45,7 @@ export type { SearchRomSchema } from './models/SearchRomSchema';
 export type { SimpleRomSchema } from './models/SimpleRomSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
-export type { SytemDict } from './models/SytemDict';
+export type { SystemDict } from './models/SystemDict';
 export type { TaskDict } from './models/TaskDict';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';

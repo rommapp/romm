@@ -37,7 +37,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Docker metadata (base)
+      - name: Generate Docker metadata (full)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -75,18 +75,17 @@ jobs:
         run: |
           sed -i 's/<version>/${{ steps.meta.outputs.version }}/' backend/__version__.py
 
-      - name: Build base image
-        id: build-base
+      - name: Build full image
+        id: build-full
         uses: docker/build-push-action@v6
         with:
           file: docker/Dockerfile
           context: .
           push: true
           platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            SLIM_IMAGE=false
+          tags: ${{ steps.meta-slim.outputs.tags }}
+          labels: ${{ steps.meta-slim.outputs.labels }}
+          target: full-image
 
       - name: Build slim image
         id: build-slim
@@ -96,7 +95,6 @@ jobs:
           context: .
           push: true
           platforms: linux/arm64,linux/amd64
-          tags: ${{ steps.meta-slim.outputs.tags }}
-          labels: ${{ steps.meta-slim.outputs.labels }}
-          build-args: |
-            SLIM_IMAGE=true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          target: slim-image

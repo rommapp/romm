@@ -3,9 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type SytemDict = {
+export type SystemDict = {
     VERSION: string;
     SHOW_SETUP_WIZARD: boolean;
-    SLIM_IMAGE: boolean;
 };
 

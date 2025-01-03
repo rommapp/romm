@@ -5,7 +5,8 @@
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
-#   - final-stage: Move everything to final stage
+#   - slim-image: Slim image with only the necessary files
+#   - full-image: Full image with emulator stage
 
 # Versions:
 ARG ALPINE_VERSION=3.20
@@ -73,31 +74,19 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
 FROM alpine:${ALPINE_VERSION} AS emulator-stage
 
 RUN apk add --no-cache \
-7zip \
-wget
+    7zip \
+    wget
 
-ARG SLIM_IMAGE=false
 ARG EMULATORJS_VERSION=4.2.0
-RUN if [ "${SLIM_IMAGE}" = "false" ]; then \
-        wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
-        7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
-        rm -rf "${EMULATORJS_VERSION}.7z"; \
-    else \
-        echo "Skipping EmulatorJS setup"; \
-        mkdir -p /emulatorjs; \
-    fi
+wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
+7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
+rm -rf "${EMULATORJS_VERSION}.7z"; \
 
 ARG RUFFLE_VERSION=nightly-2024-12-28
 ARG RUFFLE_FILE=ruffle-nightly-2024_12_28-web-selfhosted.zip
-RUN if [ "${SLIM_IMAGE}" = "false" ]; then \
-        wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
-        unzip -o "${RUFFLE_FILE}" -d /ruffle && \
-        rm -f "${RUFFLE_FILE}"; \
-    else \
-        echo "Skipping Ruffle setup"; \
-        mkdir -p /ruffle; \
-    fi
-
+wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
+unzip -o "${RUFFLE_FILE}" -d /ruffle && \
+rm -f "${RUFFLE_FILE}"; \
 
 FROM alpine:${ALPINE_VERSION} AS nginx-build
 
@@ -146,8 +135,7 @@ RUN apk add --no-cache \
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
-COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
-COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+
 COPY ./frontend/assets/dashboard-icons ${WEBSERVER_FOLDER}/assets/dashboard-icons
 COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
@@ -169,7 +157,7 @@ RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
     mkdir /romm /redis-data && chown romm:romm /romm /redis-data
 
 
-FROM scratch AS final-stage
+FROM scratch AS slim-image
 
 COPY --from=production-stage / /
 
@@ -177,9 +165,7 @@ COPY --from=backend-build /src/.venv /src/.venv
 # Fix virtualenv link to python binary
 RUN ln -sf "$(which python)" /src/.venv/bin/python
 
-ARG SLIM_IMAGE=false
-ENV PATH="/src/.venv/bin:${PATH}" \
-    SLIM_IMAGE="${SLIM_IMAGE}"
+ENV PATH="/src/.venv/bin:${PATH}"
 
 # Declare the supported volumes
 VOLUME ["/romm/resources", "/romm/library", "/romm/assets", "/romm/config", "/redis-data"]
@@ -190,3 +176,7 @@ WORKDIR /romm
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/init"]
+
+FROM slim-image AS full-image
+COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
+COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle

@@ -43,16 +43,19 @@ function onPlay() {
     });
   }
 
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = heartbeat.value.SYSTEM.SLIM_IMAGE
-    ? `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/loader.js`
-    : "/assets/emulatorjs/loader.js";
-  window.EJS_pathtodata = heartbeat.value.SYSTEM.SLIM_IMAGE
-    ? `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`
-    : "/assets/emulatorjs/";
-
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
+  window.EJS_pathtodata = "/assets/emulatorjs/";
+
+  const script = document.createElement("script");
+  script.src = "/assets/emulatorjs/loader.js";
+
+  script.onerror = () => {
+    window.EJS_pathtodata = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
+    const fallbackScript = document.createElement("script");
+    fallbackScript.src = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/loader.js`;
+    document.body.appendChild(fallbackScript);
+  };
+
   document.body.appendChild(script);
   gameRunning.value = true;
 }
