@@ -30,10 +30,16 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
   },
   {
-    name: "MobyGames",
+    name: "Mobygames",
     value: "moby",
     logo_path: "/assets/scrappers/moby.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+  },
+  {
+    name: "Screenscraper",
+    value: "ss",
+    logo_path: "/assets/scrappers/ss.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
   },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
@@ -192,11 +198,7 @@ async function stopScan() {
         <template #chip="{ item }">
           <v-chip>
             <v-avatar class="mr-2" size="15" rounded="1">
-              <v-img
-                :src="`/assets/scrappers/${item.raw.name
-                  .slice(0, 4)
-                  .toLowerCase()}.png`"
-              />
+              <v-img :src="item.raw.logo_path" />
             </v-avatar>
             {{ item.raw.name }}
           </v-chip>
@@ -342,7 +344,7 @@ async function stopScan() {
             >
               <template #append-body>
                 <v-chip
-                  v-if="!rom.igdb_id && !rom.moby_id"
+                  v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
                   color="red"
                   size="x-small"
                   label

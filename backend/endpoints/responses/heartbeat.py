@@ -19,6 +19,7 @@ class SchedulerDict(TypedDict):
 class MetadataSourcesDict(TypedDict):
     IGDB_API_ENABLED: bool
     MOBY_API_ENABLED: bool
+    SS_API_ENABLED: bool
     STEAMGRIDDB_ENABLED: bool
 
 

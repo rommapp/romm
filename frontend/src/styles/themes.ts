@@ -31,7 +31,7 @@ export const light = {
   colors: {
     primary: "#ffffff",
     secondary: "#ffffff",
-    terciary: "#f4f4f4f",
+    terciary: "#f4f4f4",
     background: "#ffffff",
 
     tooltip: "#ffffff",

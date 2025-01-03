@@ -99,6 +99,7 @@ class RomSchema(BaseModel):
     igdb_id: int | None
     sgdb_id: int | None
     moby_id: int | None
+    ss_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -130,6 +131,7 @@ class RomSchema(BaseModel):
     age_ratings: list[str]
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
+    ss_metadata: RomMobyMetadata | None
 
     path_cover_s: str | None
     path_cover_l: str | None
