@@ -12,6 +12,7 @@ export type RomSchema = {
     igdb_id: (number | null);
     sgdb_id: (number | null);
     moby_id: (number | null);
+    ss_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -38,6 +39,7 @@ export type RomSchema = {
     age_ratings: Array<string>;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
+    ss_metadata: (RomMobyMetadata | null);
     path_cover_s: (string | null);
     path_cover_l: (string | null);
     has_cover: boolean;

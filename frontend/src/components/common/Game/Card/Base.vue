@@ -122,25 +122,31 @@ const computedAspectRatio = computed(() => {
             :src="
               src ||
               (romsStore.isSimpleRom(rom)
-                ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                ? !rom.igdb_id && !rom.moby_id && !rom.ss_id && !rom.has_cover
                   ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                  : (rom.igdb_id || rom.moby_id) && !rom.has_cover
+                  : (rom.igdb_id || rom.moby_id || rom.ss_id) && !rom.has_cover
                     ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                     : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
-                : !rom.igdb_url_cover && !rom.moby_url_cover
+                : !rom.igdb_url_cover &&
+                    !rom.moby_url_cover &&
+                    !rom.ss_url_cover
                   ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                  : rom.igdb_url_cover || rom.moby_url_cover)
+                  : rom.igdb_url_cover ||
+                    rom.moby_url_cover ||
+                    rom.ss_url_cover)
             "
             :lazy-src="
               romsStore.isSimpleRom(rom)
-                ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
+                ? !rom.igdb_id && !rom.moby_id && !rom.ss_id && !rom.has_cover
                   ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-                  : (rom.igdb_id || rom.moby_id) && !rom.has_cover
+                  : (rom.igdb_id || rom.moby_id || rom.ss_id) && !rom.has_cover
                     ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
                     : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-                : !rom.igdb_url_cover && !rom.moby_url_cover
+                : !rom.igdb_url_cover &&
+                    !rom.moby_url_cover &&
+                    !rom.ss_url_cover
                   ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-                  : rom.igdb_url_cover || rom.moby_url_cover
+                  : rom.igdb_url_cover || rom.moby_url_cover || rom.ss_url_cover
             "
             :aspect-ratio="computedAspectRatio"
           >
@@ -153,7 +159,8 @@ const computedAspectRatio = computed(() => {
                       (romsStore.isSimpleRom(rom) && !rom.has_cover) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
-                        !rom.moby_url_cover)
+                        !rom.moby_url_cover &&
+                        !rom.ss_url_cover)
                     "
                     class="translucent-dark text-caption text-white"
                   >

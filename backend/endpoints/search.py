@@ -1,13 +1,21 @@
+import asyncio
+
 import emoji
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from fastapi import HTTPException, Request, status
 from handler.auth.base_handler import Scope
 from handler.database import db_rom_handler
-from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
+from handler.metadata import (
+    meta_igdb_handler,
+    meta_moby_handler,
+    meta_sgdb_handler,
+    meta_ss_handler,
+)
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
+from handler.metadata.ss_handler import SS_API_ENABLED
 from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
 from utils.router import APIRouter
@@ -36,7 +44,7 @@ async def search_rom(
         list[SearchRomSchema]: List of matched roms
     """
 
-    if not IGDB_API_ENABLED and not MOBY_API_ENABLED:
+    if not IGDB_API_ENABLED and not SS_API_ENABLED and not MOBY_API_ENABLED:
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -60,11 +68,12 @@ async def search_rom(
     log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.file_name}"))
     if search_by.lower() == "id":
         try:
-            igdb_matched_roms = await meta_igdb_handler.get_matched_roms_by_id(
-                int(search_term)
-            )
-            moby_matched_roms = await meta_moby_handler.get_matched_roms_by_id(
-                int(search_term)
+            igdb_task = meta_igdb_handler.get_matched_roms_by_id(int(search_term))
+            moby_task = meta_moby_handler.get_matched_roms_by_id(int(search_term))
+            ss_task = meta_ss_handler.get_matched_roms_by_id(int(search_term))
+
+            igdb_matched_roms, moby_matched_roms, ss_matched_roms = (
+                await asyncio.gather(igdb_task, moby_task, ss_task)
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -73,21 +82,40 @@ async def search_rom(
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             ) from exc
     elif search_by.lower() == "name":
-        igdb_matched_roms = await meta_igdb_handler.get_matched_roms_by_name(
+        igdb_task = meta_igdb_handler.get_matched_roms_by_name(
             search_term, (await _get_main_platform_igdb_id(rom.platform))
         )
-        moby_matched_roms = await meta_moby_handler.get_matched_roms_by_name(
+        moby_task = meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
+        ss_task = meta_ss_handler.get_matched_roms_by_name(
+            search_term, rom.platform.ss_id
+        )
 
-    merged_dict = {
-        item["name"]: {**item, "igdb_url_cover": item.pop("url_cover", "")}
-        for item in igdb_matched_roms
-    }
+        igdb_matched_roms, moby_matched_roms, ss_matched_roms = await asyncio.gather(
+            igdb_task, moby_task, ss_task
+        )
+
+    merged_dict: dict[str, dict] = {}
+
+    for item in igdb_matched_roms:
+        merged_dict[item["name"]] = {
+            **item,
+            "igdb_url_cover": item.pop("url_cover", ""),
+            **merged_dict.get(item.get("name", ""), {}),
+        }
+
     for item in moby_matched_roms:
         merged_dict[item["name"]] = {
             **item,
             "moby_url_cover": item.pop("url_cover", ""),
+            **merged_dict.get(item.get("name", ""), {}),
+        }
+
+    for item in ss_matched_roms:
+        merged_dict[item["name"]] = {
+            **item,
+            "ss_url_cover": item.pop("url_cover", ""),
             **merged_dict.get(item.get("name", ""), {}),
         }
 
