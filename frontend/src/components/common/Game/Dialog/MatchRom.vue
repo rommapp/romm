@@ -47,7 +47,7 @@ const isMobyFiltered = ref(true);
 const isSSFiltered = ref(true);
 const computedAspectRatio = computed(() => {
   const ratio =
-    platfotmsStore.getAspectRatio(rom.value?.platform_id) ||
+    platfotmsStore.getAspectRatio(rom.value?.platform_id ?? -1) ||
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });

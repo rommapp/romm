@@ -408,8 +408,7 @@ class SSBaseHandler(MetadataHandler):
     async def get_matched_roms_by_name(
         self, search_term: str, platform_ss_id: int
     ) -> list[SSGamesRom]:
-        # TODO: migrate to put all SS platform IDs
-        platform_ss_id = 9
+        # TODO: migrate to put all SS platform IDs in the database
         if not SS_API_ENABLED:
             return []
 
