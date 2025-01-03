@@ -4,6 +4,6 @@ from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSBaseHandler
 
 meta_igdb_handler = IGDBBaseHandler()
-meta_ss_handler = SSBaseHandler()
 meta_moby_handler = MobyGamesHandler()
+meta_ss_handler = SSBaseHandler()
 meta_sgdb_handler = SGDBBaseHandler()

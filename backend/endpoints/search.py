@@ -72,6 +72,9 @@ async def search_rom(
             moby_matched_roms = await meta_moby_handler.get_matched_roms_by_id(
                 int(search_term)
             )
+            ss_matched_roms = await meta_ss_handler.get_matched_roms_by_id(
+                int(search_term)
+            )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
             raise HTTPException(
@@ -85,7 +88,9 @@ async def search_rom(
         moby_matched_roms = await meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
-        ss_matched_roms = await meta_ss_handler.search_rom(search_term, rom.platform)
+        ss_matched_roms = await meta_ss_handler.get_matched_roms_by_name(
+            search_term, rom.platform.ss_id
+        )
 
     merged_dict: dict[str, dict] = {}
 

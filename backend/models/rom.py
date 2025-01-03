@@ -42,10 +42,12 @@ class Rom(BaseModel):
     igdb_id: Mapped[int | None]
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
+    ss_id: Mapped[int | None]
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
+        Index("idx_roms_ss_id", "ss_id"),
     )
 
     file_name: Mapped[str] = mapped_column(String(length=450))
@@ -62,6 +64,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     moby_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    ss_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 

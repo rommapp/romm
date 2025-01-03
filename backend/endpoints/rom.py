@@ -23,7 +23,8 @@ from handler.auth.base_handler import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
-from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomUser
 from PIL import Image
@@ -358,6 +359,7 @@ async def update_rom(
                 "igdb_id": None,
                 "sgdb_id": None,
                 "moby_id": None,
+                "ss_id": None,
                 "name": rom.file_name,
                 "summary": "",
                 "url_screenshots": [],
@@ -368,6 +370,7 @@ async def update_rom(
                 "slug": "",
                 "igdb_metadata": {},
                 "moby_metadata": {},
+                "ss_metadata": {},
                 "revision": "",
             },
         )
@@ -379,6 +382,7 @@ async def update_rom(
     cleaned_data = {
         "igdb_id": data.get("igdb_id", None),
         "moby_id": data.get("moby_id", None),
+        "ss_id": data.get("ss_id", None),
     }
 
     if (
@@ -387,6 +391,18 @@ async def update_rom(
     ):
         moby_rom = await meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
         cleaned_data.update(moby_rom)
+        path_screenshots = await fs_resource_handler.get_rom_screenshots(
+            rom=rom,
+            url_screenshots=cleaned_data.get("url_screenshots", []),
+        )
+        cleaned_data.update({"path_screenshots": path_screenshots})
+
+    if (
+        cleaned_data.get("ss_id", "")
+        and int(cleaned_data.get("ss_id", "")) != rom.ss_id
+    ):
+        ss_rom = await meta_ss_handler.get_rom_by_id(cleaned_data["ss_id"])
+        cleaned_data.update(ss_rom)
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
             url_screenshots=cleaned_data.get("url_screenshots", []),
@@ -490,6 +506,10 @@ async def update_rom(
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
+
+    log.debug(
+        f"Updating {hl(cleaned_data.get('name', ''))} [{id}] with data {cleaned_data}"
+    )
 
     db_rom_handler.update_rom(id, cleaned_data)
 
