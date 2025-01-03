@@ -146,21 +146,21 @@ function showSources(matchedRom: SearchRomSchema) {
   showSelectSource.value = true;
   selectedMatchRom.value = matchedRom;
   sources.value = [];
-  if (matchedRom.igdb_url_cover) {
+  if (matchedRom.igdb_url_cover || matchedRom.igdb_id) {
     sources.value.push({
       url_cover: matchedRom.igdb_url_cover,
       name: "IGDB",
       logo_path: "/assets/scrappers/igdb.png",
     });
   }
-  if (matchedRom.moby_url_cover) {
+  if (matchedRom.moby_url_cover || matchedRom.moby_id) {
     sources.value.push({
       url_cover: matchedRom.moby_url_cover,
       name: "Mobygames",
       logo_path: "/assets/scrappers/moby.png",
     });
   }
-  if (matchedRom.ss_url_cover) {
+  if (matchedRom.ss_url_cover || matchedRom.ss_id) {
     sources.value.push({
       url_cover: matchedRom.ss_url_cover,
       name: "Screenscraper",
