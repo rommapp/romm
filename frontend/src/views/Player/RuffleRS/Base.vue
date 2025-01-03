@@ -69,9 +69,15 @@ onMounted(async () => {
   rom.value = romResponse.data;
 
   const script = document.createElement("script");
-  script.src = heartbeat.value.SYSTEM.SLIM_IMAGE
-    ? `https://unpkg.com/@ruffle-rs/ruffle@${RUFFLE_VERSION}/ruffle.js`
-    : "/assets/ruffle/ruffle.js";
+  script.src = "/assets/ruffle/ruffle.js";
+
+  script.onerror = () => {
+    const fallbackScript = document.createElement("script");
+    fallbackScript.src =
+      "https://unpkg.com/@ruffle-rs/ruffle@${RUFFLE_VERSION}/ruffle.js";
+    document.body.appendChild(fallbackScript);
+  };
+
   document.body.appendChild(script);
 });
 </script>
