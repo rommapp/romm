@@ -44,10 +44,10 @@ function onPlay() {
   }
 
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
-  window.EJS_pathtodata = "/assets/emulatorjs/";
+  window.EJS_pathtodata = "/assets/emulatorjs/data/";
 
   const script = document.createElement("script");
-  script.src = "/assets/emulatorjs/loader.js";
+  script.src = "/assets/emulatorjs/data/loader.js";
 
   script.onerror = () => {
     window.EJS_pathtodata = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;

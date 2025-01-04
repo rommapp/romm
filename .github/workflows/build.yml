@@ -44,10 +44,13 @@ jobs:
           images: |
             name=rommapp/romm
             name=ghcr.io/rommapp/romm
+          flavor: |
+            latest=auto
+            suffix=-slim,onlatest=true
           tags: |
-            type=semver,pattern={{version}}-slim
-            type=semver,pattern={{major}}.{{minor}}-slim
-            type=semver,pattern={{major}}-slim
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
           labels: |
             org.opencontainers.image.version={{version}}-slim
             org.opencontainers.image.title="rommapp/romm"
