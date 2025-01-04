@@ -141,6 +141,8 @@ COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
 COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
 COPY ./frontend/assets/scrappers ${WEBSERVER_FOLDER}/assets/scrappers
 COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
+COPY ./frontend/assets/emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
+COPY ./frontend/assets/ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
     ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
