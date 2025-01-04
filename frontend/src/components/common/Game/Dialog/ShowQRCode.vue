@@ -17,10 +17,19 @@ emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
 
   await nextTick();
 
-  const downloadLink = getDownloadLink({
-    rom: romToView,
-    files: [],
-  });
+  const downloadLink =
+    romToView.file_extension.toLowerCase() === "cia"
+      ? getDownloadLink({
+          rom: romToView,
+          files: [],
+        })
+      : getDownloadLink({
+          rom: romToView,
+          files: [
+            romToView.files.filter((f) => f["filename"].endsWith(".cia"))[0]
+              .filename,
+          ],
+        });
 
   const qrCode = document.getElementById("qr-code");
   qrcode.toCanvas(qrCode, downloadLink, {
