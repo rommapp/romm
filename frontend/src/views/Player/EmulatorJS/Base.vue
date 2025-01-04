@@ -4,6 +4,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
@@ -13,11 +14,14 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
+const EMULATORJS_VERSION = "4.2.0";
+
 // Props
 const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
+const heartbeat = storeHeartbeat();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
@@ -28,9 +32,6 @@ const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
-const script = document.createElement("script");
-script.src = "/assets/emulatorjs/loader.js";
-script.async = true;
 
 // Functions
 function onPlay() {
@@ -41,7 +42,20 @@ function onPlay() {
       updateLastPlayed: true,
     });
   }
+
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
+  window.EJS_pathtodata = "/assets/emulatorjs/";
+
+  const script = document.createElement("script");
+  script.src = "/assets/emulatorjs/loader.js";
+
+  script.onerror = () => {
+    window.EJS_pathtodata = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
+    const fallbackScript = document.createElement("script");
+    fallbackScript.src = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/loader.js`;
+    document.body.appendChild(fallbackScript);
+  };
+
   document.body.appendChild(script);
   gameRunning.value = true;
 }
