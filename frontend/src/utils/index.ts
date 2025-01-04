@@ -550,6 +550,6 @@ export function getStatusKeyForText(text: string) {
  */
 export function is3DSCIARom(rom: SimpleRom) {
   if (rom.platform_slug !== "3ds") return false;
-  if (rom.file_extension === "cia") return true;
-  return rom.files.some((f) => f["filename"].endsWith(".cia"));
+  if (rom.file_extension.toLowerCase() === "cia") return true;
+  return rom.files.some((f) => f["filename"].toLowerCase().endsWith(".cia"));
 }
