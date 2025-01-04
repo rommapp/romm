@@ -14,7 +14,7 @@ const { continuePlayingRoms } = storeToRefs(romsStore);
 const gridContinuePlayingRoms = isNull(
   localStorage.getItem("settings.gridContinuePlayingRoms"),
 )
-  ? true
+  ? false
   : localStorage.getItem("settings.gridContinuePlayingRoms") === "true";
 </script>
 <template>
