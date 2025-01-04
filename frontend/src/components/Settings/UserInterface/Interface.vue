@@ -14,7 +14,7 @@ const showRecentRomsRef = ref(
 );
 const storedGridRecentRoms = localStorage.getItem("settings.gridRecentRoms");
 const gridRecentRomsRef = ref(
-  isNull(storedGridRecentRoms) ? true : storedGridRecentRoms === "true",
+  isNull(storedGridRecentRoms) ? false : storedGridRecentRoms === "true",
 );
 const storedShowContinuePlaying = localStorage.getItem(
   "settings.showContinuePlaying",
@@ -29,7 +29,7 @@ const storedGridContinuePlaying = localStorage.getItem(
 );
 const gridContinuePlayingRef = ref(
   isNull(storedGridContinuePlaying)
-    ? true
+    ? false
     : storedGridContinuePlaying === "true",
 );
 const storedShowPlatforms = localStorage.getItem("settings.showPlatforms");
