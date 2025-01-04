@@ -89,7 +89,7 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
     rm -f "${RUFFLE_FILE}";
 
 FROM alpine:${ALPINE_VERSION} AS nginx-build
-
+    
 RUN apk add --no-cache \
     gcc \
     git \
@@ -178,5 +178,6 @@ ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/init"]
 
 FROM slim-image AS full-image
+ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
