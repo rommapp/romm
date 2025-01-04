@@ -1,6 +1,11 @@
 from typing import TypedDict
 
 
+class SystemDict(TypedDict):
+    VERSION: str
+    SHOW_SETUP_WIZARD: bool
+
+
 class WatcherDict(TypedDict):
     ENABLED: bool
     TITLE: str
@@ -17,9 +22,14 @@ class SchedulerDict(TypedDict):
 
 
 class MetadataSourcesDict(TypedDict):
+    ANY_SOURCE_ENABLED: bool
     IGDB_API_ENABLED: bool
     MOBY_API_ENABLED: bool
     STEAMGRIDDB_ENABLED: bool
+
+
+class FilesystemDict(TypedDict):
+    FS_PLATFORMS: list[str]
 
 
 class EmulationDict(TypedDict):
@@ -37,13 +47,11 @@ class OIDCDict(TypedDict):
 
 
 class HeartbeatResponse(TypedDict):
-    VERSION: str
-    SHOW_SETUP_WIZARD: bool
+    SYSTEM: SystemDict
     WATCHER: WatcherDict
     SCHEDULER: SchedulerDict
-    ANY_SOURCE_ENABLED: bool
     METADATA_SOURCES: MetadataSourcesDict
-    FS_PLATFORMS: list
+    FILESYSTEM: FilesystemDict
     EMULATION: EmulationDict
     FRONTEND: FrontendDict
     OIDC: OIDCDict
