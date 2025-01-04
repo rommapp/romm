@@ -80,13 +80,13 @@ RUN apk add --no-cache \
 ARG EMULATORJS_VERSION=4.2.0
 RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
-    rm -rf "${EMULATORJS_VERSION}.7z"; \
+    rm -rf "${EMULATORJS_VERSION}.7z";
 
 ARG RUFFLE_VERSION=nightly-2024-12-28
 ARG RUFFLE_FILE=ruffle-nightly-2024_12_28-web-selfhosted.zip
 RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
     unzip -o "${RUFFLE_FILE}" -d /ruffle && \
-    rm -f "${RUFFLE_FILE}"; \
+    rm -f "${RUFFLE_FILE}";
 
 FROM alpine:${ALPINE_VERSION} AS nginx-build
 
