@@ -86,7 +86,7 @@ export function convertCronExperssion(expression: string) {
  * @param files Optional array of file names to include in the download.
  * @returns The download link.
  */
-export function getDownloadLink({
+export function getDownloadPath({
   rom,
   files = [],
 }: {
@@ -100,6 +100,16 @@ export function getDownloadLink({
   return `/api/roms/${rom.id}/content/${
     rom.file_name
   }?${queryParams.toString()}`;
+}
+
+export function getDownloadLink({
+  rom,
+  files = [],
+}: {
+  rom: SimpleRom;
+  files?: string[];
+}) {
+  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, files }))}`;
 }
 
 /**
@@ -531,4 +541,15 @@ export function getTextForStatus(status: PlayingStatus) {
  */
 export function getStatusKeyForText(text: string) {
   return inverseRomStatusMap[text];
+}
+
+/**
+ * Check if a ROM is a 3DS .CIA file
+ * @param rom The ROM object.
+ * @returns True if the ROM is a 3DS .CIA file, false otherwise.
+ */
+export function is3DSCIARom(rom: SimpleRom) {
+  if (rom.platform_slug !== "3ds") return false;
+  if (rom.file_extension.toLowerCase() === "cia") return true;
+  return rom.files.some((f) => f["filename"].toLowerCase().endsWith(".cia"));
 }
