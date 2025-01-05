@@ -26,7 +26,7 @@ router = APIRouter()
 @protected_route(router.get, "/search/roms", [Scope.ROMS_READ])
 async def search_rom(
     request: Request,
-    rom_id: str,
+    rom_id: int,
     search_term: str | None = None,
     search_by: str = "name",
 ) -> list[SearchRomSchema]:
@@ -34,7 +34,7 @@ async def search_rom(
 
     Args:
         request (Request): FastAPI request
-        rom_id (str): Rom ID
+        rom_id (int): Rom ID
         source (str): Source of the rom
         search_term (str, optional): Search term. Defaults to None.
         search_by (str, optional): Search by name or ID. Defaults to "name".

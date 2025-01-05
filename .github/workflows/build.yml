@@ -37,7 +37,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Docker metadata
+      - name: Generate Docker metadata (slim)
+        id: meta-slim
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            name=rommapp/romm
+            name=ghcr.io/rommapp/romm
+          flavor: |
+            latest=auto
+            suffix=-slim,onlatest=true
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          labels: |
+            org.opencontainers.image.version={{version}}-slim
+            org.opencontainers.image.title="rommapp/romm"
+            org.opencontainers.image.description="RomM (ROM Manager) allows you to scan, enrich, and browse your game collection with a clean and responsive interface. With support for multiple platforms, various naming schemes and custom tags, RomM is a must-have for anyone who plays on emulators."
+            org.opencontainers.image.licenses="AGPLv3"
+
+      - name: Generate Docker metadata (full)
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -58,7 +78,20 @@ jobs:
         run: |
           sed -i 's/<version>/${{ steps.meta.outputs.version }}/' backend/__version__.py
 
-      - name: Build base image
+      - name: Build slim image
+        id: build-slim
+        uses: docker/build-push-action@v6
+        with:
+          file: docker/Dockerfile
+          context: .
+          push: true
+          platforms: linux/arm64,linux/amd64
+          tags: ${{ steps.meta-slim.outputs.tags }}
+          labels: ${{ steps.meta-slim.outputs.labels }}
+          target: slim-image
+
+      - name: Build full image
+        id: build-full
         uses: docker/build-push-action@v6
         with:
           file: docker/Dockerfile
@@ -67,3 +100,4 @@ jobs:
           platforms: linux/arm64,linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          target: full-image
