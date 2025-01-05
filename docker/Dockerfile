@@ -1,12 +1,15 @@
 # Stages:
 #   - frontend-build: Build frontend
 #   - backend-build: Build backend environment
+#   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
 #   - slim-image: Slim image with only the necessary files
 #   - full-image: Full image with emulator stage
+#   - dev-slim: Slim image with development dependencies
+#   - dev-full: Full image with emulator stage and development dependencies
 
 # Versions:
 ARG ALPINE_VERSION=3.20
@@ -47,6 +50,11 @@ ENV POETRY_NO_INTERACTION=1 \
 WORKDIR /src
 
 COPY ./pyproject.toml ./poetry.lock /src/
+RUN poetry install --no-ansi --no-cache --only main
+
+
+FROM backend-build AS backend-dev-build
+
 RUN poetry install --no-ansi --no-cache
 
 
@@ -89,7 +97,7 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
     rm -f "${RUFFLE_FILE}";
 
 FROM alpine:${ALPINE_VERSION} AS nginx-build
-    
+
 RUN apk add --no-cache \
     gcc \
     git \
@@ -179,7 +187,20 @@ WORKDIR /romm
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["/init"]
 
+
 FROM slim-image AS full-image
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+
+
+FROM slim-image AS dev-slim
+COPY --from=backend-dev-build /src/.venv /src/.venv
+# Fix virtualenv link to python binary
+RUN ln -sf "$(which python)" /src/.venv/bin/python
+
+
+FROM full-image AS dev-full
+COPY --from=backend-dev-build /src/.venv /src/.venv
+# Fix virtualenv link to python binary
+RUN ln -sf "$(which python)" /src/.venv/bin/python
