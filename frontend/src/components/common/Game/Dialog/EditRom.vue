@@ -16,7 +16,7 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const theme = useTheme();
-const { lgAndUp, mdAndUp, smAndDown } = useDisplay();
+const { lgAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
