@@ -49,7 +49,7 @@ py7zr = { git = "https://github.com/adamantike/py7zr.git", rev = "54b68426" }
 sentry-sdk = "^2.19"
 # TODO: Move back to official releases once the following PR is merged and released:
 #       https://github.com/python-poetry/poetry-core/pull/803
-streaming-form-data = { git = "https://github.com/gantoine/streaming-form-data.git", rev = "5a1f7a7" }
+streaming-form-data = { git = "https://github.com/gantoine/streaming-form-data.git", rev = "b8a49ba" }
 zipfile-deflate64 = "^0.2.0"
 colorama = "^0.4.6"
 types-colorama = "^0.4"
