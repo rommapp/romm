@@ -8,6 +8,7 @@ import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
   getDownloadLink,
+  is3DSCIARom,
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
 } from "@/utils";
@@ -20,6 +21,7 @@ const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const playInfoIcon = ref("mdi-play");
+const qrCodeIcon = ref("mdi-qrcode");
 
 const ejsEmulationSupported = computed(() =>
   isEJSEmulationSupported(props.rom.platform_slug, heartbeatStore.value),
@@ -27,19 +29,16 @@ const ejsEmulationSupported = computed(() =>
 const ruffleEmulationSupported = computed(() =>
   isRuffleEmulationSupported(props.rom.platform_slug, heartbeatStore.value),
 );
+const isCIARom = computed(() => {
+  return is3DSCIARom(props.rom);
+});
 
 // Functions
 async function copyDownloadLink(rom: DetailedRom) {
-  const downloadLink =
-    location.protocol +
-    "//" +
-    location.host +
-    encodeURI(
-      getDownloadLink({
-        rom,
-        files: downloadStore.filesToDownload,
-      }),
-    );
+  const downloadLink = getDownloadLink({
+    rom,
+    files: downloadStore.filesToDownload,
+  });
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(downloadLink);
     emitter?.emit("snackbarShow", {
@@ -109,6 +108,13 @@ async function copyDownloadLink(rom: DetailedRom) {
         "
       >
         <v-icon :icon="playInfoIcon" />
+      </v-btn>
+      <v-btn
+        v-if="isCIARom"
+        class="flex-grow-1"
+        @click="emitter?.emit('showQRCodeDialog', rom)"
+      >
+        <v-icon :icon="qrCodeIcon" />
       </v-btn>
       <v-menu location="bottom">
         <template #activator="{ props: menuProps }">

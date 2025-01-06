@@ -2977,48 +2977,18 @@ name = "streaming-form-data"
 version = "1.19.0"
 description = "Streaming parser for multipart/form-data"
 optional = false
-python-versions = "<4.0,>=3.9"
-files = [
-    {file = "streaming_form_data-1.19.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:ca1e1ba8b6660eafd2b67272d90dde34830a3d2da7d1ddbb50f5707e80540cd3"},
-    {file = "streaming_form_data-1.19.0-cp310-cp310-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:88f74d118a1439e4bf64cdc2db8bdb24a55b048eaafb35ac3b8e0349199b2b1c"},
-    {file = "streaming_form_data-1.19.0-cp310-cp310-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:044f5964ce898f7be3e4d1b696436c73aa83a8260f56f93918c469e8ad50ef91"},
-    {file = "streaming_form_data-1.19.0-cp310-cp310-musllinux_1_2_i686.whl", hash = "sha256:f5a32820beeb53eed5ffb4932d06a324997884f1213c6ced4f8674cdc1397fc5"},
-    {file = "streaming_form_data-1.19.0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:1bb8690621b4e39693a58004adc29c0cf711af054cbe7c5b7dd73663c1f8c9c3"},
-    {file = "streaming_form_data-1.19.0-cp310-cp310-win32.whl", hash = "sha256:e638866bc21559aec52e03619151bb8598c3cd6e8702e275d215fe2d46634e5e"},
-    {file = "streaming_form_data-1.19.0-cp310-cp310-win_amd64.whl", hash = "sha256:f1a61ed18bffb31c7d5f9b69206699c10ec81d34d6fa3d72762d173020a5ca0c"},
-    {file = "streaming_form_data-1.19.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:2f70e491e2d73e56310e5f175b7f1a906757b269e3d08bed1a564981c7fd8a9b"},
-    {file = "streaming_form_data-1.19.0-cp311-cp311-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:26a9c20c4e8c27b70d87b970fcb4b3725e2b497e1a73665eaa3f454bff6f78e4"},
-    {file = "streaming_form_data-1.19.0-cp311-cp311-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b95907749033e2acca14460d753216d2686eb5fb3ad0a22983ed25b2a03c8357"},
-    {file = "streaming_form_data-1.19.0-cp311-cp311-musllinux_1_2_i686.whl", hash = "sha256:15a3c6f6bebcaec33c40a028085eb7bbd6facbf46ce815d64ae04bcc68b610b8"},
-    {file = "streaming_form_data-1.19.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:cd5377ddf1a2c882f64be5e9c49a45b49d0728f6ba966d487063135064cf76e3"},
-    {file = "streaming_form_data-1.19.0-cp311-cp311-win32.whl", hash = "sha256:c4e197fb8fae86c21e63caef6f08d246a848601f108dd905ff13319e91c4d931"},
-    {file = "streaming_form_data-1.19.0-cp311-cp311-win_amd64.whl", hash = "sha256:8fbf96ed454d5bb6d8a7011c92d2925b9455cb2c3f560483fb73e34fc2316893"},
-    {file = "streaming_form_data-1.19.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6ae719909ce1d613678b6d594c26a640787ec3285d7a38cd897741778079a7e8"},
-    {file = "streaming_form_data-1.19.0-cp312-cp312-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:6fef82666eaee003f0fd49e8b42d9903af9fc513011fa9afd1d6a5affa4a8002"},
-    {file = "streaming_form_data-1.19.0-cp312-cp312-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:02bdc2f779dbdc3dd9992808808ee033414c5c3ffe3a012318c60323dfa446e9"},
-    {file = "streaming_form_data-1.19.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:902ea91acf7426cdf400e86778b45e366d0b054b80bd9dd3f1955c8b30a7e73f"},
-    {file = "streaming_form_data-1.19.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:80eb43f4401435e1e3ca7fecb511ce5dff05520e4b4e6c26f6fa015fdd50339e"},
-    {file = "streaming_form_data-1.19.0-cp312-cp312-win32.whl", hash = "sha256:e94ef440297b1a9d871ae783b65c36d560556ebeb493af7f3d1d98d42e56ebc2"},
-    {file = "streaming_form_data-1.19.0-cp312-cp312-win_amd64.whl", hash = "sha256:edb5f33e1433d277a93443661798d5ee264045982c111add431109189f1873e4"},
-    {file = "streaming_form_data-1.19.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:101e297ef5ff7b04c5acf77cf5fd62ea892a0671f0cf09bb2c6e65ce4ce0abc8"},
-    {file = "streaming_form_data-1.19.0-cp313-cp313-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:999ab2e72e41eee195ae9f232f5c17bab9f26a396ea1f531ff123defbe8dbc5b"},
-    {file = "streaming_form_data-1.19.0-cp313-cp313-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7ca9b0e3953a4388e784b537481d0e5b045e1ab68670e51ede77250a02aa596a"},
-    {file = "streaming_form_data-1.19.0-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:5f6627ba9a17a9f1b5b42f71d6c213b5d456d2a68fd444312e43b5c32b9164eb"},
-    {file = "streaming_form_data-1.19.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:6f51f36b294fb0963b2436b6d916e449a8e176ebaa5a6982d91e2ff91e83622a"},
-    {file = "streaming_form_data-1.19.0-cp313-cp313-win32.whl", hash = "sha256:51b1f99141c5237c0fc3fe70e038d7e06247427165e8c9d32f139a83178b72de"},
-    {file = "streaming_form_data-1.19.0-cp313-cp313-win_amd64.whl", hash = "sha256:45045d23c6dfdb12ad1f32c0135061b4796c4093a704f46bd0d68c067c509ae2"},
-    {file = "streaming_form_data-1.19.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:ab409ff12f2c37dc7d395b00686ee3dcf18796ec25c65bc134d094443768a8d2"},
-    {file = "streaming_form_data-1.19.0-cp39-cp39-manylinux_2_17_i686.manylinux_2_5_i686.manylinux1_i686.manylinux2014_i686.whl", hash = "sha256:ffe524ba6bf89b5c8b55bbff45e667fb59422494744c9b934a87a0e18ea859f7"},
-    {file = "streaming_form_data-1.19.0-cp39-cp39-manylinux_2_17_x86_64.manylinux_2_5_x86_64.manylinux1_x86_64.manylinux2014_x86_64.whl", hash = "sha256:56d931d3e6e66916a88c8b8bc0d5c7355d54e3e929544d99b82fd8a91cf250cc"},
-    {file = "streaming_form_data-1.19.0-cp39-cp39-musllinux_1_2_i686.whl", hash = "sha256:3276f11be47f1e1b668075f837f25bb4db35f1d57ebf9cffd99e08f4ba0815e1"},
-    {file = "streaming_form_data-1.19.0-cp39-cp39-musllinux_1_2_x86_64.whl", hash = "sha256:ceb2a357b9b7154610f817108af2b85a496e9c892c021b53702f3fc15f05cfae"},
-    {file = "streaming_form_data-1.19.0-cp39-cp39-win32.whl", hash = "sha256:96848c382961aca519a3464b1768dfac75f6651e9c993b5437a63302e97d35bd"},
-    {file = "streaming_form_data-1.19.0-cp39-cp39-win_amd64.whl", hash = "sha256:f729ce481e40134af69040b54d63d2ce5160a873f79bf031ec3d143dd7206448"},
-    {file = "streaming_form_data-1.19.0.tar.gz", hash = "sha256:e27a8424785d30c5e897cbd7223c96ea84d2c3146fd4a24f821a611338cdadd4"},
-]
+python-versions = "^3.9"
+files = []
+develop = false
 
 [package.dependencies]
-smart-open = ">=6.0,<7.0"
+smart-open = "^6.0"
+
+[package.source]
+type = "git"
+url = "https://github.com/gantoine/streaming-form-data.git"
+reference = "5a1f7a7"
+resolved_reference = "5a1f7a7d61f53288b9144fc1cffe51495c8e4f93"
 
 [[package]]
 name = "texttable"
@@ -3612,4 +3582,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "68abad24858cd9853f757d6587a6d0acf56a3188bff6c67b5ec3579ea8e99a7f"
+content-hash = "ca9529df280994c5185b9501b211f3fdaa72de1576d50c33c8ce9df95ca6dedf"

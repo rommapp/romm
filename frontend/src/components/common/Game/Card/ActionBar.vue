@@ -4,13 +4,20 @@ import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
-import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
-import { computed } from "vue";
+import type { Events } from "@/types/emitter";
+import {
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
+  is3DSCIARom,
+} from "@/utils";
+import type { Emitter } from "mitt";
+import { computed, inject } from "vue";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
+const emitter = inject<Emitter<Events>>("emitter");
 
 const ejsEmulationSupported = computed(() => {
   return isEJSEmulationSupported(props.rom.platform_slug, heartbeatStore.value);
@@ -21,6 +28,10 @@ const ruffleEmulationSupported = computed(() => {
     props.rom.platform_slug,
     heartbeatStore.value,
   );
+});
+
+const isCIARom = computed(() => {
+  return is3DSCIARom(props.rom);
 });
 </script>
 
@@ -68,6 +79,17 @@ const ruffleEmulationSupported = computed(() => {
           })
         "
         icon="mdi-play"
+        rounded="0"
+        variant="text"
+      />
+    </v-col>
+    <v-col v-if="isCIARom" class="d-flex">
+      <v-btn
+        @click.prevent
+        class="action-bar-btn-small flex-grow-1"
+        size="x-small"
+        @click="emitter?.emit('showQRCodeDialog', rom)"
+        icon="mdi-qrcode"
         rounded="0"
         variant="text"
       />
