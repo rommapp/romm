@@ -398,12 +398,12 @@ class SSBaseHandler(MetadataHandler):
 
         return SSGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
-    async def get_matched_roms_by_id(self, ss_id: int) -> list[SSGamesRom]:
+    async def get_matched_rom_by_id(self, ss_id: int) -> SSGamesRom | None:
         if not SS_API_ENABLED:
-            return []
+            return None
 
         rom = await self.get_rom_by_id(ss_id)
-        return [rom] if rom.get("ss_id", "") else []
+        return rom if rom.get("ss_id", "") else None
 
     async def get_matched_roms_by_name(
         self, search_term: str, platform_ss_id: int
