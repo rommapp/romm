@@ -38,8 +38,9 @@ def heartbeat() -> HeartbeatResponse:
             "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
         },
         "METADATA_SOURCES": {
-            "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED or SS_API_ENABLED,
-            "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
+            "ANY_SOURCE_ENABLED": IGDB_API_ENABLED
+            or MOBY_API_ENABLED
+            or SS_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
