@@ -460,6 +460,7 @@ class SlugToSSId(TypedDict):
 
 
 SLUG_TO_SS_ID: dict[str, SlugToSSId] = {
+    "3do": {"id": 29, "name": "3DO"},
     "acorn-electron": {"id": 85, "name": "Acorn Electron"},
     "dc": {"id": 23, "name": "Dreamcast"},
     "gb": {"id": 9, "name": "Game Boy"},
