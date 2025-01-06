@@ -72,12 +72,10 @@ async def search_rom(
 
     if search_by.lower() == "id":
         try:
-            igdb_rom = meta_igdb_handler.get_matched_roms_by_id(int(search_term))
-            moby_rom = meta_moby_handler.get_matched_roms_by_id(int(search_term))
-            ss_rom = meta_ss_handler.get_matched_roms_by_id(int(search_term))
-
-            igdb_matched_roms, moby_matched_roms, ss_matched_roms = (
-                await asyncio.gather(igdb_rom, moby_rom, ss_rom)
+            igdb_rom, moby_rom, ss_rom = await asyncio.gather(
+                meta_igdb_handler.get_matched_rom_by_id(int(search_term)),
+                meta_moby_handler.get_matched_rom_by_id(int(search_term)),
+                meta_ss_handler.get_matched_rom_by_id(int(search_term)),
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -90,18 +88,14 @@ async def search_rom(
             moby_matched_roms = [moby_rom] if moby_rom else []
             ss_matched_roms = [ss_rom] if ss_rom else []
     elif search_by.lower() == "name":
-        igdb_task = meta_igdb_handler.get_matched_roms_by_name(
-            search_term, (await _get_main_platform_igdb_id(rom.platform))
-        )
-        moby_task = meta_moby_handler.get_matched_roms_by_name(
-            search_term, rom.platform.moby_id
-        )
-        ss_rom = meta_ss_handler.get_matched_roms_by_name(
-            search_term, rom.platform.ss_id
-        )
-
         igdb_matched_roms, moby_matched_roms, ss_matched_roms = await asyncio.gather(
-            igdb_task, moby_task, ss_rom
+            meta_igdb_handler.get_matched_roms_by_name(
+                search_term, (await _get_main_platform_igdb_id(rom.platform))
+            ),
+            meta_moby_handler.get_matched_roms_by_name(
+                search_term, rom.platform.moby_id
+            ),
+            meta_ss_handler.get_matched_roms_by_name(search_term, rom.platform.ss_id),
         )
 
     merged_dict: dict[str, dict] = {}
