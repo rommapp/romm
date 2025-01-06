@@ -2987,8 +2987,8 @@ smart-open = "^6.0"
 [package.source]
 type = "git"
 url = "https://github.com/gantoine/streaming-form-data.git"
-reference = "5a1f7a7"
-resolved_reference = "5a1f7a7d61f53288b9144fc1cffe51495c8e4f93"
+reference = "b8a49ba"
+resolved_reference = "b8a49ba413ac75fec54a6982411f5318853f0f57"
 
 [[package]]
 name = "texttable"
@@ -3582,4 +3582,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "ca9529df280994c5185b9501b211f3fdaa72de1576d50c33c8ce9df95ca6dedf"
+content-hash = "5c2a001de459f5cd5586f834cec3607163ec3800a466332b37afeb7b9862219e"
