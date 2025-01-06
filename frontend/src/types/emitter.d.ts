@@ -77,4 +77,5 @@ export type Events = {
   updateDataTablePages: null;
   sortBarShow: null;
   romUpdated: DetailedRom;
+  showQRCodeDialog: SimpleRom;
 };

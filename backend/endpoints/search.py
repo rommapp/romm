@@ -66,14 +66,18 @@ async def search_rom(
 
     log.info(f"Searching by {search_by.lower()}: {search_term}")
     log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.file_name}"))
+
+    igdb_matched_roms = []
+    moby_matched_roms = []
+
     if search_by.lower() == "id":
         try:
-            igdb_task = meta_igdb_handler.get_matched_roms_by_id(int(search_term))
-            moby_task = meta_moby_handler.get_matched_roms_by_id(int(search_term))
-            ss_task = meta_ss_handler.get_matched_roms_by_id(int(search_term))
+            igdb_rom = meta_igdb_handler.get_matched_roms_by_id(int(search_term))
+            moby_rom = meta_moby_handler.get_matched_roms_by_id(int(search_term))
+            ss_rom = meta_ss_handler.get_matched_roms_by_id(int(search_term))
 
             igdb_matched_roms, moby_matched_roms, ss_matched_roms = (
-                await asyncio.gather(igdb_task, moby_task, ss_task)
+                await asyncio.gather(igdb_rom, moby_rom, ss_rom)
             )
         except ValueError as exc:
             log.error(f"Search error: invalid ID '{search_term}'")
@@ -81,6 +85,10 @@ async def search_rom(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Tried searching by ID, but '{search_term}' is not a valid ID",
             ) from exc
+        else:
+            igdb_matched_roms = [igdb_rom] if igdb_rom else []
+            moby_matched_roms = [moby_rom] if moby_rom else []
+            ss_matched_roms = [ss_rom] if ss_rom else []
     elif search_by.lower() == "name":
         igdb_task = meta_igdb_handler.get_matched_roms_by_name(
             search_term, (await _get_main_platform_igdb_id(rom.platform))
@@ -88,12 +96,12 @@ async def search_rom(
         moby_task = meta_moby_handler.get_matched_roms_by_name(
             search_term, rom.platform.moby_id
         )
-        ss_task = meta_ss_handler.get_matched_roms_by_name(
+        ss_rom = meta_ss_handler.get_matched_roms_by_name(
             search_term, rom.platform.ss_id
         )
 
         igdb_matched_roms, moby_matched_roms, ss_matched_roms = await asyncio.gather(
-            igdb_task, moby_task, ss_task
+            igdb_task, moby_task, ss_rom
         )
 
     merged_dict: dict[str, dict] = {}
