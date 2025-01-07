@@ -101,7 +101,7 @@ function closeDialog() {
       <v-row class="py-2 px-4 align-center" no-gutters>
         <v-col cols="6">
           <v-select
-            :items="heartbeat.value.FS_PLATFORMS"
+            :items="heartbeat.value.FILESYSTEM.FS_PLATFORMS"
             v-model="fsSlugToCreate"
             :label="t('settings.platform-version')"
             variant="outlined"

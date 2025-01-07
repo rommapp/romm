@@ -558,12 +558,12 @@ class IGDBBaseHandler(MetadataHandler):
         )
 
     @check_twitch_token
-    async def get_matched_roms_by_id(self, igdb_id: int) -> list[IGDBRom]:
+    async def get_matched_rom_by_id(self, igdb_id: int) -> IGDBRom | None:
         if not IGDB_API_ENABLED:
-            return []
+            return None
 
         rom = await self.get_rom_by_id(igdb_id)
-        return [rom] if rom["igdb_id"] else []
+        return rom if rom["igdb_id"] else None
 
     @check_twitch_token
     async def get_matched_roms_by_name(

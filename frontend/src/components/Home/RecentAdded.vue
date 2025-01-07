@@ -12,7 +12,7 @@ const { t } = useI18n();
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
 const gridRecentRoms = isNull(localStorage.getItem("settings.gridRecentRoms"))
-  ? true
+  ? false
   : localStorage.getItem("settings.gridRecentRoms") === "true";
 </script>
 <template>

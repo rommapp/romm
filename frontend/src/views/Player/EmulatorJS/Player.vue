@@ -4,7 +4,7 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
-import { getSupportedEJSCores } from "@/utils";
+import { areThreadsRequiredForEJSCore, getSupportedEJSCores } from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -17,6 +17,57 @@ const props = defineProps<{
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
+
+// Declare global variables for EmulatorJS
+declare global {
+  interface Window {
+    EJS_core: string;
+    EJS_biosUrl: string;
+    EJS_player: string;
+    EJS_pathtodata: string;
+    EJS_color: string;
+    EJS_defaultOptions: object;
+    EJS_gameID: number;
+    EJS_gameName: string;
+    EJS_backgroundImage: string;
+    EJS_gameUrl: string;
+    EJS_loadStateURL: string | null;
+    EJS_cheats: string;
+    EJS_gamePatchUrl: string;
+    EJS_netplayServer: string;
+    EJS_alignStartButton: "top" | "center" | "bottom";
+    EJS_startOnLoaded: boolean;
+    EJS_fullscreenOnLoaded: boolean;
+    EJS_threads: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    EJS_emulator: any;
+    EJS_onGameStart: () => void;
+    EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
+    EJS_onLoadState: () => void;
+    EJS_onSaveSave: (args: { screenshot: File; save: File }) => void;
+    EJS_onLoadSave: () => void;
+  }
+}
+
+const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
+window.EJS_core =
+  supportedCores.find((core) => core === props.core) ?? supportedCores[0];
+window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
+window.EJS_gameID = romRef.value.id;
+window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
+window.EJS_biosUrl = props.bios
+  ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
+  : "";
+window.EJS_player = "#game";
+window.EJS_color = "#A453FF";
+window.EJS_alignStartButton = "center";
+window.EJS_startOnLoaded = true;
+window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
+window.EJS_defaultOptions = {
+  "save-state-location": "browser",
+  rewindEnabled: "enabled",
+};
+if (romRef.value.name) window.EJS_gameName = romRef.value.name;
 
 onBeforeUnmount(() => {
   window.location.reload();
@@ -56,56 +107,6 @@ onMounted(() => {
     localStorage.removeItem(`player:${props.rom.platform_slug}:core`);
   }
 });
-
-// Declare global variables for EmulatorJS
-declare global {
-  interface Window {
-    EJS_core: string;
-    EJS_biosUrl: string;
-    EJS_player: string;
-    EJS_pathtodata: string;
-    EJS_color: string;
-    EJS_defaultOptions: object;
-    EJS_gameID: number;
-    EJS_gameName: string;
-    EJS_backgroundImage: string;
-    EJS_gameUrl: string;
-    EJS_loadStateURL: string | null;
-    EJS_cheats: string;
-    EJS_gamePatchUrl: string;
-    EJS_netplayServer: string;
-    EJS_alignStartButton: "top" | "center" | "bottom";
-    EJS_startOnLoaded: boolean;
-    EJS_fullscreenOnLoaded: boolean;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    EJS_emulator: any;
-    EJS_onGameStart: () => void;
-    EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
-    EJS_onLoadState: () => void;
-    EJS_onSaveSave: (args: { screenshot: File; save: File }) => void;
-    EJS_onLoadSave: () => void;
-  }
-}
-
-const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
-window.EJS_core =
-  supportedCores.find((core) => core === props.core) ?? supportedCores[0];
-window.EJS_gameID = romRef.value.id;
-window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
-window.EJS_biosUrl = props.bios
-  ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
-  : "";
-window.EJS_player = "#game";
-window.EJS_pathtodata = "/assets/emulatorjs/";
-window.EJS_color = "#A453FF";
-window.EJS_alignStartButton = "center";
-window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
-window.EJS_defaultOptions = {
-  "save-state-location": "browser",
-  rewindEnabled: "enabled",
-};
-if (romRef.value.name) window.EJS_gameName = romRef.value.name;
 
 function buildStateName(): string {
   const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
@@ -438,7 +439,7 @@ window.EJS_onGameStart = async () => {
 }
 </style>
 
-<!-- Other config options: https://emulatorjs.org/docs/Options.html -->
+<!-- Other config options: https://emulatorjs.org/docs/options -->
 
 <!-- window.EJS_biosUrl; -->
 <!-- window.EJS_VirtualGamepadSettings; -->

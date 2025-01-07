@@ -123,7 +123,7 @@ stop_process_pid() {
 			info_log "stopping ${PROCESS}"
 			kill "${PID}" || true
 			# wait for process exit
-			while [ -e "/proc/${PID}" ]; do sleep 0.1; done
+			while [[ -e "/proc/${PID}" ]]; do sleep 0.1; done
 		fi
 	fi
 }
