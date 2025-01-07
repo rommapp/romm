@@ -1,10 +1,12 @@
 import os
 from datetime import timedelta
 
+import sentry_sdk
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+    SENTRY_DSN,
 )
 from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
@@ -12,8 +14,14 @@ from handler.database import db_platform_handler
 from handler.scan_handler import ScanType
 from logger.logger import log
 from tasks.tasks import tasks_scheduler
+from utils import get_version
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
+
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    release="romm@" + get_version(),
+)
 
 path = (
     cm.get_config().HIGH_PRIO_STRUCTURE_PATH

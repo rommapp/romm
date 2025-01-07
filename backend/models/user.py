@@ -30,9 +30,12 @@ class User(BaseModel, SimpleUser):
 
     username: Mapped[str] = mapped_column(String(length=255), unique=True, index=True)
     hashed_password: Mapped[str | None] = mapped_column(String(length=255))
+    email: Mapped[str | None] = mapped_column(
+        String(length=255), unique=True, index=True
+    )
     enabled: Mapped[bool] = mapped_column(default=True)
-    role: Mapped[Role | None] = mapped_column(Enum(Role), default=Role.VIEWER)
-    avatar_path: Mapped[str | None] = mapped_column(String(length=255), default="")
+    role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER)
+    avatar_path: Mapped[str] = mapped_column(String(length=255), default="")
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_active: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

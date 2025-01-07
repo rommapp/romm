@@ -1,0 +1,16 @@
+{
+  "search-collection": "Buscar coleção",
+  "add-collection": "Adicionar coleção",
+  "edit-collection": "Editar coleção",
+  "name": "Nome",
+  "description": "Descrição",
+  "owner": "Proprietário",
+  "public": "Público",
+  "public-desc": "Público (visível para todos)",
+  "private": "Privado",
+  "private-desc": "Privado (visível apenas para mim)",
+  "danger-zone": "Zona de perigo",
+  "delete-collection": "Excluir coleção",
+  "removing-collection-1": "Removendo coleção",
+  "removing-collection-2": "do RomM. Você confirma?"
+}

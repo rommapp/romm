@@ -4,8 +4,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const { filterFavourites } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -31,7 +33,7 @@ function setFavourites() {
         'text-romm-white': !filterFavourites,
         'text-romm-accent-1': filterFavourites,
       }"
-      >Show favourites</span
+      >{{ t("platform.show-favourites") }}</span
     ></v-btn
   >
 </template>

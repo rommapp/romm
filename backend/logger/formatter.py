@@ -2,6 +2,7 @@ import logging
 import os
 
 from colorama import Fore, Style, init
+from config import FORCE_COLOR, NO_COLOR
 
 RED = Fore.RED
 GREEN = Fore.GREEN
@@ -10,12 +11,12 @@ YELLOW = Fore.YELLOW
 BLUE = Fore.BLUE
 
 
-def should_strip_ansi():
+def should_strip_ansi() -> bool:
     """Determine if ANSI escape codes should be stripped."""
     # Check if an explicit environment variable is set to control color behavior
-    if os.getenv("FORCE_COLOR", "false").lower() == "true":
+    if FORCE_COLOR:
         return False
-    if os.getenv("NO_COLOR", "false").lower() == "true":
+    if NO_COLOR:
         return True
 
     # For other environments, strip colors if not a TTY
@@ -31,7 +32,7 @@ class Formatter(logging.Formatter):
     Logger formatter.
     """
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """
         Formats a log record with color-coded output based on the log level.
 
@@ -41,8 +42,8 @@ class Formatter(logging.Formatter):
         Returns:
             The formatted log record as a string.
         """
-        level: str = "%(levelname)s"
-        dots: str = f"{Fore.RESET}:"
+        level = "%(levelname)s"
+        dots = f"{Fore.RESET}:"
         identifier = (
             f"\t  {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[{str(record.module_name).lower()}]"
             if hasattr(record, "module_name")
@@ -58,9 +59,9 @@ class Formatter(logging.Formatter):
             if hasattr(record, "module_name")
             else f" {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[%(module)s]"
         )
-        msg: str = f"{Style.RESET_ALL}%(message)s"
-        date: str = f"{Fore.CYAN}[%(asctime)s] "
-        formats: dict = {
+        msg = f"{Style.RESET_ALL}%(message)s"
+        date = f"{Fore.CYAN}[%(asctime)s] "
+        formats = {
             logging.DEBUG: f"{Fore.LIGHTMAGENTA_EX}{level}{dots}{identifier}{date}{msg}",
             logging.INFO: f"{Fore.GREEN}{level}{dots}{identifier}{date}{msg}",
             logging.WARNING: f"{Fore.YELLOW}{level}{dots}{identifier_warning}{date}{msg}",

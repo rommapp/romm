@@ -7,7 +7,7 @@ import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
-import { getDownloadLink } from "@/utils";
+import { getDownloadPath } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
 import storeHeartbeat from "@/stores/heartbeat";
 
@@ -85,6 +85,12 @@ async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
   });
 }
 
+async function getRecentPlayedRoms(): Promise<{ data: SimpleRom[] }> {
+  return api.get("/roms", {
+    params: { order_by: "last_played", order_dir: "desc", limit: 15 },
+  });
+}
+
 async function getRom({
   romId,
 }: {
@@ -120,7 +126,7 @@ async function downloadRom({
   files?: string[];
 }) {
   const a = document.createElement("a");
-  a.href = getDownloadLink({ rom, files });
+  a.href = getDownloadPath({ rom, files });
 
   document.body.appendChild(a);
   a.click();
@@ -176,17 +182,23 @@ async function deleteRoms({
 async function updateUserRomProps({
   romId,
   data,
+  updateLastPlayed = false,
 }: {
   romId: number;
   data: Partial<RomUserSchema>;
+  updateLastPlayed?: boolean;
 }): Promise<{ data: DetailedRom }> {
-  return api.put(`/roms/${romId}/props`, data);
+  return api.put(`/roms/${romId}/props`, {
+    data: data,
+    update_last_played: updateLastPlayed,
+  });
 }
 
 export default {
   uploadRoms,
   getRoms,
   getRecentRoms,
+  getRecentPlayedRoms,
   getRom,
   downloadRom,
   searchRom,

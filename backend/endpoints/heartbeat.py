@@ -4,6 +4,8 @@ from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    OIDC_ENABLED,
+    OIDC_PROVIDER,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
@@ -30,15 +32,19 @@ def heartbeat() -> HeartbeatResponse:
     """
 
     return {
-        "VERSION": get_version(),
-        "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
-        "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
+        "SYSTEM": {
+            "VERSION": get_version(),
+            "SHOW_SETUP_WIZARD": len(db_user_handler.get_admin_users()) == 0,
+        },
         "METADATA_SOURCES": {
+            "ANY_SOURCE_ENABLED": IGDB_API_ENABLED or MOBY_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
         },
-        "FS_PLATFORMS": fs_platform_handler.get_platforms(),
+        "FILESYSTEM": {
+            "FS_PLATFORMS": fs_platform_handler.get_platforms(),
+        },
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
             "TITLE": "Rescan on filesystem change",
@@ -63,4 +69,8 @@ def heartbeat() -> HeartbeatResponse:
             "DISABLE_RUFFLE_RS": DISABLE_RUFFLE_RS,
         },
         "FRONTEND": {"UPLOAD_TIMEOUT": UPLOAD_TIMEOUT},
+        "OIDC": {
+            "ENABLED": OIDC_ENABLED,
+            "PROVIDER": OIDC_PROVIDER,
+        },
     }
