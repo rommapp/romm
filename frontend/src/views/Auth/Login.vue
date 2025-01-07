@@ -24,8 +24,10 @@ const visiblePassword = ref(false);
 const loggingIn = ref(false);
 const loggingInOIDC = ref(false);
 
-const { ENABLED: oidcEnabled, PROVIDER: oidcProvider } =
-  heartbeatStore.value.OIDC;
+const {
+  OIDC: { ENABLED: oidcEnabled, PROVIDER: oidcProvider },
+  FRONTEND: { DISABLE_USERPASS_LOGIN: loginDisabled },
+} = heartbeatStore.value;
 
 // Functions
 async function login() {
@@ -97,6 +99,7 @@ async function loginOIDC() {
             variant="underlined"
           />
           <v-btn
+            v-if="!loginDisabled"
             type="submit"
             class="bg-terciary mt-4"
             variant="text"
@@ -117,7 +120,7 @@ async function loginOIDC() {
               />
             </template>
           </v-btn>
-          <template v-if="oidcEnabled">
+          <template v-if="oidcEnabled && !loginDisabled">
             <v-divider class="my-4">
               <template #default>
                 <span class="px-1">{{ t("login.or") }}</span>
