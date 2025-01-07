@@ -61,7 +61,6 @@ lint:
         - yaml
         - css
         - postcss
-        - sass
         - html
         - markdown
         - json
