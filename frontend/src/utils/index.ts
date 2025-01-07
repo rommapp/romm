@@ -323,6 +323,8 @@ const _EJS_CORES_MAP = {
     "fbalpha2012_cps1",
     "fbalpha2012_cps2",
   ],
+  neogeoaes: ["fbneo"],
+  neogeomvs: ["fbneo"],
   atari2600: ["stella2014"],
   "atari-2600-plus": ["stella2014"],
   atari5200: ["a5200"],
