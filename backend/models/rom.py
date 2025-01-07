@@ -8,18 +8,18 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
 from sqlalchemy import (
-    JSON,
     BigInteger,
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.mysql.json import JSON as MySQLJSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from utils.database import CustomJSON
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -43,6 +43,11 @@ class Rom(BaseModel):
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
 
+    __table_args__ = (
+        Index("idx_roms_igdb_id", "igdb_id"),
+        Index("idx_roms_moby_id", "moby_id"),
+    )
+
     file_name: Mapped[str] = mapped_column(String(length=450))
     file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
     file_name_no_ext: Mapped[str] = mapped_column(String(length=450))
@@ -54,10 +59,10 @@ class Rom(BaseModel):
     slug: Mapped[str | None] = mapped_column(String(length=400))
     summary: Mapped[str | None] = mapped_column(Text)
     igdb_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        MySQLJSON, default=dict
+        CustomJSON(), default=dict
     )
     moby_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        MySQLJSON, default=dict
+        CustomJSON(), default=dict
     )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
@@ -67,17 +72,17 @@ class Rom(BaseModel):
     )
 
     revision: Mapped[str | None] = mapped_column(String(100))
-    regions: Mapped[list[str] | None] = mapped_column(JSON, default=[])
-    languages: Mapped[list[str] | None] = mapped_column(JSON, default=[])
-    tags: Mapped[list[str] | None] = mapped_column(JSON, default=[])
+    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
-    path_screenshots: Mapped[list[str] | None] = mapped_column(JSON, default=[])
+    path_screenshots: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     url_screenshots: Mapped[list[str] | None] = mapped_column(
-        JSON, default=[], doc="URLs to screenshots stored in IGDB"
+        CustomJSON(), default=[], doc="URLs to screenshots stored in IGDB"
     )
 
     multi: Mapped[bool] = mapped_column(default=False)
-    files: Mapped[list[RomFile] | None] = mapped_column(JSON, default=[])
+    files: Mapped[list[RomFile] | None] = mapped_column(CustomJSON(), default=[])
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
@@ -110,6 +115,14 @@ class Rom(BaseModel):
     def platform_name(self) -> str:
         return self.platform.name
 
+    @property
+    def platform_custom_name(self) -> str | None:
+        return self.platform.custom_name
+
+    @property
+    def platform_display_name(self) -> str:
+        return self.platform.custom_name or self.platform.name
+
     @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
@@ -120,9 +133,12 @@ class Rom(BaseModel):
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
-        return [s.download_path for s in self.screenshots] + [
-            f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
-        ]
+        screenshots = [s.download_path for s in self.screenshots]
+        if self.path_screenshots:
+            screenshots += [
+                f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
+            ]
+        return screenshots
 
     def get_collections(self) -> list[Collection]:
         from handler.database import db_rom_handler
@@ -132,47 +148,61 @@ class Rom(BaseModel):
     # Metadata fields
     @property
     def youtube_video_id(self) -> str:
-        return self.igdb_metadata.get("youtube_video_id", "")
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("youtube_video_id", "")
+        return ""
 
     @property
     def alternative_names(self) -> list[str]:
         return (
-            self.igdb_metadata.get("alternative_names", None)
-            or self.moby_metadata.get("alternate_titles", None)
+            (self.igdb_metadata or {}).get("alternative_names", None)
+            or (self.moby_metadata or {}).get("alternate_titles", None)
             or []
         )
 
     @property
     def first_release_date(self) -> int:
-        return self.igdb_metadata.get("first_release_date", 0)
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("first_release_date", 0)
+        return 0
 
     @property
     def genres(self) -> list[str]:
         return (
-            self.igdb_metadata.get("genres", None)
-            or self.moby_metadata.get("genres", None)
+            (self.igdb_metadata or {}).get("genres", None)
+            or (self.moby_metadata or {}).get("genres", None)
             or []
         )
 
     @property
     def franchises(self) -> list[str]:
-        return self.igdb_metadata.get("franchises", [])
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("franchises", [])
+        return []
 
     @property
     def collections(self) -> list[str]:
-        return self.igdb_metadata.get("collections", [])
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("collections", [])
+        return []
 
     @property
     def companies(self) -> list[str]:
-        return self.igdb_metadata.get("companies", [])
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("companies", [])
+        return []
 
     @property
     def game_modes(self) -> list[str]:
-        return self.igdb_metadata.get("game_modes", [])
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("game_modes", [])
+        return []
 
     @property
     def age_ratings(self) -> list[str]:
-        return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
+        if self.igdb_metadata:
+            return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
+        return []
 
     @property
     def fs_resources_path(self) -> str:

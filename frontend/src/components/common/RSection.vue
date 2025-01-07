@@ -3,15 +3,16 @@ withDefaults(
   defineProps<{
     title: string;
     icon: string;
+    iconColor?: string;
   }>(),
-  { title: "", icon: "" },
+  { title: "", icon: "", iconColor: "" },
 );
 </script>
 <template>
   <v-card rounded="0">
     <v-toolbar class="bg-terciary" density="compact">
       <v-toolbar-title class="text-button">
-        <v-icon class="mr-3">{{ icon }}</v-icon>
+        <v-icon :color="iconColor" class="mr-3">{{ icon }}</v-icon>
         {{ title }}
       </v-toolbar-title>
       <slot name="toolbar-append"></slot>

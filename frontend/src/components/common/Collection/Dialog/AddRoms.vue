@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
@@ -10,8 +11,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
@@ -91,9 +94,9 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>Adding</span>
+        <span>{{ t("rom.adding-to-collection-part1") }}</span>
         <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
-        <span>games to collection</span>
+        <span>{{ t("rom.adding-to-collection-part2") }}</span>
       </v-row>
     </template>
     <template #prepend>
@@ -101,7 +104,7 @@ function closeDialog() {
         v-model="selectedCollection"
         class="pa-3"
         density="default"
-        label="Collection"
+        :label="t('common.collection')"
         item-title="name"
         :items="collectionsStore.allCollections"
         variant="outlined"
@@ -110,21 +113,21 @@ function closeDialog() {
         clearable
       >
         <template #item="{ props, item }">
-          <v-list-item
-            class="py-4"
+          <collection-list-item
+            :collection="item.raw"
             v-bind="props"
-            :title="item.raw.name ?? ''"
-            :subtitle="item.raw.description"
-          >
-            <template #prepend>
-              <r-avatar-collection :collection="item.raw" />
-            </template>
-            <template #append>
-              <v-chip class="ml-2" size="x-small" label>
-                {{ item.raw.rom_count }}
-              </v-chip>
-            </template>
-          </v-list-item>
+            :with-title="false"
+          />
+        </template>
+        <template #chip="{ item }">
+          <v-chip class="pl-0" label>
+            <r-avatar-collection
+              :collection="item.raw"
+              :size="35"
+              class="mr-2"
+            />
+            {{ item.raw.name }}
+          </v-chip>
         </template>
       </v-autocomplete>
     </template>
@@ -140,14 +143,7 @@ function closeDialog() {
         hide-default-header
       >
         <template #item.name="{ item }">
-          <v-list-item class="px-0">
-            <template #prepend>
-              <r-avatar-rom :rom="item" />
-            </template>
-            <v-row no-gutters
-              ><v-col>{{ item.name }}</v-col></v-row
-            >
-          </v-list-item>
+          <rom-list-item :rom="item" with-filename />
         </template>
         <template #bottom>
           <v-divider />
@@ -180,7 +176,7 @@ function closeDialog() {
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
-            Cancel
+            {{ t("common.cancel") }}
           </v-btn>
           <v-btn
             class="bg-terciary text-romm-green"
@@ -188,7 +184,7 @@ function closeDialog() {
             :variant="!selectedCollection ? 'plain' : 'flat'"
             @click="addRomsToCollection"
           >
-            Confirm
+            {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
       </v-row>

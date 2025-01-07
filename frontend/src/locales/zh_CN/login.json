@@ -1,0 +1,7 @@
+{
+  "username": "用户名",
+  "password": "密码",
+  "login": "登录",
+  "login-oidc": "使用 {oidc} 登录",
+  "or": "或"
+}

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 class UserSchema(BaseModel):
     id: int
     username: str
+    email: str | None
     enabled: bool
     role: Role
     oauth_scopes: list[str]

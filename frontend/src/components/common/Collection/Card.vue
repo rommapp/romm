@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
+import storeGalleryView from "@/stores/galleryView";
 import { useTheme } from "vuetify";
 
+// Props
 withDefaults(
   defineProps<{
     collection: Collection;
@@ -15,27 +17,30 @@ withDefaults(
     transformScale: false,
     showTitle: false,
     showRomCount: false,
-    withLink: true,
+    withLink: false,
     src: "",
   },
 );
 const theme = useTheme();
+const galleryViewStore = storeGalleryView();
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
-      v-bind="hoverProps"
+      v-bind="{
+        ...hoverProps,
+        ...(withLink && collection
+          ? {
+              to: { name: 'collection', params: { collection: collection.id } },
+            }
+          : {}),
+      }"
       :class="{
         'on-hover': isHovering,
         'transform-scale': transformScale,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
-      :to="
-        withLink && collection
-          ? { name: 'collection', params: { collection: collection.id } }
-          : ''
-      "
     >
       <v-row v-if="showTitle" class="pa-1 justify-center bg-primary">
         <div
@@ -65,7 +70,7 @@ const theme = useTheme();
                 ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
                 : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
         "
-        :aspect-ratio="2 / 3"
+        :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
       >
         <div class="position-absolute append-inner">
           <slot name="append-inner"></slot>
@@ -75,7 +80,7 @@ const theme = useTheme();
           <v-img
             :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
             cover
-            :aspect-ratio="2 / 3"
+            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
           ></v-img>
         </template>
         <template #placeholder>

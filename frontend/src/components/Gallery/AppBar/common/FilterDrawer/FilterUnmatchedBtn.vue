@@ -4,8 +4,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const { filterUnmatched } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -31,7 +33,7 @@ function setUnmatched() {
         'text-romm-white': !filterUnmatched,
         'text-romm-accent-1': filterUnmatched,
       }"
-      >Show unmatched</span
+      >{{ t("platform.show-unmatched") }}</span
     ></v-btn
   >
 </template>

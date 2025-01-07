@@ -25,17 +25,20 @@ router = APIRouter()
     [],
     status_code=status.HTTP_201_CREATED,
 )
-def add_user(request: Request, username: str, password: str, role: str) -> UserSchema:
+def add_user(
+    request: Request, username: str, password: str, email: str, role: str
+) -> UserSchema:
     """Create user endpoint
 
     Args:
         request (Request): Fastapi Requests object
         username (str): User username
         password (str): User password
+        email (str): User email
         role (str): RomM Role object represented as string
 
     Returns:
-        UserSchema: Created user info
+        UserSchema: Newly created user
     """
 
     # If there are admin users already, enforce the USERS_WRITE scope.
@@ -48,9 +51,18 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
             detail="Forbidden",
         )
 
-    existing_user = db_user_handler.get_user_by_username(username)
-    if existing_user:
-        msg = f"Username {username} already exists"
+    existing_user_by_username = db_user_handler.get_user_by_username(username.lower())
+    if existing_user_by_username:
+        msg = f"Username {username.lower()} already exists"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+    existing_user_by_email = db_user_handler.get_user_by_email(email.lower())
+    if existing_user_by_email:
+        msg = f"Uesr with email {email.lower()} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -58,8 +70,9 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
         )
 
     user = User(
-        username=username,
+        username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
+        email=email.lower(),
         role=Role[role.upper()],
     )
 
@@ -77,7 +90,7 @@ def get_users(request: Request) -> list[UserSchema]:
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    return db_user_handler.get_users()
+    return [u for u in db_user_handler.get_users()]
 
 
 @protected_route(router.get, "/users/me", [Scope.ME_READ])
@@ -112,7 +125,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     return user
 
 
-@protected_route(router.put, "/users/{id}", [Scope.USERS_WRITE])
+@protected_route(router.put, "/users/{id}", [Scope.ME_WRITE])
 async def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
@@ -159,6 +172,18 @@ async def update_user(
         cleaned_data["hashed_password"] = auth_handler.get_password_hash(
             form_data.password
         )
+
+    if form_data.email and form_data.email != db_user.email:
+        existing_user = db_user_handler.get_user_by_email(form_data.email.lower())
+        if existing_user:
+            msg = f"User with email {form_data.email} already exists"
+            log.error(msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=msg,
+            )
+
+        cleaned_data["email"] = form_data.email.lower()
 
     # You can't change your own role
     if form_data.role and request.user.id != id:

@@ -9,6 +9,7 @@ class SearchRomSchema(BaseModel):
     summary: str
     igdb_url_cover: str = ""
     moby_url_cover: str = ""
+    platform_id: int
 
 
 class SearchCoverSchema(BaseModel):

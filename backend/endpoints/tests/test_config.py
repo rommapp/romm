@@ -21,5 +21,3 @@ def test_config(client):
     assert config.get("EXCLUDED_MULTI_PARTS_EXT") == []
     assert config.get("EXCLUDED_MULTI_PARTS_FILES") == []
     assert config.get("PLATFORMS_BINDING") == {}
-    assert config.get("ROMS_FOLDER_NAME") == "roms"
-    assert config.get("FIRMWARE_FOLDER_NAME") == "bios"

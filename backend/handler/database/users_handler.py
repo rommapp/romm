@@ -18,6 +18,10 @@ class DBUsersHandler(DBBaseHandler):
         return session.scalar(select(User).filter_by(username=username).limit(1))
 
     @begin_session
+    def get_user_by_email(self, email: str, session: Session = None) -> User | None:
+        return session.scalar(select(User).filter_by(email=email).limit(1))
+
+    @begin_session
     def get_user(self, id: int, session: Session = None) -> User | None:
         return session.get(User, id)
 

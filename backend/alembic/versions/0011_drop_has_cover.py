@@ -8,7 +8,6 @@ Create Date: 2023-09-16 15:28:29.221475
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "0011_drop_has_cover"
@@ -31,7 +30,7 @@ def downgrade() -> None:
         batch_op.add_column(
             sa.Column(
                 "has_cover",
-                mysql.BOOLEAN(),
+                sa.BOOLEAN(),
                 autoincrement=False,
                 nullable=True,
             )

@@ -34,6 +34,7 @@ def rom_user_schema_factory() -> RomUserSchema:
         rom_id=-1,
         created_at=now,
         updated_at=now,
+        last_played=None,
         note_raw_markdown="",
         note_is_public=False,
         is_main_sibling=False,
@@ -54,6 +55,7 @@ class RomUserSchema(BaseModel):
     rom_id: int
     created_at: datetime
     updated_at: datetime
+    last_played: datetime | None
     note_raw_markdown: str
     note_is_public: bool
     is_main_sibling: bool
@@ -100,7 +102,10 @@ class RomSchema(BaseModel):
 
     platform_id: int
     platform_slug: str
+    platform_fs_slug: str
     platform_name: str
+    platform_custom_name: str | None
+    platform_display_name: str
 
     file_name: str
     file_name_no_tags: str
