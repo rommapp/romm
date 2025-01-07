@@ -120,8 +120,8 @@ async function loginOIDC() {
               />
             </template>
           </v-btn>
-          <template v-if="oidcEnabled && !loginDisabled">
-            <v-divider class="my-4">
+          <template v-if="oidcEnabled">
+            <v-divider v-if="!loginDisabled" class="my-4">
               <template #default>
                 <span class="px-1">{{ t("login.or") }}</span>
               </template>
