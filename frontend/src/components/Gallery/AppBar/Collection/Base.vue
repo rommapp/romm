@@ -27,7 +27,7 @@ const { currentCollection } = storeToRefs(romsStore);
     density="compact"
     mode="shift"
     class="rounded mx-2 mt-2 mb-1 position-sticky"
-    style="width: unset"
+    style="width: unset; top: 0.5rem"
   >
     <template #prepend>
       <r-avatar

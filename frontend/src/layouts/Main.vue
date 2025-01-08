@@ -5,6 +5,7 @@ import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialo
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
 import EditRomDialog from "@/components/common/Game/Dialog/EditRom.vue";
 import MatchRomDialog from "@/components/common/Game/Dialog/MatchRom.vue";
+import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
 import NewVersionDialog from "@/components/common/NewVersionDialog.vue";
 import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
@@ -57,8 +58,13 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <notification />
-  <router-view />
+  <div class="d-flex flex-row flex-grow-1" style="max-height: 100dvh">
+    <notification />
+    <main-app-bar />
+    <div class="flex-grow-1 overflow-y-scroll">
+      <router-view />
+    </div>
+  </div>
 
   <match-rom-dialog />
   <edit-rom-dialog />
