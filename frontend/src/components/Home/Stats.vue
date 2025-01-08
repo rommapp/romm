@@ -22,7 +22,6 @@ onBeforeMount(() => {
 });
 </script>
 <template>
-  <v-divider />
   <v-card class="ma-2">
     <v-card-text class="pa-1">
       <v-row no-gutters class="flex-nowrap overflow-x-auto text-center">

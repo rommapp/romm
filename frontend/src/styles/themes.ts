@@ -33,9 +33,9 @@ export const light = {
     secondary: "#7B5EC9",
     tertiary: "#8A7A71", // Darker for better readability
     accent: "#FF7A5C", // More vibrant for better visibility
-    background: "#FFFFFF",
-    surface: "#F8FAFC", // Slightly warmer white
-    toplayer: "#EEF2F6", // Better distinction from surface
+    surface: "#FFFFFF",
+    background: "#F2F4F8", // Darker to create more separation from background
+    toplayer: "#E4E9F0",
     "primary-lighten": "#7850E6", // More saturated for interactive states
     "primary-darken": "#452788",
     "secondary-lighten": "#F0EBFA", // Slightly warmer purple tint
