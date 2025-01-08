@@ -19,6 +19,7 @@ const romsStore = storeRoms();
       <v-btn
         :color="romsStore.selecting ? 'primary' : ''"
         variant="text"
+        rounded="0"
         v-bind="props"
         class="mr-0"
         icon="mdi-select-group"

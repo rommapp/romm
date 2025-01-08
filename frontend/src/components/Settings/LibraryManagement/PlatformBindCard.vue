@@ -26,6 +26,7 @@ defineProps<{
             <v-slide-x-reverse-transition>
               <v-btn
                 v-if="editable"
+                rounded="0"
                 variant="text"
                 size="x-small"
                 icon="mdi-pencil"
@@ -36,6 +37,7 @@ defineProps<{
             <v-slide-x-reverse-transition>
               <v-btn
                 v-if="editable"
+                rounded="0"
                 variant="text"
                 size="x-small"
                 icon="mdi-delete"

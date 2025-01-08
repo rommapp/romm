@@ -220,7 +220,7 @@ function closeDialog() {
             <v-col style="max-width: 240px">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
-                  <v-btn-group divided density="compact">
+                  <v-btn-group divided density="compact" rounded="0">
                     <v-btn
                       :disabled="
                         !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED

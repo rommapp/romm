@@ -58,6 +58,7 @@ watch(
                 <v-btn
                   v-bind="props"
                   variant="flat"
+                  rounded="0"
                   size="small"
                   @click="toggleMainSibling"
                   ><v-icon

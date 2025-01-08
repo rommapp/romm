@@ -55,7 +55,7 @@ async function copyDownloadLink(rom: DetailedRom) {
 
 <template>
   <div>
-    <v-btn-group divided density="compact" class="d-flex flex-row">
+    <v-btn-group divided density="compact" rounded="0" class="d-flex flex-row">
       <v-btn
         class="flex-grow-1"
         :disabled="downloadStore.value.includes(rom.id)"

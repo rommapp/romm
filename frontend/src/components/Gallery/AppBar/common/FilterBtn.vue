@@ -21,6 +21,7 @@ const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
       <v-btn
         class="ml-0"
         variant="text"
+        rounded="0"
         v-bind="props"
         icon="mdi-filter-variant"
         :color="activeFilterDrawer ? 'primary' : ''"

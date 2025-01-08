@@ -17,6 +17,7 @@ const { activePlatformsDrawer } = storeToRefs(navigationStore);
   <v-btn
     :block="block"
     variant="flat"
+    rounded="0"
     :color="activePlatformsDrawer ? 'toplayer' : ''"
     icon
     @click="navigationStore.switchActivePlatformsDrawer"
