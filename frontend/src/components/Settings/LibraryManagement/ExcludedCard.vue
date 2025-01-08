@@ -32,13 +32,13 @@ function removeExclusion(exclusionValue: string) {
 }
 </script>
 <template>
-  <v-card color="tertiary">
+  <v-card color="toplayer" class="ma-2">
     <v-card-title class="text-body-2 align-center justify-center"
       ><v-icon class="mr-2">{{ icon }}</v-icon
       >{{ title }}</v-card-title
     >
     <v-divider />
-    <v-card-text class="pa-2">
+    <v-card-text v-if="exclusionValue" class="pa-2">
       <v-chip
         v-for="exclusionValue in set"
         :key="exclusionValue"

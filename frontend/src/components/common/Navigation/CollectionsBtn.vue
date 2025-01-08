@@ -20,7 +20,7 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
   <v-btn
     :block="block"
     variant="flat"
-    :color="activeCollectionsDrawer ? 'tertiary' : ''"
+    :color="activeCollectionsDrawer ? 'toplayer' : ''"
     icon
     @click="navigationStore.switchActiveCollectionsDrawer"
     ><v-icon :color="$route.name == 'collection' ? 'primary' : ''"

@@ -198,7 +198,7 @@ onBeforeUnmount(() => {
             :key="rom.updated_at"
             :rom="rom"
             @click="onGameClick({ rom, event: $event })"
-            title-on-hover
+            titleOnHover
             pointerOnHover
             withLink
             showFlags

@@ -170,7 +170,7 @@ function onDownload() {
       <v-btn
         key="1"
         v-if="auth.scopes.includes('roms.write')"
-        color="tertiary"
+        color="toplayer"
         elevation="8"
         icon
         size="default"
@@ -181,7 +181,7 @@ function onDownload() {
       <v-btn
         key="2"
         v-if="auth.scopes.includes('roms.write')"
-        color="tertiary"
+        color="toplayer"
         elevation="8"
         icon="mdi-magnify-scan"
         size="default"
@@ -189,7 +189,7 @@ function onDownload() {
       />
       <v-btn
         key="3"
-        color="tertiary"
+        color="toplayer"
         elevation="8"
         icon="mdi-download"
         size="default"
@@ -197,7 +197,7 @@ function onDownload() {
       />
       <v-btn
         key="4"
-        color="tertiary"
+        color="toplayer"
         elevation="8"
         :icon="
           $route.name == 'platform'
@@ -216,7 +216,7 @@ function onDownload() {
       />
       <v-btn
         key="5"
-        color="tertiary"
+        color="toplayer"
         elevation="8"
         icon="mdi-star-outline"
         size="default"
@@ -224,7 +224,7 @@ function onDownload() {
       />
       <v-btn
         key="6"
-        color="tertiary"
+        color="toplayer"
         elevation="8"
         icon="mdi-star"
         size="default"
@@ -232,7 +232,7 @@ function onDownload() {
       />
       <v-btn
         key="7"
-        color="tertiary"
+        color="toplayer"
         elevation="8"
         icon="mdi-select-all"
         size="default"
@@ -240,7 +240,7 @@ function onDownload() {
       />
       <v-btn
         key="8"
-        color="tertiary"
+        color="toplayer"
         elevation="8"
         icon="mdi-select"
         size="default"

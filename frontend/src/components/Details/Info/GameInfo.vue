@@ -136,7 +136,7 @@ function onFilterClick(filter: FilterType, value: string) {
               class="bg-background"
               show-arrows="hover"
               hide-delimiters
-              progress="tertiary"
+              progress="toplayer"
               :height="xs ? '300' : '400'"
             >
               <template #prev="{ props }">

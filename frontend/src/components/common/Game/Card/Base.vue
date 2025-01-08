@@ -28,7 +28,6 @@ const props = withDefaults(
     showActionBar?: boolean;
     showPlatformIcon?: boolean;
     showFav?: boolean;
-    withBorder?: boolean;
     withBorderRommAccent?: boolean;
     withLink?: boolean;
     src?: string;
@@ -45,7 +44,6 @@ const props = withDefaults(
     showActionBar: false,
     showPlatformIcon: false,
     showFav: false,
-    withBorder: false,
     withBorderRommAccent: false,
     withLink: false,
     src: "",
@@ -98,7 +96,6 @@ const computedAspectRatio = computed(() => {
         'on-hover': isHovering,
         'border-selected': withBorderRommAccent,
         'transform-scale': transformScale,
-        'with-border': withBorder,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
@@ -246,9 +243,6 @@ const computedAspectRatio = computed(() => {
 </template>
 
 <style scoped>
-.with-border {
-  border: 1px solid rgba(var(--v-theme-primary));
-}
 .text-truncate {
   white-space: nowrap;
   overflow: hidden;

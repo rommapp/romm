@@ -9,7 +9,7 @@ withDefaults(
 );
 </script>
 <template>
-  <v-card>
+  <v-card class="ma-2">
     <v-toolbar class="bg-toplayer" density="compact">
       <v-toolbar-title class="text-button">
         <v-icon :color="iconColor" class="mr-3">{{ icon }}</v-icon>
@@ -21,7 +21,7 @@ withDefaults(
     <v-divider />
 
     <!-- Check style card-text -->
-    <v-card-text class="pa-1">
+    <v-card-text class="pa-0">
       <slot name="content"></slot>
     </v-card-text>
   </v-card>

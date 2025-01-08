@@ -354,7 +354,7 @@ onBeforeUnmount(() => {
             <v-card class="mx-auto bg-toplayer">
               <v-card-title class="text-center">
                 <v-btn
-                  color="tertiary"
+                  color="toplayer"
                   icon="mdi-arrow-left"
                   variant="flat"
                   size="small"
