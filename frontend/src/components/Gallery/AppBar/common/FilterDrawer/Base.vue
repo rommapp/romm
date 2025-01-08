@@ -86,11 +86,17 @@ function resetFilters() {
 
 <template>
   <v-navigation-drawer
-    floating
     mobile
+    floating
     :width="xs ? viewportWidth : '350'"
-    @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     v-model="activeFilterDrawer"
+    @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
+    :class="{
+      'mx-2': activeFilterDrawer,
+    }"
+    class="bg-surface border-0 rounded my-2 pa-1"
+    style="height: unset; top: 54px"
+    :scrim="false"
   >
     <v-list>
       <template v-if="xs">

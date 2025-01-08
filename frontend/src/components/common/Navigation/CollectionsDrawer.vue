@@ -29,11 +29,17 @@ function clear() {
 </script>
 <template>
   <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="500"
+    :location="smAndDown ? 'top' : 'left'"
+    @update:model-value="clear"
+    width="300"
     v-model="activeCollectionsDrawer"
-    class="bg-toplayer"
+    :class="{
+      'mx-2': activeCollectionsDrawer,
+    }"
+    class="bg-surface border-0 rounded my-2 pa-1"
+    style="height: unset"
+    :scrim="false"
   >
     <template #prepend>
       <v-text-field
@@ -46,6 +52,7 @@ function clear() {
         single-line
         :label="t('collection.search-collection')"
         variant="solo-filled"
+        density="compact"
       ></v-text-field>
     </template>
     <v-list lines="two" class="pa-0">
@@ -63,8 +70,9 @@ function clear() {
         prepend-icon="mdi-plus"
         size="large"
         block
-        >{{ t("collection.add-collection") }}</v-btn
       >
+        {{ t("collection.add-collection") }}
+      </v-btn>
     </template>
   </v-navigation-drawer>
 

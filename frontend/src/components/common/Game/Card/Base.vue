@@ -96,6 +96,7 @@ const computedAspectRatio = computed(() => {
         'on-hover': isHovering,
         'border-selected': withBorderRommAccent,
         'transform-scale': transformScale,
+        'bg-surface': !isHovering,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >

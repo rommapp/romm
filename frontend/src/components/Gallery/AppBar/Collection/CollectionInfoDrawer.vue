@@ -133,11 +133,17 @@ async function updateCollection() {
 
 <template>
   <v-navigation-drawer
-    v-model="activeCollectionInfoDrawer"
-    floating
-    mobile
-    :width="xs ? viewportWidth : '500'"
     v-if="currentCollection"
+    mobile
+    floating
+    width="500"
+    v-model="activeCollectionInfoDrawer"
+    :class="{
+      'mx-2': activeCollectionInfoDrawer,
+    }"
+    class="bg-surface border-0 rounded my-2 pa-1"
+    style="height: unset; top: 54px"
+    :scrim="false"
   >
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col style="max-width: 240px" cols="12">
