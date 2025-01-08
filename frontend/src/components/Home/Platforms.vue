@@ -19,7 +19,7 @@ const gridPlatforms = isNull(localStorage.getItem("settings.gridPlatforms"))
   <r-section icon="mdi-controller" :title="t('common.platforms')">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': !gridPlatforms }"
+        :class="{ 'flex-nowrap overflow-x-auto': !gridPlatforms, 'pa-1': true }"
         no-gutters
       >
         <v-col

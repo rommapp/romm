@@ -352,7 +352,7 @@ async function stopScan() {
     height="40"
     class="text-caption align-center"
   >
-    <v-chip variant="outlined" color="tertiary" class="px-1">
+    <v-chip variant="outlined" color="toplayer" class="px-1">
       <v-icon class="text-white"> mdi-information </v-icon>
       <v-chip
         v-if="scanningPlatforms.length > 0"
