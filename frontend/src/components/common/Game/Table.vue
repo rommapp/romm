@@ -140,20 +140,7 @@ onMounted(() => {
     :items-per-page="itemsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
     :item-value="(item: SimpleRom) => item"
-    :items="[
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-      ...filteredRoms,
-    ]"
+    :items="filteredRoms"
     :headers="HEADERS"
     v-model="selectedRomIDs"
     v-model:page="page"
