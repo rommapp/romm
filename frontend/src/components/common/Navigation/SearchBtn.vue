@@ -14,6 +14,7 @@ const emitter = inject<Emitter<Events>>("emitter");
     variant="flat"
     rounded="0"
     color="background"
+    class="rounded my-1"
     @click="navigationStore.goSearch"
   >
     <v-icon :color="$route.name == 'search' ? 'primary' : ''"

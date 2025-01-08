@@ -44,7 +44,6 @@ async function logout() {
   <v-navigation-drawer
     mobile
     :location="smAndDown ? 'top' : 'left'"
-    @update:model-value="clear"
     width="300"
     v-model="activeSettingsDrawer"
     :class="{

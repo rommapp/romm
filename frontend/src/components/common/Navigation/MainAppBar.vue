@@ -55,7 +55,7 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     permanent
     rail
     rail-width="60"
-    class="bg-background border-0 py-1"
+    class="bg-background border-0 pa-1"
     style="position: initial"
   >
     <template #prepend>
