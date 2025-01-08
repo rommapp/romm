@@ -1,6 +1,7 @@
 from typing import Any
 
 from authlib.integrations.starlette_client import OAuth
+from authlib.oidc.discovery import get_well_known_url
 from config import (
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
@@ -49,7 +50,9 @@ oauth.register(
     name="openid",
     client_id=config.get("OIDC_CLIENT_ID"),
     client_secret=config.get("OIDC_CLIENT_SECRET"),
-    server_metadata_url=f'{config.get("OIDC_SERVER_APPLICATION_URL")}/.well-known/openid-configuration',
+    server_metadata_url=get_well_known_url(
+        config.get("OIDC_SERVER_APPLICATION_URL"), external=True
+    ),
     client_kwargs={"scope": "openid profile email"},
 )
 
