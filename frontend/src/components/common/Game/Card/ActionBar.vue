@@ -30,7 +30,7 @@ const ruffleEmulationSupported = computed(() => {
   );
 });
 
-const isCIARom = computed(() => {
+const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
 </script>
@@ -83,7 +83,7 @@ const isCIARom = computed(() => {
         variant="text"
       />
     </v-col>
-    <v-col v-if="isCIARom" class="d-flex">
+    <v-col v-if="is3DSRom" class="d-flex">
       <v-btn
         @click.prevent
         class="action-bar-btn-small flex-grow-1"

@@ -40,6 +40,7 @@ class EmulationDict(TypedDict):
 
 class FrontendDict(TypedDict):
     UPLOAD_TIMEOUT: int
+    DISABLE_USERPASS_LOGIN: bool
 
 
 class OIDCDict(TypedDict):
