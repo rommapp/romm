@@ -140,7 +140,20 @@ onMounted(() => {
     :items-per-page="itemsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
     :item-value="(item: SimpleRom) => item"
-    :items="filteredRoms"
+    :items="[
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+      ...filteredRoms,
+    ]"
     :headers="HEADERS"
     v-model="selectedRomIDs"
     v-model:page="page"
@@ -149,6 +162,7 @@ onMounted(() => {
     fixed-footer
     hide-default-footer
     hover
+    class="mx-2 my-1"
   >
     <template #header.data-table-select>
       <v-checkbox-btn
@@ -260,8 +274,7 @@ onMounted(() => {
     </template>
 
     <template #bottom>
-      <v-divider />
-      <div>
+      <tfoot class="bg-surface border-t-sm position-sticky bottom-0">
         <v-row no-gutters class="pa-1 align-center justify-center">
           <v-col cols="8" sm="9" md="10" class="px-3">
             <v-pagination
@@ -284,7 +297,7 @@ onMounted(() => {
             />
           </v-col>
         </v-row>
-      </div>
+      </tfoot>
     </template>
   </v-data-table>
 </template>

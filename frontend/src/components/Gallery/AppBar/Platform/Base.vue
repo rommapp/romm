@@ -23,13 +23,12 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 
 <template>
   <v-app-bar
-    top
     id="gallery-app-bar"
     elevation="0"
     density="compact"
     mode="shift"
     class="rounded mx-2 mt-2 mb-1 position-sticky"
-    style="width: unset"
+    style="width: unset; top: 0.5rem"
   >
     <platform-icon
       v-if="currentPlatform"
