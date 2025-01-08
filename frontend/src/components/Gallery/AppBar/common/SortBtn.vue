@@ -24,10 +24,9 @@ function showSortBar() {
       <v-btn
         class="ml-0"
         variant="text"
-        rounded="0"
         icon="mdi-sort"
         v-bind="props"
-        :color="isShowSortBar ? 'romm-accent-1' : ''"
+        :color="isShowSortBar ? 'primary' : ''"
         @click="showSortBar" /></template
   ></v-tooltip>
 </template>

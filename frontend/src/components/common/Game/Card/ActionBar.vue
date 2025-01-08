@@ -43,7 +43,6 @@ const is3DSRom = computed(() => {
         size="x-small"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
-        rounded="0"
         variant="text"
         @click.prevent="romApi.downloadRom({ rom })"
       />
@@ -64,7 +63,6 @@ const is3DSRom = computed(() => {
           })
         "
         icon="mdi-play"
-        rounded="0"
         variant="text"
       />
       <v-btn
@@ -79,7 +77,6 @@ const is3DSRom = computed(() => {
           })
         "
         icon="mdi-play"
-        rounded="0"
         variant="text"
       />
     </v-col>
@@ -90,7 +87,6 @@ const is3DSRom = computed(() => {
         size="x-small"
         @click="emitter?.emit('showQRCodeDialog', rom)"
         icon="mdi-qrcode"
-        rounded="0"
         variant="text"
       />
     </v-col>
@@ -103,7 +99,6 @@ const is3DSRom = computed(() => {
             size="x-small"
             v-bind="props"
             icon="mdi-dots-vertical"
-            rounded="0"
             variant="text"
           />
         </template>

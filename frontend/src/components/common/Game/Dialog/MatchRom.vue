@@ -297,7 +297,7 @@ onBeforeUnmount(() => {
             id="search-text-field"
             @keyup.enter="searchRom()"
             @click:clear="searchTerm = ''"
-            class="bg-terciary"
+            class="bg-toplayer"
             v-model="searchTerm"
             :disabled="searching"
             :label="t('common.search')"
@@ -309,7 +309,7 @@ onBeforeUnmount(() => {
           <v-select
             :disabled="searching"
             :label="t('rom.by')"
-            class="bg-terciary"
+            class="bg-toplayer"
             :items="['ID', 'Name']"
             v-model="searchBy"
             hide-details
@@ -319,8 +319,7 @@ onBeforeUnmount(() => {
           <v-btn
             type="submit"
             @click="searchRom()"
-            class="bg-terciary"
-            rounded="0"
+            class="bg-toplayer"
             variant="text"
             icon="mdi-search-web"
             block
@@ -352,12 +351,11 @@ onBeforeUnmount(() => {
       <template v-if="showSelectSource">
         <v-row no-gutters>
           <v-col cols="12">
-            <v-card class="mx-auto bg-terciary">
+            <v-card class="mx-auto bg-toplayer">
               <v-card-title class="text-center">
                 <v-btn
-                  color="terciary"
+                  color="tertiary"
                   icon="mdi-arrow-left"
-                  rounded="0"
                   variant="flat"
                   size="small"
                   @click="backToMatched"
@@ -389,8 +387,7 @@ onBeforeUnmount(() => {
                     class="transform-scale mx-2"
                     :class="{
                       'on-hover': isHovering,
-                      'border-romm-accent-1':
-                        selectedCover?.name == source.name,
+                      'border-primary': selectedCover?.name == source.name,
                     }"
                     :elevation="isHovering ? 20 : 3"
                     @click="selectCover(source)"
@@ -410,7 +407,7 @@ onBeforeUnmount(() => {
                           class="d-flex align-center justify-center fill-height"
                         >
                           <v-progress-circular
-                            color="romm-accent-1"
+                            color="primary"
                             :width="2"
                             indeterminate
                           />
@@ -433,7 +430,7 @@ onBeforeUnmount(() => {
                 <v-chip
                   @click="toggleRenameAsSource"
                   :variant="renameAsSource ? 'flat' : 'outlined'"
-                  :color="renameAsSource ? 'romm-accent-1' : ''"
+                  :color="renameAsSource ? 'primary' : ''"
                   :disabled="selectedCover == undefined"
                   ><v-icon class="mr-1">{{
                     selectedCover && renameAsSource
@@ -448,14 +445,14 @@ onBeforeUnmount(() => {
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
                   <span>{{ t("rom.rename-file-part3") }}</span
-                  ><span class="text-romm-accent-1 ml-1"
+                  ><span class="text-primary ml-1"
                     >{{ rom?.file_name_no_tags }}.{{
                       rom?.file_extension
                     }}</span
                   >
                   <br />
                   <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
-                  ><span class="text-romm-accent-2"
+                  ><span class="text-primary"
                     >{{ selectedMatchRom?.name }}.{{
                       rom?.file_extension
                     }}</span
@@ -471,11 +468,11 @@ onBeforeUnmount(() => {
           <v-col cols="12">
             <v-row no-gutters class="my-4 justify-center">
               <v-btn-group divided density="compact">
-                <v-btn class="bg-terciary" @click="backToMatched">
+                <v-btn class="bg-toplayer" @click="backToMatched">
                   {{ t("common.cancel") }}
                 </v-btn>
                 <v-btn
-                  class="text-romm-green bg-terciary"
+                  class="text-romm-green bg-toplayer"
                   :disabled="selectedCover == undefined"
                   :variant="selectedCover == undefined ? 'plain' : 'flat'"
                   @click="confirm"
@@ -493,7 +490,7 @@ onBeforeUnmount(() => {
         <v-col>
           <v-chip label class="pr-0" size="small"
             >{{ t("rom.results-found") }}:<v-chip
-              color="romm-accent-1"
+              color="primary"
               class="ml-2 px-2"
               label
               >{{ !searching ? matchedRoms.length : ""
@@ -501,7 +498,7 @@ onBeforeUnmount(() => {
                 v-if="searching"
                 :width="1"
                 :size="10"
-                color="romm-accent-1"
+                color="primary"
                 indeterminate
             /></v-chip>
           </v-chip>

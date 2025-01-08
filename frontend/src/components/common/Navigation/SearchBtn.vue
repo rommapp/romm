@@ -6,8 +6,8 @@ import { inject } from "vue";
 const emitter = inject<Emitter<Events>>("emitter");
 </script>
 <template>
-  <v-btn icon variant="flat" rounded="0" :to="{ name: 'search' }"
-    ><v-icon :color="$route.name == 'search' ? 'romm-accent-1' : ''"
+  <v-btn icon variant="flat" :to="{ name: 'search' }"
+    ><v-icon :color="$route.name == 'search' ? 'primary' : ''"
       >mdi-magnify</v-icon
     ></v-btn
   >

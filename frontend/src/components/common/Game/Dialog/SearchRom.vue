@@ -120,14 +120,14 @@ onBeforeUnmount(() => {
             :disabled="searching"
             :label="t('common.search')"
             hide-details
-            class="bg-terciary"
+            class="bg-toplayer"
           />
         </v-col>
         <v-col cols="5" lg="4">
           <v-select
             @click:clear="clearFilter"
             :label="t('common.platform')"
-            class="bg-terciary"
+            class="bg-toplayer"
             item-title="platform_name"
             :disabled="platforms.length == 0 || searching"
             hide-details
@@ -175,8 +175,7 @@ onBeforeUnmount(() => {
           <v-btn
             type="submit"
             @click="searchRoms"
-            class="bg-terciary"
-            rounded="0"
+            class="bg-toplayer"
             variant="text"
             icon="mdi-magnify"
             block

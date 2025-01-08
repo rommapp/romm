@@ -21,11 +21,6 @@ emitter?.on("showLoadingDialog", (args) => {
     width="auto"
     persistent
   >
-    <v-progress-circular
-      :width="3"
-      :size="70"
-      color="romm-accent-1"
-      indeterminate
-    />
+    <v-progress-circular :width="3" :size="70" color="primary" indeterminate />
   </v-dialog>
 </template>

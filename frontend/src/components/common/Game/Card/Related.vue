@@ -34,7 +34,6 @@ const galleryViewStore = storeGalleryView();
         ><v-chip
           class="px-2 position-absolute chip-type text-white translucent-dark"
           density="compact"
-          rounded="0"
           label
         >
           <span>

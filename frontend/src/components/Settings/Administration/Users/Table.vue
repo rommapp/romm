@@ -96,12 +96,11 @@ onMounted(() => {
         v-model="userSearch"
         prepend-inner-icon="mdi-magnify"
         label="Search"
-        rounded="0"
         single-line
         hide-details
         clearable
         density="comfortable"
-        class="bg-secondary"
+        class="bg-surface"
       />
       <v-data-table
         v-model:items-per-page="usersPerPage"
@@ -119,7 +118,7 @@ onMounted(() => {
           <v-btn
             prepend-icon="mdi-plus"
             variant="outlined"
-            class="text-romm-accent-1"
+            class="text-primary"
             @click="emitter?.emit('showCreateUserDialog', null)"
           >
             Add
@@ -143,7 +142,7 @@ onMounted(() => {
           <v-switch
             inset
             v-model="item.enabled"
-            color="romm-accent-1"
+            color="primary"
             :disabled="item.id == auth.user?.id"
             hide-details
             @change="disableUser(item)"
@@ -175,8 +174,7 @@ onMounted(() => {
                 <v-pagination
                   :show-first-last-page="!xs"
                   v-model="page"
-                  rounded="0"
-                  active-color="romm-accent-1"
+                  active-color="primary"
                   :length="pageCount"
                 />
               </v-col>

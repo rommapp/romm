@@ -96,7 +96,7 @@ const computedAspectRatio = computed(() => {
       }"
       :class="{
         'on-hover': isHovering,
-        'border-romm-accent-1': withBorderRommAccent,
+        'border-selected': withBorderRommAccent,
         'transform-scale': transformScale,
         'with-border': withBorder,
       }"
@@ -105,7 +105,7 @@ const computedAspectRatio = computed(() => {
       <v-card-text class="pa-0">
         <v-progress-linear
           v-if="romsStore.isSimpleRom(rom)"
-          color="romm-accent-1"
+          color="primary"
           :active="downloadStore.value.includes(rom.id)"
           :indeterminate="true"
           absolute
@@ -191,7 +191,7 @@ const computedAspectRatio = computed(() => {
                 class="label-fav"
                 rouded="0"
                 size="small"
-                color="romm-accent-1"
+                color="primary"
               >
                 <v-icon class="icon-fav" size="x-small"
                   >{{
@@ -223,7 +223,7 @@ const computedAspectRatio = computed(() => {
                 <v-progress-circular
                   :width="2"
                   :size="40"
-                  color="romm-accent-1"
+                  color="primary"
                   indeterminate
                 />
               </div>

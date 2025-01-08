@@ -228,8 +228,7 @@ watch(itemsPerPage, async () => {
           <v-btn
             block
             icon=""
-            class="text-romm-accent-1 bg-terciary"
-            rounded="0"
+            class="text-primary bg-toplayer"
             variant="text"
             @click="triggerFileInput"
           >
@@ -293,9 +292,8 @@ watch(itemsPerPage, async () => {
             <v-col class="px-6">
               <v-pagination
                 v-model="page"
-                rounded="0"
                 :show-first-last-page="true"
-                active-color="romm-accent-1"
+                active-color="primary"
                 :length="pageCount"
               />
             </v-col>
@@ -317,11 +315,11 @@ watch(itemsPerPage, async () => {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">{{
+          <v-btn class="bg-toplayer" @click="closeDialog">{{
             t("common.cancel")
           }}</v-btn>
           <v-btn
-            class="bg-terciary text-romm-green"
+            class="bg-toplayer text-romm-green"
             :disabled="filesToUpload.length == 0 || selectedPlatform == null"
             :variant="
               filesToUpload.length == 0 || selectedPlatform == null

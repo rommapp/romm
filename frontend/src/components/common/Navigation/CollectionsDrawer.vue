@@ -33,7 +33,7 @@ function clear() {
     mobile
     width="500"
     v-model="activeCollectionsDrawer"
-    class="bg-terciary"
+    class="bg-toplayer"
   >
     <template #prepend>
       <v-text-field
@@ -46,10 +46,9 @@ function clear() {
         single-line
         :label="t('collection.search-collection')"
         variant="solo-filled"
-        rounded="0"
       ></v-text-field>
     </template>
-    <v-list lines="two" rounded="0" class="pa-0">
+    <v-list lines="two" class="pa-0">
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"
@@ -60,10 +59,9 @@ function clear() {
       <v-btn
         @click="addCollection()"
         variant="tonal"
-        color="romm-accent-1"
+        color="primary"
         prepend-icon="mdi-plus"
         size="large"
-        rounded="0"
         block
         >{{ t("collection.add-collection") }}</v-btn
       >

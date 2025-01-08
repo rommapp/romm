@@ -9,7 +9,7 @@ const theme = useTheme();
 </script>
 
 <template>
-  <v-avatar :rounded="0" :size="size">
+  <v-avatar :size="size">
     <v-img
       :src="
         collection.has_cover

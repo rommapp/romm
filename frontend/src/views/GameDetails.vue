@@ -111,14 +111,13 @@ watch(
         >
           <v-tabs
             v-model="tab"
-            slider-color="romm-accent-1"
+            slider-color="primary"
             :class="{ 'mt-4': smAndDown }"
-            rounded="0"
           >
-            <v-tab value="details" rounded="0"> {{ t("rom.details") }} </v-tab>
-            <v-tab value="saves" rounded="0"> {{ t("common.saves") }} </v-tab>
-            <v-tab value="states" rounded="0"> {{ t("common.states") }} </v-tab>
-            <v-tab value="personal" rounded="0">
+            <v-tab value="details"> {{ t("rom.details") }} </v-tab>
+            <v-tab value="saves"> {{ t("common.saves") }} </v-tab>
+            <v-tab value="states"> {{ t("common.states") }} </v-tab>
+            <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
             <v-tab
@@ -128,12 +127,11 @@ watch(
                   (currentRom.igdb_metadata?.dlcs ?? []).length > 0)
               "
               value="additionalcontent"
-              rounded="0"
             >
               {{ t("rom.additional-content") }}
             </v-tab>
             <!-- TODO: user screenshots -->
-            <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
+            <!-- <v-tab value="screenshots" >Screenshots</v-tab> -->
             <v-tab
               v-if="
                 smAndDown &&
@@ -142,7 +140,6 @@ watch(
                   (currentRom.igdb_metadata?.expanded_games ?? []).length > 0)
               "
               value="relatedgames"
-              rounded="0"
             >
               {{ t("rom.related-content") }}
             </v-tab>

@@ -123,7 +123,6 @@ function resetFilters() {
       </v-list-item>
       <v-list-item v-for="filter in filters">
         <v-autocomplete
-          rounded="0"
           v-model="filter.selected.value"
           hide-details
           clearable

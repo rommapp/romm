@@ -89,7 +89,7 @@ async function switchFromFavourites() {
 </script>
 
 <template>
-  <v-list rounded="0" class="pa-0">
+  <v-list class="pa-0">
     <template v-if="auth.scopes.includes('roms.write')">
       <v-list-item
         :disabled="!heartbeat.value.METADATA_SOURCES.ANY_SOURCE_ENABLED"

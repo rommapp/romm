@@ -100,7 +100,7 @@ async function loginOIDC() {
           />
           <v-btn
             type="submit"
-            class="bg-terciary mt-4"
+            class="bg-toplayer mt-4"
             variant="text"
             block
             :loading="loggingIn"
@@ -112,7 +112,7 @@ async function loginOIDC() {
             {{ t("login.login") }}
             <template #loader>
               <v-progress-circular
-                color="romm-accent-1"
+                color="primary"
                 :width="2"
                 :size="20"
                 indeterminate
@@ -129,7 +129,7 @@ async function loginOIDC() {
           <v-btn
             block
             type="submit"
-            class="bg-terciary"
+            class="bg-toplayer"
             variant="text"
             :disabled="loggingInOIDC || loggingIn"
             :loading="loggingInOIDC"
@@ -153,7 +153,7 @@ async function loginOIDC() {
             }}
             <template #loader>
               <v-progress-circular
-                color="romm-accent-1"
+                color="primary"
                 :width="2"
                 :size="20"
                 indeterminate

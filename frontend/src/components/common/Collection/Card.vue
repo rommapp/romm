@@ -42,7 +42,7 @@ const galleryViewStore = storeGalleryView();
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
-      <v-row v-if="showTitle" class="pa-1 justify-center bg-primary">
+      <v-row v-if="showTitle" class="pa-1 justify-center bg-background">
         <div
           :title="collection.name?.toString()"
           class="py-4 px-6 text-truncate text-caption"
@@ -88,7 +88,7 @@ const galleryViewStore = storeGalleryView();
             <v-progress-circular
               :width="2"
               :size="40"
-              color="romm-accent-1"
+              color="primary"
               indeterminate
             />
           </div>
@@ -96,7 +96,7 @@ const galleryViewStore = storeGalleryView();
       </v-img>
       <v-chip
         v-if="showRomCount"
-        class="bg-chip position-absolute"
+        class="bg-background position-absolute"
         size="x-small"
         style="bottom: 0.5rem; right: 0.5rem"
         label

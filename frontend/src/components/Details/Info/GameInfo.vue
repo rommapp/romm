@@ -133,10 +133,10 @@ function onFilterClick(filter: FilterType, value: string) {
               v-model="carousel"
               hide-delimiter-background
               delimiter-icon="mdi-square"
-              class="bg-primary"
+              class="bg-background"
               show-arrows="hover"
               hide-delimiters
-              progress="terciary"
+              progress="tertiary"
               :height="xs ? '300' : '400'"
             >
               <template #prev="{ props }">

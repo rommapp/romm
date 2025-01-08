@@ -106,7 +106,6 @@ function fetchRoms() {
 
 <template>
   <v-text-field
-    rounded="0"
     :density="xs ? 'comfortable' : 'default'"
     clearable
     autofocus
@@ -115,6 +114,6 @@ function fetchRoms() {
     :disabled="gettingRoms"
     :label="t('common.search')"
     hide-details
-    class="bg-terciary"
+    class="bg-toplayer"
   />
 </template>

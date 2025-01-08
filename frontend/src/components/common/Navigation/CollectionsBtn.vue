@@ -19,12 +19,11 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 <template>
   <v-btn
     :block="block"
-    rounded="0"
     variant="flat"
-    :color="activeCollectionsDrawer ? 'terciary' : ''"
+    :color="activeCollectionsDrawer ? 'tertiary' : ''"
     icon
     @click="navigationStore.switchActiveCollectionsDrawer"
-    ><v-icon :color="$route.name == 'collection' ? 'romm-accent-1' : ''"
+    ><v-icon :color="$route.name == 'collection' ? 'primary' : ''"
       >mdi-bookmark-box-multiple</v-icon
     ></v-btn
   >

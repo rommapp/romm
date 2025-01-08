@@ -95,7 +95,7 @@ function closeDialog() {
     <template #header>
       <v-row no-gutters class="justify-center">
         <span>{{ t("rom.adding-to-collection-part1") }}</span>
-        <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
+        <span class="text-primary mx-1">{{ roms.length }}</span>
         <span>{{ t("rom.adding-to-collection-part2") }}</span>
       </v-row>
     </template>
@@ -151,9 +151,8 @@ function closeDialog() {
             <v-col class="px-6">
               <v-pagination
                 v-model="page"
-                rounded="0"
                 :show-first-last-page="true"
-                active-color="romm-accent-1"
+                active-color="primary"
                 :length="pageCount"
               />
             </v-col>
@@ -175,11 +174,11 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            class="bg-terciary text-romm-green"
+            class="bg-toplayer text-romm-green"
             :disabled="!selectedCollection"
             :variant="!selectedCollection ? 'plain' : 'flat'"
             @click="addRomsToCollection"

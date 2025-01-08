@@ -7,7 +7,7 @@ const theme = useTheme();
 </script>
 
 <template>
-  <v-avatar :rounded="0" :size="size">
+  <v-avatar :size="size">
     <v-img
       :src="
         !rom.igdb_id && !rom.moby_id && !rom.has_cover

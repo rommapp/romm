@@ -201,8 +201,7 @@ onMounted(() => {
             <v-pagination
               :show-first-last-page="!xs"
               v-model="page"
-              rounded="0"
-              active-color="romm-accent-1"
+              active-color="primary"
               :length="pageCount"
             />
           </v-col>
