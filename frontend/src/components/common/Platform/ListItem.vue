@@ -13,14 +13,17 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
     :key="platform.slug"
     :to="{ name: 'platform', params: { platform: platform.id } }"
     :value="platform.slug"
-    class="py-0"
+    rounded
+    density="compact"
+    class="my-1"
+    style="padding: 0.5rem !important"
   >
     <template #prepend>
       <platform-icon
         :key="platform.slug"
         :slug="platform.slug"
         :name="platform.name"
-        :size="50"
+        :size="40"
       >
         <v-tooltip
           location="bottom"

@@ -21,7 +21,7 @@ storeLanguage.setLanguage(selectedLanguage.value);
   <v-app>
     <div class="d-flex flex-row flex-grow-1" style="max-height: 100dvh">
       <main-app-bar />
-      <div class="flex-grow-1">
+      <div class="flex-grow-1 overflow-y-scroll">
         <router-view />
       </div>
     </div>

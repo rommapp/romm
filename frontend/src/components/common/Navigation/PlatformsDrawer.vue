@@ -20,14 +20,16 @@ function clear() {
 </script>
 <template>
   <v-navigation-drawer
-    v-if="activePlatformsDrawer"
     mobile
     :location="smAndDown ? 'top' : 'left'"
     @update:model-value="clear"
     width="300"
     v-model="activePlatformsDrawer"
-    class="bg-surface border-0 rounded ma-2"
-    style="position: initial; height: unset"
+    :class="{
+      'mx-2': activePlatformsDrawer,
+    }"
+    class="bg-surface border-0 rounded my-2 pa-1"
+    style="height: unset"
     :scrim="false"
   >
     <template #prepend>
@@ -41,15 +43,14 @@ function clear() {
         single-line
         :label="t('platform.search-platform')"
         variant="solo-filled"
-        class="ma-1"
+        density="compact"
       ></v-text-field>
     </template>
-    <v-list lines="two" class="pa-0">
+    <v-list lines="two" class="py-1 px-0">
       <platform-list-item
         v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :platform="platform"
-        class="py-4"
       />
     </v-list>
   </v-navigation-drawer>

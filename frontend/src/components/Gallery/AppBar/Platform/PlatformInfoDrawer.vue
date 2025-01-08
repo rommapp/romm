@@ -172,11 +172,17 @@ watch(
 
 <template>
   <v-navigation-drawer
-    v-model="activePlatformInfoDrawer"
-    floating
-    mobile
-    :width="xs ? viewportWidth : '500'"
     v-if="currentPlatform"
+    mobile
+    floating
+    width="500"
+    v-model="activePlatformInfoDrawer"
+    :class="{
+      'mx-2': activePlatformInfoDrawer,
+    }"
+    class="bg-surface border-0 rounded my-2 pa-1"
+    style="height: unset; top: 54px"
+    :scrim="false"
   >
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col cols="12">

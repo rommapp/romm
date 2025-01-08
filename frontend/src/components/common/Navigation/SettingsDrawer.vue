@@ -42,11 +42,17 @@ async function logout() {
 </script>
 <template>
   <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="500"
+    :location="smAndDown ? 'top' : 'left'"
+    @update:model-value="clear"
+    width="300"
     v-model="activeSettingsDrawer"
-    class="bg-toplayer"
+    :class="{
+      'mx-2': activeSettingsDrawer,
+    }"
+    class="bg-surface border-0 rounded my-2 pa-1"
+    style="height: unset"
+    :scrim="false"
   >
     <v-list class="pa-0">
       <v-list-img>
@@ -67,7 +73,7 @@ async function logout() {
       >
       </v-list-item>
     </v-list>
-    <v-list class="pa-0">
+    <v-list class="py-1 px-0">
       <v-list-item
         @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
         append-icon="mdi-account"
@@ -86,21 +92,25 @@ async function logout() {
         v-if="scopes.includes('users.write')"
         :to="{ name: 'administration' }"
         append-icon="mdi-security"
-        >{{ t("common.administration") }}</v-list-item
-      >
+        >{{ t("common.administration") }}
+      </v-list-item>
       <template v-if="smAndDown">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit">{{
-          t("common.logout")
-        }}</v-list-item>
+        <v-list-item
+          @click="logout"
+          append-icon="mdi-location-exit"
+          class="bg-toplayer text-romm-red border-sm rounded"
+          >{{ t("common.logout") }}</v-list-item
+        >
       </template>
     </v-list>
     <template v-if="!smAndDown" #append>
       <v-list class="pa-0">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit">{{
-          t("common.logout")
-        }}</v-list-item>
+        <v-list-item
+          @click="logout"
+          append-icon="mdi-location-exit"
+          class="bg-surface text-romm-red border-sm rounded"
+          >{{ t("common.logout") }}</v-list-item
+        >
       </v-list>
     </template>
   </v-navigation-drawer>

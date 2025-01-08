@@ -10,7 +10,7 @@ withDefaults(
 </script>
 <template>
   <v-card class="ma-2">
-    <v-toolbar class="bg-toplayer" density="compact">
+    <v-toolbar class="bg-toplayer rounded" density="compact">
       <v-toolbar-title class="text-button">
         <v-icon :color="iconColor" class="mr-3">{{ icon }}</v-icon>
         {{ title }}
@@ -18,10 +18,8 @@ withDefaults(
       <slot name="toolbar-append"></slot>
     </v-toolbar>
 
-    <v-divider />
-
     <!-- Check style card-text -->
-    <v-card-text class="pa-0">
+    <v-card-text class="pa-0 bg-background">
       <slot name="content"></slot>
     </v-card-text>
   </v-card>
