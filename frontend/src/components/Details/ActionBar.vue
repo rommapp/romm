@@ -29,7 +29,7 @@ const ejsEmulationSupported = computed(() =>
 const ruffleEmulationSupported = computed(() =>
   isRuffleEmulationSupported(props.rom.platform_slug, heartbeatStore.value),
 );
-const isCIARom = computed(() => {
+const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
 
@@ -110,7 +110,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         <v-icon :icon="playInfoIcon" />
       </v-btn>
       <v-btn
-        v-if="isCIARom"
+        v-if="is3DSRom"
         class="flex-grow-1"
         @click="emitter?.emit('showQRCodeDialog', rom)"
       >

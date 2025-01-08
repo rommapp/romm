@@ -2,7 +2,7 @@
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import RDialog from "@/components/common/RDialog.vue";
-import { getDownloadLink } from "@/utils";
+import { get3DSCIAFiles, getDownloadLink, is3DSCIAFile } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, nextTick, ref } from "vue";
 import { useDisplay } from "vuetify";
@@ -17,19 +17,13 @@ emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
 
   await nextTick();
 
-  const downloadLink =
-    romToView.file_extension.toLowerCase() === "cia"
-      ? getDownloadLink({
-          rom: romToView,
-          files: [],
-        })
-      : getDownloadLink({
-          rom: romToView,
-          files: [
-            romToView.files.filter((f) => f["filename"].endsWith(".cia"))[0]
-              .filename,
-          ],
-        });
+  const is3DSFile = is3DSCIAFile(romToView);
+  const matchingFiles = get3DSCIAFiles(romToView);
+
+  const downloadLink = getDownloadLink({
+    rom: romToView,
+    files: is3DSFile ? [] : [matchingFiles[0].filename],
+  });
 
   const qrCode = document.getElementById("qr-code");
   qrcode.toCanvas(qrCode, downloadLink, {
