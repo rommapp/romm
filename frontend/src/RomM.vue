@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import languageStore from "@/stores/language";
+import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -18,8 +19,11 @@ storeLanguage.setLanguage(selectedLanguage.value);
 </script>
 <template>
   <v-app>
-    <v-main class="h-100">
-      <router-view />
-    </v-main>
+    <div class="d-flex flex-row flex-grow-1" style="max-height: 100dvh">
+      <main-app-bar />
+      <div class="flex-grow-1">
+        <router-view />
+      </div>
+    </div>
   </v-app>
 </template>

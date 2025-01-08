@@ -54,10 +54,9 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     v-else
     permanent
     rail
-    :floating="
-      activePlatformsDrawer || activeCollectionsDrawer || activeSettingsDrawer
-    "
     rail-width="60"
+    class="bg-background border-0 py-1"
+    style="position: initial"
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">

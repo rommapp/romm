@@ -20,12 +20,15 @@ function clear() {
 </script>
 <template>
   <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
+    v-if="activePlatformsDrawer"
     mobile
+    :location="smAndDown ? 'top' : 'left'"
     @update:model-value="clear"
-    width="500"
+    width="300"
     v-model="activePlatformsDrawer"
-    class="bg-toplayer"
+    class="bg-surface border-0 rounded ma-2"
+    style="position: initial; height: unset"
+    :scrim="false"
   >
     <template #prepend>
       <v-text-field
@@ -38,6 +41,7 @@ function clear() {
         single-line
         :label="t('platform.search-platform')"
         variant="solo-filled"
+        class="ma-1"
       ></v-text-field>
     </template>
     <v-list lines="two" class="pa-0">

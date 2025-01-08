@@ -18,7 +18,7 @@ const { activePlatformsDrawer } = storeToRefs(navigationStore);
     :block="block"
     variant="flat"
     rounded="0"
-    :color="activePlatformsDrawer ? 'toplayer' : ''"
+    :color="activeCollectionsDrawer ? 'surface' : 'background'"
     icon
     @click="navigationStore.switchActivePlatformsDrawer"
     ><v-icon :color="$route.name == 'platform' ? 'primary' : ''"
