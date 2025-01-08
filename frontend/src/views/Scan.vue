@@ -289,7 +289,7 @@ async function stopScan() {
   />
 
   <!-- Scan log -->
-  <v-card elevation="0" class="bg-surface mx-auto mb-1" max-width="800">
+  <v-card elevation="0" class="bg-surface mx-auto mt-2 mb-14" max-width="800">
     <v-card-text class="pa-0">
       <v-expansion-panels v-model="panels" multiple flat variant="accordion">
         <v-expansion-panel
@@ -346,20 +346,17 @@ async function stopScan() {
   </v-card>
 
   <!-- Scan stats -->
-  <v-bottom-navigation
-    :active="scanningPlatforms.length > 0"
-    :elevation="0"
-    height="40"
-    class="text-caption align-center"
+  <div
+    class="text-caption position-fixed d-flex w-100 m-1 justify-center"
+    style="bottom: 0.5rem"
   >
-    <v-chip variant="outlined" color="toplayer" class="px-1">
-      <v-icon class="text-white"> mdi-information </v-icon>
+    <v-chip variant="outlined" color="toplayer" class="px-2 py-5 bg-background">
       <v-chip
         v-if="scanningPlatforms.length > 0"
         color="primary"
         text-color="white"
         size="small"
-        class="ml-1 my-1"
+        class="mr-1 my-1"
       >
         <v-icon left>mdi-controller</v-icon>
         <span v-if="xs" class="ml-2">{{
@@ -393,7 +390,7 @@ async function stopScan() {
         }}</span>
       </v-chip>
     </v-chip>
-  </v-bottom-navigation>
+  </div>
 </template>
 <style lang="css">
 .v-expansion-panel-text__wrapper {
