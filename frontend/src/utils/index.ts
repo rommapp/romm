@@ -50,7 +50,7 @@ export const views: Record<
 /**
  * Default path for user avatars.
  */
-export const defaultAvatarPath = "/assets/default/user.png";
+export const defaultAvatarPath = "/assets/default/user.svg";
 
 /**
  * Normalize a string by converting it to lowercase and removing diacritics.

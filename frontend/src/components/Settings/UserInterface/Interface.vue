@@ -246,7 +246,7 @@ const toggleStatus = (value: boolean) => {
       <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">{{
         t("settings.home")
       }}</v-chip>
-      <v-divider class="border-opacity-25 my-1" />
+      <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
           cols="12"
@@ -274,7 +274,7 @@ const toggleStatus = (value: boolean) => {
         class="ml-2 mt-1"
         >{{ t("settings.gallery") }}</v-chip
       >
-      <v-divider class="border-opacity-25 my-1" />
+      <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
           cols="12"
