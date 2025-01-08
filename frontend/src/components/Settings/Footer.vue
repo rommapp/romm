@@ -17,7 +17,6 @@ const heartbeatStore = storeHeartbeat();
             ><a
               :class="{
                 'text-primary': isHovering,
-                'text-white': !isHovering,
               }"
               v-bind="props"
               style="text-decoration: none"
@@ -33,7 +32,6 @@ const heartbeatStore = storeHeartbeat();
             ><a
               :class="{
                 'text-primary': isHovering,
-                'text-white': !isHovering,
               }"
               v-bind="props"
               style="text-decoration: none"
