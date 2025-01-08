@@ -10,9 +10,9 @@ const { currentRom } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-card :key="currentRom.updated_at" v-if="currentRom">
+  <v-card id="background-header" :key="currentRom.updated_at" v-if="currentRom">
     <v-img
-      id="background-header"
+      id="background-image"
       :src="
         !currentRom.igdb_id && !currentRom.moby_id && !currentRom.has_cover
           ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
@@ -41,7 +41,11 @@ const { currentRom } = storeToRefs(romsStore);
 </template>
 <style scoped>
 #background-header {
-  height: 300px;
+  width: 100%;
+}
+
+#background-image {
+  height: 18rem;
   filter: blur(30px);
 }
 </style>
