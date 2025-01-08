@@ -38,7 +38,7 @@ function removeExclusion(exclusionValue: string) {
       >{{ title }}</v-card-title
     >
     <v-divider />
-    <v-card-text v-if="exclusionValue" class="pa-2">
+    <v-card-text class="pa-2">
       <v-chip
         v-for="exclusionValue in set"
         :key="exclusionValue"
