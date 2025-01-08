@@ -107,6 +107,7 @@ onBeforeUnmount(() => {
     v-if="auth.scopes.includes('platforms.write')"
     :block="block"
     variant="flat"
+    rounded="0"
     icon
     @click="navigationStore.goScan"
   >

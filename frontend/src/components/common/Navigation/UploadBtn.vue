@@ -13,6 +13,7 @@ const auth = storeAuth();
     v-if="auth.scopes.includes('roms.write')"
     icon="mdi-upload"
     variant="flat"
+    rounded="0"
     @click="emitter?.emit('showUploadRomDialog', null)"
   />
 </template>

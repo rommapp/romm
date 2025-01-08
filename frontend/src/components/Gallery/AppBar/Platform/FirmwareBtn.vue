@@ -21,6 +21,7 @@ const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
       <v-btn
         class="ml-0"
         variant="text"
+        rounded="0"
         v-bind="props"
         icon="mdi-memory"
         :color="activeFirmwareDrawer ? 'primary' : ''"

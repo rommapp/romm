@@ -17,6 +17,7 @@ const emit = defineEmits(["click"]);
       v-if="enabled"
       block
       size="large"
+      rounded="0"
       prepend-icon="mdi-plus"
       variant="outlined"
       class="text-primary"

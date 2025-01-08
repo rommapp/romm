@@ -50,6 +50,7 @@ function removeExclusion(exclusionValue: string) {
           <v-btn
             v-if="editable"
             variant="text"
+            rounded="0"
             size="x-small"
             icon="mdi-delete"
             class="text-romm-red ml-1"
