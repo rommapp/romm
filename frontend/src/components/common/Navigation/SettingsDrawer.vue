@@ -46,9 +46,9 @@ async function logout() {
     mobile
     width="500"
     v-model="activeSettingsDrawer"
-    class="bg-terciary"
+    class="bg-toplayer"
   >
-    <v-list rounded="0" class="pa-0">
+    <v-list class="pa-0">
       <v-list-img>
         <v-img
           :src="
@@ -67,7 +67,7 @@ async function logout() {
       >
       </v-list-item>
     </v-list>
-    <v-list rounded="0" class="pa-0">
+    <v-list class="pa-0">
       <v-list-item
         @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
         append-icon="mdi-account"
@@ -96,7 +96,7 @@ async function logout() {
       </template>
     </v-list>
     <template v-if="!smAndDown" #append>
-      <v-list rounded="0" class="pa-0">
+      <v-list class="pa-0">
         <v-divider />
         <v-list-item @click="logout" append-icon="mdi-location-exit">{{
           t("common.logout")

@@ -25,7 +25,7 @@ function clear() {
     @update:model-value="clear"
     width="500"
     v-model="activePlatformsDrawer"
-    class="bg-terciary"
+    class="bg-toplayer"
   >
     <template #prepend>
       <v-text-field
@@ -38,10 +38,9 @@ function clear() {
         single-line
         :label="t('platform.search-platform')"
         variant="solo-filled"
-        rounded="0"
       ></v-text-field>
     </template>
-    <v-list lines="two" rounded="0" class="pa-0">
+    <v-list lines="two" class="pa-0">
       <platform-list-item
         v-for="platform in filteredPlatforms"
         :key="platform.slug"

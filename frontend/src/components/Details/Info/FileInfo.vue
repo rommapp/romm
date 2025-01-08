@@ -58,12 +58,11 @@ watch(
                 <v-btn
                   v-bind="props"
                   variant="flat"
-                  rounded="0"
                   size="small"
                   @click="toggleMainSibling"
                   ><v-icon
                     :class="romUser.is_main_sibling ? '' : 'mr-1'"
-                    :color="romUser.is_main_sibling ? 'romm-accent-1' : ''"
+                    :color="romUser.is_main_sibling ? 'primary' : ''"
                     >{{
                       romUser.is_main_sibling
                         ? "mdi-checkbox-outline"
@@ -94,7 +93,6 @@ watch(
             :label="rom.file_name"
             item-title="file_name"
             :items="rom.files.map((f) => f.filename)"
-            rounded="0"
             density="compact"
             variant="outlined"
             return-object
@@ -143,7 +141,7 @@ watch(
             size="small"
             class="mr-2"
             label
-            color="romm-accent-1"
+            color="primary"
             variant="tonal"
           >
             {{ tag }}

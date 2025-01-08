@@ -26,7 +26,7 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
   <v-app-bar
     v-if="smAndDown"
     elevation="0"
-    class="bg-primary justify-center px-1"
+    class="bg-background justify-center px-1"
     mode="shift"
     height="45"
     app

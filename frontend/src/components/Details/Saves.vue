@@ -85,7 +85,7 @@ onMounted(() => {
     :items-per-page-options="PER_PAGE_OPTIONS"
     :headers="HEADERS"
     return-object
-    class="bg-secondary"
+    class="bg-surface"
     v-model="selectedSaves"
     v-model:page="page"
     show-select
@@ -93,14 +93,14 @@ onMounted(() => {
     <template #header.actions>
       <v-btn-group divided density="compact">
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           size="small"
           @click="emitter?.emit('addSavesDialog', rom)"
         >
           <v-icon>mdi-upload</v-icon>
         </v-btn>
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           :disabled="!selectedSaves.length"
           :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
           size="small"
@@ -109,7 +109,7 @@ onMounted(() => {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           :class="{
             'text-romm-red': selectedSaves.length,
           }"
@@ -151,7 +151,7 @@ onMounted(() => {
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           :href="item.download_path"
           download
           size="small"
@@ -159,7 +159,7 @@ onMounted(() => {
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           size="small"
           @click="
             emitter?.emit('showDeleteSavesDialog', {
@@ -179,8 +179,7 @@ onMounted(() => {
           <v-pagination
             :show-first-last-page="!xs"
             v-model="page"
-            rounded="0"
-            active-color="romm-accent-1"
+            active-color="primary"
             :length="pageCount"
           />
         </v-col>

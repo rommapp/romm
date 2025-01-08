@@ -236,14 +236,12 @@ async function stopScan() {
       @click="scan()"
     >
       <template #prepend>
-        <v-icon :color="scanning ? '' : 'romm-accent-1'"
-          >mdi-magnify-scan</v-icon
-        >
+        <v-icon :color="scanning ? '' : 'primary'">mdi-magnify-scan</v-icon>
       </template>
       {{ t("scan.scan") }}
       <template #loader>
         <v-progress-circular
-          color="romm-accent-1"
+          color="primary"
           :width="2"
           :size="20"
           indeterminate
@@ -287,24 +285,13 @@ async function stopScan() {
   <v-divider
     class="border-opacity-100 mt-3"
     :class="{ 'mx-4': !smAndDown }"
-    color="romm-accent-1"
+    color="primary"
   />
 
   <!-- Scan log -->
-  <v-card
-    elevation="0"
-    rounded="0"
-    class="bg-secondary mx-auto mb-1"
-    max-width="800"
-  >
+  <v-card elevation="0" class="bg-surface mx-auto mb-1" max-width="800">
     <v-card-text class="pa-0">
-      <v-expansion-panels
-        v-model="panels"
-        multiple
-        flat
-        rounded="0"
-        variant="accordion"
-      >
+      <v-expansion-panels v-model="panels" multiple flat variant="accordion">
         <v-expansion-panel
           v-for="platform in scanningPlatforms"
           :key="platform.id"
@@ -312,7 +299,7 @@ async function stopScan() {
           <v-expansion-panel-title>
             <v-list-item class="pa-0">
               <template #prepend>
-                <v-avatar :rounded="0" size="40">
+                <v-avatar size="40">
                   <platform-icon
                     :key="platform.slug"
                     :slug="platform.slug"
@@ -322,17 +309,13 @@ async function stopScan() {
               </template>
               {{ platform.name }}
               <template #append>
-                <v-chip
-                  class="ml-3"
-                  color="romm-accent-1"
-                  size="x-small"
-                  label
-                  >{{ platform.roms.length }}</v-chip
-                >
+                <v-chip class="ml-3" color="primary" size="x-small" label>{{
+                  platform.roms.length
+                }}</v-chip>
               </template>
             </v-list-item>
           </v-expansion-panel-title>
-          <v-expansion-panel-text class="bg-terciary">
+          <v-expansion-panel-text class="bg-toplayer">
             <rom-list-item
               v-for="rom in platform.roms"
               class="pa-4"
@@ -369,11 +352,11 @@ async function stopScan() {
     height="40"
     class="text-caption align-center"
   >
-    <v-chip variant="outlined" color="terciary" class="px-1">
+    <v-chip variant="outlined" color="tertiary" class="px-1">
       <v-icon class="text-white"> mdi-information </v-icon>
       <v-chip
         v-if="scanningPlatforms.length > 0"
-        color="romm-accent-1"
+        color="primary"
         text-color="white"
         size="small"
         class="ml-1 my-1"
@@ -392,7 +375,7 @@ async function stopScan() {
       </v-chip>
       <v-chip
         v-if="scanningPlatforms.length > 0"
-        color="romm-accent-1"
+        color="primary"
         size="small"
         text-color="white"
         class="ml-1 my-1"

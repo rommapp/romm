@@ -62,11 +62,11 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
   transition:
     filter 0.15s ease-in-out,
     transform 0.15s ease-in-out;
-  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
 }
 .platform-icon:hover,
 .platform-icon.active {
-  filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-primary)));
   transform: scale(1.1);
 }
 </style>

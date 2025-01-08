@@ -85,7 +85,7 @@ onMounted(() => {
     :items-per-page="itemsPerPage"
     :items-per-page-options="PER_PAGE_OPTIONS"
     :headers="HEADERS"
-    class="bg-secondary"
+    class="bg-surface"
     return-object
     v-model="selectedStates"
     v-model:page="page"
@@ -94,14 +94,14 @@ onMounted(() => {
     <template #header.actions>
       <v-btn-group divided density="compact">
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           size="small"
           @click="emitter?.emit('addStatesDialog', rom)"
         >
           <v-icon>mdi-upload</v-icon>
         </v-btn>
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           :disabled="!selectedStates.length"
           :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
           size="small"
@@ -110,7 +110,7 @@ onMounted(() => {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           :class="{
             'text-romm-red': selectedStates.length,
           }"
@@ -152,7 +152,7 @@ onMounted(() => {
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           :href="item.download_path"
           download
           size="small"
@@ -160,7 +160,7 @@ onMounted(() => {
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
-          class="bg-secondary"
+          class="bg-surface"
           size="small"
           @click="
             emitter?.emit('showDeleteStatesDialog', {
@@ -180,8 +180,7 @@ onMounted(() => {
           <v-pagination
             :show-first-last-page="!xs"
             v-model="page"
-            rounded="0"
-            active-color="romm-accent-1"
+            active-color="primary"
             :length="pageCount"
           />
         </v-col>

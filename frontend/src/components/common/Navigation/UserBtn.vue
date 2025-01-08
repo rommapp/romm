@@ -31,6 +31,6 @@ const { user } = storeToRefs(auth);
 }
 .v-avatar:hover,
 .v-avatar.active {
-  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-primary)));
 }
 </style>

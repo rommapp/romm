@@ -30,9 +30,8 @@ const editable = ref(false);
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
         class="ma-2"
-        rounded="0"
         size="small"
-        :color="editable ? 'romm-accent-1' : ''"
+        :color="editable ? 'primary' : ''"
         variant="text"
         icon="mdi-cog"
         @click="editable = !editable"

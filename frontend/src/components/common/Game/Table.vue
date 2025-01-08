@@ -178,9 +178,7 @@ onMounted(() => {
             <v-col>{{ item.name }}</v-col></v-row
           >
           <v-row no-gutters
-            ><v-col class="text-romm-accent-1">{{
-              item.file_name
-            }}</v-col></v-row
+            ><v-col class="text-primary">{{ item.file_name }}</v-col></v-row
           >
           <template #append>
             <v-chip
@@ -270,8 +268,7 @@ onMounted(() => {
               :show-first-last-page="!xs"
               v-model="page"
               @update:model-value="updateUrlHash"
-              rounded="0"
-              active-color="romm-accent-1"
+              active-color="primary"
               :length="pageCount"
             />
           </v-col>

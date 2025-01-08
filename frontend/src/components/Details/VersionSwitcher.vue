@@ -31,7 +31,6 @@ function updateVersion() {
     v-model="version"
     label="Version"
     single-line
-    rounded="0"
     variant="solo-filled"
     density="compact"
     max-width="fit-content"

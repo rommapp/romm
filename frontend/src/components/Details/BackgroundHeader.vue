@@ -10,7 +10,7 @@ const { currentRom } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-card :key="currentRom.updated_at" v-if="currentRom" rounded="0">
+  <v-card :key="currentRom.updated_at" v-if="currentRom">
     <v-img
       id="background-header"
       :src="
@@ -31,7 +31,7 @@ const { currentRom } = storeToRefs(romsStore);
           <v-progress-circular
             :width="2"
             :size="40"
-            color="romm-accent-1"
+            color="primary"
             indeterminate
           />
         </div>

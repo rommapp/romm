@@ -186,13 +186,13 @@ watch(
               <v-btn
                 v-if="!isEditable"
                 :loading="updating"
-                class="bg-terciary"
+                class="bg-toplayer"
                 @click="showEditable"
                 size="small"
               >
                 <template #loader>
                   <v-progress-circular
-                    color="romm-accent-1"
+                    color="primary"
                     :width="2"
                     :size="20"
                     indeterminate
@@ -201,13 +201,13 @@ watch(
                 <v-icon>mdi-pencil</v-icon></v-btn
               >
               <template v-else>
-                <v-btn @click="closeEditable" size="small" class="bg-terciary"
+                <v-btn @click="closeEditable" size="small" class="bg-toplayer"
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
                   @click="updatePlatform()"
                   size="small"
-                  class="bg-terciary ml-1"
+                  class="bg-toplayer ml-1"
                   ><v-icon color="romm-green">mdi-check</v-icon></v-btn
                 >
               </template>
@@ -240,7 +240,7 @@ watch(
           </div>
           <div class="mt-6">
             <v-btn
-              class="bg-terciary my-1"
+              class="bg-toplayer my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
               <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
@@ -251,17 +251,17 @@ watch(
               rounded="4"
               :loading="scanning"
               @click="scan"
-              class="ml-2 my-1 bg-terciary"
+              class="ml-2 my-1 bg-toplayer"
             >
               <template #prepend>
-                <v-icon :color="scanning ? '' : 'romm-accent-1'"
+                <v-icon :color="scanning ? '' : 'primary'"
                   >mdi-magnify-scan</v-icon
                 >
               </template>
               {{ t("scan.scan") }}
               <template #loader>
                 <v-progress-circular
-                  color="romm-accent-1"
+                  color="primary"
                   :width="2"
                   :size="20"
                   indeterminate
@@ -295,7 +295,7 @@ watch(
             <span>ID: {{ currentPlatform.moby_id }}</span>
           </v-chip>
         </div>
-        <v-card class="mt-4 bg-terciary fill-width" elevation="0">
+        <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
           <v-card-text class="pa-4">
             <template
               v-for="(field, index) in platformInfoFields"
@@ -347,7 +347,7 @@ watch(
             <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
-                  :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+                  :color="isSelected ? 'primary' : 'romm-gray'"
                   variant="outlined"
                   @click="toggle"
                 >
@@ -386,7 +386,7 @@ watch(
       <template #content>
         <div class="text-center">
           <v-btn
-            class="text-romm-red bg-terciary ma-2"
+            class="text-romm-red bg-toplayer ma-2"
             variant="flat"
             @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"
           >
@@ -407,7 +407,7 @@ watch(
   z-index: 1;
 }
 .platform-icon {
-  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
 }
 .greyscale {
   filter: grayscale(100%);

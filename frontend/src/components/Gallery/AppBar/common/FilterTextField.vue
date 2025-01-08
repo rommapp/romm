@@ -27,7 +27,6 @@ function clear() {
     v-model="filterText"
     prepend-inner-icon="mdi-filter-outline"
     :label="t('common.filter')"
-    rounded="0"
     hide-details
     clearable
     @click:clear="clear"

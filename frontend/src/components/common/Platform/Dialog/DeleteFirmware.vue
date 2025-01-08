@@ -96,7 +96,7 @@ function closeDialog() {
     <template #header>
       <v-row no-gutters class="justify-center">
         <span>Removing</span>
-        <span class="text-romm-accent-1 mx-1">{{ firmwares.length }}</span>
+        <span class="text-primary mx-1">{{ firmwares.length }}</span>
         <span>firmware files from RomM</span>
       </v-row>
     </template>
@@ -181,9 +181,8 @@ function closeDialog() {
             <v-col class="px-6">
               <v-pagination
                 v-model="page"
-                rounded="0"
                 :show-first-last-page="true"
-                active-color="romm-accent-1"
+                active-color="primary"
                 :length="pageCount"
               />
             </v-col>
@@ -220,11 +219,11 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
             Cancel
           </v-btn>
           <v-btn
-            class="text-romm-red bg-terciary"
+            class="text-romm-red bg-toplayer"
             variant="flat"
             @click="deleteFirmware"
           >

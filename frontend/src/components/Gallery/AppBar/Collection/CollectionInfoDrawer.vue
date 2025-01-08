@@ -152,13 +152,13 @@ async function updateCollection() {
               <v-btn
                 v-if="!isEditable"
                 :loading="updating"
-                class="bg-terciary"
+                class="bg-toplayer"
                 @click="showEditable"
                 size="small"
               >
                 <template #loader>
                   <v-progress-circular
-                    color="romm-accent-1"
+                    color="primary"
                     :width="2"
                     :size="20"
                     indeterminate
@@ -167,13 +167,13 @@ async function updateCollection() {
                 <v-icon>mdi-pencil</v-icon></v-btn
               >
               <template v-else>
-                <v-btn @click="closeEditable" size="small" class="bg-terciary"
+                <v-btn @click="closeEditable" size="small" class="bg-toplayer"
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
                   @click="updateCollection()"
                   size="small"
-                  class="bg-terciary ml-1"
+                  class="bg-toplayer ml-1"
                   ><v-icon color="romm-green">mdi-check</v-icon></v-btn
                 >
               </template>
@@ -187,7 +187,7 @@ async function updateCollection() {
             :src="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
-              <v-btn-group rounded="0" divided density="compact">
+              <v-btn-group divided density="compact">
                 <v-btn
                   title="Search for cover in SteamGridDB"
                   :disabled="
@@ -249,7 +249,7 @@ async function updateCollection() {
             <v-chip
               class="mt-4"
               size="small"
-              :color="currentCollection.is_public ? 'romm-accent-1' : ''"
+              :color="currentCollection.is_public ? 'primary' : ''"
               ><v-icon class="mr-1">{{
                 currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
               }}</v-icon
@@ -284,7 +284,7 @@ async function updateCollection() {
             <v-switch
               class="mt-2"
               v-model="updatedCollection.is_public"
-              color="romm-accent-1"
+              color="primary"
               false-icon="mdi-lock"
               true-icon="mdi-lock-open"
               inset
@@ -299,7 +299,7 @@ async function updateCollection() {
         </div>
       </v-col>
       <v-col cols="12">
-        <v-card class="mt-4 bg-terciary fill-width" elevation="0">
+        <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
           <v-card-text class="pa-4">
             <template
               v-for="(field, index) in collectionInfoFields"
@@ -337,7 +337,7 @@ async function updateCollection() {
       <template #content>
         <div class="text-center">
           <v-btn
-            class="text-romm-red bg-terciary ma-2"
+            class="text-romm-red bg-toplayer ma-2"
             variant="flat"
             @click="
               emitter?.emit('showDeleteCollectionDialog', currentCollection)

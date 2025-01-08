@@ -18,7 +18,6 @@ const galleryView = storeGalleryView();
   >
     <template #activator="{ props }">
       <v-btn
-        rounded="0"
         variant="text"
         v-bind="props"
         class="mr-0"

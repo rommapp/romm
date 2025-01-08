@@ -16,11 +16,10 @@ const emit = defineEmits(["click"]);
     <v-btn
       v-if="enabled"
       block
-      rounded="0"
       size="large"
       prepend-icon="mdi-plus"
       variant="outlined"
-      class="text-romm-accent-1"
+      class="text-primary"
       @click="$emit('click')"
     >
       {{ t("common.add") }}

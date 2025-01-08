@@ -152,7 +152,7 @@ function closeDialog() {
                 :src="imagePreviewUrl"
               >
                 <template #append-inner>
-                  <v-btn-group rounded="0" divided density="compact">
+                  <v-btn-group divided density="compact">
                     <v-btn
                       :disabled="
                         !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
@@ -203,11 +203,11 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mt-4 mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            class="bg-terciary text-romm-green"
+            class="bg-toplayer text-romm-green"
             :disabled="!collection.name"
             :variant="!collection.name ? 'plain' : 'flat'"
             @click="createCollection"
