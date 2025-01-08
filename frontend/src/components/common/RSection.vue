@@ -10,8 +10,8 @@ withDefaults(
 </script>
 
 <template>
-  <v-card class="ma-2">
-    <v-toolbar class="toolbar bg-toplayer rounded" density="compact">
+  <v-card class="ma-2 bg-background">
+    <v-toolbar class="bg-toplayer rounded px-1" density="compact">
       <v-toolbar-title class="text-button">
         <v-icon :color="iconColor" class="mr-2">{{ icon }}</v-icon>
         {{ title }}
@@ -25,9 +25,3 @@ withDefaults(
     </v-card-text>
   </v-card>
 </template>
-
-<style scoped>
-.toolbar::v-deep(.v-toolbar__content) {
-  height: 40px !important;
-}
-</style>

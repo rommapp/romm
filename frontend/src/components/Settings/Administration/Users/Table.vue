@@ -100,7 +100,7 @@ onMounted(() => {
         hide-details
         clearable
         density="comfortable"
-        class="bg-surface"
+        class="bg-surface mt-2"
       />
       <v-data-table
         v-model:items-per-page="usersPerPage"
