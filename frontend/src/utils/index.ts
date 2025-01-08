@@ -1,7 +1,7 @@
 import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
-import type { RomUserStatus } from "@/__generated__";
+import type { RomFile, RomUserStatus } from "@/__generated__";
 
 /**
  * Views configuration object.
@@ -323,6 +323,8 @@ const _EJS_CORES_MAP = {
     "fbalpha2012_cps1",
     "fbalpha2012_cps2",
   ],
+  neogeoaes: ["fbneo"],
+  neogeomvs: ["fbneo"],
   atari2600: ["stella2014"],
   "atari-2600-plus": ["stella2014"],
   atari5200: ["a5200"],
@@ -543,13 +545,26 @@ export function getStatusKeyForText(text: string) {
   return inverseRomStatusMap[text];
 }
 
+export function is3DSCIAFile(rom: SimpleRom): boolean {
+  return ["cia", "3ds"].includes(rom.file_extension.toLowerCase());
+}
+
+export function get3DSCIAFiles(rom: SimpleRom): RomFile[] {
+  return rom.files.filter((file) =>
+    [".cia", ".3ds"].some((ext) => file.filename.toLowerCase().endsWith(ext)),
+  );
+}
+
 /**
- * Check if a ROM is a 3DS .CIA file
+ * Check if a ROM is a valid 3DS game
  * @param rom The ROM object.
- * @returns True if the ROM is a 3DS .CIA file, false otherwise.
+ * @returns True if the ROM is a valid 3DS game, false otherwise.
  */
-export function is3DSCIARom(rom: SimpleRom) {
+export function is3DSCIARom(rom: SimpleRom): boolean {
   if (rom.platform_slug !== "3ds") return false;
-  if (rom.file_extension.toLowerCase() === "cia") return true;
-  return rom.files.some((f) => f["filename"].toLowerCase().endsWith(".cia"));
+
+  const hasValidExtension = is3DSCIAFile(rom);
+  const hasValidFile = get3DSCIAFiles(rom).length > 0;
+
+  return hasValidExtension || hasValidFile;
 }
