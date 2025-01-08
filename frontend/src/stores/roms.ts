@@ -11,8 +11,6 @@ import { defineStore } from "pinia";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
-const collectionStore = storeCollection();
-
 export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
@@ -212,6 +210,8 @@ export default defineStore("roms", {
       this._filteredIDs = byMatched.intersection(this._filteredIDs);
     },
     _filterFavourites() {
+      const collectionStore = storeCollection();
+
       const byFavourites = new Set(
         this.filteredRoms
           .filter((rom) =>

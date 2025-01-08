@@ -11,7 +11,6 @@ import { getDownloadPath } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
 import storeHeartbeat from "@/stores/heartbeat";
 
-const heartbeat = storeHeartbeat();
 export const romApi = api;
 
 async function uploadRoms({
@@ -21,6 +20,8 @@ async function uploadRoms({
   platformId: number;
   filesToUpload: File[];
 }): Promise<PromiseSettledResult<unknown>[]> {
+  const heartbeat = storeHeartbeat();
+
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
 

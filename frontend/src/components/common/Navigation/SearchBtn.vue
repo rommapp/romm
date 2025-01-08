@@ -9,7 +9,13 @@ const navigationStore = storeNavigation();
 const emitter = inject<Emitter<Events>>("emitter");
 </script>
 <template>
-  <v-btn icon variant="flat" rounded="0" @click="navigationStore.goSearch">
+  <v-btn
+    icon
+    variant="flat"
+    rounded="0"
+    color="background"
+    @click="navigationStore.goSearch"
+  >
     <v-icon :color="$route.name == 'search' ? 'primary' : ''"
       >mdi-magnify</v-icon
     >

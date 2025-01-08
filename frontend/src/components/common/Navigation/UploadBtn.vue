@@ -14,6 +14,7 @@ const auth = storeAuth();
     icon="mdi-upload"
     variant="flat"
     rounded="0"
+    color="background"
     @click="emitter?.emit('showUploadRomDialog', null)"
   />
 </template>

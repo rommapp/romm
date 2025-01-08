@@ -18,11 +18,11 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 </script>
 <template>
   <v-btn
+    icon
     :block="block"
     variant="flat"
     rounded="0"
-    :color="activeCollectionsDrawer ? 'toplayer' : ''"
-    icon
+    :color="activeCollectionsDrawer ? 'surface' : 'background'"
     @click="navigationStore.switchActiveCollectionsDrawer"
     ><v-icon :color="$route.name == 'collection' ? 'primary' : ''"
       >mdi-bookmark-box-multiple</v-icon

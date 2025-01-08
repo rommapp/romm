@@ -5,7 +5,6 @@ import RemoveRomsFromCollectionDialog from "@/components/common/Collection/Dialo
 import DeleteRomDialog from "@/components/common/Game/Dialog/DeleteRom.vue";
 import EditRomDialog from "@/components/common/Game/Dialog/EditRom.vue";
 import MatchRomDialog from "@/components/common/Game/Dialog/MatchRom.vue";
-import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
 import NewVersionDialog from "@/components/common/NewVersionDialog.vue";
 import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
@@ -59,7 +58,6 @@ onBeforeMount(async () => {
 
 <template>
   <notification />
-  <main-app-bar />
   <router-view />
 
   <match-rom-dialog />
