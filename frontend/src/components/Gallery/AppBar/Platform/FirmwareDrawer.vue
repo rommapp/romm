@@ -78,8 +78,9 @@ onMounted(() => {
     v-model="activeFirmwareDrawer"
     :class="{
       'my-2': activeFirmwareDrawer,
+      'px-1': activeFirmwareDrawer,
     }"
-    class="bg-surface border-0 rounded mx-2 pa-1"
+    class="bg-surface border-0 rounded mx-2 px-1"
     :scrim="false"
   >
     <v-data-table

@@ -140,8 +140,9 @@ async function updateCollection() {
     v-model="activeCollectionInfoDrawer"
     :class="{
       'mx-2': activeCollectionInfoDrawer,
+      'px-1': activeCollectionInfoDrawer,
     }"
-    class="bg-surface border-0 rounded my-2 pa-1"
+    class="bg-surface border-0 rounded my-2 py-1"
     style="height: unset; top: 54px"
     :scrim="false"
   >
