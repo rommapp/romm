@@ -110,6 +110,7 @@ onBeforeUnmount(() => {
     rounded="0"
     icon
     color="background"
+    class="rounded my-1"
     @click="navigationStore.goScan"
   >
     <v-progress-circular

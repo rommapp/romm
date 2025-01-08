@@ -15,6 +15,7 @@ const auth = storeAuth();
     variant="flat"
     rounded="0"
     color="background"
+    class="rounded my-1"
     @click="emitter?.emit('showUploadRomDialog', null)"
   />
 </template>

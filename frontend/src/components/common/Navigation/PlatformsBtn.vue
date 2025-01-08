@@ -17,10 +17,10 @@ const { activePlatformsDrawer } = storeToRefs(navigationStore);
   <v-btn
     :block="block"
     variant="flat"
-    rounded="0"
-    :color="activeCollectionsDrawer ? 'surface' : 'background'"
+    :color="activePlatformsDrawer ? 'toplayer' : 'background'"
     icon
     @click="navigationStore.switchActivePlatformsDrawer"
+    class="rounded my-1"
     ><v-icon :color="$route.name == 'platform' ? 'primary' : ''"
       >mdi-controller</v-icon
     ></v-btn

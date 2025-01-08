@@ -22,8 +22,9 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
     :block="block"
     variant="flat"
     rounded="0"
-    :color="activeCollectionsDrawer ? 'surface' : 'background'"
+    :color="activeCollectionsDrawer ? 'toplayer' : 'background'"
     @click="navigationStore.switchActiveCollectionsDrawer"
+    class="rounded my-1"
     ><v-icon :color="$route.name == 'collection' ? 'primary' : ''"
       >mdi-bookmark-box-multiple</v-icon
     ></v-btn
