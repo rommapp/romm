@@ -179,8 +179,9 @@ watch(
     v-model="activePlatformInfoDrawer"
     :class="{
       'mx-2': activePlatformInfoDrawer,
+      'px-1': activePlatformInfoDrawer,
     }"
-    class="bg-surface border-0 rounded my-2 pa-1"
+    class="bg-surface border-0 rounded my-2 py-1"
     style="height: unset; top: 54px"
     :scrim="false"
   >

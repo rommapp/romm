@@ -93,8 +93,9 @@ function resetFilters() {
     @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     :class="{
       'mx-2': activeFilterDrawer,
+      'px-1': activeFilterDrawer,
     }"
-    class="bg-surface border-0 rounded my-2 pa-1"
+    class="bg-surface border-0 rounded my-2 py-1"
     style="height: unset; top: 54px"
     :scrim="false"
   >

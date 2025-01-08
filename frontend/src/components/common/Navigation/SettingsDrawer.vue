@@ -48,8 +48,9 @@ async function logout() {
     v-model="activeSettingsDrawer"
     :class="{
       'mx-2': activeSettingsDrawer,
+      'px-1': activeSettingsDrawer,
     }"
-    class="bg-surface border-0 rounded my-2 pa-1"
+    class="bg-surface border-0 rounded my-2 py-1"
     style="height: unset"
     :scrim="false"
   >
