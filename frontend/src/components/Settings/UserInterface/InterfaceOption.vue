@@ -15,7 +15,7 @@ const emit = defineEmits(["update:modelValue"]);
 </script>
 <template>
   <v-card elevation="0">
-    <v-list-item class="pa-1"
+    <v-list-item class="px-6 py-1"
       ><template #prepend
         ><v-icon :class="modelValue ? 'text-primary' : ''" :icon="icon"
       /></template>
@@ -32,7 +32,6 @@ const emit = defineEmits(["update:modelValue"]);
           inset
           :model-value="modelValue"
           @update:model-value="(value) => emit('update:modelValue', value)"
-          :class="{ 'pr-16': !xs }"
           color="primary"
           hide-details
         /> </template

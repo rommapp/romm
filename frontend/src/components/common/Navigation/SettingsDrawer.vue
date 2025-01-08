@@ -98,7 +98,7 @@ async function logout() {
         <v-list-item
           @click="logout"
           append-icon="mdi-location-exit"
-          class="bg-toplayer text-romm-red border-sm rounded"
+          class="bg-toplayer text-romm-red border-sm border-romm-red rounded"
           >{{ t("common.logout") }}</v-list-item
         >
       </template>
@@ -108,7 +108,7 @@ async function logout() {
         <v-list-item
           @click="logout"
           append-icon="mdi-location-exit"
-          class="bg-surface text-romm-red border-sm rounded"
+          class="bg-surface text-romm-red border-sm border-romm-red rounded"
           >{{ t("common.logout") }}</v-list-item
         >
       </v-list>

@@ -10,7 +10,7 @@ withDefaults(
 );
 </script>
 <template>
-  <v-card elevation="0" :disabled="!enabled">
+  <v-card elevation="0" :disabled="!enabled" class="bg-background">
     <v-list-item class="pa-0">
       <v-list-item-title
         class="font-weight-bold"
