@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY
+from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
 from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY
@@ -125,7 +126,18 @@ class OpenIDHandler:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email is missing from token.",
             )
-        if userinfo.get("email_verified", None) is not True:
+
+        metadata = await oauth.openid.load_server_metadata()
+        claims_supported = metadata.get("claims_supported")
+        is_email_verified = userinfo.get("email_verified", None)
+
+        # Fail if email is explicitly unverified, or `email_verified` is a supported claim and
+        # email is not explicitly verified.
+        if is_email_verified is False or (
+            claims_supported
+            and "email_verified" in claims_supported
+            and is_email_verified is not True
+        ):
             log.error("Email is not verified.")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
