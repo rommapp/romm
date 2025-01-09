@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import CustomJSON
@@ -146,9 +147,12 @@ class Rom(BaseModel):
         return screenshots
 
     def get_collections(self) -> list[Collection]:
-        from handler.database import db_rom_handler
+        from handler.database import db_collection_handler
 
-        return db_rom_handler.get_rom_collections(self)
+        return db_collection_handler.get_collections_by_rom_id(
+            self.id,
+            order_by=[func.lower("name")],
+        )
 
     # Metadata fields
     @property

@@ -34,7 +34,7 @@ from endpoints import (
 )
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from handler.auth.base_handler import ALGORITHM
+from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
