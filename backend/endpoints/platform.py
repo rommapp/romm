@@ -6,7 +6,7 @@ from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from fastapi import Request
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
