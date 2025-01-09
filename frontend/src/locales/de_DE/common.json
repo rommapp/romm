@@ -13,6 +13,7 @@
   "states": "Spielstände",
   "states-n": "{n} Spielstand | {n} Spielstände",
   "screenshots-n": "{n} Screenshot | {n} Screenshots",
+  "size-on-disk": "Größe auf Festplatte",
   "search": "Suche",
   "filter": "Filter",
   "add": "Hinzufügen",

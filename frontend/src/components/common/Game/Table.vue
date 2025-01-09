@@ -171,7 +171,7 @@ onMounted(() => {
     </template>
     <template #item.name="{ item }">
       <td>
-        <v-list-item :min-width="400" class="px-0">
+        <v-list-item :min-width="400" class="px-0 py-2">
           <template #prepend>
             <r-avatar-rom :rom="item" />
           </template>

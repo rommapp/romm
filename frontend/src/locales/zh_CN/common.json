@@ -13,6 +13,7 @@
   "states": "状态",
   "states-n": "{n} 状态 | {n} 状态",
   "screenshots-n": "{n} 截图 | {n} 截图",
+  "size-on-disk": "磁盘大小",
   "search": "搜索",
   "filter": "筛选",
   "add": "添加",
