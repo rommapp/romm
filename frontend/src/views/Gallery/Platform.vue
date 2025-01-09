@@ -307,17 +307,26 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noPlatformError">
     <gallery-app-bar />
-    <v-row v-if="gettingRoms" no-gutters class="pa-1"
-      ><v-col
-        v-for="_ in 60"
-        class="pa-1 align-self-end"
-        :cols="views[currentView]['size-cols']"
-        :sm="views[currentView]['size-sm']"
-        :md="views[currentView]['size-md']"
-        :lg="views[currentView]['size-lg']"
-        :xl="views[currentView]['size-xl']"
-        ><v-skeleton-loader type="card" /></v-col
-    ></v-row>
+    <template v-if="gettingRoms">
+      <v-row v-show="currentView != 2" no-gutters class="pa-1"
+        ><v-col
+          v-for="_ in 60"
+          class="pa-1 align-self-end"
+          :cols="views[currentView]['size-cols']"
+          :sm="views[currentView]['size-sm']"
+          :md="views[currentView]['size-md']"
+          :lg="views[currentView]['size-lg']"
+          :xl="views[currentView]['size-xl']"
+          ><v-skeleton-loader type="card" /></v-col
+      ></v-row>
+      <v-row v-show="currentView == 2" class="h-100" no-gutters
+        ><v-col>
+          <v-skeleton-loader
+            v-for="_ in 5"
+            type="table-tbody"
+          ></v-skeleton-loader> </v-col
+      ></v-row>
+    </template>
     <template v-if="filteredRoms.length > 0">
       <v-row v-show="currentView != 2" class="pa-1" no-gutters>
         <!-- Gallery cards view -->

@@ -24,7 +24,6 @@ import { storeToRefs } from "pinia";
 // Props
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("updateDataTablePages", updateDataTablePages);
 const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
@@ -34,11 +33,6 @@ const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const { filteredRoms, selectedRoms } = storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
-const page = ref(parseInt(window.location.hash.slice(1)) || 1);
-const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
-const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const HEADERS = [
   {
     title: "Title",
@@ -87,14 +81,6 @@ function rowClick(_: Event, row: { item: SimpleRom }) {
   romsStore.resetSelection();
 }
 
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(filteredRoms.value.length / itemsPerPage.value);
-}
-
-function updateUrlHash() {
-  window.location.hash = String(page.value);
-}
-
 function checkIfEJSEmulationSupported(platformSlug: string) {
   return isEJSEmulationSupported(platformSlug, heartbeatStore.value);
 }
@@ -118,32 +104,15 @@ function updateSelectedRom(rom: SimpleRom) {
     romsStore.addToSelection(rom);
   }
 }
-
-watch(itemsPerPage, async () => {
-  localStorage.setItem("romsPerPage", itemsPerPage.value.toString());
-  updateDataTablePages();
-});
-
-// Watch route to avoid race condition
-watch(route, () => {
-  page.value = parseInt(window.location.hash.slice(1)) || 1;
-});
-
-onMounted(() => {
-  updateDataTablePages();
-});
 </script>
 
 <template>
-  <v-data-table
+  <v-data-table-virtual
     @click:row="rowClick"
-    :items-per-page="itemsPerPage"
-    :items-per-page-options="PER_PAGE_OPTIONS"
     :item-value="(item: SimpleRom) => item"
     :items="filteredRoms"
     :headers="HEADERS"
     v-model="selectedRomIDs"
-    v-model:page="page"
     show-select
     fixed-header
     fixed-footer
@@ -260,34 +229,5 @@ onMounted(() => {
         </v-menu>
       </v-btn-group>
     </template>
-
-    <template #bottom>
-      <v-divider />
-      <div>
-        <v-row no-gutters class="pa-1 align-center justify-center">
-          <v-col cols="8" sm="9" md="10" class="px-3">
-            <v-pagination
-              :show-first-last-page="!xs"
-              v-model="page"
-              @update:model-value="updateUrlHash"
-              rounded="0"
-              active-color="romm-accent-1"
-              :length="pageCount"
-            />
-          </v-col>
-          <v-col>
-            <v-select
-              v-model="itemsPerPage"
-              class="pa-2"
-              label="Roms per page"
-              density="compact"
-              variant="outlined"
-              :items="PER_PAGE_OPTIONS"
-              hide-details
-            />
-          </v-col>
-        </v-row>
-      </div>
-    </template>
-  </v-data-table>
+  </v-data-table-virtual>
 </template>
