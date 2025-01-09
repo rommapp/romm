@@ -4,7 +4,7 @@ import emoji
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from fastapi import HTTPException, Request, status
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.metadata import (
     meta_igdb_handler,
