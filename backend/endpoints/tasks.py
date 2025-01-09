@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from fastapi import Request
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from tasks.update_switch_titledb import update_switch_titledb_task
 from utils.router import APIRouter
 

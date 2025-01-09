@@ -9,7 +9,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import Depends, HTTPException, Request, status
 from handler.auth import auth_handler
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from logger.logger import log

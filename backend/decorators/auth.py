@@ -14,7 +14,7 @@ from fastapi import Security
 from fastapi.security.http import HTTPBasic
 from fastapi.security.oauth2 import OAuth2PasswordBearer
 from fastapi.types import DecoratedCallable
-from handler.auth.base_handler import (
+from handler.auth.constants import (
     DEFAULT_SCOPES_MAP,
     FULL_SCOPES_MAP,
     WRITE_SCOPES_MAP,
