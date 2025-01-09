@@ -63,6 +63,7 @@ async function logout() {
               : defaultAvatarPath
           "
           cover
+          class="rounded"
         >
         </v-img>
       </v-list-img>
