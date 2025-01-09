@@ -19,7 +19,7 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
       <v-row
         :class="{
           'flex-nowrap overflow-x-auto': !gridCollections,
-          'pa-1': true,
+          'py-2': true,
         }"
         no-gutters
       >
@@ -40,6 +40,7 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
             :key="collection.updated_at"
             :collection="collection"
             with-link
+            title-on-hover
           />
         </v-col>
       </v-row>

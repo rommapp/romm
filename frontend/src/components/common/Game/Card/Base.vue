@@ -121,23 +121,23 @@ const computedAspectRatio = computed(() => {
               src ||
               (romsStore.isSimpleRom(rom)
                 ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                  ? `/assets/default/cover/${theme.global.name.value}_unmatched.svg`
                   : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                    ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                    ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
                     : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
                 : !rom.igdb_url_cover && !rom.moby_url_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
                   : rom.igdb_url_cover || rom.moby_url_cover)
             "
             :lazy-src="
               romsStore.isSimpleRom(rom)
                 ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                  ? `/assets/default/cover/${theme.global.name.value}_unmatched.svg`
                   : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                    ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                    ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
                     : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
                 : !rom.igdb_url_cover && !rom.moby_url_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
                   : rom.igdb_url_cover || rom.moby_url_cover
             "
             :aspect-ratio="computedAspectRatio"
@@ -211,7 +211,7 @@ const computedAspectRatio = computed(() => {
             </div>
             <template #error>
               <v-img
-                :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+                :src="`/assets/default/cover/${theme.global.name.value}_missing_cover.svg`"
                 cover
                 :aspect-ratio="computedAspectRatio"
               ></v-img>

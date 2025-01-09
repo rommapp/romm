@@ -23,14 +23,14 @@ const gridContinuePlayingRoms = isNull(
       <v-row
         :class="{
           'flex-nowrap overflow-x-auto': !gridContinuePlayingRoms,
-          'pa-1': true,
+          'py-2': true,
         }"
         no-gutters
       >
         <v-col
           v-for="rom in continuePlayingRoms"
           :key="rom.id"
-          class="px-1 pt-1 pb-2 align-self-end"
+          class="pa-1 align-self-end"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"

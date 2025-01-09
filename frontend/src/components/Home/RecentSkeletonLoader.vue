@@ -11,7 +11,7 @@ defineProps<{ title: string }>();
       <v-row class="flex-nowrap overflow-x-auto" no-gutters>
         <v-col
           v-for="_ in 15"
-          class="px-1 pt-1 pb-2 align-self-end"
+          class="pa-1 align-self-end"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"

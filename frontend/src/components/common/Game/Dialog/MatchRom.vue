@@ -395,7 +395,7 @@ onBeforeUnmount(() => {
                     <v-img
                       :src="
                         !source.url_cover
-                          ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                          ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
                           : source.url_cover
                       "
                       :aspect-ratio="galleryViewStore.defaultAspectRatioCover"

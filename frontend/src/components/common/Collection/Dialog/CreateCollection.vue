@@ -58,7 +58,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  imagePreviewUrl.value = `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`;
   removeCover.value = true;
 }
 
@@ -150,6 +150,7 @@ function closeDialog() {
                 :with-link="false"
                 :collection="collection"
                 :src="imagePreviewUrl"
+                title-on-hover
               >
                 <template #append-inner>
                   <v-btn-group divided density="compact">

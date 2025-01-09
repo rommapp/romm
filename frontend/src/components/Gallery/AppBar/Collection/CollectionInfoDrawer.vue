@@ -192,6 +192,7 @@ async function updateCollection() {
             :with-link="false"
             :collection="currentCollection"
             :src="imagePreviewUrl"
+            title-on-hover
           >
             <template v-if="isEditable" #append-inner>
               <v-btn-group divided density="compact">
