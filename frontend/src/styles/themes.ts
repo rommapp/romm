@@ -29,8 +29,8 @@ export const dark = {
 export const light = {
   dark: false,
   colors: {
-    primary: "#5D3AB8", // Slightly darker for better contrast on light
-    secondary: "#7B5EC9",
+    primary: "#371f69", // Slightly darker for better contrast on light
+    secondary: "#553e98",
     tertiary: "#8A7A71", // Darker for better readability
     accent: "#FF7A5C", // More vibrant for better visibility
     surface: "#FFFFFF",

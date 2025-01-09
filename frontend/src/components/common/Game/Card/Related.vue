@@ -26,7 +26,7 @@ const galleryViewStore = storeGalleryView();
         v-bind="props"
         :src="
           game.cover_url ||
-          `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+          `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
         "
         :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
         cover

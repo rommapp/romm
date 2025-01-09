@@ -56,7 +56,7 @@ function clear() {
         density="compact"
       ></v-text-field>
     </template>
-    <v-list lines="two" class="pa-0">
+    <v-list lines="two" class="pa-0 pt-1">
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"
