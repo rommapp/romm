@@ -82,6 +82,7 @@ OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "")
 OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "")
 OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
 OIDC_SERVER_APPLICATION_URL: Final = os.environ.get("OIDC_SERVER_APPLICATION_URL", "")
+OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
 
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
