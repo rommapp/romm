@@ -5,6 +5,7 @@ import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -17,6 +18,7 @@ const user = ref({
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const usersStore = storeUsers();
+const { t } = useI18n();
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreateUserDialog", () => {
@@ -61,7 +63,7 @@ function closeDialog() {
                 v-model="user.username"
                 rounded="0"
                 variant="outlined"
-                label="username"
+                :label="t('settings.username')"
                 required
                 hide-details
                 clearable
@@ -74,7 +76,7 @@ function closeDialog() {
                 v-model="user.password"
                 rounded="0"
                 variant="outlined"
-                label="Password"
+                :label="t('settings.password')"
                 required
                 hide-details
                 clearable
@@ -87,7 +89,7 @@ function closeDialog() {
                 v-model="user.email"
                 rounded="0"
                 variant="outlined"
-                label="email"
+                :label="t('settings.email')"
                 required
                 hide-details
                 clearable
@@ -101,7 +103,7 @@ function closeDialog() {
                 rounded="0"
                 variant="outlined"
                 :items="['viewer', 'editor', 'admin']"
-                label="Role"
+                :label="t('settings.role')"
                 required
                 hide-details
               />
@@ -115,8 +117,10 @@ function closeDialog() {
         <v-btn-group divided density="compact">
           <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
           <v-btn
-            :disabled="!user.username || !user.password"
-            :variant="!user.username || !user.password ? 'plain' : 'flat'"
+            :disabled="!user.username || !user.password || !user.email"
+            :variant="
+              !user.username || !user.password || !user.email ? 'plain' : 'flat'
+            "
             class="text-romm-green bg-terciary"
             @click="createUser()"
           >

@@ -62,7 +62,7 @@ def add_user(
 
     existing_user_by_email = db_user_handler.get_user_by_email(email.lower())
     if existing_user_by_email:
-        msg = f"Uesr with email {email.lower()} already exists"
+        msg = f"User with email {email.lower()} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
