@@ -6,7 +6,6 @@ from models.collection import Collection
 from models.rom import Rom, RomUser
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
-from utils.database import json_array_contains_value
 
 from .base_handler import DBBaseHandler
 
@@ -179,24 +178,6 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom | None:
         return session.scalar(
             query.filter_by(file_name_no_ext=file_name_no_ext).limit(1)
-        )
-
-    @begin_session
-    def get_rom_collections(
-        self, rom: Rom, session: Session = None
-    ) -> list[Collection]:
-        return (
-            session.scalars(
-                select(Collection)
-                .filter(
-                    json_array_contains_value(
-                        Collection.roms, str(rom.id), session=session
-                    )
-                )
-                .order_by(Collection.name.asc())
-            )
-            .unique()
-            .all()
         )
 
     @begin_session
