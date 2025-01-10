@@ -171,6 +171,22 @@ class Rom(BaseModel):
         return 0
 
     @property
+    def average_rating(self) -> float:
+        igdb_rating = (
+            float(self.igdb_metadata.get("total_rating", 0))
+            if self.igdb_metadata
+            else 0.0
+        )
+        moby_rating = (
+            float(self.moby_metadata.get("moby_score", 0))
+            if self.moby_metadata
+            else 0.0
+        )
+        ratings = [igdb_rating, moby_rating * 10]  # Moby rating is out of 10
+
+        return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else 0.0
+
+    @property
     def genres(self) -> list[str]:
         return (
             (self.igdb_metadata or {}).get("genres", None)

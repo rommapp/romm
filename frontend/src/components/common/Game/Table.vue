@@ -65,6 +65,12 @@ const HEADERS = [
     key: "first_release_date",
   },
   {
+    title: "Rating",
+    align: "start",
+    sortable: true,
+    key: "average_rating",
+  },
+  {
     title: "Languages",
     align: "start",
     sortable: false,
@@ -76,7 +82,12 @@ const HEADERS = [
     sortable: false,
     key: "regions",
   },
-  { title: "", align: "center", key: "actions", sortable: false },
+  {
+    title: "",
+    align: "center",
+    key: "actions",
+    sortable: false,
+  },
 ] as const;
 
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
@@ -199,30 +210,38 @@ onMounted(() => {
       </td>
     </template>
     <template #item.file_size_bytes="{ item }">
-      <v-chip size="x-small" label>{{
-        formatBytes(item.file_size_bytes)
-      }}</v-chip>
+      <span class="text-no-wrap">{{ formatBytes(item.file_size_bytes) }}</span>
     </template>
     <template #item.created_at="{ item }">
-      <v-chip v-if="item.created_at" size="x-small" label>{{
+      <span v-if="item.created_at" class="text-no-wrap">{{
         new Date(item.created_at).toLocaleDateString("en-US", {
           day: "2-digit",
           month: "short",
           year: "numeric",
         })
-      }}</v-chip>
+      }}</span>
+      <span v-else>-</span>
     </template>
     <template #item.first_release_date="{ item }">
-      <v-chip v-if="item.first_release_date" size="x-small" label>{{
+      <span v-if="item.first_release_date" class="text-no-wrap">{{
         new Date(item.first_release_date).toLocaleDateString("en-US", {
           day: "2-digit",
           month: "short",
           year: "numeric",
         })
-      }}</v-chip>
+      }}</span>
+      <span v-else>-</span>
+    </template>
+    <template #item.average_rating="{ item }">
+      <span v-if="item.average_rating" class="text-no-wrap">{{
+        Intl.NumberFormat("en-US", {
+          maximumSignificantDigits: 3,
+        }).format(item.average_rating)
+      }}</span>
+      <span v-else>-</span>
     </template>
     <template #item.languages="{ item }">
-      <div class="d-flex">
+      <div class="text-no-wrap" v-if="item.languages.length > 0">
         <span
           class="emoji"
           v-for="language in item.languages.slice(0, 3)"
@@ -239,9 +258,10 @@ onMounted(() => {
           }}
         </spa>
       </div>
+      <span v-else>-</span>
     </template>
     <template #item.regions="{ item }">
-      <div class="d-flex">
+      <div class="text-no-wrap" v-if="item.regions.length > 0">
         <span
           class="emoji"
           v-for="region in item.regions.slice(0, 3)"
@@ -250,10 +270,13 @@ onMounted(() => {
         >
           {{ regionToEmoji(region) }}
         </span>
+        <spa class="reglang-super">
+          {{
+            item.regions.length > 3 ? `&nbsp;+${item.regions.length - 3}` : ""
+          }}
+        </spa>
       </div>
-      <spa class="reglang-super">
-        {{ item.regions.length > 3 ? `&nbsp;+${item.regions.length - 3}` : "" }}
-      </spa>
+      <span v-else>-</span>
     </template>
     <template #item.actions="{ item }">
       <v-btn-group density="compact">
