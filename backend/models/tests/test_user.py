@@ -1,4 +1,4 @@
-from handler.auth.base_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
+from handler.auth.constants import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
 from models.user import User
 
 

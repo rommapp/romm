@@ -14,8 +14,9 @@ const version = ref(props.rom.id);
 function formatTitle(rom: RomSchema) {
   const langs = rom.languages.map((l) => languageToEmoji(l)).join(" ");
   const regions = rom.regions.map((r) => regionToEmoji(r)).join(" ");
+  const revision = rom.revision ? `[rev-${rom.revision}]` : "";
   const tags = rom.tags.map((t) => `(${t})`).join(" ");
-  return `${langs} ${regions} ${tags}`.trim();
+  return `${langs} ${regions} ${revision} ${tags}`.trim();
 }
 
 function updateVersion() {
