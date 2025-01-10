@@ -546,12 +546,12 @@ export function getStatusKeyForText(text: string) {
 }
 
 export function is3DSCIAFile(rom: SimpleRom): boolean {
-  return ["cia", "3ds"].includes(rom.file_extension.toLowerCase());
+  return rom.file_extension.toLowerCase() == "cia";
 }
 
 export function get3DSCIAFiles(rom: SimpleRom): RomFile[] {
   return rom.files.filter((file) =>
-    [".cia", ".3ds"].some((ext) => file.filename.toLowerCase().endsWith(ext)),
+    file.filename.toLowerCase().endsWith(".cia"),
   );
 }
 
