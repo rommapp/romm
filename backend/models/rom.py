@@ -167,7 +167,7 @@ class Rom(BaseModel):
     @property
     def first_release_date(self) -> int:
         if self.igdb_metadata:
-            return self.igdb_metadata.get("first_release_date", 0)
+            return self.igdb_metadata.get("first_release_date", 0) * 1000
         return 0
 
     @property
