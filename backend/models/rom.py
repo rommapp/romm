@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import CustomJSON
@@ -141,9 +142,12 @@ class Rom(BaseModel):
         return screenshots
 
     def get_collections(self) -> list[Collection]:
-        from handler.database import db_rom_handler
+        from handler.database import db_collection_handler
 
-        return db_rom_handler.get_rom_collections(self)
+        return db_collection_handler.get_collections_by_rom_id(
+            self.id,
+            order_by=[func.lower("name")],
+        )
 
     # Metadata fields
     @property
@@ -163,8 +167,25 @@ class Rom(BaseModel):
     @property
     def first_release_date(self) -> int:
         if self.igdb_metadata:
-            return self.igdb_metadata.get("first_release_date", 0)
+            return self.igdb_metadata.get("first_release_date", 0) * 1000
         return 0
+
+    @property
+    def average_rating(self) -> float | None:
+        igdb_rating = (
+            float(self.igdb_metadata.get("total_rating", 0))
+            if self.igdb_metadata
+            else 0.0
+        )
+        moby_rating = (
+            float(self.moby_metadata.get("moby_score", 0))
+            if self.moby_metadata
+            else 0.0
+        )
+
+        ratings = [r for r in [igdb_rating, moby_rating * 10] if r != 0.0]
+
+        return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
 
     @property
     def genres(self) -> list[str]:
