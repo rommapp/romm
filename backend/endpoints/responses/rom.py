@@ -121,7 +121,7 @@ class RomSchema(BaseModel):
     # Metadata fields
     first_release_date: int | None
     youtube_video_id: str | None
-    average_rating: float
+    average_rating: float | None
     alternative_names: list[str]
     genres: list[str]
     franchises: list[str]
