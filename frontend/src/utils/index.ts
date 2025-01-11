@@ -430,9 +430,14 @@ export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
 ) {
+  const canvas = document.createElement("canvas");
+  const gl =
+    canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
   return (
     !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
-    getSupportedEJSCores(platformSlug).length > 0
+    getSupportedEJSCores(platformSlug).length > 0 &&
+    gl instanceof WebGLRenderingContext
   );
 }
 
