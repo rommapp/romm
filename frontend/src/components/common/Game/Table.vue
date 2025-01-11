@@ -47,36 +47,47 @@ const HEADERS = [
     key: "name",
   },
   {
-    title: "",
-    align: "start",
-    sortable: false,
-    key: "is_fav",
-  },
-  {
     title: "Size",
     align: "start",
     sortable: true,
     key: "file_size_bytes",
   },
   {
-    title: "Reg",
+    title: "Added",
     align: "start",
     sortable: true,
-    key: "regions",
+    key: "created_at",
   },
   {
-    title: "Lang",
+    title: "Released",
     align: "start",
     sortable: true,
+    key: "first_release_date",
+  },
+  {
+    title: "Rating",
+    align: "start",
+    sortable: true,
+    key: "average_rating",
+  },
+  {
+    title: "Languages",
+    align: "start",
+    sortable: false,
     key: "languages",
   },
   {
-    title: "Rev",
+    title: "Regions",
     align: "start",
-    sortable: true,
-    key: "revision",
+    sortable: false,
+    key: "regions",
   },
-  { title: "", align: "end", key: "actions", sortable: false },
+  {
+    title: "",
+    align: "center",
+    key: "actions",
+    sortable: false,
+  },
 ] as const;
 
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
@@ -170,18 +181,18 @@ onMounted(() => {
     </template>
     <template #item.name="{ item }">
       <td>
-        <v-list-item :min-width="400" class="px-0">
+        <v-list-item class="px-0">
           <template #prepend>
             <r-avatar-rom :rom="item" />
           </template>
           <v-row no-gutters>
-            <v-col>{{ item.name }}</v-col></v-row
-          >
-          <v-row no-gutters
-            ><v-col class="text-romm-accent-1">{{
-              item.file_name
-            }}</v-col></v-row
-          >
+            <v-col>{{ item.name }}</v-col>
+          </v-row>
+          <v-row no-gutters>
+            <v-col class="text-romm-accent-1">
+              {{ item.file_name }}
+            </v-col>
+          </v-row>
           <template #append>
             <v-chip
               v-if="
@@ -189,7 +200,7 @@ onMounted(() => {
                 item.sibling_roms.length > 0 &&
                 showSiblings
               "
-              class="translucent-dark ml-2"
+              class="translucent-dark ml-4"
               size="x-small"
             >
               <span class="text-caption">+{{ item.sibling_roms.length }}</span>
@@ -198,26 +209,78 @@ onMounted(() => {
         </v-list-item>
       </td>
     </template>
-    <template #item.is_fav="{ item }">
-      <fav-btn :rom="item" />
-    </template>
     <template #item.file_size_bytes="{ item }">
-      <v-chip size="x-small" label>{{
-        formatBytes(item.file_size_bytes)
-      }}</v-chip>
+      <span class="text-no-wrap">{{ formatBytes(item.file_size_bytes) }}</span>
     </template>
-    <template #item.regions="{ item }">
-      <span class="px-1" v-for="region in item.regions">
-        {{ regionToEmoji(region) }}
-      </span>
+    <template #item.created_at="{ item }">
+      <span v-if="item.created_at" class="text-no-wrap">{{
+        new Date(item.created_at).toLocaleDateString("en-US", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      }}</span>
+      <span v-else>-</span>
+    </template>
+    <template #item.first_release_date="{ item }">
+      <span v-if="item.first_release_date" class="text-no-wrap">{{
+        new Date(item.first_release_date).toLocaleDateString("en-US", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      }}</span>
+      <span v-else>-</span>
+    </template>
+    <template #item.average_rating="{ item }">
+      <span v-if="item.average_rating" class="text-no-wrap">{{
+        Intl.NumberFormat("en-US", {
+          maximumSignificantDigits: 3,
+        }).format(item.average_rating)
+      }}</span>
+      <span v-else>-</span>
     </template>
     <template #item.languages="{ item }">
-      <span class="px-1" v-for="language in item.languages">
-        {{ languageToEmoji(language) }}
-      </span>
+      <div class="text-no-wrap" v-if="item.languages.length > 0">
+        <span
+          class="emoji"
+          v-for="language in item.languages.slice(0, 3)"
+          :title="`Languages: ${item.languages.join(', ')}`"
+          :class="{ 'emoji-collection': item.regions.length > 3 }"
+        >
+          {{ languageToEmoji(language) }}
+        </span>
+        <spa class="reglang-super">
+          {{
+            item.languages.length > 3
+              ? `&nbsp;+${item.languages.length - 3}`
+              : ""
+          }}
+        </spa>
+      </div>
+      <span v-else>-</span>
+    </template>
+    <template #item.regions="{ item }">
+      <div class="text-no-wrap" v-if="item.regions.length > 0">
+        <span
+          class="emoji"
+          v-for="region in item.regions.slice(0, 3)"
+          :title="`Regions: ${item.regions.join(', ')}`"
+          :class="{ 'emoji-collection': item.regions.length > 3 }"
+        >
+          {{ regionToEmoji(region) }}
+        </span>
+        <spa class="reglang-super">
+          {{
+            item.regions.length > 3 ? `&nbsp;+${item.regions.length - 3}` : ""
+          }}
+        </spa>
+      </div>
+      <span v-else>-</span>
     </template>
     <template #item.actions="{ item }">
-      <v-btn-group divided density="compact">
+      <v-btn-group density="compact">
+        <fav-btn :rom="item" />
         <v-btn
           :disabled="downloadStore.value.includes(item.id)"
           download
@@ -291,3 +354,11 @@ onMounted(() => {
     </template>
   </v-data-table>
 </template>
+
+<style scoped>
+.reglang-super {
+  vertical-align: super;
+  font-size: 75%;
+  opacity: 75%;
+}
+</style>

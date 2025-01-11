@@ -1,5 +1,6 @@
 import binascii
 from base64 import b64encode
+from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
 from typing import Annotated
@@ -19,7 +20,7 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
@@ -27,7 +28,6 @@ from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from models.rom import Rom, RomUser
 from PIL import Image
-from sqlalchemy import func
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -558,6 +558,7 @@ async def delete_roms(
 @protected_route(router.put, "/roms/{id}/props", [Scope.ROMS_USER_WRITE])
 async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     data = await request.json()
+    data = data.get("data", {})
 
     rom = db_rom_handler.get_rom(id)
 
@@ -579,11 +580,12 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         "difficulty",
         "completion",
         "status",
+        "last_played",
     ]
 
     cleaned_data = {field: data[field] for field in fields_to_update if field in data}
 
     if data.get("update_last_played", False):
-        cleaned_data.update({"last_played": func.now()})
+        cleaned_data.update({"last_played": datetime.now(timezone.utc)})
 
     return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)

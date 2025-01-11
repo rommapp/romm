@@ -1,5 +1,10 @@
 from fastapi import HTTPException, status
 
+UserPassDisabledException = HTTPException(
+    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    detail="Username/password authentication disabled",
+)
+
 AuthCredentialsException = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Incorrect username or password",
