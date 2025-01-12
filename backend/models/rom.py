@@ -20,7 +20,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from utils.database import CustomJSON, safe_float
+from utils.database import CustomJSON, safe_float, safe_int
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -165,10 +165,11 @@ class Rom(BaseModel):
         )
 
     @property
-    def first_release_date(self) -> int:
+    def first_release_date(self) -> int | None:
         if self.igdb_metadata:
-            return self.igdb_metadata.get("first_release_date", 0) * 1000
-        return 0
+            return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
+
+        return None
 
     @property
     def average_rating(self) -> float | None:
