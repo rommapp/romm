@@ -43,9 +43,7 @@ pillow = "^10.3.0"
 certifi = "2024.07.04"
 authlib = "^1.3.1"
 python-magic = "^0.4.27"
-# TODO: Move back to official releases once the following PR is merged and released:
-#       https://github.com/miurahr/py7zr/pull/620
-py7zr = { git = "https://github.com/adamantike/py7zr.git", rev = "54b68426" }
+py7zr = "1.0.0rc2"
 sentry-sdk = "^2.19"
 # TODO: Move back to official releases once the following PR is merged and released:
 #       https://github.com/python-poetry/poetry-core/pull/803

@@ -30,7 +30,7 @@ RUN npm run build
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
-# git is needed to install py7zr fork
+# git is needed to install streaming-form-data fork
 # libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
