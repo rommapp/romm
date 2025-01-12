@@ -31,7 +31,7 @@ def json_array_contains_value(
     return func.json_contains(column, value)
 
 
-def safe_float(value, default=0.0):
+def safe_float(value: Any, default: float = 0.0) -> float:
     """Safely convert a value to float, returning default if conversion fails."""
     try:
         return float(value)
@@ -39,7 +39,7 @@ def safe_float(value, default=0.0):
         return default
 
 
-def safe_int(value, default=0):
+def safe_int(value: Any, default: int = 0) -> int:
     """Safely convert a value to int, returning default if conversion fails."""
     try:
         return int(value)
