@@ -88,9 +88,8 @@ async function switchFromFavourites() {
     @click.stop="switchFromFavourites"
     class="translucent text-shadow"
     rouded="0"
-    size="x-small"
+    size="small"
     variant="text"
-    icon
     ><v-icon color="primary">{{
       collectionsStore.isFav(rom) ? "mdi-star" : "mdi-star-outline"
     }}</v-icon></v-btn

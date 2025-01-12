@@ -1766,12 +1766,14 @@ tests = ["pytest"]
 
 [[package]]
 name = "py7zr"
-version = "0.1.dev1828"
+version = "1.0.0rc2"
 description = "Pure python 7-zip library"
 optional = false
 python-versions = ">=3.9"
-files = []
-develop = false
+files = [
+    {file = "py7zr-1.0.0rc2-py3-none-any.whl", hash = "sha256:4eba876d6018ccc7aead07d5f10795151be5b272289078b899f199b27d2dae41"},
+    {file = "py7zr-1.0.0rc2.tar.gz", hash = "sha256:8a62e7c96050eb357ab5a41a7863078931733e235e796468b4d5e22bb0888bf0"},
+]
 
 [package.dependencies]
 brotli = {version = ">=1.1.0", markers = "platform_python_implementation == \"CPython\""}
@@ -1786,17 +1788,11 @@ pyzstd = ">=0.16.1"
 texttable = "*"
 
 [package.extras]
-check = ["black (>=24.8.0)", "check-manifest", "flake8 (<8)", "flake8-black (>=0.3.6)", "flake8-deprecated", "flake8-isort", "isort (>=5.13.2)", "lxml", "mypy (>=1.10.0)", "mypy_extensions (>=1.0.0)", "pygments", "readme-renderer", "twine", "types-psutil"]
+check = ["black (>=24.8.0)", "check-manifest", "flake8 (<8)", "flake8-black (>=0.3.6)", "flake8-deprecated", "flake8-isort", "isort (>=5.13.2)", "lxml", "mypy (>=1.10.0)", "mypy_extensions (>=1.0.0)", "pygments", "pylint", "readme-renderer", "twine", "types-psutil"]
 debug = ["pytest", "pytest-leaks", "pytest-profiling"]
 docs = ["docutils", "sphinx (>=7.0.0)", "sphinx-a4doc", "sphinx-py3doc-enhanced-theme"]
 test = ["coverage[toml] (>=5.2)", "coveralls (>=2.1.1)", "py-cpuinfo", "pytest", "pytest-benchmark", "pytest-cov", "pytest-httpserver", "pytest-remotedata", "pytest-timeout", "requests"]
 test-compat = ["libarchive-c"]
-
-[package.source]
-type = "git"
-url = "https://github.com/adamantike/py7zr.git"
-reference = "54b68426"
-resolved_reference = "54b68426775988229db657f2c196e5f84b6ff69e"
 
 [[package]]
 name = "pybcj"
@@ -3582,4 +3578,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "5c2a001de459f5cd5586f834cec3607163ec3800a466332b37afeb7b9862219e"
+content-hash = "8b0d4ecd3191f13860cbfc3211112bd66966388afdcb31582c8138f9100e9b05"

@@ -20,7 +20,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from utils.database import CustomJSON
+from utils.database import CustomJSON, safe_float, safe_int
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -165,10 +165,28 @@ class Rom(BaseModel):
         )
 
     @property
-    def first_release_date(self) -> int:
+    def first_release_date(self) -> int | None:
         if self.igdb_metadata:
-            return self.igdb_metadata.get("first_release_date", 0)
-        return 0
+            return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
+
+        return None
+
+    @property
+    def average_rating(self) -> float | None:
+        igdb_rating = (
+            safe_float(self.igdb_metadata.get("total_rating") or 0)
+            if self.igdb_metadata
+            else 0.0
+        )
+        moby_rating = (
+            safe_float(self.moby_metadata.get("moby_score") or 0)
+            if self.moby_metadata
+            else 0.0
+        )
+
+        ratings = [r for r in [igdb_rating, moby_rating * 10] if r != 0.0]
+
+        return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
 
     @property
     def genres(self) -> list[str]:
