@@ -20,7 +20,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from utils.database import CustomJSON
+from utils.database import CustomJSON, safe_float
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -173,12 +173,12 @@ class Rom(BaseModel):
     @property
     def average_rating(self) -> float | None:
         igdb_rating = (
-            float(self.igdb_metadata.get("total_rating", 0))
+            safe_float(self.igdb_metadata.get("total_rating") or 0)
             if self.igdb_metadata
             else 0.0
         )
         moby_rating = (
-            float(self.moby_metadata.get("moby_score", 0))
+            safe_float(self.moby_metadata.get("moby_score") or 0)
             if self.moby_metadata
             else 0.0
         )
