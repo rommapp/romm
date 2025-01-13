@@ -70,3 +70,4 @@ Source = "https://github.com/rommapp/romm"
 
 [tool.poetry]
 package-mode = false
+requires-poetry = ">=2.0"
