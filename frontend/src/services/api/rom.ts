@@ -187,7 +187,7 @@ async function updateUserRomProps({
   romId: number;
   data: Partial<RomUserSchema>;
   updateLastPlayed?: boolean;
-}): Promise<{ data: DetailedRom }> {
+}): Promise<{ data: RomUserSchema }> {
   return api.put(`/roms/${romId}/props`, {
     data: data,
     update_last_played: updateLastPlayed,
