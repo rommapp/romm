@@ -3,6 +3,7 @@ import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
@@ -12,22 +13,28 @@ import {
 } from "@/utils";
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
+import { storeToRefs } from "pinia";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
+
+const platformSlug = computed(() => {
+  return props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
+    ? config.value.PLATFORMS_VERSIONS[props.rom.platform_slug]
+    : props.rom.platform_slug;
+});
 
 const ejsEmulationSupported = computed(() => {
-  return isEJSEmulationSupported(props.rom.platform_slug, heartbeatStore.value);
+  return isEJSEmulationSupported(platformSlug.value, heartbeatStore.value);
 });
 
 const ruffleEmulationSupported = computed(() => {
-  return isRuffleEmulationSupported(
-    props.rom.platform_slug,
-    heartbeatStore.value,
-  );
+  return isRuffleEmulationSupported(platformSlug.value, heartbeatStore.value);
 });
 
 const is3DSRom = computed(() => {
