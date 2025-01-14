@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
 from sqlalchemy import (
+    TIMESTAMP,
     BigInteger,
-    DateTime,
     Enum,
     ForeignKey,
     Index,
@@ -254,7 +254,7 @@ class RomUser(BaseModel):
     note_is_public: Mapped[bool] = mapped_column(default=False)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
-    last_played: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_played: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
     backlogged: Mapped[bool] = mapped_column(default=False)
     now_playing: Mapped[bool] = mapped_column(default=False)
