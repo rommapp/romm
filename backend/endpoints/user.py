@@ -51,16 +51,16 @@ def add_user(
             detail="Forbidden",
         )
 
-    if db_user_handler.get_user_by_username(username.lower()):
-        msg = f"Username {username.lower()} already exists"
+    if db_user_handler.get_user_by_username(username):
+        msg = f"Username {username} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=msg,
         )
 
-    if email and db_user_handler.get_user_by_email(email.lower()):
-        msg = f"User with email {email.lower()} already exists"
+    if email and db_user_handler.get_user_by_email(email):
+        msg = f"User with email {email} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -155,8 +155,7 @@ async def update_user(
     cleaned_data: dict[str, Any] = {}
 
     if form_data.username and form_data.username != db_user.username:
-        existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
-        if existing_user:
+        if db_user_handler.get_user_by_username(form_data.username):
             msg = f"Username {form_data.username} already exists"
             log.error(msg)
             raise HTTPException(
@@ -172,9 +171,7 @@ async def update_user(
         )
 
     if form_data.email is not None and form_data.email != db_user.email:
-        if form_data.email and db_user_handler.get_user_by_email(
-            form_data.email.lower()
-        ):
+        if form_data.email and db_user_handler.get_user_by_email(form_data.email):
             msg = f"User with email {form_data.email} already exists"
             log.error(msg)
             raise HTTPException(
