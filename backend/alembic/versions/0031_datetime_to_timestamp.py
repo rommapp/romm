@@ -25,12 +25,14 @@ def upgrade() -> None:
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("firmware", schema=None) as batch_op:
@@ -39,12 +41,14 @@ def upgrade() -> None:
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
@@ -53,12 +57,14 @@ def upgrade() -> None:
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
@@ -73,41 +79,30 @@ def upgrade() -> None:
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.alter_column(
-            "file_name", existing_type=mysql.VARCHAR(length=450), nullable=False
-        )
-        batch_op.alter_column(
-            "file_name_no_tags", existing_type=mysql.VARCHAR(length=450), nullable=False
-        )
-        batch_op.alter_column(
-            "file_name_no_ext", existing_type=mysql.VARCHAR(length=450), nullable=False
-        )
-        batch_op.alter_column(
-            "file_extension", existing_type=mysql.VARCHAR(length=100), nullable=False
-        )
-        batch_op.alter_column(
-            "file_path", existing_type=mysql.VARCHAR(length=1000), nullable=False
-        )
         batch_op.alter_column(
             "created_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("saves", schema=None) as batch_op:
@@ -116,12 +111,14 @@ def upgrade() -> None:
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("screenshots", schema=None) as batch_op:
@@ -130,12 +127,14 @@ def upgrade() -> None:
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("states", schema=None) as batch_op:
@@ -144,23 +143,17 @@ def upgrade() -> None:
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.alter_column(
-            "role",
-            existing_type=mysql.ENUM("VIEWER", "EDITOR", "ADMIN"),
-            nullable=False,
-        )
-        batch_op.alter_column(
-            "avatar_path", existing_type=mysql.VARCHAR(length=255), nullable=False
-        )
         batch_op.alter_column(
             "last_login",
             existing_type=mysql.DATETIME(),
@@ -178,12 +171,14 @@ def upgrade() -> None:
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "updated_at",
             existing_type=mysql.DATETIME(),
             type_=sa.TIMESTAMP(timezone=True),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     # ### end Alembic commands ###
@@ -197,12 +192,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "last_active",
@@ -216,12 +213,6 @@ def downgrade() -> None:
             type_=mysql.DATETIME(),
             existing_nullable=True,
         )
-        batch_op.alter_column(
-            "avatar_path", existing_type=mysql.VARCHAR(length=255), nullable=True
-        )
-        batch_op.alter_column(
-            "role", existing_type=mysql.ENUM("VIEWER", "EDITOR", "ADMIN"), nullable=True
-        )
 
     with op.batch_alter_table("states", schema=None) as batch_op:
         batch_op.alter_column(
@@ -229,12 +220,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("screenshots", schema=None) as batch_op:
@@ -243,12 +236,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("saves", schema=None) as batch_op:
@@ -257,12 +252,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
@@ -271,27 +268,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
-        )
-        batch_op.alter_column(
-            "file_path", existing_type=mysql.VARCHAR(length=1000), nullable=True
-        )
-        batch_op.alter_column(
-            "file_extension", existing_type=mysql.VARCHAR(length=100), nullable=True
-        )
-        batch_op.alter_column(
-            "file_name_no_ext", existing_type=mysql.VARCHAR(length=450), nullable=True
-        )
-        batch_op.alter_column(
-            "file_name_no_tags", existing_type=mysql.VARCHAR(length=450), nullable=True
-        )
-        batch_op.alter_column(
-            "file_name", existing_type=mysql.VARCHAR(length=450), nullable=True
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
@@ -300,12 +284,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "last_played",
@@ -320,12 +306,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("firmware", schema=None) as batch_op:
@@ -334,12 +322,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     with op.batch_alter_table("collections", schema=None) as batch_op:
@@ -348,12 +338,14 @@ def downgrade() -> None:
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
         batch_op.alter_column(
             "created_at",
             existing_type=sa.TIMESTAMP(timezone=True),
             type_=mysql.DATETIME(),
             existing_nullable=False,
+            existing_server_default=sa.text("now()"),
         )
 
     # ### end Alembic commands ###
