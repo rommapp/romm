@@ -4,8 +4,9 @@ from functools import cached_property
 
 from models.base import BaseModel
 from models.user import User
-from sqlalchemy import JSON, ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from utils.database import CustomJSON
 
 
 class Collection(BaseModel):
@@ -24,7 +25,7 @@ class Collection(BaseModel):
     )
 
     roms: Mapped[set[int]] = mapped_column(
-        JSON, default=[], doc="Rom id's that belong to this collection"
+        CustomJSON(), default=[], doc="Rom id's that belong to this collection"
     )
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))

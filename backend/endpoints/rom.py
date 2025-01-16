@@ -1,5 +1,6 @@
 import binascii
 from base64 import b64encode
+from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
 from urllib.parse import quote
@@ -18,12 +19,13 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
+from models.rom import Rom, RomUser
 from PIL import Image
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
@@ -114,21 +116,45 @@ def get_roms(
 
     Args:
         request (Request): Fastapi Request object
-        id (int, optional): Rom internal id
+        platform_id (int, optional): Platform ID to filter ROMs
+        collection_id (int, optional): Collection ID to filter ROMs
+        search_term (str, optional): Search term to filter ROMs
+        limit (int, optional): Limit the number of ROMs returned
+        offset (int, optional): Offset for pagination
+        order_by (str, optional): Field to order ROMs by
+        order_dir (str, optional): Direction to order ROMs (asc or desc)
+        last_played (bool, optional): Flag to filter ROMs by last played
 
     Returns:
-        list[SimpleRomSchema]: List of roms stored in the database
+        list[DetailedRomSchema]: List of ROMs stored in the database
     """
 
-    roms = db_rom_handler.get_roms(
-        platform_id=platform_id,
-        collection_id=collection_id,
-        search_term=search_term.lower(),
-        order_by=order_by.lower(),
-        order_dir=order_dir.lower(),
-        limit=limit,
-        offset=offset,
-    )
+    if hasattr(Rom, order_by):
+        roms = db_rom_handler.get_roms(
+            platform_id=platform_id,
+            collection_id=collection_id,
+            search_term=search_term.lower(),
+            order_by=order_by.lower(),
+            order_dir=order_dir.lower(),
+            limit=limit,
+            offset=offset,
+        )
+    elif hasattr(RomUser, order_by):
+        roms = db_rom_handler.get_roms_user(
+            user_id=request.user.id,
+            platform_id=platform_id,
+            collection_id=collection_id,
+            search_term=search_term,
+            order_by=order_by,
+            order_dir=order_dir,
+            limit=limit,
+            offset=offset,
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid order_by field",
+        )
 
     roms = [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms]
     return [rom for rom in roms if rom]
@@ -260,6 +286,18 @@ async def get_rom_content(
     log.info(f"User {current_username} is downloading {rom.fs_name}")
 
     if not rom.multi:
+        # Serve the file directly in development mode for emulatorjs
+        if DEV_MODE:
+            return FileResponse(
+                path=rom_path,
+                filename=rom.file_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(rom.file_size_bytes),
+                },
+            )
+
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
             filename=rom.fs_name,
@@ -535,6 +573,7 @@ async def delete_roms(
 @protected_route(router.put, "/roms/{id}/props", [Scope.ROMS_USER_WRITE])
 async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     data = await request.json()
+    data = data.get("data", {})
 
     rom = db_rom_handler.get_rom(id)
 
@@ -556,9 +595,13 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         "difficulty",
         "completion",
         "status",
+        "last_played",
     ]
 
     cleaned_data = {field: data[field] for field in fields_to_update if field in data}
+    if data.get("update_last_played", False):
+        cleaned_data.update({"last_played": datetime.now(timezone.utc)})
+
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
 
     return RomUserSchema.model_validate(rom_user)

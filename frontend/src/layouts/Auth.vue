@@ -14,7 +14,7 @@ const heartbeatStore = storeHeartbeat();
   </v-container>
   <div id="version" class="position-absolute">
     <span class="text-white text-shadow">{{
-      heartbeatStore.value.VERSION
+      heartbeatStore.value.SYSTEM.VERSION
     }}</span>
   </div>
 </template>

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from anyio import open_file
 from config import ASSETS_BASE_PATH
@@ -9,7 +9,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import Depends, HTTPException, Request, status
 from handler.auth import auth_handler
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from logger.logger import log
@@ -51,8 +51,7 @@ def add_user(
             detail="Forbidden",
         )
 
-    existing_user_by_username = db_user_handler.get_user_by_username(username.lower())
-    if existing_user_by_username:
+    if db_user_handler.get_user_by_username(username.lower()):
         msg = f"Username {username.lower()} already exists"
         log.error(msg)
         raise HTTPException(
@@ -60,9 +59,8 @@ def add_user(
             detail=msg,
         )
 
-    existing_user_by_email = db_user_handler.get_user_by_email(email.lower())
-    if existing_user_by_email:
-        msg = f"Uesr with email {email.lower()} already exists"
+    if email and db_user_handler.get_user_by_email(email.lower()):
+        msg = f"User with email {email.lower()} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -72,7 +70,7 @@ def add_user(
     user = User(
         username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
-        email=email.lower(),
+        email=email.lower() or None,
         role=Role[role.upper()],
     )
 
@@ -154,7 +152,7 @@ async def update_user(
     if db_user.id != request.user.id and request.user.role != Role.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-    cleaned_data = {}
+    cleaned_data: dict[str, Any] = {}
 
     if form_data.username and form_data.username != db_user.username:
         existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
@@ -173,9 +171,10 @@ async def update_user(
             form_data.password
         )
 
-    if form_data.email and form_data.email != db_user.email:
-        existing_user = db_user_handler.get_user_by_email(form_data.email.lower())
-        if existing_user:
+    if form_data.email is not None and form_data.email != db_user.email:
+        if form_data.email and db_user_handler.get_user_by_email(
+            form_data.email.lower()
+        ):
             msg = f"User with email {form_data.email} already exists"
             log.error(msg)
             raise HTTPException(
@@ -183,7 +182,7 @@ async def update_user(
                 detail=msg,
             )
 
-        cleaned_data["email"] = form_data.email.lower()
+        cleaned_data["email"] = form_data.email.lower() or None
 
     # You can't change your own role
     if form_data.role and request.user.id != id:

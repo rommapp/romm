@@ -36,6 +36,7 @@ export type DetailedRomSchema = {
     summary: (string | null);
     first_release_date: (number | null);
     youtube_video_id: (string | null);
+    average_rating: (number | null);
     alternative_names: Array<string>;
     genres: Array<string>;
     franchises: Array<string>;

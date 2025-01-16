@@ -13,7 +13,7 @@ from exceptions.endpoint_exceptions import (
     CollectionPermissionError,
 )
 from fastapi import Request, UploadFile
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize

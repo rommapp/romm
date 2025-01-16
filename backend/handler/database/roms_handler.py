@@ -178,20 +178,6 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(query.filter_by(fs_name_no_ext=fs_name_no_ext).limit(1))
 
     @begin_session
-    def get_rom_collections(
-        self, rom: Rom, session: Session = None
-    ) -> Sequence[Collection]:
-        return (
-            session.scalars(
-                select(Collection)
-                .filter(func.json_contains(Collection.roms, f"{rom.id}"))
-                .order_by(Collection.name.asc())
-            )
-            .unique()
-            .all()
-        )
-
-    @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:
         session.execute(
             update(Rom)
@@ -253,6 +239,34 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    @with_simple
+    def get_roms_user(
+        self,
+        *,
+        user_id: int,
+        platform_id: int | None = None,
+        collection_id: int | None = None,
+        search_term: str = "",
+        order_by: str = "name",
+        order_dir: str = "asc",
+        limit: int | None = None,
+        offset: int | None = None,
+        query: Query = None,
+        session: Session = None,
+    ) -> Sequence[Rom]:
+        filtered_query = (
+            query.join(RomUser)
+            .filter(RomUser.user_id == user_id)
+            .order_by(RomUser.last_played.desc())
+        )
+        filtered_query = self._filter(
+            filtered_query, platform_id, collection_id, search_term, session
+        )
+        offset_query = filtered_query.offset(offset)
+        limited_query = offset_query.limit(limit)
+        return session.scalars(limited_query).unique().all()
+
+    @begin_session
     def get_rom_user_by_id(self, id: int, session: Session = None) -> RomUser | None:
         return session.scalar(select(RomUser).filter_by(id=id).limit(1))
 
@@ -265,19 +279,22 @@ class DBRomsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        rom_user = session.query(RomUser).filter_by(id=id).one()
-        if data.get("is_main_sibling", False):
-            rom = session.query(Rom).filter_by(id=rom_user.rom_id).one()
-            session.execute(
-                update(RomUser)
-                .where(
-                    and_(
-                        RomUser.rom_id.in_(r.id for r in rom.sibling_roms),
-                        RomUser.user_id == rom_user.user_id,
-                    )
+        rom_user = self.get_rom_user_by_id(id)
+
+        if not data.get("is_main_sibling", False):
+            return rom_user
+
+        rom = self.get_rom(rom_user.rom_id)
+        session.execute(
+            update(RomUser)
+            .where(
+                and_(
+                    RomUser.rom_id.in_(r.id for r in rom.sibling_roms),
+                    RomUser.user_id == rom_user.user_id,
                 )
-                .values(is_main_sibling=False)
             )
+            .values(is_main_sibling=False)
+        )
 
         return session.query(RomUser).filter_by(id=id).one()
 
