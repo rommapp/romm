@@ -9,7 +9,7 @@ from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from models.rom import Rom, RomUserStatus
+from models.rom import Rom, RomFileCategory, RomUserStatus
 from pydantic import computed_field
 
 from .base import BaseModel
@@ -108,6 +108,7 @@ class RomFileSchema(BaseModel):
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
+    category: RomFileCategory | None
 
     class Config:
         from_attributes = True

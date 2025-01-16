@@ -461,6 +461,7 @@ async def _identify_rom(
                 file_path=file.file_path,
                 file_size_bytes=file.file_size_bytes,
                 last_modified=file.last_modified,
+                category=file.category,
             )
         )
 
@@ -468,6 +469,9 @@ async def _identify_rom(
     if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
         # Skip hashing games for platforms that don't have a hash database
         if platform.slug not in NON_HASHABLE_PLATFORMS:
+            # Uncomment this to run scan in the current process
+            # _set_rom_hashes(_added_rom.id)
+
             low_prio_queue.enqueue(
                 _set_rom_hashes,
                 _added_rom.id,

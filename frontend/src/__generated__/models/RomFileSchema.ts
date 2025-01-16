@@ -3,6 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
+import type { RomFileCategory } from './RomFileCategory';
+
 export type RomFileSchema = {
     id: number;
     rom_id: number;
@@ -15,5 +17,6 @@ export type RomFileSchema = {
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);
+    category: (RomFileCategory | null);
 };
 
