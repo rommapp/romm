@@ -1,7 +1,7 @@
 """empty message
 
-Revision ID: 0030_rom_file_and_hashes
-Revises: 0029_platforms_custom_name
+Revision ID: 0031_rom_file_and_hashes
+Revises: 0030_user_email_null
 Create Date: 2024-12-19 23:16:11.053536
 
 """
@@ -15,8 +15,8 @@ from handler.scan_handler import ScanType
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "0030_rom_file_and_hashes"
-down_revision = "0029_platforms_custom_name"
+revision = "0031_rom_file_and_hashes"
+down_revision = "0030_user_email_null"
 branch_labels = None
 depends_on = None
 

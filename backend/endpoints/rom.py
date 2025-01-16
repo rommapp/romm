@@ -288,13 +288,14 @@ async def get_rom_content(
     if not rom.multi:
         # Serve the file directly in development mode for emulatorjs
         if DEV_MODE:
+            rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
             return FileResponse(
                 path=rom_path,
-                filename=rom.file_name,
+                filename=rom.fs_name,
                 headers={
-                    "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                    "Content-Disposition": f'attachment; filename="{quote(rom.fs_name)}"',
                     "Content-Type": "application/octet-stream",
-                    "Content-Length": str(rom.file_size_bytes),
+                    "Content-Length": str(rom.fs_size_bytes),
                 },
             )
 
