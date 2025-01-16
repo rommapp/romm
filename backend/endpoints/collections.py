@@ -217,6 +217,7 @@ async def update_collection(
                 )
 
     updated_collection = db_collection_handler.update_collection(id, cleaned_data)
+
     return CollectionSchema.model_validate(updated_collection)
 
 
