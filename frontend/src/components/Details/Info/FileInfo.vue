@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RomFileSchema } from "@/__generated__";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
@@ -26,6 +27,14 @@ async function toggleMainSibling() {
     romId: props.rom.id,
     data: romUser.value,
   });
+}
+
+function itemProps(item: RomFileSchema) {
+  return {
+    key: item.id,
+    title: item.full_path.replace(props.rom.full_path, ""),
+    value: item,
+  };
 }
 
 watch(
@@ -93,7 +102,7 @@ watch(
             v-model="downloadStore.filesToDownload"
             :label="rom.fs_name"
             :items="rom.files"
-            item-title="file_name"
+            :itemProps="itemProps"
             rounded="0"
             density="compact"
             variant="outlined"
@@ -103,6 +112,29 @@ watch(
             clearable
             chips
           >
+            <template #item="{ item, props }">
+              <v-list-item v-bind="props">
+                <template v-slot:prepend="{ isSelected }">
+                  <v-checkbox-btn
+                    :model-value="isSelected"
+                    density="compact"
+                    class="mr-2"
+                  />
+                </template>
+                <v-list-item-subtitle class="mt-1">
+                  <v-chip
+                    color="romm-accent-1"
+                    size="x-small"
+                    class="mr-1"
+                    v-if="item.raw.category"
+                    >{{ item.raw.category.toLocaleUpperCase() }}</v-chip
+                  >
+                  <v-chip size="x-small">{{
+                    formatBytes(item.raw.file_size_bytes)
+                  }}</v-chip>
+                </v-list-item-subtitle>
+              </v-list-item>
+            </template>
           </v-select>
         </v-col>
       </v-row>
