@@ -102,6 +102,7 @@ class RomFileSchema(BaseModel):
     file_name: str
     file_path: str
     file_size_bytes: int
+    full_path: str
     created_at: datetime
     updated_at: datetime
     last_modified: datetime
