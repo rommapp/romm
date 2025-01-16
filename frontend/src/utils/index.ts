@@ -1,7 +1,7 @@
 import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
-import type { RomFile, RomUserStatus } from "@/__generated__";
+import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 
 /**
  * Views configuration object.
@@ -102,12 +102,12 @@ export function getDownloadPath({
 
 export function getDownloadLink({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
-  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, files }))}`;
+  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, fileIDs }))}`;
 }
 
 /**
@@ -584,12 +584,12 @@ export function getStatusKeyForText(text: string) {
 }
 
 export function is3DSCIAFile(rom: SimpleRom): boolean {
-  return rom.file_extension.toLowerCase() == "cia";
+  return rom.fs_extension.toLowerCase() == "cia";
 }
 
-export function get3DSCIAFiles(rom: SimpleRom): RomFile[] {
+export function get3DSCIAFiles(rom: SimpleRom): RomFileSchema[] {
   return rom.files.filter((file) =>
-    file.filename.toLowerCase().endsWith(".cia"),
+    file.file_name.toLowerCase().endsWith(".cia"),
   );
 }
 

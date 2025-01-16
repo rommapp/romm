@@ -62,7 +62,7 @@ window.EJS_controlScheme = getControlSchemeForPlatform(
 );
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
-window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
+window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.fs_name}`;
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";

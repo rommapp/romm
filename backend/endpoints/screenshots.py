@@ -1,7 +1,7 @@
 from decorators.auth import protected_route
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from endpoints.responses.assets import ScreenshotSchema, UploadedScreenshotsResponse
-from fastapi import File, Request, UploadFile, status
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from fastapi import File, Request, UploadFile
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
