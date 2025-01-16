@@ -14,7 +14,7 @@ from endpoints.responses.feeds import (
     WebrcadeFeedSchema,
 )
 from fastapi import Request
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_hander import SWITCH_TITLEDB_REGEX

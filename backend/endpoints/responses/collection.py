@@ -1,7 +1,8 @@
 from datetime import datetime
 
 from models.collection import Collection
-from pydantic import BaseModel
+
+from .base import BaseModel
 
 
 class CollectionSchema(BaseModel):

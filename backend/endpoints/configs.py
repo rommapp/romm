@@ -7,7 +7,7 @@ from exceptions.config_exceptions import (
     ConfigNotWritableException,
 )
 from fastapi import HTTPException, Request, status
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from logger.logger import log
 from utils.router import APIRouter
 

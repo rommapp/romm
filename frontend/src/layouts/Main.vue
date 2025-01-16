@@ -10,7 +10,7 @@ import NewVersionDialog from "@/components/common/NewVersionDialog.vue";
 import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
 import SearchCoverDialog from "@/components/common/SearchCover.vue";
-import ViewLoader from "@/components/common/ViewLoader.vue";
+import ShowQRCodeDialog from "@/components/common/Game/Dialog/ShowQRCode.vue";
 import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
 import storeCollections from "@/stores/collections";
@@ -62,7 +62,7 @@ onBeforeMount(async () => {
 
   <main-app-bar />
 
-  <view-loader />
+  <!-- <view-loader /> -->
   <router-view />
 
   <match-rom-dialog />
@@ -72,6 +72,7 @@ onBeforeMount(async () => {
   <remove-roms-from-collection-dialog />
   <delete-rom-dialog />
   <edit-user-dialog />
+  <show-q-r-code-dialog />
 
   <new-version-dialog />
   <upload-progress />

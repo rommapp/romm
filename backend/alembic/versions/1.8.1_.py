@@ -8,6 +8,7 @@ Create Date: 2023-04-17 12:03:19.163501
 
 import sqlalchemy as sa
 from alembic import op
+from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
 revision = "1.8.1"
@@ -22,7 +23,7 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column(
                 "url_screenshots",
-                sa.JSON(),
+                CustomJSON(),
                 nullable=False,
                 server_default=sa.text("(JSON_ARRAY())"),
             )
@@ -30,7 +31,7 @@ def upgrade() -> None:
         batch_op.add_column(
             sa.Column(
                 "path_screenshots",
-                sa.JSON(),
+                CustomJSON(),
                 nullable=False,
                 server_default=sa.text("(JSON_ARRAY())"),
             )

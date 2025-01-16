@@ -10,7 +10,9 @@ from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from models.rom import Rom, RomUserStatus
-from pydantic import BaseModel, computed_field
+from pydantic import computed_field
+
+from .base import BaseModel
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
@@ -34,6 +36,7 @@ def rom_user_schema_factory() -> RomUserSchema:
         rom_id=-1,
         created_at=now,
         updated_at=now,
+        last_played=None,
         note_raw_markdown="",
         note_is_public=False,
         is_main_sibling=False,
@@ -54,6 +57,7 @@ class RomUserSchema(BaseModel):
     rom_id: int
     created_at: datetime
     updated_at: datetime
+    last_played: datetime | None
     note_raw_markdown: str
     note_is_public: bool
     is_main_sibling: bool
@@ -136,6 +140,7 @@ class RomSchema(BaseModel):
     # Metadata fields
     first_release_date: int | None
     youtube_video_id: str | None
+    average_rating: float | None
     alternative_names: list[str]
     genres: list[str]
     franchises: list[str]

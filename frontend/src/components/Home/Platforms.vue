@@ -5,10 +5,12 @@ import storePlatforms from "@/stores/platforms";
 import { isNull } from "lodash";
 import { views } from "@/utils";
 import { useI18n } from "vue-i18n";
+import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
-const platforms = storePlatforms();
+const platformsStore = storePlatforms();
+const { filledPlatforms } = storeToRefs(platformsStore);
 const gridPlatforms = isNull(localStorage.getItem("settings.gridPlatforms"))
   ? true
   : localStorage.getItem("settings.gridPlatforms") === "true";
@@ -21,7 +23,7 @@ const gridPlatforms = isNull(localStorage.getItem("settings.gridPlatforms"))
         no-gutters
       >
         <v-col
-          v-for="platform in platforms.filledPlatforms"
+          v-for="platform in filledPlatforms"
           :key="platform.slug"
           class="pa-1"
           :cols="views[0]['size-cols']"

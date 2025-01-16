@@ -3,7 +3,10 @@ import identityApi from "@/services/api/identity";
 import { refetchCSRFToken } from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
+import userApi from "@/services/api/user";
 import type { Emitter } from "mitt";
+import storeAuth from "@/stores/auth";
+import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -11,6 +14,8 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
+const auth = storeAuth();
+const { user } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref("");
@@ -19,8 +24,10 @@ const visiblePassword = ref(false);
 const loggingIn = ref(false);
 const loggingInOIDC = ref(false);
 
-const { ENABLED: oidcEnabled, PROVIDER: oidcProvider } =
-  heartbeatStore.value.OIDC;
+const {
+  OIDC: { ENABLED: oidcEnabled, PROVIDER: oidcProvider },
+  FRONTEND: { DISABLE_USERPASS_LOGIN: loginDisabled },
+} = heartbeatStore.value;
 
 // Functions
 async function login() {
@@ -30,6 +37,12 @@ async function login() {
     .login(username.value, password.value)
     .then(async () => {
       await refetchCSRFToken();
+      try {
+        const { data: userData } = await userApi.fetchCurrentUser();
+        auth.setUser(userData);
+      } catch (userError) {
+        console.error("Error loading user: ", userError);
+      }
       const params = new URLSearchParams(window.location.search);
       router.push(params.get("next") ?? "/");
     })
@@ -61,10 +74,10 @@ async function loginOIDC() {
 
 <template>
   <v-card class="translucent-dark py-8 px-5" width="500">
-    <v-img src="/assets/isotipo.svg" class="mx-auto" width="150" />
+    <v-img src="/assets/isotipo.svg" class="mx-auto mb-4" width="150" />
     <v-row class="text-white justify-center mt-2" no-gutters>
       <v-col cols="10">
-        <v-form @submit.prevent="login">
+        <v-form v-if="!loginDisabled" @submit.prevent="login">
           <v-text-field
             v-model="username"
             :label="t('login.username')"
@@ -106,48 +119,48 @@ async function loginOIDC() {
               />
             </template>
           </v-btn>
-          <template v-if="oidcEnabled">
-            <v-divider class="my-4">
-              <template #default>
-                <span class="px-1">{{ t("login.or") }}</span>
-              </template>
-            </v-divider>
-            <v-btn
-              block
-              type="submit"
-              class="bg-terciary"
-              variant="text"
-              :disabled="loggingInOIDC || loggingIn"
-              :loading="loggingInOIDC"
-              @click="loginOIDC()"
-            >
-              <template v-if="oidcProvider" #prepend>
-                <v-icon size="20">
-                  <v-img
-                    :src="`/assets/dashboard-icons/${oidcProvider.toLowerCase()}.png`"
-                  >
-                    <template #error>
-                      <v-icon size="20">mdi-key</v-icon>
-                    </template>
-                  </v-img>
-                </v-icon>
-              </template>
-              {{
-                t("login.login-oidc", {
-                  oidc: oidcProvider || "OIDC",
-                })
-              }}
-              <template #loader>
-                <v-progress-circular
-                  color="romm-accent-1"
-                  :width="2"
-                  :size="20"
-                  indeterminate
-                />
-              </template>
-            </v-btn>
-          </template>
         </v-form>
+        <template v-if="oidcEnabled">
+          <v-divider v-if="!loginDisabled" class="my-4">
+            <template #default>
+              <span class="px-1">{{ t("login.or") }}</span>
+            </template>
+          </v-divider>
+          <v-btn
+            block
+            type="submit"
+            class="bg-terciary"
+            variant="text"
+            :disabled="loggingInOIDC || loggingIn"
+            :loading="loggingInOIDC"
+            @click="loginOIDC()"
+          >
+            <template v-if="oidcProvider" #prepend>
+              <v-icon size="20">
+                <v-img
+                  :src="`/assets/dashboard-icons/${oidcProvider.toLowerCase()}.png`"
+                >
+                  <template #error>
+                    <v-icon size="20">mdi-key</v-icon>
+                  </template>
+                </v-img>
+              </v-icon>
+            </template>
+            {{
+              t("login.login-oidc", {
+                oidc: oidcProvider || "OIDC",
+              })
+            }}
+            <template #loader>
+              <v-progress-circular
+                color="romm-accent-1"
+                :width="2"
+                :size="20"
+                indeterminate
+              />
+            </template>
+          </v-btn>
+        </template>
       </v-col>
     </v-row>
   </v-card>

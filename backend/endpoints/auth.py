@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final
 
-from config import OIDC_ENABLED, OIDC_REDIRECT_URI
+from config import DISABLE_USERPASS_LOGIN, OIDC_ENABLED, OIDC_REDIRECT_URI
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
 from endpoints.responses import MessageResponse
@@ -11,6 +11,7 @@ from exceptions.auth_exceptions import (
     OIDCDisabledException,
     OIDCNotConfiguredException,
     UserDisabledException,
+    UserPassDisabledException,
 )
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
@@ -44,6 +45,9 @@ def login(
     Returns:
         MessageResponse: Standard message response
     """
+
+    if DISABLE_USERPASS_LOGIN:
+        raise UserPassDisabledException
 
     user = auth_handler.authenticate_user(credentials.username, credentials.password)
     if not user:
@@ -247,7 +251,7 @@ async def auth_openid(request: Request):
         raise OIDCNotConfiguredException
 
     token = await oauth.openid.authorize_access_token(request)
-    potential_user, _claims = (
+    potential_user, _userinfo = (
         await oidc_handler.get_current_active_user_from_openid_token(token)
     )
     if not potential_user:

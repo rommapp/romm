@@ -1,9 +1,12 @@
-from typing import Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from decorators.database import begin_session
 from models.collection import Collection
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import ColumnExpressionArgument
+from utils.database import json_array_contains_value
 
 from .base_handler import DBBaseHandler
 
@@ -40,11 +43,19 @@ class DBCollectionsHandler(DBBaseHandler):
 
     @begin_session
     def get_collections_by_rom_id(
-        self, rom_id: int, session: Session = None
+        self,
+        rom_id: int,
+        *,
+        order_by: Sequence[str | ColumnExpressionArgument[Any]] | None = None,
+        session: Session = None,
     ) -> Sequence[Collection]:
-        return session.scalars(
-            select(Collection).filter(Collection.roms.contains(rom_id))
-        ).all()
+        query = select(Collection).filter(
+            json_array_contains_value(Collection.roms, rom_id, session=session)
+        )
+        if order_by is not None:
+            query = query.order_by(*order_by)
+
+        return session.scalars(query).all()
 
     @begin_session
     def update_collection(

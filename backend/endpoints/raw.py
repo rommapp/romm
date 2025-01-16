@@ -2,7 +2,7 @@ from config import ASSETS_BASE_PATH
 from decorators.auth import protected_route
 from fastapi import Request
 from fastapi.responses import FileResponse
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from utils.router import APIRouter
 
 router = APIRouter()

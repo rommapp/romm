@@ -1,5 +1,6 @@
 import socketio  # type: ignore
 from config import REDIS_URL
+from utils import json as json_module
 
 
 class SocketHandler:
@@ -7,6 +8,7 @@ class SocketHandler:
         self.socket_server = socketio.AsyncServer(
             cors_allowed_origins="*",
             async_mode="asgi",
+            json=json_module,
             logger=False,
             engineio_logger=False,
             client_manager=socketio.AsyncRedisManager(str(REDIS_URL)),
