@@ -256,9 +256,12 @@ class FSRomsHandler(FSHandler):
 
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{abs_fs_path}/{rom}"):
-            multi_files = os.listdir(f"{abs_fs_path}/{rom}")
-            for file in self._exclude_files(multi_files, "multi_parts"):
-                rom_files.append(self._build_rom_file(f"{roms_path}/{rom}", file))
+            for f_path, file in iter_files(f"{abs_fs_path}/{rom}", recursive=True):
+                rom_files.append(
+                    self._build_rom_file(
+                        str(f_path.relative_to(LIBRARY_BASE_PATH)), file
+                    )
+                )
         else:
             rom_files.append(self._build_rom_file(roms_path, rom))
 
