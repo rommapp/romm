@@ -34,6 +34,22 @@ def upgrade() -> None:
         sa.Column("md5_hash", sa.String(length=100), nullable=True),
         sa.Column("sha1_hash", sa.String(length=100), nullable=True),
         sa.Column(
+            "category",
+            sa.Enum(
+                "DLC",
+                "HACK",
+                "MANUAL",
+                "PATCH",
+                "UPDATE",
+                "MOD",
+                "DEMO",
+                "TRANSLATION",
+                "PROTOTYPE",
+                name="romfilecategory",
+            ),
+            nullable=True,
+        ),
+        sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
             server_default=sa.text("now()"),

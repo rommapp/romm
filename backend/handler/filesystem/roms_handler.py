@@ -16,7 +16,7 @@ import zipfile_deflate64  # trunk-ignore(ruff/F401): Patches zipfile to support 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
-from models.rom import Rom, RomFile
+from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
     Bad7zFile,
     DecompressionError,
@@ -173,6 +173,10 @@ def read_bz2_file(file_path: Path) -> Iterator[bytes]:
             yield chunk
 
 
+def category_matches(category: str, path_parts: list[str]):
+    return category in path_parts or f"{category}s" in path_parts
+
+
 class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         pass
@@ -238,16 +242,26 @@ class FSRomsHandler(FSHandler):
 
         return [f for f in roms if f not in filtered_files]
 
-    def _build_rom_file(self, rom_path: str, file_name: str) -> RomFile:
-        abs_file_path = Path(
-            LIBRARY_BASE_PATH, rom_path, file_name
-        )  # Absolute path to roms
+    def _build_rom_file(self, rom_path: Path, file_name: str) -> RomFile:
+        # Absolute path to roms
+        abs_file_path = Path(LIBRARY_BASE_PATH, rom_path, file_name)
+
+        path_parts_lower = list(map(str.lower, rom_path.parts))
+        matching_category = next(
+            (
+                category
+                for category in RomFileCategory
+                if category_matches(category.value, path_parts_lower)
+            ),
+            None,
+        )
 
         return RomFile(
             file_name=file_name,
-            file_path=rom_path,
+            file_path=str(rom_path),
             file_size_bytes=os.stat(abs_file_path).st_size,
             last_modified=os.path.getmtime(abs_file_path),
+            category=matching_category,
         )
 
     def get_rom_files(self, rom: str, roms_path: str) -> list[RomFile]:
@@ -258,12 +272,10 @@ class FSRomsHandler(FSHandler):
         if os.path.isdir(f"{abs_fs_path}/{rom}"):
             for f_path, file in iter_files(f"{abs_fs_path}/{rom}", recursive=True):
                 rom_files.append(
-                    self._build_rom_file(
-                        str(f_path.relative_to(LIBRARY_BASE_PATH)), file
-                    )
+                    self._build_rom_file(f_path.relative_to(LIBRARY_BASE_PATH), file)
                 )
         else:
-            rom_files.append(self._build_rom_file(roms_path, rom))
+            rom_files.append(self._build_rom_file(Path(roms_path), rom))
 
         return rom_files
 

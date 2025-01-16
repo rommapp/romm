@@ -29,6 +29,18 @@ if TYPE_CHECKING:
     from models.user import User
 
 
+class RomFileCategory(enum.StrEnum):
+    DLC = "dlc"
+    HACK = "hack"
+    MANUAL = "manual"
+    PATCH = "patch"
+    UPDATE = "update"
+    MOD = "mod"
+    DEMO = "demo"
+    TRANSLATION = "translation"
+    PROTOTYPE = "prototype"
+
+
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
@@ -41,6 +53,9 @@ class RomFile(BaseModel):
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    category: Mapped[RomFileCategory | None] = mapped_column(
+        Enum(RomFileCategory), default=None
+    )
 
     rom: Mapped[Rom] = relationship(lazy="joined")
 
