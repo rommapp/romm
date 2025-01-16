@@ -1,5 +1,4 @@
-from collections.abc import Sequence
-from typing import Any
+from typing import Any, Sequence
 
 from decorators.database import begin_session
 from models.collection import Collection
