@@ -121,16 +121,6 @@ def upgrade() -> None:
         batch_op.drop_column("multi")
         batch_op.drop_column("file_size_bytes")
 
-    with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.alter_column(
-            "role",
-            existing_type=mysql.ENUM("VIEWER", "EDITOR", "ADMIN"),
-            nullable=False,
-        )
-        batch_op.alter_column(
-            "avatar_path", existing_type=mysql.VARCHAR(length=255), nullable=False
-        )
-
     # Run a no-scan in the background on migrate
     if not IS_PYTEST_RUN:
         high_prio_queue.enqueue(
@@ -143,14 +133,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    with op.batch_alter_table("users", schema=None) as batch_op:
-        batch_op.alter_column(
-            "avatar_path", existing_type=mysql.VARCHAR(length=255), nullable=True
-        )
-        batch_op.alter_column(
-            "role", existing_type=mysql.ENUM("VIEWER", "EDITOR", "ADMIN"), nullable=True
-        )
-
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
