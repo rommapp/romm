@@ -315,7 +315,7 @@ async def get_rom_content(
             crc32=f.crc_hash,
             size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
             encoded_location=quote(f"/library-zip/{f.full_path}"),
-            filename=f.file_name,
+            filename=f.full_path.replace(rom.full_path, ""),
         )
         for f in files
     ]
