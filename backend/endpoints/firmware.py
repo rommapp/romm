@@ -72,15 +72,12 @@ def add_firmware(
         db_firmware_handler.add_firmware(scanned_firmware)
         uploaded_firmware.append(scanned_firmware)
 
-    db_platform = db_platform_handler.get_platform(platform_id)
-    if not db_platform:
-        error = f"Platform with ID {platform_id} not found"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
     return {
         "uploaded": len(files),
-        "firmware": [FirmwareSchema.model_validate(f) for f in db_platform.firmware],
+        "firmware": [
+            FirmwareSchema.model_validate(f)
+            for f in db_firmware_handler.list_firmware(platform_id=platform_id)
+        ],
     }
 
 
