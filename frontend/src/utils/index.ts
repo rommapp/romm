@@ -1,7 +1,7 @@
 import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
-import type { RomUserStatus } from "@/__generated__";
+import type { RomFile, RomUserStatus } from "@/__generated__";
 
 /**
  * Views configuration object.
@@ -86,7 +86,7 @@ export function convertCronExperssion(expression: string) {
  * @param files Optional array of file names to include in the download.
  * @returns The download link.
  */
-export function getDownloadLink({
+export function getDownloadPath({
   rom,
   files = [],
 }: {
@@ -100,6 +100,16 @@ export function getDownloadLink({
   return `/api/roms/${rom.id}/content/${
     rom.file_name
   }?${queryParams.toString()}`;
+}
+
+export function getDownloadLink({
+  rom,
+  files = [],
+}: {
+  rom: SimpleRom;
+  files?: string[];
+}) {
+  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, files }))}`;
 }
 
 /**
@@ -313,6 +323,8 @@ const _EJS_CORES_MAP = {
     "fbalpha2012_cps1",
     "fbalpha2012_cps2",
   ],
+  neogeoaes: ["fbneo"],
+  neogeomvs: ["fbneo"],
   atari2600: ["stella2014"],
   "atari-2600-plus": ["stella2014"],
   atari5200: ["a5200"],
@@ -348,9 +360,10 @@ const _EJS_CORES_MAP = {
   "game-boy-micro": ["mgba"],
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
-  ps: ["pcsx_rearmed", "mednafen_psx"],
+  ps: ["pcsx_rearmed", "mednafen_psx_hw"],
+  psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
-  // sega32: ["picodrive"], // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
+  sega32: ["picodrive"],
   gamegear: ["genesis_plus_gx"],
   sms: ["genesis_plus_gx"],
   "sega-mark-iii": ["genesis_plus_gx"],
@@ -387,8 +400,23 @@ export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
  * @param platformSlug The platform slug.
  * @returns An array of supported cores.
  */
-export function getSupportedEJSCores(platformSlug: string) {
-  return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+export function getSupportedEJSCores(platformSlug: string): string[] {
+  const cores =
+    _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+  const threadsSupported = isEJSThreadsSupported();
+  return cores.filter(
+    (core) => !areThreadsRequiredForEJSCore(core) || threadsSupported,
+  );
+}
+
+/**
+ * Check if a given EJS core requires threads enabled.
+ *
+ * @param core The core name.
+ * @returns True if threads are required, false otherwise.
+ */
+export function areThreadsRequiredForEJSCore(core: string): boolean {
+  return ["ppsspp"].includes(core);
 }
 
 /**
@@ -402,10 +430,62 @@ export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
 ) {
+  const canvas = document.createElement("canvas");
+  const gl =
+    canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
   return (
-    platformSlug.toLowerCase() in _EJS_CORES_MAP &&
-    !heartbeat.EMULATION.DISABLE_EMULATOR_JS
+    !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
+    getSupportedEJSCores(platformSlug).length > 0 &&
+    gl instanceof WebGLRenderingContext
   );
+}
+
+/**
+ * Check if EJS threads are supported.
+ *
+ * EmulatorJS threads are supported if SharedArrayBuffer is available.
+ * Reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer
+ *
+ * @returns True if supported, false otherwise.
+ */
+export function isEJSThreadsSupported(): boolean {
+  return typeof SharedArrayBuffer !== "undefined";
+}
+
+// This is a workaround to set the control scheme for Sega systems using the same cores
+const _EJS_CONTROL_SCHEMES = {
+  segacd: "segaCD",
+  sega32: "sega32x",
+  gamegear: "segaGG",
+  sms: "segaMS",
+  "sega-mark-iii": "segaMS",
+  "sega-master-system-ii": "segaMS",
+  "master-system-super-compact": "segaMS",
+  "master-system-girl": "segaMS",
+  "genesis-slash-megadrive": "segaMD",
+  "sega-mega-drive-2-slash-genesis": "segaMD",
+  "sega-mega-jet": "segaMD",
+  "mega-pc": "segaMD",
+  "tera-drive": "segaMD",
+  "sega-nomad": "segaMD",
+  saturn: "segaSaturn",
+};
+
+type EJSControlSlug = keyof typeof _EJS_CONTROL_SCHEMES;
+
+/**
+ * Get the control scheme for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @returns The control scheme.
+ */
+export function getControlSchemeForPlatform(
+  platformSlug: string,
+): string | null {
+  return platformSlug in _EJS_CONTROL_SCHEMES
+    ? _EJS_CONTROL_SCHEMES[platformSlug as EJSControlSlug]
+    : null;
 }
 
 /**
@@ -503,4 +583,28 @@ export function getTextForStatus(status: PlayingStatus) {
  */
 export function getStatusKeyForText(text: string) {
   return inverseRomStatusMap[text];
+}
+
+export function is3DSCIAFile(rom: SimpleRom): boolean {
+  return rom.file_extension.toLowerCase() == "cia";
+}
+
+export function get3DSCIAFiles(rom: SimpleRom): RomFile[] {
+  return rom.files.filter((file) =>
+    file.filename.toLowerCase().endsWith(".cia"),
+  );
+}
+
+/**
+ * Check if a ROM is a valid 3DS game
+ * @param rom The ROM object.
+ * @returns True if the ROM is a valid 3DS game, false otherwise.
+ */
+export function is3DSCIARom(rom: SimpleRom): boolean {
+  if (rom.platform_slug !== "3ds") return false;
+
+  const hasValidExtension = is3DSCIAFile(rom);
+  const hasValidFile = get3DSCIAFiles(rom).length > 0;
+
+  return hasValidExtension || hasValidFile;
 }

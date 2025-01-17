@@ -126,9 +126,12 @@ router.beforeEach(async (to, _from, next) => {
   const auth = storeAuth();
   const { user } = storeToRefs(auth);
 
-  if (heartbeat.value.SHOW_SETUP_WIZARD && to.name?.toString() !== "setup") {
+  if (
+    heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD &&
+    to.name?.toString() !== "setup"
+  ) {
     next({ name: "setup" });
-  } else if (!heartbeat.value.SHOW_SETUP_WIZARD) {
+  } else if (!heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
     if (
       (to.name?.toString() === "login" || to.name?.toString() === "setup") &&
       user.value

@@ -3,8 +3,8 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type FrontendDict = {
-    UPLOAD_TIMEOUT: number;
-    DISABLE_USERPASS_LOGIN: boolean;
+export type SystemDict = {
+    VERSION: string;
+    SHOW_SETUP_WIZARD: boolean;
 };
 

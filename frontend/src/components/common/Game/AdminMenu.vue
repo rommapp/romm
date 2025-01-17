@@ -12,6 +12,7 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
+import romApi from "@/services/api/rom";
 
 // Props
 const { t } = useI18n();
@@ -63,7 +64,7 @@ async function switchFromFavourites() {
   }
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
-    .then(({ data }) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
         msg: `${props.rom.name} ${
           collectionsStore.isFav(props.rom) ? "added to" : "removed from"
@@ -86,13 +87,40 @@ async function switchFromFavourites() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
+
+async function resetLastPlayed() {
+  await romApi
+    .updateUserRomProps({
+      romId: props.rom.id,
+      data: { last_played: null },
+    })
+    .then(() => {
+      emitter?.emit("snackbarShow", {
+        msg: `${props.rom.name} removed from Continue Playing`,
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+
+      romsStore.removeFromContinuePlaying(props.rom);
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+      return;
+    });
+}
 </script>
 
 <template>
   <v-list rounded="0" class="pa-0">
     <template v-if="auth.scopes.includes('roms.write')">
       <v-list-item
-        :disabled="!heartbeat.value.ANY_SOURCE_ENABLED"
+        :disabled="!heartbeat.value.METADATA_SOURCES.ANY_SOURCE_ENABLED"
         class="py-4 pr-5"
         @click="emitter?.emit('showMatchRomDialog', rom)"
       >
@@ -103,7 +131,7 @@ async function switchFromFavourites() {
         </v-list-item-title>
         <v-list-item-subtitle>
           {{
-            !heartbeat.value.ANY_SOURCE_ENABLED
+            !heartbeat.value.METADATA_SOURCES.ANY_SOURCE_ENABLED
               ? t("rom.no-metadata-source")
               : ""
           }}
@@ -120,13 +148,25 @@ async function switchFromFavourites() {
       <v-divider />
     </template>
     <v-list-item
+      v-if="auth.scopes.includes('roms.user.write') && rom.rom_user.last_played"
+      class="py-4 pr-5"
+      @click="resetLastPlayed"
+    >
+      <v-list-item-title class="d-flex">
+        <v-icon icon="mdi-play-protected-content" class="mr-2" />
+        {{ t("rom.remove-from-playing") }}
+      </v-list-item-title>
+    </v-list-item>
+    <v-list-item
       v-if="auth.scopes.includes('collections.write')"
       class="py-4 pr-5"
       @click="switchFromFavourites"
     >
       <v-list-item-title class="d-flex">
         <v-icon
-          :icon="collectionsStore.isFav(rom) ? 'mdi-star-outline' : 'mdi-star'"
+          :icon="
+            collectionsStore.isFav(rom) ? 'mdi-star-remove-outline' : 'mdi-star'
+          "
           class="mr-2"
         />{{
           collectionsStore.isFav(rom)
