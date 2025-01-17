@@ -328,3 +328,17 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         return session.query(RomFile).filter_by(id=id).one()
+
+    @begin_session
+    def purge_rom_files(
+        self, rom_id: int, session: Session = None
+    ) -> Sequence[RomFile]:
+        purged_rom_files = (
+            session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
+        )
+        session.execute(
+            delete(RomFile)
+            .where(RomFile.rom_id == rom_id)
+            .execution_options(synchronize_session="evaluate")
+        )
+        return purged_rom_files

@@ -257,14 +257,15 @@ async def get_rom_content(
     request: Request,
     id: int,
     file_name: str,
-    file_ids: list[str] | None = None,
+    file_ids: list[int] | None = None,
 ):
     """Download rom endpoint (one single file or multiple zipped files for multi-part roms)
 
     Args:
         request (Request): Fastapi Request object
         id (int): Rom internal id
-        file_ids (list[str]): List of file ids to download for multi-part roms
+        file_name: Zip file output name
+        file_ids (list[int]): List of file ids to download for multi-part roms
 
     Returns:
         FileResponse: Returns one file for single file roms
@@ -425,13 +426,13 @@ async def update_rom(
         }
     )
 
-    new_fs_name = str(data.get("fs_name", rom.fs_name))
+    new_fs_name = str(data.get("fs_name") or rom.fs_name)
 
     try:
         if rename_as_source:
             new_fs_name = rom.fs_name.replace(
                 rom.fs_name_no_tags or rom.fs_name_no_ext,
-                str(data.get("name", rom.name)),
+                str(data.get("name") or rom.name),
             )
             new_fs_name = sanitize_filename(new_fs_name)
             fs_rom_handler.rename_fs_rom(
@@ -496,7 +497,7 @@ async def update_rom(
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     overwrite=True,
                     entity=rom,
-                    url_cover=str(data.get("url_cover", "")),
+                    url_cover=str(data.get("url_cover") or ""),
                 )
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
@@ -543,9 +544,7 @@ async def delete_roms(
         # Update collections to remove the deleted rom
         collections = db_collection_handler.get_collections_by_rom_id(id)
         for collection in collections:
-            collection.roms = set(
-                [rom_id for rom_id in collection.roms if rom_id != id]
-            )
+            collection.roms = {rom_id for rom_id in collection.roms if rom_id != id}
             db_collection_handler.update_collection(
                 collection.id, {"roms": collection.roms}
             )

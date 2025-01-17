@@ -378,6 +378,20 @@ def _set_rom_hashes(rom_id: int):
 
     try:
         rom_hash, rom_file_hashes = fs_rom_handler.get_rom_hashes(rom)
+    except zlib.error as e:
+        # Set empty hashes if calculating them fails for corrupted files
+        log.error(
+            f"Hashes of {rom.fs_name} couldn't be calculated: {hl(str(e), color=RED)}"
+        )
+        db_rom_handler.update_rom(
+            rom_id,
+            {
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+            },
+        )
+    else:
         db_rom_handler.update_rom(
             rom_id,
             {
@@ -395,19 +409,6 @@ def _set_rom_hashes(rom_id: int):
                     "sha1_hash": file_hash["sha1_hash"],
                 },
             )
-    except zlib.error as e:
-        # Set empty hashes if calculating them fails for corrupted files
-        log.error(
-            f"Hashes of {rom.fs_name} couldn't be calculated: {hl(str(e), color=RED)}"
-        )
-        db_rom_handler.update_rom(
-            rom_id,
-            {
-                "crc_hash": "",
-                "md5_hash": "",
-                "sha1_hash": "",
-            },
-        )
 
 
 async def _identify_rom(
@@ -447,23 +448,23 @@ async def _identify_rom(
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
+    # Delete the existing rom files in the DB
+    db_rom_handler.purge_rom_files(_added_rom.id)
+
     # Create each file entry for the rom
-    db_rom_files = db_rom_handler.get_rom_files(_added_rom.id)
-    for file in fs_rom["files"]:
-        db_rom_file = next(
-            (f for f in db_rom_files if f.file_name == file.file_name), None
+    new_rom_files = [
+        RomFile(
+            rom_id=_added_rom.id,
+            file_name=file.file_name,
+            file_path=file.file_path,
+            file_size_bytes=file.file_size_bytes,
+            last_modified=file.last_modified,
+            category=file.category,
         )
-        db_rom_handler.add_rom_file(
-            RomFile(
-                id=db_rom_file.id if db_rom_file else None,
-                rom_id=_added_rom.id,
-                file_name=file.file_name,
-                file_path=file.file_path,
-                file_size_bytes=file.file_size_bytes,
-                last_modified=file.last_modified,
-                category=file.category,
-            )
-        )
+        for file in fs_rom["files"]
+    ]
+    for new_rom_file in new_rom_files:
+        db_rom_handler.add_rom_file(new_rom_file)
 
     # Calculating hashes is expensive, so we only do it if necessary
     if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
