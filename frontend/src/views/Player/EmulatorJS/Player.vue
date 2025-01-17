@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import saveApi, { saveApi as api } from "@/services/api/save";
-import screenshotApi from "@/services/api/screenshot";
+import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
 import {
   areThreadsRequiredForEJSCore,
   getSupportedEJSCores,
   getControlSchemeForPlatform,
 } from "@/utils";
+import createIndexedDBDiffMonitor, {
+  type Change,
+} from "@/utils/indexdb_monitor";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -43,8 +46,8 @@ declare global {
     EJS_fullscreenOnLoaded: boolean;
     EJS_threads: boolean;
     EJS_controlScheme: string | null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    EJS_emulator: any;
+    EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    EJS_GameManager: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
     EJS_onLoadState: () => void;
@@ -115,49 +118,6 @@ onMounted(() => {
   }
 });
 
-function buildStateName(): string {
-  const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
-  let stateName = `${romName}.state.auto`;
-  if (!states.includes(stateName)) return stateName;
-
-  let i = 1;
-  stateName = `${romName}.state1`;
-  while (states.includes(stateName)) {
-    i++;
-    stateName = `${romName}.state${i}`;
-  }
-
-  return stateName;
-}
-
-function buildSaveName(): string {
-  const saves = romRef.value.user_saves?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
-  let saveName = `${romName}.srm`;
-  if (!saves.includes(saveName)) return saveName;
-
-  let i = 2;
-  saveName = `${romName} (${i}).srm`;
-  while (saves.includes(saveName)) {
-    i++;
-    saveName = `${romName} (${i}).srm`;
-  }
-
-  return saveName;
-}
-
-function downloadFallback(data: BlobPart, name: string) {
-  const url = window.URL.createObjectURL(
-    new Blob([data], { type: "application/octet-stream" }),
-  );
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  window.URL.revokeObjectURL(url);
-}
-
 async function fetchSave(): Promise<Uint8Array> {
   if (saveRef.value) {
     const { data } = await api.get(
@@ -187,10 +147,79 @@ window.EJS_onLoadSave = async function () {
   window.EJS_emulator.gameManager.loadSaveFiles();
 };
 
+window.EJS_onLoadState = async function () {
+  const state = await api.get(
+    stateRef.value!.download_path.replace("/api", ""),
+    { responseType: "arraybuffer" },
+  );
+  window.EJS_emulator.gameManager.loadState(state.data);
+};
+
 window.EJS_onGameStart = async () => {
   setTimeout(() => {
     if (saveRef.value) window.EJS_onLoadSave();
+    if (stateRef.value) window.EJS_onLoadState();
   }, 10);
+
+  const savesMonitor = await createIndexedDBDiffMonitor("/data/saves", 2000);
+  const statesMonitor = await createIndexedDBDiffMonitor(
+    "EmulatorJS-states",
+    2000,
+  );
+
+  // Start monitoring
+  savesMonitor.start();
+  statesMonitor.start();
+
+  savesMonitor.on("change", (changes: Change[]) => {
+    changes.forEach((change) => {
+      if (!change.key.includes(romRef.value.file_name_no_ext)) return;
+
+      if (saveRef.value) {
+        saveApi
+          .updateSave({
+            save: saveRef.value,
+            file: new File(
+              [change.newValue.contents],
+              saveRef.value.file_name,
+              {
+                type: "application/octet-stream",
+              },
+            ),
+          })
+          .then(({ data }) => {
+            saveRef.value = data;
+          })
+          .catch();
+      } else {
+        const filename =
+          change.key.split("/").pop() ?? `${romRef.value.file_name_no_ext}.sav`;
+
+        saveApi
+          .uploadSaves({
+            rom: romRef.value,
+            emulator: window.EJS_core,
+            saves: [
+              new File([change.newValue.contents], filename, {
+                type: "application/octet-stream",
+              }),
+            ],
+          })
+          .then(({ data }) => {
+            const allSaves = data.saves.sort(
+              (a: SaveSchema, b: SaveSchema) => a.id - b.id,
+            );
+            if (romRef.value) romRef.value.user_saves = allSaves;
+            saveRef.value = allSaves.pop() ?? null;
+          })
+          .catch();
+      }
+    });
+  });
+
+  statesMonitor.on("change", (changes: Change[]) => {
+    console.log("State changes detected:", changes);
+  });
 };
 </script>
 
