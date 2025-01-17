@@ -311,14 +311,6 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(select(RomFile).filter_by(id=id).limit(1))
 
     @begin_session
-    def get_rom_file_by_file_name(
-        self, rom_id: int, file_name: str, session: Session = None
-    ) -> RomFile | None:
-        return session.scalar(
-            select(RomFile).filter_by(rom_id=rom_id, file_name=file_name).limit(1)
-        )
-
-    @begin_session
     def update_rom_file(self, id: int, data: dict, session: Session = None) -> RomFile:
         session.execute(
             update(RomFile)

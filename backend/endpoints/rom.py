@@ -320,7 +320,9 @@ async def get_rom_content(
         for f in files
     ]
 
-    m3u_encoded_content = "\n".join([f.file_name for f in files]).encode()
+    m3u_encoded_content = "\n".join(
+        [f.full_path.replace(rom.full_path, "") for f in files]
+    ).encode()
     m3u_base64_content = b64encode(m3u_encoded_content).decode()
     m3u_line = ZipContentLine(
         crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
