@@ -575,7 +575,7 @@ async def delete_roms(
 @protected_route(router.put, "/roms/{id}/props", [Scope.ROMS_USER_WRITE])
 async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     data = await request.json()
-    data = data.get("data", {})
+    rom_user_data = data.get("data", {})
 
     rom = db_rom_handler.get_rom(id)
 
@@ -600,7 +600,12 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         "last_played",
     ]
 
-    cleaned_data = {field: data[field] for field in fields_to_update if field in data}
+    cleaned_data = {
+        field: rom_user_data[field]
+        for field in fields_to_update
+        if field in rom_user_data
+    }
+
     if data.get("update_last_played", False):
         cleaned_data.update({"last_played": datetime.now(timezone.utc)})
 
