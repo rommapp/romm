@@ -21,5 +21,27 @@ def json_array_contains_value(
     """Check if a JSON array column contains a single value."""
     conn = session.get_bind()
     if is_postgresql(conn):
-        return sa.type_coerce(column, sa_pg.JSONB()).has_key(value)
+        # In PostgreSQL, string values can be checked for containment using the `?` operator.
+        # For other types, we use the `@>` operator.
+        if isinstance(value, str):
+            return sa.type_coerce(column, sa_pg.JSONB).has_key(value)
+        return sa.type_coerce(column, sa_pg.JSONB).contains(
+            func.cast(value, sa_pg.JSONB)
+        )
     return func.json_contains(column, value)
+
+
+def safe_float(value: Any, default: float = 0.0) -> float:
+    """Safely convert a value to float, returning default if conversion fails."""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def safe_int(value: Any, default: int = 0) -> int:
+    """Safely convert a value to int, returning default if conversion fails."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default

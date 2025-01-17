@@ -7,7 +7,7 @@ import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
-import { getDownloadLink } from "@/utils";
+import { getDownloadPath } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
 import storeHeartbeat from "@/stores/heartbeat";
 
@@ -126,7 +126,7 @@ async function downloadRom({
   files?: string[];
 }) {
   const a = document.createElement("a");
-  a.href = getDownloadLink({ rom, files });
+  a.href = getDownloadPath({ rom, files });
 
   document.body.appendChild(a);
   a.click();
@@ -187,7 +187,7 @@ async function updateUserRomProps({
   romId: number;
   data: Partial<RomUserSchema>;
   updateLastPlayed?: boolean;
-}): Promise<{ data: DetailedRom }> {
+}): Promise<{ data: RomUserSchema }> {
   return api.put(`/roms/${romId}/props`, {
     data: data,
     update_last_played: updateLastPlayed,

@@ -1,7 +1,6 @@
 // Plugins
 import vue from "@vitejs/plugin-vue";
 import { VitePWA } from "vite-plugin-pwa";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
 // Utilities
@@ -28,9 +27,6 @@ export default defineConfig(({ mode }) => {
       }),
       vuetify({
         autoImport: true,
-        styles: {
-          configFile: "src/styles/settings.scss",
-        },
       }),
       VitePWA({
         injectRegister: null,
@@ -48,18 +44,6 @@ export default defineConfig(({ mode }) => {
           enabled: true,
           type: "module",
         },
-      }),
-      viteStaticCopy({
-        targets: [
-          {
-            src: "node_modules/emulatorjs/data/*",
-            dest: "assets/emulatorjs/",
-          },
-          {
-            src: "node_modules/@ruffle-rs/ruffle/*",
-            dest: "assets/ruffle/",
-          },
-        ],
       }),
     ],
     define: {
