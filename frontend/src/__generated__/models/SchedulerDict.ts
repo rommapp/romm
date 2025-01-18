@@ -8,5 +8,6 @@ import type { TaskDict } from './TaskDict';
 export type SchedulerDict = {
     RESCAN: TaskDict;
     SWITCH_TITLEDB: TaskDict;
+    LAUNCHBOX_METADATA: TaskDict;
 };
 

@@ -19,6 +19,7 @@ class TaskDict(WatcherDict):
 class SchedulerDict(TypedDict):
     RESCAN: TaskDict
     SWITCH_TITLEDB: TaskDict
+    LAUNCHBOX_METADATA: TaskDict
 
 
 class MetadataSourcesDict(TypedDict):
