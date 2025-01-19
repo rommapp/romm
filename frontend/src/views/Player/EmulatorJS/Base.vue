@@ -208,7 +208,7 @@ onMounted(async () => {
             "
           >
             <template #selection="{ item }">
-              <v-list-item class="py-4" :title="item.value.file_name ?? ''">
+              <v-list-item class="pa-0" :title="item.value.file_name ?? ''">
                 <template #append>
                   <v-chip size="x-small" class="ml-1" color="orange" label>{{
                     item.value.emulator
