@@ -47,7 +47,6 @@ declare global {
     EJS_threads: boolean;
     EJS_controlScheme: string | null;
     EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-    EJS_GameManager: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
     EJS_onLoadState: () => void;
@@ -118,6 +117,34 @@ onMounted(() => {
   }
 });
 
+function buildStateName(): string {
+  const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
+  const romName = romRef.value.file_name_no_ext.trim();
+  let stateName = `${romName}.state.auto`;
+  if (!states.includes(stateName)) return stateName;
+  let i = 1;
+  stateName = `${romName}.state1`;
+  while (states.includes(stateName)) {
+    i++;
+    stateName = `${romName}.state${i}`;
+  }
+  return stateName;
+}
+
+function buildSaveName(): string {
+  const saves = romRef.value.user_saves?.map((s) => s.file_name) ?? [];
+  const romName = romRef.value.file_name_no_ext.trim();
+  let saveName = `${romName}.srm`;
+  if (!saves.includes(saveName)) return saveName;
+  let i = 2;
+  saveName = `${romName} (${i}).srm`;
+  while (saves.includes(saveName)) {
+    i++;
+    saveName = `${romName} (${i}).srm`;
+  }
+  return saveName;
+}
+
 async function fetchSave(): Promise<Uint8Array> {
   if (saveRef.value) {
     const { data } = await api.get(
@@ -147,12 +174,33 @@ window.EJS_onLoadSave = async function () {
   window.EJS_emulator.gameManager.loadSaveFiles();
 };
 
+async function fetchState(): Promise<Uint8Array> {
+  if (stateRef.value) {
+    const { data } = await api.get(
+      stateRef.value.download_path.replace("/api", ""),
+      { responseType: "arraybuffer" },
+    );
+    if (data) {
+      window.EJS_emulator.displayMessage("LOADED FROM ROMM");
+      return new Uint8Array(data);
+    }
+  }
+  if (window.EJS_emulator.saveInBrowserSupported()) {
+    const data = await window.EJS_emulator.storage.states.get(
+      window.EJS_emulator.getBaseFileName() + ".state",
+    );
+    if (data) {
+      window.EJS_emulator.displayMessage("LOADED FROM BROWSER");
+      return data;
+    }
+  }
+  const file = await window.EJS_emulator.selectFile();
+  return new Uint8Array(await file.arrayBuffer());
+}
+
 window.EJS_onLoadState = async function () {
-  const state = await api.get(
-    stateRef.value!.download_path.replace("/api", ""),
-    { responseType: "arraybuffer" },
-  );
-  window.EJS_emulator.gameManager.loadState(state.data);
+  const state = await fetchState();
+  window.EJS_emulator.gameManager.loadState(new Uint8Array(state));
 };
 
 window.EJS_onGameStart = async () => {
@@ -172,8 +220,10 @@ window.EJS_onGameStart = async () => {
   statesMonitor.start();
 
   savesMonitor.on("change", (changes: Change[]) => {
+    console.log("Save changes detected:", changes);
+
     changes.forEach((change) => {
-      if (!change.key.includes(romRef.value.file_name_no_ext)) return;
+      if (!change.key.includes(romRef.value.file_name_no_tags)) return;
 
       if (saveRef.value) {
         saveApi
@@ -189,18 +239,14 @@ window.EJS_onGameStart = async () => {
           })
           .then(({ data }) => {
             saveRef.value = data;
-          })
-          .catch();
+          });
       } else {
-        const filename =
-          change.key.split("/").pop() ?? `${romRef.value.file_name_no_ext}.sav`;
-
         saveApi
           .uploadSaves({
             rom: romRef.value,
             emulator: window.EJS_core,
             saves: [
-              new File([change.newValue.contents], filename, {
+              new File([change.newValue.contents], buildSaveName(), {
                 type: "application/octet-stream",
               }),
             ],
@@ -219,6 +265,47 @@ window.EJS_onGameStart = async () => {
 
   statesMonitor.on("change", (changes: Change[]) => {
     console.log("State changes detected:", changes);
+
+    changes.forEach((change) => {
+      if (!change.key.includes(romRef.value.file_name_no_tags)) return;
+
+      if (stateRef.value) {
+        stateApi
+          .updateState({
+            state: stateRef.value,
+            file: new File(
+              [change.newValue.contents],
+              stateRef.value.file_name,
+              {
+                type: "application/octet-stream",
+              },
+            ),
+          })
+          .then(({ data }) => {
+            stateRef.value = data;
+          })
+          .catch();
+      } else {
+        stateApi
+          .uploadStates({
+            rom: romRef.value,
+            emulator: window.EJS_core,
+            states: [
+              new File([change.newValue.contents], buildStateName(), {
+                type: "application/octet-stream",
+              }),
+            ],
+          })
+          .then(({ data }) => {
+            const allStates = data.states.sort(
+              (a: StateSchema, b: StateSchema) => a.id - b.id,
+            );
+            if (romRef.value) romRef.value.user_states = allStates;
+            stateRef.value = allStates.pop() ?? null;
+          })
+          .catch();
+      }
+    });
   });
 };
 </script>
