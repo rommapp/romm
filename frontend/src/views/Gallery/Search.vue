@@ -11,7 +11,6 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { views } from "@/utils";
-import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -22,6 +21,8 @@ const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
 const { searchText } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
+const router = useRouter();
+const initialSearch = ref(false);
 const {
   allRoms,
   filteredRoms,
@@ -31,13 +32,12 @@ const {
   itemsPerBatch,
   gettingRoms,
 } = storeToRefs(romsStore);
+
 const itemsShown = ref(itemsPerBatch.value);
 let timeout: ReturnType<typeof setTimeout>;
+
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
-const { t } = useI18n();
-const router = useRouter();
-const initialSearch = ref(false);
 
 // Functions
 function setFilters() {

@@ -6,7 +6,6 @@ import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
-import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";

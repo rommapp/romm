@@ -69,6 +69,7 @@ async function fetchRoms() {
     const inputElement = document.getElementById("search-text-field");
     inputElement?.blur();
     gettingRoms.value = true;
+
     // Update URL with search term
     router.replace({ query: { search: searchText.value } });
 
