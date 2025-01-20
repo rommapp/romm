@@ -261,13 +261,13 @@ onMounted(() => {
         >
           {{ languageToEmoji(language) }}
         </span>
-        <spa class="reglang-super">
+        <span class="reglang-super">
           {{
             item.languages.length > 3
               ? `&nbsp;+${item.languages.length - 3}`
               : ""
           }}
-        </spa>
+        </span>
       </div>
       <span v-else>-</span>
     </template>
