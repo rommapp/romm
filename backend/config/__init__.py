@@ -124,7 +124,7 @@ DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
 UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
 
 # LOGGING
-LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO")
+LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO").upper()
 FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
 NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
 
