@@ -1,3 +1,4 @@
+<
 <script setup lang="ts">
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
@@ -78,9 +79,9 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     </template>
   </v-navigation-drawer>
 
-  <search-rom-dialog />
   <platforms-drawer />
   <collections-drawer />
   <upload-rom-dialog />
   <settings-drawer />
 </template>
+>
