@@ -592,7 +592,6 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         "difficulty",
         "completion",
         "status",
-        "last_played",
     ]
 
     cleaned_data = {
