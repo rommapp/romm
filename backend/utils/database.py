@@ -1,5 +1,6 @@
 from typing import Any
 
+import json
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
@@ -28,7 +29,7 @@ def json_array_contains_value(
         return sa.type_coerce(column, sa_pg.JSONB).contains(
             func.cast(value, sa_pg.JSONB)
         )
-    return func.json_contains(column, value)
+    return func.json_contains(column, json.dumps(value))
 
 
 def safe_float(value, default=0.0):
