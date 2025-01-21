@@ -1,17 +1,14 @@
 import json
 import zipfile
+from io import BytesIO
 from itertools import batched
 from typing import Final
-
-try:
-    from defusedxml import ElementTree as ET
-except ImportError:
-    from xml.etree import ElementTree as ET
 
 from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
 )
+from defusedxml import ElementTree as ET
 from handler.redis_handler import async_cache
 from logger.logger import log
 from tasks.tasks import RemoteFilePullTask
@@ -41,7 +38,8 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
             return
 
         try:
-            with zipfile.ZipFile(content) as z:
+            zip_file_bytes = BytesIO(content)
+            with zipfile.ZipFile(zip_file_bytes) as z:
                 for file in z.namelist():
                     if file == "Platforms.xml":
                         platform_dict = {}
