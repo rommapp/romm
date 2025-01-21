@@ -4071,4 +4071,4 @@ test = ["fakeredis", "pytest", "pytest-asyncio", "pytest-env", "pytest-mock", "p
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "0d1b8d7c24206129490663a62ab4c14f0c677b36c8baf58febdeff7a059e93c1"
+content-hash = "93eb44e863ea892a88ff63c4ab4639686bd3652014265698b50c365fed221064"
