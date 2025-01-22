@@ -20,7 +20,8 @@ class CustomCSRFMiddleware(CSRFMiddleware):
         request = Request(scope, receive)
 
         # Skip CSRF check if Authorization header is present
-        if "Authorization" in request.headers:
+        auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
+        if auth_scheme == "bearer" or auth_scheme == "basic":
             await self.app(scope, receive, send)
             return
 
