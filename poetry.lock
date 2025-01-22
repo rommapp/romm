@@ -3041,14 +3041,14 @@ jupyter = ["ipywidgets (>=7.5.1,<9)"]
 
 [[package]]
 name = "rq"
-version = "1.16.2"
+version = "2.1.0"
 description = "RQ is a simple, lightweight, library for creating background jobs, and processing them."
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "rq-1.16.2-py3-none-any.whl", hash = "sha256:52e619f6cb469b00e04da74305045d244b75fecb2ecaa4f26422add57d3c5f09"},
-    {file = "rq-1.16.2.tar.gz", hash = "sha256:5c5b9ad5fbaf792b8fada25cc7627f4d206a9a4455aced371d4f501cc3f13b34"},
+    {file = "rq-2.1.0-py3-none-any.whl", hash = "sha256:3c6892c6ca848e5fb47c1875399a66f13656bf0e123bf725d9aa9a12718e2fdf"},
+    {file = "rq-2.1.0.tar.gz", hash = "sha256:764585b6cab69ef1412f4aee523347e5aa7ece3ca175c118b1d92223dd8c2826"},
 ]
 
 [package.dependencies]
@@ -3057,21 +3057,21 @@ redis = ">=3.5"
 
 [[package]]
 name = "rq-scheduler"
-version = "0.13.1"
+version = "0.14.0"
 description = "Provides job scheduling capabilities to RQ (Redis Queue)"
 optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "rq-scheduler-0.13.1.tar.gz", hash = "sha256:89d6a18f215536362b22c0548db7dbb8678bc520c18dc18a82fd0bb2b91695ce"},
-    {file = "rq_scheduler-0.13.1-py2.py3-none-any.whl", hash = "sha256:c2b19c3aedfc7de4d405183c98aa327506e423bf4cdc556af55aaab9bbe5d1a1"},
+    {file = "rq-scheduler-0.14.0.tar.gz", hash = "sha256:2d5a14a1ab217f8693184ebaa1fe03838edcbc70b4f76572721c0b33058cd023"},
+    {file = "rq_scheduler-0.14.0-py2.py3-none-any.whl", hash = "sha256:d4ec221a3d8c11b3ff55e041f09d9af1e17f3253db737b6b97e86ab20fc3dc0d"},
 ]
 
 [package.dependencies]
 crontab = ">=0.23.0"
 freezegun = "*"
 python-dateutil = "*"
-rq = ">=0.13"
+rq = ">=2"
 
 [[package]]
 name = "sentry-sdk"
@@ -4059,4 +4059,4 @@ test = ["fakeredis", "pytest", "pytest-asyncio", "pytest-env", "pytest-mock", "p
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "00da00f53b045762b766cd778f2e71d971742dc85521e10f033fc228e4d07274"
+content-hash = "cd26d8392654433fd53cea5277d3deb5afd847cf2c48f9bebb8fa7bf5f4be66c"
