@@ -508,22 +508,6 @@ export function isRuffleEmulationSupported(
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 /**
- * Array of difficulty emojis.
- */
-export const difficultyEmojis = [
-  "😴",
-  "🥱",
-  "😐",
-  "😄",
-  "🤔",
-  "🤯",
-  "😓",
-  "😡",
-  "🤬",
-  "😵",
-];
-
-/**
  * Map of ROM statuses to their corresponding emoji and text.
  */
 export const romStatusMap: Record<
