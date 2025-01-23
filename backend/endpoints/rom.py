@@ -389,8 +389,8 @@ async def update_rom(
         )
 
     cleaned_data = {
-        "igdb_id": data.get("igdb_id", None),
-        "moby_id": data.get("moby_id", None),
+        "igdb_id": data.get("igdb_id", rom.igdb_id),
+        "moby_id": data.get("moby_id", rom.moby_id),
     }
 
     if (
