@@ -5,15 +5,17 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject } from "vue";
+import { inject, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { useRouter } from "vue-router";
 import type { Platform } from "@/stores/platforms";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { xs } = useDisplay();
 const { t } = useI18n();
+const router = useRouter();
 const romsStore = storeRoms();
 const { gettingRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -68,6 +70,9 @@ async function fetchRoms() {
     inputElement?.blur();
     gettingRoms.value = true;
 
+    // Update URL with search term
+    router.replace({ query: { search: searchText.value } });
+
     try {
       const { data } = await romApi.getRoms({ searchTerm: searchText.value });
       const sortedData = data.sort((a, b) => {
@@ -101,6 +106,25 @@ async function fetchRoms() {
     }
   }
 }
+
+onMounted(() => {
+  const { search: searchTerm } = router.currentRoute.value.query;
+  if (searchTerm && searchTerm !== searchText.value) {
+    searchText.value = searchTerm as string;
+    fetchRoms();
+  }
+});
+
+watch(
+  router.currentRoute.value.query,
+  (query) => {
+    if (query.search && query.search !== searchText.value) {
+      searchText.value = query.search as string;
+      fetchRoms();
+    }
+  },
+  { deep: true },
+);
 </script>
 
 <template>
