@@ -276,18 +276,19 @@ class DBRomsHandler(DBBaseHandler):
 
         rom_user = self.get_rom_user_by_id(id)
 
-        if data.get("is_main_sibling", False):
-            rom = self.get_rom(rom_user.rom_id)
+        if not data.get("is_main_sibling", False):
+            return rom_user
 
-            session.execute(
-                update(RomUser)
-                .where(
-                    and_(
-                        RomUser.rom_id.in_(r.id for r in rom.sibling_roms),
-                        RomUser.user_id == rom_user.user_id,
-                    )
+        rom = self.get_rom(rom_user.rom_id)
+        session.execute(
+            update(RomUser)
+            .where(
+                and_(
+                    RomUser.rom_id.in_(r.id for r in rom.sibling_roms),
+                    RomUser.user_id == rom_user.user_id,
                 )
-                .values(is_main_sibling=False)
             )
+            .values(is_main_sibling=False)
+        )
 
         return self.get_rom_user_by_id(id)

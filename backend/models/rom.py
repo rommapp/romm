@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
 from sqlalchemy import (
+    TIMESTAMP,
     BigInteger,
-    DateTime,
     Enum,
     ForeignKey,
     Index,
@@ -72,7 +72,7 @@ class Rom(BaseModel):
         Text, default="", doc="URL to cover image stored in IGDB"
     )
 
-    revision: Mapped[str | None] = mapped_column(String(100))
+    revision: Mapped[str | None] = mapped_column(String(length=100))
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
@@ -84,9 +84,9 @@ class Rom(BaseModel):
 
     multi: Mapped[bool] = mapped_column(default=False)
     files: Mapped[list[RomFile] | None] = mapped_column(CustomJSON(), default=[])
-    crc_hash: Mapped[str | None] = mapped_column(String(100))
-    md5_hash: Mapped[str | None] = mapped_column(String(100))
-    sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    crc_hash: Mapped[str | None] = mapped_column(String(length=100))
+    md5_hash: Mapped[str | None] = mapped_column(String(length=100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
@@ -254,7 +254,7 @@ class RomUser(BaseModel):
     note_is_public: Mapped[bool] = mapped_column(default=False)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
-    last_played: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_played: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
     backlogged: Mapped[bool] = mapped_column(default=False)
     now_playing: Mapped[bool] = mapped_column(default=False)
