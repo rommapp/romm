@@ -13,7 +13,6 @@
   "bugs": {
     "url": "https://github.com/rommapp/romm/issues"
   },
-  "type": "module",
   "keywords": [
     "rom",
     "manager",
@@ -29,7 +28,7 @@
     "generate": "openapi --input http://127.0.0.1:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
   },
   "dependencies": {
-    "@mdi/font": "7.0.96",
+    "@mdi/font": "7.4.47",
     "axios": "^1.7.4",
     "core-js": "^3.37.1",
     "cronstrue": "^2.50.0",
@@ -48,7 +47,7 @@
     "vue": "^3.4.27",
     "vue-i18n": "^10.0.5",
     "vue-router": "^4.3.2",
-    "vuetify": "^3.7.4",
+    "vuetify": "^3.7.7",
     "webfontloader": "^1.6.28"
   },
   "devDependencies": {
@@ -63,13 +62,13 @@
     "@types/webfontloader": "^1.6.38",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.5.1",
-    "esbuild": "^0.20.2",
+    "esbuild": "^0.24.2",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.26.0",
     "globals": "^15.3.0",
-    "openapi-typescript-codegen": "^0.25.0",
+    "openapi-typescript-codegen": "^0.29.0",
     "tslib": "^2.6.2",
-    "typescript": "^5.4.5",
+    "typescript": "^5.7.3",
     "typescript-eslint": "^7.11.0",
     "vite": "^6.0.11",
     "vite-plugin-pwa": "^0.21.1",
