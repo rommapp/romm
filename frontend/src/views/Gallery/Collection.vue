@@ -56,7 +56,6 @@ async function fetchRoms() {
   try {
     const { data } = await romApi.getRoms({
       collectionId: romsStore.currentCollection?.id,
-      searchTerm: normalizeString(galleryFilterStore.filterText),
     });
     romsStore.set(data);
     romsStore.setFiltered(data, galleryFilterStore);
