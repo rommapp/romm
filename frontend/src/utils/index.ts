@@ -360,10 +360,10 @@ const _EJS_CORES_MAP = {
   "game-boy-micro": ["mgba"],
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
-  ps: ["pcsx_rearmed", "mednafen_psx"],
+  ps: ["pcsx_rearmed", "mednafen_psx_hw"],
   psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
-  // sega32: ["picodrive"], // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
+  sega32: ["picodrive"],
   gamegear: ["genesis_plus_gx"],
   sms: ["genesis_plus_gx"],
   "sega-mark-iii": ["genesis_plus_gx"],
@@ -453,6 +453,41 @@ export function isEJSThreadsSupported(): boolean {
   return typeof SharedArrayBuffer !== "undefined";
 }
 
+// This is a workaround to set the control scheme for Sega systems using the same cores
+const _EJS_CONTROL_SCHEMES = {
+  segacd: "segaCD",
+  sega32: "sega32x",
+  gamegear: "segaGG",
+  sms: "segaMS",
+  "sega-mark-iii": "segaMS",
+  "sega-master-system-ii": "segaMS",
+  "master-system-super-compact": "segaMS",
+  "master-system-girl": "segaMS",
+  "genesis-slash-megadrive": "segaMD",
+  "sega-mega-drive-2-slash-genesis": "segaMD",
+  "sega-mega-jet": "segaMD",
+  "mega-pc": "segaMD",
+  "tera-drive": "segaMD",
+  "sega-nomad": "segaMD",
+  saturn: "segaSaturn",
+};
+
+type EJSControlSlug = keyof typeof _EJS_CONTROL_SCHEMES;
+
+/**
+ * Get the control scheme for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @returns The control scheme.
+ */
+export function getControlSchemeForPlatform(
+  platformSlug: string,
+): string | null {
+  return platformSlug in _EJS_CONTROL_SCHEMES
+    ? _EJS_CONTROL_SCHEMES[platformSlug as EJSControlSlug]
+    : null;
+}
+
 /**
  * Check if Ruffle emulation is supported for a given platform.
  *
@@ -471,22 +506,6 @@ export function isRuffleEmulationSupported(
 }
 
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
-
-/**
- * Array of difficulty emojis.
- */
-export const difficultyEmojis = [
-  "😴",
-  "🥱",
-  "😐",
-  "😄",
-  "🤔",
-  "🤯",
-  "😓",
-  "😡",
-  "🤬",
-  "😵",
-];
 
 /**
  * Map of ROM statuses to their corresponding emoji and text.
