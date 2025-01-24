@@ -1,11 +1,9 @@
-/* eslint-disable */
+import eslint from "@eslint/js";
+import tseslint from "typescript-eslint";
+import globals from "globals";
+import vue from "eslint-plugin-vue";
 
-let eslint = require("@eslint/js");
-let tseslint = require("typescript-eslint");
-let globals = require("globals");
-let vue = require("eslint-plugin-vue");
-
-module.exports = tseslint.config(
+export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   ...vue.configs["flat/recommended"],
