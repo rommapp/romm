@@ -13,6 +13,7 @@
   "bugs": {
     "url": "https://github.com/rommapp/romm/issues"
   },
+  "type": "module",
   "keywords": [
     "rom",
     "manager",
