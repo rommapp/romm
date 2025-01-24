@@ -18,6 +18,7 @@
     "manager",
     "emulation"
   ],
+  "type": "module",
   "scripts": {
     "dev": "vite --host",
     "build": "npm run typecheck && vite build",
