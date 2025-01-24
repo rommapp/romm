@@ -63,7 +63,7 @@
     "@types/webfontloader": "^1.6.38",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.5.1",
-    "esbuild": "^0.20.2",
+    "esbuild": "^0.24.2",
     "eslint": "^8.57.0",
     "eslint-plugin-vue": "^9.26.0",
     "globals": "^15.3.0",
