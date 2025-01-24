@@ -10,7 +10,23 @@ module.exports = tseslint.config(
   ...tseslint.configs.recommended,
   ...vue.configs["flat/recommended"],
   {
-    ignores: ["node_modules", "dist", "__generated__", "*.config.js"],
+    ignores: [
+      "logs",
+      "*.log",
+      "npm-debug.log*",
+      "yarn-debug.log*",
+      "yarn-error.log*",
+      "pnpm-debug.log*",
+      "lerna-debug.log*",
+      "node_modules",
+      ".DS_Store",
+      "dist",
+      "dist-ssr",
+      "coverage",
+      "*.local",
+      "__generated__",
+      "*.config.js",
+    ],
     languageOptions: {
       parserOptions: {
         parser: "@typescript-eslint/parser",
