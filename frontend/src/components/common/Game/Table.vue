@@ -5,6 +5,7 @@ import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeConfig from "@/stores/config";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import {
@@ -34,6 +35,8 @@ const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const { filteredRoms, selectedRoms } = storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const page = ref(parseInt(window.location.hash.slice(1)) || 1);
 const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
 const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
@@ -106,12 +109,20 @@ function updateUrlHash() {
   window.location.hash = String(page.value);
 }
 
+function getTruePlatformSlug(platformSlug: string) {
+  return platformSlug in config.value.PLATFORMS_VERSIONS
+    ? config.value.PLATFORMS_VERSIONS[platformSlug]
+    : platformSlug;
+}
+
 function checkIfEJSEmulationSupported(platformSlug: string) {
-  return isEJSEmulationSupported(platformSlug, heartbeatStore.value);
+  const slug = getTruePlatformSlug(platformSlug);
+  return isEJSEmulationSupported(slug, heartbeatStore.value);
 }
 
 function checkIfRuffleEmulationSupported(platformSlug: string) {
-  return isRuffleEmulationSupported(platformSlug, heartbeatStore.value);
+  const slug = getTruePlatformSlug(platformSlug);
+  return isRuffleEmulationSupported(slug, heartbeatStore.value);
 }
 
 function updateSelectAll() {
@@ -251,13 +262,13 @@ onMounted(() => {
         >
           {{ languageToEmoji(language) }}
         </span>
-        <spa class="reglang-super">
+        <span class="reglang-super">
           {{
             item.languages.length > 3
               ? `&nbsp;+${item.languages.length - 3}`
               : ""
           }}
-        </spa>
+        </span>
       </div>
       <span v-else>-</span>
     </template>

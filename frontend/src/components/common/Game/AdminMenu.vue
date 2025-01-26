@@ -64,7 +64,7 @@ async function switchFromFavourites() {
   }
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
-    .then(({ data }) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
         msg: `${props.rom.name} ${
           collectionsStore.isFav(props.rom) ? "added to" : "removed from"
@@ -101,6 +101,8 @@ async function resetLastPlayed() {
         color: "green",
         timeout: 2000,
       });
+
+      romsStore.removeFromContinuePlaying(props.rom);
     })
     .catch((error) => {
       console.log(error);

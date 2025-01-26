@@ -21,7 +21,6 @@ export type Events = {
   showMatchRomDialog: SimpleRom;
   showSearchCoverDialog: { term: string; aspectRatio: number | null };
   updateUrlCover: string;
-  showSearchRomDialog: null;
   showEditRomDialog: SimpleRom;
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];

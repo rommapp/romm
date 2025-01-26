@@ -99,8 +99,16 @@ export default defineStore("roms", {
     addToRecent(rom: SimpleRom) {
       this.recentRoms = [rom, ...this.recentRoms];
     },
+    removeFromRecent(rom: SimpleRom) {
+      this.recentRoms = this.recentRoms.filter((value) => value.id !== rom.id);
+    },
     addToContinuePlaying(rom: SimpleRom) {
       this.continuePlayingRoms = [rom, ...this.continuePlayingRoms];
+    },
+    removeFromContinuePlaying(rom: SimpleRom) {
+      this.continuePlayingRoms = this.continuePlayingRoms.filter(
+        (value) => value.id !== rom.id,
+      );
     },
     update(rom: SimpleRom) {
       this.allRoms = this.allRoms.map((value) =>

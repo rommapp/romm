@@ -21,11 +21,11 @@ class Platform(BaseModel):
     igdb_id: Mapped[int | None]
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
-    slug: Mapped[str] = mapped_column(String(length=50))
-    fs_slug: Mapped[str] = mapped_column(String(length=50))
+    slug: Mapped[str] = mapped_column(String(length=100))
+    fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))
     custom_name: Mapped[str | None] = mapped_column(String(length=400), default="")
-    category: Mapped[str | None] = mapped_column(String(length=50), default="")
+    category: Mapped[str | None] = mapped_column(String(length=100), default="")
     generation: Mapped[int | None]
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")

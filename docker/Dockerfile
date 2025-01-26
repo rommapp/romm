@@ -55,7 +55,7 @@ RUN poetry install --no-ansi --no-cache --only main
 
 FROM backend-build AS backend-dev-build
 
-RUN poetry install --no-ansi --no-cache
+RUN poetry install --no-ansi --no-cache --all-extras
 
 
 # TODO: Upgrade Alpine to the same version as the other stages, when RAHasher is updated to work
