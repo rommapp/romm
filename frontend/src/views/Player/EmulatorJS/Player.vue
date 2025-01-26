@@ -62,7 +62,7 @@ window.EJS_controlScheme = getControlSchemeForPlatform(
 );
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
-window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
+window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.fs_name}`;
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
@@ -118,7 +118,7 @@ onMounted(() => {
 
 function buildStateName(): string {
   const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
+  const romName = romRef.value.fs_name_no_ext.trim();
   let stateName = `${romName}.state.auto`;
   if (!states.includes(stateName)) return stateName;
 
@@ -134,7 +134,7 @@ function buildStateName(): string {
 
 function buildSaveName(): string {
   const saves = romRef.value.user_saves?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
+  const romName = romRef.value.fs_name_no_ext.trim();
   let saveName = `${romName}.srm`;
   if (!saves.includes(saveName)) return saveName;
 

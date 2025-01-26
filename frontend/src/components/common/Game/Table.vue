@@ -53,7 +53,7 @@ const HEADERS = [
     title: "Size",
     align: "start",
     sortable: true,
-    key: "file_size_bytes",
+    key: "fs_size_bytes",
   },
   {
     title: "Added",
@@ -201,7 +201,7 @@ onMounted(() => {
           </v-row>
           <v-row no-gutters>
             <v-col class="text-romm-accent-1">
-              {{ item.file_name }}
+              {{ item.fs_name }}
             </v-col>
           </v-row>
           <template #append>
@@ -220,8 +220,8 @@ onMounted(() => {
         </v-list-item>
       </td>
     </template>
-    <template #item.file_size_bytes="{ item }">
-      <span class="text-no-wrap">{{ formatBytes(item.file_size_bytes) }}</span>
+    <template #item.fs_size_bytes="{ item }">
+      <span class="text-no-wrap">{{ formatBytes(item.fs_size_bytes) }}</span>
     </template>
     <template #item.created_at="{ item }">
       <span v-if="item.created_at" class="text-no-wrap">{{

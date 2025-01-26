@@ -1,9 +1,8 @@
-from collections.abc import Sequence
-from typing import Any
+from typing import Any, Sequence
 
 from decorators.database import begin_session
 from models.collection import Collection
-from sqlalchemy import Select, delete, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnExpressionArgument
 from utils.database import json_array_contains_value
@@ -15,10 +14,11 @@ class DBCollectionsHandler(DBBaseHandler):
     @begin_session
     def add_collection(
         self, collection: Collection, session: Session = None
-    ) -> Collection | None:
+    ) -> Collection:
         collection = session.merge(collection)
         session.flush()
-        return session.scalar(select(Collection).filter_by(id=collection.id).limit(1))
+
+        return session.query(Collection).filter_by(id=collection.id).one()
 
     @begin_session
     def get_collection(self, id: int, session: Session = None) -> Collection | None:
@@ -33,9 +33,9 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def get_collections(self, session: Session = None) -> Select[tuple[Collection]]:
+    def get_collections(self, session: Session = None) -> Sequence[Collection]:
         return (
-            session.scalars(select(Collection).order_by(Collection.name.asc()))  # type: ignore[attr-defined]
+            session.scalars(select(Collection).order_by(Collection.name.asc()))
             .unique()
             .all()
         )
@@ -47,7 +47,7 @@ class DBCollectionsHandler(DBBaseHandler):
         *,
         order_by: Sequence[str | ColumnExpressionArgument[Any]] | None = None,
         session: Session = None,
-    ) -> list[Collection]:
+    ) -> Sequence[Collection]:
         query = select(Collection).filter(
             json_array_contains_value(Collection.roms, rom_id, session=session)
         )
@@ -69,8 +69,8 @@ class DBCollectionsHandler(DBBaseHandler):
         return session.query(Collection).filter_by(id=id).one()
 
     @begin_session
-    def delete_collection(self, id: int, session: Session = None) -> int:
-        return session.execute(
+    def delete_collection(self, id: int, session: Session = None) -> None:
+        session.execute(
             delete(Collection)
             .where(Collection.id == id)
             .execution_options(synchronize_session="evaluate")

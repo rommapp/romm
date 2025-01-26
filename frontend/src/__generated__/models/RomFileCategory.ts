@@ -3,9 +3,4 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type RomFile = {
-    filename: string;
-    size: number;
-    last_modified: (number | null);
-};
-
+export type RomFileCategory = 'dlc' | 'hack' | 'manual' | 'patch' | 'update' | 'mod' | 'demo' | 'translation' | 'prototype';
