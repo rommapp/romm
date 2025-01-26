@@ -4,7 +4,11 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
-import { areThreadsRequiredForEJSCore, getSupportedEJSCores } from "@/utils";
+import {
+  areThreadsRequiredForEJSCore,
+  getSupportedEJSCores,
+  getControlSchemeForPlatform,
+} from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -39,6 +43,7 @@ declare global {
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
     EJS_threads: boolean;
+    EJS_controlScheme: string | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     EJS_emulator: any;
     EJS_onGameStart: () => void;
@@ -52,6 +57,9 @@ declare global {
 const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
+window.EJS_controlScheme = getControlSchemeForPlatform(
+  romRef.value.platform_slug,
+);
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
 window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
