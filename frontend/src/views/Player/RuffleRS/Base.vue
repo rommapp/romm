@@ -46,7 +46,7 @@ function onPlay() {
       backgroundColor: "#0D1117",
       openUrlMode: "confirm",
       publicPath: "/assets/ruffle/",
-      url: `/api/roms/${rom.value?.id}/content/${rom.value?.file_name}`,
+      url: `/api/roms/${rom.value?.id}/content/${rom.value?.fs_name}`,
     });
     player.style.width = "100%";
     player.style.height = "100%";
@@ -111,7 +111,7 @@ onMounted(async () => {
             src="/assets/ruffle/powered_by_ruffle.png"
           />
           <v-divider class="my-4" />
-          <rom-list-item :rom="rom" with-filename />
+          <rom-list-item :rom="rom" with-filename with-size />
           <v-divider class="my-4" />
         </v-col>
       </v-row>
