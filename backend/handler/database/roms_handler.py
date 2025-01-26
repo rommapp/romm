@@ -271,7 +271,9 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(select(RomUser).filter_by(id=id).limit(1))
 
     @begin_session
-    def update_rom_user(self, id: int, data: dict, session: Session = None) -> RomUser:
+    def update_rom_user(
+        self, id: int, data: dict, session: Session = None
+    ) -> RomUser | None:
         session.execute(
             update(RomUser)
             .where(RomUser.id == id)
@@ -280,11 +282,16 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         rom_user = self.get_rom_user_by_id(id)
+        if not rom_user:
+            return None
 
         if not data.get("is_main_sibling", False):
             return rom_user
 
         rom = self.get_rom(rom_user.rom_id)
+        if not rom:
+            return rom_user
+
         session.execute(
             update(RomUser)
             .where(

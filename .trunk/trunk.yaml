@@ -45,6 +45,10 @@ lint:
         - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**
+    - linters: [pyright]
+      paths:
+        - backend/alembic/**
+        - backend/handler/database/*_handler.py
   files:
     - name: vue
       extensions: [vue]
