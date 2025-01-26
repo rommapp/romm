@@ -398,11 +398,11 @@ async def update_rom(
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     cleaned_data: dict[str, Any] = {
-        "igdb_id": str(data.get("igdb_id", rom.igdb_id)),
-        "moby_id": str(data.get("moby_id", rom.moby_id)),
+        "igdb_id": data.get("igdb_id", rom.igdb_id),
+        "moby_id": data.get("moby_id", rom.moby_id),
     }
 
-    moby_id: str = cleaned_data["moby_id"]
+    moby_id = cleaned_data["moby_id"]
     if moby_id and int(moby_id) != rom.moby_id:
         moby_rom = await meta_moby_handler.get_rom_by_id(int(moby_id))
         cleaned_data.update(moby_rom)
@@ -412,7 +412,7 @@ async def update_rom(
         )
         cleaned_data.update({"path_screenshots": path_screenshots})
 
-    igdb_id: str = cleaned_data["igdb_id"]
+    igdb_id = cleaned_data["igdb_id"]
     if igdb_id and int(igdb_id) != rom.igdb_id:
         igdb_rom = await meta_igdb_handler.get_rom_by_id(int(igdb_id))
         cleaned_data.update(igdb_rom)
