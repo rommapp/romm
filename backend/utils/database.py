@@ -20,7 +20,7 @@ def json_array_contains_value(
 ) -> ColumnElement:
     """Check if a JSON array column contains a single value."""
     conn = session.get_bind()
-    if is_postgresql(conn):
+    if is_postgresql(conn):  # trunk-ignore(pyright/reportArgumentType)
         # In PostgreSQL, string values can be checked for containment using the `?` operator.
         # For other types, we use the `@>` operator.
         if isinstance(value, str):
