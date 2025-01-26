@@ -8,8 +8,6 @@ import datetime
 import decimal
 import json
 import uuid
-
-# trunk-ignore(pyright/reportWildcardImportFromLibrary)
 from json import *  # noqa: F401, F403
 from json import dumps as __original_dumps
 from typing import Any

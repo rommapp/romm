@@ -18,7 +18,6 @@ runtimes:
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
   enabled:
-    - pyright@1.1.392
     - markdownlint@0.43.0
     - eslint@9.18.0
     - actionlint@1.7.7
@@ -45,10 +44,6 @@ lint:
         - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**
-    - linters: [pyright]
-      paths:
-        - backend/alembic/**
-        - backend/handler/database/*_handler.py
   files:
     - name: vue
       extensions: [vue]
