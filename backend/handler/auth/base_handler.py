@@ -127,10 +127,7 @@ class OpenIDHandler:
                 detail="Email is missing from token.",
             )
 
-        metadata = (
-            # trunk-ignore(pyright/reportOptionalMemberAccess)
-            await oauth.openid.load_server_metadata()
-        )
+        metadata = await oauth.openid.load_server_metadata()
         claims_supported = metadata.get("claims_supported")
         is_email_verified = userinfo.get("email_verified", None)
 

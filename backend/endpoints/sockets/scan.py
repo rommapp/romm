@@ -522,7 +522,6 @@ async def _identify_rom(
     return scan_stats
 
 
-# trunk-ignore(pyright/reportOptionalCall)
 @socket_handler.socket_server.on("scan")
 async def scan_handler(_sid: str, options: dict):
     """Scan socket endpoint
@@ -556,7 +555,6 @@ async def scan_handler(_sid: str, options: dict):
     )
 
 
-# trunk-ignore(pyright/reportOptionalCall)
 @socket_handler.socket_server.on("scan:stop")
 async def stop_scan_handler(_sid: str):
     """Stop scan socket endpoint"""
