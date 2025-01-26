@@ -1,14 +1,12 @@
-# Pull request template
-
-## Description
+### Description
 
 Please describe the changes or enhancements you are proposing with this pull request.
 
-## Related Issues
+### Related Issues
 
 List any related issues that are addressed or fixed by this pull request.
 
-## Checklist
+### Checklist
 
 Please check all that apply.
 
@@ -19,6 +17,8 @@ Please check all that apply.
 - [ ] I've added unit tests that cover the changes
 - [ ] All existing tests are passing
 
-## Additional Notes
+### Additional Notes
 
 Add any additional information or context about the pull request here.
+
+### Screenshots
