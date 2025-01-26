@@ -9,7 +9,7 @@ Create Date: 2023-09-12 18:18:27.158732
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.exc import OperationalError
-from utils.database import CustomJSON
+from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0009_models_refactor"
@@ -20,6 +20,10 @@ depends_on = None
 
 def upgrade() -> None:
     connection = op.get_bind()
+
+    json_array_build_func = (
+        "jsonb_build_array()" if is_postgresql(connection) else "JSON_ARRAY()"
+    )
 
     try:
         with op.batch_alter_table("platforms", schema=None) as batch_op:
@@ -87,13 +91,13 @@ def upgrade() -> None:
             "url_screenshots",
             existing_type=CustomJSON(),
             nullable=True,
-            existing_server_default=sa.text("(JSON_ARRAY())"),
+            existing_server_default=sa.text(f"({json_array_build_func})"),
         )
         batch_op.alter_column(
             "path_screenshots",
             existing_type=CustomJSON(),
             nullable=True,
-            existing_server_default=sa.text("(JSON_ARRAY())"),
+            existing_server_default=sa.text(f"({json_array_build_func})"),
         )
 
     try:
@@ -107,6 +111,10 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     connection = op.get_bind()
+
+    json_array_build_func = (
+        "jsonb_build_array()" if is_postgresql(connection) else "JSON_ARRAY()"
+    )
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.alter_column(
@@ -136,13 +144,13 @@ def downgrade() -> None:
             "path_screenshots",
             existing_type=CustomJSON(),
             nullable=False,
-            existing_server_default=sa.text("(JSON_ARRAY())"),
+            existing_server_default=sa.text(f"({json_array_build_func})"),
         )
         batch_op.alter_column(
             "url_screenshots",
             existing_type=CustomJSON(),
             nullable=False,
-            existing_server_default=sa.text("(JSON_ARRAY())"),
+            existing_server_default=sa.text(f"({json_array_build_func})"),
         )
         batch_op.alter_column(
             "file_size_units", existing_type=sa.VARCHAR(length=10), nullable=True

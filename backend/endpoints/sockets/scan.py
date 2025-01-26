@@ -65,6 +65,7 @@ NON_HASHABLE_PLATFORMS = frozenset(
         "wiiu",
         "win",
         "xbox-360",
+        "xbox360",
         "xboxone",
     )
 )

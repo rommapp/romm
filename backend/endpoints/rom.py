@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
 from urllib.parse import quote
+from typing import Any
 
 from anyio import Path
 from config import (
@@ -393,12 +394,12 @@ async def update_rom(
         rom = db_rom_handler.get_rom(id)
         if not rom:
             raise RomNotFoundInDatabaseException(id)
-
+        
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
-    cleaned_data: dict = {
-        "igdb_id": data.get("igdb_id", None),
-        "moby_id": data.get("moby_id", None),
+    cleaned_data: dict[str, Any] = {
+        "igdb_id": str(data.get("igdb_id", rom.igdb_id)),
+        "moby_id": str(data.get("moby_id", rom.moby_id)),
     }
 
     moby_id: str = cleaned_data["moby_id"]
@@ -597,7 +598,6 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         "difficulty",
         "completion",
         "status",
-        "last_played",
     ]
 
     cleaned_data = {
