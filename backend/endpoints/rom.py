@@ -3,8 +3,8 @@ from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
-from urllib.parse import quote
 from typing import Any
+from urllib.parse import quote
 
 from anyio import Path
 from config import (
@@ -394,7 +394,7 @@ async def update_rom(
         rom = db_rom_handler.get_rom(id)
         if not rom:
             raise RomNotFoundInDatabaseException(id)
-        
+
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
     cleaned_data: dict[str, Any] = {
