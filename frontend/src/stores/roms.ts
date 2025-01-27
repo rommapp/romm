@@ -41,6 +41,11 @@ export default defineStore("roms", {
   },
 
   actions: {
+    _shouldGroupRoms(): boolean {
+      return isNull(localStorage.getItem("settings.groupRoms"))
+        ? true
+        : localStorage.getItem("settings.groupRoms") === "true";
+    },
     _getGroupedRoms(roms: SimpleRom[]): SimpleRom[] {
       // Group roms by external id.
       return Object.values(
@@ -65,10 +70,7 @@ export default defineStore("roms", {
       });
 
       // Check if roms should be grouped
-      const groupRoms = isNull(localStorage.getItem("settings.groupRoms"))
-        ? true
-        : localStorage.getItem("settings.groupRoms") === "true";
-      if (!groupRoms) {
+      if (!this._shouldGroupRoms()) {
         this._grouped = this.allRoms;
         return;
       }
@@ -86,10 +88,15 @@ export default defineStore("roms", {
       this.currentRom = rom;
     },
     setRecentRoms(roms: SimpleRom[]) {
-      // Set the recent roms.
-      // Group by external ID to only display a single entry per sibling,
-      // and sorted on rom ID in descending order.
-      this.recentRoms = this._getGroupedRoms(roms).sort((a, b) => b.id - a.id);
+      if (this._shouldGroupRoms()) {
+        // Group by external ID to only display a single entry per sibling,
+        // and sorted on rom ID in descending order.
+        this.recentRoms = this._getGroupedRoms(roms).sort(
+          (a, b) => b.id - a.id
+        );
+      } else {
+        this.recentRoms = roms;
+      }
     },
     setContinuePlayedRoms(roms: SimpleRom[]) {
       this.continuePlayingRoms = roms;
