@@ -4,7 +4,6 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
@@ -21,13 +20,13 @@ const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
-const heartbeat = storeHeartbeat();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const coreRef = ref<string | null>(null);
+const discRef = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
@@ -117,6 +116,11 @@ onMounted(async () => {
     // Otherwise auto select first supported core
     coreRef.value = supportedCores.value[0];
   }
+
+  const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
+  if (storedDisc) {
+    discRef.value = parseInt(storedDisc);
+  }
 });
 </script>
 
@@ -138,6 +142,7 @@ onMounted(async () => {
         :save="saveRef"
         :bios="biosRef"
         :core="coreRef"
+        :disc="discRef"
       />
     </v-col>
 
@@ -158,6 +163,22 @@ onMounted(async () => {
           <rom-list-item :rom="rom" with-filename with-size />
           <v-divider class="my-4" />
           <v-select
+            v-if="rom.multi"
+            v-model="discRef"
+            class="my-1"
+            hide-details
+            rounded="0"
+            variant="outlined"
+            clearable
+            :label="t('rom.file')"
+            :items="
+              rom.files.map((f) => ({
+                title: f.file_name,
+                value: f.id,
+              }))
+            "
+          />
+          <v-select
             v-if="supportedCores.length > 1"
             :disabled="gameRunning"
             v-model="coreRef"
@@ -166,7 +187,7 @@ onMounted(async () => {
             hide-details
             variant="outlined"
             clearable
-            label="Core"
+            :label="t('common.core')"
             :items="
               supportedCores.map((c) => ({
                 title: c,

@@ -194,7 +194,6 @@ async def head_rom_content(
     request: Request,
     id: int,
     file_name: str,
-    file_ids: list[int] | None = None,
 ):
     """Head rom content endpoint
 
@@ -213,13 +212,14 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    file_ids = file_ids or []
+    file_ids = request.query_params.get("file_ids") or ""
+    file_ids = [int(f) for f in file_ids.split(",") if f]
     files = db_rom_handler.get_rom_files(rom.id)
     files = [f for f in files if f.id in file_ids or not file_ids]
 
-    if not rom.multi:
-        # Serve the file directly in development mode for emulatorjs
-        if DEV_MODE:
+    # Serve the file directly in development mode for emulatorjs
+    if DEV_MODE:
+        if not rom.multi:
             rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
             return FileResponse(
                 path=rom_path,
@@ -231,6 +231,28 @@ async def head_rom_content(
                 },
             )
 
+        if len(files) == 1:
+            file = files[0]
+            rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+            return FileResponse(
+                path=rom_path,
+                filename=file.file_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(file.file_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(file.file_size_bytes),
+                },
+            )
+
+        return Response(
+            headers={
+                "Content-Type": "application/zip",
+                "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
+            },
+        )
+
+    # Otherwise proxy through nginx
+    if not rom.multi:
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
             filename=rom.fs_name,
@@ -258,7 +280,6 @@ async def get_rom_content(
     request: Request,
     id: int,
     file_name: str,
-    file_ids: list[int] | None = None,
 ):
     """Download rom endpoint (one single file or multiple zipped files for multi-part roms)
 
@@ -266,7 +287,6 @@ async def get_rom_content(
         request (Request): Fastapi Request object
         id (int): Rom internal id
         file_name: Zip file output name
-        file_ids (list[int]): List of file ids to download for multi-part roms
 
     Returns:
         FileResponse: Returns one file for single file roms
@@ -281,15 +301,16 @@ async def get_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    file_ids = file_ids or []
+    file_ids = request.query_params.get("file_ids") or ""
+    file_ids = [int(f) for f in file_ids.split(",") if f]
     files = db_rom_handler.get_rom_files(rom.id)
     files = [f for f in files if f.id in file_ids or not file_ids]
 
     log.info(f"User {current_username} is downloading {rom.fs_name}")
 
-    if not rom.multi:
-        # Serve the file directly in development mode for emulatorjs
-        if DEV_MODE:
+    # Serve the file directly in development mode for emulatorjs
+    if DEV_MODE:
+        if not rom.multi:
             rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
             return FileResponse(
                 path=rom_path,
@@ -301,6 +322,36 @@ async def get_rom_content(
                 },
             )
 
+        if len(files) == 1:
+            file = files[0]
+            rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+            return FileResponse(
+                path=rom_path,
+                filename=file.file_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(file.file_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(file.file_size_bytes),
+                },
+            )
+
+        content_lines = [
+            ZipContentLine(
+                crc32=f.crc_hash,
+                size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
+                encoded_location=quote(f"{LIBRARY_BASE_PATH}/{f.full_path}"),
+                filename=f.full_path.replace(rom.full_path, ""),
+            )
+            for f in files
+        ]
+
+        return ZipResponse(
+            content_lines=content_lines,
+            filename=f"{quote(file_name)}.zip",
+        )
+
+    # Otherwise proxy through nginx
+    if not rom.multi:
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
             filename=rom.fs_name,
