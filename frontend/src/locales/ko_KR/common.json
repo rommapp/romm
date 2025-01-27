@@ -3,6 +3,7 @@
   "platforms": "플랫폼",
   "platforms-n": "{n}가지 플랫폼 | {n}가지 플랫폼",
   "firmware": "펌웨어",
+  "core": "코어",
   "games-n": "게임 {n}개 | 게임 {n}개",
   "collection": "모음집",
   "collections": "모음집",

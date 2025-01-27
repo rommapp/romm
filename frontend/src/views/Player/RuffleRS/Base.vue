@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import romApi from "@/services/api/rom";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
 import { isNull } from "lodash";
@@ -9,6 +8,7 @@ import { storeToRefs } from "pinia";
 import { nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { getDownloadPath } from "@/utils";
 
 const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
 
@@ -16,7 +16,6 @@ const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
 const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
-const heartbeat = storeHeartbeat();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -36,6 +35,8 @@ function onPlay() {
   gameRunning.value = true;
 
   nextTick(() => {
+    if (!rom.value) return;
+
     const ruffle = window.RufflePlayer.newest();
     const player = ruffle.createPlayer();
     const container = document.getElementById("game");
@@ -46,7 +47,7 @@ function onPlay() {
       backgroundColor: "#0D1117",
       openUrlMode: "confirm",
       publicPath: "/assets/ruffle/",
-      url: `/api/roms/${rom.value?.id}/content/${rom.value?.fs_name}`,
+      url: getDownloadPath({ rom: rom.value }),
     });
     player.style.width = "100%";
     player.style.height = "100%";
@@ -73,8 +74,7 @@ onMounted(async () => {
 
   script.onerror = () => {
     const fallbackScript = document.createElement("script");
-    fallbackScript.src =
-      "https://unpkg.com/@ruffle-rs/ruffle@${RUFFLE_VERSION}/ruffle.js";
+    fallbackScript.src = `https://unpkg.com/@ruffle-rs/ruffle@${RUFFLE_VERSION}/ruffle.js`;
     document.body.appendChild(fallbackScript);
   };
 
