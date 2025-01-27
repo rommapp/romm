@@ -1,8 +1,7 @@
-/* generated using openapi-typescript-codegen -- do no edit */
+/* generated using openapi-typescript-codegen -- do not edit */
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-
 import type { CollectionSchema } from './CollectionSchema';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
@@ -13,7 +12,6 @@ import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { StateSchema } from './StateSchema';
 import type { UserNotesSchema } from './UserNotesSchema';
-
 export type DetailedRomSchema = {
     id: number;
     igdb_id: (number | null);

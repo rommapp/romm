@@ -608,6 +608,8 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
 
     if data.get("update_last_played", False):
         cleaned_data.update({"last_played": datetime.now(timezone.utc)})
+    elif data.get("remove_last_played", False):
+        cleaned_data.update({"last_played": None})
 
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
 
