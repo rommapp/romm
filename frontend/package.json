@@ -56,7 +56,7 @@
     "@types/file-saver": "^2.0.7",
     "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.17.1",
-    "@types/node": "^20.12.12",
+    "@types/node": "^22.10.10",
     "@types/qrcode": "^1.5.5",
     "@types/semver": "^7.5.8",
     "@types/webfontloader": "^1.6.38",
