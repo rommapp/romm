@@ -41,6 +41,23 @@ export default defineStore("roms", {
   },
 
   actions: {
+    _getGroupedRoms(roms: SimpleRom[]): SimpleRom[] {
+      // Group roms by external id.
+      return Object.values(
+        groupBy(
+          roms,
+          (game) =>
+            // If external id is null, generate a random id so that the roms are not grouped
+            game.igdb_id || game.moby_id || nanoid(),
+        ),
+      )
+        .map((games) => {
+          // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
+          return (
+            games.find((game) => game.rom_user?.is_main_sibling) || games[0]
+          );
+        });
+    },
     _reorder() {
       // Sort roms by comparator string
       this.allRoms = uniqBy(this.allRoms, "id").sort((a, b) => {
@@ -57,20 +74,7 @@ export default defineStore("roms", {
       }
 
       // Group roms by external id
-      this._grouped = Object.values(
-        groupBy(
-          this.allRoms,
-          (game) =>
-            // If external id is null, generate a random id so that the roms are not grouped
-            game.igdb_id || game.moby_id || nanoid(),
-        ),
-      )
-        .map((games) => {
-          // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
-          return (
-            games.find((game) => game.rom_user?.is_main_sibling) || games[0]
-          );
-        })
+      this._grouped = this._getGroupedRoms(this.allRoms)
         .sort((a, b) => {
           return a.sort_comparator.localeCompare(b.sort_comparator);
         });
@@ -82,7 +86,10 @@ export default defineStore("roms", {
       this.currentRom = rom;
     },
     setRecentRoms(roms: SimpleRom[]) {
-      this.recentRoms = roms;
+      // Set the recent roms.
+      // Group by external ID to only display a single entry per sibling,
+      // and sorted on rom ID in descending order.
+      this.recentRoms = this._getGroupedRoms(roms).sort((a, b) => b.id - a.id);
     },
     setContinuePlayedRoms(roms: SimpleRom[]) {
       this.continuePlayingRoms = roms;
