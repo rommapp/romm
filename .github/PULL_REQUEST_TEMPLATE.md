@@ -12,7 +12,4 @@
 - [ ] I've assigned reviewers for this PR
 - [ ] I've added unit tests that cover the changes
 
-**Additional Notes**
-<sup>Add any additional information or context about the pull request here.</sup>
-
 **Screenshots**
