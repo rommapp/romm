@@ -39,10 +39,10 @@ export type SimpleRomSchema = {
     age_ratings: Array<string>;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
-    path_cover_s: (string | null);
-    path_cover_l: (string | null);
-    has_cover: boolean;
+    path_cover_small: (string | null);
+    path_cover_large: (string | null);
     url_cover: (string | null);
+    is_unidentified: boolean;
     revision: (string | null);
     regions: Array<string>;
     languages: Array<string>;

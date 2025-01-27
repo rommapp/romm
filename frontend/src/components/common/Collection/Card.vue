@@ -53,22 +53,14 @@ const galleryViewStore = storeGalleryView();
       <v-img
         cover
         :src="
-          src
-            ? src
-            : collection.has_cover
-              ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
-              : collection.name && collection.name.toLowerCase() == 'favourites'
-                ? `/assets/default/cover/big_${theme.global.name.value}_fav.png`
-                : `/assets/default/cover/big_${theme.global.name.value}_collection.png`
+          src ||
+          collection.path_cover_large ||
+          `/assets/default/cover/big_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
         "
         :lazy-src="
-          src
-            ? src
-            : collection.has_cover
-              ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
-              : collection.name && collection.name.toLowerCase() == 'favourites'
-                ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
-                : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
+          src ||
+          collection.path_cover_small ||
+          `/assets/default/cover/small_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
         "
         :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
       >
@@ -78,7 +70,7 @@ const galleryViewStore = storeGalleryView();
 
         <template #error>
           <v-img
-            :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+            :src="`/assets/default/cover/big_${theme.global.name.value}_collection.png`"
             cover
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
           ></v-img>

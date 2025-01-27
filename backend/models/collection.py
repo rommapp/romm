@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import base64
 import json
-from functools import cached_property
 
+from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
 from models.user import User
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
@@ -40,13 +40,29 @@ class Collection(BaseModel):
     def rom_count(self) -> int:
         return len(self.roms)
 
-    @cached_property
-    def has_cover(self) -> bool:
-        return bool(self.path_cover_s or self.path_cover_l)
-
     @property
     def fs_resources_path(self) -> str:
         return f"collections/{str(self.id)}"
+
+    @property
+    def path_cover_small(self) -> str:
+        return (
+            f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_s}?ts={self.updated_at}"
+            if self.path_cover_s
+            else ""
+        )
+
+    @property
+    def path_cover_large(self) -> str:
+        return (
+            f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_l}?ts={self.updated_at}"
+            if self.path_cover_l
+            else ""
+        )
+
+    @property
+    def is_favorite(self) -> bool:
+        return self.name.lower() == "favourites"
 
     def __repr__(self) -> str:
         return self.name

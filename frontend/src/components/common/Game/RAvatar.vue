@@ -2,7 +2,9 @@
 import type { SimpleRom } from "@/stores/roms";
 import { useTheme } from "vuetify";
 
-withDefaults(defineProps<{ rom: SimpleRom; size?: number }>(), { size: 45 });
+const props = withDefaults(defineProps<{ rom: SimpleRom; size?: number }>(), {
+  size: 45,
+});
 const theme = useTheme();
 </script>
 
@@ -10,12 +12,16 @@ const theme = useTheme();
   <v-avatar :rounded="0" :size="size">
     <v-img
       :src="
-        !rom.igdb_id && !rom.moby_id && !rom.has_cover
-          ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
-          : rom.has_cover
-            ? `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-            : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+        props.rom.path_cover_small ||
+        `/assets/default/cover/small_${theme.global.name.value}_${props.rom.is_unidentified ? 'unmatched' : 'missing_cover'}.png`
       "
-    />
+    >
+      <template #error>
+        <v-img
+          :src="`assets/default/cover/big_${theme.global.name.value}_${props.rom.is_unidentified ? 'unmatched' : 'missing_cover'}.png`"
+        >
+        </v-img>
+      </template>
+    </v-img>
   </v-avatar>
 </template>

@@ -4,15 +4,10 @@
 /* eslint-disable */
 export type VirtualCollectionSchema = {
     id: string;
-    description: string;
     name: string;
     type: string;
+    description: string;
     roms: Array<number>;
-    user_id: number;
-    is_public: boolean;
     rom_count: number;
-    has_cover: boolean;
-    created_at: string;
-    updated_at: string;
 };
 

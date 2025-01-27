@@ -12,11 +12,8 @@ const theme = useTheme();
   <v-avatar :rounded="0" :size="size">
     <v-img
       :src="
-        collection.has_cover
-          ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
-          : collection.name?.toLowerCase() == 'favourites'
-            ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
-            : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
+        collection.path_cover_large ||
+        `/assets/default/cover/big_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
       "
     >
       <template #error>
