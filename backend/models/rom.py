@@ -24,7 +24,7 @@ from utils.database import CustomJSON, safe_float, safe_int
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
-    from models.collection import Collection
+    from models.collection import Collection, VirtualCollection
     from models.platform import Platform
     from models.user import User
 
@@ -179,6 +179,14 @@ class Rom(BaseModel):
         from handler.database import db_collection_handler
 
         return db_collection_handler.get_collections_by_rom_id(
+            self.id,
+            order_by=[func.lower("name")],
+        )
+
+    def get_virtual_collections(self) -> Sequence[VirtualCollection]:
+        from handler.database import db_collection_handler
+
+        return db_collection_handler.get_virtual_collections_by_rom_id(
             self.id,
             order_by=[func.lower("name")],
         )

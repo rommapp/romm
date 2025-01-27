@@ -12,6 +12,7 @@ import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { StateSchema } from './StateSchema';
 import type { UserNotesSchema } from './UserNotesSchema';
+import type { VirtualCollectionSchema } from './VirtualCollectionSchema';
 export type DetailedRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -68,6 +69,7 @@ export type DetailedRomSchema = {
     user_screenshots: Array<ScreenshotSchema>;
     user_notes: Array<UserNotesSchema>;
     user_collections: Array<CollectionSchema>;
+    virtual_collections: Array<VirtualCollectionSchema>;
     readonly sort_comparator: string;
 };
 

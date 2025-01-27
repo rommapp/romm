@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
-from endpoints.responses.collection import CollectionSchema
+from endpoints.responses.collection import CollectionSchema, VirtualCollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
@@ -214,6 +214,7 @@ class DetailedRomSchema(RomSchema):
     user_screenshots: list[ScreenshotSchema]
     user_notes: list[UserNotesSchema]
     user_collections: list[CollectionSchema]
+    virtual_collections: list[VirtualCollectionSchema]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
@@ -235,6 +236,10 @@ class DetailedRomSchema(RomSchema):
         db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
             user_id, [c for c in db_rom.get_collections()]
         )
+        db_rom.virtual_collections = [  # type: ignore
+            VirtualCollectionSchema.model_validate(v)
+            for v in db_rom.get_virtual_collections()
+        ]
 
         return cls.model_validate(db_rom)
 

@@ -1,7 +1,7 @@
 from typing import Any, Sequence
 
 from decorators.database import begin_session
-from models.collection import Collection
+from models.collection import Collection, VirtualCollection
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnExpressionArgument
@@ -25,6 +25,15 @@ class DBCollectionsHandler(DBBaseHandler):
         return session.scalar(select(Collection).filter_by(id=id).limit(1))
 
     @begin_session
+    def get_virtual_collection(
+        self, id: str, session: Session = None
+    ) -> VirtualCollection | None:
+        name, type = VirtualCollection.from_id(id)
+        return session.scalar(
+            select(VirtualCollection).filter_by(name=name, type=type).limit(1)
+        )
+
+    @begin_session
     def get_collection_by_name(
         self, name: str, user_id: int, session: Session = None
     ) -> Collection | None:
@@ -41,6 +50,18 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
     @begin_session
+    def get_virtual_collections(
+        self, session: Session = None
+    ) -> Sequence[VirtualCollection]:
+        return (
+            session.scalars(
+                select(VirtualCollection).order_by(VirtualCollection.name.asc())
+            )
+            .unique()
+            .all()
+        )
+
+    @begin_session
     def get_collections_by_rom_id(
         self,
         rom_id: int,
@@ -50,6 +71,22 @@ class DBCollectionsHandler(DBBaseHandler):
     ) -> Sequence[Collection]:
         query = select(Collection).filter(
             json_array_contains_value(Collection.roms, rom_id, session=session)
+        )
+        if order_by is not None:
+            query = query.order_by(*order_by)
+
+        return session.scalars(query).all()
+
+    @begin_session
+    def get_virtual_collections_by_rom_id(
+        self,
+        rom_id: int,
+        *,
+        order_by: Sequence[str | ColumnExpressionArgument[Any]] | None = None,
+        session: Session = None,
+    ) -> Sequence[VirtualCollection]:
+        query = select(VirtualCollection).filter(
+            json_array_contains_value(VirtualCollection.roms, rom_id, session=session)
         )
         if order_by is not None:
             query = query.order_by(*order_by)
