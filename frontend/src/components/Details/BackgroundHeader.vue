@@ -14,9 +14,8 @@ const { currentRom } = storeToRefs(romsStore);
     <v-img
       id="background-header"
       :src="
-        !currentRom.igdb_id && !currentRom.moby_id && !currentRom.has_cover
-          ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
-          : `/assets/romm/resources/${currentRom.path_cover_l}?ts=${currentRom.updated_at}`
+        currentRom?.path_cover_large ||
+        `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
       "
       lazy
       cover

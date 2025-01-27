@@ -155,10 +155,6 @@ class Rom(BaseModel):
         return f"{self.fs_path}/{self.fs_name}"
 
     @cached_property
-    def has_cover(self) -> bool:
-        return bool(self.path_cover_s or self.path_cover_l)
-
-    @cached_property
     def merged_screenshots(self) -> list[str]:
         screenshots = [s.download_path for s in self.screenshots]
         if self.path_screenshots:
@@ -174,6 +170,30 @@ class Rom(BaseModel):
     @cached_property
     def fs_size_bytes(self) -> int:
         return sum(f.file_size_bytes for f in self.files)
+
+    @property
+    def fs_resources_path(self) -> str:
+        return f"roms/{str(self.platform_id)}/{str(self.id)}"
+
+    @property
+    def path_cover_small(self) -> str:
+        return (
+            f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_s}?ts={self.updated_at}"
+            if self.path_cover_s
+            else ""
+        )
+
+    @property
+    def path_cover_large(self) -> str:
+        return (
+            f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_l}?ts={self.updated_at}"
+            if self.path_cover_l
+            else ""
+        )
+
+    @property
+    def is_unidentified(self) -> bool:
+        return not self.igdb_id and not self.moby_id
 
     def get_collections(self) -> Sequence[Collection]:
         from handler.database import db_collection_handler
@@ -267,10 +287,6 @@ class Rom(BaseModel):
         if self.igdb_metadata:
             return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
         return []
-
-    @property
-    def fs_resources_path(self) -> str:
-        return f"roms/{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
         return self.fs_name

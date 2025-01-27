@@ -153,10 +153,10 @@ class RomSchema(BaseModel):
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
 
-    path_cover_s: str | None
-    path_cover_l: str | None
-    has_cover: bool
+    path_cover_small: str | None
+    path_cover_large: str | None
     url_cover: str | None
+    is_unidentified: bool
 
     revision: str | None
     regions: list[str]
