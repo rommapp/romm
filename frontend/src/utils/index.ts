@@ -95,7 +95,9 @@ export function getDownloadPath({
 }) {
   const queryParams = new URLSearchParams();
   if (fileIDs.length > 0) {
-    fileIDs.forEach((fileId) => queryParams.append("files", fileId.toString()));
+    fileIDs.forEach((fileId) =>
+      queryParams.append("file_ids", fileId.toString()),
+    );
   }
   return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
 }
