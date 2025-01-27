@@ -1,9 +1,13 @@
-import type { CollectionSchema } from "@/__generated__";
+import type {
+  CollectionSchema,
+  VirtualCollectionSchema,
+} from "@/__generated__";
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
+export type VirtualCollection = VirtualCollectionSchema;
 
 export default defineStore("collections", {
   state: () => {

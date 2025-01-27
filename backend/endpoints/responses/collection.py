@@ -34,3 +34,15 @@ class CollectionSchema(BaseModel):
             for c in collections
             if c.user_id == user_id or c.is_public
         ]
+
+
+class VirtualCollectionSchema(BaseModel):
+    id: str
+    name: str
+    type: str
+    description: str
+    roms: set[int]
+    rom_count: int
+
+    class Config:
+        from_attributes = True

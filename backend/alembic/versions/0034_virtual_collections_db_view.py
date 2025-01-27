@@ -65,9 +65,10 @@ def upgrade() -> None:
                     WHERE igdb_metadata->>'companies' IS NOT NULL
                 )
                 SELECT 
-                collection_name,
-                collection_type,
-                array_agg(DISTINCT rom_id) as roms
+                collection_name as name,
+                collection_type as type,
+                'Virtual collection of ' || collection_type || ' ' || collection_name AS description,
+                array_to_json(array_agg(DISTINCT rom_id)) as roms
                 FROM (
                     SELECT * FROM genres_collection
                     UNION ALL
@@ -80,7 +81,7 @@ def upgrade() -> None:
                     SELECT * FROM companies_collection
                 ) combined
                 GROUP BY collection_type, collection_name
-                HAVING COUNT(DISTINCT rom_id) > 1
+                HAVING COUNT(DISTINCT rom_id) > 2
                 ORDER BY collection_type, collection_name;
                 """  # nosec B608
             ),
@@ -161,9 +162,10 @@ def upgrade() -> None:
                         JSON_EXTRACT(igdb_metadata, '$.companies') IS NOT NULL
                 )
                 SELECT
-                    collection_name,
-                    collection_type,
-                    GROUP_CONCAT(DISTINCT rom_id) as roms
+                    collection_name as name,
+                    collection_type as type,
+                    CONCAT('Virtual collection of ', collection_type, ' ', collection_name) AS description,
+                    JSON_ARRAYAGG(DISTINCT rom_id) as roms
                 FROM
                 (
                     SELECT * FROM genres
@@ -177,7 +179,7 @@ def upgrade() -> None:
                     SELECT * FROM companies
                 ) combined
                 GROUP BY collection_type, collection_name
-                HAVING COUNT(DISTINCT rom_id) > 1
+                HAVING COUNT(DISTINCT rom_id) > 2
                 ORDER BY collection_type, collection_name;
                 """
             ),

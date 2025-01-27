@@ -6,7 +6,7 @@ from anyio import Path
 from config import RESOURCES_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.collection import CollectionSchema
+from endpoints.responses.collection import CollectionSchema, VirtualCollectionSchema
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
@@ -96,7 +96,9 @@ async def add_collection(
 
 
 @protected_route(router.get, "/collections", [Scope.COLLECTIONS_READ])
-def get_collections(request: Request) -> list[CollectionSchema]:
+def get_collections(
+    request: Request,
+) -> list[CollectionSchema]:
     """Get collections endpoint
 
     Args:
@@ -108,7 +110,26 @@ def get_collections(request: Request) -> list[CollectionSchema]:
     """
 
     collections = db_collection_handler.get_collections()
+
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
+
+
+@protected_route(router.get, "/collections/virtual", [Scope.COLLECTIONS_READ])
+def get_virtual_collections(
+    request: Request,
+) -> list[VirtualCollectionSchema]:
+    """Get virtual collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[VirtualCollectionSchema]: List of virtual collections
+    """
+
+    virtual_collections = db_collection_handler.get_virtual_collections()
+
+    return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
 
 
 @protected_route(router.get, "/collections/{id}", [Scope.COLLECTIONS_READ])
@@ -124,11 +145,29 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     """
 
     collection = db_collection_handler.get_collection(id)
-
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
     return CollectionSchema.model_validate(collection)
+
+
+@protected_route(router.get, "/collections/virtual/{id}", [Scope.COLLECTIONS_READ])
+def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema:
+    """Get virtual collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (str): Virtual collection id
+
+    Returns:
+        VirtualCollectionSchema: Virtual collection
+    """
+
+    virtual_collection = db_collection_handler.get_virtual_collection(id)
+    if not virtual_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    return VirtualCollectionSchema.model_validate(virtual_collection)
 
 
 @protected_route(router.put, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
