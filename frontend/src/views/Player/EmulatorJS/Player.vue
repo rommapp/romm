@@ -8,6 +8,7 @@ import {
   areThreadsRequiredForEJSCore,
   getSupportedEJSCores,
   getControlSchemeForPlatform,
+  getDownloadPath,
 } from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
@@ -17,6 +18,7 @@ const props = defineProps<{
   state: StateSchema | null;
   bios: FirmwareSchema | null;
   core: string | null;
+  disc: number | null;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
@@ -62,7 +64,10 @@ window.EJS_controlScheme = getControlSchemeForPlatform(
 );
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
-window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.fs_name}`;
+window.EJS_gameUrl = getDownloadPath({
+  rom: romRef.value,
+  fileIDs: props.disc ? [props.disc] : [],
+});
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
@@ -113,6 +118,12 @@ onMounted(() => {
     localStorage.setItem(`player:${props.rom.platform_slug}:core`, props.core);
   } else {
     localStorage.removeItem(`player:${props.rom.platform_slug}:core`);
+  }
+
+  if (props.disc) {
+    localStorage.setItem(`player:${props.rom.id}:disc`, props.disc.toString());
+  } else {
+    localStorage.removeItem(`player:${props.rom.id}:disc`);
   }
 });
 

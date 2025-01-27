@@ -3,6 +3,7 @@
   "platforms": "Platforms",
   "platforms-n": "{n} Platform | {n} Platforms",
   "firmware": "Firmware",
+  "core": "Core",
   "games-n": "{n} Game | {n} Games",
   "collection": "Collection",
   "collections": "Collections",
