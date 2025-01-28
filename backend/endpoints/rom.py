@@ -602,9 +602,11 @@ async def delete_roms(
         # Update collections to remove the deleted rom
         collections = db_collection_handler.get_collections_by_rom_id(id)
         for collection in collections:
-            collection.roms = {rom_id for rom_id in collection.roms if rom_id != id}
+            collection.rom_ids = {
+                rom_id for rom_id in collection.rom_ids if rom_id != id
+            }
             db_collection_handler.update_collection(
-                collection.id, {"roms": collection.roms}
+                collection.id, {"roms": collection.rom_ids}
             )
 
         try:

@@ -72,7 +72,7 @@ class DBCollectionsHandler(DBBaseHandler):
         session: Session = None,
     ) -> Sequence[Collection]:
         query = select(Collection).filter(
-            json_array_contains_value(Collection.roms, rom_id, session=session)
+            json_array_contains_value(Collection.rom_ids, rom_id, session=session)
         )
         if order_by is not None:
             query = query.order_by(*order_by)
@@ -88,7 +88,9 @@ class DBCollectionsHandler(DBBaseHandler):
         session: Session = None,
     ) -> Sequence[VirtualCollection]:
         query = select(VirtualCollection).filter(
-            json_array_contains_value(VirtualCollection.roms, rom_id, session=session)
+            json_array_contains_value(
+                VirtualCollection.rom_ids, rom_id, session=session
+            )
         )
         if order_by is not None:
             query = query.order_by(*order_by)

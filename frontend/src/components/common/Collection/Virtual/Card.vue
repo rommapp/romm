@@ -2,27 +2,58 @@
 import type { VirtualCollection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import { useTheme } from "vuetify";
+import { computed } from "vue";
 
 // Props
-withDefaults(
+const props = withDefaults(
   defineProps<{
     collection: VirtualCollection;
     transformScale?: boolean;
     showTitle?: boolean;
     showRomCount?: boolean;
     withLink?: boolean;
-    src?: string;
   }>(),
   {
     transformScale: false,
     showTitle: false,
     showRomCount: false,
     withLink: false,
-    src: "",
   },
 );
+
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
+
+const getRandomCovers = computed(() => {
+  const largeCoverUrls = props.collection.path_covers_large || [];
+  const smallCoverUrls = props.collection.path_covers_small || [];
+
+  // Create a copy of the arrays to avoid mutating the original
+  const shuffledLarge = [...largeCoverUrls].sort(() => Math.random() - 0.5);
+  const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
+
+  console.log(shuffledLarge, shuffledSmall);
+
+  return {
+    large: [
+      shuffledLarge[0] ||
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+      shuffledLarge[1] ||
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+    ],
+    small: [
+      shuffledSmall[0] ||
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+      shuffledSmall[1] ||
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+    ],
+  };
+});
+
+const firstCover = computed(() => getRandomCovers.value.large[0]);
+const secondCover = computed(() => getRandomCovers.value.large[1]);
+const firstSmallCover = computed(() => getRandomCovers.value.small[0]);
+const secondSmallCover = computed(() => getRandomCovers.value.small[1]);
 </script>
 
 <template>
@@ -50,42 +81,29 @@ const galleryViewStore = storeGalleryView();
           <span>{{ collection.name }}</span>
         </div>
       </v-row>
-      <v-img
-        cover
-        :src="
-          src ||
-          collection.path_cover_large ||
-          `/assets/default/cover/big_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
-        "
-        :lazy-src="
-          src ||
-          collection.path_cover_small ||
-          `/assets/default/cover/small_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
-        "
-        :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-      >
-        <div class="position-absolute append-inner">
-          <slot name="append-inner"></slot>
-        </div>
 
-        <template #error>
+      <div
+        class="image-container"
+        :style="{ aspectRatio: galleryViewStore.defaultAspectRatioCollection }"
+      >
+        <div class="split-image first-image">
           <v-img
-            :src="`/assets/default/cover/big_${theme.global.name.value}_collection.png`"
             cover
+            :src="firstCover"
+            :lazy-src="firstSmallCover"
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-          ></v-img>
-        </template>
-        <template #placeholder>
-          <div class="d-flex align-center justify-center fill-height">
-            <v-progress-circular
-              :width="2"
-              :size="40"
-              color="romm-accent-1"
-              indeterminate
-            />
-          </div>
-        </template>
-      </v-img>
+          />
+        </div>
+        <div class="split-image second-image">
+          <v-img
+            cover
+            :src="secondCover"
+            :lazy-src="secondSmallCover"
+            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+          />
+        </div>
+      </div>
+
       <v-chip
         v-if="showRomCount"
         class="bg-chip position-absolute"
@@ -98,9 +116,28 @@ const galleryViewStore = storeGalleryView();
     </v-card>
   </v-hover>
 </template>
+
 <style scoped>
-.append-inner {
-  bottom: 0rem;
-  right: 0rem;
+.image-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.split-image {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.first-image {
+  clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);
+  z-index: 1;
+}
+
+.second-image {
+  clip-path: polygon(0% 100%, 100% 0, 100% 100%);
+  z-index: 0;
 }
 </style>

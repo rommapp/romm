@@ -25,7 +25,7 @@ class Collection(BaseModel):
         Text, default="", doc="URL to cover image stored in IGDB"
     )
 
-    roms: Mapped[set[int]] = mapped_column(
+    rom_ids: Mapped[set[int]] = mapped_column(
         CustomJSON(), default=[], doc="Rom IDs that belong to this collection"
     )
 
@@ -38,7 +38,7 @@ class Collection(BaseModel):
 
     @property
     def rom_count(self) -> int:
-        return len(self.roms)
+        return len(self.rom_ids)
 
     @property
     def fs_resources_path(self) -> str:
@@ -74,8 +74,10 @@ class VirtualCollection(BaseModel):
     name: Mapped[str] = mapped_column(String(length=400), primary_key=True)
     type: Mapped[str] = mapped_column(String(length=50), primary_key=True)
     description: Mapped[str | None] = mapped_column(Text)
+    path_covers_s: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
+    path_covers_l: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
 
-    roms: Mapped[set[int]] = mapped_column(
+    rom_ids: Mapped[set[int]] = mapped_column(
         CustomJSON(), default=[], doc="Rom IDs that belong to this collection"
     )
 
@@ -92,7 +94,21 @@ class VirtualCollection(BaseModel):
 
     @property
     def rom_count(self) -> int:
-        return len(self.roms)
+        return len(self.rom_ids)
+
+    @property
+    def path_covers_small(self) -> list[str]:
+        return [
+            f"{FRONTEND_RESOURCES_PATH}/{cover}?ts={self.updated_at}"
+            for cover in self.path_covers_s
+        ]
+
+    @property
+    def path_covers_large(self) -> list[str]:
+        return [
+            f"{FRONTEND_RESOURCES_PATH}/{cover}?ts={self.updated_at}"
+            for cover in self.path_covers_l
+        ]
 
     __table_args__ = (
         UniqueConstraint(

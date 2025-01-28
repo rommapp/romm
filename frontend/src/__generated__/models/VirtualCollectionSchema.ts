@@ -7,7 +7,9 @@ export type VirtualCollectionSchema = {
     name: string;
     type: string;
     description: string;
-    roms: Array<number>;
+    rom_ids: Array<number>;
     rom_count: number;
+    path_covers_small: Array<string>;
+    path_covers_large: Array<string>;
 };
 

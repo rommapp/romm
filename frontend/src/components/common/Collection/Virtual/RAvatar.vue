@@ -10,12 +10,7 @@ const theme = useTheme();
 
 <template>
   <v-avatar :rounded="0" :size="size">
-    <v-img
-      :src="
-        collection.path_cover_large ||
-        `/assets/default/cover/big_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
-      "
-    >
+    <v-img :src="collection.path_covers_large[0]">
       <template #error>
         <v-img
           :src="`assets/default/cover/big_${theme.global.name.value}_collection.png`"
