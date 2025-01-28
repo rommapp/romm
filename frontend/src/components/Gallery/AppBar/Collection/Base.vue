@@ -34,7 +34,7 @@ const { currentCollection } = storeToRefs(romsStore);
         @click="navigationStore.swtichActiveCollectionInfoDrawer"
         class="collection-icon cursor-pointer"
         v-if="currentCollection"
-        :size="75"
+        :size="48"
         :collection="currentCollection"
       />
       <filter-btn />
