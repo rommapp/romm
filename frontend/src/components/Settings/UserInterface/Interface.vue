@@ -355,7 +355,13 @@ const toggleStatus = (value: boolean) => {
         <v-col cols="12" md="6">
           <v-select
             v-model="virtualCollectionTypeRef"
-            :items="['collection', 'franchise', 'genre', 'mode', 'company']"
+            :items="[
+              { title: 'IGDB Collection', value: 'collection' },
+              { title: 'Franchise', value: 'franchise' },
+              { title: 'Genre', value: 'genre' },
+              { title: 'Play Mode', value: 'mode' },
+              { title: 'Developer', value: 'company' },
+            ]"
             :label="t('settings.virtual-collection-type')"
             class="mx-2"
             dense
