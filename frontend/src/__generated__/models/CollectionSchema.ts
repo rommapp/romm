@@ -9,7 +9,7 @@ export type CollectionSchema = {
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: string;
-    roms: Array<number>;
+    rom_ids: Array<number>;
     rom_count: number;
     user_id: number;
     user__username: string;

@@ -69,7 +69,7 @@ class DBRomsHandler(DBBaseHandler):
                 .one_or_none()
             )
             if collection:
-                data = data.filter(Rom.id.in_(collection.roms))
+                data = data.filter(Rom.id.in_(collection.rom_ids))
 
         if virtual_collection_id:
             name, type = VirtualCollection.from_id(virtual_collection_id)
@@ -79,7 +79,7 @@ class DBRomsHandler(DBBaseHandler):
                 .one_or_none()
             )
             if v_collection:
-                data = data.filter(Rom.id.in_(v_collection.roms))
+                data = data.filter(Rom.id.in_(v_collection.rom_ids))
 
         if search_term:
             data = data.filter(

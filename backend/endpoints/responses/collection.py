@@ -12,7 +12,7 @@ class CollectionSchema(BaseModel):
     path_cover_small: str | None
     path_cover_large: str | None
     url_cover: str
-    roms: set[int]
+    rom_ids: set[int]
     rom_count: int
     user_id: int
     user__username: str
@@ -41,8 +41,10 @@ class VirtualCollectionSchema(BaseModel):
     name: str
     type: str
     description: str
-    roms: set[int]
+    rom_ids: set[int]
     rom_count: int
+    path_covers_small: list[str]
+    path_covers_large: list[str]
 
     class Config:
         from_attributes = True

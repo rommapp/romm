@@ -8,6 +8,7 @@ Create Date: 2024-08-08 12:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql as sa_pg
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.
@@ -18,6 +19,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    with op.batch_alter_table("collections", schema=None) as batch_op:
+        batch_op.alter_column(
+            "roms",
+            new_column_name="rom_ids",
+            existing_type=sa.JSON().with_variant(
+                sa_pg.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+        )
+
     connection = op.get_bind()
     if is_postgresql(connection):
         connection.execute(
@@ -27,6 +37,8 @@ def upgrade() -> None:
                 WITH genres_collection AS (
                     SELECT 
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         jsonb_array_elements_text(to_jsonb(igdb_metadata ->> 'genres')) as collection_name,
                         'genre' as collection_type
                     FROM roms r
@@ -35,6 +47,8 @@ def upgrade() -> None:
                 franchises_collection AS (
                     SELECT 
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         jsonb_array_elements_text(to_jsonb(igdb_metadata->>'franchises')) as collection_name,
                         'franchise' as collection_type
                     FROM roms r
@@ -43,6 +57,8 @@ def upgrade() -> None:
                 collection_collection AS (
                     SELECT 
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         jsonb_array_elements_text(to_jsonb(igdb_metadata->>'collections')) as collection_name,
                         'collection' as collection_type
                     FROM roms r
@@ -51,6 +67,8 @@ def upgrade() -> None:
                 modes_collection AS (
                     SELECT 
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         jsonb_array_elements_text(to_jsonb(igdb_metadata->>'game_modes')) as collection_name,
                         'mode' as collection_type
                     FROM roms r
@@ -59,6 +77,8 @@ def upgrade() -> None:
                 companies_collection AS (
                     SELECT 
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         jsonb_array_elements_text(to_jsonb(igdb_metadata->>'companies')) as collection_name,
                         'company' as collection_type
                     FROM roms r
@@ -70,7 +90,9 @@ def upgrade() -> None:
                 'Virtual collection of ' || collection_type || ' ' || collection_name AS description,
                 NOW() AS created_at,
                 NOW() AS updated_at,
-                array_to_json(array_agg(DISTINCT rom_id)) as roms
+                array_to_json(array_agg(DISTINCT rom_id)) as rom_ids,
+                array_to_json(array_agg(DISTINCT path_cover_s)) as path_covers_s,
+                array_to_json(array_agg(DISTINCT path_cover_l)) as path_covers_l
                 FROM (
                     SELECT * FROM genres_collection
                     UNION ALL
@@ -96,6 +118,8 @@ def upgrade() -> None:
                 WITH genres AS (
                     SELECT
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         CONCAT(j.genre) as collection_name,
                         'genre' as collection_type
                     FROM
@@ -110,6 +134,8 @@ def upgrade() -> None:
                 franchises AS (
                     SELECT
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         CONCAT(j.franchise) as collection_name,
                         'franchise' as collection_type
                     FROM
@@ -124,6 +150,8 @@ def upgrade() -> None:
                 collections AS (
                     SELECT
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         CONCAT(j.collection) as collection_name,
                         'collection' as collection_type
                     FROM
@@ -138,6 +166,8 @@ def upgrade() -> None:
                 modes AS (
                     SELECT
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         CONCAT(j.mode) as collection_name,
                         'mode' as collection_type
                     FROM
@@ -152,6 +182,8 @@ def upgrade() -> None:
                 companies AS (
                     SELECT
                         r.id as rom_id,
+                        r.path_cover_s as path_cover_s,
+                        r.path_cover_l as path_cover_l,
                         CONCAT(j.company) as collection_name,
                         'company' as collection_type
                     FROM
@@ -169,7 +201,9 @@ def upgrade() -> None:
                     CONCAT('Virtual collection of ', collection_type, ' ', collection_name) AS description,
                     NOW() AS created_at,
                     NOW() AS updated_at,
-                    JSON_ARRAYAGG(DISTINCT rom_id) as roms
+                    JSON_ARRAYAGG(DISTINCT rom_id) as rom_ids,
+                    JSON_ARRAYAGG(DISTINCT path_cover_s) as path_covers_s,
+                    JSON_ARRAYAGG(DISTINCT path_cover_l) as path_covers_l
                 FROM
                 (
                     SELECT * FROM genres
@@ -191,8 +225,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    connection = op.get_bind()
+    with op.batch_alter_table("collections", schema=None) as batch_op:
+        batch_op.alter_column(
+            "rom_ids",
+            new_column_name="roms",
+            existing_type=sa.JSON().with_variant(
+                sa_pg.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
+        )
 
+    connection = op.get_bind()
     connection.execute(
         sa.text(
             """
