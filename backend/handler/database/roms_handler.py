@@ -3,7 +3,7 @@ from collections.abc import Iterable
 from typing import Sequence
 
 from decorators.database import begin_session
-from models.collection import Collection
+from models.collection import Collection, VirtualCollection
 from models.rom import Rom, RomFile, RomUser
 from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
@@ -55,6 +55,7 @@ class DBRomsHandler(DBBaseHandler):
         data,
         platform_id: int | None,
         collection_id: int | None,
+        virtual_collection_id: str | None,
         search_term: str,
         session: Session,
     ):
@@ -69,6 +70,16 @@ class DBRomsHandler(DBBaseHandler):
             )
             if collection:
                 data = data.filter(Rom.id.in_(collection.roms))
+
+        if virtual_collection_id:
+            name, type = VirtualCollection.from_id(virtual_collection_id)
+            v_collection = (
+                session.query(VirtualCollection)
+                .filter(VirtualCollection.name == name, VirtualCollection.type == type)
+                .one_or_none()
+            )
+            if v_collection:
+                data = data.filter(Rom.id.in_(v_collection.roms))
 
         if search_term:
             data = data.filter(
@@ -113,6 +124,7 @@ class DBRomsHandler(DBBaseHandler):
         *,
         platform_id: int | None = None,
         collection_id: int | None = None,
+        virtual_collection_id: str | None = None,
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
@@ -122,7 +134,12 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,
     ) -> Sequence[Rom]:
         filtered_query = self._filter(
-            query, platform_id, collection_id, search_term, session
+            query,
+            platform_id,
+            collection_id,
+            virtual_collection_id,
+            search_term,
+            session,
         )
         ordered_query = self._order(filtered_query, order_by, order_dir)
         offset_query = ordered_query.offset(offset)
@@ -246,6 +263,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int,
         platform_id: int | None = None,
         collection_id: int | None = None,
+        virtual_collection_id: str | None = None,
         search_term: str = "",
         order_by: str = "name",
         order_dir: str = "asc",
@@ -260,7 +278,12 @@ class DBRomsHandler(DBBaseHandler):
             .order_by(RomUser.last_played.desc())
         )
         filtered_query = self._filter(
-            filtered_query, platform_id, collection_id, search_term, session
+            filtered_query,
+            platform_id,
+            collection_id,
+            virtual_collection_id,
+            search_term,
+            session,
         )
         offset_query = filtered_query.offset(offset)
         limited_query = offset_query.limit(limit)

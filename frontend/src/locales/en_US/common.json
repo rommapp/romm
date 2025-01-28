@@ -7,6 +7,8 @@
   "games-n": "{n} Game | {n} Games",
   "collection": "Collection",
   "collections": "Collections",
+  "virtual-collection": "Virtual collection",
+  "virtual-collections": "Virtual collections",
   "save": "Save",
   "saves": "Saves",
   "saves-n": "{n} Save | {n} Saves",

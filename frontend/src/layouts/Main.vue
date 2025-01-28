@@ -53,6 +53,11 @@ onBeforeMount(async () => {
     .catch((error) => {
       console.error(error);
     });
+  await collectionApi
+    .getVirtualCollections()
+    .then(({ data: virtualCollections }) => {
+      collectionsStore.setVirtual(virtualCollections);
+    });
   navigationStore.resetDrawers();
 });
 </script>

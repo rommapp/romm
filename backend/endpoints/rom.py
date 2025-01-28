@@ -107,6 +107,7 @@ def get_roms(
     request: Request,
     platform_id: int | None = None,
     collection_id: int | None = None,
+    virtual_collection_id: str | None = None,
     search_term: str = "",
     limit: int | None = None,
     offset: int | None = None,
@@ -119,6 +120,7 @@ def get_roms(
         request (Request): Fastapi Request object
         platform_id (int, optional): Platform ID to filter ROMs
         collection_id (int, optional): Collection ID to filter ROMs
+        virtual_collection_id (str, optional): Virtual Collection ID to filter ROMs
         search_term (str, optional): Search term to filter ROMs
         limit (int, optional): Limit the number of ROMs returned
         offset (int, optional): Offset for pagination
@@ -134,6 +136,7 @@ def get_roms(
         roms = db_rom_handler.get_roms(
             platform_id=platform_id,
             collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
             search_term=search_term.lower(),
             order_by=order_by.lower(),
             order_dir=order_dir.lower(),
@@ -145,6 +148,7 @@ def get_roms(
             user_id=request.user.id,
             platform_id=platform_id,
             collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
             search_term=search_term,
             order_by=order_by,
             order_dir=order_dir,

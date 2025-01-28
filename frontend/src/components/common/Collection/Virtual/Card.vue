@@ -1,0 +1,106 @@
+<script setup lang="ts">
+import type { VirtualCollection } from "@/stores/collections";
+import storeGalleryView from "@/stores/galleryView";
+import { useTheme } from "vuetify";
+
+// Props
+withDefaults(
+  defineProps<{
+    collection: VirtualCollection;
+    transformScale?: boolean;
+    showTitle?: boolean;
+    showRomCount?: boolean;
+    withLink?: boolean;
+    src?: string;
+  }>(),
+  {
+    transformScale: false,
+    showTitle: false,
+    showRomCount: false,
+    withLink: false,
+    src: "",
+  },
+);
+const theme = useTheme();
+const galleryViewStore = storeGalleryView();
+</script>
+
+<template>
+  <v-hover v-slot="{ isHovering, props: hoverProps }">
+    <v-card
+      v-bind="{
+        ...hoverProps,
+        ...(withLink && collection
+          ? {
+              to: { name: 'collection', params: { collection: collection.id } },
+            }
+          : {}),
+      }"
+      :class="{
+        'on-hover': isHovering,
+        'transform-scale': transformScale,
+      }"
+      :elevation="isHovering && transformScale ? 20 : 3"
+    >
+      <v-row v-if="showTitle" class="pa-1 justify-center bg-primary">
+        <div
+          :title="collection.name?.toString()"
+          class="py-4 px-6 text-truncate text-caption"
+        >
+          <span>{{ collection.name }}</span>
+        </div>
+      </v-row>
+      <v-img
+        cover
+        :src="
+          src ||
+          collection.path_cover_large ||
+          `/assets/default/cover/big_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
+        "
+        :lazy-src="
+          src ||
+          collection.path_cover_small ||
+          `/assets/default/cover/small_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
+        "
+        :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+      >
+        <div class="position-absolute append-inner">
+          <slot name="append-inner"></slot>
+        </div>
+
+        <template #error>
+          <v-img
+            :src="`/assets/default/cover/big_${theme.global.name.value}_collection.png`"
+            cover
+            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+          ></v-img>
+        </template>
+        <template #placeholder>
+          <div class="d-flex align-center justify-center fill-height">
+            <v-progress-circular
+              :width="2"
+              :size="40"
+              color="romm-accent-1"
+              indeterminate
+            />
+          </div>
+        </template>
+      </v-img>
+      <v-chip
+        v-if="showRomCount"
+        class="bg-chip position-absolute"
+        size="x-small"
+        style="bottom: 0.5rem; right: 0.5rem"
+        label
+      >
+        {{ collection.rom_count }}
+      </v-chip>
+    </v-card>
+  </v-hover>
+</template>
+<style scoped>
+.append-inner {
+  bottom: 0rem;
+  right: 0rem;
+}
+</style>

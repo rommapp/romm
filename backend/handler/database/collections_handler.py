@@ -55,7 +55,9 @@ class DBCollectionsHandler(DBBaseHandler):
     ) -> Sequence[VirtualCollection]:
         return (
             session.scalars(
-                select(VirtualCollection).order_by(VirtualCollection.name.asc())
+                select(VirtualCollection)
+                .filter_by(type="collection")
+                .order_by(VirtualCollection.name.asc())
             )
             .unique()
             .all()

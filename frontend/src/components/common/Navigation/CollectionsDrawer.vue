@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
+import VirtualCollectionListItem from "@/components/common/Collection/Virtual/ListItem.vue";
 import storeCollections from "@/stores/collections";
 import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
 import storeNavigation from "@/stores/navigation";
@@ -15,7 +16,8 @@ const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
-const { filteredCollections, searchText } = storeToRefs(collectionsStore);
+const { filteredCollections, filteredVirtualCollections, searchText } =
+  storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
@@ -52,6 +54,12 @@ function clear() {
     <v-list lines="two" rounded="0" class="pa-0">
       <collection-list-item
         v-for="collection in filteredCollections"
+        :collection="collection"
+        with-link
+      />
+      <section>{{ t("common.virtual-collections") }}</section>
+      <virtual-collection-list-item
+        v-for="collection in filteredVirtualCollections"
         :collection="collection"
         with-link
       />

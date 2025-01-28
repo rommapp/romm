@@ -1,6 +1,6 @@
 import type { MessageResponse } from "@/__generated__";
 import api from "@/services/api/index";
-import type { Collection } from "@/stores/collections";
+import type { Collection, VirtualCollection } from "@/stores/collections";
 
 export type UpdatedCollection = Collection & {
   artwork?: File;
@@ -27,10 +27,18 @@ async function getCollections(): Promise<{ data: Collection[] }> {
   return api.get("/collections");
 }
 
-async function getCollection(
-  id: number | undefined,
-): Promise<{ data: Collection }> {
+async function getVirtualCollections(): Promise<{ data: VirtualCollection[] }> {
+  return api.get("/collections/virtual");
+}
+
+async function getCollection(id: number): Promise<{ data: Collection }> {
   return api.get(`/collections/${id}`);
+}
+
+async function getVirtualCollection(
+  id: string,
+): Promise<{ data: VirtualCollection }> {
+  return api.get(`/collections/virtual/${id}`);
 }
 
 async function updateCollection({
@@ -62,7 +70,9 @@ async function deleteCollection({
 export default {
   createCollection,
   getCollections,
+  getVirtualCollections,
   getCollection,
+  getVirtualCollection,
   updateCollection,
   deleteCollection,
 };
