@@ -288,10 +288,33 @@ onBeforeRouteUpdate(async (to, from) => {
 
   resetGallery();
 
-  const routeCollectionId = Number(to.params.collection);
+  const routeCollectionId = to.params.collection;
 
   watch(
     () => allCollections.value,
+    async (collections) => {
+      if (collections.length > 0) {
+        const collection = collections.find(
+          (collection) => collection.id === Number(routeCollectionId),
+        );
+
+        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+        if (
+          (currentCollection.value?.id !== Number(routeCollectionId) ||
+            allRoms.value.length === 0) &&
+          collection
+        ) {
+          romsStore.setCurrentCollection(collection);
+          await fetchRoms();
+          setFilters();
+        }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
+
+  watch(
+    () => virtualCollections.value,
     async (collections) => {
       if (collections.length > 0) {
         const collection = collections.find(
@@ -300,11 +323,11 @@ onBeforeRouteUpdate(async (to, from) => {
 
         // Only trigger fetchRoms if switching platforms or ROMs are not loaded
         if (
-          (currentCollection.value?.id !== routeCollectionId ||
+          (currentVirtualCollection.value?.id !== routeCollectionId ||
             allRoms.value.length === 0) &&
           collection
         ) {
-          romsStore.setCurrentCollection(collection);
+          romsStore.setCurrentVirtualCollection(collection);
           await fetchRoms();
           setFilters();
         }

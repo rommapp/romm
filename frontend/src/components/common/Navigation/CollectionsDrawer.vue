@@ -57,7 +57,9 @@ function clear() {
         :collection="collection"
         with-link
       />
-      <section>{{ t("common.virtual-collections") }}</section>
+      <v-list-subheader class="uppercase">{{
+        t("common.virtual-collections").toUpperCase()
+      }}</v-list-subheader>
       <virtual-collection-list-item
         v-for="collection in filteredVirtualCollections"
         :collection="collection"
