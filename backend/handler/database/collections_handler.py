@@ -56,7 +56,7 @@ class DBCollectionsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(VirtualCollection)
-                .filter_by(type="collection")
+                .filter(VirtualCollection.type.in_(["collection"]))
                 .order_by(VirtualCollection.name.asc())
             )
             .unique()

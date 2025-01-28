@@ -1,22 +1,115 @@
 <script setup lang="ts">
 import type { VirtualCollection } from "@/stores/collections";
+import { computed, ref, watchEffect } from "vue";
 import { useTheme } from "vuetify";
 
-withDefaults(defineProps<{ collection: VirtualCollection; size?: number }>(), {
-  size: 45,
-});
+const props = withDefaults(
+  defineProps<{ collection: VirtualCollection; size?: number }>(),
+  {
+    size: 45,
+  },
+);
 const theme = useTheme();
+
+const memoizedCovers = ref({
+  large: ["", ""],
+  small: ["", ""],
+});
+
+// Watch for collection changes and update the memoized selection
+watchEffect(() => {
+  const largeCoverUrls = props.collection.path_covers_large || [];
+  const smallCoverUrls = props.collection.path_covers_small || [];
+
+  if (largeCoverUrls.length < 2) {
+    memoizedCovers.value = {
+      large: [
+        largeCoverUrls[0] ||
+          `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+        largeCoverUrls[0] ||
+          `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+      ],
+      small: [
+        smallCoverUrls[0] ||
+          `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+        smallCoverUrls[0] ||
+          `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+      ],
+    };
+    return;
+  }
+
+  // Create a copy of the arrays and shuffle them
+  const shuffledLarge = [...largeCoverUrls].sort(() => Math.random() - 0.5);
+  const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
+
+  memoizedCovers.value = {
+    large: [
+      shuffledLarge[0] ||
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+      shuffledLarge[1] ||
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+    ],
+    small: [
+      shuffledSmall[0] ||
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+      shuffledSmall[1] ||
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+    ],
+  };
+});
+
+// Computed properties now use the memoized values
+const firstCover = computed(() => memoizedCovers.value.large[0]);
+const secondCover = computed(() => memoizedCovers.value.large[1]);
+const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
+const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 </script>
 
 <template>
   <v-avatar :rounded="0" :size="size">
-    <v-img :src="collection.path_covers_large[0]">
-      <template #error>
+    <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
+      <div class="split-image first-image">
         <v-img
-          :src="`assets/default/cover/big_${theme.global.name.value}_collection.png`"
-        >
-        </v-img>
-      </template>
-    </v-img>
+          cover
+          :src="firstCover"
+          :lazy-src="firstSmallCover"
+          :aspect-ratio="1 / 1"
+        />
+      </div>
+      <div class="split-image second-image">
+        <v-img
+          cover
+          :src="secondCover"
+          :lazy-src="secondSmallCover"
+          :aspect-ratio="1 / 1"
+        />
+      </div>
+    </div>
   </v-avatar>
 </template>
+
+<style scoped>
+.image-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.split-image {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.first-image {
+  clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);
+  z-index: 1;
+}
+
+.second-image {
+  clip-path: polygon(0% 100%, 100% 0, 100% 100%);
+  z-index: 0;
+}
+</style>

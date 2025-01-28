@@ -2,7 +2,7 @@
 import type { VirtualCollection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import { useTheme } from "vuetify";
-import { computed } from "vue";
+import { computed, ref, watchEffect } from "vue";
 
 // Props
 const props = withDefaults(
@@ -24,17 +24,39 @@ const props = withDefaults(
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 
-const getRandomCovers = computed(() => {
+const memoizedCovers = ref({
+  large: ["", ""],
+  small: ["", ""],
+});
+
+// Watch for collection changes and update the memoized selection
+watchEffect(() => {
   const largeCoverUrls = props.collection.path_covers_large || [];
   const smallCoverUrls = props.collection.path_covers_small || [];
 
-  // Create a copy of the arrays to avoid mutating the original
+  if (largeCoverUrls.length < 2) {
+    memoizedCovers.value = {
+      large: [
+        largeCoverUrls[0] ||
+          `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+        largeCoverUrls[0] ||
+          `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+      ],
+      small: [
+        smallCoverUrls[0] ||
+          `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+        smallCoverUrls[0] ||
+          `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+      ],
+    };
+    return;
+  }
+
+  // Create a copy of the arrays and shuffle them
   const shuffledLarge = [...largeCoverUrls].sort(() => Math.random() - 0.5);
   const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
 
-  console.log(shuffledLarge, shuffledSmall);
-
-  return {
+  memoizedCovers.value = {
     large: [
       shuffledLarge[0] ||
         `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
@@ -50,10 +72,11 @@ const getRandomCovers = computed(() => {
   };
 });
 
-const firstCover = computed(() => getRandomCovers.value.large[0]);
-const secondCover = computed(() => getRandomCovers.value.large[1]);
-const firstSmallCover = computed(() => getRandomCovers.value.small[0]);
-const secondSmallCover = computed(() => getRandomCovers.value.small[1]);
+// Computed properties now use the memoized values
+const firstCover = computed(() => memoizedCovers.value.large[0]);
+const secondCover = computed(() => memoizedCovers.value.large[1]);
+const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
+const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 </script>
 
 <template>
