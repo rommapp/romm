@@ -230,7 +230,7 @@ export default defineStore("roms", {
       const byFavourites = new Set(
         this.filteredRoms
           .filter((rom) =>
-            collectionStore.favCollection?.roms?.includes(rom.id),
+            collectionStore.favCollection?.rom_ids?.includes(rom.id),
           )
           .map((roms) => roms.id),
       );

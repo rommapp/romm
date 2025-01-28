@@ -68,7 +68,7 @@ export default defineStore("collections", {
       return this.allCollections.find((p) => p.id === collectionId);
     },
     isFav(rom: SimpleRom) {
-      return this.favCollection?.roms?.includes(rom.id);
+      return this.favCollection?.rom_ids?.includes(rom.id);
     },
   },
 });

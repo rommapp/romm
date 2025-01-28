@@ -42,7 +42,7 @@ const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 async function addRomsToCollection() {
   if (!selectedCollection.value) return;
-  selectedCollection.value.roms.push(...roms.value.map((r) => r.id));
+  selectedCollection.value.rom_ids.push(...roms.value.map((r) => r.id));
   await collectionApi
     .updateCollection({ collection: selectedCollection.value })
     .then(({ data }) => {

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import base64
 import json
+from typing import Sequence
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
+from models.rom import Rom
 from models.user import User
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,6 +35,12 @@ class Collection(BaseModel):
     user: Mapped[User] = relationship(lazy="joined", back_populates="collections")
 
     @property
+    def roms(self) -> Sequence[Rom]:
+        from handler.database import db_rom_handler
+
+        return db_rom_handler.get_roms(collection_id=self.id)
+
+    @property
     def user__username(self) -> str:
         return self.user.username
 
@@ -59,6 +67,22 @@ class Collection(BaseModel):
             if self.path_cover_l
             else ""
         )
+
+    @property
+    def path_covers_small(self) -> list[str]:
+        return [
+            f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
+            for r in self.roms
+            if r.path_cover_s
+        ]
+
+    @property
+    def path_covers_large(self) -> list[str]:
+        return [
+            f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
+            for r in self.roms
+            if r.path_cover_l
+        ]
 
     @property
     def is_favorite(self) -> bool:

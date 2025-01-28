@@ -200,17 +200,17 @@ async def update_collection(
         raise CollectionNotFoundInDatabaseException(id)
 
     try:
-        roms = json.loads(data["roms"])  # type: ignore
+        rom_ids = json.loads(data["rom_ids"])  # type: ignore
     except json.JSONDecodeError as e:
-        raise ValueError("Invalid list for roms field in update collection") from e
+        raise ValueError("Invalid list for rom_ids field in update collection") from e
     except KeyError:
-        roms = collection.rom_ids
+        rom_ids = collection.rom_ids
 
     cleaned_data = {
         "name": data.get("name", collection.name),
         "description": data.get("description", collection.description),
         "is_public": is_public if is_public is not None else collection.is_public,
-        "roms": list(set(roms)),
+        "rom_ids": list(set(rom_ids)),
         "user_id": request.user.id,
     }
 
