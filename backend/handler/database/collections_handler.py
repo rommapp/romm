@@ -51,12 +51,13 @@ class DBCollectionsHandler(DBBaseHandler):
 
     @begin_session
     def get_virtual_collections(
-        self, session: Session = None
+        self, type: str, limit: int | None = None, session: Session = None
     ) -> Sequence[VirtualCollection]:
         return (
             session.scalars(
                 select(VirtualCollection)
-                .filter(VirtualCollection.type.in_(["collection"]))
+                .filter(VirtualCollection.type.in_([type]))
+                .limit(limit)
                 .order_by(VirtualCollection.name.asc())
             )
             .unique()

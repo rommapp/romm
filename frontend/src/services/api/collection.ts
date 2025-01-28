@@ -27,8 +27,14 @@ async function getCollections(): Promise<{ data: Collection[] }> {
   return api.get("/collections");
 }
 
-async function getVirtualCollections(): Promise<{ data: VirtualCollection[] }> {
-  return api.get("/collections/virtual");
+async function getVirtualCollections({
+  type = "collection",
+  limit = 100,
+}: {
+  type?: string;
+  limit?: number;
+}): Promise<{ data: VirtualCollection[] }> {
+  return api.get("/collections/virtual", { params: { type, limit } });
 }
 
 async function getCollection(id: number): Promise<{ data: Collection }> {
