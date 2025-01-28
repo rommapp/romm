@@ -80,24 +80,6 @@ class DBCollectionsHandler(DBBaseHandler):
         return session.scalars(query).all()
 
     @begin_session
-    def get_virtual_collections_by_rom_id(
-        self,
-        rom_id: int,
-        *,
-        order_by: Sequence[str | ColumnExpressionArgument[Any]] | None = None,
-        session: Session = None,
-    ) -> Sequence[VirtualCollection]:
-        query = select(VirtualCollection).filter(
-            json_array_contains_value(
-                VirtualCollection.rom_ids, rom_id, session=session
-            )
-        )
-        if order_by is not None:
-            query = query.order_by(*order_by)
-
-        return session.scalars(query).all()
-
-    @begin_session
     def update_collection(
         self, id: int, data: dict, session: Session = None
     ) -> Collection:

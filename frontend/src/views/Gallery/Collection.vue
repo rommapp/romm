@@ -238,6 +238,7 @@ onMounted(async () => {
           collection
         ) {
           romsStore.setCurrentCollection(collection);
+          romsStore.setCurrentVirtualCollection(null);
           resetGallery();
           await fetchRoms();
           setFilters();
@@ -267,6 +268,7 @@ onMounted(async () => {
             allRoms.value.length === 0) &&
           collection
         ) {
+          romsStore.setCurrentCollection(null);
           romsStore.setCurrentVirtualCollection(collection);
           resetGallery();
           await fetchRoms();
@@ -305,6 +307,7 @@ onBeforeRouteUpdate(async (to, from) => {
           collection
         ) {
           romsStore.setCurrentCollection(collection);
+          romsStore.setCurrentVirtualCollection(null);
           await fetchRoms();
           setFilters();
         }
@@ -327,6 +330,7 @@ onBeforeRouteUpdate(async (to, from) => {
             allRoms.value.length === 0) &&
           collection
         ) {
+          romsStore.setCurrentCollection(null);
           romsStore.setCurrentVirtualCollection(collection);
           await fetchRoms();
           setFilters();
