@@ -25,7 +25,7 @@ const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const collectionsStore = storeCollections();
-const { allCollections } = storeToRefs(collectionsStore);
+const { allCollections, virtualCollections } = storeToRefs(collectionsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -33,6 +33,7 @@ const {
   selectedRoms,
   currentPlatform,
   currentCollection,
+  currentVirtualCollection,
   itemsPerBatch,
   gettingRoms,
 } = storeToRefs(romsStore);
@@ -56,6 +57,7 @@ async function fetchRoms() {
   try {
     const { data } = await romApi.getRoms({
       collectionId: romsStore.currentCollection?.id,
+      virtualCollectionId: romsStore.currentVirtualCollection?.id,
     });
     romsStore.set(data);
     romsStore.setFiltered(data, galleryFilterStore);
@@ -213,11 +215,43 @@ function resetGallery() {
 }
 
 onMounted(async () => {
-  const routeCollectionId = Number(route.params.collection);
+  const routeCollectionId = route.params.collection;
   currentPlatform.value = null;
 
   watch(
     () => allCollections.value,
+    async (collections) => {
+      if (
+        collections.length > 0 &&
+        collections.some(
+          (collection) => collection.id === Number(routeCollectionId),
+        )
+      ) {
+        const collection = collections.find(
+          (collection) => collection.id === Number(routeCollectionId),
+        );
+
+        // Check if the current platform is different or no ROMs have been loaded
+        if (
+          (currentVirtualCollection.value?.id !== routeCollectionId ||
+            allRoms.value.length === 0) &&
+          collection
+        ) {
+          romsStore.setCurrentCollection(collection);
+          resetGallery();
+          await fetchRoms();
+          setFilters();
+        }
+
+        window.addEventListener("wheel", onScroll);
+        window.addEventListener("scroll", onScroll);
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
+
+  watch(
+    () => virtualCollections.value,
     async (collections) => {
       if (
         collections.length > 0 &&
@@ -229,11 +263,11 @@ onMounted(async () => {
 
         // Check if the current platform is different or no ROMs have been loaded
         if (
-          (currentCollection.value?.id !== routeCollectionId ||
+          (currentVirtualCollection.value?.id !== routeCollectionId ||
             allRoms.value.length === 0) &&
           collection
         ) {
-          romsStore.setCurrentCollection(collection);
+          romsStore.setCurrentVirtualCollection(collection);
           resetGallery();
           await fetchRoms();
           setFilters();

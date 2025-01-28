@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Collections from "@/components/Home/Collections.vue";
+import VirtualCollections from "@/components/Home/VirtualCollections.vue";
 import Platforms from "@/components/Home/Platforms.vue";
 import RecentSkeletonLoader from "@/components/Home/RecentSkeletonLoader.vue";
 import RecentAdded from "@/components/Home/RecentAdded.vue";
@@ -22,7 +23,7 @@ const { recentRoms, continuePlayingRoms: recentPlayedRoms } =
 const platforms = storePlatforms();
 const { filledPlatforms } = storeToRefs(platforms);
 const collections = storeCollections();
-const { allCollections } = storeToRefs(collections);
+const { allCollections, virtualCollections } = storeToRefs(collections);
 const showRecentRoms = isNull(localStorage.getItem("settings.showRecentRoms"))
   ? true
   : localStorage.getItem("settings.showRecentRoms") === "true";
@@ -93,4 +94,7 @@ onMounted(async () => {
   />
   <platforms v-if="filledPlatforms.length > 0 && showPlatforms" />
   <collections v-if="allCollections.length > 0 && showCollections" />
+  <virtual-collections
+    v-if="virtualCollections.length > 0 && showCollections"
+  />
 </template>

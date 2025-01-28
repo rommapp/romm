@@ -68,6 +68,8 @@ def upgrade() -> None:
                 collection_name as name,
                 collection_type as type,
                 'Virtual collection of ' || collection_type || ' ' || collection_name AS description,
+                NOW() AS created_at,
+                NOW() AS updated_at,
                 array_to_json(array_agg(DISTINCT rom_id)) as roms
                 FROM (
                     SELECT * FROM genres_collection
@@ -165,6 +167,8 @@ def upgrade() -> None:
                     collection_name as name,
                     collection_type as type,
                     CONCAT('Virtual collection of ', collection_type, ' ', collection_name) AS description,
+                    NOW() AS created_at,
+                    NOW() AS updated_at,
                     JSON_ARRAYAGG(DISTINCT rom_id) as roms
                 FROM
                 (

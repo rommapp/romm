@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CollectionCard from "@/components/common/Collection/Card.vue";
+import VirtualCollectionCard from "@/components/common/Collection/Virtual/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeCollections from "@/stores/collections";
 import { views } from "@/utils";
@@ -14,14 +14,17 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
   : localStorage.getItem("settings.gridCollections") === "true";
 </script>
 <template>
-  <r-section icon="mdi-bookmark-box-multiple" :title="t('common.collections')">
+  <r-section
+    icon="mdi-bookmark-box-multiple"
+    :title="t('common.virtual-collections')"
+  >
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
         no-gutters
       >
         <v-col
-          v-for="collection in collections.allCollections"
+          v-for="collection in collections.virtualCollections"
           :key="collection.name"
           class="pa-1"
           :cols="views[0]['size-cols']"
@@ -30,7 +33,7 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <collection-card
+          <virtual-collection-card
             show-rom-count
             show-title
             transform-scale
