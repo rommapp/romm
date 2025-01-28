@@ -38,6 +38,11 @@ const showPlatforms = isNull(localStorage.getItem("settings.showPlatforms"))
 const showCollections = isNull(localStorage.getItem("settings.showCollections"))
   ? true
   : localStorage.getItem("settings.showCollections") === "true";
+const showVirtualCollections = isNull(
+  localStorage.getItem("settings.showVirtualCollections"),
+)
+  ? true
+  : localStorage.getItem("settings.showVirtualCollections") === "true";
 const fetchingRecentAdded = ref(false);
 const fetchingContinuePlaying = ref(false);
 
@@ -95,6 +100,6 @@ onMounted(async () => {
   <platforms v-if="filledPlatforms.length > 0 && showPlatforms" />
   <collections v-if="allCollections.length > 0 && showCollections" />
   <virtual-collections
-    v-if="virtualCollections.length > 0 && showCollections"
+    v-if="virtualCollections.length > 0 && showVirtualCollections"
   />
 </template>

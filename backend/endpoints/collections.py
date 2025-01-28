@@ -117,6 +117,8 @@ def get_collections(
 @protected_route(router.get, "/collections/virtual", [Scope.COLLECTIONS_READ])
 def get_virtual_collections(
     request: Request,
+    type: str,
+    limit: int | None = None,
 ) -> list[VirtualCollectionSchema]:
     """Get virtual collections endpoint
 
@@ -127,7 +129,7 @@ def get_virtual_collections(
         list[VirtualCollectionSchema]: List of virtual collections
     """
 
-    virtual_collections = db_collection_handler.get_virtual_collections()
+    virtual_collections = db_collection_handler.get_virtual_collections(type, limit)
 
     return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
 
