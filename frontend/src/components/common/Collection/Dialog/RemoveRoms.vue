@@ -40,7 +40,7 @@ const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 async function removeRomsFromCollection() {
   if (!selectedCollection.value) return;
-  selectedCollection.value.roms = selectedCollection.value.roms.filter(
+  selectedCollection.value.rom_ids = selectedCollection.value.rom_ids.filter(
     (id) => !roms.value.map((r) => r.id).includes(id),
   );
   await collectionApi
@@ -67,7 +67,7 @@ async function removeRomsFromCollection() {
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       romsStore.resetSelection();
-      if (selectedCollection.value?.roms.length == 0) {
+      if (selectedCollection.value?.rom_ids.length == 0) {
         router.push({ name: "home" });
       }
       closeDialog();

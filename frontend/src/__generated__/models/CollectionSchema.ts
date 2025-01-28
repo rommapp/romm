@@ -8,6 +8,8 @@ export type CollectionSchema = {
     description: string;
     path_cover_small: (string | null);
     path_cover_large: (string | null);
+    path_covers_small: Array<string>;
+    path_covers_large: Array<string>;
     url_cover: string;
     rom_ids: Array<number>;
     rom_count: number;

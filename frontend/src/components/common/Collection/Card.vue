@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
+import { computed, ref, watchEffect } from "vue";
 import { useTheme } from "vuetify";
 
 // Props
-withDefaults(
+const props = withDefaults(
   defineProps<{
     collection: Collection;
     transformScale?: boolean;
@@ -23,6 +24,65 @@ withDefaults(
 );
 const theme = useTheme();
 const galleryViewStore = storeGalleryView();
+
+const memoizedCovers = ref({
+  large: ["", ""],
+  small: ["", ""],
+});
+
+watchEffect(() => {
+  if (props.src) {
+    memoizedCovers.value = {
+      large: [props.src, props.src],
+      small: [props.src, props.src],
+    };
+    return;
+  }
+
+  if (props.collection.path_cover_large && props.collection.path_cover_small) {
+    memoizedCovers.value = {
+      large: [
+        props.collection.path_cover_large,
+        props.collection.path_cover_large,
+      ],
+      small: [
+        props.collection.path_cover_small,
+        props.collection.path_cover_small,
+      ],
+    };
+    return;
+  }
+
+  const largeCoverUrls = props.collection.path_covers_large || [];
+  const smallCoverUrls = props.collection.path_covers_small || [];
+
+  if (largeCoverUrls.length < 2) {
+    memoizedCovers.value = {
+      large: [
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+      ],
+      small: [
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+      ],
+    };
+    return;
+  }
+
+  const shuffledLarge = [...largeCoverUrls].sort(() => Math.random() - 0.5);
+  const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
+
+  memoizedCovers.value = {
+    large: [shuffledLarge[0], shuffledLarge[1]],
+    small: [shuffledSmall[0], shuffledSmall[1]],
+  };
+});
+
+const firstCover = computed(() => memoizedCovers.value.large[0]);
+const secondCover = computed(() => memoizedCovers.value.large[1]);
+const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
+const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 </script>
 
 <template>
@@ -50,42 +110,27 @@ const galleryViewStore = storeGalleryView();
           <span>{{ collection.name }}</span>
         </div>
       </v-row>
-      <v-img
-        cover
-        :src="
-          src ||
-          collection.path_cover_large ||
-          `/assets/default/cover/big_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
-        "
-        :lazy-src="
-          src ||
-          collection.path_cover_small ||
-          `/assets/default/cover/small_${theme.global.name.value}_${collection.is_favorite ? 'fav' : 'collection'}.png`
-        "
-        :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+      <div
+        class="image-container"
+        :style="{ aspectRatio: galleryViewStore.defaultAspectRatioCollection }"
       >
-        <div class="position-absolute append-inner">
-          <slot name="append-inner"></slot>
-        </div>
-
-        <template #error>
+        <div class="split-image first-image">
           <v-img
-            :src="`/assets/default/cover/big_${theme.global.name.value}_collection.png`"
             cover
+            :src="firstCover"
+            :lazy-src="firstSmallCover"
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-          ></v-img>
-        </template>
-        <template #placeholder>
-          <div class="d-flex align-center justify-center fill-height">
-            <v-progress-circular
-              :width="2"
-              :size="40"
-              color="romm-accent-1"
-              indeterminate
-            />
-          </div>
-        </template>
-      </v-img>
+          />
+        </div>
+        <div class="split-image second-image">
+          <v-img
+            cover
+            :src="secondCover"
+            :lazy-src="secondSmallCover"
+            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+          />
+        </div>
+      </div>
       <v-chip
         v-if="showRomCount"
         class="bg-chip position-absolute"
@@ -98,9 +143,28 @@ const galleryViewStore = storeGalleryView();
     </v-card>
   </v-hover>
 </template>
+
 <style scoped>
-.append-inner {
-  bottom: 0rem;
-  right: 0rem;
+.image-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.split-image {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.first-image {
+  clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);
+  z-index: 1;
+}
+
+.second-image {
+  clip-path: polygon(0% 100%, 100% 0, 100% 100%);
+  z-index: 0;
 }
 </style>

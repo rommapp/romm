@@ -11,6 +11,8 @@ class CollectionSchema(BaseModel):
     description: str
     path_cover_small: str | None
     path_cover_large: str | None
+    path_covers_small: list[str]
+    path_covers_large: list[str]
     url_cover: str
     rom_ids: set[int]
     rom_count: int

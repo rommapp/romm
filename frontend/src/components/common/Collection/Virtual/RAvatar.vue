@@ -24,38 +24,23 @@ watchEffect(() => {
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
       large: [
-        largeCoverUrls[0] ||
-          `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
-        largeCoverUrls[0] ||
-          `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
       ],
       small: [
-        smallCoverUrls[0] ||
-          `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
-        smallCoverUrls[0] ||
-          `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
       ],
     };
     return;
   }
 
-  // Create a copy of the arrays and shuffle them
   const shuffledLarge = [...largeCoverUrls].sort(() => Math.random() - 0.5);
   const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
 
   memoizedCovers.value = {
-    large: [
-      shuffledLarge[0] ||
-        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
-      shuffledLarge[1] ||
-        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
-    ],
-    small: [
-      shuffledSmall[0] ||
-        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
-      shuffledSmall[1] ||
-        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
-    ],
+    large: [shuffledLarge[0], shuffledLarge[1]],
+    small: [shuffledSmall[0], shuffledSmall[1]],
   };
 });
 
