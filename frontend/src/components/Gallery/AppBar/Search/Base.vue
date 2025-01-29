@@ -16,13 +16,14 @@ const { xs } = useDisplay();
 
 <template>
   <v-app-bar
-    top
-    id="gallery-app-bar"
     elevation="0"
     density="compact"
-    mode="shift"
-    class="rounded mx-2 mt-2 mb-1 position-sticky"
-    style="width: unset; top: 0.5rem"
+    class="ma-2"
+    :class="{
+      'gallery-app-bar-mobile': smAndDown,
+      'gallery-app-bar-desktop': !smAndDown,
+    }"
+    rounded
   >
     <filter-btn />
     <template v-if="!xs">
@@ -40,7 +41,10 @@ const { xs } = useDisplay();
 </template>
 
 <style scoped>
-#gallery-app-bar {
-  z-index: 999 !important;
+.gallery-app-bar-desktop {
+  width: calc(100% - 76px) !important;
+}
+.gallery-app-bar-mobile {
+  width: calc(100% - 16px) !important;
 }
 </style>
