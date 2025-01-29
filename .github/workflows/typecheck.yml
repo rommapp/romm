@@ -37,5 +37,5 @@ jobs:
 
       - name: Lockfile lint
         run: |
-          [ -z "$(jq -r '.packages | to_entries[] | select((.key | contains(\"node_modules\")) and (.value | has(\"resolved\") | not)) | .key' < package-lock.json)" ]
+          [ -z "$(jq -r '.packages | to_entries[] | select((.key | contains("node_modules")) and (.value | has("resolved") | not)) | .key' < package-lock.json)" ]
         working-directory: frontend

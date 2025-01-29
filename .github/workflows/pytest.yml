@@ -50,7 +50,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          poetry install --sync
+          poetry sync --extras test
 
       - name: Initiate database
         run: |

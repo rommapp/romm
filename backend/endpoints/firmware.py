@@ -4,7 +4,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
 from fastapi import File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware

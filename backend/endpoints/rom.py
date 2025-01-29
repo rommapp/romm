@@ -1,5 +1,6 @@
 import binascii
 from base64 import b64encode
+from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
 from typing import Annotated
@@ -19,7 +20,7 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
@@ -27,7 +28,6 @@ from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
 from models.rom import Rom, RomUser
 from PIL import Image
-from sqlalchemy import func
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -283,6 +283,18 @@ async def get_rom_content(
     log.info(f"User {current_username} is downloading {rom.file_name}")
 
     if not rom.multi:
+        # Serve the file directly in development mode for emulatorjs
+        if DEV_MODE:
+            return FileResponse(
+                path=rom_path,
+                filename=rom.file_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(rom.file_size_bytes),
+                },
+            )
+
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
             filename=rom.file_name,
@@ -377,8 +389,8 @@ async def update_rom(
         )
 
     cleaned_data = {
-        "igdb_id": data.get("igdb_id", None),
-        "moby_id": data.get("moby_id", None),
+        "igdb_id": data.get("igdb_id", rom.igdb_id),
+        "moby_id": data.get("moby_id", rom.moby_id),
     }
 
     if (
@@ -558,6 +570,7 @@ async def delete_roms(
 @protected_route(router.put, "/roms/{id}/props", [Scope.ROMS_USER_WRITE])
 async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     data = await request.json()
+    rom_user_data = data.get("data", {})
 
     rom = db_rom_handler.get_rom(id)
 
@@ -581,9 +594,13 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         "status",
     ]
 
-    cleaned_data = {field: data[field] for field in fields_to_update if field in data}
+    cleaned_data = {
+        field: rom_user_data[field]
+        for field in fields_to_update
+        if field in rom_user_data
+    }
 
     if data.get("update_last_played", False):
-        cleaned_data.update({"last_played": func.now()})
+        cleaned_data.update({"last_played": datetime.now(timezone.utc)})
 
     return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
