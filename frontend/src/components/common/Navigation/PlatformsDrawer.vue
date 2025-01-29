@@ -23,15 +23,16 @@ function clear() {
     mobile
     :location="smAndDown ? 'top' : 'left'"
     @update:model-value="clear"
-    width="300"
+    width="500"
     v-model="activePlatformsDrawer"
     :class="{
       'mx-2': activePlatformsDrawer,
       'px-1': activePlatformsDrawer,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
+    class="bg-surface my-2 py-1"
     style="height: unset"
-    :scrim="false"
+    rounded
+    :border="0"
   >
     <template #prepend>
       <v-text-field

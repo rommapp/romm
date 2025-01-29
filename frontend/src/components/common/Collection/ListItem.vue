@@ -31,9 +31,9 @@ withDefaults(
         : {}),
     }"
     :value="collection.name"
+    rounded
     density="compact"
-    class="my-1"
-    style="padding: 0.5rem !important"
+    class="my-1 py-2"
   >
     <template #prepend>
       <r-avatar :size="45" :collection="collection" />

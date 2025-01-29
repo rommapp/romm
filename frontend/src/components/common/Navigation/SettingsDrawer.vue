@@ -44,15 +44,15 @@ async function logout() {
   <v-navigation-drawer
     mobile
     :location="smAndDown ? 'top' : 'left'"
-    width="300"
+    width="450"
     v-model="activeSettingsDrawer"
     :class="{
-      'mx-2': activeSettingsDrawer,
-      'px-1': activeSettingsDrawer,
+      'ml-2': activeSettingsDrawer,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
+    class="bg-surface my-2 pa-1"
     style="height: unset"
-    :scrim="false"
+    :border="0"
+    rounded
   >
     <v-list class="pa-0">
       <v-list-img>
@@ -76,21 +76,27 @@ async function logout() {
     </v-list>
     <v-list class="py-1 px-0">
       <v-list-item
+        rounded
         @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
         append-icon="mdi-account"
         >{{ t("common.profile") }}</v-list-item
       >
-      <v-list-item :to="{ name: 'userInterface' }" append-icon="mdi-palette">{{
-        t("common.user-interface")
-      }}</v-list-item>
+      <v-list-item
+        rounded
+        :to="{ name: 'userInterface' }"
+        append-icon="mdi-palette"
+        >{{ t("common.user-interface") }}</v-list-item
+      >
       <v-list-item
         v-if="scopes.includes('platforms.write')"
+        rounded
         append-icon="mdi-table-cog"
         :to="{ name: 'libraryManagement' }"
         >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
+        rounded
         :to="{ name: 'administration' }"
         append-icon="mdi-security"
         >{{ t("common.administration") }}
@@ -99,7 +105,8 @@ async function logout() {
         <v-list-item
           @click="logout"
           append-icon="mdi-location-exit"
-          class="bg-toplayer text-romm-red border-sm border-romm-red rounded"
+          rounded
+          class="bg-toplayer border-sm text-romm-red border-romm-red"
           >{{ t("common.logout") }}</v-list-item
         >
       </template>
@@ -109,7 +116,8 @@ async function logout() {
         <v-list-item
           @click="logout"
           append-icon="mdi-location-exit"
-          class="bg-surface text-romm-red border-sm border-romm-red rounded"
+          rounded
+          class="bg-surface border-sm text-romm-red border-romm-red"
           >{{ t("common.logout") }}</v-list-item
         >
       </v-list>

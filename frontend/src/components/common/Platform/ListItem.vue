@@ -15,8 +15,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
     :value="platform.slug"
     rounded
     density="compact"
-    class="my-1"
-    style="padding: 0.5rem !important"
+    class="my-1 py-2"
   >
     <template #prepend>
       <platform-icon

@@ -58,13 +58,9 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <div class="d-flex flex-row flex-grow-1" style="max-height: 100dvh">
-    <notification />
-    <main-app-bar />
-    <div class="flex-grow-1 overflow-y-scroll">
-      <router-view />
-    </div>
-  </div>
+  <notification />
+  <main-app-bar />
+  <router-view />
 
   <match-rom-dialog />
   <edit-rom-dialog />
