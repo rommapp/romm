@@ -29,3 +29,19 @@ def json_array_contains_value(
             func.cast(value, sa_pg.JSONB)
         )
     return func.json_contains(column, value)
+
+
+def safe_float(value: Any, default: float = 0.0) -> float:
+    """Safely convert a value to float, returning default if conversion fails."""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+
+def safe_int(value: Any, default: int = 0) -> int:
+    """Safely convert a value to int, returning default if conversion fails."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default

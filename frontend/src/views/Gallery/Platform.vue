@@ -16,10 +16,8 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 
 // Props
-const { smAndDown } = useDisplay();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -44,7 +42,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
 // Functions
-function fetchRoms() {
+async function fetchRoms() {
   if (gettingRoms.value) return;
 
   gettingRoms.value = true;
@@ -53,34 +51,31 @@ function fetchRoms() {
     scrim: false,
   });
 
-  romApi
-    .getRoms({
+  try {
+    const { data } = await romApi.getRoms({
       platformId: romsStore.currentPlatform?.id,
-      searchTerm: normalizeString(galleryFilterStore.filterText),
-    })
-    .then(({ data }) => {
-      romsStore.set(data);
-      romsStore.setFiltered(data, galleryFilterStore);
-    })
-    .catch((error) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-      console.error(
-        `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
-      );
-      noPlatformError.value = true;
-    })
-    .finally(() => {
-      gettingRoms.value = false;
-      emitter?.emit("showLoadingDialog", {
-        loading: gettingRoms.value,
-        scrim: false,
-      });
     });
+
+    romsStore.set(data);
+    romsStore.setFiltered(data, galleryFilterStore);
+  } catch (error) {
+    emitter?.emit("snackbarShow", {
+      msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
+      icon: "mdi-close-circle",
+      color: "red",
+      timeout: 4000,
+    });
+    console.error(
+      `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
+    );
+    noPlatformError.value = true;
+  } finally {
+    gettingRoms.value = false;
+    emitter?.emit("showLoadingDialog", {
+      loading: gettingRoms.value,
+      scrim: false,
+    });
+  }
 }
 
 function setFilters() {
@@ -225,7 +220,7 @@ onMounted(async () => {
 
   watch(
     () => allPlatforms.value,
-    (platforms) => {
+    async (platforms) => {
       if (platforms.length > 0) {
         if (platforms.some((platform) => platform.id === routePlatformId)) {
           const platform = platforms.find(
@@ -240,7 +235,7 @@ onMounted(async () => {
           ) {
             romsStore.setCurrentPlatform(platform);
             resetGallery();
-            fetchRoms();
+            await fetchRoms();
             setFilters();
           }
 
@@ -274,7 +269,7 @@ onBeforeRouteUpdate(async (to, from) => {
 
   watch(
     () => allPlatforms.value,
-    (platforms) => {
+    async (platforms) => {
       if (platforms.length > 0) {
         const platform = platforms.find(
           (platform) => platform.id === routePlatformId,
@@ -287,7 +282,7 @@ onBeforeRouteUpdate(async (to, from) => {
           platform
         ) {
           romsStore.setCurrentPlatform(platform);
-          fetchRoms();
+          await fetchRoms();
           setFilters();
         } else {
           noPlatformError.value = true;

@@ -120,13 +120,13 @@ async function searchRom({
 // Used only for multi-file downloads
 async function downloadRom({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
   const a = document.createElement("a");
-  a.href = getDownloadPath({ rom, files });
+  a.href = getDownloadPath({ rom, fileIDs });
 
   document.body.appendChild(a);
   a.click();
@@ -152,7 +152,7 @@ async function updateRom({
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
   formData.append("name", rom.name || "");
-  formData.append("file_name", rom.file_name);
+  formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
   formData.append("url_cover", rom.url_cover || "");
   if (rom.artwork) formData.append("artwork", rom.artwork);
@@ -183,14 +183,17 @@ async function updateUserRomProps({
   romId,
   data,
   updateLastPlayed = false,
+  removeLastPlayed = false,
 }: {
   romId: number;
   data: Partial<RomUserSchema>;
   updateLastPlayed?: boolean;
-}): Promise<{ data: DetailedRom }> {
+  removeLastPlayed?: boolean;
+}): Promise<{ data: RomUserSchema }> {
   return api.put(`/roms/${romId}/props`, {
     data: data,
     update_last_played: updateLastPlayed,
+    remove_last_played: removeLastPlayed,
   });
 }
 
