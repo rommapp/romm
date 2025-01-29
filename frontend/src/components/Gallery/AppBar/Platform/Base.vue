@@ -14,7 +14,7 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs } = useDisplay();
+const { xs, smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
@@ -26,9 +26,8 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
     id="gallery-app-bar"
     elevation="0"
     density="compact"
-    mode="shift"
-    class="rounded mx-2 mt-2 mb-1 position-sticky"
-    style="width: unset; top: 0.5rem"
+    class="ma-2"
+    rounded
   >
     <platform-icon
       v-if="currentPlatform"
@@ -47,6 +46,31 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
       <gallery-view-btn />
     </template>
   </v-app-bar>
+  <v-card
+    id="gallery-app-bar"
+    elevation="0"
+    density="compact"
+    class="ma-2 mt-6 justify-center align-center text-center"
+    rounded
+    height="48"
+  >
+    <v-row no-gutters>
+      <platform-icon
+        v-if="currentPlatform"
+        :slug="currentPlatform.slug"
+        :name="currentPlatform.name"
+        :size="36"
+        class="my-1 mx-3 cursor-pointer platform-icon"
+        :class="{ active: activePlatformInfoDrawer }"
+        @click="navigationStore.switchActivePlatformInfoDrawer"
+      />
+      <firmware-btn />
+      <filter-btn />
+      <filter-text-field v-if="!xs" class="center-affix" />
+      <selecting-btn />
+      <gallery-view-btn />
+    </v-row>
+  </v-card>
 
   <platform-info-drawer />
   <filter-drawer />

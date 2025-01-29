@@ -32,15 +32,16 @@ function clear() {
     mobile
     :location="smAndDown ? 'top' : 'left'"
     @update:model-value="clear"
-    width="300"
+    width="500"
     v-model="activeCollectionsDrawer"
     :class="{
       'mx-2': activeCollectionsDrawer,
       'px-1': activeCollectionsDrawer,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
+    class="bg-surface my-2 py-1"
     style="height: unset"
-    :scrim="false"
+    :border="0"
+    rounded
   >
     <template #prepend>
       <v-text-field
@@ -56,7 +57,7 @@ function clear() {
         density="compact"
       ></v-text-field>
     </template>
-    <v-list lines="two" class="pa-0 pt-1">
+    <v-list lines="two" class="py-1 px-0">
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"

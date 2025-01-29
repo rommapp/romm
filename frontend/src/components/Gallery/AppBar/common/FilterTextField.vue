@@ -28,6 +28,7 @@ function clear() {
     prepend-inner-icon="mdi-filter-outline"
     :label="t('common.filter')"
     hide-details
+    rounded="0"
     clearable
     @click:clear="clear"
     @update:model-value="nextTick(filterRoms)"

@@ -68,7 +68,7 @@ const galleryViewStore = storeGalleryView();
           <v-expand-transition>
             <div
               v-if="isHovering || !collection.has_cover"
-              class="translucent-dark text-caption text-white"
+              class="translucent-dark text-caption text-center text-white"
             >
               <v-list-item>{{ collection.name }}</v-list-item>
             </div>

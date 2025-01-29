@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
         ><v-skeleton-loader type="card" /></v-col
     ></v-row>
     <template v-if="filteredRoms.length > 0">
-      <v-row v-show="currentView != 2" class="pa-1" no-gutters>
+      <v-row v-show="currentView != 2" class="pa-1 mt-2" no-gutters>
         <!-- Gallery cards view -->
         <!-- v-show instead of v-if to avoid recalculate on view change -->
         <v-col

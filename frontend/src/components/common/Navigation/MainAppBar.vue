@@ -55,8 +55,8 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     permanent
     rail
     rail-width="60"
-    class="bg-background border-0 pa-1"
-    style="position: initial; min-width: 60px"
+    class="bg-background pa-1"
+    :border="0"
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">

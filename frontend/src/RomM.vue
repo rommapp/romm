@@ -19,6 +19,8 @@ storeLanguage.setLanguage(selectedLanguage.value);
 </script>
 <template>
   <v-app>
-    <router-view />
+    <v-main class="h-100">
+      <router-view />
+    </v-main>
   </v-app>
 </template>
