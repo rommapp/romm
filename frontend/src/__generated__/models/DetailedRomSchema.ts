@@ -1,10 +1,9 @@
-/* generated using openapi-typescript-codegen -- do no edit */
+/* generated using openapi-typescript-codegen -- do not edit */
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-
 import type { CollectionSchema } from './CollectionSchema';
-import type { RomFile } from './RomFile';
+import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomSchema } from './RomSchema';
@@ -13,7 +12,6 @@ import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { StateSchema } from './StateSchema';
 import type { UserNotesSchema } from './UserNotesSchema';
-
 export type DetailedRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -25,12 +23,12 @@ export type DetailedRomSchema = {
     platform_name: string;
     platform_custom_name: (string | null);
     platform_display_name: string;
-    file_name: string;
-    file_name_no_tags: string;
-    file_name_no_ext: string;
-    file_extension: string;
-    file_path: string;
-    file_size_bytes: number;
+    fs_name: string;
+    fs_name_no_tags: string;
+    fs_name_no_ext: string;
+    fs_extension: string;
+    fs_path: string;
+    fs_size_bytes: number;
     name: (string | null);
     slug: (string | null);
     summary: (string | null);
@@ -54,11 +52,11 @@ export type DetailedRomSchema = {
     regions: Array<string>;
     languages: Array<string>;
     tags: Array<string>;
-    multi: boolean;
-    files: Array<RomFile>;
     crc_hash: (string | null);
     md5_hash: (string | null);
     sha1_hash: (string | null);
+    multi: boolean;
+    files: Array<RomFileSchema>;
     full_path: string;
     created_at: string;
     updated_at: string;

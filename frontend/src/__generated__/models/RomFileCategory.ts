@@ -2,8 +2,4 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type FrontendDict = {
-    UPLOAD_TIMEOUT: number;
-    DISABLE_USERPASS_LOGIN: boolean;
-};
-
+export type RomFileCategory = 'dlc' | 'hack' | 'manual' | 'patch' | 'update' | 'mod' | 'demo' | 'translation' | 'prototype';

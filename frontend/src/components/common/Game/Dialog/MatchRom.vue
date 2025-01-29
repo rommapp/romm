@@ -51,7 +51,7 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
   searchTerm.value =
     romToSearch.igdb_id || romToSearch.moby_id
       ? (romToSearch.name ?? "")
-      : romToSearch.file_name_no_tags;
+      : romToSearch.fs_name_no_tags;
 
   if (searchTerm.value) {
     searchRom();
@@ -445,17 +445,13 @@ onBeforeUnmount(() => {
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
                   <span>{{ t("rom.rename-file-part3") }}</span
-                  ><span class="text-primary ml-1"
-                    >{{ rom?.file_name_no_tags }}.{{
-                      rom?.file_extension
-                    }}</span
+                  ><span class="text-romm-accent-1 ml-1"
+                    >{{ rom?.fs_name_no_tags }}.{{ rom?.fs_extension }}</span
                   >
                   <br />
                   <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
-                  ><span class="text-primary"
-                    >{{ selectedMatchRom?.name }}.{{
-                      rom?.file_extension
-                    }}</span
+                  ><span class="text-romm-accent-2"
+                    >{{ selectedMatchRom?.name }}.{{ rom?.fs_extension }}</span
                   >
                   <br />
                   <span class="text-caption font-italic font-weight-bold"

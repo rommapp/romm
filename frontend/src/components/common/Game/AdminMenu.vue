@@ -92,7 +92,8 @@ async function resetLastPlayed() {
   await romApi
     .updateUserRomProps({
       romId: props.rom.id,
-      data: { last_played: null },
+      data: {},
+      removeLastPlayed: true,
     })
     .then(() => {
       emitter?.emit("snackbarShow", {
