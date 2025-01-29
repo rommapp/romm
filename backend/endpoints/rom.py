@@ -21,7 +21,7 @@ from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from handler.auth.constants import Scope
-from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
+from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
@@ -598,16 +598,6 @@ async def delete_roms(
 
         log.info(f"Deleting {rom.fs_name} from database")
         db_rom_handler.delete_rom(id)
-
-        # Update collections to remove the deleted rom
-        collections = db_collection_handler.get_collections_by_rom_id(id)
-        for collection in collections:
-            collection.rom_ids = {
-                rom_id for rom_id in collection.rom_ids if rom_id != id
-            }
-            db_collection_handler.update_collection(
-                collection.id, {"roms": collection.rom_ids}
-            )
 
         try:
             rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")

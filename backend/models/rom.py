@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
@@ -17,7 +17,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import CustomJSON, safe_float, safe_int
@@ -130,6 +129,14 @@ class Rom(BaseModel):
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
     rom_users: Mapped[list[RomUser]] = relationship(back_populates="rom")
 
+    collections: Mapped[list[Collection]] = relationship(
+        "Collection",
+        secondary="collections_roms",
+        collection_class=set,
+        back_populates="roms",
+        lazy="joined",
+    )
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
@@ -195,14 +202,6 @@ class Rom(BaseModel):
     def is_unidentified(self) -> bool:
         return not self.igdb_id and not self.moby_id
 
-    def get_collections(self) -> Sequence[Collection]:
-        from handler.database import db_collection_handler
-
-        return db_collection_handler.get_collections_by_rom_id(
-            self.id,
-            order_by=[func.lower("name")],
-        )
-
     # Metadata fields
     @property
     def youtube_video_id(self) -> str:
@@ -257,7 +256,7 @@ class Rom(BaseModel):
         return []
 
     @property
-    def collections(self) -> list[str]:
+    def meta_collections(self) -> list[str]:
         if self.igdb_metadata:
             return self.igdb_metadata.get("collections", [])
         return []

@@ -103,7 +103,7 @@ function setFilters() {
   galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
-        .flatMap((rom) => rom.collections.map((collection) => collection))
+        .flatMap((rom) => rom.meta_collections.map((collection) => collection))
         .sort(),
     ),
   ]);
@@ -208,7 +208,7 @@ function resetGallery() {
 const filterToSetFilter: Record<FilterType, Function> = {
   genres: galleryFilterStore.setSelectedFilterGenre,
   franchises: galleryFilterStore.setSelectedFilterFranchise,
-  collections: galleryFilterStore.setSelectedFilterCollection,
+  meta_collections: galleryFilterStore.setSelectedFilterCollection,
   companies: galleryFilterStore.setSelectedFilterCompany,
   age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
   status: galleryFilterStore.setSelectedFilterStatus,

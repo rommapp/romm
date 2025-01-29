@@ -33,7 +33,7 @@ export type SimpleRomSchema = {
     alternative_names: Array<string>;
     genres: Array<string>;
     franchises: Array<string>;
-    collections: Array<string>;
+    meta_collections: Array<string>;
     companies: Array<string>;
     game_modes: Array<string>;
     age_ratings: Array<string>;

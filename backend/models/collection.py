@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Sequence
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
@@ -27,26 +26,28 @@ class Collection(BaseModel):
         Text, default="", doc="URL to cover image stored in IGDB"
     )
 
-    rom_ids: Mapped[set[int]] = mapped_column(
-        CustomJSON(), default=[], doc="Rom IDs that belong to this collection"
+    roms: Mapped[list[Rom]] = relationship(
+        "Rom",
+        secondary="collections_roms",
+        collection_class=set,
+        back_populates="collections",
+        lazy="joined",
     )
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     user: Mapped[User] = relationship(lazy="joined", back_populates="collections")
 
     @property
-    def roms(self) -> Sequence[Rom]:
-        from handler.database import db_rom_handler
-
-        return db_rom_handler.get_roms(collection_id=self.id)
-
-    @property
     def user__username(self) -> str:
         return self.user.username
 
     @property
+    def rom_ids(self) -> list[int]:
+        return [r.id for r in self.roms]
+
+    @property
     def rom_count(self) -> int:
-        return len(self.rom_ids)
+        return len(self.roms)
 
     @property
     def fs_resources_path(self) -> str:
@@ -90,6 +91,21 @@ class Collection(BaseModel):
 
     def __repr__(self) -> str:
         return self.name
+
+
+class CollectionRom(BaseModel):
+    __tablename__ = "collections_roms"
+
+    collection_id: Mapped[int] = mapped_column(
+        ForeignKey("collections.id", ondelete="CASCADE"), primary_key=True
+    )
+    rom_id: Mapped[int] = mapped_column(
+        ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    __table_args__ = (
+        UniqueConstraint("collection_id", "rom_id", name="unique_collection_rom"),
+    )
 
 
 class VirtualCollection(BaseModel):

@@ -112,7 +112,7 @@ function setFilters() {
   galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
-        .flatMap((rom) => rom.collections.map((collection) => collection))
+        .flatMap((rom) => rom.meta_collections.map((collection) => collection))
         .sort(),
     ),
   ]);
