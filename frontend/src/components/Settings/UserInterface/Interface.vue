@@ -361,6 +361,7 @@ const toggleStatus = (value: boolean) => {
               { title: 'Genre', value: 'genre' },
               { title: 'Play Mode', value: 'mode' },
               { title: 'Developer', value: 'company' },
+              { title: 'All (slow)', value: 'all' },
             ]"
             :label="t('settings.virtual-collection-type')"
             class="mx-2"

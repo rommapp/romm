@@ -2,7 +2,7 @@ from typing import Any, Sequence
 
 from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, literal, or_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import ColumnExpressionArgument
 from utils.database import json_array_contains_value
@@ -56,7 +56,7 @@ class DBCollectionsHandler(DBBaseHandler):
         return (
             session.scalars(
                 select(VirtualCollection)
-                .filter(VirtualCollection.type.in_([type]))
+                .filter(or_(VirtualCollection.type == type, literal(type == "all")))
                 .limit(limit)
                 .order_by(VirtualCollection.name.asc())
             )
