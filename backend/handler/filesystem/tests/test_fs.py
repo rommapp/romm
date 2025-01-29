@@ -32,10 +32,10 @@ def test_get_roms():
     roms = fs_rom_handler.get_roms(platform_fs_slug=platform.fs_slug)
 
     assert len(roms) == 2
-    assert roms[0]["file_name"] == "Paper Mario (USA).z64"
+    assert roms[0]["fs_name"] == "Paper Mario (USA).z64"
     assert not roms[0]["multi"]
 
-    assert roms[1]["file_name"] == "Super Mario 64 (J) (Rev A)"
+    assert roms[1]["fs_name"] == "Super Mario 64 (J) (Rev A)"
     assert roms[1]["multi"]
 
 

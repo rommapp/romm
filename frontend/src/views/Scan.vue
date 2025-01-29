@@ -72,6 +72,11 @@ const scanOptions = [
     value: "partial",
   },
   {
+    title: t("scan.hashes"),
+    subtitle: t("scan.hashes-desc"),
+    value: "hashes",
+  },
+  {
     title: t("scan.complete-rescan"),
     subtitle: t("scan.complete-rescan-desc"),
     value: "complete",

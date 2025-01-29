@@ -1,6 +1,6 @@
 """platforms_custom_name
 
-Revision ID: fc3783d35bdb
+Revision ID: 0029_platforms_custom_name
 Revises: 0028_user_email
 Create Date: 2024-12-24 01:32:57.121432
 
