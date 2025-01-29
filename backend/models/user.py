@@ -4,13 +4,13 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from handler.auth.constants import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES, Scope
 from models.base import BaseModel
-from sqlalchemy import DateTime, Enum, String
+from sqlalchemy import TIMESTAMP, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
 
 if TYPE_CHECKING:
-    from handler.auth.base_handler import Scope
     from models.assets import Save, Screenshot, State
     from models.collection import Collection
     from models.rom import RomUser
@@ -36,8 +36,8 @@ class User(BaseModel, SimpleUser):
     enabled: Mapped[bool] = mapped_column(default=True)
     role: Mapped[Role] = mapped_column(Enum(Role), default=Role.VIEWER)
     avatar_path: Mapped[str] = mapped_column(String(length=255), default="")
-    last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    last_active: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_login: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    last_active: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
     saves: Mapped[list[Save]] = relationship(back_populates="user")
     states: Mapped[list[State]] = relationship(back_populates="user")
@@ -47,8 +47,6 @@ class User(BaseModel, SimpleUser):
 
     @property
     def oauth_scopes(self) -> list[Scope]:
-        from handler.auth.base_handler import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES
-
         if self.role == Role.ADMIN:
             return FULL_SCOPES
 

@@ -6,13 +6,15 @@ import type { DetailedRom } from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { MdPreview } from "md-editor-v3";
 
 // Props
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
+const theme = useTheme();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
@@ -119,7 +121,13 @@ function onFilterClick(filter: FilterType, value: string) {
         <v-divider class="mx-2 my-4" />
         <v-row no-gutters>
           <v-col class="text-caption">
-            <span>{{ rom.summary }}</span>
+            <MdPreview
+              :model-value="rom.summary ?? ''"
+              :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+              preview-theme="vuepress"
+              code-theme="github"
+              :readonly="true"
+            />
           </v-col>
         </v-row>
       </template>

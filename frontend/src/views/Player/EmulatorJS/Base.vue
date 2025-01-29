@@ -14,7 +14,7 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
-const EMULATORJS_VERSION = "4.2.0";
+const EMULATORJS_VERSION = "4.2.1";
 
 // Props
 const { t } = useI18n();

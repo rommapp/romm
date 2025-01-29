@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, TypedDict
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
 from sqlalchemy import (
+    TIMESTAMP,
     BigInteger,
-    DateTime,
     Enum,
     ForeignKey,
     Index,
@@ -17,9 +17,10 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from utils.database import CustomJSON
+from utils.database import CustomJSON, safe_float, safe_int
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -71,7 +72,7 @@ class Rom(BaseModel):
         Text, default="", doc="URL to cover image stored in IGDB"
     )
 
-    revision: Mapped[str | None] = mapped_column(String(100))
+    revision: Mapped[str | None] = mapped_column(String(length=100))
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
@@ -83,9 +84,9 @@ class Rom(BaseModel):
 
     multi: Mapped[bool] = mapped_column(default=False)
     files: Mapped[list[RomFile] | None] = mapped_column(CustomJSON(), default=[])
-    crc_hash: Mapped[str | None] = mapped_column(String(100))
-    md5_hash: Mapped[str | None] = mapped_column(String(100))
-    sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    crc_hash: Mapped[str | None] = mapped_column(String(length=100))
+    md5_hash: Mapped[str | None] = mapped_column(String(length=100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
@@ -141,9 +142,12 @@ class Rom(BaseModel):
         return screenshots
 
     def get_collections(self) -> list[Collection]:
-        from handler.database import db_rom_handler
+        from handler.database import db_collection_handler
 
-        return db_rom_handler.get_rom_collections(self)
+        return db_collection_handler.get_collections_by_rom_id(
+            self.id,
+            order_by=[func.lower("name")],
+        )
 
     # Metadata fields
     @property
@@ -161,10 +165,28 @@ class Rom(BaseModel):
         )
 
     @property
-    def first_release_date(self) -> int:
+    def first_release_date(self) -> int | None:
         if self.igdb_metadata:
-            return self.igdb_metadata.get("first_release_date", 0)
-        return 0
+            return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
+
+        return None
+
+    @property
+    def average_rating(self) -> float | None:
+        igdb_rating = (
+            safe_float(self.igdb_metadata.get("total_rating") or 0)
+            if self.igdb_metadata
+            else 0.0
+        )
+        moby_rating = (
+            safe_float(self.moby_metadata.get("moby_score") or 0)
+            if self.moby_metadata
+            else 0.0
+        )
+
+        ratings = [r for r in [igdb_rating, moby_rating * 10] if r != 0.0]
+
+        return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
 
     @property
     def genres(self) -> list[str]:
@@ -232,7 +254,7 @@ class RomUser(BaseModel):
     note_is_public: Mapped[bool] = mapped_column(default=False)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
-    last_played: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_played: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
     backlogged: Mapped[bool] = mapped_column(default=False)
     now_playing: Mapped[bool] = mapped_column(default=False)

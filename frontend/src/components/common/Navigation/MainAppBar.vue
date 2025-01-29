@@ -1,3 +1,4 @@
+<
 <script setup lang="ts">
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
@@ -6,7 +7,6 @@ import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
-import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
@@ -78,9 +78,9 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     </template>
   </v-navigation-drawer>
 
-  <search-rom-dialog />
   <platforms-drawer />
   <collections-drawer />
   <upload-rom-dialog />
   <settings-drawer />
 </template>
+>
