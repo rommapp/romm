@@ -23,10 +23,13 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 
 <template>
   <v-app-bar
-    id="gallery-app-bar"
     elevation="0"
     density="compact"
     class="ma-2"
+    :class="{
+      'gallery-app-bar-mobile': smAndDown,
+      'gallery-app-bar-desktop': !smAndDown,
+    }"
     rounded
   >
     <platform-icon
@@ -46,11 +49,11 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
       <gallery-view-btn />
     </template>
   </v-app-bar>
-  <v-card
+  <!-- <v-card
     id="gallery-app-bar"
     elevation="0"
     density="compact"
-    class="ma-2 mt-6 justify-center align-center text-center"
+    class="ma-2 mt-6 justify-center"
     rounded
     height="48"
   >
@@ -60,17 +63,17 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
         :slug="currentPlatform.slug"
         :name="currentPlatform.name"
         :size="36"
-        class="my-1 mx-3 cursor-pointer platform-icon"
+        class="mx-3 mt-2 cursor-pointer platform-icon"
         :class="{ active: activePlatformInfoDrawer }"
         @click="navigationStore.switchActivePlatformInfoDrawer"
       />
       <firmware-btn />
       <filter-btn />
-      <filter-text-field v-if="!xs" class="center-affix" />
+      <filter-text-field v-if="!xs" />
       <selecting-btn />
       <gallery-view-btn />
     </v-row>
-  </v-card>
+  </v-card> -->
 
   <platform-info-drawer />
   <filter-drawer />
@@ -78,8 +81,11 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 </template>
 
 <style scoped>
-#gallery-app-bar {
-  z-index: 999 !important;
+.gallery-app-bar-desktop {
+  width: calc(100% - 76px) !important;
+}
+.gallery-app-bar-mobile {
+  width: calc(100% - 16px) !important;
 }
 .platform-icon {
   transition:

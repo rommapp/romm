@@ -66,6 +66,7 @@ function filterRoms() {
 
 <template>
   <v-btn
+    rounded="0"
     id="search-btn"
     type="submit"
     @click="fetchRoms"
