@@ -334,7 +334,7 @@ const toggleStatus = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-view-grid"
         class="ml-2 mt-4"
-        >{{ t("settings.virtual-collections") }}</v-chip
+        >{{ t("common.virtual-collections") }}</v-chip
       >
       <v-divider class="border-opacity-25 mx-2 mb-2" />
       <v-row class="py-1" no-gutters>
