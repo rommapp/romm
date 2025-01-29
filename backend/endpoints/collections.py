@@ -216,6 +216,8 @@ async def update_collection(
         "user_id": request.user.id,
     }
 
+    # TODO: update this
+
     if remove_cover:
         cleaned_data.update(fs_resource_handler.remove_cover(collection))
         cleaned_data.update({"url_cover": ""})

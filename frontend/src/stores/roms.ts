@@ -274,7 +274,7 @@ export default defineStore("roms", {
       const byCollection = new Set(
         this.filteredRoms
           .filter((rom) =>
-            rom.collections.some(
+            rom.meta_collections.some(
               (collection) => collection === collectionToFilter,
             ),
           )

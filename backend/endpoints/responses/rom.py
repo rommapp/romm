@@ -146,7 +146,7 @@ class RomSchema(BaseModel):
     alternative_names: list[str]
     genres: list[str]
     franchises: list[str]
-    collections: list[str]
+    meta_collections: list[str]
     companies: list[str]
     game_modes: list[str]
     age_ratings: list[str]
@@ -233,7 +233,7 @@ class DetailedRomSchema(RomSchema):
             if s.user_id == user_id
         ]
         db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
-            user_id, [c for c in db_rom.get_collections()]
+            user_id, db_rom.collections
         )
 
         return cls.model_validate(db_rom)

@@ -21,7 +21,7 @@ const router = useRouter();
 const filters = [
   { value: "genres", name: t("rom.genres") },
   { value: "franchises", name: t("rom.franchises") },
-  { value: "collections", name: t("rom.collections") },
+  { value: "meta_collections", name: t("rom.collections") },
   { value: "companies", name: t("rom.companies") },
 ] as const;
 const galleryViewStore = storeGalleryView();

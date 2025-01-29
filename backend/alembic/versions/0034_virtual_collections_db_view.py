@@ -8,8 +8,7 @@ Create Date: 2024-08-08 12:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql as sa_pg
-from utils.database import is_postgresql
+from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
 revision = "0034_virtual_collections_db_view"
@@ -19,17 +18,43 @@ depends_on = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("collections", schema=None) as batch_op:
-        batch_op.alter_column(
-            "roms",
-            new_column_name="rom_ids",
-            existing_type=sa.JSON().with_variant(
-                sa_pg.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-        )
+    op.create_table(
+        "collections_roms",
+        sa.Column("collection_id", sa.Integer(), nullable=False),
+        sa.Column("rom_id", sa.Integer(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.TIMESTAMP(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.ForeignKeyConstraint(
+            ["collection_id"], ["collections.id"], ondelete="CASCADE"
+        ),
+        sa.ForeignKeyConstraint(["rom_id"], ["roms.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("collection_id", "rom_id"),
+        sa.UniqueConstraint("collection_id", "rom_id", name="unique_collection_rom"),
+    )
 
     connection = op.get_bind()
+
     if is_postgresql(connection):
+        connection.execute(
+            sa.text(
+                """
+                INSERT INTO collection_roms (collection_id, rom_id)
+                SELECT c.id, rom_id::INT, NOW(), NOW()
+                FROM collections c,
+                LATERAL jsonb_array_elements_text(c.roms) AS rom_id
+                """
+            )
+        )
         connection.execute(
             sa.text(
                 """
@@ -111,6 +136,16 @@ def upgrade() -> None:
             ),
         )
     else:
+        connection.execute(
+            sa.text(
+                """
+                INSERT INTO collections_roms (collection_id, rom_id, created_at, updated_at)
+                SELECT c.id, jt.rom_id, NOW(), NOW()
+                FROM collections c
+                JOIN JSON_TABLE(c.roms, '$[*]' COLUMNS (rom_id INT PATH '$')) AS jt
+                """
+            )
+        )
         connection.execute(
             sa.text(
                 """
@@ -223,18 +258,45 @@ def upgrade() -> None:
             ),
         )
 
+    op.drop_column("collections", "roms")
+
 
 def downgrade() -> None:
     with op.batch_alter_table("collections", schema=None) as batch_op:
-        batch_op.alter_column(
-            "rom_ids",
-            new_column_name="roms",
-            existing_type=sa.JSON().with_variant(
-                sa_pg.JSONB(astext_type=sa.Text()), "postgresql"
-            ),
-        )
+        batch_op.add_column(sa.Column("roms", CustomJSON(), nullable=False))
 
     connection = op.get_bind()
+    if is_postgresql(connection):
+        connection.execute(
+            sa.text(
+                """
+                UPDATE collections c
+                SET roms = (
+                    SELECT jsonb_agg(rom_id)
+                    FROM collections_roms cr
+                    WHERE cr.collection_id = c.id
+                );
+                """
+            )
+        )
+    else:
+        connection.execute(
+            sa.text(
+                """
+                UPDATE collections c
+                JOIN (
+                    SELECT collection_id, JSON_ARRAYAGG(rom_id) as roms
+                    FROM collections_roms
+                    GROUP BY collection_id
+                ) cr
+                ON c.id = cr.collection_id
+                SET c.roms = cr.roms;
+                """
+            )
+        )
+
+    sa.drop_table("collections_roms")
+
     connection.execute(
         sa.text(
             """
