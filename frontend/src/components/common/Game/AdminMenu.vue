@@ -176,17 +176,30 @@ async function resetLastPlayed() {
         }}
       </v-list-item-title>
     </v-list-item>
-    <v-list-item
-      v-if="auth.scopes.includes('collections.write')"
-      class="py-4 pr-5"
-      @click="emitter?.emit('showAddToCollectionDialog', [{ ...rom }])"
-    >
-      <v-list-item-title class="d-flex">
-        <v-icon icon="mdi-bookmark-plus-outline" class="mr-2" />{{
-          t("rom.add-to-collection")
-        }}
-      </v-list-item-title>
-    </v-list-item>
+    <template v-if="auth.scopes.includes('collections.write')">
+      <v-list-item
+        v-if="$route.name == 'collection' && romsStore.currentCollection"
+        class="py-4 pr-5"
+        @click="emitter?.emit('showRemoveFromCollectionDialog', [rom])"
+      >
+        <v-list-item-title class="d-flex">
+          <v-icon icon="mdi-bookmark-remove-outline" class="mr-2" />{{
+            t("rom.remove-from-collection")
+          }}
+        </v-list-item-title>
+      </v-list-item>
+      <v-list-item
+        v-else
+        class="py-4 pr-5"
+        @click="emitter?.emit('showAddToCollectionDialog', [rom])"
+      >
+        <v-list-item-title class="d-flex">
+          <v-icon icon="mdi-bookmark-plus-outline" class="mr-2" />{{
+            t("rom.add-to-collection")
+          }}
+        </v-list-item-title>
+      </v-list-item>
+    </template>
     <template v-if="auth.scopes.includes('roms.write')">
       <v-divider />
       <v-list-item

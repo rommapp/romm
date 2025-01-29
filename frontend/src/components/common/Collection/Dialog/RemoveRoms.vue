@@ -20,8 +20,10 @@ const selectedCollection = ref<Collection>();
 const roms = ref<SimpleRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showRemoveFromCollectionDialog", (romsToRemove) => {
+  if (!romsStore.currentCollection) return;
+
   roms.value = romsToRemove;
-  selectedCollection.value = romsStore.currentCollection as Collection;
+  selectedCollection.value = romsStore.currentCollection;
   updateDataTablePages();
   show.value = true;
 });
@@ -99,9 +101,9 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>{{ t("rom.remove-from-collection-part1") }}</span>
+        <span>{{ t("rom.removing-from-collection-part1") }}</span>
         <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
-        <span>{{ t("rom.remove-from-collection-part2") }}</span>
+        <span>{{ t("rom.removing-from-collection-part2") }}</span>
       </v-row>
     </template>
     <template #content>

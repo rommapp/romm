@@ -205,14 +205,11 @@ async def update_collection(
         rom_ids = json.loads(data["rom_ids"])  # type: ignore
     except json.JSONDecodeError as e:
         raise ValueError("Invalid list for rom_ids field in update collection") from e
-    except KeyError:
-        rom_ids = collection.rom_ids
 
     cleaned_data = {
         "name": data.get("name", collection.name),
         "description": data.get("description", collection.description),
         "is_public": is_public if is_public is not None else collection.is_public,
-        "rom_ids": list(set(rom_ids)),
         "user_id": request.user.id,
     }
 
@@ -259,7 +256,9 @@ async def update_collection(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
 
-    updated_collection = db_collection_handler.update_collection(id, cleaned_data)
+    updated_collection = db_collection_handler.update_collection(
+        id, cleaned_data, rom_ids
+    )
 
     return CollectionSchema.model_validate(updated_collection)
 

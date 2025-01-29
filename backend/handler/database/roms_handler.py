@@ -26,6 +26,7 @@ def with_details(func):
             selectinload(Rom.screenshots),
             selectinload(Rom.rom_users),
             selectinload(Rom.sibling_roms),
+            selectinload(Rom.collections),
         )
         return func(*args, **kwargs)
 

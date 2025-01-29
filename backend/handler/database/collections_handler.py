@@ -1,8 +1,8 @@
 from typing import Sequence
 
 from decorators.database import begin_session
-from models.collection import Collection, VirtualCollection
-from sqlalchemy import delete, literal, or_, select, update
+from models.collection import Collection, CollectionRom, VirtualCollection
+from sqlalchemy import delete, insert, literal, or_, select, update, values
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
@@ -64,7 +64,11 @@ class DBCollectionsHandler(DBBaseHandler):
 
     @begin_session
     def update_collection(
-        self, id: int, data: dict, session: Session = None
+        self,
+        id: int,
+        data: dict,
+        rom_ids: list[int] | None = None,
+        session: Session = None,
     ) -> Collection:
         session.execute(
             update(Collection)
@@ -72,6 +76,16 @@ class DBCollectionsHandler(DBBaseHandler):
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+
+        if rom_ids:
+            session.execute(
+                delete(CollectionRom).where(CollectionRom.collection_id == id)
+            )
+            session.execute(
+                insert(CollectionRom),
+                [{"collection_id": id, "rom_id": rom_id} for rom_id in set(rom_ids)],
+            )
+
         return session.query(Collection).filter_by(id=id).one()
 
     @begin_session
