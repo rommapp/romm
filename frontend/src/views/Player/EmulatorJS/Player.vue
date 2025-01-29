@@ -4,7 +4,12 @@ import saveApi, { saveApi as api } from "@/services/api/save";
 import screenshotApi from "@/services/api/screenshot";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
-import { areThreadsRequiredForEJSCore, getSupportedEJSCores } from "@/utils";
+import {
+  areThreadsRequiredForEJSCore,
+  getSupportedEJSCores,
+  getControlSchemeForPlatform,
+  getDownloadPath,
+} from "@/utils";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -13,6 +18,7 @@ const props = defineProps<{
   state: StateSchema | null;
   bios: FirmwareSchema | null;
   core: string | null;
+  disc: number | null;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
@@ -39,6 +45,7 @@ declare global {
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
     EJS_threads: boolean;
+    EJS_controlScheme: string | null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     EJS_emulator: any;
     EJS_onGameStart: () => void;
@@ -52,9 +59,15 @@ declare global {
 const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
+window.EJS_controlScheme = getControlSchemeForPlatform(
+  romRef.value.platform_slug,
+);
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
-window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
+window.EJS_gameUrl = getDownloadPath({
+  rom: romRef.value,
+  fileIDs: props.disc ? [props.disc] : [],
+});
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
@@ -106,11 +119,17 @@ onMounted(() => {
   } else {
     localStorage.removeItem(`player:${props.rom.platform_slug}:core`);
   }
+
+  if (props.disc) {
+    localStorage.setItem(`player:${props.rom.id}:disc`, props.disc.toString());
+  } else {
+    localStorage.removeItem(`player:${props.rom.id}:disc`);
+  }
 });
 
 function buildStateName(): string {
   const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
+  const romName = romRef.value.fs_name_no_ext.trim();
   let stateName = `${romName}.state.auto`;
   if (!states.includes(stateName)) return stateName;
 
@@ -126,7 +145,7 @@ function buildStateName(): string {
 
 function buildSaveName(): string {
   const saves = romRef.value.user_saves?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
+  const romName = romRef.value.fs_name_no_ext.trim();
   let saveName = `${romName}.srm`;
   if (!saves.includes(saveName)) return saveName;
 

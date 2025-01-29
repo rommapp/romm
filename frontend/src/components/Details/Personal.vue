@@ -3,7 +3,7 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import type { RomUserStatus } from "@/__generated__";
-import { difficultyEmojis, getTextForStatus, getEmojiForStatus } from "@/utils";
+import { getTextForStatus, getEmojiForStatus } from "@/utils";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { ref, watch } from "vue";
@@ -133,39 +133,37 @@ watch(
                   romUser.rating =
                     typeof $event === 'number' ? $event : parseInt($event)
                 "
-                active-color="romm-accent-1"
+                active-color="yellow"
               />
             </v-col>
           </v-row>
           <v-row class="d-flex align-center mt-4" no-gutters>
-            <v-col cols="auto">
+            <v-col cols="12" md="2">
               <v-label>{{ t("rom.difficulty") }}</v-label>
             </v-col>
-            <v-col>
-              <v-slider
-                :class="{ 'ml-4': mdAndUp }"
+            <v-col cols="12" md="10">
+              <v-rating
+                :class="{ 'ml-2': mdAndUp }"
+                hover
+                ripple
+                length="10"
+                size="26"
+                full-icon="mdi-chili-mild"
+                empty-icon="mdi-chili-mild-outline"
                 v-model="romUser.difficulty"
-                min="1"
-                max="10"
-                step="1"
-                hide-details
-                track-fill-color="romm-accent-1"
-                ><template #append>
-                  <v-label class="opacity-100">
-                    {{
-                      difficultyEmojis[Math.floor(romUser.difficulty) - 1] ??
-                      difficultyEmojis[3]
-                    }}
-                  </v-label>
-                </template></v-slider
-              >
+                @update:model-value="
+                  romUser.difficulty =
+                    typeof $event === 'number' ? $event : parseInt($event)
+                "
+                active-color="red"
+              />
             </v-col>
           </v-row>
           <v-row class="d-flex align-center mt-4" no-gutters>
-            <v-col cols="auto">
+            <v-col cols="12" md="2">
               <v-label>{{ t("rom.completion") }} %</v-label>
             </v-col>
-            <v-col>
+            <v-col cols="12" md="10">
               <v-slider
                 :class="{ 'ml-4': mdAndUp }"
                 v-model="romUser.completion"

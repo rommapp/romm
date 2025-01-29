@@ -3,13 +3,13 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Sequence
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
 from sqlalchemy import (
+    TIMESTAMP,
     BigInteger,
-    DateTime,
     Enum,
     ForeignKey,
     Index,
@@ -20,7 +20,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from utils.database import CustomJSON
+from utils.database import CustomJSON, safe_float, safe_int
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -29,10 +29,39 @@ if TYPE_CHECKING:
     from models.user import User
 
 
-class RomFile(TypedDict):
-    filename: str
-    size: int
-    last_modified: float | None
+class RomFileCategory(enum.StrEnum):
+    DLC = "dlc"
+    HACK = "hack"
+    MANUAL = "manual"
+    PATCH = "patch"
+    UPDATE = "update"
+    MOD = "mod"
+    DEMO = "demo"
+    TRANSLATION = "translation"
+    PROTOTYPE = "prototype"
+
+
+class RomFile(BaseModel):
+    __tablename__ = "rom_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
+    file_name: Mapped[str] = mapped_column(String(length=450))
+    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
+    last_modified: Mapped[float | None] = mapped_column(default=None)
+    crc_hash: Mapped[str | None] = mapped_column(String(100))
+    md5_hash: Mapped[str | None] = mapped_column(String(100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    category: Mapped[RomFileCategory | None] = mapped_column(
+        Enum(RomFileCategory), default=None
+    )
+
+    rom: Mapped[Rom] = relationship(lazy="joined")
+
+    @cached_property
+    def full_path(self) -> str:
+        return f"{self.file_path}/{self.file_name}"
 
 
 class Rom(BaseModel):
@@ -49,12 +78,11 @@ class Rom(BaseModel):
         Index("idx_roms_moby_id", "moby_id"),
     )
 
-    file_name: Mapped[str] = mapped_column(String(length=450))
-    file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
-    file_name_no_ext: Mapped[str] = mapped_column(String(length=450))
-    file_extension: Mapped[str] = mapped_column(String(length=100))
-    file_path: Mapped[str] = mapped_column(String(length=1000))
-    file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
+    fs_name: Mapped[str] = mapped_column(String(length=450))
+    fs_name_no_tags: Mapped[str] = mapped_column(String(length=450))
+    fs_name_no_ext: Mapped[str] = mapped_column(String(length=450))
+    fs_extension: Mapped[str] = mapped_column(String(length=100))
+    fs_path: Mapped[str] = mapped_column(String(length=1000))
 
     name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))
@@ -72,7 +100,7 @@ class Rom(BaseModel):
         Text, default="", doc="URL to cover image stored in IGDB"
     )
 
-    revision: Mapped[str | None] = mapped_column(String(100))
+    revision: Mapped[str | None] = mapped_column(String(length=100))
     regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
@@ -82,11 +110,9 @@ class Rom(BaseModel):
         CustomJSON(), default=[], doc="URLs to screenshots stored in IGDB"
     )
 
-    multi: Mapped[bool] = mapped_column(default=False)
-    files: Mapped[list[RomFile] | None] = mapped_column(CustomJSON(), default=[])
-    crc_hash: Mapped[str | None] = mapped_column(String(100))
-    md5_hash: Mapped[str | None] = mapped_column(String(100))
-    sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    crc_hash: Mapped[str | None] = mapped_column(String(length=100))
+    md5_hash: Mapped[str | None] = mapped_column(String(length=100))
+    sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
@@ -98,7 +124,7 @@ class Rom(BaseModel):
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
     )
-
+    files: Mapped[list[RomFile]] = relationship(back_populates="rom", lazy="immediate")
     saves: Mapped[list[Save]] = relationship(back_populates="rom")
     states: Mapped[list[State]] = relationship(back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
@@ -126,7 +152,7 @@ class Rom(BaseModel):
 
     @cached_property
     def full_path(self) -> str:
-        return f"{self.file_path}/{self.file_name}"
+        return f"{self.fs_path}/{self.fs_name}"
 
     @cached_property
     def has_cover(self) -> bool:
@@ -141,7 +167,15 @@ class Rom(BaseModel):
             ]
         return screenshots
 
-    def get_collections(self) -> list[Collection]:
+    @cached_property
+    def multi(self) -> bool:
+        return len(self.files) > 1
+
+    @cached_property
+    def fs_size_bytes(self) -> int:
+        return sum(f.file_size_bytes for f in self.files)
+
+    def get_collections(self) -> Sequence[Collection]:
         from handler.database import db_collection_handler
 
         return db_collection_handler.get_collections_by_rom_id(
@@ -165,10 +199,28 @@ class Rom(BaseModel):
         )
 
     @property
-    def first_release_date(self) -> int:
+    def first_release_date(self) -> int | None:
         if self.igdb_metadata:
-            return self.igdb_metadata.get("first_release_date", 0)
-        return 0
+            return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
+
+        return None
+
+    @property
+    def average_rating(self) -> float | None:
+        igdb_rating = (
+            safe_float(self.igdb_metadata.get("total_rating") or 0)
+            if self.igdb_metadata
+            else 0.0
+        )
+        moby_rating = (
+            safe_float(self.moby_metadata.get("moby_score") or 0)
+            if self.moby_metadata
+            else 0.0
+        )
+
+        ratings = [r for r in [igdb_rating, moby_rating * 10] if r != 0.0]
+
+        return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
 
     @property
     def genres(self) -> list[str]:
@@ -213,7 +265,7 @@ class Rom(BaseModel):
         return f"roms/{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
-        return self.file_name
+        return self.fs_name
 
 
 class RomUserStatus(enum.StrEnum):
@@ -236,7 +288,7 @@ class RomUser(BaseModel):
     note_is_public: Mapped[bool] = mapped_column(default=False)
 
     is_main_sibling: Mapped[bool] = mapped_column(default=False)
-    last_played: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_played: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
     backlogged: Mapped[bool] = mapped_column(default=False)
     now_playing: Mapped[bool] = mapped_column(default=False)

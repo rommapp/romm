@@ -1,7 +1,7 @@
 import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
-import type { RomFile, RomUserStatus } from "@/__generated__";
+import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 
 /**
  * Views configuration object.
@@ -88,28 +88,28 @@ export function convertCronExperssion(expression: string) {
  */
 export function getDownloadPath({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
   const queryParams = new URLSearchParams();
-  if (files.length) {
-    files.forEach((file) => queryParams.append("files", file));
+  if (fileIDs.length > 0) {
+    fileIDs.forEach((fileId) =>
+      queryParams.append("file_ids", fileId.toString()),
+    );
   }
-  return `/api/roms/${rom.id}/content/${
-    rom.file_name
-  }?${queryParams.toString()}`;
+  return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
 }
 
 export function getDownloadLink({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
-  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, files }))}`;
+  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, fileIDs }))}`;
 }
 
 /**
@@ -360,10 +360,10 @@ const _EJS_CORES_MAP = {
   "game-boy-micro": ["mgba"],
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
-  ps: ["pcsx_rearmed", "mednafen_psx"],
+  ps: ["pcsx_rearmed", "mednafen_psx_hw"],
   psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
-  // sega32: ["picodrive"], // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
+  sega32: ["picodrive"],
   gamegear: ["genesis_plus_gx"],
   sms: ["genesis_plus_gx"],
   "sega-mark-iii": ["genesis_plus_gx"],
@@ -430,9 +430,14 @@ export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
 ) {
+  const canvas = document.createElement("canvas");
+  const gl =
+    canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
   return (
     !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
-    getSupportedEJSCores(platformSlug).length > 0
+    getSupportedEJSCores(platformSlug).length > 0 &&
+    gl instanceof WebGLRenderingContext
   );
 }
 
@@ -446,6 +451,41 @@ export function isEJSEmulationSupported(
  */
 export function isEJSThreadsSupported(): boolean {
   return typeof SharedArrayBuffer !== "undefined";
+}
+
+// This is a workaround to set the control scheme for Sega systems using the same cores
+const _EJS_CONTROL_SCHEMES = {
+  segacd: "segaCD",
+  sega32: "sega32x",
+  gamegear: "segaGG",
+  sms: "segaMS",
+  "sega-mark-iii": "segaMS",
+  "sega-master-system-ii": "segaMS",
+  "master-system-super-compact": "segaMS",
+  "master-system-girl": "segaMS",
+  "genesis-slash-megadrive": "segaMD",
+  "sega-mega-drive-2-slash-genesis": "segaMD",
+  "sega-mega-jet": "segaMD",
+  "mega-pc": "segaMD",
+  "tera-drive": "segaMD",
+  "sega-nomad": "segaMD",
+  saturn: "segaSaturn",
+};
+
+type EJSControlSlug = keyof typeof _EJS_CONTROL_SCHEMES;
+
+/**
+ * Get the control scheme for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @returns The control scheme.
+ */
+export function getControlSchemeForPlatform(
+  platformSlug: string,
+): string | null {
+  return platformSlug in _EJS_CONTROL_SCHEMES
+    ? _EJS_CONTROL_SCHEMES[platformSlug as EJSControlSlug]
+    : null;
 }
 
 /**
@@ -466,22 +506,6 @@ export function isRuffleEmulationSupported(
 }
 
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
-
-/**
- * Array of difficulty emojis.
- */
-export const difficultyEmojis = [
-  "😴",
-  "🥱",
-  "😐",
-  "😄",
-  "🤔",
-  "🤯",
-  "😓",
-  "😡",
-  "🤬",
-  "😵",
-];
 
 /**
  * Map of ROM statuses to their corresponding emoji and text.
@@ -546,12 +570,12 @@ export function getStatusKeyForText(text: string) {
 }
 
 export function is3DSCIAFile(rom: SimpleRom): boolean {
-  return ["cia", "3ds"].includes(rom.file_extension.toLowerCase());
+  return rom.fs_extension.toLowerCase() == "cia";
 }
 
-export function get3DSCIAFiles(rom: SimpleRom): RomFile[] {
+export function get3DSCIAFiles(rom: SimpleRom): RomFileSchema[] {
   return rom.files.filter((file) =>
-    [".cia", ".3ds"].some((ext) => file.filename.toLowerCase().endsWith(ext)),
+    file.file_name.toLowerCase().endsWith(".cia"),
   );
 }
 

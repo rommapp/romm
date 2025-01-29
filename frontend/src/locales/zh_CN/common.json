@@ -3,6 +3,7 @@
   "platforms": "平台",
   "platforms-n": "{n} 平台 | {n} 平台",
   "firmware": "固件",
+  "core": "核心",
   "games-n": "{n} 游戏 | {n} 游戏",
   "collection": "收藏",
   "collections": "收藏",

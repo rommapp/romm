@@ -1,12 +1,10 @@
-/* generated using openapi-typescript-codegen -- do no edit */
+/* generated using openapi-typescript-codegen -- do not edit */
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-
 import type { IGDBAgeRating } from './IGDBAgeRating';
 import type { IGDBMetadataPlatform } from './IGDBMetadataPlatform';
 import type { IGDBRelatedGame } from './IGDBRelatedGame';
-
 export type RomIGDBMetadata = {
     total_rating?: string;
     aggregated_rating?: string;

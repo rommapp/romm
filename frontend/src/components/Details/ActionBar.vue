@@ -4,6 +4,7 @@ import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownl
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeConfig from "@/stores/config";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/utils";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
+import { storeToRefs } from "pinia";
 
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
@@ -22,13 +24,23 @@ const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const playInfoIcon = ref("mdi-play");
 const qrCodeIcon = ref("mdi-qrcode");
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 
-const ejsEmulationSupported = computed(() =>
-  isEJSEmulationSupported(props.rom.platform_slug, heartbeatStore.value),
+const platformSlug = computed(() =>
+  props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
+    ? config.value.PLATFORMS_VERSIONS[props.rom.platform_slug]
+    : props.rom.platform_slug,
 );
-const ruffleEmulationSupported = computed(() =>
-  isRuffleEmulationSupported(props.rom.platform_slug, heartbeatStore.value),
-);
+
+const ejsEmulationSupported = computed(() => {
+  return isEJSEmulationSupported(platformSlug.value, heartbeatStore.value);
+});
+
+const ruffleEmulationSupported = computed(() => {
+  return isRuffleEmulationSupported(platformSlug.value, heartbeatStore.value);
+});
+
 const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
@@ -37,7 +49,7 @@ const is3DSRom = computed(() => {
 async function copyDownloadLink(rom: DetailedRom) {
   const downloadLink = getDownloadLink({
     rom,
-    files: downloadStore.filesToDownload,
+    fileIDs: downloadStore.fileIDsToDownload,
   });
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(downloadLink);
@@ -62,7 +74,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         @click="
           romApi.downloadRom({
             rom,
-            files: downloadStore.filesToDownload,
+            fileIDs: downloadStore.fileIDsToDownload,
           })
         "
       >
