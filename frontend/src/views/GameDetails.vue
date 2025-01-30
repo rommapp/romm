@@ -130,8 +130,6 @@ watch(
             >
               {{ t("rom.additional-content") }}
             </v-tab>
-            <!-- TODO: user screenshots -->
-            <!-- <v-tab value="screenshots" >Screenshots</v-tab> -->
             <v-tab
               v-if="
                 smAndDown &&

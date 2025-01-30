@@ -26,8 +26,8 @@ function clear() {
     width="500"
     v-model="activePlatformsDrawer"
     :class="{
-      'mx-2': !(!smAndDown && !activePlatformsDrawer),
-      'my-2': !(smAndDown && !activePlatformsDrawer),
+      'mx-2': smAndDown || activePlatformsDrawer,
+      'my-2': !smAndDown || activePlatformsDrawer,
       'drawer-mobile': smAndDown,
       'drawer-desktop': !smAndDown,
     }"
