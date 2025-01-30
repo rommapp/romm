@@ -9,7 +9,7 @@ const { smAndDown } = useDisplay();
 const heartbeatStore = storeHeartbeat();
 </script>
 <template>
-  <div :class="{ desktop: !smAndDown }" class="bottom-0 sticky-bottom">
+  <div :class="{ desktop: !smAndDown }" class="sticky-bottom">
     <v-card class="bg-toplayer ma-2 pa-2">
       <v-row class="align-center justify-center" no-gutters>
         <span class="ml-1">{{ heartbeatStore.value.SYSTEM.VERSION }}</span>
