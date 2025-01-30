@@ -79,7 +79,7 @@ onBeforeMount(() => {
         <v-col>
           <v-chip
             class="text-overline"
-            prepend-icon="mdi-image-area"
+            prepend-icon="mdi-harddisk"
             variant="text"
             label
           >

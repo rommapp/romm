@@ -34,7 +34,7 @@ onMounted(() => {
 });
 
 watch(
-  router.currentRoute.value.query,
+  () => router.currentRoute.value.query,
   (query) => {
     if (query.search && query.search !== filterText.value) {
       filterText.value = query.search as string;

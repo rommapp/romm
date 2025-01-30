@@ -26,7 +26,7 @@ const navigationStore = storeNavigation();
     elevation="0"
     class="bg-background justify-center px-1"
     mode="shift"
-    height="60"
+    height="55"
     app
     fixed
     left

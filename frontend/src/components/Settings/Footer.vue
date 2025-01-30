@@ -7,7 +7,7 @@ const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
 </script>
 <template>
-  <div class="bottom-0 w-100">
+  <div class="bottom-0 w-100 sticky-bottom">
     <v-card class="bg-toplayer ma-2 pa-2">
       <v-row class="align-center justify-center" no-gutters>
         <span class="ml-1">{{ heartbeatStore.value.SYSTEM.VERSION }}</span>
@@ -45,3 +45,13 @@ const heartbeatStore = storeHeartbeat();
     </v-card>
   </div>
 </template>
+<style scoped>
+.sticky-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  pointer-events: none;
+}
+</style>

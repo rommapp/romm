@@ -85,6 +85,7 @@ async function logout() {
         >{{ t("common.profile") }}</v-list-item
       >
       <v-list-item
+        class="mt-1"
         rounded
         :to="{ name: 'userInterface' }"
         append-icon="mdi-palette"
@@ -92,6 +93,7 @@ async function logout() {
       >
       <v-list-item
         v-if="scopes.includes('platforms.write')"
+        class="mt-1"
         rounded
         append-icon="mdi-table-cog"
         :to="{ name: 'libraryManagement' }"
@@ -99,6 +101,7 @@ async function logout() {
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
+        class="mt-1"
         rounded
         :to="{ name: 'administration' }"
         append-icon="mdi-security"
@@ -109,7 +112,7 @@ async function logout() {
           @click="logout"
           append-icon="mdi-location-exit"
           rounded
-          class="bg-toplayer border-sm text-romm-red border-romm-red"
+          class="bg-toplayer border-sm text-romm-red border-romm-red mt-1"
           >{{ t("common.logout") }}</v-list-item
         >
       </template>
@@ -120,7 +123,7 @@ async function logout() {
           @click="logout"
           append-icon="mdi-location-exit"
           rounded
-          class="bg-surface border-sm text-romm-red border-romm-red"
+          class="bg-toplayer border-sm text-romm-red border-romm-red"
           >{{ t("common.logout") }}</v-list-item
         >
       </v-list>
