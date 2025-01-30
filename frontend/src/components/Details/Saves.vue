@@ -69,10 +69,7 @@ async function downloasSaves() {
   >
     <template #header.actions>
       <v-btn-group divided density="compact">
-        <v-btn
-          size="small"
-          @click="emitter?.emit('addSavesDialog', rom)"
-        >
+        <v-btn size="small" @click="emitter?.emit('addSavesDialog', rom)">
           <v-icon>mdi-upload</v-icon>
         </v-btn>
         <v-btn
@@ -124,11 +121,7 @@ async function downloasSaves() {
     >
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">
-        <v-btn
-          :href="item.download_path"
-          download
-          size="small"
-        >
+        <v-btn :href="item.download_path" download size="small">
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
