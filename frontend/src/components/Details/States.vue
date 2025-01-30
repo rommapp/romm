@@ -89,6 +89,7 @@ onMounted(() => {
     return-object
     v-model="selectedStates"
     v-model:page="page"
+    rounded
     show-select
   >
     <template #header.actions>

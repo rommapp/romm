@@ -85,7 +85,7 @@ onMounted(() => {
     :items-per-page-options="PER_PAGE_OPTIONS"
     :headers="HEADERS"
     return-object
-    class="bg-surface"
+    class="bg-surface rounded"
     v-model="selectedSaves"
     v-model:page="page"
     show-select
