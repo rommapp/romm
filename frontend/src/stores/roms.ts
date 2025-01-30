@@ -53,13 +53,10 @@ export default defineStore("roms", {
             // If external id is null, generate a random id so that the roms are not grouped
             game.igdb_id || game.moby_id || nanoid(),
         ),
-      )
-        .map((games) => {
-          // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
-          return (
-            games.find((game) => game.rom_user?.is_main_sibling) || games[0]
-          );
-        });
+      ).map((games) => {
+        // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
+        return games.find((game) => game.rom_user?.is_main_sibling) || games[0];
+      });
     },
     _reorder() {
       // Sort roms by comparator string
@@ -74,10 +71,9 @@ export default defineStore("roms", {
       }
 
       // Group roms by external id
-      this._grouped = this._getGroupedRoms(this.allRoms)
-        .sort((a, b) => {
-          return a.sort_comparator.localeCompare(b.sort_comparator);
-        });
+      this._grouped = this._getGroupedRoms(this.allRoms).sort((a, b) => {
+        return a.sort_comparator.localeCompare(b.sort_comparator);
+      });
     },
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
@@ -90,7 +86,7 @@ export default defineStore("roms", {
         // Group by external ID to only display a single entry per sibling,
         // and sorted on rom ID in descending order.
         this.recentRoms = this._getGroupedRoms(roms).sort(
-          (a, b) => b.id - a.id
+          (a, b) => b.id - a.id,
         );
       } else {
         this.recentRoms = roms;
