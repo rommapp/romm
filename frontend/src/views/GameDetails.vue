@@ -89,14 +89,9 @@ watch(
   <template v-if="currentRom && !gettingRoms">
     <background-header />
 
-    <v-row
-      id="game-details"
-      class="px-5"
-      no-gutters
-      :class="{ 'justify-center': smAndDown, 'bg-background': true }"
-    >
+    <v-row class="px-5" no-gutters :class="{ 'justify-center': smAndDown }">
       <v-col cols="auto">
-        <v-container :width="270" class="pa-0">
+        <v-container :width="270" id="artwork-container" class="pa-0">
           <game-card :key="currentRom.updated_at" :rom="currentRom" />
           <action-bar class="mt-2" :rom="currentRom" />
           <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
@@ -104,15 +99,14 @@ watch(
       </v-col>
 
       <v-col>
-        <div class="ml-4 mt-14">
+        <div
+          class="ml-4"
+          :class="{ 'position-absolute title-desktop': mdAndUp }"
+        >
           <title-info :rom="currentRom" />
         </div>
         <v-row
-          :class="{
-            'px-4': mdAndUp,
-            'justify-center': smAndDown,
-            'mt-16': mdAndUp,
-          }"
+          :class="{ 'px-4': mdAndUp, 'justify-center': smAndDown }"
           no-gutters
         >
           <v-tabs
@@ -211,7 +205,10 @@ watch(
 </template>
 
 <style scoped>
-#game-details {
-  margin-top: -14rem;
+.title-desktop {
+  margin-top: -190px;
+}
+#artwork-container {
+  margin-top: -230px;
 }
 </style>
