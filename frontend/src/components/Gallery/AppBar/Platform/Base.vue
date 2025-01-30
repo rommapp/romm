@@ -49,31 +49,6 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
       <gallery-view-btn />
     </template>
   </v-app-bar>
-  <!-- <v-card
-    id="gallery-app-bar"
-    elevation="0"
-    density="compact"
-    class="ma-2 mt-6 justify-center"
-    rounded
-    height="48"
-  >
-    <v-row no-gutters>
-      <platform-icon
-        v-if="currentPlatform"
-        :slug="currentPlatform.slug"
-        :name="currentPlatform.name"
-        :size="36"
-        class="mx-3 mt-2 cursor-pointer platform-icon"
-        :class="{ active: activePlatformInfoDrawer }"
-        @click="navigationStore.switchActivePlatformInfoDrawer"
-      />
-      <firmware-btn />
-      <filter-btn />
-      <filter-text-field v-if="!xs" />
-      <selecting-btn />
-      <gallery-view-btn />
-    </v-row>
-  </v-card> -->
 
   <platform-info-drawer />
   <filter-drawer />

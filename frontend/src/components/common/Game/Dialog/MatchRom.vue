@@ -445,12 +445,12 @@ onBeforeUnmount(() => {
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
                   <span>{{ t("rom.rename-file-part3") }}</span
-                  ><span class="text-romm-accent-1 ml-1"
+                  ><span class="text-primary ml-1"
                     >{{ rom?.fs_name_no_tags }}.{{ rom?.fs_extension }}</span
                   >
                   <br />
                   <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
-                  ><span class="text-romm-accent-2"
+                  ><span class="text-secondary"
                     >{{ selectedMatchRom?.name }}.{{ rom?.fs_extension }}</span
                   >
                   <br />
