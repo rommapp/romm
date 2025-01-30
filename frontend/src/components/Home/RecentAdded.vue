@@ -19,13 +19,16 @@ const gridRecentRoms = isNull(localStorage.getItem("settings.gridRecentRoms"))
   <r-section icon="mdi-shimmer" :title="t('home.recently-added')">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': !gridRecentRoms }"
+        :class="{
+          'flex-nowrap overflow-x-auto': !gridRecentRoms,
+          'py-2': true,
+        }"
         no-gutters
       >
         <v-col
           v-for="rom in recentRoms"
           :key="rom.id"
-          class="px-1 pt-1 pb-2 align-self-end"
+          class="pa-1 align-self-end"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
@@ -35,14 +38,14 @@ const gridRecentRoms = isNull(localStorage.getItem("settings.gridRecentRoms"))
           <game-card
             :key="rom.updated_at"
             :rom="rom"
-            title-on-hover
-            pointer-on-hover
-            with-link
-            show-flags
-            show-fav
-            transform-scale
-            show-action-bar
-            show-platform-icon
+            titleOnHover
+            pointerOnHover
+            withLink
+            showFlags
+            showFav
+            transformScale
+            showActionBar
+            showPlatformIcon
           />
         </v-col>
       </v-row>

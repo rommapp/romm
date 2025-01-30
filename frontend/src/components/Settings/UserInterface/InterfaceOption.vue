@@ -15,14 +15,14 @@ const emit = defineEmits(["update:modelValue"]);
 </script>
 <template>
   <v-card elevation="0">
-    <v-list-item class="pa-1"
+    <v-list-item class="px-6 py-1"
       ><template #prepend
-        ><v-icon :class="modelValue ? 'text-romm-accent-1' : ''" :icon="icon"
+        ><v-icon :class="modelValue ? 'text-primary' : ''" :icon="icon"
       /></template>
 
       <v-list-item-title
         class="font-weight-bold"
-        :class="{ 'text-romm-accent-1': modelValue }"
+        :class="{ 'text-primary': modelValue }"
         >{{ title }}</v-list-item-title
       >
       <v-list-item-subtitle>{{ description }}</v-list-item-subtitle>
@@ -32,8 +32,7 @@ const emit = defineEmits(["update:modelValue"]);
           inset
           :model-value="modelValue"
           @update:model-value="(value) => emit('update:modelValue', value)"
-          :class="{ 'pr-16': !xs }"
-          color="romm-accent-1"
+          color="primary"
           hide-details
         /> </template
     ></v-list-item>
@@ -41,7 +40,7 @@ const emit = defineEmits(["update:modelValue"]);
 </template>
 
 <style scoped>
-.text-romm-accent-1 {
+.text-primary {
   transition: color 0.3s ease-in-out;
 }
 

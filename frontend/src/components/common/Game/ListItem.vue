@@ -40,7 +40,7 @@ withDefaults(
       ><v-col>{{ rom.name }}</v-col></v-row
     >
     <v-row v-if="withFilename" no-gutters
-      ><v-col class="text-romm-accent-1">{{ rom.fs_name }}</v-col></v-row
+      ><v-col class="text-primary">{{ rom.fs_name }}</v-col></v-row
     >
     <slot name="append-body"></slot>
     <template #append>
