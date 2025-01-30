@@ -18,8 +18,6 @@ import { useDisplay } from "vuetify";
 // Props
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
-const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
-  storeToRefs(navigationStore);
 </script>
 <template>
   <!-- Mobile app bar -->

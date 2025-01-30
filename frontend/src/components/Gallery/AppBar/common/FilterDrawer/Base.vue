@@ -93,7 +93,7 @@ function resetFilters() {
     @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     :class="{
       'mx-2 px-1': activeFilterDrawer,
-      'drawer-mobile': smAndDown,
+      'drawer-mobile': smAndDown && activeFilterDrawer,
       'drawer-desktop': !smAndDown,
     }"
     class="bg-surface border-0 rounded my-2 py-1"

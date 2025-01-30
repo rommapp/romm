@@ -178,7 +178,7 @@ watch(
     v-model="activePlatformInfoDrawer"
     :class="{
       'mx-2 px-1': activePlatformInfoDrawer,
-      'drawer-mobile': smAndDown,
+      'drawer-mobile': smAndDown && activePlatformInfoDrawer,
       'drawer-desktop': !smAndDown,
     }"
     class="bg-surface border-0 rounded my-2 py-1"
