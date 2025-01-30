@@ -2,7 +2,7 @@ from typing import Sequence
 
 from decorators.database import begin_session
 from models.user import Role, User
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
@@ -18,12 +18,14 @@ class DBUsersHandler(DBBaseHandler):
         self, username: str, session: Session = None
     ) -> User | None:
         return session.scalar(
-            select(User).filter_by(username=username.lower()).limit(1)
+            select(User).filter(func.lower(User.username) == username.lower()).limit(1)
         )
 
     @begin_session
     def get_user_by_email(self, email: str, session: Session = None) -> User | None:
-        return session.scalar(select(User).filter_by(email=email.lower()).limit(1))
+        return session.scalar(
+            select(User).filter(func.lower(User.email) == email.lower()).limit(1)
+        )
 
     @begin_session
     def get_user(self, id: int, session: Session = None) -> User | None:
