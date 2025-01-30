@@ -337,7 +337,7 @@ onBeforeUnmount(() => {
 
       <!-- Gallery list view -->
       <v-row v-show="currentView == 2" no-gutters>
-        <game-data-table class="fill-height" />
+        <game-data-table />
       </v-row>
       <fab-overlay />
     </template>
