@@ -12,9 +12,8 @@ import storeRoms from "@/stores/roms";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs } = useDisplay();
+const { xs, smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
-const { activeCollectionInfoDrawer } = storeToRefs(navigationStore);
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
 </script>

@@ -21,8 +21,7 @@ import { useDisplay } from "vuetify";
 // Props
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
-const { xs } = useDisplay();
-const viewportWidth = ref(window.innerWidth);
+const { smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
@@ -178,12 +177,12 @@ watch(
     width="500"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'mx-2': activePlatformInfoDrawer,
-      'px-1': activePlatformInfoDrawer,
+      'mx-2 px-1': activePlatformInfoDrawer,
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset; top: 54px"
-    :scrim="false"
+    style="height: unset"
   >
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col cols="12">
@@ -332,12 +331,14 @@ watch(
       icon="mdi-cog"
       :title="t('platform.settings')"
       elevation="0"
+      titleDivider
+      bgColor="bg-toplayer"
     >
       <template #content>
         <v-chip
           label
           variant="text"
-          class="ml-2"
+          class="ml-2 mt-2"
           prepend-icon="mdi-aspect-ratio"
           >{{ t("platform.cover-style") }}</v-chip
         >
@@ -389,6 +390,8 @@ watch(
       icon-color="red"
       :title="t('platform.danger-zone')"
       elevation="0"
+      titleDivider
+      bgColor="bg-toplayer"
     >
       <template #content>
         <div class="text-center">
@@ -418,5 +421,12 @@ watch(
 }
 .greyscale {
   filter: grayscale(100%);
+}
+.drawer-desktop {
+  top: 54px !important;
+}
+.drawer-mobile {
+  top: 114px !important;
+  width: calc(100% - 16px) !important;
 }
 </style>

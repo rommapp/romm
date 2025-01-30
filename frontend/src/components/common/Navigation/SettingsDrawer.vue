@@ -47,12 +47,15 @@ async function logout() {
     width="450"
     v-model="activeSettingsDrawer"
     :class="{
-      'ml-2': activeSettingsDrawer,
+      'mx-2': !(!smAndDown && !activeSettingsDrawer),
+      'my-2': !(smAndDown && !activeSettingsDrawer),
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface my-2 pa-1"
+    class="bg-surface pa-1"
     style="height: unset"
-    :border="0"
     rounded
+    :border="0"
   >
     <v-list class="pa-0">
       <v-list-img>
@@ -124,3 +127,8 @@ async function logout() {
     </template>
   </v-navigation-drawer>
 </template>
+<style scoped>
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>

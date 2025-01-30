@@ -17,7 +17,7 @@ import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
-const { xs } = useDisplay();
+const { xs, smAndDown } = useDisplay();
 const viewportWidth = ref(window.innerWidth);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
@@ -92,12 +92,12 @@ function resetFilters() {
     v-model="activeFilterDrawer"
     @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     :class="{
-      'mx-2': activeFilterDrawer,
-      'px-1': activeFilterDrawer,
+      'mx-2 px-1': activeFilterDrawer,
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset; top: 54px"
-    :scrim="false"
+    style="height: unset"
   >
     <v-list>
       <template v-if="xs">
@@ -148,3 +148,12 @@ function resetFilters() {
     </v-list>
   </v-navigation-drawer>
 </template>
+<style scoped>
+.drawer-desktop {
+  top: 54px !important;
+}
+.drawer-mobile {
+  top: 114px !important;
+  width: calc(100% - 16px) !important;
+}
+</style>

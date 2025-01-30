@@ -145,6 +145,7 @@ function onDownload() {
         class="border-selected"
         color="primary"
         elevation="8"
+        variant="text"
         size="large"
         @click="scrollToTop()"
         ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn

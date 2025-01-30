@@ -15,7 +15,7 @@ import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
-const { xs, mdAndUp } = useDisplay();
+const { xs, mdAndUp, smAndDown } = useDisplay();
 const auth = storeAuth();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
@@ -77,11 +77,12 @@ onMounted(() => {
     location="bottom"
     v-model="activeFirmwareDrawer"
     :class="{
-      'my-2': activeFirmwareDrawer,
-      'px-1': activeFirmwareDrawer,
+      'my-2 px-1': activeFirmwareDrawer,
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface border-0 rounded mx-2 px-1"
-    :scrim="false"
+    style="width: unset"
   >
     <v-data-table
       :items="currentPlatform?.firmware ?? []"
@@ -229,3 +230,11 @@ onMounted(() => {
   <upload-firmware-dialog />
   <delete-firmware-dialog />
 </template>
+<style scoped>
+.drawer-desktop {
+  width: calc(100% - 76px) !important;
+}
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>

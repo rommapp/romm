@@ -26,10 +26,12 @@ function clear() {
     width="500"
     v-model="activePlatformsDrawer"
     :class="{
-      'mx-2': activePlatformsDrawer,
-      'px-1': activePlatformsDrawer,
+      'mx-2': !(!smAndDown && !activePlatformsDrawer),
+      'my-2': !(smAndDown && !activePlatformsDrawer),
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface my-2 py-1"
+    class="bg-surface pa-1"
     style="height: unset"
     rounded
     :border="0"
@@ -57,3 +59,8 @@ function clear() {
     </v-list>
   </v-navigation-drawer>
 </template>
+<style scoped>
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>
