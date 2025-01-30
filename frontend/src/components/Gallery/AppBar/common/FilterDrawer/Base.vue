@@ -150,7 +150,7 @@ function resetFilters() {
 </template>
 <style scoped>
 .drawer-desktop {
-  top: 54px !important;
+  top: 56px !important;
 }
 .drawer-mobile {
   top: 114px !important;
