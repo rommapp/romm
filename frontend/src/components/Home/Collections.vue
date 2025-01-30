@@ -17,7 +17,10 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
   <r-section icon="mdi-bookmark-box-multiple" :title="t('common.collections')">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
+        :class="{
+          'flex-nowrap overflow-x-auto': !gridCollections,
+          'py-2': true,
+        }"
         no-gutters
       >
         <v-col
@@ -32,11 +35,11 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
         >
           <collection-card
             show-rom-count
-            show-title
             transform-scale
             :key="collection.updated_at"
             :collection="collection"
             with-link
+            title-on-hover
           />
         </v-col>
       </v-row>

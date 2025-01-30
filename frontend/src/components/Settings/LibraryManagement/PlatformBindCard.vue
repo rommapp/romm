@@ -14,13 +14,13 @@ defineProps<{
 }>();
 </script>
 <template>
-  <v-card rounded="0" elevation="0">
+  <v-card elevation="0">
     <v-card-text class="pa-1">
-      <v-list-item class="bg-terciary pa-1 text-truncate">
+      <v-list-item class="bg-toplayer pa-1 text-truncate">
         <template #prepend>
           <platform-icon class="mx-2" :key="slug" :slug="slug" />
         </template>
-        <v-list-item class="bg-primary pr-2 pl-2">
+        <v-list-item class="bg-background pr-2 pl-2">
           <span>{{ fsSlug }}</span>
           <template #append>
             <v-slide-x-reverse-transition>

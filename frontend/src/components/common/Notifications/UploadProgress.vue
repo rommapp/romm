@@ -52,7 +52,7 @@ watch(files, (newList) => {
             {{ file.filename }}
             <v-icon
               :icon="file.finished ? 'mdi-check' : 'mdi-loading mdi-spin'"
-              :color="file.finished ? 'green' : 'romm-accent-1'"
+              :color="file.finished ? 'green' : 'primary'"
               class="mx-2"
             />
           </v-list-item-title>
@@ -60,7 +60,7 @@ watch(files, (newList) => {
             <v-progress-linear
               v-model="file.progress"
               height="4"
-              color="romm-accent-1"
+              color="primary"
               class="mt-1"
             />
             <div class="upload-speeds d-flex justify-space-between mt-1">
@@ -87,7 +87,7 @@ watch(files, (newList) => {
         size="small"
         variant="tonal"
         class="my-2"
-        color="romm-accent-1"
+        color="primary"
         :disabled="!files.some((f) => f.finished || f.failed)"
         @click="clearFinished"
       >

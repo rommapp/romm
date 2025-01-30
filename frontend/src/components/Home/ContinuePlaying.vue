@@ -21,13 +21,16 @@ const gridContinuePlayingRoms = isNull(
   <r-section icon="mdi-play" :title="t('home.continue-playing')">
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': !gridContinuePlayingRoms }"
+        :class="{
+          'flex-nowrap overflow-x-auto': !gridContinuePlayingRoms,
+          'py-2': true,
+        }"
         no-gutters
       >
         <v-col
           v-for="rom in continuePlayingRoms"
           :key="rom.id"
-          class="px-1 pt-1 pb-2 align-self-end"
+          class="pa-1 align-self-end"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
@@ -37,14 +40,14 @@ const gridContinuePlayingRoms = isNull(
           <game-card
             :key="rom.updated_at"
             :rom="rom"
-            title-on-hover
-            pointer-on-hover
-            with-link
-            show-flags
-            show-fav
-            transform-scale
-            show-action-bar
-            show-platform-icon
+            titleOnHover
+            pointerOnHover
+            withLink
+            showFlags
+            showFav
+            transformScale
+            showActionBar
+            showPlatformIcon
           />
         </v-col>
       </v-row>

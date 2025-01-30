@@ -50,8 +50,8 @@ const is3DSRom = computed(() => {
         size="x-small"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
-        rounded="0"
         variant="text"
+        rounded="0"
         @click.prevent="romApi.downloadRom({ rom })"
       />
     </v-col>
@@ -71,8 +71,8 @@ const is3DSRom = computed(() => {
           })
         "
         icon="mdi-play"
-        rounded="0"
         variant="text"
+        rounded="0"
       />
       <v-btn
         v-if="ruffleEmulationSupported"
@@ -86,8 +86,8 @@ const is3DSRom = computed(() => {
           })
         "
         icon="mdi-play"
-        rounded="0"
         variant="text"
+        rounded="0"
       />
     </v-col>
     <v-col v-if="is3DSRom" class="d-flex">
@@ -97,8 +97,8 @@ const is3DSRom = computed(() => {
         size="x-small"
         @click="emitter?.emit('showQRCodeDialog', rom)"
         icon="mdi-qrcode"
-        rounded="0"
         variant="text"
+        rounded="0"
       />
     </v-col>
     <v-col class="d-flex">
@@ -110,8 +110,8 @@ const is3DSRom = computed(() => {
             size="x-small"
             v-bind="props"
             icon="mdi-dots-vertical"
-            rounded="0"
             variant="text"
+            rounded="0"
           />
         </template>
         <admin-menu :rom="rom" />

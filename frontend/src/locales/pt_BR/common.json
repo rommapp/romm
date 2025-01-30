@@ -14,6 +14,7 @@
   "states": "Estados",
   "states-n": "{n} Estado | {n} Estados",
   "screenshots-n": "{n} Captura de tela | {n} Capturas de tela",
+  "size-on-disk": "Tamanho no disco",
   "search": "Buscar",
   "filter": "Filtrar",
   "add": "Adicionar",
