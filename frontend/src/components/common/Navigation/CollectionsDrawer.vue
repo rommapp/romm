@@ -35,8 +35,8 @@ function clear() {
     width="500"
     v-model="activeCollectionsDrawer"
     :class="{
-      'mx-2': !(!smAndDown && !activeCollectionsDrawer),
-      'my-2': !(smAndDown && !activeCollectionsDrawer),
+      'mx-2': smAndDown || activeCollectionsDrawer,
+      'my-2': !smAndDown || activeCollectionsDrawer,
       'drawer-mobile': smAndDown,
       'drawer-desktop': !smAndDown,
     }"

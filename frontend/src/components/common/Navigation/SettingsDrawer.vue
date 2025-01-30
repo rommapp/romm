@@ -47,8 +47,8 @@ async function logout() {
     width="450"
     v-model="activeSettingsDrawer"
     :class="{
-      'mx-2': !(!smAndDown && !activeSettingsDrawer),
-      'my-2': !(smAndDown && !activeSettingsDrawer),
+      'mx-2': smAndDown || activeSettingsDrawer,
+      'my-2': !smAndDown || activeSettingsDrawer,
       'drawer-mobile': smAndDown,
       'drawer-desktop': !smAndDown,
     }"
