@@ -67,7 +67,13 @@ onMounted(() => {
         <r-isotipo :size="30" class="mx-4" v-if="showRommIcon" />
         <slot name="header"></slot>
         <template #append>
-          <v-btn @click="closeDialog" size="small" variant="text" class="rounded" icon="mdi-close" />
+          <v-btn
+            @click="closeDialog"
+            size="small"
+            variant="text"
+            class="rounded"
+            icon="mdi-close"
+          />
         </template>
       </v-toolbar>
 

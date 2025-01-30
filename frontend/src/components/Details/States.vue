@@ -127,12 +127,7 @@ async function downloasStates() {
     >
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">
-        <v-btn
-          drawer
-          :href="item.download_path"
-          download
-          size="small"
-        >
+        <v-btn drawer :href="item.download_path" download size="small">
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
