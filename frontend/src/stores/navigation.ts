@@ -38,6 +38,10 @@ export default defineStore("navigation", {
       this.resetDrawers();
       this.$router.push({ name: "scan" });
     },
+    goSearch() {
+      this.resetDrawers();
+      this.$router.push({ name: "search" });
+    },
     resetDrawers() {
       this.activePlatformsDrawer = false;
       this.activeCollectionsDrawer = false;

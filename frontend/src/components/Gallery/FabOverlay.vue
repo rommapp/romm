@@ -45,7 +45,7 @@ async function onScan() {
   emitter?.emit("snackbarShow", {
     msg: `Scanning ${romCount} game${romCount > 1 ? "s" : ""}...`,
     icon: "mdi-loading mdi-spin",
-    color: "romm-accent-1",
+    color: "primary",
   });
 
   if (!socket.connected) socket.connect();
@@ -142,12 +142,12 @@ function onDownload() {
       <v-btn
         icon
         v-show="!scrolledToTop && currentView != 2"
-        class="border-romm-accent-1"
-        color="primary"
+        class="border-selected"
+        color="background"
         elevation="8"
         size="large"
         @click="scrollToTop()"
-        ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
+        ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
       >
     </v-scroll-y-reverse-transition>
 
@@ -157,7 +157,7 @@ function onDownload() {
           <v-btn
             v-show="selectedRoms.length > 0"
             class="ml-2"
-            color="romm-accent-1"
+            color="primary"
             v-bind="menuProps"
             elevation="8"
             icon
@@ -170,7 +170,7 @@ function onDownload() {
       <v-btn
         key="1"
         v-if="auth.scopes.includes('roms.write')"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon
         size="default"
@@ -181,7 +181,7 @@ function onDownload() {
       <v-btn
         key="2"
         v-if="auth.scopes.includes('roms.write')"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon="mdi-magnify-scan"
         size="default"
@@ -189,7 +189,7 @@ function onDownload() {
       />
       <v-btn
         key="3"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon="mdi-download"
         size="default"
@@ -197,7 +197,7 @@ function onDownload() {
       />
       <v-btn
         key="4"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         :icon="
           $route.name == 'platform'
@@ -216,7 +216,7 @@ function onDownload() {
       />
       <v-btn
         key="5"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon="mdi-star-outline"
         size="default"
@@ -224,7 +224,7 @@ function onDownload() {
       />
       <v-btn
         key="6"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon="mdi-star"
         size="default"
@@ -232,7 +232,7 @@ function onDownload() {
       />
       <v-btn
         key="7"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon="mdi-select-all"
         size="default"
@@ -240,7 +240,7 @@ function onDownload() {
       />
       <v-btn
         key="8"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon="mdi-select"
         size="default"

@@ -70,7 +70,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  imagePreviewUrl.value = `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`;
   removeCover.value = true;
 }
 
@@ -126,7 +126,7 @@ async function unmatchRom() {
 }
 
 async function updateRom() {
-  if (!rom.value?.file_name) {
+  if (!rom.value?.fs_name) {
     emitter?.emit("snackbarShow", {
       msg: "Cannot save: file name is required",
       icon: "mdi-close-circle",
@@ -176,7 +176,7 @@ function closeDialog() {
           <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
-                v-model="rom.file_name"
+                v-model="rom.fs_name"
                 class="py-2"
                 :rules="[(value: string) => !!value]"
                 :label="rom.multi ? t('rom.foldername') : t('rom.filename')"
@@ -186,11 +186,11 @@ function closeDialog() {
               >
                 <template #details>
                   <v-label class="text-caption text-wrap">
-                    <v-icon size="small" class="mr-2 text-romm-accent-1">
+                    <v-icon size="small" class="mr-2 text-primary">
                       mdi-folder-file-outline
                     </v-icon>
                     <span>
-                      /romm/library/{{ rom.file_path }}/{{ rom.file_name }}
+                      /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
                     </span>
                   </v-label>
                 </template>
@@ -220,7 +220,7 @@ function closeDialog() {
             <v-col style="max-width: 240px">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
-                  <v-btn-group rounded="0" divided density="compact">
+                  <v-btn-group divided density="compact" rounded="0">
                     <v-btn
                       :disabled="
                         !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
@@ -270,17 +270,17 @@ function closeDialog() {
       <v-row class="justify-space-between px-4 py-2 mt-1" no-gutters>
         <v-btn
           :disabled="noMetadataMatch"
-          :class="` ${noMetadataMatch ? '' : 'bg-terciary text-romm-red'}`"
+          :class="` ${noMetadataMatch ? '' : 'bg-toplayer text-romm-red'}`"
           variant="flat"
           @click="unmatchRom"
         >
           {{ t("rom.unmatch-rom") }}
         </v-btn>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+          <v-btn class="text-romm-green bg-toplayer" @click="updateRom">
             {{ t("common.apply") }}
           </v-btn>
         </v-btn-group>

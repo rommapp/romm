@@ -37,9 +37,9 @@ def test_get_all_roms(client, access_token, rom, platform):
     assert body[0]["id"] == rom.id
 
 
-@patch.object(FSRomsHandler, "rename_file")
+@patch.object(FSRomsHandler, "rename_fs_rom")
 @patch.object(IGDBBaseHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
-def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, rom):
+def test_update_rom(rename_fs_rom_mock, get_rom_by_id_mock, client, access_token, rom):
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
@@ -48,7 +48,7 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, 
             "igdb_id": "236663",
             "name": "Metroid Prime Remastered",
             "slug": "metroid-prime-remastered",
-            "file_name": "Metroid Prime Remastered.zip",
+            "fs_name": "Metroid Prime Remastered.zip",
             "summary": "summary test",
             "url_cover": "https://images.igdb.com/igdb/image/upload/t_cover_big/co2l7z.jpg",
             "genres": '[{"id": 5, "name": "Shooter"}, {"id": 8, "name": "Platform"}, {"id": 31, "name": "Adventure"}]',
@@ -70,9 +70,9 @@ def test_update_rom(rename_file_mock, get_rom_by_id_mock, client, access_token, 
     assert response.status_code == 200
 
     body = response.json()
-    assert body["file_name"] == "Metroid Prime Remastered.zip"
+    assert body["fs_name"] == "Metroid Prime Remastered.zip"
 
-    assert rename_file_mock.called
+    assert rename_fs_rom_mock.called
     assert get_rom_by_id_mock.called
 
 

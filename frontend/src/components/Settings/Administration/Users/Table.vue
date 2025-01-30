@@ -10,11 +10,9 @@ import { defaultAvatarPath, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 // Props
 const userSearch = ref("");
-const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
 const { allUsers } = storeToRefs(usersStore);
@@ -53,16 +51,6 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
-const page = ref(1);
-const storedUsersPerPage = parseInt(localStorage.getItem("usersPerPage") ?? "");
-const usersPerPage = ref(isNaN(storedUsersPerPage) ? 25 : storedUsersPerPage);
-const pageCount = ref(0);
-emitter?.on("updateDataTablePages", updateDataTablePages);
-
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(usersStore.allUsers.length / usersPerPage.value);
-}
 
 function disableUser(user: User) {
   userApi.updateUser(user).catch(({ response, message }) => {
@@ -96,17 +84,14 @@ onMounted(() => {
         v-model="userSearch"
         prepend-inner-icon="mdi-magnify"
         label="Search"
-        rounded="0"
         single-line
         hide-details
         clearable
         density="comfortable"
-        class="bg-secondary"
+        class="bg-surface mt-2"
       />
-      <v-data-table
-        v-model:items-per-page="usersPerPage"
-        v-model:page="page"
-        :items-per-page-options="PER_PAGE_OPTIONS"
+      <v-data-table-virtual
+        height="350"
         :search="userSearch"
         :headers="HEADERS"
         :items="allUsers"
@@ -119,7 +104,7 @@ onMounted(() => {
           <v-btn
             prepend-icon="mdi-plus"
             variant="outlined"
-            class="text-romm-accent-1"
+            class="text-primary"
             @click="emitter?.emit('showCreateUserDialog', null)"
           >
             Add
@@ -143,7 +128,7 @@ onMounted(() => {
           <v-switch
             inset
             v-model="item.enabled"
-            color="romm-accent-1"
+            color="primary"
             :disabled="item.id == auth.user?.id"
             hide-details
             @change="disableUser(item)"
@@ -166,35 +151,7 @@ onMounted(() => {
             </v-btn>
           </v-btn-group>
         </template>
-
-        <template #bottom>
-          <v-divider />
-          <div>
-            <v-row no-gutters class="pa-1 align-center justify-center">
-              <v-col cols="8" sm="9" md="10" class="px-3">
-                <v-pagination
-                  :show-first-last-page="!xs"
-                  v-model="page"
-                  rounded="0"
-                  active-color="romm-accent-1"
-                  :length="pageCount"
-                />
-              </v-col>
-              <v-col>
-                <v-select
-                  v-model="usersPerPage"
-                  class="pa-2"
-                  label="Users per page"
-                  density="compact"
-                  variant="outlined"
-                  :items="PER_PAGE_OPTIONS"
-                  hide-details
-                />
-              </v-col>
-            </v-row>
-          </div>
-        </template>
-      </v-data-table>
+      </v-data-table-virtual>
     </template>
   </r-section>
 
