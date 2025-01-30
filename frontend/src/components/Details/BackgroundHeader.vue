@@ -10,7 +10,12 @@ const { currentRom } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-card id="background-header" :key="currentRom.updated_at" v-if="currentRom">
+  <v-card
+    id="background-header"
+    elevation="0"
+    :key="currentRom.updated_at"
+    v-if="currentRom"
+  >
     <v-img
       id="background-image"
       :src="
