@@ -28,7 +28,7 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     elevation="0"
     class="bg-background justify-center px-1"
     mode="shift"
-    height="45"
+    height="60"
     app
     fixed
     left

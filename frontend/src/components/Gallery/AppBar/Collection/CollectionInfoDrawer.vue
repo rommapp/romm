@@ -18,9 +18,8 @@ import { useDisplay, useTheme } from "vuetify";
 
 // Props
 const { t } = useI18n();
-const { xs } = useDisplay();
+const { smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
-const viewportWidth = ref(window.innerWidth);
 const theme = useTheme();
 const auth = storeAuth();
 const romsStore = storeRoms();
@@ -139,12 +138,12 @@ async function updateCollection() {
     width="500"
     v-model="activeCollectionInfoDrawer"
     :class="{
-      'mx-2': activeCollectionInfoDrawer,
-      'px-1': activeCollectionInfoDrawer,
+      'mx-2 px-1': activeCollectionInfoDrawer,
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset; top: 54px"
-    :scrim="false"
+    style="height: unset"
   >
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col style="max-width: 240px" cols="12">
@@ -341,6 +340,8 @@ async function updateCollection() {
       icon-color="red"
       :title="t('collection.danger-zone')"
       elevation="0"
+      titleDivider
+      bgColor="bg-toplayer"
     >
       <template #content>
         <div class="text-center">
@@ -366,5 +367,12 @@ async function updateCollection() {
   top: 0.3rem;
   right: 0.3rem;
   z-index: 1;
+}
+.drawer-desktop {
+  top: 54px !important;
+}
+.drawer-mobile {
+  top: 114px !important;
+  width: calc(100% - 16px) !important;
 }
 </style>

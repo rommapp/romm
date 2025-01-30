@@ -56,7 +56,6 @@ onMounted(() => {
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
     :model-value="modelValue"
-    :scrim="true"
     :width="width"
     scroll-strategy="block"
     no-click-animation

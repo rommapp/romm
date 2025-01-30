@@ -35,13 +35,15 @@ function clear() {
     width="500"
     v-model="activeCollectionsDrawer"
     :class="{
-      'mx-2': activeCollectionsDrawer,
-      'px-1': activeCollectionsDrawer,
+      'mx-2': !(!smAndDown && !activeCollectionsDrawer),
+      'my-2': !(smAndDown && !activeCollectionsDrawer),
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface my-2 py-1"
+    class="bg-surface pa-1"
     style="height: unset"
-    :border="0"
     rounded
+    :border="0"
   >
     <template #prepend>
       <v-text-field
@@ -80,3 +82,8 @@ function clear() {
 
   <create-collection-dialog />
 </template>
+<style scoped>
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>
