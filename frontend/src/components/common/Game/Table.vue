@@ -171,7 +171,7 @@ onMounted(() => {
     fixed-footer
     hide-default-footer
     hover
-    class="mx-2 my-4 bg-background rounded"
+    class="mx-2 my-4 rounded"
   >
     <template #header.data-table-select>
       <v-checkbox-btn
@@ -370,5 +370,8 @@ onMounted(() => {
   vertical-align: super;
   font-size: 75%;
   opacity: 75%;
+}
+.v-data-table {
+  width: calc(100% - 16px) !important;
 }
 </style>
