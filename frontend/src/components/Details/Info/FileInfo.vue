@@ -123,7 +123,7 @@ watch(
                 </template>
                 <v-list-item-subtitle class="mt-1">
                   <v-chip
-                    color="romm-accent-1"
+                    color="primary"
                     size="x-small"
                     class="mr-1"
                     v-if="item.raw.category"

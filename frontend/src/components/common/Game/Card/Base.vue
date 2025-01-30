@@ -28,7 +28,7 @@ const props = withDefaults(
     showActionBar?: boolean;
     showPlatformIcon?: boolean;
     showFav?: boolean;
-    withBorderRommAccent?: boolean;
+    withBorderPrimary?: boolean;
     withLink?: boolean;
     src?: string;
   }>(),
@@ -44,7 +44,7 @@ const props = withDefaults(
     showActionBar: false,
     showPlatformIcon: false,
     showFav: false,
-    withBorderRommAccent: false,
+    withBorderPrimary: false,
     withLink: false,
     src: "",
   },
@@ -94,7 +94,7 @@ const computedAspectRatio = computed(() => {
       }"
       :class="{
         'on-hover': isHovering,
-        'border-selected': withBorderRommAccent,
+        'border-selected': withBorderPrimary,
         'transform-scale': transformScale,
         'bg-surface': !isHovering,
       }"

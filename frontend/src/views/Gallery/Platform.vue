@@ -348,7 +348,7 @@ onBeforeUnmount(() => {
             transformScale
             showActionBar
             showPlatformIcon
-            :withBorderRommAccent="
+            :withBorderPrimary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
             @click="onGameClick"

@@ -164,7 +164,7 @@ function updateSelectedRom(rom: SimpleRom) {
             <v-col>{{ item.name }}</v-col>
           </v-row>
           <v-row no-gutters>
-            <v-col class="text-romm-accent-1">
+            <v-col class="text-primary">
               {{ item.fs_name }}
             </v-col>
           </v-row>

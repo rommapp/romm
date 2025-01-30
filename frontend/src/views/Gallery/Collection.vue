@@ -325,7 +325,7 @@ onBeforeUnmount(() => {
             transform-scale
             show-action-bar
             show-platform-icon
-            :with-border-romm-accent="
+            :with-border-primary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
             @click="onGameClick"
