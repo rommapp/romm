@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 // Props
 const { t } = useI18n();
+const { smAndDown } = useDisplay();
 const heartbeatStore = storeHeartbeat();
 </script>
 <template>
-  <div class="bottom-0 w-100 sticky-bottom">
+  <div :class="{ desktop: !smAndDown }" class="bottom-0 sticky-bottom">
     <v-card class="bg-toplayer ma-2 pa-2">
       <v-row class="align-center justify-center" no-gutters>
         <span class="ml-1">{{ heartbeatStore.value.SYSTEM.VERSION }}</span>
@@ -50,8 +52,12 @@ const heartbeatStore = storeHeartbeat();
   position: fixed;
   bottom: 0;
   left: 0;
-  width: 100%;
   z-index: 1000;
+  width: 100%;
   pointer-events: none;
+}
+.desktop {
+  margin-left: 60px !important;
+  width: calc(100% - 60px) !important;
 }
 </style>
