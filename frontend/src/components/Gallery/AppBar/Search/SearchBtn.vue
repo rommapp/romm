@@ -66,11 +66,11 @@ function filterRoms() {
 
 <template>
   <v-btn
+    rounded="0"
     id="search-btn"
     type="submit"
     @click="fetchRoms"
-    class="bg-terciary"
-    rounded="0"
+    class="bg-toplayer"
     variant="text"
     icon="mdi-magnify"
     :disabled="gettingRoms || !searchText"

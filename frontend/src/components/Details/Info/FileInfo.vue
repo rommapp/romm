@@ -72,7 +72,7 @@ watch(
                   @click="toggleMainSibling"
                   ><v-icon
                     :class="romUser.is_main_sibling ? '' : 'mr-1'"
-                    :color="romUser.is_main_sibling ? 'romm-accent-1' : ''"
+                    :color="romUser.is_main_sibling ? 'primary' : ''"
                     >{{
                       romUser.is_main_sibling
                         ? "mdi-checkbox-outline"
@@ -123,7 +123,7 @@ watch(
                 </template>
                 <v-list-item-subtitle class="mt-1">
                   <v-chip
-                    color="romm-accent-1"
+                    color="primary"
                     size="x-small"
                     class="mr-1"
                     v-if="item.raw.category"
@@ -175,7 +175,7 @@ watch(
             size="small"
             class="mr-2"
             label
-            color="romm-accent-1"
+            color="primary"
             variant="tonal"
           >
             {{ tag }}

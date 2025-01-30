@@ -91,7 +91,7 @@ onMounted(async () => {
       xl="10"
       id="game-wrapper"
       :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
-      class="bg-secondary"
+      class="bg-surface"
       rounded
     >
       <div id="game" />
@@ -122,11 +122,10 @@ onMounted(async () => {
               <v-btn
                 block
                 size="large"
-                rounded="0"
                 @click="onFullScreenChange"
                 :disabled="gameRunning"
                 :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
-                :color="fullScreenOnPlay ? 'romm-accent-1' : ''"
+                :color="fullScreenOnPlay ? 'primary' : ''"
                 ><v-icon class="mr-1">{{
                   fullScreenOnPlay
                     ? "mdi-checkbox-outline"
@@ -141,10 +140,9 @@ onMounted(async () => {
               :xl="gameRunning ? 12 : 9"
             >
               <v-btn
-                color="romm-accent-1"
+                color="primary"
                 block
                 :disabled="gameRunning"
-                rounded="0"
                 variant="outlined"
                 size="large"
                 prepend-icon="mdi-play"
@@ -156,7 +154,6 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-refresh"
@@ -166,7 +163,6 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
@@ -181,7 +177,6 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
