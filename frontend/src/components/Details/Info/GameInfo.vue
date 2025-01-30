@@ -159,12 +159,12 @@ function onFilterClick(filter: FilterType, value: string) {
               >
                 <iframe
                   height="100%"
+                  width="100%"
                   :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
                   title="YouTube video player"
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerpolicy="strict-origin-when-cross-origin"
-                  :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                   allowfullscreen
                 ></iframe>
               </v-carousel-item>
@@ -216,12 +216,12 @@ function onFilterClick(filter: FilterType, value: string) {
                 >
                   <iframe
                     height="100%"
+                    width="100%"
                     :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
                     title="YouTube video player"
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerpolicy="strict-origin-when-cross-origin"
-                    :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                     allowfullscreen
                   ></iframe>
                 </v-carousel-item>
@@ -241,6 +241,8 @@ function onFilterClick(filter: FilterType, value: string) {
               </v-carousel>
             </v-dialog>
           </v-col>
-        </v-row> </template></v-col
-  ></v-row>
+        </v-row>
+      </template>
+    </v-col>
+  </v-row>
 </template>

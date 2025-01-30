@@ -100,7 +100,7 @@ watch(
 
       <v-col>
         <div
-          class="ml-4"
+          class="pl-4"
           :class="{ 'position-absolute title-desktop': mdAndUp }"
         >
           <title-info :rom="currentRom" />
