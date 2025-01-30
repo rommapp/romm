@@ -117,9 +117,8 @@ function onFilterClick(filter: FilterType, value: string) {
           </div>
         </v-row>
       </template>
-      <template v-if="rom.summary != ''">
-        <v-divider class="mx-2 my-4" />
-        <v-row no-gutters>
+      <template v-if="rom.summary">
+        <v-row no-gutters class="mt-4">
           <v-col class="text-caption">
             <MdPreview
               :model-value="rom.summary ?? ''"
@@ -134,8 +133,7 @@ function onFilterClick(filter: FilterType, value: string) {
       <template
         v-if="rom.merged_screenshots.length > 0 || rom.youtube_video_id"
       >
-        <v-divider class="mx-2 my-4" />
-        <v-row no-gutters>
+        <v-row no-gutters class="mt-4">
           <v-col>
             <v-carousel
               v-model="carousel"

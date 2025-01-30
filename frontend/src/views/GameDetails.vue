@@ -144,7 +144,7 @@ watch(
               {{ t("rom.related-content") }}
             </v-tab>
           </v-tabs>
-          <v-col cols="12" class="px-2">
+          <v-col cols="12" class="px-1">
             <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
                 <v-row no-gutters>
