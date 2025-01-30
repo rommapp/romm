@@ -295,7 +295,7 @@ def downgrade() -> None:
             )
         )
 
-    sa.drop_table("collections_roms")
+    op.drop_table("collections_roms")
 
     connection.execute(
         sa.text(
