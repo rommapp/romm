@@ -34,8 +34,8 @@ dependencies = [
   "python-multipart ~= 0.0.18",
   "python-socketio == 5.11.1",
   "redis ~= 5.0",
-  "rq ~= 1.16",
-  "rq-scheduler ~= 0.13",
+  "rq ~= 2.1",
+  "rq-scheduler ~= 0.14",
   "sentry-sdk ~= 2.19",
   "sqlakeyset ~= 2.0",
   "starlette-csrf ~= 3.0",
@@ -54,7 +54,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["ipdb ~= 0.13", "ipykernel ~= 6.29", "mypy ~= 1.13"]
+dev = [
+  "ipdb ~= 0.13",
+  "ipykernel ~= 6.29",
+  "memray ~= 1.15",
+  "mypy ~= 1.13",
+  "pyinstrument ~= 5.0",
+]
 test = [
   "fakeredis ~= 2.21",
   "pytest ~= 8.3",

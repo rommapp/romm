@@ -49,7 +49,7 @@ const is3DSRom = computed(() => {
 async function copyDownloadLink(rom: DetailedRom) {
   const downloadLink = getDownloadLink({
     rom,
-    files: downloadStore.filesToDownload,
+    fileIDs: downloadStore.fileIDsToDownload,
   });
   if (navigator.clipboard && window.isSecureContext) {
     await navigator.clipboard.writeText(downloadLink);
@@ -74,7 +74,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         @click="
           romApi.downloadRom({
             rom,
-            files: downloadStore.filesToDownload,
+            fileIDs: downloadStore.fileIDsToDownload,
           })
         "
       >

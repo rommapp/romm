@@ -7,6 +7,8 @@ import storeCollections, { type Collection } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
+import storeScanning from "@/stores/scanning";
+import socket from "@/services/socket";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -23,6 +25,7 @@ const auth = storeAuth();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const { favCollection } = storeToRefs(collectionsStore);
+const scanningStore = storeScanning();
 
 async function switchFromFavourites() {
   if (!favCollection.value) {
@@ -92,7 +95,8 @@ async function resetLastPlayed() {
   await romApi
     .updateUserRomProps({
       romId: props.rom.id,
-      data: { last_played: null },
+      data: {},
+      removeLastPlayed: true,
     })
     .then(() => {
       emitter?.emit("snackbarShow", {
@@ -114,10 +118,27 @@ async function resetLastPlayed() {
       return;
     });
 }
+
+async function onScan() {
+  scanningStore.set(true);
+  emitter?.emit("snackbarShow", {
+    msg: `Refreshing ${props.rom.name} metadata...`,
+    icon: "mdi-loading mdi-spin",
+    color: "romm-accent-1",
+  });
+
+  if (!socket.connected) socket.connect();
+  socket.emit("scan", {
+    platforms: [props.rom.platform_id],
+    roms_ids: [props.rom.id],
+    type: "quick", // Quick scan so we can filter by selected roms
+    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+  });
+}
 </script>
 
 <template>
-  <v-list rounded="0" class="pa-0">
+  <v-list class="pa-0">
     <template v-if="auth.scopes.includes('roms.write')">
       <v-list-item
         :disabled="!heartbeat.value.METADATA_SOURCES.ANY_SOURCE_ENABLED"
@@ -143,6 +164,13 @@ async function resetLastPlayed() {
       >
         <v-list-item-title class="d-flex">
           <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit-rom") }}
+        </v-list-item-title>
+      </v-list-item>
+      <v-list-item class="py-4 pr-5" @click="onScan()">
+        <v-list-item-title class="d-flex">
+          <v-icon icon="mdi-magnify-scan" class="mr-2" />{{
+            t("rom.refresh-metadata")
+          }}
         </v-list-item-title>
       </v-list-item>
       <v-divider />

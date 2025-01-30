@@ -13,7 +13,7 @@ withDefaults(defineProps<{ text: string; icon: string }>(), {
 <template>
   <v-item v-slot="{ isSelected, toggle }">
     <v-card
-      :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+      :color="isSelected ? 'primary' : 'romm-gray'"
       class="d-flex align-center"
       height="50"
       variant="outlined"

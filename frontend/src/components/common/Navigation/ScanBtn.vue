@@ -106,20 +106,21 @@ onBeforeUnmount(() => {
   <v-btn
     v-if="auth.scopes.includes('platforms.write')"
     :block="block"
-    rounded="0"
     variant="flat"
-    color="primary"
+    rounded="0"
     icon
+    color="background"
+    class="rounded my-1"
     @click="navigationStore.goScan"
   >
     <v-progress-circular
       v-if="scanning"
-      color="romm-accent-1"
+      color="primary"
       :width="2"
       :size="20"
       indeterminate
     />
-    <v-icon v-else :color="$route.name == 'scan' ? 'romm-accent-1' : ''"
+    <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''"
       >mdi-magnify-scan</v-icon
     >
   </v-btn>

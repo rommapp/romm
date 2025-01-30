@@ -191,7 +191,10 @@ def upgrade() -> None:
 
     # Move data around
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.execute("update roms set igdb_metadata = JSON_OBJECT()")
+        if is_postgresql(connection):
+            batch_op.execute("update roms set igdb_metadata = jsonb_build_object()")
+        else:
+            batch_op.execute("update roms set igdb_metadata = JSON_OBJECT()")
         batch_op.execute(
             "update roms set path_cover_s = '', path_cover_l = '', url_cover = '' where url_cover = 'https://images.igdb.com/igdb/image/upload/t_cover_big/nocover.png'"
         )
