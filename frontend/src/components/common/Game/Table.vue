@@ -171,7 +171,7 @@ onMounted(() => {
     fixed-footer
     hide-default-footer
     hover
-    class="mx-2 my-4 rounded"
+    class="mx-2 mt-4 mb-2 rounded"
   >
     <template #header.data-table-select>
       <v-checkbox-btn
