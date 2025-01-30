@@ -6,17 +6,16 @@ import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, onMounted, ref, watch } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
-const { xs, mdAndUp } = useDisplay();
+const { mdAndUp } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-// emitter?.on("romUpdated", (romUpdated) => {});
 const HEADERS = [
   {
     title: "Name",
@@ -44,10 +43,6 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-const page = ref(1);
-const itemsPerPage = ref(10);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Functions
 async function downloasStates() {
@@ -60,49 +55,29 @@ async function downloasStates() {
 
   selectedStates.value = [];
 }
-
-function updateDataTablePages() {
-  if (props.rom.user_states) {
-    pageCount.value = Math.ceil(
-      props.rom.user_states.length / itemsPerPage.value,
-    );
-  }
-}
-
-watch(itemsPerPage, async () => {
-  updateDataTablePages();
-});
-
-onMounted(() => {
-  updateDataTablePages();
-});
 </script>
 
 <template>
-  <v-data-table
+  <v-data-table-virtual
     :items="rom.user_states"
     :width="mdAndUp ? '60vw' : '95vw'"
-    :items-per-page="itemsPerPage"
-    :items-per-page-options="PER_PAGE_OPTIONS"
     :headers="HEADERS"
-    class="bg-surface"
+    class="rounded"
     return-object
     v-model="selectedStates"
-    v-model:page="page"
-    rounded
     show-select
   >
     <template #header.actions>
       <v-btn-group divided density="compact">
         <v-btn
-          class="bg-surface"
+          drawer
           size="small"
           @click="emitter?.emit('addStatesDialog', rom)"
         >
           <v-icon>mdi-upload</v-icon>
         </v-btn>
         <v-btn
-          class="bg-surface"
+          drawer
           :disabled="!selectedStates.length"
           :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
           size="small"
@@ -111,7 +86,7 @@ onMounted(() => {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
-          class="bg-surface"
+          drawer
           :class="{
             'text-romm-red': selectedStates.length,
           }"
@@ -153,7 +128,7 @@ onMounted(() => {
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">
         <v-btn
-          class="bg-surface"
+          drawer
           :href="item.download_path"
           download
           size="small"
@@ -161,7 +136,7 @@ onMounted(() => {
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
-          class="bg-surface"
+          drawer
           size="small"
           @click="
             emitter?.emit('showDeleteStatesDialog', {
@@ -174,31 +149,7 @@ onMounted(() => {
         </v-btn>
       </v-btn-group>
     </template>
-    <template #bottom>
-      <v-divider />
-      <v-row no-gutters class="pa-1 align-center justify-center">
-        <v-col cols="8" sm="9" md="10" class="px-3">
-          <v-pagination
-            :show-first-last-page="!xs"
-            v-model="page"
-            active-color="primary"
-            :length="pageCount"
-          />
-        </v-col>
-        <v-col>
-          <v-select
-            v-model="itemsPerPage"
-            class="pa-2"
-            label="Files per page"
-            density="compact"
-            variant="outlined"
-            :items="PER_PAGE_OPTIONS"
-            hide-details
-          />
-        </v-col>
-      </v-row>
-    </template>
-  </v-data-table>
+  </v-data-table-virtual>
   <upload-states-dialog />
   <delete-asset-dialog />
 </template>
