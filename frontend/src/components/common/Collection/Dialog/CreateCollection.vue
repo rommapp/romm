@@ -58,7 +58,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  imagePreviewUrl.value = `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`;
   removeCover.value = true;
 }
 
@@ -150,9 +150,10 @@ function closeDialog() {
                 :with-link="false"
                 :collection="collection"
                 :src="imagePreviewUrl"
+                title-on-hover
               >
                 <template #append-inner>
-                  <v-btn-group rounded="0" divided density="compact">
+                  <v-btn-group divided density="compact">
                     <v-btn
                       :disabled="
                         !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
@@ -202,12 +203,12 @@ function closeDialog() {
     </template>
     <template #append>
       <v-row class="justify-center mt-4 mb-2" no-gutters>
-        <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+        <v-btn-group divided density="compact" rounded="0">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            class="bg-terciary text-romm-green"
+            class="bg-toplayer text-romm-green"
             :disabled="!collection.name"
             :variant="!collection.name ? 'plain' : 'flat'"
             @click="createCollection"

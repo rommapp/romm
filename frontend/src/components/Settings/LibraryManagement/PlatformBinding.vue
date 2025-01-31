@@ -27,9 +27,8 @@ const editable = ref(false);
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
         class="ma-2"
-        rounded="0"
         size="small"
-        :color="editable ? 'romm-accent-1' : ''"
+        :color="editable ? 'primary' : ''"
         variant="text"
         icon="mdi-cog"
         @click="editable = !editable"
@@ -64,7 +63,7 @@ const editable = ref(false);
             "
           />
         </v-col>
-        <v-col cols="6" sm="4" md="3" lg="2" class="px-1">
+        <v-col cols="6" sm="4" md="3" lg="2" class="px-1 pt-2">
           <add-btn
             :enabled="editable"
             @click="

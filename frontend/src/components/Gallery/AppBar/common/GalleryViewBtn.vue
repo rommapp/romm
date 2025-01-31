@@ -18,9 +18,9 @@ const galleryView = storeGalleryView();
   >
     <template #activator="{ props }">
       <v-btn
-        rounded="0"
         variant="text"
         v-bind="props"
+        rounded="0"
         class="mr-0"
         :icon="views[galleryView.currentView]['icon']"
         @click="galleryView.next()" /></template

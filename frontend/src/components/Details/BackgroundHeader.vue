@@ -10,12 +10,18 @@ const { currentRom } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-card :key="currentRom.updated_at" v-if="currentRom" rounded="0">
+  <v-card
+    id="background-header"
+    elevation="0"
+    rounded="0"
+    :key="currentRom.updated_at"
+    v-if="currentRom"
+  >
     <v-img
-      id="background-header"
+      id="background-image"
       :src="
         !currentRom.igdb_id && !currentRom.moby_id && !currentRom.has_cover
-          ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+          ? `/assets/default/cover/${theme.global.name.value}_unmatched.svg`
           : `/assets/romm/resources/${currentRom.path_cover_l}?ts=${currentRom.updated_at}`
       "
       lazy
@@ -23,7 +29,7 @@ const { currentRom } = storeToRefs(romsStore);
     >
       <template #error>
         <v-img
-          :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+          :src="`/assets/default/cover/${theme.global.name.value}_missing_cover.svg`"
         />
       </template>
       <template #placeholder>
@@ -31,7 +37,7 @@ const { currentRom } = storeToRefs(romsStore);
           <v-progress-circular
             :width="2"
             :size="40"
-            color="romm-accent-1"
+            color="primary"
             indeterminate
           />
         </div>
@@ -41,7 +47,11 @@ const { currentRom } = storeToRefs(romsStore);
 </template>
 <style scoped>
 #background-header {
-  height: 300px;
+  width: 100%;
+}
+
+#background-image {
+  height: 18rem;
   filter: blur(30px);
 }
 </style>

@@ -58,13 +58,11 @@ function closeDialog() {
           :slug="platformBindingSlugToDelete"
         />
         <span>[</span>
-        <span class="text-romm-accent-1 ml-1">
+        <span class="text-primary ml-1">
           {{ platformBindingFSSlugToDelete }}</span
         >
         <span class="mx-1">:</span>
-        <span class="text-romm-accent-1">{{
-          platformBindingSlugToDelete
-        }}</span>
+        <span class="text-primary">{{ platformBindingSlugToDelete }}</span>
         <span class="ml-1">].</span>
         <span class="ml-1">Do you confirm?</span>
       </v-row>
@@ -72,8 +70,8 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="bg-terciary text-romm-red" @click="deleteBindPlatform">
+          <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-toplayer text-romm-red" @click="deleteBindPlatform">
             Confirm
           </v-btn>
         </v-btn-group>

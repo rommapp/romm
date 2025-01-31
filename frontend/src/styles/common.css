@@ -59,8 +59,8 @@ body {
 .pointer {
   cursor: pointer !important;
 }
-.border-romm-accent-1 {
-  border: 1px solid rgba(var(--v-theme-romm-accent-1)) !important;
+.border-selected {
+  border: 1px solid rgba(var(--v-theme-primary)) !important;
   transform: scale(1.05);
 }
 #main-app-bar {
