@@ -52,14 +52,13 @@ const exclusions = [
 const editable = ref(false);
 </script>
 <template>
-  <r-section icon="mdi-cancel" :title="t('settings.excluded')">
+  <r-section icon="mdi-cancel" :title="t('settings.excluded')" class="pb-1">
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
         class="ma-2"
-        rounded="0"
         size="small"
-        :color="editable ? 'romm-accent-1' : ''"
+        :color="editable ? 'primary' : ''"
         variant="text"
         icon="mdi-cog"
         @click="editable = !editable"

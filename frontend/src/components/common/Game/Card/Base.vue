@@ -28,8 +28,7 @@ const props = withDefaults(
     showActionBar?: boolean;
     showPlatformIcon?: boolean;
     showFav?: boolean;
-    withBorder?: boolean;
-    withBorderRommAccent?: boolean;
+    withBorderPrimary?: boolean;
     withLink?: boolean;
     src?: string;
   }>(),
@@ -45,8 +44,7 @@ const props = withDefaults(
     showActionBar: false,
     showPlatformIcon: false,
     showFav: false,
-    withBorder: false,
-    withBorderRommAccent: false,
+    withBorderPrimary: false,
     withLink: false,
     src: "",
   },
@@ -96,16 +94,16 @@ const computedAspectRatio = computed(() => {
       }"
       :class="{
         'on-hover': isHovering,
-        'border-romm-accent-1': withBorderRommAccent,
+        'border-selected': withBorderPrimary,
         'transform-scale': transformScale,
-        'with-border': withBorder,
+        'bg-surface': !isHovering,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
       <v-card-text class="pa-0">
         <v-progress-linear
           v-if="romsStore.isSimpleRom(rom)"
-          color="romm-accent-1"
+          color="primary"
           :active="downloadStore.value.includes(rom.id)"
           :indeterminate="true"
           absolute
@@ -198,7 +196,7 @@ const computedAspectRatio = computed(() => {
                 class="label-fav"
                 rouded="0"
                 size="small"
-                color="romm-accent-1"
+                color="primary"
               >
                 <v-icon class="icon-fav" size="x-small"
                   >{{
@@ -220,7 +218,7 @@ const computedAspectRatio = computed(() => {
             </div>
             <template #error>
               <v-img
-                :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+                :src="`/assets/default/cover/${theme.global.name.value}_missing_cover.svg`"
                 cover
                 :aspect-ratio="computedAspectRatio"
               ></v-img>
@@ -230,7 +228,7 @@ const computedAspectRatio = computed(() => {
                 <v-progress-circular
                   :width="2"
                   :size="40"
-                  color="romm-accent-1"
+                  color="primary"
                   indeterminate
                 />
               </div>
@@ -253,9 +251,6 @@ const computedAspectRatio = computed(() => {
 </template>
 
 <style scoped>
-.with-border {
-  border: 1px solid rgba(var(--v-theme-primary));
-}
 .text-truncate {
   white-space: nowrap;
   overflow: hidden;

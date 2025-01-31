@@ -12,8 +12,9 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
 )
-from handler.metadata.igdb_handler import IGDB_API_ENABLED
-from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
+from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
+from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from handler.metadata.ss_handler import SS_API_ENABLED
 from handler.scan_handler import _get_main_platform_igdb_id
@@ -55,7 +56,7 @@ async def search_rom(
     if not rom:
         return []
 
-    search_term = search_term or rom.file_name_no_tags
+    search_term = search_term or rom.fs_name_no_tags
     if not search_term:
         return []
 
@@ -65,10 +66,10 @@ async def search_rom(
     matched_roms: list = []
 
     log.info(f"Searching by {search_by.lower()}: {search_term}")
-    log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.file_name}"))
+    log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.fs_name}"))
 
-    igdb_matched_roms = []
-    moby_matched_roms = []
+    igdb_matched_roms: list[IGDBRom] = []
+    moby_matched_roms: list[MobyGamesRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -108,7 +109,7 @@ async def search_rom(
         }
 
     for item in moby_matched_roms:
-        merged_dict[item["name"]] = {
+        merged_dict[item["name"]] = {  # type: ignore
             **item,
             "moby_url_cover": item.pop("url_cover", ""),
             **merged_dict.get(item.get("name", ""), {}),

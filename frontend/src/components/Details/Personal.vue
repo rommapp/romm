@@ -3,7 +3,7 @@ import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import type { RomUserStatus } from "@/__generated__";
-import { difficultyEmojis, getTextForStatus, getEmojiForStatus } from "@/utils";
+import { getTextForStatus, getEmojiForStatus } from "@/utils";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import { ref, watch } from "vue";
@@ -62,8 +62,8 @@ watch(
 </script>
 
 <template>
-  <v-card rounded="0" class="mb-2">
-    <v-card-title class="bg-terciary">
+  <v-card class="mb-2">
+    <v-card-title class="bg-toplayer">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">{{ t("rom.status") }}</span>
       </v-list-item>
@@ -75,11 +75,7 @@ watch(
         no-gutters
       >
         <v-col cols="12" md="5">
-          <v-checkbox
-            v-model="romUser.backlogged"
-            color="romm-accent-1"
-            hide-details
-          >
+          <v-checkbox v-model="romUser.backlogged" color="primary" hide-details>
             <template #label
               ><span>{{ t("rom.backlogged") }}</span
               ><span class="ml-2">{{
@@ -89,7 +85,7 @@ watch(
           </v-checkbox>
           <v-checkbox
             v-model="romUser.now_playing"
-            color="romm-accent-1"
+            color="primary"
             hide-details
           >
             <template #label
@@ -99,11 +95,7 @@ watch(
               }}</span></template
             >
           </v-checkbox>
-          <v-checkbox
-            v-model="romUser.hidden"
-            color="romm-accent-1"
-            hide-details
-          >
+          <v-checkbox v-model="romUser.hidden" color="primary" hide-details>
             <template #label
               ><span>{{ t("rom.hidden") }}</span
               ><span class="ml-2">{{
@@ -133,39 +125,37 @@ watch(
                   romUser.rating =
                     typeof $event === 'number' ? $event : parseInt($event)
                 "
-                active-color="romm-accent-1"
+                active-color="yellow"
               />
             </v-col>
           </v-row>
           <v-row class="d-flex align-center mt-4" no-gutters>
-            <v-col cols="auto">
+            <v-col cols="12" md="2">
               <v-label>{{ t("rom.difficulty") }}</v-label>
             </v-col>
-            <v-col>
-              <v-slider
-                :class="{ 'ml-4': mdAndUp }"
+            <v-col cols="12" md="10">
+              <v-rating
+                :class="{ 'ml-2': mdAndUp }"
+                hover
+                ripple
+                length="10"
+                size="26"
+                full-icon="mdi-chili-mild"
+                empty-icon="mdi-chili-mild-outline"
                 v-model="romUser.difficulty"
-                min="1"
-                max="10"
-                step="1"
-                hide-details
-                track-fill-color="romm-accent-1"
-                ><template #append>
-                  <v-label class="opacity-100">
-                    {{
-                      difficultyEmojis[Math.floor(romUser.difficulty) - 1] ??
-                      difficultyEmojis[3]
-                    }}
-                  </v-label>
-                </template></v-slider
-              >
+                @update:model-value="
+                  romUser.difficulty =
+                    typeof $event === 'number' ? $event : parseInt($event)
+                "
+                active-color="red"
+              />
             </v-col>
           </v-row>
           <v-row class="d-flex align-center mt-4" no-gutters>
-            <v-col cols="auto">
+            <v-col cols="12" md="2">
               <v-label>{{ t("rom.completion") }} %</v-label>
             </v-col>
-            <v-col>
+            <v-col cols="12" md="10">
               <v-slider
                 :class="{ 'ml-4': mdAndUp }"
                 v-model="romUser.completion"
@@ -173,7 +163,7 @@ watch(
                 max="100"
                 step="1"
                 hide-details
-                track-fill-color="romm-accent-1"
+                track-fill-color="primary"
                 ><template #append>
                   <v-label class="ml-2 opacity-100">
                     {{ romUser.completion }}%
@@ -189,7 +179,6 @@ watch(
               hide-details
               :label="t('rom.status')"
               clearable
-              rounded="0"
               variant="outlined"
               density="compact"
               class="mt-1"
@@ -201,11 +190,7 @@ watch(
                 }}</span>
               </template>
               <template #item="{ item }">
-                <v-list-item
-                  link
-                  rounded="0"
-                  @click="onStatusItemClick(item.raw)"
-                >
+                <v-list-item link @click="onStatusItemClick(item.raw)">
                   <span>{{ getEmojiForStatus(item.raw as RomUserStatus) }}</span
                   ><span class="ml-2">{{
                     getTextForStatus(item.raw as RomUserStatus)
@@ -219,8 +204,8 @@ watch(
     </v-card-text>
   </v-card>
 
-  <v-card rounded="0">
-    <v-card-title class="bg-terciary">
+  <v-card>
+    <v-card-title class="bg-toplayer">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">{{ t("rom.my-notes") }}</span>
         <template #append>
@@ -235,7 +220,7 @@ watch(
                 <v-btn
                   @click="romUser.note_is_public = !romUser.note_is_public"
                   v-bind="tooltipProps"
-                  class="bg-terciary"
+                  class="bg-toplayer"
                 >
                   <v-icon size="large">
                     {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
@@ -253,7 +238,7 @@ watch(
                 <v-btn
                   @click="editNote"
                   v-bind="tooltipProps"
-                  class="bg-terciary"
+                  class="bg-toplayer"
                 >
                   <v-icon size="large">
                     {{ editingNote ? "mdi-check" : "mdi-pencil" }}
@@ -285,8 +270,8 @@ watch(
     </v-card-text>
   </v-card>
 
-  <v-card rounded="0" v-if="publicNotes && publicNotes.length > 0" class="mt-2">
-    <v-card-title class="bg-terciary">
+  <v-card v-if="publicNotes && publicNotes.length > 0" class="mt-2">
+    <v-card-title class="bg-toplayer">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">{{ t("rom.public-notes") }}</span>
       </v-list-item>
@@ -295,12 +280,12 @@ watch(
     <v-divider />
 
     <v-card-text class="pa-0">
-      <v-expansion-panels multiple flat rounded="0" variant="accordion">
+      <v-expansion-panels multiple flat variant="accordion">
         <v-expansion-panel v-for="note in publicNotes">
-          <v-expansion-panel-title class="bg-terciary">
+          <v-expansion-panel-title class="bg-toplayer">
             <span class="text-body-1">{{ note.username }}</span>
           </v-expansion-panel-title>
-          <v-expansion-panel-text class="bg-secondary">
+          <v-expansion-panel-text class="bg-surface">
             <MdPreview
               :model-value="note.note_raw_markdown"
               :theme="theme.name.value == 'dark' ? 'dark' : 'light'"

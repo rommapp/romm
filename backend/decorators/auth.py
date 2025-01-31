@@ -9,6 +9,7 @@ from config import (
     OIDC_PROVIDER,
     OIDC_REDIRECT_URI,
     OIDC_SERVER_APPLICATION_URL,
+    OIDC_TLS_CACERTFILE,
 )
 from fastapi import Security
 from fastapi.security.http import HTTPBasic
@@ -53,7 +54,10 @@ oauth.register(
     server_metadata_url=get_well_known_url(
         config.get("OIDC_SERVER_APPLICATION_URL"), external=True
     ),
-    client_kwargs={"scope": "openid profile email"},
+    client_kwargs={
+        "scope": "openid profile email",
+        "verify": OIDC_TLS_CACERTFILE,
+    },
 )
 
 

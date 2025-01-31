@@ -5,8 +5,10 @@ import type { App } from "vue";
 import vuetify from "./vuetify";
 import { loadFonts } from "./webfontloader";
 import pinia from "./pinia";
+import { configureMDEditor } from "./mdeditor";
 
 export function registerPlugins(app: App) {
   loadFonts();
+  configureMDEditor();
   app.use(vuetify).use(pinia).use(i18n).provide("emitter", mitt<Events>());
 }

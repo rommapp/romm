@@ -236,6 +236,8 @@ class IGDBBaseHandler(MetadataHandler):
 
     async def _request(self, url: str, data: str, timeout: int = 120) -> list:
         httpx_client = ctx_httpx_client.get()
+        masked_headers = {}
+
         try:
             masked_headers = self._mask_sensitive_values(self.headers)
             log.debug(
@@ -254,8 +256,21 @@ class IGDBBaseHandler(MetadataHandler):
 
             res.raise_for_status()
             return res.json()
+        except httpx.LocalProtocolError as e:
+            if str(e) == "Illegal header value b'Bearer '":
+                log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Invalid IGDB credentials",
+                ) from e
+            else:
+                log.critical("Connection error: can't connect to IGDB")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Can't connect to IGDB, check your internet connection",
+                ) from e
         except httpx.NetworkError as exc:
-            log.critical("Connection error: can't connect to IGDB", exc_info=True)
+            log.critical("Connection error: can't connect to IGDB")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to IGDB, check your internet connection",
@@ -413,7 +428,7 @@ class IGDBBaseHandler(MetadataHandler):
         return IGDBPlatform(igdb_id=None, slug=slug)
 
     @check_twitch_token
-    async def get_rom(self, file_name: str, platform_igdb_id: int) -> IGDBRom:
+    async def get_rom(self, fs_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler.filesystem import fs_rom_handler
 
         if not IGDB_API_ENABLED:
@@ -422,17 +437,17 @@ class IGDBBaseHandler(MetadataHandler):
         if not platform_igdb_id:
             return IGDBRom(igdb_id=None)
 
-        search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = IGDBRom(igdb_id=None)
 
         # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(file_name)
+        match = PS2_OPL_REGEX.match(fs_name)
         if platform_igdb_id == PS2_IGDB_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(file_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(fs_name, re.IGNORECASE)
         if platform_igdb_id == PS1_IGDB_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
@@ -446,7 +461,7 @@ class IGDBBaseHandler(MetadataHandler):
             fallback_rom = IGDBRom(igdb_id=None, name=search_term)
 
         # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(file_name)
+        match = SWITCH_TITLEDB_REGEX.search(fs_name)
         if platform_igdb_id == SWITCH_IGDB_ID and match:
             search_term, index_entry = await self._switch_titledb_format(
                 match, search_term
@@ -461,7 +476,7 @@ class IGDBBaseHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
+        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
         if platform_igdb_id == SWITCH_IGDB_ID and match:
             search_term, index_entry = await self._switch_productid_format(
                 match, search_term
@@ -567,7 +582,7 @@ class IGDBBaseHandler(MetadataHandler):
 
     @check_twitch_token
     async def get_matched_roms_by_name(
-        self, search_term: str, platform_igdb_id: int
+        self, search_term: str, platform_igdb_id: int | None
     ) -> list[IGDBRom]:
         if not IGDB_API_ENABLED:
             return []
@@ -637,7 +652,7 @@ class IGDBBaseHandler(MetadataHandler):
                             )
                         ),
                         "url_screenshots": [
-                            self._normalize_cover_url(s.get("url", "")).replace(
+                            self._normalize_cover_url(s.get("url", "")).replace(  # type: ignore[attr-defined]
                                 "t_thumb", "t_720p"
                             )
                             for s in rom.get("screenshots", [])

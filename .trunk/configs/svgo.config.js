@@ -7,6 +7,7 @@ module.exports = {
           removeViewBox: false, // https://github.com/svg/svgo/issues/1128
           sortAttrs: true,
           removeOffCanvasPaths: true,
+          cleanupIDs: false,
         },
       },
     },

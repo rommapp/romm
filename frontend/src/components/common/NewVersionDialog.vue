@@ -35,13 +35,12 @@ onMounted(async () => {
           semver.gt(GITHUB_VERSION, VERSION) &&
           !latestVersionDismissed
         "
-        class="pa-1 border-romm-accent-1 mx-auto"
-        rounded="0"
+        class="pa-1 border-selected mx-auto"
         max-width="250"
       >
         <v-card-text class="text-center py-2 px-4">
           <span class="text-white text-shadow">New version available</span>
-          <span class="text-romm-accent-1 ml-1">v{{ GITHUB_VERSION }}</span>
+          <span class="text-primary ml-1">v{{ GITHUB_VERSION }}</span>
           <v-row class="mt-1" no-gutters>
             <v-col>
               <span class="pointer text-grey" @click="dismissVersionBanner"

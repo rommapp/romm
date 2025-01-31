@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
             id="search-text-field"
             @keyup.enter="searchCovers()"
             @click:clear="searchTerm = ''"
-            class="bg-terciary"
+            class="bg-toplayer"
             v-model="searchTerm"
             :disabled="searching"
             label="Search"
@@ -150,8 +150,7 @@ onBeforeUnmount(() => {
           <v-btn
             type="submit"
             @click="searchCovers()"
-            class="bg-terciary"
-            rounded="0"
+            class="bg-toplayer"
             variant="text"
             icon="mdi-search-web"
             block
@@ -165,11 +164,10 @@ onBeforeUnmount(() => {
         :model-value="panels"
         multiple
         flat
-        rounded="0"
         variant="accordion"
       >
         <v-expansion-panel v-for="game in filteredCovers" :key="game.name">
-          <v-expansion-panel-title class="bg-terciary">
+          <v-expansion-panel-title class="bg-toplayer">
             <v-row no-gutters class="justify-center">
               <v-list-item class="pa-0">{{ game.name }}</v-list-item>
             </v-row>
@@ -209,7 +207,7 @@ onBeforeUnmount(() => {
                         <v-progress-circular
                           :width="2"
                           :size="40"
-                          color="romm-accent-1"
+                          color="primary"
                           indeterminate
                         />
                       </div>

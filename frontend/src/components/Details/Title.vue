@@ -11,7 +11,7 @@ import { useDisplay } from "vuetify";
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
-  Number(props.rom.first_release_date) * 1000,
+  Number(props.rom.first_release_date),
 ).toLocaleDateString("en-US", {
   day: "2-digit",
   month: "short",
@@ -27,7 +27,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
       no-gutters
     >
       <v-col>
-        <p class="text-h5 font-weight-bold pl-0">
+        <p class="text-h5 font-weight-bold pl-0 position-relative">
           <span>{{ rom.name }}</span>
           <fav-btn class="ml-2" :rom="rom" />
         </p>

@@ -3,6 +3,7 @@ import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import {
@@ -12,22 +13,28 @@ import {
 } from "@/utils";
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
+import { storeToRefs } from "pinia";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
+
+const platformSlug = computed(() => {
+  return props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
+    ? config.value.PLATFORMS_VERSIONS[props.rom.platform_slug]
+    : props.rom.platform_slug;
+});
 
 const ejsEmulationSupported = computed(() => {
-  return isEJSEmulationSupported(props.rom.platform_slug, heartbeatStore.value);
+  return isEJSEmulationSupported(platformSlug.value, heartbeatStore.value);
 });
 
 const ruffleEmulationSupported = computed(() => {
-  return isRuffleEmulationSupported(
-    props.rom.platform_slug,
-    heartbeatStore.value,
-  );
+  return isRuffleEmulationSupported(platformSlug.value, heartbeatStore.value);
 });
 
 const is3DSRom = computed(() => {
@@ -43,8 +50,8 @@ const is3DSRom = computed(() => {
         size="x-small"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
-        rounded="0"
         variant="text"
+        rounded="0"
         @click.prevent="romApi.downloadRom({ rom })"
       />
     </v-col>
@@ -64,8 +71,8 @@ const is3DSRom = computed(() => {
           })
         "
         icon="mdi-play"
-        rounded="0"
         variant="text"
+        rounded="0"
       />
       <v-btn
         v-if="ruffleEmulationSupported"
@@ -79,8 +86,8 @@ const is3DSRom = computed(() => {
           })
         "
         icon="mdi-play"
-        rounded="0"
         variant="text"
+        rounded="0"
       />
     </v-col>
     <v-col v-if="is3DSRom" class="d-flex">
@@ -90,8 +97,8 @@ const is3DSRom = computed(() => {
         size="x-small"
         @click="emitter?.emit('showQRCodeDialog', rom)"
         icon="mdi-qrcode"
-        rounded="0"
         variant="text"
+        rounded="0"
       />
     </v-col>
     <v-col class="d-flex">
@@ -103,8 +110,8 @@ const is3DSRom = computed(() => {
             size="x-small"
             v-bind="props"
             icon="mdi-dots-vertical"
-            rounded="0"
             variant="text"
+            rounded="0"
           />
         </template>
         <admin-menu :rom="rom" />

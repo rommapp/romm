@@ -30,7 +30,7 @@ RUN npm run build
 
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
-# git is needed to install py7zr fork
+# git is needed to install streaming-form-data fork
 # libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
@@ -55,7 +55,7 @@ RUN poetry install --no-ansi --no-cache --only main
 
 FROM backend-build AS backend-dev-build
 
-RUN poetry install --no-ansi --no-cache
+RUN poetry install --no-ansi --no-cache --all-extras
 
 
 # TODO: Upgrade Alpine to the same version as the other stages, when RAHasher is updated to work
@@ -85,7 +85,7 @@ RUN apk add --no-cache \
     7zip \
     wget
 
-ARG EMULATORJS_VERSION=4.2.0
+ARG EMULATORJS_VERSION=4.2.1
 RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
     rm -rf "${EMULATORJS_VERSION}.7z";
@@ -144,13 +144,7 @@ COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 
-COPY ./frontend/assets/dashboard-icons ${WEBSERVER_FOLDER}/assets/dashboard-icons
-COPY ./frontend/assets/default ${WEBSERVER_FOLDER}/assets/default
-COPY ./frontend/assets/platforms ${WEBSERVER_FOLDER}/assets/platforms
-COPY ./frontend/assets/scrappers ${WEBSERVER_FOLDER}/assets/scrappers
-COPY ./frontend/assets/webrcade/feed ${WEBSERVER_FOLDER}/assets/webrcade/feed
-COPY ./frontend/assets/emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
-COPY ./frontend/assets/ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
     ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
     ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
