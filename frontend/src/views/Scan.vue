@@ -296,61 +296,76 @@ async function stopScan() {
   />
 
   <!-- Scan log -->
-  <v-card elevation="0" class="bg-surface mx-auto mt-2 mb-14" max-width="800">
-    <v-card-text class="pa-0">
-      <v-expansion-panels v-model="panels" multiple flat variant="accordion">
-        <v-expansion-panel
-          v-for="platform in scanningPlatforms"
-          :key="platform.id"
-        >
-          <v-expansion-panel-title>
-            <v-list-item class="pa-0">
-              <template #prepend>
-                <v-avatar size="40">
-                  <platform-icon
-                    :key="platform.slug"
-                    :slug="platform.slug"
-                    :name="platform.name"
-                  />
-                </v-avatar>
-              </template>
-              {{ platform.name }}
-              <template #append>
-                <v-chip class="ml-3" color="primary" size="x-small" label>{{
-                  platform.roms.length
-                }}</v-chip>
-              </template>
-            </v-list-item>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text class="bg-toplayer">
-            <rom-list-item
-              v-for="rom in platform.roms"
-              class="pa-4"
-              :rom="rom"
-              with-link
-              with-filename
+  <v-row no-gutters>
+    <v-col>
+      <v-card
+        elevation="0"
+        class="bg-surface mx-auto mt-2 mb-14"
+        max-width="800"
+      >
+        <v-card-text class="pa-0">
+          <v-expansion-panels
+            v-model="panels"
+            multiple
+            flat
+            variant="accordion"
+          >
+            <v-expansion-panel
+              v-for="platform in scanningPlatforms"
+              :key="platform.id"
             >
-              <template #append-body>
-                <v-chip
-                  v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
-                  color="red"
-                  size="x-small"
-                  label
-                  >Not identified<v-icon class="ml-1">mdi-close</v-icon></v-chip
+              <v-expansion-panel-title>
+                <v-list-item class="pa-0">
+                  <template #prepend>
+                    <v-avatar size="40">
+                      <platform-icon
+                        :key="platform.slug"
+                        :slug="platform.slug"
+                        :name="platform.name"
+                      />
+                    </v-avatar>
+                  </template>
+                  {{ platform.name }}
+                  <template #append>
+                    <v-chip class="ml-3" color="primary" size="x-small" label>{{
+                      platform.roms.length
+                    }}</v-chip>
+                  </template>
+                </v-list-item>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text class="bg-toplayer">
+                <rom-list-item
+                  v-for="rom in platform.roms"
+                  class="pa-4"
+                  :rom="rom"
+                  with-link
+                  with-filename
                 >
-              </template>
-            </rom-list-item>
-            <v-list-item
-              v-if="platform.roms.length == 0"
-              class="text-center my-2"
-            >
-              {{ t("scan.no-new-roms") }}
-            </v-list-item>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
-    </v-card-text>
-  </v-card>
+                  <template #append-body>
+                    <v-chip
+                      v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
+                      color="red"
+                      size="x-small"
+                      label
+                      >Not identified<v-icon class="ml-1"
+                        >mdi-close</v-icon
+                      ></v-chip
+                    >
+                  </template>
+                </rom-list-item>
+                <v-list-item
+                  v-if="platform.roms.length == 0"
+                  class="text-center my-2"
+                >
+                  {{ t("scan.no-new-roms") }}
+                </v-list-item>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </v-card-text>
+      </v-card>
+    </v-col>
+  </v-row>
 
   <!-- Scan stats -->
   <div
