@@ -1,7 +1,7 @@
 """Change empty string in users.email to NULL.
 
-Revision ID: 951473b0c581
-Revises: 0029_platforms_custom_name
+Revision ID: 0031_user_email_null
+Revises: 0030_screenscraper_data
 Create Date: 2025-01-14 01:30:39.696257
 
 """
@@ -9,8 +9,8 @@ Create Date: 2025-01-14 01:30:39.696257
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "0030_user_email_null"
-down_revision = "0029_platforms_custom_name"
+revision = "0031_user_email_null"
+down_revision = "0030_screenscraper_data"
 branch_labels = None
 depends_on = None
 
