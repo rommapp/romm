@@ -11,7 +11,7 @@ import {
 } from "@/utils";
 import createIndexedDBDiffMonitor, {
   type Change,
-} from "@/utils/indexdb_monitor";
+} from "@/utils/indexdb-monitor";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -234,7 +234,7 @@ window.EJS_onGameStart = async () => {
     console.log("Save changes detected:", changes);
 
     changes.forEach((change) => {
-      if (!change.key.includes(romRef.value.file_name_no_tags)) return;
+      if (!change.key.includes(romRef.value.fs_name_no_tags)) return;
 
       if (saveRef.value) {
         saveApi
@@ -278,7 +278,7 @@ window.EJS_onGameStart = async () => {
     console.log("State changes detected:", changes);
 
     changes.forEach((change) => {
-      if (!change.key.includes(romRef.value.file_name_no_tags)) return;
+      if (!change.key.includes(romRef.value.fs_name_no_tags)) return;
 
       if (stateRef.value) {
         stateApi
