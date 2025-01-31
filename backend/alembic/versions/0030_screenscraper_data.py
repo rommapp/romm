@@ -1,6 +1,6 @@
 """screenscraper
 
-Revision ID: bb063fb5083d
+Revision ID: 0030_screenscraper_data
 Revises: 0029_platforms_custom_name
 Create Date: 2025-01-02 18:58:55.557123
 
