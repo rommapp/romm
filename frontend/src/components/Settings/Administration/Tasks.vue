@@ -87,7 +87,7 @@ const runAllTasks = async () => {
         :loading="runningTasks.value"
         prepend-icon="mdi-play"
         variant="outlined"
-        class="text-romm-accent-1"
+        class="text-primary"
         @click="runAllTasks"
       >
         Run All

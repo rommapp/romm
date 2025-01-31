@@ -42,13 +42,22 @@ async function logout() {
 </script>
 <template>
   <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="500"
+    :location="smAndDown ? 'top' : 'left'"
+    width="450"
     v-model="activeSettingsDrawer"
-    class="bg-terciary"
+    :class="{
+      'mx-2': smAndDown || activeSettingsDrawer,
+      'my-2': !smAndDown || activeSettingsDrawer,
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
+    }"
+    class="bg-surface pa-1"
+    style="height: unset"
+    rounded
+    :border="0"
   >
-    <v-list rounded="0" class="pa-0">
+    <v-list class="pa-0">
       <v-list-img>
         <v-img
           :src="
@@ -57,6 +66,7 @@ async function logout() {
               : defaultAvatarPath
           "
           cover
+          class="rounded"
         >
         </v-img>
       </v-list-img>
@@ -67,41 +77,61 @@ async function logout() {
       >
       </v-list-item>
     </v-list>
-    <v-list rounded="0" class="pa-0">
+    <v-list class="py-1 px-0">
       <v-list-item
+        rounded
         @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
         append-icon="mdi-account"
         >{{ t("common.profile") }}</v-list-item
       >
-      <v-list-item :to="{ name: 'userInterface' }" append-icon="mdi-palette">{{
-        t("common.user-interface")
-      }}</v-list-item>
+      <v-list-item
+        class="mt-1"
+        rounded
+        :to="{ name: 'userInterface' }"
+        append-icon="mdi-palette"
+        >{{ t("common.user-interface") }}</v-list-item
+      >
       <v-list-item
         v-if="scopes.includes('platforms.write')"
+        class="mt-1"
+        rounded
         append-icon="mdi-table-cog"
         :to="{ name: 'libraryManagement' }"
         >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
+        class="mt-1"
+        rounded
         :to="{ name: 'administration' }"
         append-icon="mdi-security"
-        >{{ t("common.administration") }}</v-list-item
-      >
+        >{{ t("common.administration") }}
+      </v-list-item>
       <template v-if="smAndDown">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit">{{
-          t("common.logout")
-        }}</v-list-item>
+        <v-list-item
+          @click="logout"
+          append-icon="mdi-location-exit"
+          rounded
+          class="bg-toplayer border-sm text-romm-red border-romm-red mt-1"
+          >{{ t("common.logout") }}</v-list-item
+        >
       </template>
     </v-list>
     <template v-if="!smAndDown" #append>
-      <v-list rounded="0" class="pa-0">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit">{{
-          t("common.logout")
-        }}</v-list-item>
+      <v-list class="pa-0">
+        <v-list-item
+          @click="logout"
+          append-icon="mdi-location-exit"
+          rounded
+          class="bg-toplayer border-sm text-romm-red border-romm-red"
+          >{{ t("common.logout") }}</v-list-item
+        >
       </v-list>
     </template>
   </v-navigation-drawer>
 </template>
+<style scoped>
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>

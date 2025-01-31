@@ -90,7 +90,7 @@ async function switchFromFavourites() {
     rouded="0"
     size="small"
     variant="text"
-    ><v-icon color="romm-accent-1">{{
+    ><v-icon color="primary">{{
       collectionsStore.isFav(rom) ? "mdi-star" : "mdi-star-outline"
     }}</v-icon></v-btn
   >

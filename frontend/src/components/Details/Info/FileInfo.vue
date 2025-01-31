@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RomFileSchema } from "@/__generated__";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
@@ -26,6 +27,14 @@ async function toggleMainSibling() {
     romId: props.rom.id,
     data: romUser.value,
   });
+}
+
+function itemProps(item: RomFileSchema) {
+  return {
+    key: item.id,
+    title: item.full_path.replace(props.rom.full_path, ""),
+    value: item,
+  };
 }
 
 watch(
@@ -63,7 +72,7 @@ watch(
                   @click="toggleMainSibling"
                   ><v-icon
                     :class="romUser.is_main_sibling ? '' : 'mr-1'"
-                    :color="romUser.is_main_sibling ? 'romm-accent-1' : ''"
+                    :color="romUser.is_main_sibling ? 'primary' : ''"
                     >{{
                       romUser.is_main_sibling
                         ? "mdi-checkbox-outline"
@@ -81,7 +90,7 @@ watch(
           <span>{{ t("rom.file") }}</span>
         </v-col>
         <v-col>
-          <span class="text-body-1">{{ rom.file_name }}</span>
+          <span class="text-body-1">{{ rom.fs_name }}</span>
         </v-col>
       </v-row>
       <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
@@ -91,9 +100,9 @@ watch(
         <v-col>
           <v-select
             v-model="downloadStore.filesToDownload"
-            :label="rom.file_name"
-            item-title="file_name"
-            :items="rom.files.map((f) => f.filename)"
+            :label="rom.fs_name"
+            :items="rom.files"
+            :itemProps="itemProps"
             rounded="0"
             density="compact"
             variant="outlined"
@@ -102,7 +111,31 @@ watch(
             hide-details
             clearable
             chips
-          />
+          >
+            <template #item="{ item, props }">
+              <v-list-item v-bind="props">
+                <template v-slot:prepend="{ isSelected }">
+                  <v-checkbox-btn
+                    :model-value="isSelected"
+                    density="compact"
+                    class="mr-2"
+                  />
+                </template>
+                <v-list-item-subtitle class="mt-1">
+                  <v-chip
+                    color="primary"
+                    size="x-small"
+                    class="mr-1"
+                    v-if="item.raw.category"
+                    >{{ item.raw.category.toLocaleUpperCase() }}</v-chip
+                  >
+                  <v-chip size="x-small">{{
+                    formatBytes(item.raw.file_size_bytes)
+                  }}</v-chip>
+                </v-list-item-subtitle>
+              </v-list-item>
+            </template>
+          </v-select>
         </v-col>
       </v-row>
       <v-row no-gutters class="align-center my-3">
@@ -114,17 +147,16 @@ watch(
             <v-col cols="12">
               <v-chip size="small" class="mr-2 px-0" label>
                 <v-chip label>{{ t("rom.size") }}</v-chip
-                ><span class="px-2">{{
-                  formatBytes(rom.file_size_bytes)
-                }}</span>
+                ><span class="px-2">{{ formatBytes(rom.fs_size_bytes) }}</span>
               </v-chip>
             </v-col>
-            <v-col
-              v-for="info in romInfo"
-              v-if="!rom.multi && rom.sha1_hash"
-              cols="12"
-            >
-              <v-chip size="small" class="mt-1 mr-2 px-0" label>
+            <v-col v-for="info in romInfo" cols="12">
+              <v-chip
+                v-if="info.value"
+                size="small"
+                class="mt-1 mr-2 px-0"
+                label
+              >
                 <v-chip label>{{ info.label }}</v-chip
                 ><span class="px-2">{{ info.value }}</span>
               </v-chip>
@@ -143,7 +175,7 @@ watch(
             size="small"
             class="mr-2"
             label
-            color="romm-accent-1"
+            color="primary"
             variant="tonal"
           >
             {{ tag }}

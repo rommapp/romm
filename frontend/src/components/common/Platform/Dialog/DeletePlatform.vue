@@ -72,7 +72,7 @@ function closeDialog() {
         <span class="mr-1">{{ t("platform.removing-platform-1") }}</span>
         <platform-icon :slug="platform.slug" :name="platform.name" />
         <span class="ml-1"
-          >{{ platform.name }} - [<span class="text-romm-accent-1">{{
+          >{{ platform.name }} - [<span class="text-primary">{{
             platform.fs_slug
           }}</span
           >{{ t("platform.removing-platform-2") }}</span
@@ -82,10 +82,10 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
-          <v-btn class="bg-terciary text-romm-red" @click="deletePlatform">
+          <v-btn class="bg-toplayer text-romm-red" @click="deletePlatform">
             {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>

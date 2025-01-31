@@ -56,7 +56,6 @@ async function fetchRoms() {
   try {
     const { data } = await romApi.getRoms({
       collectionId: romsStore.currentCollection?.id,
-      searchTerm: normalizeString(galleryFilterStore.filterText),
     });
     romsStore.set(data);
     romsStore.setFiltered(data, galleryFilterStore);
@@ -290,7 +289,7 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noCollectionError">
     <gallery-app-bar-collection />
-    <v-row v-if="gettingRoms" no-gutters class="pa-1"
+    <v-row v-if="gettingRoms" no-gutters class="mx-1 mt-3"
       ><v-col
         v-for="_ in 60"
         class="pa-1 align-self-end"
@@ -302,7 +301,7 @@ onBeforeUnmount(() => {
         ><v-skeleton-loader type="card" /></v-col
     ></v-row>
     <template v-if="filteredRoms.length > 0">
-      <v-row v-show="currentView != 2" class="pa-1" no-gutters>
+      <v-row v-show="currentView != 2" class="mx-1 mt-3" no-gutters>
         <!-- Gallery cards view -->
         <!-- v-show instead of v-if to avoid recalculate on view change -->
         <v-col
@@ -322,12 +321,11 @@ onBeforeUnmount(() => {
             pointer-on-hover
             with-link
             show-flags
-            show-action-bar
             show-fav
             transform-scale
-            with-border
+            show-action-bar
             show-platform-icon
-            :with-border-romm-accent="
+            :with-border-primary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
             @click="onGameClick"
@@ -338,8 +336,8 @@ onBeforeUnmount(() => {
       </v-row>
 
       <!-- Gallery list view -->
-      <v-row v-show="currentView == 2" class="h-100" no-gutters>
-        <game-data-table class="fill-height" />
+      <v-row v-show="currentView == 2" no-gutters>
+        <game-data-table />
       </v-row>
       <fab-overlay />
     </template>
