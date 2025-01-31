@@ -8,7 +8,7 @@ const heartbeatStore = storeHeartbeat();
 
 <template>
   <notification />
-  <v-container class="fill-height justify-center">
+  <v-container id="container" class="fill-height justify-center">
     <router-view />
   </v-container>
   <div id="version" class="position-absolute">
@@ -25,5 +25,11 @@ const heartbeatStore = storeHeartbeat();
     0 0 1px #000000;
   bottom: 0.3rem;
   right: 0.5rem;
+}
+
+#container {
+  background-image: url("/assets/auth_background.svg");
+  background-size: cover;
+  max-width: 100vw;
 }
 </style>
