@@ -13,6 +13,7 @@ from endpoints.sockets.scan import scan_platforms
 from handler.database import db_platform_handler
 from handler.scan_handler import ScanType
 from logger.logger import log
+from rq.job import Job
 from tasks.tasks import tasks_scheduler
 from utils import get_version
 from watchdog.events import FileSystemEventHandler
@@ -58,14 +59,15 @@ class EventHandler(FileSystemEventHandler):
 
         # Skip if a scan is already scheduled
         for job in tasks_scheduler.get_jobs():
-            if job.func_name == "endpoints.sockets.scan.scan_platforms":
-                if job.args[0] == []:
-                    log.info("Full rescan already scheduled")
-                    return
+            if isinstance(job, Job):
+                if job.func_name == "endpoints.sockets.scan.scan_platforms":
+                    if job.args[0] == []:
+                        log.info("Full rescan already scheduled")
+                        return
 
-                if db_platform and db_platform.id in job.args[0]:
-                    log.info(f"Scan already scheduled for {fs_slug}")
-                    return
+                    if db_platform and db_platform.id in job.args[0]:
+                        log.info(f"Scan already scheduled for {fs_slug}")
+                        return
 
         time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
         rescan_in_msg = f"rescanning in {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minutes."
@@ -77,12 +79,13 @@ class EventHandler(FileSystemEventHandler):
         elif db_platform:
             # Otherwise trigger a rescan for the specific platform
             log.info(f"Change detected in {fs_slug} folder, {rescan_in_msg}")
-            return tasks_scheduler.enqueue_in(
+            tasks_scheduler.enqueue_in(
                 time_delta,
                 scan_platforms,
                 [db_platform.id],
                 scan_type=ScanType.QUICK,
             )
+            return
 
 
 if __name__ == "__main__":

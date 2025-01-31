@@ -29,18 +29,15 @@ def add_saves(
     current_user = request.user
     log.info(f"Uploading saves to {rom.name}")
 
-    if saves is None:
-        log.error("No saves were uploaded")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No saves were uploaded",
-        )
-
     saves_path = fs_asset_handler.build_saves_file_path(
         user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
     )
 
     for save in saves:
+        if not save.filename:
+            log.error("Save file has no filename")
+            continue
+
         fs_asset_handler.write_file(file=save, path=saves_path)
 
         # Scan or update save
@@ -79,7 +76,11 @@ def add_saves(
 
     return {
         "uploaded": len(saves),
-        "saves": [s for s in rom.saves if s.user_id == current_user.id],
+        "saves": [
+            SaveSchema.model_validate(s)
+            for s in rom.saves
+            if s.user_id == current_user.id
+        ],
     }
 
 
@@ -109,7 +110,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
     if "file" in data:
-        file: UploadFile = data["file"]
+        file: UploadFile = data["file"]  # type: ignore
         fs_asset_handler.write_file(file=file, path=db_save.file_path)
         db_save_handler.update_save(db_save.id, {"file_size_bytes": file.size})
 
@@ -124,7 +125,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
 
     # Refetch the save to get updated fields
     db_save = db_save_handler.get_save(id)
-    return db_save
+    return SaveSchema.model_validate(db_save)
 
 
 @protected_route(router.post, "/saves/delete", [Scope.ASSETS_WRITE])

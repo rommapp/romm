@@ -51,16 +51,16 @@ def add_user(
             detail="Forbidden",
         )
 
-    if db_user_handler.get_user_by_username(username.lower()):
-        msg = f"Username {username.lower()} already exists"
+    if db_user_handler.get_user_by_username(username):
+        msg = f"Username {username} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=msg,
         )
 
-    if email and db_user_handler.get_user_by_email(email.lower()):
-        msg = f"User with email {email.lower()} already exists"
+    if email and db_user_handler.get_user_by_email(email):
+        msg = f"User with email {email} already exists"
         log.error(msg)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -74,7 +74,7 @@ def add_user(
         role=Role[role.upper()],
     )
 
-    return db_user_handler.add_user(user)
+    return UserSchema.model_validate(db_user_handler.add_user(user))
 
 
 @protected_route(router.get, "/users", [Scope.USERS_READ])
@@ -88,7 +88,7 @@ def get_users(request: Request) -> list[UserSchema]:
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    return [u for u in db_user_handler.get_users()]
+    return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
 
 
 @protected_route(router.get, "/users/me", [Scope.ME_READ])
@@ -120,7 +120,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return user
+    return UserSchema.model_validate(user)
 
 
 @protected_route(router.put, "/users/{id}", [Scope.ME_WRITE])
@@ -155,8 +155,7 @@ async def update_user(
     cleaned_data: dict[str, Any] = {}
 
     if form_data.username and form_data.username != db_user.username:
-        existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
-        if existing_user:
+        if db_user_handler.get_user_by_username(form_data.username):
             msg = f"Username {form_data.username} already exists"
             log.error(msg)
             raise HTTPException(
@@ -172,9 +171,7 @@ async def update_user(
         )
 
     if form_data.email is not None and form_data.email != db_user.email:
-        if form_data.email and db_user_handler.get_user_by_email(
-            form_data.email.lower()
-        ):
+        if form_data.email and db_user_handler.get_user_by_email(form_data.email):
             msg = f"User with email {form_data.email} already exists"
             log.error(msg)
             raise HTTPException(
@@ -214,7 +211,13 @@ async def update_user(
         if request.user.id == id and creds_updated:
             request.session.clear()
 
-    return db_user_handler.get_user(id)
+    db_user = db_user_handler.get_user(id)
+    if not db_user:
+        msg = f"Username with id {id} not found"
+        log.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+
+    return UserSchema.model_validate(db_user)
 
 
 @protected_route(router.delete, "/users/{id}", [Scope.USERS_WRITE])

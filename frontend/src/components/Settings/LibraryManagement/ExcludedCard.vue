@@ -32,7 +32,7 @@ function removeExclusion(exclusionValue: string) {
 }
 </script>
 <template>
-  <v-card rounded="0" color="terciary">
+  <v-card color="toplayer" class="ma-2">
     <v-card-title class="text-body-2 align-center justify-center"
       ><v-icon class="mr-2">{{ icon }}</v-icon
       >{{ title }}</v-card-title
@@ -49,8 +49,8 @@ function removeExclusion(exclusionValue: string) {
         <v-slide-x-reverse-transition>
           <v-btn
             v-if="editable"
-            rounded="0"
             variant="text"
+            rounded="0"
             size="x-small"
             icon="mdi-delete"
             class="text-romm-red ml-1"
@@ -64,7 +64,7 @@ function removeExclusion(exclusionValue: string) {
           rounded="1"
           prepend-icon="mdi-plus"
           variant="outlined"
-          class="text-romm-accent-1 ml-1"
+          class="text-primary ml-1"
           @click="
             emitter?.emit('showCreateExclusionDialog', {
               type: type,
