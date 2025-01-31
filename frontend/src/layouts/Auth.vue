@@ -7,7 +7,6 @@ const heartbeatStore = storeHeartbeat();
 </script>
 
 <template>
-  <span class="h-100 w-100 position-absolute" id="bg" />
   <notification />
   <v-container class="fill-height justify-center">
     <router-view />
@@ -20,10 +19,6 @@ const heartbeatStore = storeHeartbeat();
 </template>
 
 <style scoped>
-#bg {
-  background: url("/assets/login_bg.png") center center;
-  background-size: cover;
-}
 #version {
   text-shadow:
     1px 1px 1px #000000,

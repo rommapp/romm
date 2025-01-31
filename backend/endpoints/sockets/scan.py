@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import zlib
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -23,20 +24,51 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.redis_handler import high_prio_queue, redis_client
+from handler.redis_handler import high_prio_queue, low_prio_queue, redis_client
 from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
 from handler.socket_handler import socket_handler
-from logger.formatter import LIGHTYELLOW
+from logger.formatter import LIGHTYELLOW, RED
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.platform import Platform
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
 from utils.context import initialize_context
 
 STOP_SCAN_FLAG: Final = "scan:stop"
+NON_HASHABLE_PLATFORMS = frozenset(
+    (
+        "amazon-alexa",
+        "amazon-fire-tv",
+        "android",
+        "gear-vr",
+        "ios",
+        "ipad",
+        "linux",
+        "mac",
+        "meta-quest-2",
+        "meta-quest-3",
+        "oculus-go",
+        "oculus-quest",
+        "oculus-rift",
+        "pc",
+        "ps3",
+        "ps4",
+        "ps4--1",
+        "ps5",
+        "psvr",
+        "psvr2",
+        "series-x",
+        "switch",
+        "wiiu",
+        "win",
+        "xbox-360",
+        "xbox360",
+        "xboxone",
+    )
+)
 
 
 @dataclass
@@ -141,7 +173,9 @@ async def scan_platforms(
 
     try:
         platform_list = [
-            db_platform_handler.get_platform(s).fs_slug for s in platform_ids
+            platform.fs_slug
+            for s in platform_ids
+            if (platform := db_platform_handler.get_platform(s)) is not None
         ] or fs_platforms
 
         if len(platform_list) == 0:
@@ -267,16 +301,16 @@ async def _identify_platform(
         log.info(f"  {len(fs_roms)} roms found in the file system")
 
     for fs_roms_batch in batched(fs_roms, 200):
-        rom_by_filename_map = db_rom_handler.get_roms_by_filename(
+        rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
-            file_names={fs_rom["file_name"] for fs_rom in fs_roms_batch},
+            fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
 
         for fs_rom in fs_roms_batch:
             scan_stats += await _identify_rom(
                 platform=platform,
                 fs_rom=fs_rom,
-                rom=rom_by_filename_map.get(fs_rom["file_name"]),
+                rom=rom_by_filename_map.get(fs_rom["fs_name"]),
                 scan_type=scan_type,
                 roms_ids=roms_ids,
                 metadata_sources=metadata_sources,
@@ -288,12 +322,12 @@ async def _identify_platform(
     # the folder structure is not correct or the drive is not mounted
     if len(fs_roms) > 0:
         purged_roms = db_rom_handler.purge_roms(
-            platform.id, [rom["file_name"] for rom in fs_roms]
+            platform.id, [rom["fs_name"] for rom in fs_roms]
         )
         if len(purged_roms) > 0:
             log.info("Purging roms not found in the filesystem:")
             for r in purged_roms:
-                log.info(f" - {r.file_name}")
+                log.info(f" - {r.fs_name}")
 
     # Same protection for firmware
     if len(fs_firmware) > 0:
@@ -333,6 +367,51 @@ async def _identify_firmware(
     return scan_stats
 
 
+def _set_rom_hashes(rom_id: int):
+    """Set the hashes for the given rom
+
+    Args:
+        rom_id (int): Rom id
+    """
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        return
+
+    try:
+        rom_hash, rom_file_hashes = fs_rom_handler.get_rom_hashes(rom)
+    except zlib.error as e:
+        # Set empty hashes if calculating them fails for corrupted files
+        log.error(
+            f"Hashes of {rom.fs_name} couldn't be calculated: {hl(str(e), color=RED)}"
+        )
+        db_rom_handler.update_rom(
+            rom_id,
+            {
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+            },
+        )
+    else:
+        db_rom_handler.update_rom(
+            rom_id,
+            {
+                "crc_hash": rom_hash["crc_hash"],
+                "md5_hash": rom_hash["md5_hash"],
+                "sha1_hash": rom_hash["sha1_hash"],
+            },
+        )
+        for file_hash in rom_file_hashes:
+            db_rom_handler.update_rom_file(
+                file_hash["id"],
+                {
+                    "crc_hash": file_hash["crc_hash"],
+                    "md5_hash": file_hash["md5_hash"],
+                    "sha1_hash": file_hash["sha1_hash"],
+                },
+            )
+
+
 async def _identify_rom(
     platform: Platform,
     fs_rom: FSRom,
@@ -349,15 +428,9 @@ async def _identify_rom(
         return scan_stats
 
     if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
-        if rom and (
-            rom.file_name != fs_rom["file_name"]
-            or rom.multi != fs_rom["multi"]
-            or rom.files != fs_rom["files"]
-        ):
+        if rom and rom.fs_name != fs_rom["fs_name"]:
             # Just to update the filesystem data
-            rom.file_name = fs_rom["file_name"]
-            rom.multi = fs_rom["multi"]
-            rom.files = fs_rom["files"]
+            rom.fs_name = fs_rom["fs_name"]
             db_rom_handler.add_rom(rom)
 
         return scan_stats
@@ -375,6 +448,37 @@ async def _identify_rom(
     scan_stats.metadata_roms += 1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    # Delete the existing rom files in the DB
+    db_rom_handler.purge_rom_files(_added_rom.id)
+
+    # Create each file entry for the rom
+    new_rom_files = [
+        RomFile(
+            rom_id=_added_rom.id,
+            file_name=file.file_name,
+            file_path=file.file_path,
+            file_size_bytes=file.file_size_bytes,
+            last_modified=file.last_modified,
+            category=file.category,
+        )
+        for file in fs_rom["files"]
+    ]
+    for new_rom_file in new_rom_files:
+        db_rom_handler.add_rom_file(new_rom_file)
+
+    # Calculating hashes is expensive, so we only do it if necessary
+    if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
+        # Skip hashing games for platforms that don't have a hash database
+        if platform.slug not in NON_HASHABLE_PLATFORMS:
+            # Uncomment this to run scan in the current process
+            # _set_rom_hashes(_added_rom.id)
+
+            low_prio_queue.enqueue(
+                _set_rom_hashes,
+                _added_rom.id,
+                job_timeout=60 * 15,  # Timeout (15 minutes)
+            )
 
     # Return early if we're only scanning for hashes
     if scan_type == ScanType.HASHES:

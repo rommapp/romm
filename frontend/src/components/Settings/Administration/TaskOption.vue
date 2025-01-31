@@ -10,17 +10,17 @@ withDefaults(
 );
 </script>
 <template>
-  <v-card elevation="0" :disabled="!enabled">
+  <v-card elevation="0" :disabled="!enabled" class="bg-background">
     <v-list-item class="pa-0">
       <v-list-item-title
         class="font-weight-bold"
-        :class="{ 'text-romm-accent-1': enabled }"
+        :class="{ 'text-primary': enabled }"
         >{{ title }}</v-list-item-title
       >
       <v-list-item-subtitle>{{ description }}</v-list-item-subtitle>
       <template #prepend
         ><v-icon
-          :class="enabled ? 'text-romm-accent-1' : ''"
+          :class="enabled ? 'text-primary' : ''"
           :icon="icon" /></template
     ></v-list-item>
   </v-card>

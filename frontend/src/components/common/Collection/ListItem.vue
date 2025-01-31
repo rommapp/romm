@@ -31,10 +31,12 @@ withDefaults(
         : {}),
     }"
     :value="collection.name"
-    class="py-1 pl-1"
+    rounded
+    density="compact"
+    class="my-1 py-2"
   >
     <template #prepend>
-      <r-avatar :size="75" :collection="collection" />
+      <r-avatar :size="45" :collection="collection" />
     </template>
     <v-row v-if="withTitle" no-gutters
       ><v-col

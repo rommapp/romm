@@ -88,10 +88,10 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
-          <v-btn class="bg-terciary text-romm-red" @click="deleteCollection">
+          <v-btn class="bg-toplayer text-romm-red" @click="deleteCollection">
             {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>

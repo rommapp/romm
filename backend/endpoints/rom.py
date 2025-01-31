@@ -1,8 +1,9 @@
 import binascii
 from base64 import b64encode
+from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
-from typing import Annotated
+from typing import Any
 from urllib.parse import quote
 
 from anyio import Path
@@ -17,7 +18,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.rom import DetailedRomSchema, RomUserSchema, SimpleRomSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import HTTPException, Query, Request, UploadFile, status
+from fastapi import HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from handler.auth.constants import Scope
 from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
@@ -28,7 +29,6 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomUser
 from PIL import Image
-from sqlalchemy import func
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -67,7 +67,7 @@ async def add_rom(request: Request):
         ) from None
 
     platform_fs_slug = db_platform.fs_slug
-    roms_path = fs_rom_handler.build_upload_file_path(platform_fs_slug)
+    roms_path = fs_rom_handler.build_upload_fs_path(platform_fs_slug)
     log.info(f"Uploading file to {platform_fs_slug}")
 
     file_location = Path(f"{roms_path}/{filename}")
@@ -195,14 +195,14 @@ async def head_rom_content(
     request: Request,
     id: int,
     file_name: str,
-    files: Annotated[list[str] | None, Query()] = None,
 ):
     """Head rom content endpoint
 
     Args:
         request (Request): Fastapi Request object
         id (int): Rom internal id
-        file_name (str): Required due to a bug in emulatorjs
+        file_name (str): File name to download
+        file_ids (list[int]): List of file ids to download for multi-part roms
 
     Returns:
         FileResponse: Returns the response with headers
@@ -213,30 +213,55 @@ async def head_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_check = files or [r["filename"] for r in rom.files]
+    file_ids = request.query_params.get("file_ids") or ""
+    file_ids = [int(f) for f in file_ids.split(",") if f]
+    files = db_rom_handler.get_rom_files(rom.id)
+    files = [f for f in files if f.id in file_ids or not file_ids]
 
-    if not rom.multi:
-        # Serve the file directly in development mode for emulatorjs
-        if DEV_MODE:
+    # Serve the file directly in development mode for emulatorjs
+    if DEV_MODE:
+        if not rom.multi:
+            rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
             return FileResponse(
                 path=rom_path,
-                filename=rom.file_name,
+                filename=rom.fs_name,
                 headers={
-                    "Content-Disposition": f'attachment; filename="{quote(rom.file_name)}"',
+                    "Content-Disposition": f'attachment; filename="{quote(rom.fs_name)}"',
                     "Content-Type": "application/octet-stream",
-                    "Content-Length": str(rom.file_size_bytes),
+                    "Content-Length": str(rom.fs_size_bytes),
                 },
             )
 
-        return FileRedirectResponse(
-            download_path=Path(f"/library/{rom.full_path}"),
-            filename=rom.file_name,
+        if len(files) == 1:
+            file = files[0]
+            rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+            return FileResponse(
+                path=rom_path,
+                filename=file.file_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(file.file_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(file.file_size_bytes),
+                },
+            )
+
+        return Response(
+            headers={
+                "Content-Type": "application/zip",
+                "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
+            },
         )
 
-    if len(files_to_check) == 1:
+    # Otherwise proxy through nginx
+    if not rom.multi:
         return FileRedirectResponse(
-            download_path=Path(f"/library/{rom.full_path}/{files_to_check[0]}"),
+            download_path=Path(f"/library/{rom.full_path}"),
+            filename=rom.fs_name,
+        )
+
+    if len(files) == 1:
+        return FileRedirectResponse(
+            download_path=Path(f"/library/{files[0].full_path}"),
         )
 
     return Response(
@@ -256,14 +281,13 @@ async def get_rom_content(
     request: Request,
     id: int,
     file_name: str,
-    files: Annotated[list[str] | None, Query()] = None,
 ):
     """Download rom endpoint (one single file or multiple zipped files for multi-part roms)
 
     Args:
         request (Request): Fastapi Request object
         id (int): Rom internal id
-        files (Annotated[list[str]  |  None, Query, optional): List of files to download for multi-part roms. Defaults to None.
+        file_name: Zip file output name
 
     Returns:
         FileResponse: Returns one file for single file roms
@@ -278,34 +302,80 @@ async def get_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-    files_to_download = sorted(files or [r["filename"] for r in rom.files])
+    file_ids = request.query_params.get("file_ids") or ""
+    file_ids = [int(f) for f in file_ids.split(",") if f]
+    files = db_rom_handler.get_rom_files(rom.id)
+    files = [f for f in files if f.id in file_ids or not file_ids]
 
-    log.info(f"User {current_username} is downloading {rom.file_name}")
+    log.info(f"User {current_username} is downloading {rom.fs_name}")
 
+    # Serve the file directly in development mode for emulatorjs
+    if DEV_MODE:
+        if not rom.multi:
+            rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
+            return FileResponse(
+                path=rom_path,
+                filename=rom.fs_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(rom.fs_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(rom.fs_size_bytes),
+                },
+            )
+
+        if len(files) == 1:
+            file = files[0]
+            rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+            return FileResponse(
+                path=rom_path,
+                filename=file.file_name,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{quote(file.file_name)}"',
+                    "Content-Type": "application/octet-stream",
+                    "Content-Length": str(file.file_size_bytes),
+                },
+            )
+
+        content_lines = [
+            ZipContentLine(
+                crc32=f.crc_hash,
+                size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
+                encoded_location=quote(f"{LIBRARY_BASE_PATH}/{f.full_path}"),
+                filename=f.full_path.replace(rom.full_path, ""),
+            )
+            for f in files
+        ]
+
+        return ZipResponse(
+            content_lines=content_lines,
+            filename=f"{quote(file_name)}.zip",
+        )
+
+    # Otherwise proxy through nginx
     if not rom.multi:
         return FileRedirectResponse(
             download_path=Path(f"/library/{rom.full_path}"),
-            filename=rom.file_name,
+            filename=rom.fs_name,
         )
 
-    if len(files_to_download) == 1:
+    if len(files) == 1:
         return FileRedirectResponse(
-            download_path=Path(f"/library/{rom.full_path}/{files_to_download[0]}"),
+            download_path=Path(f"/library/{files[0].full_path}"),
         )
 
     content_lines = [
         ZipContentLine(
-            # TODO: Use calculated CRC-32 if available.
-            crc32=None,
-            size_bytes=(await Path(f"{rom_path}/{f}").stat()).st_size,
-            encoded_location=quote(f"/library-zip/{rom.full_path}/{f}"),
-            filename=f,
+            crc32=f.crc_hash,
+            size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
+            encoded_location=quote(f"/library-zip/{f.full_path}"),
+            filename=f.full_path.replace(rom.full_path, ""),
         )
-        for f in files_to_download
+        for f in files
     ]
 
-    m3u_encoded_content = "\n".join([f for f in files_to_download]).encode()
+    m3u_encoded_content = "\n".join(
+        [f.full_path.replace(rom.full_path, "") for f in files]
+    ).encode()
     m3u_base64_content = b64encode(m3u_encoded_content).decode()
     m3u_line = ZipContentLine(
         crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
@@ -360,7 +430,7 @@ async def update_rom(
                 "sgdb_id": None,
                 "moby_id": None,
                 "ss_id": None,
-                "name": rom.file_name,
+                "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
                 "path_screenshots": [],
@@ -375,21 +445,21 @@ async def update_rom(
             },
         )
 
-        return DetailedRomSchema.from_orm_with_request(
-            db_rom_handler.get_rom(id), request
-        )
+        rom = db_rom_handler.get_rom(id)
+        if not rom:
+            raise RomNotFoundInDatabaseException(id)
 
-    cleaned_data = {
-        "igdb_id": data.get("igdb_id", None),
-        "moby_id": data.get("moby_id", None),
-        "ss_id": data.get("ss_id", None),
+        return DetailedRomSchema.from_orm_with_request(rom, request)
+
+    cleaned_data: dict[str, Any] = {
+        "igdb_id": data.get("igdb_id", rom.igdb_id),
+        "moby_id": data.get("moby_id", rom.moby_id),
+        "ss_id": data.get("ss_id", rom.ss_id),
     }
 
-    if (
-        cleaned_data.get("moby_id", "")
-        and int(cleaned_data.get("moby_id", "")) != rom.moby_id
-    ):
-        moby_rom = await meta_moby_handler.get_rom_by_id(cleaned_data["moby_id"])
+    moby_id = cleaned_data["moby_id"]
+    if moby_id and int(moby_id) != rom.moby_id:
+        moby_rom = await meta_moby_handler.get_rom_by_id(int(moby_id))
         cleaned_data.update(moby_rom)
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
@@ -428,26 +498,26 @@ async def update_rom(
         }
     )
 
-    new_file_name = data.get("file_name", rom.file_name)
+    new_fs_name = str(data.get("fs_name") or rom.fs_name)
 
     try:
         if rename_as_source:
-            new_file_name = rom.file_name.replace(
-                rom.file_name_no_tags or rom.file_name_no_ext,
-                data.get("name", rom.name),
+            new_fs_name = rom.fs_name.replace(
+                rom.fs_name_no_tags or rom.fs_name_no_ext,
+                str(data.get("name") or rom.name),
             )
-            new_file_name = sanitize_filename(new_file_name)
-            fs_rom_handler.rename_file(
-                old_name=rom.file_name,
-                new_name=new_file_name,
-                file_path=rom.file_path,
+            new_fs_name = sanitize_filename(new_fs_name)
+            fs_rom_handler.rename_fs_rom(
+                old_name=rom.fs_name,
+                new_name=new_fs_name,
+                fs_path=rom.fs_path,
             )
-        elif rom.file_name != new_file_name:
-            new_file_name = sanitize_filename(new_file_name)
-            fs_rom_handler.rename_file(
-                old_name=rom.file_name,
-                new_name=new_file_name,
-                file_path=rom.file_path,
+        elif rom.fs_name != new_fs_name:
+            new_fs_name = sanitize_filename(new_fs_name)
+            fs_rom_handler.rename_fs_rom(
+                old_name=rom.fs_name,
+                new_name=new_fs_name,
+                fs_path=rom.fs_path,
             )
     except RomAlreadyExistsException as exc:
         log.error(exc)
@@ -457,12 +527,10 @@ async def update_rom(
 
     cleaned_data.update(
         {
-            "file_name": new_file_name,
-            "file_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
-                new_file_name
-            ),
-            "file_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
-                new_file_name
+            "fs_name": new_fs_name,
+            "fs_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(new_fs_name),
+            "fs_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
+                new_fs_name
             ),
         }
     )
@@ -471,7 +539,7 @@ async def update_rom(
         cleaned_data.update(fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
     else:
-        if artwork:
+        if artwork is not None and artwork.filename is not None:
             file_ext = artwork.filename.split(".")[-1]
             (
                 path_cover_l,
@@ -501,7 +569,7 @@ async def update_rom(
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     overwrite=True,
                     entity=rom,
-                    url_cover=data.get("url_cover", ""),
+                    url_cover=str(data.get("url_cover") or ""),
                 )
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
@@ -512,8 +580,11 @@ async def update_rom(
     )
 
     db_rom_handler.update_rom(id, cleaned_data)
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
 
-    return DetailedRomSchema.from_orm_with_request(db_rom_handler.get_rom(id), request)
+    return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
 @protected_route(router.post, "/roms/delete", [Scope.ROMS_WRITE])
@@ -543,13 +614,13 @@ async def delete_roms(
         if not rom:
             raise RomNotFoundInDatabaseException(id)
 
-        log.info(f"Deleting {rom.file_name} from database")
+        log.info(f"Deleting {rom.fs_name} from database")
         db_rom_handler.delete_rom(id)
 
         # Update collections to remove the deleted rom
         collections = db_collection_handler.get_collections_by_rom_id(id)
         for collection in collections:
-            collection.roms = [rom_id for rom_id in collection.roms if rom_id != id]
+            collection.roms = {rom_id for rom_id in collection.roms if rom_id != id}
             db_collection_handler.update_collection(
                 collection.id, {"roms": collection.roms}
             )
@@ -560,13 +631,13 @@ async def delete_roms(
             log.error(f"Couldn't find resources to delete for {rom.name}")
 
         if id in delete_from_fs:
-            log.info(f"Deleting {rom.file_name} from filesystem")
+            log.info(f"Deleting {rom.fs_name} from filesystem")
             try:
-                fs_rom_handler.remove_file(
-                    file_name=rom.file_name, file_path=rom.file_path
-                )
+                fs_rom_handler.remove_from_fs(fs_path=rom.fs_path, fs_name=rom.fs_name)
             except FileNotFoundError as exc:
-                error = f"Rom file {rom.file_name} not found for platform {rom.platform_slug}"
+                error = (
+                    f"Rom file {rom.fs_name} not found for platform {rom.platform_slug}"
+                )
                 log.error(error)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=error
@@ -578,6 +649,7 @@ async def delete_roms(
 @protected_route(router.put, "/roms/{id}/props", [Scope.ROMS_USER_WRITE])
 async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     data = await request.json()
+    rom_user_data = data.get("data", {})
 
     rom = db_rom_handler.get_rom(id)
 
@@ -601,9 +673,17 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         "status",
     ]
 
-    cleaned_data = {field: data[field] for field in fields_to_update if field in data}
+    cleaned_data = {
+        field: rom_user_data[field]
+        for field in fields_to_update
+        if field in rom_user_data
+    }
 
     if data.get("update_last_played", False):
-        cleaned_data.update({"last_played": func.now()})
+        cleaned_data.update({"last_played": datetime.now(timezone.utc)})
+    elif data.get("remove_last_played", False):
+        cleaned_data.update({"last_played": None})
 
-    return db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
+    rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
+
+    return RomUserSchema.model_validate(rom_user)

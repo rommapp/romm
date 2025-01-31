@@ -1,3 +1,4 @@
+<
 <script setup lang="ts">
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
@@ -6,7 +7,6 @@ import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
-import SearchRomDialog from "@/components/common/Game/Dialog/SearchRom.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
@@ -18,17 +18,15 @@ import { useDisplay } from "vuetify";
 // Props
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
-const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
-  storeToRefs(navigationStore);
 </script>
 <template>
   <!-- Mobile app bar -->
   <v-app-bar
     v-if="smAndDown"
     elevation="0"
-    class="bg-primary justify-center px-1"
+    class="bg-background justify-center px-1"
     mode="shift"
-    height="45"
+    height="55"
     app
     fixed
     left
@@ -54,10 +52,9 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     v-else
     permanent
     rail
-    :floating="
-      activePlatformsDrawer || activeCollectionsDrawer || activeSettingsDrawer
-    "
     rail-width="60"
+    class="bg-background pa-1"
+    :border="0"
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">
@@ -79,9 +76,9 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     </template>
   </v-navigation-drawer>
 
-  <search-rom-dialog />
   <platforms-drawer />
   <collections-drawer />
   <upload-rom-dialog />
   <settings-drawer />
 </template>
+>
