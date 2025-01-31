@@ -9,19 +9,19 @@ const theme = useTheme();
 </script>
 
 <template>
-  <v-avatar :rounded="0" :size="size">
+  <v-avatar :size="size" rounded="0">
     <v-img
       :src="
         collection.has_cover
           ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
           : collection.name?.toLowerCase() == 'favourites'
-            ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
-            : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
+            ? `/assets/default/cover/${theme.global.name.value}_fav.svg`
+            : `/assets/default/cover/${theme.global.name.value}_collection.svg`
       "
     >
       <template #error>
         <v-img
-          :src="`assets/default/cover/big_${theme.global.name.value}_collection.png`"
+          :src="`assets/default/cover/${theme.global.name.value}_collection.svg`"
         >
         </v-img>
       </template>

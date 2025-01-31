@@ -56,22 +56,22 @@ onMounted(() => {
     @click:outside="closeDialog"
     @keydown.esc="closeDialog"
     :model-value="modelValue"
-    :scrim="true"
     :width="width"
     scroll-strategy="block"
     no-click-animation
     persistent
   >
-    <v-card rounded="0" :min-height="height" :max-height="height">
-      <v-toolbar density="compact" class="bg-terciary">
+    <v-card :min-height="height" :max-height="height">
+      <v-toolbar density="compact" class="bg-toplayer">
         <v-icon v-if="icon" :icon="icon" class="ml-5" />
         <r-isotipo :size="30" class="mx-4" v-if="showRommIcon" />
         <slot name="header"></slot>
         <template #append>
           <v-btn
             @click="closeDialog"
-            rounded="0"
+            size="small"
             variant="text"
+            class="rounded"
             icon="mdi-close"
           />
         </template>
@@ -79,7 +79,7 @@ onMounted(() => {
 
       <v-divider />
 
-      <v-toolbar v-if="hasToolbarSlot" density="compact" class="bg-terciary">
+      <v-toolbar v-if="hasToolbarSlot" density="compact" class="bg-toplayer">
         <slot name="toolbar"></slot>
       </v-toolbar>
       <v-divider />
@@ -101,7 +101,7 @@ onMounted(() => {
           <v-progress-circular
             :width="2"
             :size="40"
-            color="romm-accent-1"
+            color="primary"
             indeterminate
           />
         </v-row>
@@ -128,7 +128,7 @@ onMounted(() => {
 
       <template v-if="hasFooterSlot">
         <v-divider />
-        <v-toolbar class="bg-terciary" density="compact">
+        <v-toolbar class="bg-toplayer" density="compact">
           <slot name="footer"></slot>
         </v-toolbar>
       </template>

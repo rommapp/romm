@@ -11,15 +11,13 @@ import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { normalizeString, views } from "@/utils";
+import { views } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 
 // Props
-const { smAndDown } = useDisplay();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -56,7 +54,6 @@ async function fetchRoms() {
   try {
     const { data } = await romApi.getRoms({
       platformId: romsStore.currentPlatform?.id,
-      searchTerm: normalizeString(galleryFilterStore.filterText),
     });
 
     romsStore.set(data);
@@ -305,19 +302,28 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noPlatformError">
     <gallery-app-bar />
-    <v-row v-if="gettingRoms" no-gutters class="pa-1"
-      ><v-col
-        v-for="_ in 60"
-        class="pa-1 align-self-end"
-        :cols="views[currentView]['size-cols']"
-        :sm="views[currentView]['size-sm']"
-        :md="views[currentView]['size-md']"
-        :lg="views[currentView]['size-lg']"
-        :xl="views[currentView]['size-xl']"
-        ><v-skeleton-loader type="card" /></v-col
-    ></v-row>
+    <template v-if="gettingRoms">
+      <v-row v-show="currentView != 2" no-gutters class="mx-1 mt-3"
+        ><v-col
+          v-for="_ in 60"
+          class="pa-1 align-self-end"
+          :cols="views[currentView]['size-cols']"
+          :sm="views[currentView]['size-sm']"
+          :md="views[currentView]['size-md']"
+          :lg="views[currentView]['size-lg']"
+          :xl="views[currentView]['size-xl']"
+          ><v-skeleton-loader type="card" /></v-col
+      ></v-row>
+      <v-row v-show="currentView == 2" class="ml-2 mr-1 mt-3" no-gutters
+        ><v-col>
+          <v-skeleton-loader
+            v-for="_ in 5"
+            type="table-tbody"
+          ></v-skeleton-loader> </v-col
+      ></v-row>
+    </template>
     <template v-if="filteredRoms.length > 0">
-      <v-row v-show="currentView != 2" class="pa-1" no-gutters>
+      <v-row v-show="currentView != 2" class="pb-2 mx-1 mt-3" no-gutters>
         <!-- Gallery cards view -->
         <!-- v-show instead of v-if to avoid recalculate on view change -->
         <v-col
@@ -334,15 +340,15 @@ onBeforeUnmount(() => {
             v-if="currentPlatform"
             :key="rom.updated_at"
             :rom="rom"
-            title-on-hover
-            pointer-on-hover
-            with-link
-            show-flags
-            show-action-bar
-            show-fav
-            transform-scale
-            with-border
-            :with-border-romm-accent="
+            titleOnHover
+            pointerOnHover
+            withLink
+            showFlags
+            showFav
+            transformScale
+            showActionBar
+            showPlatformIcon
+            :withBorderPrimary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
             @click="onGameClick"
@@ -353,8 +359,10 @@ onBeforeUnmount(() => {
       </v-row>
 
       <!-- Gallery list view -->
-      <v-row v-show="currentView == 2" class="h-100" no-gutters>
-        <game-data-table class="h-100" />
+      <v-row class="h-100" v-show="currentView == 2" no-gutters>
+        <v-col class="h-100 pt-4 pb-2">
+          <game-data-table class="h-100 mx-2" />
+        </v-col>
       </v-row>
       <fab-overlay />
     </template>

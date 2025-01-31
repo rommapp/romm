@@ -74,7 +74,7 @@ async function loginOIDC() {
 
 <template>
   <v-card class="translucent-dark py-8 px-5" width="500">
-    <v-img src="/assets/isotipo.svg" class="mx-auto mb-4" width="150" />
+    <v-img src="/assets/isotipo.svg" class="mx-auto mb-8" width="80" />
     <v-row class="text-white justify-center mt-2" no-gutters>
       <v-col cols="10">
         <v-form v-if="!loginDisabled" @submit.prevent="login">
@@ -100,7 +100,7 @@ async function loginOIDC() {
           />
           <v-btn
             type="submit"
-            class="bg-terciary mt-4"
+            class="bg-toplayer mt-4"
             variant="text"
             block
             :loading="loggingIn"
@@ -112,7 +112,7 @@ async function loginOIDC() {
             {{ t("login.login") }}
             <template #loader>
               <v-progress-circular
-                color="romm-accent-1"
+                color="primary"
                 :width="2"
                 :size="20"
                 indeterminate
@@ -129,7 +129,7 @@ async function loginOIDC() {
           <v-btn
             block
             type="submit"
-            class="bg-terciary"
+            class="bg-toplayer"
             variant="text"
             :disabled="loggingInOIDC || loggingIn"
             :loading="loggingInOIDC"
@@ -153,7 +153,7 @@ async function loginOIDC() {
             }}
             <template #loader>
               <v-progress-circular
-                color="romm-accent-1"
+                color="primary"
                 :width="2"
                 :size="20"
                 indeterminate

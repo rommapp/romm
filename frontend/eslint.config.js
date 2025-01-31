@@ -1,20 +1,34 @@
-/* eslint-disable */
+import eslint from "@eslint/js";
+import tseslint from "typescript-eslint";
+import globals from "globals";
+import vue from "eslint-plugin-vue";
 
-let eslint = require("@eslint/js");
-let tseslint = require("typescript-eslint");
-let globals = require("globals");
-let vue = require("eslint-plugin-vue");
-
-module.exports = tseslint.config(
+export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   ...vue.configs["flat/recommended"],
   {
-    ignores: ["node_modules", "dist", "__generated__", "*.config.js"],
+    ignores: [
+      "logs",
+      "*.log",
+      "npm-debug.log*",
+      "yarn-debug.log*",
+      "yarn-error.log*",
+      "pnpm-debug.log*",
+      "lerna-debug.log*",
+      "node_modules",
+      ".DS_Store",
+      "dist",
+      "dist-ssr",
+      "coverage",
+      "*.local",
+      "__generated__",
+      "*.config.js",
+    ],
     languageOptions: {
       parserOptions: {
         parser: "@typescript-eslint/parser",
-        project: "./tsconfig.json",
+        projectService: true,
         ecmaVersion: 2022,
         extraFileExtensions: [".vue"],
       },

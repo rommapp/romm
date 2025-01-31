@@ -86,11 +86,10 @@ function clearFilter() {
     :density="xs ? 'comfortable' : 'default'"
     @click:clear="clearFilter"
     :label="t('common.platform')"
-    class="bg-terciary"
+    class="bg-toplayer"
     item-title="platform_name"
     :disabled="filterPlatforms.length == 0 || searching"
     hide-details
-    rounded="0"
     clearable
     single-line
     return-object

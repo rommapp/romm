@@ -45,17 +45,17 @@ class Formatter(logging.Formatter):
         level = "%(levelname)s"
         dots = f"{Fore.RESET}:"
         identifier = (
-            f"\t  {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[{str(record.module_name).lower()}]"
+            f"\t  {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[{record.module.lower()}]"
             if hasattr(record, "module_name")
             else f"\t  {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[%(module)s]"
         )
         identifier_warning = (
-            f"  {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[{str(record.module_name).lower()}]"
+            f"  {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[{record.module.lower()}]"
             if hasattr(record, "module_name")
             else f"  {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[%(module)s]"
         )
         identifier_critical = (
-            f" {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[{str(record.module_name).lower()}]"
+            f" {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[{record.module.lower()}]"
             if hasattr(record, "module_name")
             else f" {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[%(module)s]"
         )

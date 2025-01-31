@@ -243,10 +243,10 @@ const toggleStatus = (value: boolean) => {
 <template>
   <r-section icon="mdi-palette-swatch-outline" :title="t('settings.interface')">
     <template #content>
-      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2">{{
+      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">{{
         t("settings.home")
       }}</v-chip>
-      <v-divider class="border-opacity-25 mx-2" />
+      <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
           cols="12"
@@ -255,7 +255,7 @@ const toggleStatus = (value: boolean) => {
           :key="option.title"
         >
           <interface-option
-            class="mx-2"
+            class="ma-1"
             :disabled="option.disabled"
             :title="option.title"
             :description="option.description"
@@ -271,10 +271,10 @@ const toggleStatus = (value: boolean) => {
         label
         variant="text"
         prepend-icon="mdi-view-grid"
-        class="ml-2 mt-4"
+        class="ml-2 mt-1"
         >{{ t("settings.gallery") }}</v-chip
       >
-      <v-divider class="border-opacity-25 mx-2" />
+      <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
           cols="12"
@@ -283,7 +283,7 @@ const toggleStatus = (value: boolean) => {
           :key="option.title"
         >
           <interface-option
-            class="mx-2"
+            class="ma-1"
             :disabled="option.disabled"
             :title="option.title"
             :description="option.description"

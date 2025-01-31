@@ -6,13 +6,15 @@ import type { DetailedRom } from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { MdPreview } from "md-editor-v3";
 
 // Props
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
+const theme = useTheme();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
@@ -115,28 +117,32 @@ function onFilterClick(filter: FilterType, value: string) {
           </div>
         </v-row>
       </template>
-      <template v-if="rom.summary != ''">
-        <v-divider class="mx-2 my-4" />
-        <v-row no-gutters>
+      <template v-if="rom.summary">
+        <v-row no-gutters class="mt-4">
           <v-col class="text-caption">
-            <span>{{ rom.summary }}</span>
+            <MdPreview
+              :model-value="rom.summary ?? ''"
+              :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+              preview-theme="vuepress"
+              code-theme="github"
+              :readonly="true"
+            />
           </v-col>
         </v-row>
       </template>
       <template
         v-if="rom.merged_screenshots.length > 0 || rom.youtube_video_id"
       >
-        <v-divider class="mx-2 my-4" />
-        <v-row no-gutters>
+        <v-row no-gutters class="mt-4">
           <v-col>
             <v-carousel
               v-model="carousel"
               hide-delimiter-background
               delimiter-icon="mdi-square"
-              class="bg-primary"
+              class="bg-background"
               show-arrows="hover"
               hide-delimiters
-              progress="terciary"
+              progress="toplayer"
               :height="xs ? '300' : '400'"
             >
               <template #prev="{ props }">
@@ -153,12 +159,12 @@ function onFilterClick(filter: FilterType, value: string) {
               >
                 <iframe
                   height="100%"
+                  width="100%"
                   :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
                   title="YouTube video player"
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerpolicy="strict-origin-when-cross-origin"
-                  :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                   allowfullscreen
                 ></iframe>
               </v-carousel-item>
@@ -210,12 +216,12 @@ function onFilterClick(filter: FilterType, value: string) {
                 >
                   <iframe
                     height="100%"
+                    width="100%"
                     :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
                     title="YouTube video player"
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerpolicy="strict-origin-when-cross-origin"
-                    :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                     allowfullscreen
                   ></iframe>
                 </v-carousel-item>
@@ -235,6 +241,8 @@ function onFilterClick(filter: FilterType, value: string) {
               </v-carousel>
             </v-dialog>
           </v-col>
-        </v-row> </template></v-col
-  ></v-row>
+        </v-row>
+      </template>
+    </v-col>
+  </v-row>
 </template>
