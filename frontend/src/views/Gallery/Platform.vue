@@ -3,6 +3,7 @@ import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import romApi from "@/services/api/rom";
@@ -66,7 +67,7 @@ async function fetchRoms() {
       timeout: 4000,
     });
     console.error(
-      `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
+      `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`
     );
     noPlatformError.value = true;
   } finally {
@@ -83,35 +84,35 @@ function setFilters() {
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort(),
+        .sort()
     ),
   ]);
   galleryFilterStore.setFilterFranchises([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort(),
+        .sort()
     ),
   ]);
   galleryFilterStore.setFilterCompanies([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.companies.map((company) => company))
-        .sort(),
+        .sort()
     ),
   ]);
   galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
-        .sort(),
+        .sort()
     ),
   ]);
   galleryFilterStore.setFilterAgeRatings([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
-        .sort(),
+        .sort()
     ),
   ]);
 }
@@ -137,7 +138,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     }
     if (emitData.event.shiftKey) {
       const [start, end] = [romsStore.lastSelectedIndex, index].sort(
-        (a, b) => a - b,
+        (a, b) => a - b
       );
       if (romsStore.selectedRoms.includes(emitData.rom)) {
         for (let i = start + 1; i < end; i++) {
@@ -149,7 +150,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
         }
       }
       romsStore.updateLastSelected(
-        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1,
+        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1
       );
     } else {
       romsStore.updateLastSelected(index);
@@ -224,7 +225,7 @@ onMounted(async () => {
       if (platforms.length > 0) {
         if (platforms.some((platform) => platform.id === routePlatformId)) {
           const platform = platforms.find(
-            (platform) => platform.id === routePlatformId,
+            (platform) => platform.id === routePlatformId
           );
 
           // Check if the current platform is different or no ROMs have been loaded
@@ -255,7 +256,7 @@ onMounted(async () => {
         }
       }
     },
-    { immediate: true }, // Ensure watcher is triggered immediately
+    { immediate: true } // Ensure watcher is triggered immediately
   );
 });
 
@@ -272,7 +273,7 @@ onBeforeRouteUpdate(async (to, from) => {
     async (platforms) => {
       if (platforms.length > 0) {
         const platform = platforms.find(
-          (platform) => platform.id === routePlatformId,
+          (platform) => platform.id === routePlatformId
         );
 
         // Only trigger fetchRoms if switching platforms or ROMs are not loaded
@@ -289,7 +290,7 @@ onBeforeRouteUpdate(async (to, from) => {
         }
       }
     },
-    { immediate: true }, // Ensure watcher is triggered immediately
+    { immediate: true } // Ensure watcher is triggered immediately
   );
 });
 
@@ -303,71 +304,56 @@ onBeforeUnmount(() => {
   <template v-if="!noPlatformError">
     <gallery-app-bar />
     <template v-if="gettingRoms">
-      <v-row v-show="currentView != 2" no-gutters class="mx-1 mt-3"
-        ><v-col
-          v-for="_ in 60"
-          class="pa-1 align-self-end"
-          :cols="views[currentView]['size-cols']"
-          :sm="views[currentView]['size-sm']"
-          :md="views[currentView]['size-md']"
-          :lg="views[currentView]['size-lg']"
-          :xl="views[currentView]['size-xl']"
-          ><v-skeleton-loader type="card" /></v-col
-      ></v-row>
-      <v-row v-show="currentView == 2" class="ml-2 mr-1 mt-3" no-gutters
-        ><v-col>
-          <v-skeleton-loader
-            v-for="_ in 5"
-            type="table-tbody"
-          ></v-skeleton-loader> </v-col
-      ></v-row>
-    </template>
-    <template v-if="filteredRoms.length > 0">
-      <v-row v-show="currentView != 2" class="pb-2 mx-1 mt-3" no-gutters>
-        <!-- Gallery cards view -->
-        <!-- v-show instead of v-if to avoid recalculate on view change -->
-        <v-col
-          v-for="rom in filteredRoms.slice(0, itemsShown)"
-          :key="rom.id"
-          class="pa-1 align-self-end"
-          :cols="views[currentView]['size-cols']"
-          :sm="views[currentView]['size-sm']"
-          :md="views[currentView]['size-md']"
-          :lg="views[currentView]['size-lg']"
-          :xl="views[currentView]['size-xl']"
-        >
-          <game-card
-            v-if="currentPlatform"
-            :key="rom.updated_at"
-            :rom="rom"
-            titleOnHover
-            pointerOnHover
-            withLink
-            showFlags
-            showFav
-            transformScale
-            showActionBar
-            showPlatformIcon
-            :withBorderPrimary="
-              romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
-            "
-            @click="onGameClick"
-            @touchstart="onGameTouchStart"
-            @touchend="onGameTouchEnd"
-          />
-        </v-col>
-      </v-row>
-
-      <!-- Gallery list view -->
-      <v-row class="h-100" v-show="currentView == 2" no-gutters>
-        <v-col class="h-100 pt-4 pb-2">
-          <game-data-table class="h-100 mx-2" />
-        </v-col>
-      </v-row>
-      <fab-overlay />
+      <skeleton />
     </template>
     <template v-else>
-      <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+      <template v-if="filteredRoms.length > 0">
+        <v-row v-show="currentView != 2" class="pb-2 mx-1 mt-3" no-gutters>
+          <!-- Gallery cards view -->
+          <!-- v-show instead of v-if to avoid recalculate on view change -->
+          <v-col
+            v-for="rom in filteredRoms.slice(0, itemsShown)"
+            :key="rom.id"
+            class="pa-1 align-self-end"
+            :cols="views[currentView]['size-cols']"
+            :sm="views[currentView]['size-sm']"
+            :md="views[currentView]['size-md']"
+            :lg="views[currentView]['size-lg']"
+            :xl="views[currentView]['size-xl']"
+          >
+            <game-card
+              v-if="currentPlatform"
+              :key="rom.updated_at"
+              :rom="rom"
+              titleOnHover
+              pointerOnHover
+              withLink
+              showFlags
+              showFav
+              transformScale
+              showActionBar
+              showPlatformIcon
+              :withBorderPrimary="
+                romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
+              "
+              @click="onGameClick"
+              @touchstart="onGameTouchStart"
+              @touchend="onGameTouchEnd"
+            />
+          </v-col>
+        </v-row>
+
+        <!-- Gallery list view -->
+        <v-row class="h-100" v-show="currentView == 2" no-gutters>
+          <v-col class="h-100 pt-4 pb-2">
+            <game-data-table class="h-100 mx-2" />
+          </v-col>
+        </v-row>
+        <fab-overlay />
+      </template>
+      <template v-else>
+        <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+      </template>
     </template>
   </template>
 

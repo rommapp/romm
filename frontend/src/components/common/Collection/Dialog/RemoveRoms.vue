@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
-import router from "@/plugins/router";
+import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
-import type { Collection } from "@/stores/collections";
+import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -16,12 +18,12 @@ const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
-const selectedCollection = ref<Collection>();
+const collectionsStore = storeCollections();
+const selectedCollection = ref<UpdatedCollection>();
 const roms = ref<SimpleRom[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showRemoveFromCollectionDialog", (romsToRemove) => {
   roms.value = romsToRemove;
-  selectedCollection.value = romsStore.currentCollection as Collection;
   show.value = true;
 });
 const HEADERS = [
@@ -36,7 +38,7 @@ const HEADERS = [
 async function removeRomsFromCollection() {
   if (!selectedCollection.value) return;
   selectedCollection.value.roms = selectedCollection.value.roms.filter(
-    (id) => !roms.value.map((r) => r.id).includes(id),
+    (id) => !roms.value.map((r) => r.id).includes(id)
   );
   await collectionApi
     .updateCollection({ collection: selectedCollection.value })
@@ -47,7 +49,6 @@ async function removeRomsFromCollection() {
         color: "green",
         timeout: 2000,
       });
-      romsStore.remove(roms.value);
       emitter?.emit("refreshDrawer", null);
     })
     .catch((error) => {
@@ -62,11 +63,8 @@ async function removeRomsFromCollection() {
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       romsStore.resetSelection();
-      if (selectedCollection.value?.roms.length == 0) {
-        router.push({ name: "home" });
-      }
-      closeDialog();
     });
+  closeDialog();
 }
 
 function closeDialog() {
@@ -91,6 +89,38 @@ function closeDialog() {
         <span>{{ t("rom.remove-from-collection-part2") }}</span>
       </v-row>
     </template>
+    <template #prepend>
+      <v-autocomplete
+        v-model="selectedCollection"
+        class="pa-3"
+        density="default"
+        :label="t('common.collection')"
+        item-title="name"
+        :items="collectionsStore.allCollections"
+        variant="outlined"
+        hide-details
+        return-object
+        clearable
+      >
+        <template #item="{ props, item }">
+          <collection-list-item
+            :collection="item.raw"
+            v-bind="props"
+            :with-title="false"
+          />
+        </template>
+        <template #chip="{ item }">
+          <v-chip class="pl-0" label>
+            <r-avatar-collection
+              :collection="item.raw"
+              :size="35"
+              class="mr-2"
+            />
+            {{ item.raw.name }}
+          </v-chip>
+        </template>
+      </v-autocomplete>
+    </template>
     <template #content>
       <v-data-table-virtual
         :item-value="(item) => item.id"
@@ -111,8 +141,9 @@ function closeDialog() {
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
+            :disabled="!selectedCollection"
             class="bg-toplayer text-romm-red"
-            variant="flat"
+            :variant="!selectedCollection ? 'plain' : 'flat'"
             @click="removeRomsFromCollection"
           >
             {{ t("common.confirm") }}
