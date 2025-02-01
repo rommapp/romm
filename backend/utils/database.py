@@ -1,6 +1,6 @@
+import json
 from typing import Any
 
-import json
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as sa_pg
 from sqlalchemy.orm import Session
