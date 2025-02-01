@@ -16,6 +16,10 @@ def is_postgresql(conn: sa.Connection) -> bool:
     return conn.engine.name == "postgresql"
 
 
+def is_mysql(conn: sa.Connection) -> bool:
+    return conn.engine.name == "mysql"
+
+
 def json_array_contains_value(
     column: sa.Column, value: Any, *, session: Session
 ) -> ColumnElement:
@@ -29,7 +33,10 @@ def json_array_contains_value(
         return sa.type_coerce(column, sa_pg.JSONB).contains(
             func.cast(value, sa_pg.JSONB)
         )
-    return func.json_contains(column, json.dumps(value))
+    elif is_mysql(conn):
+        # In MySQL, JSON.contains() requires a JSON-formatted string (even if it's an int)
+        return func.json_contains(column, json.dumps(value))
+    return func.json_contains(column, value)
 
 
 def safe_float(value, default=0.0):
