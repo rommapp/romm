@@ -50,7 +50,7 @@
     "@types/eslint__js": "^8.42.3",
     "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.17.1",
-    "@types/node": "^22.10.10",
+    "@types/node": "^22.13.0",
     "@types/qrcode": "^1.5.5",
     "@types/semver": "^7.5.8",
     "@types/webfontloader": "^1.6.38",
