@@ -369,17 +369,12 @@ async function stopScan() {
 
   <!-- Scan stats -->
   <div
+    v-if="scanningPlatforms.length > 0"
     class="text-caption position-fixed d-flex w-100 m-1 justify-center"
     style="bottom: 0.5rem"
   >
     <v-chip variant="outlined" color="toplayer" class="px-2 py-5 bg-background">
-      <v-chip
-        v-if="scanningPlatforms.length > 0"
-        color="primary"
-        text-color="white"
-        size="small"
-        class="mr-1 my-1"
-      >
+      <v-chip color="primary" text-color="white" size="small" class="mr-1 my-1">
         <v-icon left>mdi-controller</v-icon>
         <span v-if="xs" class="ml-2">{{
           t("scan.platforms-scanned-n", scanningPlatforms.length)
