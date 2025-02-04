@@ -12,11 +12,10 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
 )
-from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_sgdb_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
 from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
-from handler.metadata.ss_handler import SS_API_ENABLED
+from handler.metadata.ss_handler import SS_API_ENABLED, SSGamesRom
 from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
 from utils.router import APIRouter
@@ -70,6 +69,7 @@ async def search_rom(
 
     igdb_matched_roms: list[IGDBRom] = []
     moby_matched_roms: list[MobyGamesRom] = []
+    ss_matched_roms: list[SSGamesRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -101,25 +101,25 @@ async def search_rom(
 
     merged_dict: dict[str, dict] = {}
 
-    for item in igdb_matched_roms:
-        merged_dict[item["name"]] = {
-            **item,
-            "igdb_url_cover": item.pop("url_cover", ""),
-            **merged_dict.get(item.get("name", ""), {}),
+    for igdb_rom in igdb_matched_roms:
+        merged_dict[igdb_rom["name"]] = {
+            **igdb_rom,
+            "igdb_url_cover": igdb_rom.pop("url_cover", ""),
+            **merged_dict.get(igdb_rom.get("name", ""), {}),
         }
 
-    for item in moby_matched_roms:
-        merged_dict[item["name"]] = {  # type: ignore
-            **item,
-            "moby_url_cover": item.pop("url_cover", ""),
-            **merged_dict.get(item.get("name", ""), {}),
+    for moby_rom in moby_matched_roms:
+        merged_dict[moby_rom["name"]] = {  # type: ignore
+            **moby_rom,
+            "moby_url_cover": moby_rom.pop("url_cover", ""),
+            **merged_dict.get(moby_rom.get("name", ""), {}),
         }
 
-    for item in ss_matched_roms:
-        merged_dict[item["name"]] = {
-            **item,
-            "ss_url_cover": item.pop("url_cover", ""),
-            **merged_dict.get(item.get("name", ""), {}),
+    for ss_rom in ss_matched_roms:
+        merged_dict[ss_rom["name"]] = {
+            **ss_rom,
+            "ss_url_cover": ss_rom.pop("url_cover", ""),
+            **merged_dict.get(ss_rom.get("name", ""), {}),
         }
 
     matched_roms = [
