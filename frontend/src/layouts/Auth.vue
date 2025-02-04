@@ -30,6 +30,7 @@ const heartbeatStore = storeHeartbeat();
 #container {
   background-image: url("/assets/auth_background.svg");
   background-size: cover;
+  background-position: center;
   max-width: 100vw;
 }
 </style>
