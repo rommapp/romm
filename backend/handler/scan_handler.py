@@ -303,7 +303,7 @@ async def scan_rom(
             )
         ):
             return await meta_ss_handler.get_rom(
-                rom_attrs["file_name"], platform_ss_id=platform.ss_id
+                rom_attrs["fs_name"], platform_ss_id=platform.ss_id
             )
 
         return SSGamesRom(ss_id=None)

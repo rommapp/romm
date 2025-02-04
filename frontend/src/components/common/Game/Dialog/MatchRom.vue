@@ -380,6 +380,7 @@ onBeforeUnmount(() => {
             @click="searchRom()"
             class="bg-toplayer"
             variant="text"
+            rounded="0"
             icon="mdi-search-web"
             block
             :disabled="searching"
