@@ -11,7 +11,7 @@ import qrcode from "qrcode";
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-const rom = ref<SimpleRom>(null);
+const rom = ref<SimpleRom>({} as SimpleRom);
 
 emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
   show.value = true;
