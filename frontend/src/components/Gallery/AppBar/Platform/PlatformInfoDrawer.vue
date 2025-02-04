@@ -69,7 +69,7 @@ function showEditable() {
 }
 
 function closeEditable() {
-  updatedPlatform.value = {};
+  updatedPlatform.value = { ...currentPlatform.value };
   isEditable.value = false;
 }
 
@@ -103,7 +103,7 @@ async function updatePlatform() {
         color: "red",
       });
     });
-  updatedPlatform.value = {};
+  updatedPlatform.value = { ...currentPlatform.value };
   updating.value = false;
 }
 
@@ -365,7 +365,7 @@ watch(
                     <v-img
                       :aspect-ratio="aspectRatio.size"
                       cover
-                      src="/assets/styled_bg.png"
+                      src="/assets/auth_background.svg"
                       :class="{ greyscale: !isSelected }"
                       class="d-flex align-center justify-center"
                     >
