@@ -7,7 +7,13 @@ withDefaults(
     iconColor?: string;
     bgColor?: string;
   }>(),
-  { title: "", icon: "", titleDivider: false, iconColor: "", bgColor: "bg-background" },
+  {
+    title: "",
+    icon: "",
+    titleDivider: false,
+    iconColor: "",
+    bgColor: "bg-background",
+  },
 );
 </script>
 
