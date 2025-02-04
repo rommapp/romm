@@ -38,7 +38,7 @@ const HEADERS = [
 async function removeRomsFromCollection() {
   if (!selectedCollection.value) return;
   selectedCollection.value.roms = selectedCollection.value.roms.filter(
-    (id) => !roms.value.map((r) => r.id).includes(id)
+    (id) => !roms.value.map((r) => r.id).includes(id),
   );
   await collectionApi
     .updateCollection({ collection: selectedCollection.value })

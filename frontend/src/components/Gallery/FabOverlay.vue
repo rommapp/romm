@@ -69,7 +69,7 @@ function resetSelection() {
 async function addToFavourites() {
   if (!favCollection.value) return;
   favCollection.value.roms = favCollection.value.roms.concat(
-    selectedRoms.value.map((r) => r.id)
+    selectedRoms.value.map((r) => r.id),
   );
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
@@ -98,7 +98,7 @@ async function addToFavourites() {
 async function removeFromFavourites() {
   if (!favCollection.value) return;
   favCollection.value.roms = favCollection.value.roms.filter(
-    (value) => !selectedRoms.value.map((r) => r.id).includes(value)
+    (value) => !selectedRoms.value.map((r) => r.id).includes(value),
   );
   if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
     romsStore.remove(selectedRoms.value);
@@ -208,7 +208,7 @@ function onDownload() {
         @click="
           emitter?.emit(
             'showRemoveFromCollectionDialog',
-            romsStore.selectedRoms
+            romsStore.selectedRoms,
           )
         "
       />

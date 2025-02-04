@@ -67,7 +67,7 @@ async function fetchRoms() {
       timeout: 4000,
     });
     console.error(
-      `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`
+      `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
     );
     noPlatformError.value = true;
   } finally {
@@ -84,35 +84,35 @@ function setFilters() {
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort()
+        .sort(),
     ),
   ]);
   galleryFilterStore.setFilterFranchises([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort()
+        .sort(),
     ),
   ]);
   galleryFilterStore.setFilterCompanies([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.companies.map((company) => company))
-        .sort()
+        .sort(),
     ),
   ]);
   galleryFilterStore.setFilterCollections([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.collections.map((collection) => collection))
-        .sort()
+        .sort(),
     ),
   ]);
   galleryFilterStore.setFilterAgeRatings([
     ...new Set(
       romsStore.filteredRoms
         .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
-        .sort()
+        .sort(),
     ),
   ]);
 }
@@ -138,7 +138,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     }
     if (emitData.event.shiftKey) {
       const [start, end] = [romsStore.lastSelectedIndex, index].sort(
-        (a, b) => a - b
+        (a, b) => a - b,
       );
       if (romsStore.selectedRoms.includes(emitData.rom)) {
         for (let i = start + 1; i < end; i++) {
@@ -150,7 +150,7 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
         }
       }
       romsStore.updateLastSelected(
-        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1
+        romsStore.selectedRoms.includes(emitData.rom) ? index : index - 1,
       );
     } else {
       romsStore.updateLastSelected(index);
@@ -225,7 +225,7 @@ onMounted(async () => {
       if (platforms.length > 0) {
         if (platforms.some((platform) => platform.id === routePlatformId)) {
           const platform = platforms.find(
-            (platform) => platform.id === routePlatformId
+            (platform) => platform.id === routePlatformId,
           );
 
           // Check if the current platform is different or no ROMs have been loaded
@@ -256,7 +256,7 @@ onMounted(async () => {
         }
       }
     },
-    { immediate: true } // Ensure watcher is triggered immediately
+    { immediate: true }, // Ensure watcher is triggered immediately
   );
 });
 
@@ -273,7 +273,7 @@ onBeforeRouteUpdate(async (to, from) => {
     async (platforms) => {
       if (platforms.length > 0) {
         const platform = platforms.find(
-          (platform) => platform.id === routePlatformId
+          (platform) => platform.id === routePlatformId,
         );
 
         // Only trigger fetchRoms if switching platforms or ROMs are not loaded
@@ -290,7 +290,7 @@ onBeforeRouteUpdate(async (to, from) => {
         }
       }
     },
-    { immediate: true } // Ensure watcher is triggered immediately
+    { immediate: true }, // Ensure watcher is triggered immediately
   );
 });
 
