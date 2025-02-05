@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
-import {
-  getCollectionCoverImage,
-  getFavoriteCoverImage,
-  getMissingCoverImage,
-} from "@/utils/covers";
+import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 import { computed } from "vue";
 
 // Props
@@ -33,9 +29,6 @@ const collectionCoverImage = computed(() =>
 );
 const favoriteCoverImage = computed(() =>
   getFavoriteCoverImage(props.collection.name),
-);
-const missingCoverImage = computed(() =>
-  getMissingCoverImage(props.collection.name),
 );
 </script>
 
@@ -95,7 +88,7 @@ const missingCoverImage = computed(() =>
 
         <template #error>
           <v-img
-            :src="missingCoverImage"
+            :src="collectionCoverImage"
             cover
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
           />
