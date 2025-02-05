@@ -1,10 +1,6 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
-import {
-  getCollectionCoverImage,
-  getFavoriteCoverImage,
-  getMissingCoverImage,
-} from "@/utils/covers";
+import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 import { computed } from "vue";
 
 const props = withDefaults(
@@ -20,9 +16,6 @@ const collectionCoverImage = computed(() =>
 const favoriteCoverImage = computed(() =>
   getFavoriteCoverImage(props.collection.name),
 );
-const missingCoverImage = computed(() =>
-  getMissingCoverImage(props.collection.name),
-);
 </script>
 
 <template>
@@ -37,7 +30,7 @@ const missingCoverImage = computed(() =>
       "
     >
       <template #error>
-        <v-img :src="missingCoverImage" />
+        <v-img :src="collectionCoverImage" />
       </template>
     </v-img>
   </v-avatar>
