@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import http
 import re
 from typing import Final, NotRequired, TypedDict
@@ -7,7 +8,7 @@ from urllib.parse import quote
 import httpx
 import pydash
 import yarl
-from config import SCREENSCRAPER_API_KEY, SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from fastapi import HTTPException, status
 from logger.logger import log
 from unidecode import unidecode as uc
@@ -23,6 +24,8 @@ from .base_hander import (
 
 # Used to display the Screenscraper API status in the frontend
 SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER) and bool(SCREENSCRAPER_PASSWORD)
+SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
+SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 
 PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
@@ -181,8 +184,8 @@ class SSBaseHandler(MetadataHandler):
         authorized_url = yarl.URL(url).update_query(
             ssid=SCREENSCRAPER_USER,
             sspassword=SCREENSCRAPER_PASSWORD,
-            devid=SCREENSCRAPER_USER,
-            devpassword=SCREENSCRAPER_API_KEY,
+            devid=SS_DEV_ID,
+            devpassword=SS_DEV_PASSWORD,
             softname="romm",
             output="json",
         )
@@ -209,14 +212,16 @@ class SSBaseHandler(MetadataHandler):
                 return {}
             return res.json()
         except httpx.NetworkError as exc:
-            log.critical("Connection error: can't connect to Mobygames", exc_info=True)
+            log.critical(
+                "Connection error: can't connect to Screenscrapper", exc_info=True
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Mobygames, check your internet connection",
+                detail="Can't connect to Screenscrapper, check your internet connection",
             ) from exc
         except httpx.HTTPStatusError as err:
             if err.response.status_code == http.HTTPStatus.UNAUTHORIZED:
-                # Sometimes Mobygames returns 401 even with a valid API key
+                # Sometimes Screenscrapper returns 401 even with a valid API key
                 log.error(err)
                 return {}
             elif err.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
