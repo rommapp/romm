@@ -209,8 +209,19 @@ async function onScan() {
       @click="emitter?.emit('showAddToCollectionDialog', [{ ...rom }])"
     >
       <v-list-item-title class="d-flex">
-        <v-icon icon="mdi-bookmark-plus-outline" class="mr-2" />{{
+        <v-icon icon="mdi-bookmark-plus" class="mr-2" />{{
           t("rom.add-to-collection")
+        }}
+      </v-list-item-title>
+    </v-list-item>
+    <v-list-item
+      v-if="auth.scopes.includes('collections.write')"
+      class="py-4 pr-5"
+      @click="emitter?.emit('showRemoveFromCollectionDialog', [{ ...rom }])"
+    >
+      <v-list-item-title class="d-flex">
+        <v-icon icon="mdi-bookmark-remove-outline" class="mr-2" />{{
+          t("rom.remove-from-collection")
         }}
       </v-list-item-title>
     </v-list-item>
