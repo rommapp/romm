@@ -12,15 +12,15 @@ import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
+import { getCollectionCoverImage } from "@/utils/covers";
 
 // Props
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
-const theme = useTheme();
 const auth = storeAuth();
 const romsStore = storeRoms();
 const collectionsStore = storeCollection();
@@ -44,6 +44,10 @@ const collectionInfoFields = [
 const updating = ref(false);
 const updatedCollection = ref<UpdatedCollection>({} as UpdatedCollection);
 const isEditable = ref(false);
+const collectionCoverImage = computed(() =>
+  getCollectionCoverImage(updatedCollection.value.name),
+);
+
 emitter?.on("updateUrlCover", (url_cover) => {
   updatedCollection.value.url_cover = url_cover;
   setArtwork(url_cover);
@@ -88,7 +92,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_collection.png`;
+  imagePreviewUrl.value = collectionCoverImage.value;
   removeCover.value = true;
 }
 

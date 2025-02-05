@@ -8,13 +8,13 @@ import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay, useTheme } from "vuetify";
+import { computed, inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { getMissingCoverImage } from "@/utils/covers";
 
 // Props
 const { t } = useI18n();
-const theme = useTheme();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const heartbeat = storeHeartbeat();
@@ -32,6 +32,10 @@ emitter?.on("updateUrlCover", (url_cover) => {
   collection.value.url_cover = url_cover;
   setArtwork(url_cover);
 });
+
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(collection.value.name),
+);
 
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
@@ -58,7 +62,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`;
+  imagePreviewUrl.value = missingCoverImage.value;
   removeCover.value = true;
 }
 
