@@ -1,11 +1,28 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
-import { useTheme } from "vuetify";
+import {
+  getCollectionCoverImage,
+  getFavoriteCoverImage,
+  getMissingCoverImage,
+} from "@/utils/covers";
+import { computed } from "vue";
 
-withDefaults(defineProps<{ collection: Collection; size?: number }>(), {
-  size: 45,
-});
-const theme = useTheme();
+const props = withDefaults(
+  defineProps<{ collection: Collection; size?: number }>(),
+  {
+    size: 45,
+  },
+);
+
+const collectionCoverImage = computed(() =>
+  getCollectionCoverImage(props.collection.name),
+);
+const favoriteCoverImage = computed(() =>
+  getFavoriteCoverImage(props.collection.name),
+);
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(props.collection.name),
+);
 </script>
 
 <template>
@@ -15,15 +32,12 @@ const theme = useTheme();
         collection.has_cover
           ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
           : collection.name?.toLowerCase() == 'favourites'
-            ? `/assets/default/cover/${theme.global.name.value}_fav.svg`
-            : `/assets/default/cover/${theme.global.name.value}_collection.svg`
+            ? favoriteCoverImage
+            : collectionCoverImage
       "
     >
       <template #error>
-        <v-img
-          :src="`assets/default/cover/${theme.global.name.value}_collection.svg`"
-        >
-        </v-img>
+        <v-img :src="missingCoverImage" />
       </template>
     </v-img>
   </v-avatar>

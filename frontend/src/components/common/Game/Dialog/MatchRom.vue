@@ -9,10 +9,11 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref, computed } from "vue";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
 import { useRoute } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
@@ -31,7 +32,6 @@ const platfotmsStore = storePlatforms();
 const searching = ref(false);
 const route = useRoute();
 const searchTerm = ref("");
-const theme = useTheme();
 const searchBy = ref("Name");
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
@@ -67,6 +67,9 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
     searchRom();
   }
 });
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
+);
 
 // Functions
 function toggleSourceFilter(source: MatchedSource["name"]) {
@@ -453,11 +456,7 @@ onBeforeUnmount(() => {
                     @click="selectCover(source)"
                   >
                     <v-img
-                      :src="
-                        !source.url_cover
-                          ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
-                          : source.url_cover
-                      "
+                      :src="source.url_cover || missingCoverImage"
                       :aspect-ratio="computedAspectRatio"
                       cover
                       lazy
@@ -478,6 +477,9 @@ onBeforeUnmount(() => {
                           <v-img :src="source.logo_path" />
                         </v-avatar>
                       </v-row>
+                      <template #error>
+                        <v-img :src="missingCoverImage" />
+                      </template>
                     </v-img>
                   </v-card>
                 </v-hover>

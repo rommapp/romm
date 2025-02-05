@@ -365,7 +365,7 @@ watch(
                     <v-img
                       :aspect-ratio="aspectRatio.size"
                       cover
-                      src="/assets/auth_background_static.svg"
+                      src="/assets/default/cover/empty.svg"
                       :class="{ greyscale: !isSelected }"
                       class="d-flex align-center justify-center"
                     >
