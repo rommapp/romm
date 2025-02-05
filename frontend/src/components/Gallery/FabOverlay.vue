@@ -168,6 +168,7 @@ function onDownload() {
       </template>
 
       <v-btn
+        title="Delete roms"
         key="1"
         v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
@@ -179,6 +180,7 @@ function onDownload() {
         <v-icon color="romm-red"> mdi-delete </v-icon>
       </v-btn>
       <v-btn
+        title="Scan roms"
         key="2"
         v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
@@ -188,6 +190,7 @@ function onDownload() {
         @click="onScan"
       />
       <v-btn
+        title="Download roms"
         key="3"
         color="toplayer"
         elevation="8"
@@ -196,34 +199,42 @@ function onDownload() {
         @click="onDownload"
       />
       <v-btn
+        title="Remove from collection"
         key="4"
         color="toplayer"
         elevation="8"
-        :icon="
-          $route.name == 'platform'
-            ? 'mdi-bookmark-plus'
-            : 'mdi-bookmark-remove'
-        "
+        icon="mdi-bookmark-remove-outline"
         size="default"
         @click="
-          $route.name == 'platform'
-            ? emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
-            : emitter?.emit(
-                'showRemoveFromCollectionDialog',
-                romsStore.selectedRoms,
-              )
+          emitter?.emit(
+            'showRemoveFromCollectionDialog',
+            romsStore.selectedRoms,
+          )
         "
       />
       <v-btn
+        title="Add to collection"
         key="5"
         color="toplayer"
         elevation="8"
-        icon="mdi-star-outline"
+        icon="mdi-bookmark-plus"
+        size="default"
+        @click="
+          emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
+        "
+      />
+      <v-btn
+        title="Remove from favourites"
+        key="6"
+        color="toplayer"
+        elevation="8"
+        icon="mdi-star-remove-outline"
         size="default"
         @click="removeFromFavourites"
       />
       <v-btn
-        key="6"
+        title="Add to favourites"
+        key="7"
         color="toplayer"
         elevation="8"
         icon="mdi-star"
@@ -231,7 +242,8 @@ function onDownload() {
         @click="addToFavourites"
       />
       <v-btn
-        key="7"
+        title="Select all"
+        key="8"
         color="toplayer"
         elevation="8"
         icon="mdi-select-all"
@@ -239,7 +251,8 @@ function onDownload() {
         @click.stop="selectAllRoms"
       />
       <v-btn
-        key="8"
+        title="Unselect all"
+        key="9"
         color="toplayer"
         elevation="8"
         icon="mdi-select"
