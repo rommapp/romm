@@ -10,12 +10,12 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useRoute } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { getMissingCoverImage } from "@/utils/covers";
 
 // Props
 const { t } = useI18n();
-const theme = useTheme();
 const { lgAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
@@ -43,6 +43,9 @@ const computedAspectRatio = computed(() => {
     : galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
+);
 
 // Functions
 function triggerFileInput() {
@@ -70,7 +73,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`;
+  imagePreviewUrl.value = missingCoverImage.value;
   removeCover.value = true;
 }
 

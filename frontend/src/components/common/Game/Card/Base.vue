@@ -11,7 +11,7 @@ import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms.js";
 import { computed } from "vue";
-import { useTheme } from "vuetify";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 
 // Props
 const props = withDefaults(
@@ -65,7 +65,6 @@ const handleTouchEnd = (event: TouchEvent) => {
   emit("touchend", { event: event, rom: props.rom });
 };
 const downloadStore = storeDownload();
-const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
@@ -75,6 +74,12 @@ const computedAspectRatio = computed(() => {
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
+const unmatchedCoverImage = computed(() =>
+  getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
+);
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(props.rom.name || props.rom.slug || ""),
+);
 </script>
 
 <template>
@@ -121,14 +126,14 @@ const computedAspectRatio = computed(() => {
               src ||
               (romsStore.isSimpleRom(rom)
                 ? !rom.igdb_id && !rom.moby_id && !rom.ss_id && !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                  ? unmatchedCoverImage
                   : (rom.igdb_id || rom.moby_id || rom.ss_id) && !rom.has_cover
-                    ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                    ? missingCoverImage
                     : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
                 : !rom.igdb_url_cover &&
                     !rom.moby_url_cover &&
                     !rom.ss_url_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  ? missingCoverImage
                   : rom.igdb_url_cover ||
                     rom.moby_url_cover ||
                     rom.ss_url_cover)
@@ -136,14 +141,14 @@ const computedAspectRatio = computed(() => {
             :lazy-src="
               romsStore.isSimpleRom(rom)
                 ? !rom.igdb_id && !rom.moby_id && !rom.ss_id && !rom.has_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+                  ? unmatchedCoverImage
                   : (rom.igdb_id || rom.moby_id || rom.ss_id) && !rom.has_cover
-                    ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                    ? missingCoverImage
                     : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
                 : !rom.igdb_url_cover &&
                     !rom.moby_url_cover &&
                     !rom.ss_url_cover
-                  ? `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
+                  ? missingCoverImage
                   : rom.igdb_url_cover || rom.moby_url_cover || rom.ss_url_cover
             "
             :aspect-ratio="computedAspectRatio"
@@ -218,7 +223,7 @@ const computedAspectRatio = computed(() => {
             </div>
             <template #error>
               <v-img
-                :src="`/assets/default/cover/${theme.global.name.value}_missing_cover.svg`"
+                :src="missingCoverImage"
                 cover
                 :aspect-ratio="computedAspectRatio"
               ></v-img>
