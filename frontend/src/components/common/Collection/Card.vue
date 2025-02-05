@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
-import { useTheme } from "vuetify";
+import {
+  getCollectionCoverImage,
+  getFavoriteCoverImage,
+  getMissingCoverImage,
+} from "@/utils/covers";
+import { computed } from "vue";
 
 // Props
-withDefaults(
+const props = withDefaults(
   defineProps<{
     collection: Collection;
     transformScale?: boolean;
@@ -21,8 +26,17 @@ withDefaults(
     src: "",
   },
 );
-const theme = useTheme();
+
 const galleryViewStore = storeGalleryView();
+const collectionCoverImage = computed(() =>
+  getCollectionCoverImage(props.collection.name),
+);
+const favoriteCoverImage = computed(() =>
+  getFavoriteCoverImage(props.collection.name),
+);
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(props.collection.name),
+);
 </script>
 
 <template>
@@ -50,8 +64,8 @@ const galleryViewStore = storeGalleryView();
             : collection.has_cover
               ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
               : collection.name && collection.name.toLowerCase() == 'favourites'
-                ? `/assets/default/cover/${theme.global.name.value}_fav.svg`
-                : `/assets/default/cover/${theme.global.name.value}_collection.svg`
+                ? favoriteCoverImage
+                : collectionCoverImage
         "
         :lazy-src="
           src
@@ -59,8 +73,8 @@ const galleryViewStore = storeGalleryView();
             : collection.has_cover
               ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
               : collection.name && collection.name.toLowerCase() == 'favourites'
-                ? `/assets/default/cover/${theme.global.name.value}_fav.svg`
-                : `/assets/default/cover/${theme.global.name.value}_collection.svg`
+                ? favoriteCoverImage
+                : collectionCoverImage
         "
         :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
       >
@@ -81,10 +95,10 @@ const galleryViewStore = storeGalleryView();
 
         <template #error>
           <v-img
-            :src="`/assets/default/cover/${theme.global.name.value}_missing_cover.svg`"
+            :src="missingCoverImage"
             cover
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-          ></v-img>
+          />
         </template>
         <template #placeholder>
           <div class="d-flex align-center justify-center fill-height">
