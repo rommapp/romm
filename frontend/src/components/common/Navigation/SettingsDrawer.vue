@@ -79,6 +79,7 @@ async function logout() {
     </v-list>
     <v-list class="py-1 px-0">
       <v-list-item
+        v-if="scopes.includes('me.write')"
         rounded
         @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
         append-icon="mdi-account"

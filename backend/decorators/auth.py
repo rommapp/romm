@@ -16,8 +16,9 @@ from fastapi.security.http import HTTPBasic
 from fastapi.security.oauth2 import OAuth2PasswordBearer
 from fastapi.types import DecoratedCallable
 from handler.auth.constants import (
-    DEFAULT_SCOPES_MAP,
+    EDIT_SCOPES_MAP,
     FULL_SCOPES_MAP,
+    READ_SCOPES_MAP,
     WRITE_SCOPES_MAP,
     Scope,
 )
@@ -29,8 +30,9 @@ oauth2_password_bearer = OAuth2PasswordBearer(
     tokenUrl="/token",
     auto_error=False,
     scopes={
-        **DEFAULT_SCOPES_MAP,
+        **READ_SCOPES_MAP,
         **WRITE_SCOPES_MAP,
+        **EDIT_SCOPES_MAP,
         **FULL_SCOPES_MAP,
     },
 )

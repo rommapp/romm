@@ -6,6 +6,7 @@ import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeAuth from "@/stores/auth";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   formatBytes,
@@ -30,6 +31,8 @@ const { filteredRoms, selectedRoms } = storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
+const auth = storeAuth();
+
 const HEADERS = [
   {
     title: "Title",
@@ -288,7 +291,14 @@ function updateSelectedRom(rom: SimpleRom) {
         >
           <v-icon>mdi-play</v-icon>
         </v-btn>
-        <v-menu location="bottom">
+        <v-menu
+          v-if="
+            auth.scopes.includes('roms.write') ||
+            auth.scopes.includes('roms.user.write') ||
+            auth.scopes.includes('collections.write')
+          "
+          location="bottom"
+        >
           <template #activator="{ props }">
             <v-btn v-bind="props" size="small">
               <v-icon>mdi-dots-vertical</v-icon>
