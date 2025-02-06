@@ -276,31 +276,60 @@ watch(
             </v-btn>
           </div>
         </div>
-        <div class="mt-4 text-center">
-          <a
-            v-if="currentPlatform.igdb_id"
-            style="text-decoration: none; color: inherit"
-            :href="currentPlatform.url ? currentPlatform.url : ''"
-            target="_blank"
-          >
-            <v-chip size="x-small" @click.stop>
-              <span>IGDB</span>
-              <v-divider class="mx-2 border-opacity-25" vertical />
-              <span>ID: {{ currentPlatform.igdb_id }}</span>
-            </v-chip>
-          </a>
-          <v-chip
-            size="x-small"
-            class="ml-1"
-            @click.stop
-            :class="{ 'ml-1': currentPlatform.igdb_id }"
-            v-if="currentPlatform.moby_id"
-          >
-            <span>Mobygames</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>ID: {{ currentPlatform.moby_id }}</span>
-          </v-chip>
-        </div>
+        <v-row
+          v-if="
+            currentPlatform.igdb_id ||
+            currentPlatform.moby_id ||
+            currentPlatform.ss_id
+          "
+          class="text-white text-shadow mt-2 text-center"
+          no-gutters
+        >
+          <v-col cols="12">
+            <a
+              v-if="currentPlatform.igdb_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.igdb.com/platforms/${currentPlatform.slug}`"
+              target="_blank"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/igdb.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.igdb_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.moby_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              :class="{ 'ml-1': currentPlatform.igdb_id }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/moby.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.moby_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.ss_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
+              target="_blank"
+              :class="{
+                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
+              }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/ss.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.ss_id }}</span>
+              </v-chip>
+            </a>
+          </v-col>
+        </v-row>
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
           <v-card-text class="pa-4">
             <template
