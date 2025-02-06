@@ -1,7 +1,7 @@
 """empty message
 
-Revision ID: 0034_rom_file_and_hashes
-Revises: 0033_longer_fs_fields
+Revision ID: 0033_rom_file_and_hashes
+Revises: 0032_longer_fs_fields
 Create Date: 2024-12-19 23:16:11.053536
 
 """
@@ -16,8 +16,8 @@ from sqlalchemy.dialects.postgresql import ENUM
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0034_rom_file_and_hashes"
-down_revision = "0033_longer_fs_fields"
+revision = "0033_rom_file_and_hashes"
+down_revision = "0032_longer_fs_fields"
 branch_labels = None
 depends_on = None
 
