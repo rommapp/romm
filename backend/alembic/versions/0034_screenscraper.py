@@ -25,6 +25,8 @@ def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("ss_id", sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column("ss_metadata", CustomJSON(), nullable=True))
+        batch_op.add_column(sa.Column("url_manual", sa.Text(), nullable=True)),
+        batch_op.add_column(sa.Column("path_manual", sa.Text(), nullable=True)),
         batch_op.create_index("idx_roms_ss_id", ["ss_id"], unique=False)
     # ### end Alembic commands ###
 

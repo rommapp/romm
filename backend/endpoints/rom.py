@@ -437,6 +437,7 @@ async def update_rom(
                 "path_cover_s": "",
                 "path_cover_l": "",
                 "url_cover": "",
+                "url_manual": "",
                 "slug": "",
                 "igdb_metadata": {},
                 "moby_metadata": {},

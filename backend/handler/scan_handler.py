@@ -209,6 +209,7 @@ async def scan_rom(
         "platform_id": platform.id,
         "name": fs_rom["fs_name"],
         "url_cover": "",
+        "url_manual": "",
         "url_screenshots": [],
     }
 
@@ -226,6 +227,7 @@ async def scan_rom(
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
                 "url_cover": rom.url_cover,
+                "url_manual": rom.url_manual,
                 "path_cover_s": rom.path_cover_s,
                 "path_cover_l": rom.path_cover_l,
                 "path_screenshots": rom.path_screenshots,
