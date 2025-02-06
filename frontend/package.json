@@ -42,8 +42,7 @@
     "vue": "^3.4.27",
     "vue-i18n": "^11.0.1",
     "vue-router": "^4.3.2",
-    "vuetify": "^3.7.9",
-    "webfontloader": "^1.6.28"
+    "vuetify": "^3.7.9"
   },
   "devDependencies": {
     "@eslint/js": "^8.57.0",
@@ -53,7 +52,6 @@
     "@types/node": "^22.13.0",
     "@types/qrcode": "^1.5.5",
     "@types/semver": "^7.5.8",
-    "@types/webfontloader": "^1.6.38",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.5.1",
     "eslint": "^9.19.0",
