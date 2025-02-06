@@ -153,9 +153,10 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/igdb.png" />
             </v-avatar>
-            <span>ID: {{ rom.igdb_id }}</span>
+            <span>{{ rom.igdb_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>Rating: {{ rom.igdb_metadata?.total_rating }}</span>
+            <span>{{ rom.igdb_metadata?.total_rating }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
         <a
@@ -169,9 +170,10 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/moby.png" />
             </v-avatar>
-            <span>ID: {{ rom.moby_id }}</span>
+            <span>{{ rom.moby_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>Rating: {{ rom.moby_metadata?.moby_score }}</span>
+            <span>{{ rom.moby_metadata?.moby_score }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
         <a
@@ -185,7 +187,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ss.png" />
             </v-avatar>
-            <span>ID: {{ rom.ss_id }}</span>
+            <span>{{ rom.ss_id }}</span>
           </v-chip>
         </a>
       </v-col>
