@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useTheme } from "vuetify";
+import type { DetailedRom } from "@/stores/roms";
 import VuePdfApp from "vue3-pdf-app";
 
 // Props
