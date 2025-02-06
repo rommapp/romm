@@ -25,7 +25,13 @@ from handler.filesystem import (
 )
 from handler.filesystem.roms_handler import FSRom
 from handler.redis_handler import high_prio_queue, low_prio_queue, redis_client
-from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
+from handler.scan_handler import (
+    MetadataSource,
+    ScanType,
+    scan_firmware,
+    scan_platform,
+    scan_rom,
+)
 from handler.socket_handler import socket_handler
 from logger.formatter import LIGHTYELLOW, RED
 from logger.formatter import highlight as hl
@@ -138,7 +144,7 @@ async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[str] | None = None,
-    metadata_sources: list[str] | None = None,
+    metadata_sources: list[MetadataSource] | None = None,
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -153,7 +159,7 @@ async def scan_platforms(
         roms_ids = []
 
     if not metadata_sources:
-        metadata_sources = ["igdb", "moby"]
+        metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
 
     sm = _get_socket_manager()
 
@@ -225,7 +231,7 @@ async def _identify_platform(
     scan_type: ScanType,
     fs_platforms: list[str],
     roms_ids: list[str],
-    metadata_sources: list[str],
+    metadata_sources: list[MetadataSource],
     socket_manager: socketio.AsyncRedisManager,
 ) -> ScanStats:
     # Stop the scan if the flag is set
@@ -418,7 +424,7 @@ async def _identify_rom(
     rom: Rom | None,
     scan_type: ScanType,
     roms_ids: list[str],
-    metadata_sources: list[str],
+    metadata_sources: list[MetadataSource],
     socket_manager: socketio.AsyncRedisManager,
 ) -> ScanStats:
     scan_stats = ScanStats()
