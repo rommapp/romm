@@ -169,6 +169,10 @@ class Rom(BaseModel):
         return bool(self.path_cover_s or self.path_cover_l)
 
     @cached_property
+    def has_manual(self) -> bool:
+        return bool(self.path_manual)
+
+    @cached_property
     def merged_screenshots(self) -> list[str]:
         screenshots = [s.download_path for s in self.screenshots]
         if self.path_screenshots:

@@ -43,6 +43,9 @@ export type RomSchema = {
     path_cover_l: (string | null);
     has_cover: boolean;
     url_cover: (string | null);
+    has_manual: boolean;
+    path_manual: (string | null);
+    url_manual: (string | null);
     revision: (string | null);
     regions: Array<string>;
     languages: Array<string>;

@@ -149,7 +149,6 @@ class SSBaseHandler(MetadataHandler):
         self.search_endpoint = f"{self.BASE_URL}/jeuRecherche.php"
         self.platform_endpoint = f"{self.BASE_URL}/systemesListe.php"
         self.games_endpoint = f"{self.BASE_URL}/jeuInfos.php"
-        self.manuals_endpoint = f"{self.BASE_URL}/mediaManuelJeu.php"
         self.LOGIN_ERROR_CHECK: Final = "Erreur de login"
         self.NO_GAME_ERROR: Final = "Erreur : Jeu non trouvée !"
 
@@ -181,23 +180,17 @@ class SSBaseHandler(MetadataHandler):
                 return item.get("url", "")
         return ""
 
-    def _build_url_manual(self, platform_ss_id: int, ss_id: int):
-        manual_url = (
-            yarl.URL(self.manuals_endpoint).with_query(
-                ssid=SCREENSCRAPER_USER,
-                sspassword=SCREENSCRAPER_PASSWORD,
-                devid=SS_DEV_ID,
-                devpassword=SS_DEV_PASSWORD,
-                softname="romm",
-                output="json",
-                systemeid=[platform_ss_id],
-                jeuid=[ss_id],
-                media="manuel(eu)",
-            )
-            if ss_id
-            else ""
-        )
-        return manual_url
+    @staticmethod
+    def _extract_manual_url(data_list):
+        for item in data_list:
+            if (
+                item.get("type") == "manuel"
+                and item.get("region") == "us"
+                and item.get("parent") == "jeu"
+                and item.get("format") == "pdf"
+            ):
+                return item.get("url", "")
+        return ""
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
@@ -397,7 +390,7 @@ class SSBaseHandler(MetadataHandler):
                 res.get("synopsis", []), "text", "en"
             ),
             "url_cover": self._extract_box2d_cover_url(res.get("medias", [])),
-            "url_manual": self._build_url_manual(platform_ss_id, ss_id),
+            "url_manual": self._extract_manual_url(res.get("medias", [])),
             "url_screenshots": [],
             "ss_metadata": extract_metadata_from_ss_rom(res),
         }
@@ -422,7 +415,7 @@ class SSBaseHandler(MetadataHandler):
                 res.get("synopsis", []), "text", "en"
             ),
             "url_cover": self._extract_box2d_cover_url(res.get("medias", [])),
-            "url_manual": "",
+            "url_manual": self._extract_manual_url(res.get("medias", [])),
             "url_screenshots": [],
             "ss_metadata": extract_metadata_from_ss_rom(res),
         }
@@ -472,9 +465,7 @@ class SSBaseHandler(MetadataHandler):
                         "url_cover": self._extract_box2d_cover_url(
                             rom.get("medias", [])
                         ),
-                        "url_manual": self._build_url_manual(
-                            platform_ss_id, rom.get("id")
-                        ),
+                        "url_manual": self._extract_manual_url(rom.get("medias", [])),
                         "url_screenshots": [],
                         "ss_metadata": extract_metadata_from_ss_rom(rom),
                     }.items()

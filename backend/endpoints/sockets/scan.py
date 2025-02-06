@@ -491,9 +491,15 @@ async def _identify_rom(
         return scan_stats
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        overwrite=True,
         entity=_added_rom,
+        overwrite=True,
         url_cover=_added_rom.url_cover,
+    )
+
+    path_manual = await fs_resource_handler.get_manual(
+        rom=_added_rom,
+        overwrite=True,
+        url_manual=_added_rom.url_manual,
     )
 
     path_screenshots = await fs_resource_handler.get_rom_screenshots(
@@ -504,6 +510,7 @@ async def _identify_rom(
     _added_rom.path_cover_s = path_cover_s
     _added_rom.path_cover_l = path_cover_l
     _added_rom.path_screenshots = path_screenshots
+    _added_rom.path_manual = path_manual
     # Update the scanned rom with the cover and screenshots paths and update database
     db_rom_handler.update_rom(
         _added_rom.id,

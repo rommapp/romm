@@ -19,21 +19,38 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
+import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
+import VuePdfApp from "vue3-pdf-app";
+
+const theme = useTheme();
+const idConfig = {
+  zoomIn: "zoomInId",
+  zoomOut: "zoomOutId",
+  toggleFindbar: "toggleFindbarId",
+  download: "downloadId",
+  firstPage: "firstPageId",
+  nextPage: "nextPageId",
+  previousPage: "previousPageId",
+  lastPage: "lastPageId",
+  sidebarToggle: "sidebarToggleId",
+  numPages: "numPagesId",
+  pageNumber: "pageNumberId",
+};
 
 // Props
 const { t } = useI18n();
 const route = useRoute();
 const tab = ref<
   | "details"
+  | "manual"
   | "saves"
   | "states"
   | "personal"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
->("details");
+>("manual");
 const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
@@ -115,6 +132,9 @@ watch(
             :class="{ 'mt-4': smAndDown }"
           >
             <v-tab value="details"> {{ t("rom.details") }} </v-tab>
+            <v-tab value="manual" v-if="currentRom.has_manual">
+              {{ t("rom.manual") }}
+            </v-tab>
             <v-tab value="saves"> {{ t("common.saves") }} </v-tab>
             <v-tab value="states"> {{ t("common.states") }} </v-tab>
             <v-tab value="personal">
@@ -151,6 +171,67 @@ watch(
                     <game-info :rom="currentRom" />
                   </v-col>
                 </v-row>
+              </v-window-item>
+              <v-window-item value="manual">
+                <v-row no-gutters>
+                  <v-col class="pa-2 bg-toplayer">
+                    <button
+                      class="ml-1"
+                      :id="idConfig.sidebarToggle"
+                      type="button"
+                    >
+                      <v-icon>mdi-menu</v-icon>
+                    </button>
+                    <input
+                      class="ml-16 px-1"
+                      style="width: 40px"
+                      :id="idConfig.pageNumber"
+                      type="number"
+                    />
+                    <span class="ml-2" :id="idConfig.numPages"></span>
+
+                    <button
+                      class="ml-8"
+                      :id="idConfig.toggleFindbar"
+                      type="button"
+                    >
+                      <v-icon>mdi-file-find-outline</v-icon>
+                    </button>
+                    <button class="ml-8" :id="idConfig.zoomIn" type="button">
+                      <v-icon>mdi-magnify-plus-outline</v-icon>
+                    </button>
+                    <button class="ml-2" :id="idConfig.zoomOut" type="button">
+                      <v-icon>mdi-magnify-minus-outline</v-icon>
+                    </button>
+                    <button class="ml-8" :id="idConfig.firstPage" type="button">
+                      <v-icon>mdi-page-first</v-icon>
+                    </button>
+                    <button
+                      class="ml-2"
+                      :id="idConfig.previousPage"
+                      type="button"
+                    >
+                      <v-icon>mdi-chevron-left</v-icon>
+                    </button>
+                    <button class="ml-2" :id="idConfig.nextPage" type="button">
+                      <v-icon>mdi-chevron-right</v-icon>
+                    </button>
+                    <button class="ml-2" :id="idConfig.lastPage" type="button">
+                      <v-icon>mdi-page-last</v-icon>
+                    </button>
+                    <button class="ml-8" :id="idConfig.download" type="button">
+                      <v-icon>mdi-download</v-icon>
+                    </button>
+                  </v-col>
+                </v-row>
+                <vue-pdf-app
+                  :id-config="idConfig"
+                  :config="{ toolbar: false }"
+                  :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+                  style="height: 100dvh"
+                  :pdf="`/assets/romm/resources/${currentRom.path_manual}`"
+                >
+                </vue-pdf-app>
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="currentRom" />
@@ -208,5 +289,29 @@ watch(
 }
 #artwork-container {
   margin-top: -230px;
+}
+.pdf-app.light,
+.pdf-app.dark {
+  --pdf-app-background-color: rgba(var(--v-theme-surface)) !important;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+  text-align: right;
+  padding-left: 1px;
+  padding-right: 1px;
+  border: 1px solid rgba(var(--v-theme-secondary));
+  border-radius: 5px;
+  -webkit-transition: 0.5s;
+  transition: 0.5s;
+  outline: none;
 }
 </style>
