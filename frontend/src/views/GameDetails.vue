@@ -173,6 +173,7 @@ watch(
                 </v-row>
               </v-window-item>
               <v-window-item value="manual">
+                <!-- TODO: extract pdf viewer to component -->
                 <v-row no-gutters>
                   <v-col class="pa-2 bg-toplayer">
                     <button
