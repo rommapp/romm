@@ -317,7 +317,7 @@ async function stopScan() {
               <v-expansion-panel-title>
                 <v-list-item class="pa-0">
                   <template #prepend>
-                    <v-avatar size="40">
+                    <v-avatar rounded="0" size="40">
                       <platform-icon
                         :key="platform.slug"
                         :slug="platform.slug"
