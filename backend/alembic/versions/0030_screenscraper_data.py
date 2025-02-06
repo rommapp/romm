@@ -8,6 +8,7 @@ Create Date: 2025-01-02 18:58:55.557123
 
 import sqlalchemy as sa
 from alembic import op
+from handler.metadata.ss_handler import SLUG_TO_SS_ID
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
@@ -29,6 +30,14 @@ def upgrade() -> None:
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.execute("update roms set ss_metadata = JSON_OBJECT()")
+
+    connection = op.get_bind()
+    for slug, ss_id in SLUG_TO_SS_ID.items():
+        connection.execute(
+            sa.text("UPDATE platforms SET ss_id = :ss_id WHERE slug = :slug"),
+            {"ss_id": ss_id["id"], "slug": slug},
+        )
+
     # ### end Alembic commands ###
 
 
