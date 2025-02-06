@@ -127,6 +127,7 @@ class SSGamesRom(TypedDict):
     name: NotRequired[str]
     summary: NotRequired[str]
     url_cover: NotRequired[str]
+    url_manual: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
     ss_metadata: NotRequired[SSMetadata]
 
@@ -148,6 +149,7 @@ class SSBaseHandler(MetadataHandler):
         self.search_endpoint = f"{self.BASE_URL}/jeuRecherche.php"
         self.platform_endpoint = f"{self.BASE_URL}/systemesListe.php"
         self.games_endpoint = f"{self.BASE_URL}/jeuInfos.php"
+        self.manuals_endpoint = f"{self.BASE_URL}/mediaManuelJeu.php"
         self.LOGIN_ERROR_CHECK: Final = "Erreur de login"
         self.NO_GAME_ERROR: Final = "Erreur : Jeu non trouvée !"
 
@@ -178,6 +180,24 @@ class SSBaseHandler(MetadataHandler):
             ):
                 return item.get("url", "")
         return ""
+
+    def _build_url_manual(self, platform_ss_id: int, ss_id: int):
+        manual_url = (
+            yarl.URL(self.manuals_endpoint).with_query(
+                ssid=SCREENSCRAPER_USER,
+                sspassword=SCREENSCRAPER_PASSWORD,
+                devid=SS_DEV_ID,
+                devpassword=SS_DEV_PASSWORD,
+                softname="romm",
+                output="json",
+                systemeid=[platform_ss_id],
+                jeuid=[ss_id],
+                media="manuel(eu)",
+            )
+            if ss_id
+            else ""
+        )
+        return manual_url
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
@@ -329,6 +349,7 @@ class SSBaseHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
+                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
@@ -344,6 +365,7 @@ class SSBaseHandler(MetadataHandler):
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
                     url_cover=index_entry.get("iconUrl", ""),
+                    url_manual=index_entry.get("iconUrl", ""),
                     url_screenshots=index_entry.get("screenshots", None) or [],
                 )
 
@@ -362,17 +384,20 @@ class SSBaseHandler(MetadataHandler):
                 if res:
                     break
 
-        if not res:
+        if not res or not res.get("id", None):
             return fallback_rom
 
+        ss_id: int = int(res.get("id", None))
+
         rom = {
-            "ss_id": res.get("id"),
+            "ss_id": ss_id,
             "name": self._extract_value_by_region(res.get("noms", []), "text", "ss"),
             "slug": self._extract_value_by_region(res.get("noms", []), "text", "ss"),
             "summary": self._extract_value_by_language(
                 res.get("synopsis", []), "text", "en"
             ),
             "url_cover": self._extract_box2d_cover_url(res.get("medias", [])),
+            "url_manual": self._build_url_manual(platform_ss_id, ss_id),
             "url_screenshots": [],
             "ss_metadata": extract_metadata_from_ss_rom(res),
         }
@@ -397,6 +422,7 @@ class SSBaseHandler(MetadataHandler):
                 res.get("synopsis", []), "text", "en"
             ),
             "url_cover": self._extract_box2d_cover_url(res.get("medias", [])),
+            "url_manual": "",
             "url_screenshots": [],
             "ss_metadata": extract_metadata_from_ss_rom(res),
         }
@@ -445,6 +471,9 @@ class SSBaseHandler(MetadataHandler):
                         ),
                         "url_cover": self._extract_box2d_cover_url(
                             rom.get("medias", [])
+                        ),
+                        "url_manual": self._build_url_manual(
+                            platform_ss_id, rom.get("id")
                         ),
                         "url_screenshots": [],
                         "ss_metadata": extract_metadata_from_ss_rom(rom),

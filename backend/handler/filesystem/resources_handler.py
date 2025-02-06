@@ -200,3 +200,8 @@ class FSResourcesHandler(FSHandler):
             path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots
+
+    @staticmethod
+    def store_manual(manual):
+        with open("manual.pdf", "wb") as f:
+            f.write(manual.content)
