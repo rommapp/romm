@@ -144,7 +144,7 @@ async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
     roms_ids: list[str] | None = None,
-    metadata_sources: list[MetadataSource] | None = None,
+    metadata_sources: list[str] | None = None,
 ):
     """Scan all the listed platforms and fetch metadata from different sources
 
@@ -231,7 +231,7 @@ async def _identify_platform(
     scan_type: ScanType,
     fs_platforms: list[str],
     roms_ids: list[str],
-    metadata_sources: list[MetadataSource],
+    metadata_sources: list[str],
     socket_manager: socketio.AsyncRedisManager,
 ) -> ScanStats:
     # Stop the scan if the flag is set
@@ -424,7 +424,7 @@ async def _identify_rom(
     rom: Rom | None,
     scan_type: ScanType,
     roms_ids: list[str],
-    metadata_sources: list[MetadataSource],
+    metadata_sources: list[str],
     socket_manager: socketio.AsyncRedisManager,
 ) -> ScanStats:
     scan_stats = ScanStats()

@@ -30,7 +30,7 @@ class ScanType(Enum):
     HASHES = "hashes"
 
 
-class MetadataSource(Enum):
+class MetadataSource:
     IGDB = "igdb"
     MOBY = "moby"
     SS = "ss"
@@ -58,7 +58,7 @@ async def _get_main_platform_igdb_id(platform: Platform):
 async def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
-    metadata_sources: list[MetadataSource] | None = None,
+    metadata_sources: list[str] | None = None,
 ) -> Platform:
     """Get platform details
 
@@ -188,7 +188,7 @@ async def scan_rom(
     fs_rom: FSRom,
     scan_type: ScanType,
     rom: Rom | None = None,
-    metadata_sources: list[MetadataSource] | None = None,
+    metadata_sources: list[str] | None = None,
 ) -> Rom:
     if not metadata_sources:
         metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]

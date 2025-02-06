@@ -25,6 +25,11 @@ export default defineStore("heartbeat", {
           value: "moby",
           disabled: !this.value.METADATA_SOURCES?.MOBY_API_ENABLED,
         },
+        {
+          name: "Screenscraper",
+          value: "ss",
+          disabled: !this.value.METADATA_SOURCES?.SS_API_ENABLED,
+        },
       ]).value.filter((s) => !s.disabled);
     },
   },
