@@ -202,6 +202,64 @@ class FSResourcesHandler(FSHandler):
         return path_screenshots
 
     @staticmethod
-    def store_manual(manual):
-        with open("manual.pdf", "wb") as f:
-            f.write(manual.content)
+    async def manual_exists(rom: Rom) -> bool:
+        """Check if rom manual exists in filesystem
+
+        Args:
+            rom: Rom object
+        Returns
+            True if manual exists in filesystem else False
+        """
+        async for _ in Path(
+            f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
+        ).glob(f"{rom.id}.pdf"):
+            return True
+        return False
+
+    @staticmethod
+    async def _store_manual(rom: Rom, url_manual: str):
+        manual_path = Path(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual")
+        manual_file = manual_path / Path(f"{rom.id}.pdf")
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            async with httpx_client.stream("GET", url_manual, timeout=120) as response:
+                if response.status_code == 200:
+                    await manual_path.mkdir(parents=True, exist_ok=True)
+                    async with await manual_file.open("wb") as f:
+                        async for chunk in response.aiter_raw():
+                            await f.write(chunk)
+        except httpx.NetworkError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Unable to fetch cover at {url_manual}: {str(exc)}",
+            ) from exc
+        except httpx.ProtocolError:
+            log.warning(f"Failure writing cover {url_manual} to file (ProtocolError)")
+
+    @staticmethod
+    async def _get_manual_path(rom: Rom) -> str:
+        """Returns rom manual filesystem path adapted to frontend folder structure
+
+        Args:
+            rom: Rom object
+        """
+        async for matched_file in Path(
+            f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
+        ).glob(f"{rom.id}.pdf"):
+            return str(matched_file.relative_to(RESOURCES_BASE_PATH))
+        return ""
+
+    async def get_manual(
+        self, rom: Rom | None, overwrite: bool, url_manual: str | None
+    ) -> str:
+        if not rom:
+            return ""
+
+        manual_exists = await self.manual_exists(rom)
+        if url_manual and (overwrite or not manual_exists):
+            await self._store_manual(rom, url_manual)
+            manual_exists = await self.manual_exists(rom)
+        path_manual = (await self._get_manual_path(rom)) if manual_exists else ""
+
+        return path_manual

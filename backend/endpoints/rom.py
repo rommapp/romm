@@ -568,13 +568,24 @@ async def update_rom(
             ):
                 cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-                    overwrite=True,
                     entity=rom,
+                    overwrite=True,
                     url_cover=str(data.get("url_cover") or ""),
                 )
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
+
+    if data.get("url_manual", "") != rom.url_manual or not (
+        await fs_resource_handler.manual_exists(rom)
+    ):
+        cleaned_data.update({"url_manual": data.get("url_manual", rom.url_manual)})
+        url_manual = await fs_resource_handler.get_manual(
+            rom=rom,
+            overwrite=True,
+            url_manual=str(data.get("url_manual") or ""),
+        )
+        cleaned_data.update({"url_manual": url_manual})
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''))} [{id}] with data {cleaned_data}"
