@@ -1,7 +1,7 @@
 """screenscraper
 
-Revision ID: 0030_screenscraper_data
-Revises: 0029_platforms_custom_name
+Revision ID: 0034_screenscraper_data
+Revises: 0033_rom_file_and_hashes
 Create Date: 2025-01-02 18:58:55.557123
 
 """
@@ -12,8 +12,8 @@ from handler.metadata.ss_handler import SLUG_TO_SS_ID
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0030_screenscraper_data"
-down_revision = "0029_platforms_custom_name"
+revision = "0034_screenscraper_data"
+down_revision = "0033_rom_file_and_hashes"
 branch_labels = None
 depends_on = None
 
