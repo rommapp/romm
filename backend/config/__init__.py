@@ -115,6 +115,7 @@ DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
 
 # FRONTEND
 UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
+KIOSK_MODE = str_to_bool(os.environ.get("KIOSK_MODE", "false"))
 
 # LOGGING
 LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO").upper()

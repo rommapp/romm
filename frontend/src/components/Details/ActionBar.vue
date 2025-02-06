@@ -6,6 +6,7 @@ import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeConfig from "@/stores/config";
 import type { DetailedRom } from "@/stores/roms";
+import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import {
   getDownloadLink,
@@ -26,6 +27,7 @@ const playInfoIcon = ref("mdi-play");
 const qrCodeIcon = ref("mdi-qrcode");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
+const auth = storeAuth();
 
 const platformSlug = computed(() =>
   props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
@@ -128,7 +130,14 @@ async function copyDownloadLink(rom: DetailedRom) {
       >
         <v-icon :icon="qrCodeIcon" />
       </v-btn>
-      <v-menu location="bottom">
+      <v-menu
+        v-if="
+          auth.scopes.includes('roms.write') ||
+          auth.scopes.includes('roms.user.write') ||
+          auth.scopes.includes('collections.write')
+        "
+        location="bottom"
+      >
         <template #activator="{ props: menuProps }">
           <v-btn class="flex-grow-1" v-bind="menuProps">
             <v-icon icon="mdi-dots-vertical" size="large" />

@@ -4,7 +4,7 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from handler.auth.constants import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES, Scope
+from handler.auth.constants import DEFAULT_SCOPES, EDIT_SCOPES, FULL_SCOPES, Scope
 from models.base import BaseModel
 from sqlalchemy import TIMESTAMP, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -51,7 +51,7 @@ class User(BaseModel, SimpleUser):
             return FULL_SCOPES
 
         if self.role == Role.EDITOR:
-            return WRITE_SCOPES
+            return EDIT_SCOPES
 
         return DEFAULT_SCOPES
 

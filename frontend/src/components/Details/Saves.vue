@@ -9,10 +9,14 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import storeAuth from "@/stores/auth";
+import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
+const auth = storeAuth();
+const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -69,7 +73,11 @@ async function downloasSaves() {
   >
     <template #header.actions>
       <v-btn-group divided density="compact">
-        <v-btn size="small" @click="emitter?.emit('addSavesDialog', rom)">
+        <v-btn
+          v-if="scopes.includes('assets.write')"
+          size="small"
+          @click="emitter?.emit('addSavesDialog', rom)"
+        >
           <v-icon>mdi-upload</v-icon>
         </v-btn>
         <v-btn
@@ -84,7 +92,7 @@ async function downloasSaves() {
           :class="{
             'text-romm-red': selectedSaves.length,
           }"
-          :disabled="!selectedSaves.length"
+          :disabled="!selectedSaves.length || !scopes.includes('assets.write')"
           :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
           @click="
             emitter?.emit('showDeleteSavesDialog', {
