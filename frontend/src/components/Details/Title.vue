@@ -149,9 +149,10 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           :href="`https://www.igdb.com/games/${rom.slug}`"
           target="_blank"
         >
-          <v-chip size="x-small" @click.stop>
-            <span>IGDB</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/igdb.png" />
+            </v-avatar>
             <span>ID: {{ rom.igdb_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
             <span>Rating: {{ rom.igdb_metadata?.total_rating }}</span>
@@ -164,9 +165,10 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           target="_blank"
           :class="{ 'ml-1': rom.igdb_id }"
         >
-          <v-chip size="x-small" @click.stop>
-            <span>Mobygames</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/moby.png" />
+            </v-avatar>
             <span>ID: {{ rom.moby_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
             <span>Rating: {{ rom.moby_metadata?.moby_score }}</span>
@@ -179,9 +181,10 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           target="_blank"
           :class="{ 'ml-1': rom.igdb_id || rom.moby_id }"
         >
-          <v-chip size="x-small" @click.stop>
-            <span>Screenscraper</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/ss.png" />
+            </v-avatar>
             <span>ID: {{ rom.ss_id }}</span>
           </v-chip>
         </a>
