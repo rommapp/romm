@@ -5,6 +5,7 @@ import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
+import PdfViewer from "@/components/Details/PDFViewer.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
@@ -19,9 +20,8 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import VuePdfApp from "vue3-pdf-app";
 
 // Props
 const { t } = useI18n();
@@ -41,19 +41,6 @@ const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
 const { currentRom, gettingRoms } = storeToRefs(romsStore);
-const theme = useTheme();
-const pdfViewerConfig = {
-  sidebarToggle: "sidebarToggleId",
-  pageNumber: "pageNumberId",
-  numPages: "numPagesId",
-  zoomIn: "zoomInId",
-  zoomOut: "zoomOutId",
-  firstPage: "firstPageId",
-  previousPage: "previousPageId",
-  nextPage: "nextPageId",
-  lastPage: "lastPageId",
-  download: "downloadId",
-};
 
 // Functions
 async function fetchDetails() {
@@ -172,86 +159,7 @@ watch(
                 </v-row>
               </v-window-item>
               <v-window-item value="manual">
-                <!-- TODO: extract pdf viewer to component -->
-                <v-toolbar
-                  class="bg-toplayer px-2"
-                  density="compact"
-                  :elevation="0"
-                >
-                  <button
-                    class="pdfv-toolbar-btn"
-                    :id="pdfViewerConfig.sidebarToggle"
-                    type="button"
-                  >
-                    <v-icon>mdi-menu</v-icon>
-                  </button>
-                  <v-spacer />
-                  <input
-                    class="px-1"
-                    style="width: 40px"
-                    :id="pdfViewerConfig.pageNumber"
-                    type="number"
-                  />
-                  <span class="ml-2" :id="pdfViewerConfig.numPages"></span>
-                  <button
-                    class="ml-8 pdfv-toolbar-btn"
-                    :id="pdfViewerConfig.firstPage"
-                    type="button"
-                  >
-                    <v-icon>mdi-page-first</v-icon>
-                  </button>
-                  <button
-                    class="pdfv-toolbar-btn"
-                    :id="pdfViewerConfig.previousPage"
-                    type="button"
-                  >
-                    <v-icon>mdi-chevron-left</v-icon>
-                  </button>
-                  <button
-                    class="pdfv-toolbar-btn"
-                    :id="pdfViewerConfig.nextPage"
-                    type="button"
-                  >
-                    <v-icon>mdi-chevron-right</v-icon>
-                  </button>
-                  <button
-                    class="pdfv-toolbar-btn"
-                    :id="pdfViewerConfig.lastPage"
-                    type="button"
-                  >
-                    <v-icon>mdi-page-last</v-icon>
-                  </button>
-                  <button
-                    class="ml-8 pdfv-toolbar-btn"
-                    :id="pdfViewerConfig.zoomIn"
-                    type="button"
-                  >
-                    <v-icon>mdi-magnify-plus-outline</v-icon>
-                  </button>
-                  <button
-                    class="pdfv-toolbar-btn"
-                    :id="pdfViewerConfig.zoomOut"
-                    type="button"
-                  >
-                    <v-icon>mdi-magnify-minus-outline</v-icon>
-                  </button>
-                  <v-spacer />
-                  <button
-                    class="pdfv-toolbar-btn"
-                    :id="pdfViewerConfig.download"
-                    type="button"
-                  >
-                    <v-icon>mdi-download</v-icon>
-                  </button>
-                </v-toolbar>
-                <vue-pdf-app
-                  :id-config="pdfViewerConfig"
-                  :config="{ toolbar: false }"
-                  :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
-                  style="height: 100dvh"
-                  :pdf="`/assets/romm/resources/${currentRom.path_manual}`"
-                >
-                </vue-pdf-app>
+                <pdf-viewer v-if="currentRom.has_manual" :rom="currentRom" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="currentRom" />
@@ -309,47 +217,5 @@ watch(
 }
 #artwork-container {
   margin-top: -230px;
-}
-
-/* the vue-pdf-app needs to be styled because it only accepts basic html elements */
-.pdf-app.light,
-.pdf-app.dark {
-  --pdf-app-background-color: rgba(var(--v-theme-surface)) !important;
-}
-
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type="number"] {
-  -moz-appearance: textfield;
-  appearance: textfield;
-  text-align: right;
-  padding-left: 1px;
-  padding-right: 1px;
-  border: 1px solid rgba(var(--v-theme-secondary));
-  border-radius: 5px;
-  -webkit-transition: 0.5s;
-  transition: 0.5s;
-  outline: none;
-}
-
-.pdfv-toolbar-btn {
-  transition:
-    color 0.15s ease-in-out,
-    transform 0.1s ease-in-out background-color 0.15s linear;
-  border-radius: 5px;
-  padding: 6px;
-}
-
-.pdfv-toolbar-btn:hover {
-  color: rgba(var(--v-theme-primary));
-  background-color: rgba(var(--v-theme-surface));
-}
-
-.pdfv-toolbar-btn:active {
-  transform: translateY(1px) translateX(1px);
 }
 </style>
