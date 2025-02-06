@@ -464,7 +464,7 @@ class SlugToSSId(TypedDict):
     name: str
 
 
-SLUG_TO_SS_ID: dict[str, SlugToSSId] = SLUG_TO_SS_ID: dict[str, SlugToSSId] = {
+SLUG_TO_SS_ID: dict[str, SlugToSSId] = {
     "3do": {"id": 29, "name": "3DO"},
     "amiga": {"id": 64, "name": "Amiga"},
     "amiga-cd32": {"id": 134, "name": "Amiga CD"},
