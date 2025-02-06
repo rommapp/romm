@@ -1,6 +1,6 @@
-"""screenscraper
+"""empty message
 
-Revision ID: 0034_screenscraper_data
+Revision ID: 0034_screenscraper
 Revises: 0033_rom_file_and_hashes
 Create Date: 2025-01-02 18:58:55.557123
 
@@ -8,11 +8,10 @@ Create Date: 2025-01-02 18:58:55.557123
 
 import sqlalchemy as sa
 from alembic import op
-from handler.metadata.ss_handler import SLUG_TO_SS_ID
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0034_screenscraper_data"
+revision = "0034_screenscraper"
 down_revision = "0033_rom_file_and_hashes"
 branch_labels = None
 depends_on = None
@@ -27,17 +26,6 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("ss_id", sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column("ss_metadata", CustomJSON(), nullable=True))
         batch_op.create_index("idx_roms_ss_id", ["ss_id"], unique=False)
-
-    with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.execute("update roms set ss_metadata = JSON_OBJECT()")
-
-    connection = op.get_bind()
-    for slug, ss_id in SLUG_TO_SS_ID.items():
-        connection.execute(
-            sa.text("UPDATE platforms SET ss_id = :ss_id WHERE slug = :slug"),
-            {"ss_id": ss_id["id"], "slug": slug},
-        )
-
     # ### end Alembic commands ###
 
 
