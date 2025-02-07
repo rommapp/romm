@@ -78,7 +78,7 @@ async function removeArtwork() {
 }
 
 const noMetadataMatch = computed(() => {
-  return !rom.value?.igdb_id && !rom.value?.moby_id && !rom.value?.sgdb_id;
+  return !rom.value?.igdb_id && !rom.value?.moby_id && !rom.value?.ss_id;
 });
 
 async function handleRomUpdate(
@@ -211,6 +211,52 @@ function closeDialog() {
                 hide-details
                 @keyup.enter="updateRom"
               />
+            </v-col>
+          </v-row>
+          <v-row class="px-2 mt-2" no-gutters>
+            <v-col>
+              <v-chip
+                :variant="rom.has_manual ? 'flat' : 'tonal'"
+                label
+                size="large"
+                class="pr-0 bg-toplayer"
+              >
+                <span
+                  :class="{
+                    'text-romm-red': !rom.has_manual,
+                    'text-romm-green': rom.has_manual,
+                  }"
+                  >{{ t("rom.manual")
+                  }}<v-icon class="ml-1">{{
+                    rom.has_manual ? "mdi-check" : "mdi-close"
+                  }}</v-icon></span
+                >
+                <v-btn
+                  @click="triggerFileInput"
+                  class="bg-toplayer ml-3"
+                  icon="mdi-upload"
+                  rounded="0"
+                  size="small"
+                >
+                  <v-icon size="large">mdi-upload</v-icon>
+                  <v-file-input
+                    id="file-input"
+                    v-model="rom.artwork"
+                    accept="image/*"
+                    hide-details
+                    class="file-input"
+                    @change="previewImage"
+                  />
+                </v-btn>
+              </v-chip>
+              <div v-if="rom.has_manual" class="mt-1">
+                <v-label class="text-caption text-wrap">
+                  <v-icon size="small" class="mr-2 text-primary">
+                    mdi-folder-file-outline
+                  </v-icon>
+                  <span> /romm/resources/{{ rom.path_manual }} </span>
+                </v-label>
+              </div>
             </v-col>
           </v-row>
         </v-col>
