@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 
 // Props
@@ -11,7 +12,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
 <template>
   <v-list-item
     :key="platform.slug"
-    :to="{ name: 'platform', params: { platform: platform.id } }"
+    :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
     :value="platform.slug"
     rounded
     density="compact"
