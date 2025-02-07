@@ -2,8 +2,6 @@ import enum
 from datetime import timedelta
 from typing import Final
 
-from config import KIOSK_MODE
-
 ALGORITHM: Final = "HS256"
 DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
 
@@ -57,14 +55,7 @@ FULL_SCOPES_MAP: Final = {
     Scope.TASKS_RUN: "Run tasks",
 }
 
-DEFAULT_SCOPES: Final = (
-    list(READ_SCOPES_MAP.keys())
-    if KIOSK_MODE
-    else list(READ_SCOPES_MAP.keys()) + list(WRITE_SCOPES_MAP.keys())
-)
-EDIT_SCOPES: Final = (
-    list(READ_SCOPES_MAP.keys())
-    + list(WRITE_SCOPES_MAP.keys())
-    + list(EDIT_SCOPES_MAP.keys())
-)
+READ_SCOPES: Final = list(READ_SCOPES_MAP.keys())
+WRITE_SCOPES: Final = READ_SCOPES + list(WRITE_SCOPES_MAP.keys())
+EDIT_SCOPES: Final = WRITE_SCOPES + list(EDIT_SCOPES_MAP.keys())
 FULL_SCOPES: Final = EDIT_SCOPES + list(FULL_SCOPES_MAP.keys())

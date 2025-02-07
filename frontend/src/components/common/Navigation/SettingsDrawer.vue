@@ -88,7 +88,7 @@ async function logout() {
       <v-list-item
         class="mt-1"
         rounded
-        :to="{ name: 'userInterface' }"
+        :to="{ name: 'user-interface' }"
         append-icon="mdi-palette"
         >{{ t("common.user-interface") }}</v-list-item
       >
@@ -97,7 +97,7 @@ async function logout() {
         class="mt-1"
         rounded
         append-icon="mdi-table-cog"
-        :to="{ name: 'libraryManagement' }"
+        :to="{ name: 'library-management' }"
         >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
@@ -108,7 +108,7 @@ async function logout() {
         append-icon="mdi-security"
         >{{ t("common.administration") }}
       </v-list-item>
-      <template v-if="smAndDown">
+      <template v-if="smAndDown && auth.user.id !== -1">
         <v-list-item
           @click="logout"
           append-icon="mdi-location-exit"
@@ -118,7 +118,7 @@ async function logout() {
         >
       </template>
     </v-list>
-    <template v-if="!smAndDown" #append>
+    <template v-if="!smAndDown && auth.user.id !== -1" #append>
       <v-list class="pa-0">
         <v-list-item
           @click="logout"
