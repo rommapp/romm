@@ -81,7 +81,7 @@ async function logout() {
       <v-list-item
         v-if="scopes.includes('me.write')"
         rounded
-        @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
+        @click="emitter?.emit('showEditUserDialog', user as UserSchema)"
         append-icon="mdi-account"
         >{{ t("common.profile") }}</v-list-item
       >
@@ -108,7 +108,7 @@ async function logout() {
         append-icon="mdi-security"
         >{{ t("common.administration") }}
       </v-list-item>
-      <template v-if="smAndDown && auth.user.id !== -1">
+      <template v-if="smAndDown && scopes.includes('me.write')" #append>
         <v-list-item
           @click="logout"
           append-icon="mdi-location-exit"
@@ -118,7 +118,7 @@ async function logout() {
         >
       </template>
     </v-list>
-    <template v-if="!smAndDown && auth.user.id !== -1" #append>
+    <template v-if="!smAndDown && scopes.includes('me.write')">
       <v-list class="pa-0">
         <v-list-item
           @click="logout"
