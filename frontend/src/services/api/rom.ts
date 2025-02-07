@@ -168,17 +168,44 @@ async function updateRom({
   });
 }
 
-async function deleteRoms({
-  roms,
-  deleteFromFs = [],
+async function uploadManuals({
+  romId,
+  filesToUpload,
 }: {
-  roms: SimpleRom[];
-  deleteFromFs: number[];
-}): Promise<{ data: MessageResponse }> {
-  return api.post("/roms/delete", {
-    roms: roms.map((r) => r.id),
-    delete_from_fs: deleteFromFs,
+  romId: number;
+  filesToUpload: File[];
+}): Promise<PromiseSettledResult<unknown>[]> {
+  const heartbeat = storeHeartbeat();
+  const uploadStore = storeUpload();
+
+  console.log(filesToUpload);
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/manuals`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
   });
+
+  return Promise.allSettled(promises);
 }
 
 async function updateUserRomProps({
@@ -199,6 +226,19 @@ async function updateUserRomProps({
   });
 }
 
+async function deleteRoms({
+  roms,
+  deleteFromFs = [],
+}: {
+  roms: SimpleRom[];
+  deleteFromFs: number[];
+}): Promise<{ data: MessageResponse }> {
+  return api.post("/roms/delete", {
+    roms: roms.map((r) => r.id),
+    delete_from_fs: deleteFromFs,
+  });
+}
+
 export default {
   uploadRoms,
   getRoms,
@@ -208,6 +248,7 @@ export default {
   downloadRom,
   searchRom,
   updateRom,
-  deleteRoms,
+  uploadManuals,
   updateUserRomProps,
+  deleteRoms,
 };

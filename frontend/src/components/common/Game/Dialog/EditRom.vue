@@ -24,6 +24,7 @@ const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
+const manualFiles = ref<File[]>([]);
 const platfotmsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -118,6 +119,51 @@ async function handleRomUpdate(
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       closeDialog();
     });
+}
+
+async function uploadManuals() {
+  show.value = false;
+
+  await romApi
+    .uploadManuals({
+      romId: rom.value.id,
+      filesToUpload: manualFiles.value,
+    })
+    .then((responses: PromiseSettledResult<unknown>[]) => {
+      const successfulUploads = responses.filter(
+        (d) => d.status == "fulfilled",
+      );
+      const failedUploads = responses.filter((d) => d.status == "rejected");
+
+      if (failedUploads.length == 0) {
+        uploadStore.clearAll();
+      }
+
+      if (successfulUploads.length == 0) {
+        return emitter?.emit("snackbarShow", {
+          msg: `All manuals skipped, nothing to upload.`,
+          icon: "mdi-close-circle",
+          color: "orange",
+          timeout: 5000,
+        });
+      }
+
+      emitter?.emit("snackbarShow", {
+        msg: `${successfulUploads.length} manuals uploaded successfully (and ${failedUploads.length} skipped/failed).`,
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 3000,
+      });
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Unable to upload manuals: ${response?.data?.detail || response?.statusText || message}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    });
+  manualFiles.value = [];
 }
 
 async function unmatchRom() {
@@ -241,11 +287,13 @@ function closeDialog() {
                   <v-icon size="large">mdi-upload</v-icon>
                   <v-file-input
                     id="file-input"
-                    v-model="rom.artwork"
-                    accept="image/*"
+                    v-model="manualFiles"
+                    accept="application/pdf"
                     hide-details
+                    multiple
+                    required
                     class="file-input"
-                    @change="previewImage"
+                    @change="uploadManuals"
                   />
                 </v-btn>
               </v-chip>
