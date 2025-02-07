@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { type SimpleRom } from "@/stores/roms.js";
+import { type SimpleRom } from "@/stores/roms";
 import {
   languageToEmoji,
   regionToEmoji,
