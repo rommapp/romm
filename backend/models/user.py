@@ -4,7 +4,14 @@ import enum
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
-from handler.auth.constants import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES, Scope
+from config import KIOSK_MODE
+from handler.auth.constants import (
+    EDIT_SCOPES,
+    FULL_SCOPES,
+    READ_SCOPES,
+    WRITE_SCOPES,
+    Scope,
+)
 from models.base import BaseModel
 from sqlalchemy import TIMESTAMP, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -45,15 +52,33 @@ class User(BaseModel, SimpleUser):
     rom_users: Mapped[list[RomUser]] = relationship(back_populates="user")
     collections: Mapped[list[Collection]] = relationship(back_populates="user")
 
+    @classmethod
+    def kiosk_mode_user(cls) -> User:
+        now = datetime.now(timezone.utc)
+        return cls(
+            id=-1,
+            username="kiosk",
+            role=Role.VIEWER,
+            enabled=True,
+            avatar_path="",
+            last_active=now,
+            last_login=now,
+            created_at=now,
+            updated_at=now,
+        )
+
     @property
     def oauth_scopes(self) -> list[Scope]:
         if self.role == Role.ADMIN:
             return FULL_SCOPES
 
         if self.role == Role.EDITOR:
-            return WRITE_SCOPES
+            return EDIT_SCOPES
 
-        return DEFAULT_SCOPES
+        if KIOSK_MODE:
+            return READ_SCOPES
+
+        return WRITE_SCOPES
 
     @property
     def fs_safe_folder_name(self):

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Platform } from "@/stores/platforms";
+import { ROUTES } from "@/plugins/router";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 
 defineProps<{ platform: Platform }>();
@@ -12,7 +13,7 @@ defineProps<{ platform: Platform }>();
       class="bg-toplayer transform-scale"
       :class="{ 'on-hover': isHovering }"
       :elevation="isHovering ? 20 : 3"
-      :to="{ name: 'platform', params: { platform: platform.id } }"
+      :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
     >
       <v-card-text>
         <v-row class="pa-1 justify-center bg-background">

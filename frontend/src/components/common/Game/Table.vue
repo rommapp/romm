@@ -6,6 +6,7 @@ import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeAuth from "@/stores/auth";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   formatBytes,
@@ -14,6 +15,7 @@ import {
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
@@ -30,6 +32,8 @@ const { filteredRoms, selectedRoms } = storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
+const auth = storeAuth();
+
 const HEADERS = [
   {
     title: "Title",
@@ -85,7 +89,7 @@ const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
 // Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
-  router.push({ name: "rom", params: { rom: row.item.id } });
+  router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
   romsStore.resetSelection();
 }
 
@@ -269,7 +273,7 @@ function updateSelectedRom(rom: SimpleRom) {
           size="small"
           @click.stop="
             $router.push({
-              name: 'emulatorjs',
+              name: ROUTES.EMULATORJS,
               params: { rom: item?.id },
             })
           "
@@ -281,14 +285,21 @@ function updateSelectedRom(rom: SimpleRom) {
           size="small"
           @click.stop="
             $router.push({
-              name: 'ruffle',
+              name: ROUTES.RUFFLE,
               params: { rom: item?.id },
             })
           "
         >
           <v-icon>mdi-play</v-icon>
         </v-btn>
-        <v-menu location="bottom">
+        <v-menu
+          v-if="
+            auth.scopes.includes('roms.write') ||
+            auth.scopes.includes('roms.user.write') ||
+            auth.scopes.includes('collections.write')
+          "
+          location="bottom"
+        >
           <template #activator="{ props }">
             <v-btn v-bind="props" size="small">
               <v-icon>mdi-dots-vertical</v-icon>

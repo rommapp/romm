@@ -4,6 +4,7 @@ import RDialog from "@/components/common/RDialog.vue";
 import collectionApi from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -51,7 +52,7 @@ async function deleteCollection() {
       return;
     });
 
-  await router.push({ name: "home" });
+  await router.push({ name: ROUTES.HOME });
 
   collectionsStore.remove(collection.value);
   emitter?.emit("refreshDrawer", null);
