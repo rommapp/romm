@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { useTheme } from "vuetify";
+import { useTheme, useDisplay } from "vuetify";
 import type { DetailedRom } from "@/stores/roms";
 import VuePdfApp from "vue3-pdf-app";
 
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
+const { xs } = useDisplay();
 const theme = useTheme();
 const pdfViewerConfig = {
   sidebarToggle: "sidebarToggleId",
@@ -30,6 +31,7 @@ const pdfViewerConfig = {
       <v-icon>mdi-menu</v-icon>
     </button>
     <v-spacer />
+
     <input
       class="px-1"
       style="width: 40px"
@@ -38,13 +40,16 @@ const pdfViewerConfig = {
     />
     <span class="ml-2" :id="pdfViewerConfig.numPages"></span>
     <button
-      class="ml-8 pdfv-toolbar-btn"
+      class="pdfv-toolbar-btn"
+      :class="{ 'ml-8': !xs, 'ml-4': xs }"
       :id="pdfViewerConfig.firstPage"
       type="button"
     >
       <v-icon>mdi-page-first</v-icon>
     </button>
+
     <button
+      v-show="!xs"
       class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.previousPage"
       type="button"
@@ -52,12 +57,14 @@ const pdfViewerConfig = {
       <v-icon>mdi-chevron-left</v-icon>
     </button>
     <button
+      v-show="!xs"
       class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.nextPage"
       type="button"
     >
       <v-icon>mdi-chevron-right</v-icon>
     </button>
+
     <button
       class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.lastPage"
@@ -66,7 +73,8 @@ const pdfViewerConfig = {
       <v-icon>mdi-page-last</v-icon>
     </button>
     <button
-      class="ml-8 pdfv-toolbar-btn"
+      class="pdfv-toolbar-btn"
+      :class="{ 'ml-8': !xs, 'ml-4': xs }"
       :id="pdfViewerConfig.zoomIn"
       type="button"
     >
