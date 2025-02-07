@@ -270,7 +270,7 @@ async function stopScan() {
       rounded="4"
       height="40"
       class="ml-2"
-      :to="{ name: 'libraryManagement' }"
+      :to="{ name: 'library-management' }"
     >
       {{ t("scan.manage-library") }}
     </v-btn>
