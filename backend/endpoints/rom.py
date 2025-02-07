@@ -599,6 +599,58 @@ async def update_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
+@protected_route(router.post, "/roms/{id}/manuals", [Scope.ROMS_WRITE])
+async def add_rom_manuals(request: Request, id: int):
+    """Upload manuals for a rom
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Raises:
+        HTTPException: No files were uploaded
+    """
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    filename = request.headers.get("x-upload-filename")
+
+    manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manuals"
+    log.info(f"Uploading {filename} manuals to {manuals_path}")
+
+    # file_location = Path(f"{roms_path}/{filename}")
+    # parser = StreamingFormDataParser(headers=request.headers)
+    # parser.register("x-upload-platform", NullTarget())
+    # parser.register(filename, FileTarget(str(file_location)))
+
+    # if await file_location.exists():
+    #     log.warning(f" - Skipping {filename} since the file already exists")
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail=f"File {filename} already exists",
+    #     ) from None
+
+    # async def cleanup_partial_file():
+    #     if await file_location.exists():
+    #         await file_location.unlink()
+
+    # try:
+    #     async for chunk in request.stream():
+    #         parser.data_received(chunk)
+    # except ClientDisconnect:
+    #     log.error("Client disconnected during upload")
+    #     await cleanup_partial_file()
+    # except Exception as exc:
+    #     log.error("Error uploading files", exc_info=exc)
+    #     await cleanup_partial_file()
+    #     raise HTTPException(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         detail="There was an error uploading the file(s)",
+    #     ) from exc
+
+    return Response(status_code=status.HTTP_201_CREATED)
+
+
 @protected_route(router.post, "/roms/delete", [Scope.ROMS_WRITE])
 async def delete_roms(
     request: Request,
