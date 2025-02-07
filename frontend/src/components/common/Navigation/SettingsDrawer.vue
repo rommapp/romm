@@ -6,6 +6,7 @@ import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
@@ -36,7 +37,7 @@ async function logout() {
     });
     navigationStore.switchActiveSettingsDrawer();
     auth.setUser(null);
-    await router.push({ name: "login" });
+    await router.push({ name: ROUTES.LOGIN });
   });
 }
 </script>
@@ -88,7 +89,7 @@ async function logout() {
       <v-list-item
         class="mt-1"
         rounded
-        :to="{ name: 'user-interface' }"
+        :to="{ name: ROUTES.USER_INTERFACE }"
         append-icon="mdi-palette"
         >{{ t("common.user-interface") }}</v-list-item
       >
@@ -97,14 +98,14 @@ async function logout() {
         class="mt-1"
         rounded
         append-icon="mdi-table-cog"
-        :to="{ name: 'library-management' }"
+        :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
         class="mt-1"
         rounded
-        :to="{ name: 'administration' }"
+        :to="{ name: ROUTES.ADMINISTRATION }"
         append-icon="mdi-security"
         >{{ t("common.administration") }}
       </v-list-item>

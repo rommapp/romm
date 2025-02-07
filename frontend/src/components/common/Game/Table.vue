@@ -15,6 +15,7 @@ import {
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
@@ -88,7 +89,7 @@ const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
 // Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
-  router.push({ name: "rom", params: { rom: row.item.id } });
+  router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
   romsStore.resetSelection();
 }
 
@@ -272,7 +273,7 @@ function updateSelectedRom(rom: SimpleRom) {
           size="small"
           @click.stop="
             $router.push({
-              name: 'emulatorjs',
+              name: ROUTES.EMULATORJS,
               params: { rom: item?.id },
             })
           "
@@ -284,7 +285,7 @@ function updateSelectedRom(rom: SimpleRom) {
           size="small"
           @click.stop="
             $router.push({
-              name: 'ruffle',
+              name: ROUTES.RUFFLE,
               params: { rom: item?.id },
             })
           "
