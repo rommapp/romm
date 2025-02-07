@@ -12,6 +12,7 @@ import {
   isRuffleEmulationSupported,
   is3DSCIARom,
 } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
 import { storeToRefs } from "pinia";
@@ -68,7 +69,7 @@ const is3DSRom = computed(() => {
         size="x-small"
         @click="
           $router.push({
-            name: 'emulatorjs',
+            name: ROUTES.EMULATORJS,
             params: { rom: rom?.id },
           })
         "
@@ -83,7 +84,7 @@ const is3DSRom = computed(() => {
         size="x-small"
         @click="
           $router.push({
-            name: 'ruffle',
+            name: ROUTES.RUFFLE,
             params: { rom: rom?.id },
           })
         "
