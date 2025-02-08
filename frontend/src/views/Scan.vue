@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
@@ -272,7 +272,7 @@ async function stopScan() {
       rounded="4"
       height="40"
       class="ml-2"
-      :to="{ name: 'libraryManagement' }"
+      :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
     >
       {{ t("scan.manage-library") }}
     </v-btn>

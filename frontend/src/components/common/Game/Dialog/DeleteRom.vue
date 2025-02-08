@@ -4,6 +4,7 @@ import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
@@ -48,7 +49,7 @@ async function deleteRoms() {
       closeDialog();
       if (route.name == "rom") {
         router.push({
-          name: "platform",
+          name: ROUTES.PLATFORM,
           params: { platform: platformId.value },
         });
       }

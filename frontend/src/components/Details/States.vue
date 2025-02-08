@@ -9,10 +9,14 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import storeAuth from "@/stores/auth";
+import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
+const auth = storeAuth();
+const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -70,6 +74,7 @@ async function downloasStates() {
     <template #header.actions>
       <v-btn-group divided density="compact">
         <v-btn
+          v-if="scopes.includes('assets.write')"
           drawer
           size="small"
           @click="emitter?.emit('addStatesDialog', rom)"
@@ -86,6 +91,7 @@ async function downloasStates() {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
+          v-if="scopes.includes('assets.write')"
           drawer
           :class="{
             'text-romm-red': selectedStates.length,

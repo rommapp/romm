@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { ref } from "vue";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import storeNavigation from "@/stores/navigation";
+import { ROUTES } from "@/plugins/router";
 
-const homeUrl = ref(`${location.protocol}//${location.host}`);
 const navigationStore = storeNavigation();
 </script>
 <template>
   <r-isotipo
-    :to="homeUrl"
+    :to="{ name: ROUTES.HOME }"
     @click="navigationStore.goHome"
     class="cursor-pointer"
     :size="40"

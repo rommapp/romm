@@ -12,6 +12,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { views } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -119,12 +120,12 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     }
   } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
     const link = router.resolve({
-      name: "rom",
+      name: ROUTES.ROM,
       params: { rom: emitData.rom.id },
     });
     window.open(link.href, "_blank");
   } else {
-    router.push({ name: "rom", params: { rom: emitData.rom.id } });
+    router.push({ name: ROUTES.ROM, params: { rom: emitData.rom.id } });
   }
 }
 
