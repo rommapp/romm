@@ -6,6 +6,7 @@ import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
@@ -27,6 +28,7 @@ const removeCover = ref(false);
 const manualFiles = ref<File[]>([]);
 const platfotmsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
+const uploadStore = storeUpload();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
@@ -123,6 +125,7 @@ async function handleRomUpdate(
 
 async function uploadManuals() {
   show.value = false;
+  if (!rom.value) return;
 
   await romApi
     .uploadManuals({
