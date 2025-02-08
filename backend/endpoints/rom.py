@@ -15,7 +15,12 @@ from config import (
 )
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.rom import DetailedRomSchema, RomUserSchema, SimpleRomSchema
+from endpoints.responses.rom import (
+    DetailedRomSchema,
+    RomSchema,
+    RomUserSchema,
+    SimpleRomSchema,
+)
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Request, UploadFile, status
@@ -112,7 +117,8 @@ def get_roms(
     offset: int | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
-) -> list[SimpleRomSchema]:
+    with_extra: bool = True,
+) -> list[SimpleRomSchema | RomSchema]:
     """Get roms endpoint
 
     Args:
@@ -157,7 +163,8 @@ def get_roms(
             detail="Invalid order_by field",
         )
 
-    roms = [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms]
+    SelectedSchema = SimpleRomSchema if with_extra else RomSchema
+    roms = [SelectedSchema.from_orm_with_request(rom, request) for rom in roms]
     return [rom for rom in roms if rom]
 
 
