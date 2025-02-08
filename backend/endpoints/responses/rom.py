@@ -193,6 +193,10 @@ class RomSchema(BaseModel):
             .lower()
         )
 
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, _request: Request) -> RomSchema:
+        return cls.model_validate(db_rom)
+
 
 class SimpleRomSchema(RomSchema):
     sibling_roms: list[RomSchema]

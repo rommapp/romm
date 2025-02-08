@@ -3,11 +3,12 @@ import RDialog from "@/components/common/RDialog.vue";
 import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
+import { ROUTES } from "@/plugins/router";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import { useI18n } from "vue-i18n";
 
 // Props
@@ -47,7 +48,7 @@ async function deletePlatform() {
       return;
     });
 
-  await router.push({ name: "home" });
+  await router.push({ name: ROUTES.HOME });
 
   platformsStore.remove(platform.value);
   emitter?.emit("refreshDrawer", null);

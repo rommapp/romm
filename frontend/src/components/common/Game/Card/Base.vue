@@ -9,7 +9,7 @@ import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
-import { type SimpleRom } from "@/stores/roms.js";
+import { type SimpleRom } from "@/stores/roms";
 import { computed } from "vue";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 

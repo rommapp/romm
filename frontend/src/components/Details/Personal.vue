@@ -9,6 +9,7 @@ import "md-editor-v3/lib/style.css";
 import { ref, watch } from "vue";
 import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
@@ -16,6 +17,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
 const { mdAndUp, smAndDown } = useDisplay();
+const { scopes } = storeToRefs(auth);
 const editingNote = ref(false);
 const romUser = ref(props.rom.rom_user);
 const publicNotes =
@@ -75,7 +77,12 @@ watch(
         no-gutters
       >
         <v-col cols="12" md="5">
-          <v-checkbox v-model="romUser.backlogged" color="primary" hide-details>
+          <v-checkbox
+            :disabled="!scopes.includes('roms.user.write')"
+            v-model="romUser.backlogged"
+            color="primary"
+            hide-details
+          >
             <template #label
               ><span>{{ t("rom.backlogged") }}</span
               ><span class="ml-2">{{
@@ -84,6 +91,7 @@ watch(
             >
           </v-checkbox>
           <v-checkbox
+            :disabled="!scopes.includes('roms.user.write')"
             v-model="romUser.now_playing"
             color="primary"
             hide-details
@@ -95,7 +103,12 @@ watch(
               }}</span></template
             >
           </v-checkbox>
-          <v-checkbox v-model="romUser.hidden" color="primary" hide-details>
+          <v-checkbox
+            :disabled="!scopes.includes('roms.user.write')"
+            v-model="romUser.hidden"
+            color="primary"
+            hide-details
+          >
             <template #label
               ><span>{{ t("rom.hidden") }}</span
               ><span class="ml-2">{{
@@ -120,6 +133,7 @@ watch(
                 ripple
                 length="10"
                 size="26"
+                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.rating"
                 @update:model-value="
                   romUser.rating =
@@ -140,6 +154,7 @@ watch(
                 ripple
                 length="10"
                 size="26"
+                :disabled="!scopes.includes('roms.user.write')"
                 full-icon="mdi-chili-mild"
                 empty-icon="mdi-chili-mild-outline"
                 v-model="romUser.difficulty"
@@ -158,6 +173,7 @@ watch(
             <v-col cols="12" md="10">
               <v-slider
                 :class="{ 'ml-4': mdAndUp }"
+                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.completion"
                 min="1"
                 max="100"
@@ -174,6 +190,7 @@ watch(
           </v-row>
           <div class="d-flex align-center mt-4">
             <v-select
+              :disabled="!scopes.includes('roms.user.write')"
               v-model="romUser.status"
               :items="statusOptions"
               hide-details
@@ -218,6 +235,7 @@ watch(
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
+                  :disabled="!scopes.includes('roms.user.write')"
                   @click="romUser.note_is_public = !romUser.note_is_public"
                   v-bind="tooltipProps"
                   class="bg-toplayer"
@@ -236,6 +254,7 @@ watch(
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
+                  :disabled="!scopes.includes('roms.user.write')"
                   @click="editNote"
                   v-bind="tooltipProps"
                   class="bg-toplayer"
@@ -253,6 +272,7 @@ watch(
     <v-card-text class="pa-2">
       <MdEditor
         v-if="editingNote"
+        :disabled="!scopes.includes('roms.user.write')"
         v-model="romUser.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"

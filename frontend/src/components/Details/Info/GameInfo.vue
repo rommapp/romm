@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { type FilterType } from "@/stores/galleryFilter";
-import storeGalleryView from "@/stores/galleryView";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import type { DetailedRom } from "@/stores/roms";
-import { storeToRefs } from "pinia";
+import { ROUTES } from "@/plugins/router";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
@@ -24,8 +23,6 @@ const filters = [
   { value: "collections", name: t("rom.collections") },
   { value: "companies", name: t("rom.companies") },
 ] as const;
-const galleryViewStore = storeGalleryView();
-const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 
 // Functions
 function onFilterClick(filter: FilterType, value: string) {
@@ -53,7 +50,7 @@ function onFilterClick(filter: FilterType, value: string) {
             <v-col cols="12" v-for="collection in rom.user_collections">
               <v-chip
                 :to="{
-                  name: 'collection',
+                  name: ROUTES.COLLECTION,
                   params: { collection: collection.id },
                 }"
                 size="large"

@@ -3,12 +3,13 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
+import { getDownloadPath } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { getDownloadPath } from "@/utils";
 
 const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
 
@@ -168,7 +169,7 @@ onMounted(async () => {
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'rom',
+                name: ROUTES.ROM,
                 params: { rom: rom?.id },
               })
             "
@@ -182,7 +183,7 @@ onMounted(async () => {
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'platform',
+                name: ROUTES.PLATFORM,
                 params: { platform: rom?.platform_id },
               })
             "

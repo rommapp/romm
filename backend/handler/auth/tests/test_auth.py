@@ -3,7 +3,7 @@ from base64 import b64encode
 import pytest
 from fastapi.exceptions import HTTPException
 from handler.auth import auth_handler, oauth_handler
-from handler.auth.constants import WRITE_SCOPES
+from handler.auth.constants import EDIT_SCOPES
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.database import db_user_handler
 from models.user import User
@@ -88,7 +88,7 @@ async def test_hybrid_auth_backend_session(editor_user: User):
     creds, user = result
     assert user.id == editor_user.id
     assert creds.scopes == editor_user.oauth_scopes
-    assert creds.scopes == WRITE_SCOPES
+    assert creds.scopes == EDIT_SCOPES
 
 
 async def test_hybrid_auth_backend_empty_session_and_headers(editor_user: User):
@@ -159,7 +159,7 @@ async def test_hybrid_auth_backend_basic_auth_header(editor_user: User):
 
     creds, user = result
     assert user.id == editor_user.id
-    assert creds.scopes == WRITE_SCOPES
+    assert creds.scopes == EDIT_SCOPES
     assert set(creds.scopes).issubset(editor_user.oauth_scopes)
 
 

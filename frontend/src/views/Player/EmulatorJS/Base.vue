@@ -6,6 +6,7 @@ import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
@@ -226,7 +227,7 @@ onMounted(async () => {
             "
           >
             <template #selection="{ item }">
-              <v-list-item class="py-4" :title="item.value.file_name ?? ''">
+              <v-list-item class="pa-0" :title="item.value.file_name ?? ''">
                 <template #append>
                   <v-chip size="x-small" class="ml-1" color="orange" label>{{
                     item.value.emulator
@@ -380,7 +381,7 @@ onMounted(async () => {
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'rom',
+                name: ROUTES.ROM,
                 params: { rom: rom?.id },
               })
             "
@@ -394,7 +395,7 @@ onMounted(async () => {
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'platform',
+                name: ROUTES.PLATFORM,
                 params: { platform: rom?.platform_id },
               })
             "
