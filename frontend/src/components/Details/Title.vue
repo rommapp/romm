@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import type { Platform } from "@/stores/platforms";
+import { ROUTES } from "@/plugins/router";
 import type { DetailedRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity } from "lodash";
@@ -27,7 +27,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
       no-gutters
     >
       <v-col>
-        <p class="text-h5 font-weight-bold pl-0">
+        <p class="text-h5 font-weight-bold pl-0 position-relative">
           <span>{{ rom.name }}</span>
           <fav-btn class="ml-2" :rom="rom" />
         </p>
@@ -41,7 +41,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     >
       <v-col>
         <v-chip
-          :to="{ name: 'platform', params: { platform: rom.platform_id } }"
+          :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
           {{ rom.platform_display_name }}
           <platform-icon

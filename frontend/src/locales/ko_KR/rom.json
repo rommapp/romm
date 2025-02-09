@@ -11,6 +11,7 @@
   "no-metadata-source": "메타데이터 DB 연동 안됨",
   "remove-from-playing": "플레이 중지",
   "edit-rom": "수정",
+  "refresh-metadata": "메타데이터 새로 고침",
   "filename": "파일 이름",
   "foldername": "폴더 이름",
   "summary": "요약",

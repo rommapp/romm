@@ -9,9 +9,9 @@ import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
-import { type SimpleRom } from "@/stores/roms.js";
-import { onMounted, ref, computed } from "vue";
-import { useTheme } from "vuetify";
+import { type SimpleRom } from "@/stores/roms";
+import { computed } from "vue";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 
 // Props
 const props = withDefaults(
@@ -28,8 +28,7 @@ const props = withDefaults(
     showActionBar?: boolean;
     showPlatformIcon?: boolean;
     showFav?: boolean;
-    withBorder?: boolean;
-    withBorderRommAccent?: boolean;
+    withBorderPrimary?: boolean;
     withLink?: boolean;
     src?: string;
   }>(),
@@ -45,8 +44,7 @@ const props = withDefaults(
     showActionBar: false,
     showPlatformIcon: false,
     showFav: false,
-    withBorder: false,
-    withBorderRommAccent: false,
+    withBorderPrimary: false,
     withLink: false,
     src: "",
   },
@@ -67,7 +65,6 @@ const handleTouchEnd = (event: TouchEvent) => {
   emit("touchend", { event: event, rom: props.rom });
 };
 const downloadStore = storeDownload();
-const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
@@ -77,6 +74,11 @@ const computedAspectRatio = computed(() => {
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
+const fallbackCoverImage = computed(() =>
+  props.rom.igdb_id || props.rom.moby_id
+    ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
+    : getUnmatchedCoverImage(props.rom.name || props.rom.slug || "")
+);
 </script>
 
 <template>
@@ -96,16 +98,16 @@ const computedAspectRatio = computed(() => {
       }"
       :class="{
         'on-hover': isHovering,
-        'border-romm-accent-1': withBorderRommAccent,
+        'border-selected': withBorderPrimary,
         'transform-scale': transformScale,
-        'with-border': withBorder,
+        'bg-surface': !isHovering,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
       <v-card-text class="pa-0">
         <v-progress-linear
           v-if="romsStore.isSimpleRom(rom)"
-          color="romm-accent-1"
+          color="primary"
           :active="downloadStore.value.includes(rom.id)"
           :indeterminate="true"
           absolute
@@ -121,21 +123,13 @@ const computedAspectRatio = computed(() => {
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
             :src="
               src ||
-              (romsStore.isSimpleRom(rom)
-                ? rom.path_cover_large ||
-                  `/assets/default/cover/big_${theme.global.name.value}_${rom.is_unidentified ? 'unmatched' : 'missing_cover'}.png`
-                : rom.igdb_url_cover ||
-                  rom.moby_url_cover ||
-                  `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`)
+              (romsStore.isSimpleRom(rom) ? rom.path_cover_large || fallbackCoverImage
+                : rom.igdb_url_cover || rom.moby_url_cover || fallbackCoverImage)
             "
             :lazy-src="
               src ||
-              (romsStore.isSimpleRom(rom)
-                ? rom.path_cover_small ||
-                  `/assets/default/cover/small_${theme.global.name.value}_${rom.is_unidentified ? 'unmatched' : 'missing_cover'}.png`
-                : rom.igdb_url_cover ||
-                  rom.moby_url_cover ||
-                  `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`)
+              (romsStore.isSimpleRom(rom) ? rom.path_cover_small || fallbackCoverImage
+                : rom.igdb_url_cover || rom.moby_url_cover || fallbackCoverImage)
             "
             :aspect-ratio="computedAspectRatio"
           >
@@ -186,7 +180,7 @@ const computedAspectRatio = computed(() => {
                 class="label-fav"
                 rouded="0"
                 size="small"
-                color="romm-accent-1"
+                color="primary"
               >
                 <v-icon class="icon-fav" size="x-small"
                   >{{
@@ -208,7 +202,7 @@ const computedAspectRatio = computed(() => {
             </div>
             <template #error>
               <v-img
-                :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+                :src="fallbackCoverImage"
                 cover
                 :aspect-ratio="computedAspectRatio"
               ></v-img>
@@ -218,7 +212,7 @@ const computedAspectRatio = computed(() => {
                 <v-progress-circular
                   :width="2"
                   :size="40"
-                  color="romm-accent-1"
+                  color="primary"
                   indeterminate
                 />
               </div>
@@ -241,9 +235,6 @@ const computedAspectRatio = computed(() => {
 </template>
 
 <style scoped>
-.with-border {
-  border: 1px solid rgba(var(--v-theme-primary));
-}
 .text-truncate {
   white-space: nowrap;
   overflow: hidden;

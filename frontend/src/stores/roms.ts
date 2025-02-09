@@ -14,8 +14,6 @@ import { defineStore } from "pinia";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
-const collectionStore = storeCollection();
-
 export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
@@ -45,6 +43,25 @@ export default defineStore("roms", {
   },
 
   actions: {
+    _shouldGroupRoms(): boolean {
+      return isNull(localStorage.getItem("settings.groupRoms"))
+        ? true
+        : localStorage.getItem("settings.groupRoms") === "true";
+    },
+    _getGroupedRoms(roms: SimpleRom[]): SimpleRom[] {
+      // Group roms by external id.
+      return Object.values(
+        groupBy(
+          roms,
+          (game) =>
+            // If external id is null, generate a random id so that the roms are not grouped
+            game.igdb_id || game.moby_id || nanoid(),
+        ),
+      ).map((games) => {
+        // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
+        return games.find((game) => game.rom_user?.is_main_sibling) || games[0];
+      });
+    },
     _reorder() {
       // Sort roms by comparator string
       this.allRoms = uniqBy(this.allRoms, "id").sort((a, b) => {
@@ -52,32 +69,15 @@ export default defineStore("roms", {
       });
 
       // Check if roms should be grouped
-      const groupRoms = isNull(localStorage.getItem("settings.groupRoms"))
-        ? true
-        : localStorage.getItem("settings.groupRoms") === "true";
-      if (!groupRoms) {
+      if (!this._shouldGroupRoms()) {
         this._grouped = this.allRoms;
         return;
       }
 
       // Group roms by external id
-      this._grouped = Object.values(
-        groupBy(
-          this.allRoms,
-          (game) =>
-            // If external id is null, generate a random id so that the roms are not grouped
-            game.igdb_id || game.moby_id || nanoid(),
-        ),
-      )
-        .map((games) => {
-          // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
-          return (
-            games.find((game) => game.rom_user?.is_main_sibling) || games[0]
-          );
-        })
-        .sort((a, b) => {
-          return a.sort_comparator.localeCompare(b.sort_comparator);
-        });
+      this._grouped = this._getGroupedRoms(this.allRoms).sort((a, b) => {
+        return a.sort_comparator.localeCompare(b.sort_comparator);
+      });
     },
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
@@ -86,7 +86,15 @@ export default defineStore("roms", {
       this.currentRom = rom;
     },
     setRecentRoms(roms: SimpleRom[]) {
-      this.recentRoms = roms;
+      if (this._shouldGroupRoms()) {
+        // Group by external ID to only display a single entry per sibling,
+        // and sorted on rom ID in descending order.
+        this.recentRoms = this._getGroupedRoms(roms).sort(
+          (a, b) => b.id - a.id,
+        );
+      } else {
+        this.recentRoms = roms;
+      }
     },
     setContinuePlayedRoms(roms: SimpleRom[]) {
       this.continuePlayingRoms = roms;
@@ -227,6 +235,8 @@ export default defineStore("roms", {
       this._filteredIDs = byMatched.intersection(this._filteredIDs);
     },
     _filterFavourites() {
+      const collectionStore = storeCollection();
+
       const byFavourites = new Set(
         this.filteredRoms
           .filter((rom) =>

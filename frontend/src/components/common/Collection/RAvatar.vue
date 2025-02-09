@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
+import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 import { computed, ref, watchEffect } from "vue";
 import { useTheme } from "vuetify";
 
@@ -15,6 +16,10 @@ const memoizedCovers = ref({
   large: ["", ""],
   small: ["", ""],
 });
+
+const collectionCoverImage = computed(() =>
+  props.collection.is_favorite ? getFavoriteCoverImage(props.collection.name) : getCollectionCoverImage(props.collection.name),
+);
 
 watchEffect(() => {
   if (props.collection.path_cover_large && props.collection.path_cover_small) {
@@ -37,12 +42,12 @@ watchEffect(() => {
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
       large: [
-        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
-        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+        collectionCoverImage.value,
+        collectionCoverImage.value,
       ],
       small: [
-        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
-        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+        collectionCoverImage.value,
+        collectionCoverImage.value,
       ],
     };
     return;

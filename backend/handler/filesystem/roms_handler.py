@@ -177,6 +177,11 @@ def category_matches(category: str, path_parts: list[str]):
     return category in path_parts or f"{category}s" in path_parts
 
 
+DEFAULT_CRC_C = 0
+DEFAULT_MD5_H_DIGEST = hashlib.md5(usedforsecurity=False).digest()
+DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
+
+
 class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
         pass
@@ -286,54 +291,65 @@ class FSRomsHandler(FSHandler):
         rom_md5_h: Any,
         rom_sha1_h: Any,
     ) -> tuple[int, int, Any, Any, Any, Any]:
-        mime = magic.Magic(mime=True)
-        file_type = mime.from_file(file_path)
         extension = Path(file_path).suffix.lower()
+        mime = magic.Magic(mime=True)
+        try:
+            file_type = mime.from_file(file_path)
+            file_type = None
 
-        crc_c = 0
-        md5_h = hashlib.md5(usedforsecurity=False)
-        sha1_h = hashlib.sha1(usedforsecurity=False)
+            crc_c = 0
+            md5_h = hashlib.md5(usedforsecurity=False)
+            sha1_h = hashlib.sha1(usedforsecurity=False)
 
-        def update_hashes(chunk: bytes | bytearray):
-            md5_h.update(chunk)
-            rom_md5_h.update(chunk)
+            def update_hashes(chunk: bytes | bytearray):
+                md5_h.update(chunk)
+                rom_md5_h.update(chunk)
 
-            sha1_h.update(chunk)
-            rom_sha1_h.update(chunk)
+                sha1_h.update(chunk)
+                rom_sha1_h.update(chunk)
 
-            nonlocal crc_c
-            crc_c = binascii.crc32(chunk, crc_c)
-            nonlocal rom_crc_c
-            rom_crc_c = binascii.crc32(chunk, rom_crc_c)
+                nonlocal crc_c
+                crc_c = binascii.crc32(chunk, crc_c)
+                nonlocal rom_crc_c
+                rom_crc_c = binascii.crc32(chunk, rom_crc_c)
 
-        if extension == ".zip" or file_type == "application/zip":
-            for chunk in read_zip_file(file_path):
-                update_hashes(chunk)
+            if extension == ".zip" or file_type == "application/zip":
+                for chunk in read_zip_file(file_path):
+                    update_hashes(chunk)
 
-        elif extension == ".tar" or file_type == "application/x-tar":
-            for chunk in read_tar_file(file_path):
-                update_hashes(chunk)
+            elif extension == ".tar" or file_type == "application/x-tar":
+                for chunk in read_tar_file(file_path):
+                    update_hashes(chunk)
 
-        elif extension == ".gz" or file_type == "application/x-gzip":
-            for chunk in read_gz_file(file_path):
-                update_hashes(chunk)
+            elif extension == ".gz" or file_type == "application/x-gzip":
+                for chunk in read_gz_file(file_path):
+                    update_hashes(chunk)
 
-        elif extension == ".7z" or file_type == "application/x-7z-compressed":
-            process_7z_file(
-                file_path=file_path,
-                fn_hash_update=update_hashes,
-                fn_hash_read=lambda size: sha1_h.digest(),
+            elif extension == ".7z" or file_type == "application/x-7z-compressed":
+                process_7z_file(
+                    file_path=file_path,
+                    fn_hash_update=update_hashes,
+                    fn_hash_read=lambda size: sha1_h.digest(),
+                )
+
+            elif extension == ".bz2" or file_type == "application/x-bzip2":
+                for chunk in read_bz2_file(file_path):
+                    update_hashes(chunk)
+
+            else:
+                for chunk in read_basic_file(file_path):
+                    update_hashes(chunk)
+
+            return crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h
+        except (FileNotFoundError, PermissionError):
+            return (
+                0,
+                rom_crc_c,
+                hashlib.md5(usedforsecurity=False),
+                rom_md5_h,
+                hashlib.sha1(usedforsecurity=False),
+                rom_sha1_h,
             )
-
-        elif extension == ".bz2" or file_type == "application/x-bzip2":
-            for chunk in read_bz2_file(file_path):
-                update_hashes(chunk)
-
-        else:
-            for chunk in read_basic_file(file_path):
-                update_hashes(chunk)
-
-        return crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h
 
     def get_rom_hashes(self, rom: Rom) -> tuple[FileHash, list[FileHash]]:
         rom_crc_c = 0
@@ -351,18 +367,34 @@ class FSRomsHandler(FSHandler):
             hashed_files.append(
                 FileHash(
                     id=file.id,
-                    crc_hash=crc32_to_hex(crc_c),
-                    md5_hash=md5_h.hexdigest(),
-                    sha1_hash=sha1_h.hexdigest(),
+                    crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
+                    md5_hash=(
+                        md5_h.hexdigest()
+                        if md5_h.digest() != DEFAULT_MD5_H_DIGEST
+                        else ""
+                    ),
+                    sha1_hash=(
+                        sha1_h.hexdigest()
+                        if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                        else ""
+                    ),
                 )
             )
 
         return (
             FileHash(
                 id=rom.id,
-                crc_hash=crc32_to_hex(rom_crc_c),
-                md5_hash=rom_md5_h.hexdigest(),
-                sha1_hash=rom_sha1_h.hexdigest(),
+                crc_hash=crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else "",
+                md5_hash=(
+                    rom_md5_h.hexdigest()
+                    if rom_md5_h.digest() != DEFAULT_MD5_H_DIGEST
+                    else ""
+                ),
+                sha1_hash=(
+                    rom_sha1_h.hexdigest()
+                    if rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                    else ""
+                ),
             ),
             hashed_files,
         )

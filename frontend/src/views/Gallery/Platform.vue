@@ -3,6 +3,7 @@ import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import romApi from "@/services/api/rom";
@@ -11,7 +12,8 @@ import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { normalizeString, views } from "@/utils";
+import { views } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -156,12 +158,12 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     }
   } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
     const link = router.resolve({
-      name: "rom",
+      name: ROUTES.ROM,
       params: { rom: emitData.rom.id },
     });
     window.open(link.href, "_blank");
   } else {
-    router.push({ name: "rom", params: { rom: emitData.rom.id } });
+    router.push({ name: ROUTES.ROM, params: { rom: emitData.rom.id } });
   }
 }
 
@@ -302,61 +304,57 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noPlatformError">
     <gallery-app-bar />
-    <v-row v-if="gettingRoms" no-gutters class="pa-1"
-      ><v-col
-        v-for="_ in 60"
-        class="pa-1 align-self-end"
-        :cols="views[currentView]['size-cols']"
-        :sm="views[currentView]['size-sm']"
-        :md="views[currentView]['size-md']"
-        :lg="views[currentView]['size-lg']"
-        :xl="views[currentView]['size-xl']"
-        ><v-skeleton-loader type="card" /></v-col
-    ></v-row>
-    <template v-if="filteredRoms.length > 0">
-      <v-row v-show="currentView != 2" class="pa-1" no-gutters>
-        <!-- Gallery cards view -->
-        <!-- v-show instead of v-if to avoid recalculate on view change -->
-        <v-col
-          v-for="rom in filteredRoms.slice(0, itemsShown)"
-          :key="rom.id"
-          class="pa-1 align-self-end"
-          :cols="views[currentView]['size-cols']"
-          :sm="views[currentView]['size-sm']"
-          :md="views[currentView]['size-md']"
-          :lg="views[currentView]['size-lg']"
-          :xl="views[currentView]['size-xl']"
-        >
-          <game-card
-            v-if="currentPlatform"
-            :key="rom.updated_at"
-            :rom="rom"
-            title-on-hover
-            pointer-on-hover
-            with-link
-            show-flags
-            show-action-bar
-            show-fav
-            transform-scale
-            with-border
-            :with-border-romm-accent="
-              romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
-            "
-            @click="onGameClick"
-            @touchstart="onGameTouchStart"
-            @touchend="onGameTouchEnd"
-          />
-        </v-col>
-      </v-row>
-
-      <!-- Gallery list view -->
-      <v-row v-show="currentView == 2" class="h-100" no-gutters>
-        <game-data-table class="h-100" />
-      </v-row>
-      <fab-overlay />
+    <template v-if="gettingRoms">
+      <skeleton />
     </template>
     <template v-else>
-      <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+      <template v-if="filteredRoms.length > 0">
+        <v-row v-show="currentView != 2" class="pb-2 mx-1 mt-3" no-gutters>
+          <!-- Gallery cards view -->
+          <!-- v-show instead of v-if to avoid recalculate on view change -->
+          <v-col
+            v-for="rom in filteredRoms.slice(0, itemsShown)"
+            :key="rom.id"
+            class="pa-1 align-self-end"
+            :cols="views[currentView]['size-cols']"
+            :sm="views[currentView]['size-sm']"
+            :md="views[currentView]['size-md']"
+            :lg="views[currentView]['size-lg']"
+            :xl="views[currentView]['size-xl']"
+          >
+            <game-card
+              v-if="currentPlatform"
+              :key="rom.updated_at"
+              :rom="rom"
+              titleOnHover
+              pointerOnHover
+              withLink
+              showFlags
+              showFav
+              transformScale
+              showActionBar
+              showPlatformIcon
+              :withBorderPrimary="
+                romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
+              "
+              @click="onGameClick"
+              @touchstart="onGameTouchStart"
+              @touchend="onGameTouchEnd"
+            />
+          </v-col>
+        </v-row>
+
+        <!-- Gallery list view -->
+        <v-row class="h-100" v-show="currentView == 2" no-gutters>
+          <v-col class="h-100 pt-4 pb-2">
+            <game-data-table class="h-100 mx-2" />
+          </v-col>
+        </v-row>
+        <fab-overlay />
+      </template>
+      <template v-else>
+        <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+      </template>
     </template>
   </template>
 

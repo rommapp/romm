@@ -85,10 +85,7 @@ onBeforeMount(async () => {
 
 <template>
   <notification />
-
   <main-app-bar />
-
-  <!-- <view-loader /> -->
   <router-view />
 
   <match-rom-dialog />

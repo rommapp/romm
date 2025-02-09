@@ -4,7 +4,8 @@ import collectionApi, {
 } from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms from "@/stores/roms";
-import { type SimpleRom } from "@/stores/roms.js";
+import { type SimpleRom } from "@/stores/roms";
+import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -15,6 +16,7 @@ const props = defineProps<{ rom: SimpleRom }>();
 const romsStore = storeRoms();
 const collectionsStore = storeCollections();
 const { favCollection } = storeToRefs(collectionsStore);
+const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
@@ -85,12 +87,13 @@ async function switchFromFavourites() {
 
 <template>
   <v-btn
+    v-if="auth.scopes.includes('roms.user.write')"
     @click.stop="switchFromFavourites"
     class="translucent text-shadow"
     rouded="0"
     size="small"
     variant="text"
-    ><v-icon color="romm-accent-1">{{
+    ><v-icon color="primary">{{
       collectionsStore.isFav(rom) ? "mdi-star" : "mdi-star-outline"
     }}</v-icon></v-btn
   >

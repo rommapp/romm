@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import { ROUTES } from "@/plugins/router";
 
 export default defineStore("navigation", {
   state: () => ({
@@ -32,11 +33,15 @@ export default defineStore("navigation", {
     },
     goHome() {
       this.resetDrawers();
-      this.$router.push({ name: "home" });
+      this.$router.push({ name: ROUTES.HOME });
     },
     goScan() {
       this.resetDrawers();
-      this.$router.push({ name: "scan" });
+      this.$router.push({ name: ROUTES.SCAN });
+    },
+    goSearch() {
+      this.resetDrawers();
+      this.$router.push({ name: ROUTES.SEARCH });
     },
     resetDrawers() {
       this.activePlatformsDrawer = false;

@@ -1,30 +1,35 @@
 <script setup lang="ts">
+import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
-import router from "@/plugins/router";
+import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
-import type { Collection } from "@/stores/collections";
+import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { ROUTES } from "@/plugins/router";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 
 // Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();
-const selectedCollection = ref<Collection>();
+const collectionsStore = storeCollections();
+const selectedCollection = ref<UpdatedCollection>();
 const roms = ref<SimpleRom[]>([]);
+const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showRemoveFromCollectionDialog", (romsToRemove) => {
   if (!romsStore.currentCollection) return;
 
   roms.value = romsToRemove;
   selectedCollection.value = romsStore.currentCollection;
-  updateDataTablePages();
   show.value = true;
 });
 const HEADERS = [
@@ -35,10 +40,6 @@ const HEADERS = [
     key: "name",
   },
 ] as const;
-const page = ref(1);
-const itemsPerPage = ref(10);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 async function removeRomsFromCollection() {
   if (!selectedCollection.value) return;
@@ -54,7 +55,6 @@ async function removeRomsFromCollection() {
         color: "green",
         timeout: 2000,
       });
-      romsStore.remove(roms.value);
       emitter?.emit("refreshDrawer", null);
     })
     .catch((error) => {
@@ -74,15 +74,8 @@ async function removeRomsFromCollection() {
       }
       closeDialog();
     });
+  closeDialog();
 }
-
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(roms.value.length / itemsPerPage.value);
-}
-
-watch(itemsPerPage, async () => {
-  updateDataTablePages();
-});
 
 function closeDialog() {
   roms.value = [];
@@ -102,60 +95,65 @@ function closeDialog() {
     <template #header>
       <v-row no-gutters class="justify-center">
         <span>{{ t("rom.removing-from-collection-part1") }}</span>
-        <span class="text-romm-accent-1 mx-1">{{ roms.length }}</span>
+        <span class="text-primary mx-1">{{ roms.length }}</span>
         <span>{{ t("rom.removing-from-collection-part2") }}</span>
       </v-row>
     </template>
+    <template #prepend>
+      <v-autocomplete
+        v-model="selectedCollection"
+        class="pa-3"
+        density="default"
+        :label="t('common.collection')"
+        item-title="name"
+        :items="collectionsStore.allCollections"
+        variant="outlined"
+        hide-details
+        return-object
+        clearable
+      >
+        <template #item="{ props, item }">
+          <collection-list-item
+            :collection="item.raw"
+            v-bind="props"
+            :with-title="false"
+          />
+        </template>
+        <template #chip="{ item }">
+          <v-chip class="pl-0" label>
+            <r-avatar-collection
+              :collection="item.raw"
+              :size="35"
+              class="mr-2"
+            />
+            {{ item.raw.name }}
+          </v-chip>
+        </template>
+      </v-autocomplete>
+    </template>
     <template #content>
-      <v-data-table
+      <v-data-table-virtual
         :item-value="(item) => item.id"
         :items="roms"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="itemsPerPage"
-        :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
-        v-model:page="page"
         hide-default-header
       >
         <template #item.name="{ item }">
           <rom-list-item :rom="item" with-filename with-size />
         </template>
-        <template #bottom>
-          <v-divider />
-          <v-row no-gutters class="pt-2 align-center justify-center">
-            <v-col class="px-6">
-              <v-pagination
-                v-model="page"
-                rounded="0"
-                :show-first-last-page="true"
-                active-color="romm-accent-1"
-                :length="pageCount"
-              />
-            </v-col>
-            <v-col cols="5" sm="3">
-              <v-select
-                v-model="itemsPerPage"
-                class="pa-2"
-                label="Roms per page"
-                density="compact"
-                variant="outlined"
-                :items="PER_PAGE_OPTIONS"
-                hide-details
-              />
-            </v-col>
-          </v-row>
-        </template>
-      </v-data-table>
+      </v-data-table-virtual>
     </template>
     <template #append>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            class="bg-terciary text-romm-red"
-            variant="flat"
+            :disabled="!selectedCollection"
+            class="bg-toplayer text-romm-red"
+            :variant="!selectedCollection ? 'plain' : 'flat'"
             @click="removeRomsFromCollection"
           >
             {{ t("common.confirm") }}

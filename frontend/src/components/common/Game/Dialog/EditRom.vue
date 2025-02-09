@@ -10,12 +10,12 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useRoute } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { getMissingCoverImage } from "@/utils/covers";
 
 // Props
 const { t } = useI18n();
-const theme = useTheme();
 const { lgAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
@@ -43,6 +43,9 @@ const computedAspectRatio = computed(() => {
     : galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
+);
 
 // Functions
 function triggerFileInput() {
@@ -70,7 +73,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  imagePreviewUrl.value = missingCoverImage.value;
   removeCover.value = true;
 }
 
@@ -186,7 +189,7 @@ function closeDialog() {
               >
                 <template #details>
                   <v-label class="text-caption text-wrap">
-                    <v-icon size="small" class="mr-2 text-romm-accent-1">
+                    <v-icon size="small" class="mr-2 text-primary">
                       mdi-folder-file-outline
                     </v-icon>
                     <span>
@@ -220,7 +223,7 @@ function closeDialog() {
             <v-col style="max-width: 240px">
               <game-card :rom="rom" :src="imagePreviewUrl">
                 <template #append-inner-right>
-                  <v-btn-group rounded="0" divided density="compact">
+                  <v-btn-group divided density="compact" rounded="0">
                     <v-btn
                       :disabled="
                         !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
@@ -270,17 +273,17 @@ function closeDialog() {
       <v-row class="justify-space-between px-4 py-2 mt-1" no-gutters>
         <v-btn
           :disabled="noMetadataMatch"
-          :class="` ${noMetadataMatch ? '' : 'bg-terciary text-romm-red'}`"
+          :class="` ${noMetadataMatch ? '' : 'bg-toplayer text-romm-red'}`"
           variant="flat"
           @click="unmatchRom"
         >
           {{ t("rom.unmatch-rom") }}
         </v-btn>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+          <v-btn class="text-romm-green bg-toplayer" @click="updateRom">
             {{ t("common.apply") }}
           </v-btn>
         </v-btn-group>

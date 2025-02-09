@@ -2,33 +2,37 @@
 import type { Collection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import { computed, ref, watchEffect } from "vue";
-import { useTheme } from "vuetify";
+import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 
 // Props
 const props = withDefaults(
   defineProps<{
     collection: Collection;
     transformScale?: boolean;
-    showTitle?: boolean;
+    titleOnHover?: boolean;
     showRomCount?: boolean;
     withLink?: boolean;
     src?: string;
   }>(),
   {
     transformScale: false,
-    showTitle: false,
+    titleOnHover: false,
     showRomCount: false,
     withLink: false,
     src: "",
   },
 );
-const theme = useTheme();
+
 const galleryViewStore = storeGalleryView();
 
 const memoizedCovers = ref({
   large: ["", ""],
   small: ["", ""],
 });
+
+const collectionCoverImage = computed(() =>
+  props.collection.name?.toLowerCase() == 'favourites' ? getFavoriteCoverImage(props.collection.name) : getCollectionCoverImage(props.collection.name),
+);
 
 watchEffect(() => {
   if (props.src) {
@@ -59,12 +63,12 @@ watchEffect(() => {
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
       large: [
-        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
-        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+        collectionCoverImage.value,
+        collectionCoverImage.value,
       ],
       small: [
-        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
-        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+        collectionCoverImage.value,
+        collectionCoverImage.value,
       ],
     };
     return;
@@ -102,7 +106,7 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
-      <v-row v-if="showTitle" class="pa-1 justify-center bg-primary">
+      <v-row class="pa-1 justify-center bg-primary">
         <div
           :title="collection.name?.toString()"
           class="py-4 px-6 text-truncate text-caption"
@@ -133,7 +137,7 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
       </div>
       <v-chip
         v-if="showRomCount"
-        class="bg-chip position-absolute"
+        class="bg-background position-absolute"
         size="x-small"
         style="bottom: 0.5rem; right: 0.5rem"
         label
