@@ -46,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^8.57.0",
+    "@playwright/test": "^1.50.1",
     "@types/eslint__js": "^8.42.3",
     "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.17.15",
@@ -54,6 +55,7 @@
     "@types/semver": "^7.5.8",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.5.1",
+    "dotenv": "^16.4.7",
     "eslint": "^9.19.0",
     "eslint-plugin-vue": "^9.26.0",
     "globals": "^15.3.0",

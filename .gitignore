@@ -63,3 +63,9 @@ frontend/dev-dist
 # outside data
 switch_titledb.json
 switch_product_ids.json
+
+# playwright
+frontend/test-results
+frontend/playwright-report
+frontend/blob-report
+frontend/playwright/.cache
