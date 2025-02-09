@@ -2,7 +2,7 @@ from typing import Sequence
 
 from decorators.database import begin_session
 from models.collection import Collection, CollectionRom, VirtualCollection
-from sqlalchemy import delete, insert, literal, or_, select, update, values
+from sqlalchemy import delete, insert, literal, or_, select, update
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler

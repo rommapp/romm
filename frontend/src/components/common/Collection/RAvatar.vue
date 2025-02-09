@@ -18,7 +18,9 @@ const memoizedCovers = ref({
 });
 
 const collectionCoverImage = computed(() =>
-  props.collection.is_favorite ? getFavoriteCoverImage(props.collection.name) : getCollectionCoverImage(props.collection.name),
+  props.collection.is_favorite
+    ? getFavoriteCoverImage(props.collection.name)
+    : getCollectionCoverImage(props.collection.name),
 );
 
 watchEffect(() => {
@@ -41,14 +43,8 @@ watchEffect(() => {
 
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
-      large: [
-        collectionCoverImage.value,
-        collectionCoverImage.value,
-      ],
-      small: [
-        collectionCoverImage.value,
-        collectionCoverImage.value,
-      ],
+      large: [collectionCoverImage.value, collectionCoverImage.value],
+      small: [collectionCoverImage.value, collectionCoverImage.value],
     };
     return;
   }

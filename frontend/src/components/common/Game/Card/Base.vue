@@ -77,7 +77,7 @@ const computedAspectRatio = computed(() => {
 const fallbackCoverImage = computed(() =>
   props.rom.igdb_id || props.rom.moby_id
     ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
-    : getUnmatchedCoverImage(props.rom.name || props.rom.slug || "")
+    : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );
 </script>
 
@@ -123,13 +123,19 @@ const fallbackCoverImage = computed(() =>
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
             :src="
               src ||
-              (romsStore.isSimpleRom(rom) ? rom.path_cover_large || fallbackCoverImage
-                : rom.igdb_url_cover || rom.moby_url_cover || fallbackCoverImage)
+              (romsStore.isSimpleRom(rom)
+                ? rom.path_cover_large || fallbackCoverImage
+                : rom.igdb_url_cover ||
+                  rom.moby_url_cover ||
+                  fallbackCoverImage)
             "
             :lazy-src="
               src ||
-              (romsStore.isSimpleRom(rom) ? rom.path_cover_small || fallbackCoverImage
-                : rom.igdb_url_cover || rom.moby_url_cover || fallbackCoverImage)
+              (romsStore.isSimpleRom(rom)
+                ? rom.path_cover_small || fallbackCoverImage
+                : rom.igdb_url_cover ||
+                  rom.moby_url_cover ||
+                  fallbackCoverImage)
             "
             :aspect-ratio="computedAspectRatio"
           >
