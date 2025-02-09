@@ -16,12 +16,15 @@ from logger.logger import log
 from models.user import Role, User
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/users",
+    tags=["users"],
+)
 
 
 @protected_route(
     router.post,
-    "/users",
+    "/",
     [],
     status_code=status.HTTP_201_CREATED,
 )
@@ -77,7 +80,7 @@ def add_user(
     return UserSchema.model_validate(db_user_handler.add_user(user))
 
 
-@protected_route(router.get, "/users", [Scope.USERS_READ])
+@protected_route(router.get, "/", [Scope.USERS_READ])
 def get_users(request: Request) -> list[UserSchema]:
     """Get all users endpoint
 
@@ -91,7 +94,7 @@ def get_users(request: Request) -> list[UserSchema]:
     return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
 
 
-@protected_route(router.get, "/users/me", [Scope.ME_READ])
+@protected_route(router.get, "/me", [Scope.ME_READ])
 def get_current_user(request: Request) -> UserSchema | None:
     """Get current user endpoint
 
@@ -105,7 +108,7 @@ def get_current_user(request: Request) -> UserSchema | None:
     return request.user
 
 
-@protected_route(router.get, "/users/{id}", [Scope.USERS_READ])
+@protected_route(router.get, "/{id}", [Scope.USERS_READ])
 def get_user(request: Request, id: int) -> UserSchema:
     """Get user endpoint
 
@@ -123,7 +126,7 @@ def get_user(request: Request, id: int) -> UserSchema:
     return UserSchema.model_validate(user)
 
 
-@protected_route(router.put, "/users/{id}", [Scope.ME_WRITE])
+@protected_route(router.put, "/{id}", [Scope.ME_WRITE])
 async def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
@@ -220,7 +223,7 @@ async def update_user(
     return UserSchema.model_validate(db_user)
 
 
-@protected_route(router.delete, "/users/{id}", [Scope.USERS_WRITE])
+@protected_route(router.delete, "/{id}", [Scope.USERS_WRITE])
 def delete_user(request: Request, id: int) -> MessageResponse:
     """Delete user endpoint
 
