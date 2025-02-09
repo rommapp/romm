@@ -84,8 +84,9 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: "npm run backend",
-      url: "http://127.0.0.1:3333",
+      command: "poetry run python main.py",
+      cwd: path.resolve(__dirname, "../backend"),
+      url: "http://127.0.0.1:5000",
       timeout: 120 * 1000,
       reuseExistingServer: !process.env.CI,
     },
