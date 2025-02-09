@@ -129,7 +129,6 @@ watch(
 
 <template>
   <v-text-field
-    rounded="0"
     :density="xs ? 'comfortable' : 'default'"
     clearable
     autofocus
@@ -138,6 +137,6 @@ watch(
     :disabled="gettingRoms"
     :label="t('common.search')"
     hide-details
-    class="bg-terciary"
+    class="bg-toplayer"
   />
 </template>

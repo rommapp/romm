@@ -1,36 +1,50 @@
 <script setup lang="ts">
 import storeRoms from "@/stores/roms";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { storeToRefs } from "pinia";
-import { useTheme } from "vuetify";
+import { computed } from "vue";
 
 // Props
-const theme = useTheme();
 const romsStore = storeRoms();
 const { currentRom } = storeToRefs(romsStore);
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(
+    currentRom.value?.name || currentRom.value?.fs_name || "",
+  ),
+);
+const unmatchedCoverImage = computed(() =>
+  getUnmatchedCoverImage(
+    currentRom.value?.name || currentRom.value?.fs_name || "",
+  ),
+);
 </script>
 
 <template>
-  <v-card :key="currentRom.updated_at" v-if="currentRom" rounded="0">
+  <v-card
+    id="background-header"
+    elevation="0"
+    rounded="0"
+    :key="currentRom.updated_at"
+    v-if="currentRom"
+  >
     <v-img
-      id="background-header"
+      id="background-image"
       :src="
         currentRom?.path_cover_large ||
-        `/assets/default/cover/big_${theme.global.name.value}_unmatched.png`
+        unmatchedCoverImage
       "
       lazy
       cover
     >
       <template #error>
-        <v-img
-          :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
-        />
+        <v-img :src="missingCoverImage" />
       </template>
       <template #placeholder>
         <div class="d-flex align-center justify-center fill-height">
           <v-progress-circular
             :width="2"
             :size="40"
-            color="romm-accent-1"
+            color="primary"
             indeterminate
           />
         </div>
@@ -40,7 +54,11 @@ const { currentRom } = storeToRefs(romsStore);
 </template>
 <style scoped>
 #background-header {
-  height: 300px;
+  width: 100%;
+}
+
+#background-image {
+  height: 18rem;
   filter: blur(30px);
 }
 </style>

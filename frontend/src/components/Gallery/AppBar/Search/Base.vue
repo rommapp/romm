@@ -11,18 +11,19 @@ import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
-const { xs } = useDisplay();
+const { xs, smAndDown } = useDisplay();
 </script>
 
 <template>
   <v-app-bar
-    id="gallery-app-bar"
     elevation="0"
     density="compact"
-    mode="shift"
-    app
-    fixed
-    top
+    class="ma-2"
+    :class="{
+      'gallery-app-bar-mobile': smAndDown,
+      'gallery-app-bar-desktop': !smAndDown,
+    }"
+    rounded
   >
     <filter-btn />
     <template v-if="!xs">
@@ -40,7 +41,10 @@ const { xs } = useDisplay();
 </template>
 
 <style scoped>
-#gallery-app-bar {
-  z-index: 999 !important;
+.gallery-app-bar-desktop {
+  width: calc(100% - 76px) !important;
+}
+.gallery-app-bar-mobile {
+  width: calc(100% - 16px) !important;
 }
 </style>

@@ -59,7 +59,6 @@ function closeDialog() {
             <v-col>
               <v-text-field
                 v-model="user.username"
-                rounded="0"
                 variant="outlined"
                 label="username"
                 required
@@ -72,7 +71,6 @@ function closeDialog() {
             <v-col>
               <v-text-field
                 v-model="user.password"
-                rounded="0"
                 variant="outlined"
                 label="Password"
                 required
@@ -85,7 +83,6 @@ function closeDialog() {
             <v-col>
               <v-text-field
                 v-model="user.email"
-                rounded="0"
                 variant="outlined"
                 label="email"
                 required
@@ -98,7 +95,6 @@ function closeDialog() {
             <v-col>
               <v-select
                 v-model="user.role"
-                rounded="0"
                 variant="outlined"
                 :items="['viewer', 'editor', 'admin']"
                 label="Role"
@@ -113,11 +109,11 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>
           <v-btn
             :disabled="!user.username || !user.password"
             :variant="!user.username || !user.password ? 'plain' : 'flat'"
-            class="text-romm-green bg-terciary"
+            class="text-romm-green bg-toplayer"
             @click="createUser()"
           >
             Create

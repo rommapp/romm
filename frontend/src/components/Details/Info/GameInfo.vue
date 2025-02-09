@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { type FilterType } from "@/stores/galleryFilter";
-import storeGalleryView from "@/stores/galleryView";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import type { DetailedRom } from "@/stores/roms";
-import { storeToRefs } from "pinia";
+import { ROUTES } from "@/plugins/router";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
@@ -24,8 +23,6 @@ const filters = [
   { value: "meta_collections", name: t("rom.collections") },
   { value: "companies", name: t("rom.companies") },
 ] as const;
-const galleryViewStore = storeGalleryView();
-const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 
 // Functions
 function onFilterClick(filter: FilterType, value: string) {
@@ -53,7 +50,7 @@ function onFilterClick(filter: FilterType, value: string) {
             <v-col cols="12" v-for="collection in rom.user_collections">
               <v-chip
                 :to="{
-                  name: 'collection',
+                  name: ROUTES.COLLECTION,
                   params: { collection: collection.id },
                 }"
                 size="large"
@@ -117,9 +114,8 @@ function onFilterClick(filter: FilterType, value: string) {
           </div>
         </v-row>
       </template>
-      <template v-if="rom.summary != ''">
-        <v-divider class="mx-2 my-4" />
-        <v-row no-gutters>
+      <template v-if="rom.summary">
+        <v-row no-gutters class="mt-4">
           <v-col class="text-caption">
             <MdPreview
               :model-value="rom.summary ?? ''"
@@ -134,17 +130,16 @@ function onFilterClick(filter: FilterType, value: string) {
       <template
         v-if="rom.merged_screenshots.length > 0 || rom.youtube_video_id"
       >
-        <v-divider class="mx-2 my-4" />
-        <v-row no-gutters>
+        <v-row no-gutters class="mt-4">
           <v-col>
             <v-carousel
               v-model="carousel"
               hide-delimiter-background
               delimiter-icon="mdi-square"
-              class="bg-primary"
+              class="bg-background"
               show-arrows="hover"
               hide-delimiters
-              progress="terciary"
+              progress="toplayer"
               :height="xs ? '300' : '400'"
             >
               <template #prev="{ props }">
@@ -161,12 +156,12 @@ function onFilterClick(filter: FilterType, value: string) {
               >
                 <iframe
                   height="100%"
+                  width="100%"
                   :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
                   title="YouTube video player"
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerpolicy="strict-origin-when-cross-origin"
-                  :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                   allowfullscreen
                 ></iframe>
               </v-carousel-item>
@@ -218,12 +213,12 @@ function onFilterClick(filter: FilterType, value: string) {
                 >
                   <iframe
                     height="100%"
+                    width="100%"
                     :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
                     title="YouTube video player"
                     frameborder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerpolicy="strict-origin-when-cross-origin"
-                    :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
                     allowfullscreen
                   ></iframe>
                 </v-carousel-item>
@@ -243,6 +238,8 @@ function onFilterClick(filter: FilterType, value: string) {
               </v-carousel>
             </v-dialog>
           </v-col>
-        </v-row> </template></v-col
-  ></v-row>
+        </v-row>
+      </template>
+    </v-col>
+  </v-row>
 </template>

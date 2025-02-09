@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
@@ -241,14 +241,12 @@ async function stopScan() {
       @click="scan()"
     >
       <template #prepend>
-        <v-icon :color="scanning ? '' : 'romm-accent-1'"
-          >mdi-magnify-scan</v-icon
-        >
+        <v-icon :color="scanning ? '' : 'primary'">mdi-magnify-scan</v-icon>
       </template>
       {{ t("scan.scan") }}
       <template #loader>
         <v-progress-circular
-          color="romm-accent-1"
+          color="primary"
           :width="2"
           :size="20"
           indeterminate
@@ -272,7 +270,7 @@ async function stopScan() {
       rounded="4"
       height="40"
       class="ml-2"
-      :to="{ name: 'libraryManagement' }"
+      :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
     >
       {{ t("scan.manage-library") }}
     </v-btn>
@@ -292,24 +290,13 @@ async function stopScan() {
   <v-divider
     class="border-opacity-100 mt-3"
     :class="{ 'mx-4': !smAndDown }"
-    color="romm-accent-1"
+    color="primary"
   />
 
   <!-- Scan log -->
-  <v-card
-    elevation="0"
-    rounded="0"
-    class="bg-secondary mx-auto mb-1"
-    max-width="800"
-  >
+  <v-card elevation="0" class="bg-surface mx-auto mt-2 mb-14" max-width="800">
     <v-card-text class="pa-0">
-      <v-expansion-panels
-        v-model="panels"
-        multiple
-        flat
-        rounded="0"
-        variant="accordion"
-      >
+      <v-expansion-panels v-model="panels" multiple flat variant="accordion">
         <v-expansion-panel
           v-for="platform in scanningPlatforms"
           :key="platform.id"
@@ -317,7 +304,7 @@ async function stopScan() {
           <v-expansion-panel-title>
             <v-list-item class="pa-0">
               <template #prepend>
-                <v-avatar :rounded="0" size="40">
+                <v-avatar size="40">
                   <platform-icon
                     :key="platform.slug"
                     :slug="platform.slug"
@@ -327,17 +314,13 @@ async function stopScan() {
               </template>
               {{ platform.name }}
               <template #append>
-                <v-chip
-                  class="ml-3"
-                  color="romm-accent-1"
-                  size="x-small"
-                  label
-                  >{{ platform.roms.length }}</v-chip
-                >
+                <v-chip class="ml-3" color="primary" size="x-small" label>{{
+                  platform.roms.length
+                }}</v-chip>
               </template>
             </v-list-item>
           </v-expansion-panel-title>
-          <v-expansion-panel-text class="bg-terciary">
+          <v-expansion-panel-text class="bg-toplayer">
             <rom-list-item
               v-for="rom in platform.roms"
               class="pa-4"
@@ -368,20 +351,17 @@ async function stopScan() {
   </v-card>
 
   <!-- Scan stats -->
-  <v-bottom-navigation
-    :active="scanningPlatforms.length > 0"
-    :elevation="0"
-    height="40"
-    class="text-caption align-center"
+  <div
+    class="text-caption position-fixed d-flex w-100 m-1 justify-center"
+    style="bottom: 0.5rem"
   >
-    <v-chip variant="outlined" color="terciary" class="px-1">
-      <v-icon class="text-white"> mdi-information </v-icon>
+    <v-chip variant="outlined" color="toplayer" class="px-2 py-5 bg-background">
       <v-chip
         v-if="scanningPlatforms.length > 0"
-        color="romm-accent-1"
+        color="primary"
         text-color="white"
         size="small"
-        class="ml-1 my-1"
+        class="mr-1 my-1"
       >
         <v-icon left>mdi-controller</v-icon>
         <span v-if="xs" class="ml-2">{{
@@ -397,7 +377,7 @@ async function stopScan() {
       </v-chip>
       <v-chip
         v-if="scanningPlatforms.length > 0"
-        color="romm-accent-1"
+        color="primary"
         size="small"
         text-color="white"
         class="ml-1 my-1"
@@ -415,7 +395,7 @@ async function stopScan() {
         }}</span>
       </v-chip>
     </v-chip>
-  </v-bottom-navigation>
+  </div>
 </template>
 <style lang="css">
 .v-expansion-panel-text__wrapper {

@@ -3,25 +3,34 @@ withDefaults(
   defineProps<{
     title: string;
     icon: string;
+    titleDivider?: boolean;
     iconColor?: string;
+    bgColor?: string;
   }>(),
-  { title: "", icon: "", iconColor: "" },
+  {
+    title: "",
+    icon: "",
+    titleDivider: false,
+    iconColor: "",
+    bgColor: "bg-background",
+  },
 );
 </script>
+
 <template>
-  <v-card rounded="0">
-    <v-toolbar class="bg-terciary" density="compact">
+  <v-card class="ma-2 bg-background" elevation="0">
+    <v-toolbar class="bg-toplayer px-1" density="compact">
       <v-toolbar-title class="text-button">
-        <v-icon :color="iconColor" class="mr-3">{{ icon }}</v-icon>
+        <v-icon :color="iconColor" class="mr-2">{{ icon }}</v-icon>
         {{ title }}
       </v-toolbar-title>
       <slot name="toolbar-append"></slot>
     </v-toolbar>
 
-    <v-divider />
+    <v-divider v-if="titleDivider" />
 
     <!-- Check style card-text -->
-    <v-card-text class="pa-1">
+    <v-card-text :class="['pa-0', bgColor]">
       <slot name="content"></slot>
     </v-card-text>
   </v-card>

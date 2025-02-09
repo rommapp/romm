@@ -3,12 +3,13 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
+import { getDownloadPath } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { getDownloadPath } from "@/utils";
 
 const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
 
@@ -91,7 +92,7 @@ onMounted(async () => {
       xl="10"
       id="game-wrapper"
       :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
-      class="bg-secondary"
+      class="bg-surface"
       rounded
     >
       <div id="game" />
@@ -122,11 +123,10 @@ onMounted(async () => {
               <v-btn
                 block
                 size="large"
-                rounded="0"
                 @click="onFullScreenChange"
                 :disabled="gameRunning"
                 :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
-                :color="fullScreenOnPlay ? 'romm-accent-1' : ''"
+                :color="fullScreenOnPlay ? 'primary' : ''"
                 ><v-icon class="mr-1">{{
                   fullScreenOnPlay
                     ? "mdi-checkbox-outline"
@@ -141,10 +141,9 @@ onMounted(async () => {
               :xl="gameRunning ? 12 : 9"
             >
               <v-btn
-                color="romm-accent-1"
+                color="primary"
                 block
                 :disabled="gameRunning"
-                rounded="0"
                 variant="outlined"
                 size="large"
                 prepend-icon="mdi-play"
@@ -156,7 +155,6 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-refresh"
@@ -166,13 +164,12 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'rom',
+                name: ROUTES.ROM,
                 params: { rom: rom?.id },
               })
             "
@@ -181,13 +178,12 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'platform',
+                name: ROUTES.PLATFORM,
                 params: { platform: rom?.platform_id },
               })
             "
