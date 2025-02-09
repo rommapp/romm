@@ -78,9 +78,11 @@ class DBCollectionsHandler(DBBaseHandler):
         )
 
         if rom_ids:
+            # Delete all existing CollectionRom entries for this collection
             session.execute(
                 delete(CollectionRom).where(CollectionRom.collection_id == id)
             )
+            # Insert new CollectionRom entries for this collection
             session.execute(
                 insert(CollectionRom),
                 [{"collection_id": id, "rom_id": rom_id} for rom_id in set(rom_ids)],
