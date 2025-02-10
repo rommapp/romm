@@ -115,7 +115,7 @@ def get_collections(request: Request) -> list[CollectionSchema]:
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
 
 
-@protected_route(router.get, "/collections/virtual", [Scope.COLLECTIONS_READ])
+@protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
 def get_virtual_collections(
     request: Request,
     type: str,
@@ -154,7 +154,7 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     return CollectionSchema.model_validate(collection)
 
 
-@protected_route(router.get, "/collections/virtual/{id}", [Scope.COLLECTIONS_READ])
+@protected_route(router.get, "/virtual/{id}", [Scope.COLLECTIONS_READ])
 def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema:
     """Get virtual collections endpoint
 
