@@ -53,7 +53,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/semver": "^7.5.8",
     "@vitejs/plugin-vue": "^5.2.1",
-    "@vue/tsconfig": "^0.5.1",
+    "@vue/tsconfig": "^0.7.0",
     "eslint": "^9.20.0",
     "eslint-plugin-vue": "^9.26.0",
     "globals": "^15.3.0",
