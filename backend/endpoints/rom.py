@@ -1,4 +1,5 @@
 import binascii
+import os
 from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
@@ -609,7 +610,7 @@ async def update_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
-@protected_route(router.post, "/roms/{id}/manuals", [Scope.ROMS_WRITE])
+@protected_route(router.post, "/{id}/manuals", [Scope.ROMS_WRITE])
 async def add_rom_manuals(request: Request, id: int):
     """Upload manuals for a rom
 
@@ -625,38 +626,40 @@ async def add_rom_manuals(request: Request, id: int):
 
     filename = request.headers.get("x-upload-filename")
 
-    manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manuals"
-    log.info(f"Uploading {filename} manuals to {manuals_path}")
+    manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
+    file_location = Path(f"{manuals_path}/{rom.id}.pdf")
+    log.info(f"Uploading {file_location}")
 
-    # file_location = Path(f"{roms_path}/{filename}")
-    # parser = StreamingFormDataParser(headers=request.headers)
-    # parser.register("x-upload-platform", NullTarget())
-    # parser.register(filename, FileTarget(str(file_location)))
+    if not os.path.exists(manuals_path):
+        await Path(manuals_path).mkdir(parents=True, exist_ok=True)
 
-    # if await file_location.exists():
-    #     log.warning(f" - Skipping {filename} since the file already exists")
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail=f"File {filename} already exists",
-    #     ) from None
+    parser = StreamingFormDataParser(headers=request.headers)
+    parser.register("x-upload-platform", NullTarget())
+    parser.register(filename, FileTarget(str(file_location)))
 
-    # async def cleanup_partial_file():
-    #     if await file_location.exists():
-    #         await file_location.unlink()
+    async def cleanup_partial_file():
+        if await file_location.exists():
+            await file_location.unlink()
 
-    # try:
-    #     async for chunk in request.stream():
-    #         parser.data_received(chunk)
-    # except ClientDisconnect:
-    #     log.error("Client disconnected during upload")
-    #     await cleanup_partial_file()
-    # except Exception as exc:
-    #     log.error("Error uploading files", exc_info=exc)
-    #     await cleanup_partial_file()
-    #     raise HTTPException(
-    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         detail="There was an error uploading the file(s)",
-    #     ) from exc
+    try:
+        async for chunk in request.stream():
+            parser.data_received(chunk)
+    except ClientDisconnect:
+        log.error("Client disconnected during upload")
+        await cleanup_partial_file()
+    except Exception as exc:
+        log.error("Error uploading files", exc_info=exc)
+        await cleanup_partial_file()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="There was an error uploading the file(s)",
+        ) from exc
+
+    path_manual = await fs_resource_handler.get_manual(
+        rom=rom, overwrite=False, url_manual=None
+    )
+
+    db_rom_handler.update_rom(id, {"path_manual": path_manual})
 
     return Response(status_code=status.HTTP_201_CREATED)
 
