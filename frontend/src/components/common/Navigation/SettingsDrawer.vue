@@ -6,13 +6,16 @@ import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const router = useRouter();
 const auth = storeAuth();
@@ -32,21 +35,30 @@ async function logout() {
       icon: "mdi-check-bold",
       color: "green",
     });
+    navigationStore.switchActiveSettingsDrawer();
+    auth.setUser(null);
+    await router.push({ name: ROUTES.LOGIN });
   });
-  
-  await router.push({ name: "login" });
-  auth.setUser(null);
 }
 </script>
 <template>
   <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="400"
+    :location="smAndDown ? 'top' : 'left'"
+    width="450"
     v-model="activeSettingsDrawer"
-    class="bg-terciary"
+    :class="{
+      'mx-2': smAndDown || activeSettingsDrawer,
+      'my-2': !smAndDown || activeSettingsDrawer,
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
+    }"
+    class="bg-surface pa-1"
+    style="height: unset"
+    rounded
+    :border="0"
   >
-    <v-list rounded="0" class="pa-0">
+    <v-list class="pa-0">
       <v-list-img>
         <v-img
           :src="
@@ -55,6 +67,7 @@ async function logout() {
               : defaultAvatarPath
           "
           cover
+          class="rounded"
         >
         </v-img>
       </v-list-img>
@@ -65,41 +78,62 @@ async function logout() {
       >
       </v-list-item>
     </v-list>
-    <v-list rounded="0" class="pa-0">
+    <v-list class="py-1 px-0">
       <v-list-item
-        @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
+        v-if="scopes.includes('me.write')"
+        rounded
+        @click="emitter?.emit('showEditUserDialog', user as UserSchema)"
         append-icon="mdi-account"
-        >Profile</v-list-item
+        >{{ t("common.profile") }}</v-list-item
       >
-      <v-list-item :to="{ name: 'settings' }" append-icon="mdi-palette"
-        >UI Settings</v-list-item
+      <v-list-item
+        class="mt-1"
+        rounded
+        :to="{ name: ROUTES.USER_INTERFACE }"
+        append-icon="mdi-palette"
+        >{{ t("common.user-interface") }}</v-list-item
       >
       <v-list-item
         v-if="scopes.includes('platforms.write')"
+        class="mt-1"
+        rounded
         append-icon="mdi-table-cog"
-        :to="{ name: 'management' }"
-        >Library Management
+        :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
+        >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
-        :to="{ name: 'administration' }"
+        class="mt-1"
+        rounded
+        :to="{ name: ROUTES.ADMINISTRATION }"
         append-icon="mdi-security"
-        >Administration</v-list-item
-      >
-      <template v-if="smAndDown">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit"
-          >Logout</v-list-item
+        >{{ t("common.administration") }}
+      </v-list-item>
+      <template v-if="smAndDown && scopes.includes('me.write')" #append>
+        <v-list-item
+          @click="logout"
+          append-icon="mdi-location-exit"
+          rounded
+          class="bg-toplayer border-sm text-romm-red border-romm-red mt-1"
+          >{{ t("common.logout") }}</v-list-item
         >
       </template>
     </v-list>
-    <template v-if="!smAndDown" #append>
-      <v-list rounded="0" class="pa-0">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit"
-          >Logout</v-list-item
+    <template v-if="!smAndDown && scopes.includes('me.write')">
+      <v-list class="pa-0">
+        <v-list-item
+          @click="logout"
+          append-icon="mdi-location-exit"
+          rounded
+          class="bg-toplayer border-sm text-romm-red border-romm-red"
+          >{{ t("common.logout") }}</v-list-item
         >
       </v-list>
     </template>
   </v-navigation-drawer>
 </template>
+<style scoped>
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>

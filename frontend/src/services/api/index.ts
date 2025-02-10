@@ -1,4 +1,5 @@
 import router from "@/plugins/router";
+import { ROUTES } from "@/plugins/router";
 import axios from "axios";
 import { default as Cookies } from "js-cookie";
 import { debounce } from "lodash";
@@ -47,7 +48,7 @@ api.interceptors.response.use(
       const params = new URLSearchParams(window.location.search);
 
       router.push({
-        name: "login",
+        name: ROUTES.LOGIN,
         query: {
           next: params.get("next") ?? (pathname !== "/login" ? pathname : "/"),
         },

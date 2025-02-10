@@ -4,11 +4,6 @@ import type { Platform } from "@/stores/platforms";
 import type { SimpleRom } from "@/stores/roms";
 import type { User } from "@/stores/users";
 
-export type UserItem = User & {
-  password: string;
-  avatar?: File;
-};
-
 export type SnackbarStatus = {
   id?: number;
   msg: string;
@@ -20,14 +15,12 @@ export type SnackbarStatus = {
 export type Events = {
   showDeletePlatformDialog: Platform;
   showCreateCollectionDialog: null;
-  showEditCollectionDialog: Collection;
   showAddToCollectionDialog: SimpleRom[];
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
-  showSearchCoverDialog: string;
+  showSearchCoverDialog: { term: string; aspectRatio: number | null };
   updateUrlCover: string;
-  showSearchRomDialog: null;
   showEditRomDialog: SimpleRom;
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
@@ -51,7 +44,11 @@ export type Events = {
     fsSlug: string;
     slug: string;
   };
-  showCreateExclusionDialog: { exclude: string };
+  showCreateExclusionDialog: {
+    type: string;
+    icon: string;
+    title: string;
+  };
   showCreateUserDialog: null;
   showEditUserDialog: User;
   showDeleteUserDialog: User;
@@ -79,4 +76,5 @@ export type Events = {
   updateDataTablePages: null;
   sortBarShow: null;
   romUpdated: DetailedRom;
+  showQRCodeDialog: SimpleRom;
 };

@@ -7,7 +7,7 @@ import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref, watch } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -23,14 +23,12 @@ emitter?.on("showDeleteSavesDialog", ({ rom, saves }) => {
   assetType.value = "user_saves";
   assets.value = saves;
   romRef.value = rom;
-  updateDataTablePages();
   show.value = true;
 });
 emitter?.on("showDeleteStatesDialog", ({ rom, states }) => {
   assetType.value = "user_states";
   assets.value = states;
   romRef.value = rom;
-  updateDataTablePages();
   show.value = true;
 });
 const HEADERS = [
@@ -41,10 +39,6 @@ const HEADERS = [
     key: "file_name",
   },
 ] as const;
-const page = ref(1);
-const itemsPerPage = ref(10);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const assetsNameMapping = { user_saves: "saves", user_states: "states" };
 
 // Funtcions
@@ -69,7 +63,7 @@ async function deleteAssets() {
         const deletedAssetIds = assets.value.map((asset) => asset.id);
         romRef.value[assetType.value] =
           romRef.value[assetType.value]?.filter(
-            (asset) => !deletedAssetIds.includes(asset.id)
+            (asset) => !deletedAssetIds.includes(asset.id),
           ) ?? [];
         romsStore.update(romRef.value);
         emitter?.emit("romUpdated", romRef.value);
@@ -90,14 +84,6 @@ async function deleteAssets() {
     });
 }
 
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(assets.value.length / itemsPerPage.value);
-}
-
-watch(itemsPerPage, async () => {
-  updateDataTablePages();
-});
-
 function closeDialog() {
   assetsToDeleteFromFs.value = [];
   assets.value = [];
@@ -116,9 +102,9 @@ function closeDialog() {
     <template #header>
       <v-row no-gutters class="justify-center">
         <span>Removing</span>
-        <span class="text-romm-accent-1 mx-1">{{ assets.length }}</span>
+        <span class="text-primary mx-1">{{ assets.length }}</span>
         <span>{{ assetType.slice(5) }} of</span>
-        <span class="text-romm-accent-1 mx-1">{{ romRef?.name }}</span>
+        <span class="text-primary mx-1">{{ romRef?.name }}</span>
         <span>from RomM</span>
       </v-row>
     </template>
@@ -132,22 +118,20 @@ function closeDialog() {
       </v-list-item>
     </template>
     <template #content>
-      <v-data-table
+      <v-data-table-virtual
         :item-value="(item) => item.id"
         :items="assets"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="itemsPerPage"
-        :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
         v-model="assetsToDeleteFromFs"
-        v-model:page="page"
         show-select
       >
         <template #item.file_name="{ item }">
           <v-list-item class="px-0">
             <v-row no-gutters>
               <v-col>
-                {{ item.file_name }}<v-chip
+                {{ item.file_name
+                }}<v-chip
                   v-if="assetsToDeleteFromFs.includes(item.id) && smAndUp"
                   label
                   size="x-small"
@@ -197,32 +181,7 @@ function closeDialog() {
             </template>
           </v-list-item>
         </template>
-        <template #bottom>
-          <v-divider />
-          <v-row no-gutters class="pt-2 align-center justify-center">
-            <v-col class="px-6">
-              <v-pagination
-                v-model="page"
-                rounded="0"
-                :show-first-last-page="true"
-                active-color="romm-accent-1"
-                :length="pageCount"
-              />
-            </v-col>
-            <v-col cols="5" sm="3" xl="2">
-              <v-select
-                v-model="itemsPerPage"
-                class="pa-2"
-                label="Assets per page"
-                density="compact"
-                variant="outlined"
-                :items="PER_PAGE_OPTIONS"
-                hide-details
-              />
-            </v-col>
-          </v-row>
-        </template>
-      </v-data-table>
+      </v-data-table-virtual>
     </template>
     <template #append>
       <v-row v-if="assetsToDeleteFromFs.length > 0" no-gutters>
@@ -242,11 +201,11 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
             Cancel
           </v-btn>
           <v-btn
-            class="text-romm-red bg-terciary"
+            class="text-romm-red bg-toplayer"
             variant="flat"
             @click="deleteAssets"
           >

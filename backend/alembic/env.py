@@ -8,7 +8,7 @@ from models.assets import Save, Screenshot, State  # noqa
 from models.base import BaseModel
 from models.firmware import Firmware  # noqa
 from models.platform import Platform  # noqa
-from models.rom import Rom  # noqa
+from models.rom import Rom, SiblingRom  # noqa
 from models.user import User  # noqa
 from sqlalchemy import create_engine
 
@@ -33,6 +33,14 @@ target_metadata = BaseModel.metadata
 # ... etc.
 
 
+# Ignore specific models when running migrations
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and name in [SiblingRom.__tablename__]:  # Virtual table
+        return False
+
+    return True
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -53,6 +61,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -75,6 +84,7 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             render_as_batch=True,
             compare_type=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():

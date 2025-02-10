@@ -4,30 +4,54 @@ import type { Events } from "@/types/emitter";
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick } from "vue";
+import { inject, nextTick, onMounted, watch } from "vue";
+import { useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 
 // Props
-const emitter = inject<Emitter<Events>>("emitter");
+const { t } = useI18n();
+const router = useRouter();
 const galleryFilterStore = storeGalleryFilter();
-const { filterSearch } = storeToRefs(galleryFilterStore);
+const { filterText } = storeToRefs(galleryFilterStore);
+const emitter = inject<Emitter<Events>>("emitter");
 
-// Functions
 const filterRoms = debounce(() => {
+  // Update URL with search term
+  router.replace({ query: { search: filterText.value } });
   emitter?.emit("filter", null);
 }, 500);
 
 function clear() {
-  filterSearch.value = "";
+  filterText.value = "";
 }
+
+onMounted(() => {
+  const { search: searchTerm } = router.currentRoute.value.query;
+  if (searchTerm && searchTerm !== filterText.value) {
+    filterText.value = searchTerm as string;
+    filterRoms();
+  }
+});
+
+watch(
+  () => router.currentRoute.value.query,
+  (query) => {
+    if (query.search && query.search !== filterText.value) {
+      filterText.value = query.search as string;
+      filterRoms();
+    }
+  },
+  { deep: true },
+);
 </script>
 
 <template>
   <v-text-field
-    v-model="filterSearch"
+    v-model="filterText"
     prepend-inner-icon="mdi-filter-outline"
-    label="Filter"
-    rounded="0"
+    :label="t('common.filter')"
     hide-details
+    rounded="0"
     clearable
     @click:clear="clear"
     @update:model-value="nextTick(filterRoms)"

@@ -1,4 +1,4 @@
-/* generated using openapi-typescript-codegen -- do no edit */
+/* generated using openapi-typescript-codegen -- do not edit */
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
@@ -17,21 +17,27 @@ export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { EmulationDict } from './models/EmulationDict';
+export type { FilesystemDict } from './models/FilesystemDict';
 export type { FirmwareSchema } from './models/FirmwareSchema';
+export type { FrontendDict } from './models/FrontendDict';
 export type { HeartbeatResponse } from './models/HeartbeatResponse';
 export type { HTTPValidationError } from './models/HTTPValidationError';
+export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { MessageResponse } from './models/MessageResponse';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
+export type { OIDCDict } from './models/OIDCDict';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';
-export type { RomFile } from './models/RomFile';
+export type { RomFileCategory } from './models/RomFileCategory';
+export type { RomFileSchema } from './models/RomFileSchema';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
 export type { RomSchema } from './models/RomSchema';
 export type { RomUserSchema } from './models/RomUserSchema';
+export type { RomUserStatus } from './models/RomUserStatus';
 export type { SaveSchema } from './models/SaveSchema';
 export type { SchedulerDict } from './models/SchedulerDict';
 export type { ScreenshotSchema } from './models/ScreenshotSchema';
@@ -40,6 +46,7 @@ export type { SearchRomSchema } from './models/SearchRomSchema';
 export type { SimpleRomSchema } from './models/SimpleRomSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
+export type { SystemDict } from './models/SystemDict';
 export type { TaskDict } from './models/TaskDict';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';

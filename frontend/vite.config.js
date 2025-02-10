@@ -1,7 +1,6 @@
 // Plugins
 import vue from "@vitejs/plugin-vue";
 import { VitePWA } from "vite-plugin-pwa";
-import { viteStaticCopy } from "vite-plugin-static-copy";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
 // Utilities
@@ -11,8 +10,12 @@ import { defineConfig, loadEnv } from "vite";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load ENV variables from the parent directory and the current directory.
-  const env = { ...loadEnv(mode, "../"), ...loadEnv(mode, "./") };
-  const backendPort = env.VITE_BACKEND_DEV_PORT ?? "5000";
+  const envPrefixes = ["VITE", "DEV"];
+  const env = {
+    ...loadEnv(mode, "../", envPrefixes),
+    ...loadEnv(mode, "./", envPrefixes),
+  };
+  const backendPort = env.DEV_PORT ?? "5000";
 
   return {
     build: {
@@ -24,9 +27,6 @@ export default defineConfig(({ mode }) => {
       }),
       vuetify({
         autoImport: true,
-        styles: {
-          configFile: "src/styles/settings.scss",
-        },
       }),
       VitePWA({
         injectRegister: null,
@@ -44,18 +44,6 @@ export default defineConfig(({ mode }) => {
           enabled: true,
           type: "module",
         },
-      }),
-      viteStaticCopy({
-        targets: [
-          {
-            src: "node_modules/emulatorjs/data/*",
-            dest: "assets/emulatorjs/",
-          },
-          {
-            src: "node_modules/@ruffle-rs/ruffle/*",
-            dest: "assets/ruffle/",
-          },
-        ],
       }),
     ],
     define: {

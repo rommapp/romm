@@ -11,10 +11,12 @@ import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref, watch } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs, mdAndUp, smAndUp } = useDisplay();
 const show = ref(false);
 const filesToUpload = ref<File[]>([]);
@@ -32,11 +34,6 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-const page = ref(1);
-const itemsPerPage = ref(10);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
-
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
   if (platformWhereUpload) {
@@ -60,7 +57,6 @@ emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
     });
 });
 
-// Functions
 async function uploadRoms() {
   if (!selectedPlatform.value) return;
   show.value = false;
@@ -163,13 +159,6 @@ function closeDialog() {
   filesToUpload.value = [];
   selectedPlatform.value = null;
 }
-
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(filesToUpload.value.length / itemsPerPage.value);
-}
-watch(itemsPerPage, async () => {
-  updateDataTablePages();
-});
 </script>
 
 <template>
@@ -185,7 +174,7 @@ watch(itemsPerPage, async () => {
         <v-col cols="10" sm="8" lg="9">
           <v-autocomplete
             v-model="selectedPlatform"
-            label="Platform"
+            :label="t('common.platform')"
             item-title="name"
             :items="supportedPlatforms"
             return-object
@@ -227,18 +216,16 @@ watch(itemsPerPage, async () => {
           <v-btn
             block
             icon=""
-            class="text-romm-accent-1 bg-terciary"
-            rounded="0"
+            class="text-primary bg-toplayer"
             variant="text"
             @click="triggerFileInput"
           >
             <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
-            ><span v-if="!xs">Add</span>
+            ><span v-if="!xs">{{ t("common.add") }}</span>
           </v-btn>
           <v-file-input
             id="file-input"
             v-model="filesToUpload"
-            @update:model-value="updateDataTablePages"
             class="file-input"
             multiple
             required
@@ -247,15 +234,12 @@ watch(itemsPerPage, async () => {
       </v-row>
     </template>
     <template #content>
-      <v-data-table
+      <v-data-table-virtual
         v-if="filesToUpload.length > 0"
         :item-value="(item) => item.name"
         :items="filesToUpload"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="itemsPerPage"
-        :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
-        v-model:page="page"
         hide-default-header
       >
         <template #item.name="{ item }">
@@ -286,39 +270,16 @@ watch(itemsPerPage, async () => {
             </v-btn>
           </v-btn-group>
         </template>
-        <template #bottom>
-          <v-divider />
-          <v-row no-gutters class="pt-2 align-center justify-center">
-            <v-col class="px-6">
-              <v-pagination
-                v-model="page"
-                rounded="0"
-                :show-first-last-page="true"
-                active-color="romm-accent-1"
-                :length="pageCount"
-              />
-            </v-col>
-            <v-col cols="5" sm="3" xl="2">
-              <v-select
-                v-model="itemsPerPage"
-                class="pa-2"
-                label="Roms per page"
-                density="compact"
-                variant="outlined"
-                :items="PER_PAGE_OPTIONS"
-                hide-details
-              />
-            </v-col>
-          </v-row>
-        </template>
-      </v-data-table>
+      </v-data-table-virtual>
     </template>
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-toplayer" @click="closeDialog">{{
+            t("common.cancel")
+          }}</v-btn>
           <v-btn
-            class="bg-terciary text-romm-green"
+            class="bg-toplayer text-romm-green"
             :disabled="filesToUpload.length == 0 || selectedPlatform == null"
             :variant="
               filesToUpload.length == 0 || selectedPlatform == null
@@ -327,7 +288,7 @@ watch(itemsPerPage, async () => {
             "
             @click="uploadRoms"
           >
-            Upload
+            {{ t("common.upload") }}
           </v-btn>
         </v-btn-group>
       </v-row>

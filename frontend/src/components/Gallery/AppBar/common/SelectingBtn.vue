@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import storeRoms from "@/stores/roms";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const romsStore = storeRoms();
 </script>
 
@@ -10,14 +12,14 @@ const romsStore = storeRoms();
     location="bottom"
     class="tooltip"
     transition="fade-transition"
-    text="Active multi-select"
+    :text="t('platform.active-multi-select')"
     open-delay="1000"
   >
     <template #activator="{ props }">
       <v-btn
-        :color="romsStore.selecting ? 'romm-accent-1' : ''"
-        rounded="0"
+        :color="romsStore.selecting ? 'primary' : ''"
         variant="text"
+        rounded="0"
         v-bind="props"
         class="mr-0"
         icon="mdi-select-group"

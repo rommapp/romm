@@ -4,27 +4,37 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 
-// Functions
 function clear() {
   searchText.value = "";
 }
 </script>
 <template>
   <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
     mobile
+    :location="smAndDown ? 'top' : 'left'"
     @update:model-value="clear"
-    width="400"
+    width="500"
     v-model="activePlatformsDrawer"
-    class="bg-terciary"
+    :class="{
+      'mx-2': smAndDown || activePlatformsDrawer,
+      'my-2': !smAndDown || activePlatformsDrawer,
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
+    }"
+    class="bg-surface pa-1"
+    style="height: unset"
+    rounded
+    :border="0"
   >
     <template #prepend>
       <v-text-field
@@ -35,18 +45,22 @@ function clear() {
         @click:clear="clear"
         @update:model-value=""
         single-line
-        label="Search platform"
+        :label="t('platform.search-platform')"
         variant="solo-filled"
-        rounded="0"
+        density="compact"
       ></v-text-field>
     </template>
-    <v-list lines="two" rounded="0" class="pa-0">
+    <v-list lines="two" class="py-1 px-0">
       <platform-list-item
         v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :platform="platform"
-        class="py-4"
       />
     </v-list>
   </v-navigation-drawer>
 </template>
+<style scoped>
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>

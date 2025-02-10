@@ -5,6 +5,9 @@ export default defineStore("galleryView", {
     currentView: JSON.parse(
       localStorage.getItem("currentView") ?? "0",
     ) as number,
+    defaultAspectRatioCover: 2 / 3,
+    defaultAspectRatioCollection: 2 / 3,
+    defaultAspectRatioScreenshot: 16 / 9,
     activeFirmwareDrawer: false,
     scrolledToTop: false,
     scroll: 0,

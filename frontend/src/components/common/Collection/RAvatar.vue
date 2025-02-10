@@ -1,29 +1,36 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
-import { useTheme } from "vuetify";
+import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
+import { computed } from "vue";
 
-withDefaults(defineProps<{ collection: Collection; size?: number }>(), {
-  size: 45,
-});
-const theme = useTheme();
+const props = withDefaults(
+  defineProps<{ collection: Collection; size?: number }>(),
+  {
+    size: 45,
+  },
+);
+
+const collectionCoverImage = computed(() =>
+  getCollectionCoverImage(props.collection.name),
+);
+const favoriteCoverImage = computed(() =>
+  getFavoriteCoverImage(props.collection.name),
+);
 </script>
 
 <template>
-  <v-avatar :rounded="0" :size="size">
+  <v-avatar :size="size" rounded="0">
     <v-img
       :src="
         collection.has_cover
-          ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
+          ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
           : collection.name?.toLowerCase() == 'favourites'
-          ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
-          : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
+            ? favoriteCoverImage
+            : collectionCoverImage
       "
     >
       <template #error>
-        <v-img
-          :src="`assets/default/cover/big_${theme.global.name.value}_collection.png`"
-        >
-        </v-img>
+        <v-img :src="collectionCoverImage" />
       </template>
     </v-img>
   </v-avatar>

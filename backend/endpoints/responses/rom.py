@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
@@ -9,21 +9,46 @@ from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
-from models.rom import Rom, RomFile
-from pydantic import BaseModel, Field, computed_field
+from models.rom import Rom, RomFileCategory, RomUserStatus
+from pydantic import computed_field
+
+from .base import BaseModel
 
 SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},
+    dict((k, NotRequired[v]) for k, v in get_type_hints(IGDBMetadata).items()),
     total=False,
 )
 RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
-    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
+    dict((k, NotRequired[v]) for k, v in get_type_hints(MobyMetadata).items()),
     total=False,
 )
+
+
+def rom_user_schema_factory() -> RomUserSchema:
+    now = datetime.now(timezone.utc)
+    return RomUserSchema(
+        id=-1,
+        user_id=-1,
+        rom_id=-1,
+        created_at=now,
+        updated_at=now,
+        last_played=None,
+        note_raw_markdown="",
+        note_is_public=False,
+        is_main_sibling=False,
+        backlogged=False,
+        now_playing=False,
+        hidden=False,
+        rating=0,
+        difficulty=0,
+        completion=0,
+        status=None,
+        user__username="",
+    )
 
 
 class RomUserSchema(BaseModel):
@@ -32,21 +57,30 @@ class RomUserSchema(BaseModel):
     rom_id: int
     created_at: datetime
     updated_at: datetime
+    last_played: datetime | None
     note_raw_markdown: str
     note_is_public: bool
     is_main_sibling: bool
+    backlogged: bool
+    now_playing: bool
+    hidden: bool
+    rating: int
+    difficulty: int
+    completion: int
+    status: RomUserStatus | None
     user__username: str
 
     class Config:
         from_attributes = True
 
     @classmethod
-    def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema | None:
+    def for_user(cls, user_id: int, db_rom: Rom) -> RomUserSchema:
         for n in db_rom.rom_users:
             if n.user_id == user_id:
                 return cls.model_validate(n)
 
-        return None
+        # Return a dummy RomUserSchema if the user + rom combination doesn't exist
+        return rom_user_schema_factory()
 
     @classmethod
     def notes_for_user(cls, user_id: int, db_rom: Rom) -> list[UserNotesSchema]:
@@ -62,6 +96,25 @@ class RomUserSchema(BaseModel):
         ]
 
 
+class RomFileSchema(BaseModel):
+    id: int
+    rom_id: int
+    file_name: str
+    file_path: str
+    file_size_bytes: int
+    full_path: str
+    created_at: datetime
+    updated_at: datetime
+    last_modified: datetime
+    crc_hash: str | None
+    md5_hash: str | None
+    sha1_hash: str | None
+    category: RomFileCategory | None
+
+    class Config:
+        from_attributes = True
+
+
 class RomSchema(BaseModel):
     id: int
     igdb_id: int | None
@@ -70,14 +123,17 @@ class RomSchema(BaseModel):
 
     platform_id: int
     platform_slug: str
+    platform_fs_slug: str
     platform_name: str
+    platform_custom_name: str | None
+    platform_display_name: str
 
-    file_name: str
-    file_name_no_tags: str
-    file_name_no_ext: str
-    file_extension: str
-    file_path: str
-    file_size_bytes: int
+    fs_name: str
+    fs_name_no_tags: str
+    fs_name_no_ext: str
+    fs_extension: str
+    fs_path: str
+    fs_size_bytes: int
 
     name: str | None
     slug: str | None
@@ -85,12 +141,15 @@ class RomSchema(BaseModel):
 
     # Metadata fields
     first_release_date: int | None
+    youtube_video_id: str | None
+    average_rating: float | None
     alternative_names: list[str]
     genres: list[str]
     franchises: list[str]
     collections: list[str]
     companies: list[str]
     game_modes: list[str]
+    age_ratings: list[str]
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
 
@@ -104,11 +163,12 @@ class RomSchema(BaseModel):
     languages: list[str]
     tags: list[str]
 
-    multi: bool
-    files: list[RomFile]
     crc_hash: str | None
     md5_hash: str | None
     sha1_hash: str | None
+
+    multi: bool
+    files: list[RomFileSchema]
     full_path: str
     created_at: datetime
     updated_at: datetime
@@ -122,60 +182,65 @@ class RomSchema(BaseModel):
         return (
             SORT_COMPARE_REGEX.sub(
                 "",
-                self.name or self.file_name_no_tags,
+                self.name or self.fs_name_no_tags,
             )
             .strip()
             .lower()
         )
 
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, _request: Request) -> RomSchema:
+        return cls.model_validate(db_rom)
+
 
 class SimpleRomSchema(RomSchema):
-    sibling_roms: list[RomSchema] = Field(default_factory=list)
-    rom_user: RomUserSchema | None = Field(default=None)
+    sibling_roms: list[RomSchema]
+    rom_user: RomUserSchema
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
-        rom = cls.model_validate(db_rom)
         user_id = request.user.id
+        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
+        return cls.model_validate(db_rom)
 
-        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-
-        return rom
+    @classmethod
+    def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
+        db_rom.rom_user = rom_user_schema_factory()  # type: ignore
+        return cls.model_validate(db_rom)
 
 
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
-    sibling_roms: list[RomSchema] = Field(default_factory=list)
-    rom_user: RomUserSchema | None = Field(default=None)
-    user_saves: list[SaveSchema] = Field(default_factory=list)
-    user_states: list[StateSchema] = Field(default_factory=list)
-    user_screenshots: list[ScreenshotSchema] = Field(default_factory=list)
-    user_notes: list[UserNotesSchema] = Field(default_factory=list)
-    user_collections: list[CollectionSchema] = Field(default_factory=list)
+    sibling_roms: list[RomSchema]
+    rom_user: RomUserSchema
+    user_saves: list[SaveSchema]
+    user_states: list[StateSchema]
+    user_screenshots: list[ScreenshotSchema]
+    user_notes: list[UserNotesSchema]
+    user_collections: list[CollectionSchema]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
-        rom = cls.model_validate(db_rom)
         user_id = request.user.id
 
-        rom.rom_user = RomUserSchema.for_user(user_id, db_rom)
-        rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)
-        rom.user_saves = [
+        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
+        db_rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)  # type: ignore
+        db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
         ]
-        rom.user_states = [
+        db_rom.user_states = [  # type: ignore
             StateSchema.model_validate(s) for s in db_rom.states if s.user_id == user_id
         ]
-        rom.user_screenshots = [
+        db_rom.user_screenshots = [  # type: ignore
             ScreenshotSchema.model_validate(s)
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        rom.user_collections = CollectionSchema.for_user(
-            user_id, db_rom.get_collections()
+        db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
+            user_id, [c for c in db_rom.get_collections()]
         )
 
-        return rom
+        return cls.model_validate(db_rom)
 
 
 class UserNotesSchema(TypedDict):

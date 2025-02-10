@@ -45,12 +45,12 @@ async function onScan() {
   emitter?.emit("snackbarShow", {
     msg: `Scanning ${romCount} game${romCount > 1 ? "s" : ""}...`,
     icon: "mdi-loading mdi-spin",
-    color: "romm-accent-1",
+    color: "primary",
   });
 
   if (!socket.connected) socket.connect();
   socket.emit("scan", {
-    platforms: [route.params.platform],
+    platforms: [Number(route.params.platform)],
     roms_ids: romsStore.selectedRoms.map((r) => r.id),
     type: "quick", // Quick scan so we can filter by selected roms
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
@@ -69,7 +69,7 @@ function resetSelection() {
 async function addToFavourites() {
   if (!favCollection.value) return;
   favCollection.value.roms = favCollection.value.roms.concat(
-    selectedRoms.value.map((r) => r.id)
+    selectedRoms.value.map((r) => r.id),
   );
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
@@ -98,7 +98,7 @@ async function addToFavourites() {
 async function removeFromFavourites() {
   if (!favCollection.value) return;
   favCollection.value.roms = favCollection.value.roms.filter(
-    (value) => !selectedRoms.value.map((r) => r.id).includes(value)
+    (value) => !selectedRoms.value.map((r) => r.id).includes(value),
   );
   if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
     romsStore.remove(selectedRoms.value);
@@ -142,12 +142,12 @@ function onDownload() {
       <v-btn
         icon
         v-show="!scrolledToTop && currentView != 2"
-        class="border-romm-accent-1"
-        color="primary"
+        class="border-selected"
+        color="background"
         elevation="8"
         size="large"
         @click="scrollToTop()"
-        ><v-icon color="romm-accent-1">mdi-chevron-up</v-icon></v-btn
+        ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
       >
     </v-scroll-y-reverse-transition>
 
@@ -157,7 +157,7 @@ function onDownload() {
           <v-btn
             v-show="selectedRoms.length > 0"
             class="ml-2"
-            color="romm-accent-1"
+            color="primary"
             v-bind="menuProps"
             elevation="8"
             icon
@@ -168,9 +168,10 @@ function onDownload() {
       </template>
 
       <v-btn
+        title="Delete roms"
         key="1"
         v-if="auth.scopes.includes('roms.write')"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon
         size="default"
@@ -179,68 +180,80 @@ function onDownload() {
         <v-icon color="romm-red"> mdi-delete </v-icon>
       </v-btn>
       <v-btn
+        title="Scan roms"
         key="2"
         v-if="auth.scopes.includes('roms.write')"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon="mdi-magnify-scan"
         size="default"
         @click="onScan"
       />
       <v-btn
+        title="Download roms"
         key="3"
-        color="terciary"
+        color="toplayer"
         elevation="8"
         icon="mdi-download"
         size="default"
         @click="onDownload"
       />
       <v-btn
+        title="Remove from collection"
         key="4"
-        color="terciary"
+        color="toplayer"
         elevation="8"
-        :icon="
-          $route.name == 'platform'
-            ? 'mdi-bookmark-plus'
-            : 'mdi-bookmark-remove'
-        "
+        icon="mdi-bookmark-remove-outline"
         size="default"
         @click="
-          $route.name == 'platform'
-            ? emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
-            : emitter?.emit(
-                'showRemoveFromCollectionDialog',
-                romsStore.selectedRoms
-              )
+          emitter?.emit(
+            'showRemoveFromCollectionDialog',
+            romsStore.selectedRoms,
+          )
         "
       />
       <v-btn
+        title="Add to collection"
         key="5"
-        color="terciary"
+        color="toplayer"
         elevation="8"
-        icon="mdi-star-outline"
+        icon="mdi-bookmark-plus"
+        size="default"
+        @click="
+          emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
+        "
+      />
+      <v-btn
+        title="Remove from favourites"
+        key="6"
+        color="toplayer"
+        elevation="8"
+        icon="mdi-star-remove-outline"
         size="default"
         @click="removeFromFavourites"
       />
       <v-btn
-        key="6"
-        color="terciary"
+        title="Add to favourites"
+        key="7"
+        color="toplayer"
         elevation="8"
         icon="mdi-star"
         size="default"
         @click="addToFavourites"
       />
       <v-btn
-        key="7"
-        color="terciary"
+        title="Select all"
+        key="8"
+        color="toplayer"
         elevation="8"
         icon="mdi-select-all"
         size="default"
         @click.stop="selectAllRoms"
       />
       <v-btn
-        key="8"
-        color="terciary"
+        title="Unselect all"
+        key="9"
+        color="toplayer"
         elevation="8"
         icon="mdi-select"
         size="default"
@@ -259,6 +272,6 @@ function onDownload() {
   pointer-events: none;
 }
 .sticky-bottom * {
-    pointer-events: auto; /* Re-enables pointer events for all child elements */
+  pointer-events: auto; /* Re-enables pointer events for all child elements */
 }
 </style>

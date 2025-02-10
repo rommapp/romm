@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
@@ -12,6 +14,7 @@ from endpoints.responses.feeds import (
     WebrcadeFeedSchema,
 )
 from fastapi import Request
+from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_hander import SWITCH_TITLEDB_REGEX
@@ -19,13 +22,15 @@ from models.rom import Rom
 from starlette.datastructures import URLPath
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    tags=["feeds"],
+)
 
 
 @protected_route(
     router.get,
     "/webrcade/feed",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else ["roms.read"],
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
 def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
     """Get webrcade feed endpoint
@@ -56,7 +61,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                         request.url_for(
                             "get_rom_content",
                             id=rom.id,
-                            file_name=rom.file_name,
+                            file_name=rom.fs_name,
                         )
                     ),
                 ),
@@ -129,15 +134,17 @@ async def tinfoil_index_feed(
             error="Nintendo Switch platform not found",
         )
 
-    roms: list[Rom] = db_rom_handler.get_roms(platform_id=switch.id)
+    roms = db_rom_handler.get_roms(platform_id=switch.id)
 
-    async def extract_titledb(roms: list[Rom]) -> dict[str, TinfoilFeedTitleDBSchema]:
+    async def extract_titledb(
+        roms: Sequence[Rom],
+    ) -> dict[str, TinfoilFeedTitleDBSchema]:
         titledb = {}
         for rom in roms:
-            match = SWITCH_TITLEDB_REGEX.search(rom.file_name)
+            match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
             if match:
                 _search_term, index_entry = (
-                    await meta_igdb_handler._switch_titledb_format(match, rom.file_name)
+                    await meta_igdb_handler._switch_titledb_format(match, rom.fs_name)
                 )
                 if index_entry:
                     titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
@@ -159,11 +166,9 @@ async def tinfoil_index_feed(
         files=[
             TinfoilFeedFileSchema(
                 url=str(
-                    request.url_for(
-                        "get_rom_content", id=rom.id, file_name=rom.file_name
-                    )
+                    request.url_for("get_rom_content", id=rom.id, file_name=rom.fs_name)
                 ),
-                size=rom.file_size_bytes,
+                size=rom.fs_size_bytes,
             )
             for rom in roms
         ],

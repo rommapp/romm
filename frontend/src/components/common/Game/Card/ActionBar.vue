@@ -1,26 +1,47 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
-import { isEJSEmulationSupported, isRuffleEmulationSupported } from "@/utils";
+import storeAuth from "@/stores/auth";
+import type { Events } from "@/types/emitter";
+import {
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
+  is3DSCIARom,
+} from "@/utils";
+import { ROUTES } from "@/plugins/router";
+import type { Emitter } from "mitt";
+import { computed, inject } from "vue";
+import { storeToRefs } from "pinia";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
+const emitter = inject<Emitter<Events>>("emitter");
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
+const auth = storeAuth();
+
+const platformSlug = computed(() => {
+  return props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
+    ? config.value.PLATFORMS_VERSIONS[props.rom.platform_slug]
+    : props.rom.platform_slug;
+});
 
 const ejsEmulationSupported = computed(() => {
-  return isEJSEmulationSupported(props.rom.platform_slug, heartbeatStore.value);
+  return isEJSEmulationSupported(platformSlug.value, heartbeatStore.value);
 });
 
 const ruffleEmulationSupported = computed(() => {
-  return isRuffleEmulationSupported(
-    props.rom.platform_slug,
-    heartbeatStore.value,
-  );
+  return isRuffleEmulationSupported(platformSlug.value, heartbeatStore.value);
+});
+
+const is3DSRom = computed(() => {
+  return is3DSCIARom(props.rom);
 });
 </script>
 
@@ -32,54 +53,80 @@ const ruffleEmulationSupported = computed(() => {
         size="x-small"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
-        rounded="0"
         variant="text"
-        @click="romApi.downloadRom({ rom })"
+        rounded="0"
+        @click.prevent="romApi.downloadRom({ rom })"
       />
     </v-col>
-    <v-col class="d-flex">
+    <v-col
+      v-if="ejsEmulationSupported || ruffleEmulationSupported"
+      class="d-flex"
+    >
       <v-btn
         v-if="ejsEmulationSupported"
+        @click.prevent
         class="action-bar-btn-small flex-grow-1"
         size="x-small"
         @click="
           $router.push({
-            name: 'emulatorjs',
+            name: ROUTES.EMULATORJS,
             params: { rom: rom?.id },
           })
         "
         icon="mdi-play"
-        rounded="0"
         variant="text"
+        rounded="0"
       />
       <v-btn
         v-if="ruffleEmulationSupported"
+        @click.prevent
         class="action-bar-btn-small flex-grow-1"
         size="x-small"
         @click="
           $router.push({
-            name: 'ruffle',
+            name: ROUTES.RUFFLE,
             params: { rom: rom?.id },
           })
         "
         icon="mdi-play"
-        rounded="0"
         variant="text"
+        rounded="0"
       />
     </v-col>
-    <v-menu location="bottom">
-      <template #activator="{ props }">
-        <v-btn
-          class="action-bar-btn-small flex-grow-1"
-          size="x-small"
-          v-bind="props"
-          icon="mdi-dots-vertical"
-          rounded="0"
-          variant="text"
-        />
-      </template>
-      <admin-menu :rom="rom" />
-    </v-menu>
+    <v-col v-if="is3DSRom" class="d-flex">
+      <v-btn
+        @click.prevent
+        class="action-bar-btn-small flex-grow-1"
+        size="x-small"
+        @click="emitter?.emit('showQRCodeDialog', rom)"
+        icon="mdi-qrcode"
+        variant="text"
+        rounded="0"
+      />
+    </v-col>
+    <v-col
+      v-if="
+        auth.scopes.includes('roms.write') ||
+        auth.scopes.includes('roms.user.write') ||
+        auth.scopes.includes('collections.write')
+      "
+      class="d-flex"
+    >
+      <v-menu location="bottom">
+        <template #activator="{ props }">
+          <v-btn
+            @click.prevent
+            class="action-bar-btn-small flex-grow-1"
+            size="x-small"
+            v-bind="props"
+            icon="mdi-dots-vertical"
+            variant="text"
+            rounded="0"
+          />
+        </template>
+        <admin-menu :rom="rom" />
+      </v-menu>
+    </v-col>
   </v-row>
 </template>
 

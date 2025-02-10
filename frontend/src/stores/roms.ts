@@ -1,17 +1,15 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
+import storeCollection, { type Collection } from "@/stores/collections";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
-import { type Collection } from "@/stores/collections";
 import type { ExtractPiniaStoreType } from "@/types";
-import { groupBy, uniqBy } from "lodash";
+import { getStatusKeyForText } from "@/utils";
+import { groupBy, isNull, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
-import storeGalleryFilter from "./galleryFilter";
-import storeCollection from "./collections";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
-
-const collectionStore = storeCollection();
 
 export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
@@ -26,6 +24,7 @@ export default defineStore("roms", {
     _filteredIDs: new Set<number>(),
     _selectedIDs: new Set<number>(),
     recentRoms: [] as SimpleRom[],
+    continuePlayingRoms: [] as SimpleRom[],
     lastSelectedIndex: -1,
     selecting: false,
     itemsPerBatch: 72,
@@ -40,6 +39,25 @@ export default defineStore("roms", {
   },
 
   actions: {
+    _shouldGroupRoms(): boolean {
+      return isNull(localStorage.getItem("settings.groupRoms"))
+        ? true
+        : localStorage.getItem("settings.groupRoms") === "true";
+    },
+    _getGroupedRoms(roms: SimpleRom[]): SimpleRom[] {
+      // Group roms by external id.
+      return Object.values(
+        groupBy(
+          roms,
+          (game) =>
+            // If external id is null, generate a random id so that the roms are not grouped
+            game.igdb_id || game.moby_id || nanoid(),
+        ),
+      ).map((games) => {
+        // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
+        return games.find((game) => game.rom_user?.is_main_sibling) || games[0];
+      });
+    },
     _reorder() {
       // Sort roms by comparator string
       this.allRoms = uniqBy(this.allRoms, "id").sort((a, b) => {
@@ -47,30 +65,15 @@ export default defineStore("roms", {
       });
 
       // Check if roms should be grouped
-      const groupRoms = localStorage.getItem("settings.groupRoms") === "true";
-      if (!groupRoms) {
+      if (!this._shouldGroupRoms()) {
         this._grouped = this.allRoms;
         return;
       }
 
       // Group roms by external id
-      this._grouped = Object.values(
-        groupBy(
-          this.allRoms,
-          (game) =>
-            // If external id is null, generate a random id so that the roms are not grouped
-            game.igdb_id || game.moby_id || nanoid(),
-        ),
-      )
-        .map((games) => {
-          // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
-          return (
-            games.find((game) => game.rom_user?.is_main_sibling) || games[0]
-          );
-        })
-        .sort((a, b) => {
-          return a.sort_comparator.localeCompare(b.sort_comparator);
-        });
+      this._grouped = this._getGroupedRoms(this.allRoms).sort((a, b) => {
+        return a.sort_comparator.localeCompare(b.sort_comparator);
+      });
     },
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
@@ -79,7 +82,18 @@ export default defineStore("roms", {
       this.currentRom = rom;
     },
     setRecentRoms(roms: SimpleRom[]) {
-      this.recentRoms = roms;
+      if (this._shouldGroupRoms()) {
+        // Group by external ID to only display a single entry per sibling,
+        // and sorted on rom ID in descending order.
+        this.recentRoms = this._getGroupedRoms(roms).sort(
+          (a, b) => b.id - a.id,
+        );
+      } else {
+        this.recentRoms = roms;
+      }
+    },
+    setContinuePlayedRoms(roms: SimpleRom[]) {
+      this.continuePlayingRoms = roms;
     },
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
@@ -94,6 +108,17 @@ export default defineStore("roms", {
     },
     addToRecent(rom: SimpleRom) {
       this.recentRoms = [rom, ...this.recentRoms];
+    },
+    removeFromRecent(rom: SimpleRom) {
+      this.recentRoms = this.recentRoms.filter((value) => value.id !== rom.id);
+    },
+    addToContinuePlaying(rom: SimpleRom) {
+      this.continuePlayingRoms = [rom, ...this.continuePlayingRoms];
+    },
+    removeFromContinuePlaying(rom: SimpleRom) {
+      this.continuePlayingRoms = this.continuePlayingRoms.filter(
+        (value) => value.id !== rom.id,
+      );
     },
     update(rom: SimpleRom) {
       this.allRoms = this.allRoms.map((value) =>
@@ -127,11 +152,14 @@ export default defineStore("roms", {
     // Filter roms by gallery filter store state
     setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {
       this._filteredIDs = new Set(roms.map((rom) => rom.id));
-      if (galleryFilter.filterSearch) {
-        this._filterSearch(galleryFilter.filterSearch);
+      if (galleryFilter.filterText) {
+        this._filterText(galleryFilter.filterText);
       }
       if (galleryFilter.filterUnmatched) {
         this._filterUnmatched();
+      }
+      if (galleryFilter.filterMatched) {
+        this._filterMatched();
       }
       if (galleryFilter.filterFavourites) {
         this._filterFavourites();
@@ -151,14 +179,27 @@ export default defineStore("roms", {
       if (galleryFilter.selectedCompany) {
         this._filterCompany(galleryFilter.selectedCompany);
       }
+      if (galleryFilter.selectedAgeRating) {
+        this._filterAgeRating(galleryFilter.selectedAgeRating);
+      }
+      if (galleryFilter.selectedStatus) {
+        this._filterStatus(galleryFilter.selectedStatus);
+      } else {
+        this._filteredIDs = new Set(
+          // Filter hidden roms if the status is not hidden
+          this.filteredRoms
+            .filter((rom) => !rom.rom_user.hidden)
+            .map((rom) => rom.id),
+        );
+      }
     },
-    _filterSearch(searchFilter: string) {
+    _filterText(searchFilter: string) {
       const bySearch = new Set(
         this.filteredRoms
           .filter(
             (rom) =>
               rom.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-              rom.file_name?.toLowerCase().includes(searchFilter.toLowerCase()),
+              rom.fs_name?.toLowerCase().includes(searchFilter.toLowerCase()),
           )
           .map((roms) => roms.id),
       );
@@ -176,7 +217,19 @@ export default defineStore("roms", {
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byUnmatched.intersection(this._filteredIDs);
     },
+    _filterMatched() {
+      const byMatched = new Set(
+        this.filteredRoms
+          .filter((rom) => rom.igdb_id || rom.moby_id)
+          .map((roms) => roms.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byMatched.intersection(this._filteredIDs);
+    },
     _filterFavourites() {
+      const collectionStore = storeCollection();
+
       const byFavourites = new Set(
         this.filteredRoms
           .filter((rom) =>
@@ -245,6 +298,40 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byCompany.intersection(this._filteredIDs);
+    },
+    _filterAgeRating(ageRatingToFilter: string) {
+      const byAgeRating = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.age_ratings.some(
+              (ageRating) => ageRating === ageRatingToFilter,
+            ),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byAgeRating.intersection(this._filteredIDs);
+    },
+    _filterStatus(statusToFilter: string) {
+      const stf = getStatusKeyForText(statusToFilter);
+
+      const byStatus = new Set(
+        this.filteredRoms
+          .filter(
+            (rom) =>
+              rom.rom_user.status === stf ||
+              (stf === "now_playing" && rom.rom_user.now_playing) ||
+              (stf === "backlogged" && rom.rom_user.backlogged) ||
+              (stf === "hidden" && rom.rom_user.hidden),
+          )
+          // Filter hidden roms if the status is not hidden
+          .filter((rom) => (stf === "hidden" ? true : !rom.rom_user.hidden))
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byStatus.intersection(this._filteredIDs);
     },
     // Selected roms
     setSelection(roms: SimpleRom[]) {

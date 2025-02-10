@@ -8,29 +8,35 @@ import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay, useTheme } from "vuetify";
+import { computed, inject, ref } from "vue";
+import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
+import { getMissingCoverImage } from "@/utils/covers";
 
 // Props
-const theme = useTheme();
+const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const heartbeat = storeHeartbeat();
-const collection = ref<UpdatedCollection>({} as UpdatedCollection);
+const collection = ref<UpdatedCollection>({ name: "" } as UpdatedCollection);
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreateCollectionDialog", () => {
   show.value = true;
+  removeCover.value = false;
 });
 emitter?.on("updateUrlCover", (url_cover) => {
   if (!collection.value) return;
   collection.value.url_cover = url_cover;
-  imagePreviewUrl.value = url_cover;
+  setArtwork(url_cover);
 });
 
-// Functions
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(collection.value.name),
+);
+
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
   fileInput?.click();
@@ -42,15 +48,21 @@ function previewImage(event: Event) {
 
   const reader = new FileReader();
   reader.onload = () => {
-    imagePreviewUrl.value = reader.result?.toString();
+    setArtwork(reader.result?.toString() || "");
   };
   if (input.files[0]) {
     reader.readAsDataURL(input.files[0]);
   }
 }
 
+function setArtwork(imageUrl: string) {
+  if (!imageUrl) return;
+  imagePreviewUrl.value = imageUrl;
+  removeCover.value = false;
+}
+
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  imagePreviewUrl.value = missingCoverImage.value;
   removeCover.value = true;
 }
 
@@ -111,7 +123,7 @@ function closeDialog() {
             <v-col>
               <v-text-field
                 v-model="collection.name"
-                label="Name"
+                :label="t('collection.name')"
                 variant="outlined"
                 required
                 hide-details
@@ -124,7 +136,7 @@ function closeDialog() {
               <v-text-field
                 v-model="collection.description"
                 class="mt-1"
-                label="Description"
+                :label="t('collection.description')"
                 variant="outlined"
                 required
                 hide-details
@@ -142,18 +154,21 @@ function closeDialog() {
                 :with-link="false"
                 :collection="collection"
                 :src="imagePreviewUrl"
+                title-on-hover
               >
                 <template #append-inner>
-                  <v-btn-group rounded="0" divided density="compact">
+                  <v-btn-group divided density="compact">
                     <v-btn
-                      :disabled="!heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED"
+                      :disabled="
+                        !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                      "
                       size="small"
                       class="translucent-dark"
                       @click="
-                        emitter?.emit(
-                          'showSearchCoverDialog',
-                          collection.name as string
-                        )
+                        emitter?.emit('showSearchCoverDialog', {
+                          term: collection.name as string,
+                          aspectRatio: null,
+                        })
                       "
                     >
                       <v-icon size="large">mdi-image-search-outline</v-icon>
@@ -192,15 +207,17 @@ function closeDialog() {
     </template>
     <template #append>
       <v-row class="justify-center mt-4 mb-2" no-gutters>
-        <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
+        <v-btn-group divided density="compact" rounded="0">
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
-            class="bg-terciary text-romm-green"
+            class="bg-toplayer text-romm-green"
             :disabled="!collection.name"
             :variant="!collection.name ? 'plain' : 'flat'"
             @click="createCollection"
           >
-            Create
+            {{ t("common.create") }}
           </v-btn>
         </v-btn-group>
       </v-row>

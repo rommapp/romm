@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import RAvatar from "@/components/common/Game/RAvatar.vue";
+import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
@@ -49,24 +52,33 @@ watch(scanningPlatforms, () => {
 
 const scanOptions = [
   {
-    title: "New platforms",
-    subtitle: "Scan new platforms only (fastest)",
+    title: t("scan.new-platforms"),
+    subtitle: t("scan.new-platforms-desc"),
     value: "new_platforms",
   },
-  { title: "Quick scan", subtitle: "Scan new files only", value: "quick" },
   {
-    title: "Unidentified games",
-    subtitle: "Scan games with no metadata match",
+    title: t("scan.quick-scan"),
+    subtitle: t("scan.quick-scan-desc"),
+    value: "quick",
+  },
+  {
+    title: t("scan.unidentified-games"),
+    subtitle: t("scan.unidentified-games-desc"),
     value: "unidentified",
   },
   {
-    title: "Partial metadata",
-    subtitle: "Scan games with partial metadata matches",
+    title: t("scan.partial-metadata"),
+    subtitle: t("scan.partial-metadata-desc"),
     value: "partial",
   },
   {
-    title: "Complete rescan",
-    subtitle: "Total rescan of all platforms and files (slowest)",
+    title: t("scan.hashes"),
+    subtitle: t("scan.hashes-desc"),
+    value: "hashes",
+  },
+  {
+    title: t("scan.complete-rescan"),
+    subtitle: t("scan.complete-rescan-desc"),
     value: "complete",
   },
 ];
@@ -99,13 +111,14 @@ async function stopScan() {
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
     <v-col cols="12" md="5" lg="6" class="px-1">
+      <!-- TODO: add 'ALL' default option -->
       <v-select
-        :menu-props="{ maxHeight: 650 }"
-        prepend-inner-icon="mdi-controller"
         v-model="platformsToScan"
-        label="Platforms"
+        :items="platforms.allPlatforms"
+        :menu-props="{ maxHeight: 650 }"
+        :label="t('common.platforms')"
         item-title="name"
-        :items="platforms.all"
+        prepend-inner-icon="mdi-controller"
         variant="outlined"
         density="comfortable"
         multiple
@@ -116,8 +129,8 @@ async function stopScan() {
       >
         <template #item="{ props, item }">
           <v-list-item
-            class="py-4"
             v-bind="props"
+            class="py-4"
             :title="item.raw.name ?? ''"
             :subtitle="item.raw.fs_slug"
           >
@@ -152,13 +165,13 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col class="px-1" cols="12" md="5" lg="4" :class="{ 'mt-3': smAndDown }">
+    <v-col cols="12" md="5" lg="4" class="px-1" :class="{ 'mt-3': smAndDown }">
       <v-select
-        prepend-inner-icon="mdi-database-search"
         v-model="metadataSources"
-        label="Metadata sources"
-        item-title="name"
         :items="metadataOptions"
+        :label="t('scan.metadata-sources')"
+        item-title="name"
+        prepend-inner-icon="mdi-database-search"
         variant="outlined"
         density="comfortable"
         multiple
@@ -171,7 +184,7 @@ async function stopScan() {
           <v-list-item
             v-bind="props"
             :title="item.raw.name"
-            :subtitle="item.raw.disabled ? 'API key missing or invalid' : ''"
+            :subtitle="item.raw.disabled ? t('scan.api-key-missing') : ''"
             :disabled="item.raw.disabled"
           >
             <template #prepend>
@@ -195,16 +208,17 @@ async function stopScan() {
         </template>
       </v-select>
     </v-col>
+
     <!-- Scan options -->
-    <v-col class="px-1" cols="12" md="2" :class="{ 'mt-3': smAndDown }">
+    <v-col cols="12" md="2" class="px-1" :class="{ 'mt-3': smAndDown }">
       <v-select
-        prepend-inner-icon="mdi-magnify-scan"
         v-model="scanType"
+        :items="scanOptions"
+        :label="t('scan.scan-options')"
+        prepend-inner-icon="mdi-magnify-scan"
         hide-details
         density="comfortable"
         variant="outlined"
-        label="Scan option"
-        :items="scanOptions"
       >
         <template #item="{ props, item }">
           <v-list-item v-bind="props" :subtitle="item.raw.subtitle" />
@@ -220,29 +234,19 @@ async function stopScan() {
     no-gutters
   >
     <v-btn
-      :disabled="scanning || metadataSources.length == 0"
+      :disabled="scanning"
+      :loading="scanning"
       rounded="4"
       height="40"
-      :loading="scanning"
       @click="scan()"
     >
       <template #prepend>
-        <v-icon
-          :color="
-            scanning || metadataSources.length == 0 ? '' : 'romm-accent-1'
-          "
-          >mdi-magnify-scan</v-icon
-        >
+        <v-icon :color="scanning ? '' : 'primary'">mdi-magnify-scan</v-icon>
       </template>
-      <span
-        :class="{
-          'text-romm-accent-1': !(scanning || metadataSources.length == 0),
-        }"
-        >Scan</span
-      >
+      {{ t("scan.scan") }}
       <template #loader>
         <v-progress-circular
-          color="romm-accent-1"
+          color="primary"
           :width="2"
           :size="20"
           indeterminate
@@ -259,18 +263,19 @@ async function stopScan() {
       <template #prepend>
         <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
       </template>
-      <span :class="{ 'text-romm-red': scanning }">Abort</span>
+      {{ t("scan.abort") }}
     </v-btn>
     <v-btn
       prepend-icon="mdi-table-cog"
       rounded="4"
       height="40"
       class="ml-2"
-      :to="{ name: 'management' }"
+      :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
     >
-      Manage
+      {{ t("scan.manage-library") }}
     </v-btn>
   </v-row>
+
   <v-row
     v-if="metadataSources.length == 0"
     no-gutters
@@ -278,31 +283,20 @@ async function stopScan() {
   >
     <v-list-item class="text-caption text-yellow py-0">
       <v-icon>mdi-alert</v-icon
-      ><span class="ml-2">Please select at least one metadata source.</span>
+      ><span class="ml-2">{{ t("scan.select-one-source") }}</span>
     </v-list-item>
   </v-row>
 
   <v-divider
     class="border-opacity-100 mt-3"
     :class="{ 'mx-4': !smAndDown }"
-    color="romm-accent-1"
+    color="primary"
   />
 
   <!-- Scan log -->
-  <v-card
-    elevation="0"
-    rounded="0"
-    class="bg-secondary mx-auto mb-1"
-    max-width="800"
-  >
+  <v-card elevation="0" class="bg-surface mx-auto mt-2 mb-14" max-width="800">
     <v-card-text class="pa-0">
-      <v-expansion-panels
-        :model-value="panels"
-        multiple
-        flat
-        rounded="0"
-        variant="accordion"
-      >
+      <v-expansion-panels v-model="panels" multiple flat variant="accordion">
         <v-expansion-panel
           v-for="platform in scanningPlatforms"
           :key="platform.id"
@@ -310,50 +304,45 @@ async function stopScan() {
           <v-expansion-panel-title>
             <v-list-item class="pa-0">
               <template #prepend>
-                <v-avatar :rounded="0" size="40">
-                  <platform-icon :key="platform.slug" :slug="platform.slug" :name="platform.name" />
+                <v-avatar size="40">
+                  <platform-icon
+                    :key="platform.slug"
+                    :slug="platform.slug"
+                    :name="platform.name"
+                  />
                 </v-avatar>
               </template>
               {{ platform.name }}
               <template #append>
-                <v-chip
-                  class="ml-3"
-                  color="romm-accent-1"
-                  size="x-small"
-                  label
-                  >{{ platform.roms.length }}</v-chip
-                >
+                <v-chip class="ml-3" color="primary" size="x-small" label>{{
+                  platform.roms.length
+                }}</v-chip>
               </template>
             </v-list-item>
           </v-expansion-panel-title>
-          <v-expansion-panel-text class="bg-terciary">
-            <v-list-item
+          <v-expansion-panel-text class="bg-toplayer">
+            <rom-list-item
               v-for="rom in platform.roms"
-              :key="rom.id"
-              class="text-body-2 romm-grey px-10 py-2"
-              :to="{ name: 'rom', params: { rom: rom.id } }"
+              class="pa-4"
+              :rom="rom"
+              with-link
+              with-filename
             >
-              <template #prepend>
-                <r-avatar :rom="rom" />
-              </template>
-              <v-row no-gutters>
-                <span
-                  :class="{ 'text-romm-red': !rom.igdb_id && !rom.moby_id }"
-                  >{{ rom.name }}</span
+              <template #append-body>
+                <v-chip
+                  v-if="!rom.igdb_id && !rom.moby_id"
+                  color="red"
+                  size="x-small"
+                  label
+                  >Not identified<v-icon class="ml-1">mdi-close</v-icon></v-chip
                 >
-                <span v-if="!rom.igdb_id && !rom.moby_id" class="ml-1">❌</span>
-              </v-row>
-              <v-row no-gutters>
-                <v-col class="text-romm-accent-1">
-                  {{ rom.file_name }}
-                </v-col>
-              </v-row>
-            </v-list-item>
+              </template>
+            </rom-list-item>
             <v-list-item
               v-if="platform.roms.length == 0"
-              class="text-center mt-2"
+              class="text-center my-2"
             >
-              No new/changed roms found
+              {{ t("scan.no-new-roms") }}
             </v-list-item>
           </v-expansion-panel-text>
         </v-expansion-panel>
@@ -362,41 +351,54 @@ async function stopScan() {
   </v-card>
 
   <!-- Scan stats -->
-  <v-bottom-navigation
-    :active="scanningPlatforms.length > 0"
-    :elevation="0"
-    height="40"
-    class="text-caption align-center"
-    ><v-chip variant="outlined" color="terciary" class="px-1">
-      <v-icon class="text-white"> mdi-information </v-icon>
+  <div
+    class="text-caption position-fixed d-flex w-100 m-1 justify-center"
+    style="bottom: 0.5rem"
+  >
+    <v-chip variant="outlined" color="toplayer" class="px-2 py-5 bg-background">
       <v-chip
         v-if="scanningPlatforms.length > 0"
-        color="romm-accent-1"
+        color="primary"
         text-color="white"
         size="small"
-        class="ml-1 my-1"
+        class="mr-1 my-1"
       >
         <v-icon left>mdi-controller</v-icon>
-        <span>&nbsp;Platforms: {{ scanningPlatforms.length }} scanned</span>
-        <span v-if="!xs">, with {{ scanStats.added_platforms }} new</span>
-        <span v-if="!xs"
-          >&nbsp;and {{ scanStats.metadata_platforms }} identified</span
-        >
+        <span v-if="xs" class="ml-2">{{
+          t("scan.platforms-scanned-n", scanningPlatforms.length)
+        }}</span>
+        <span class="ml-2" v-else>{{
+          t("scan.platforms-scanned-with-details", {
+            n_platforms: scanningPlatforms.length,
+            n_added_platforms: scanStats.added_platforms,
+            n_identified_platforms: scanStats.metadata_platforms,
+          })
+        }}</span>
       </v-chip>
       <v-chip
         v-if="scanningPlatforms.length > 0"
-        color="romm-accent-1"
+        color="primary"
         size="small"
         text-color="white"
         class="ml-1 my-1"
       >
         <v-icon left> mdi-disc </v-icon>
-        <span>&nbsp; Roms: {{ scanStats.scanned_roms }} scanned</span>
-        <span v-if="!xs">, with {{ scanStats.added_roms }} new</span>
-        <span v-if="!xs"
-          >&nbsp;and {{ scanStats.metadata_roms }} identified</span
-        >
+        <span v-if="xs" class="ml-2">{{
+          t("scan.roms-scanned-n", scanStats.scanned_roms)
+        }}</span>
+        <span class="ml-2" v-else>{{
+          t("scan.roms-scanned-with-details", {
+            n_roms: scanStats.scanned_roms,
+            n_added_roms: scanStats.added_roms,
+            n_identified_roms: scanStats.metadata_roms,
+          })
+        }}</span>
       </v-chip>
     </v-chip>
-  </v-bottom-navigation>
+  </div>
 </template>
+<style lang="css">
+.v-expansion-panel-text__wrapper {
+  padding: 0px;
+}
+</style>

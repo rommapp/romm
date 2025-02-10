@@ -8,7 +8,7 @@ from config.config_manager import config_manager as cm
 TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
 EXTENSION_REGEX = re.compile(r"\.(([a-z]+\.)*\w+)$")
 
-LANGUAGES = [
+LANGUAGES = (
     ("Ar", "Arabic"),
     ("Da", "Danish"),
     ("De", "German"),
@@ -27,9 +27,9 @@ LANGUAGES = [
     ("Sv", "Swedish"),
     ("Zh", "Chinese"),
     ("nolang", "No Language"),
-]
+)
 
-REGIONS = [
+REGIONS = (
     ("A", "Australia"),
     ("AS", "Asia"),
     ("B", "Brazil"),
@@ -57,13 +57,13 @@ REGIONS = [
     ("UNK", "Unknown"),
     ("UNL", "Unlicensed"),
     ("W", "World"),
-]
+)
 
 REGIONS_BY_SHORTCODE = {region[0].lower(): region[1] for region in REGIONS}
-REGIONS_NAME_KEYS = [region[1].lower() for region in REGIONS]
+REGIONS_NAME_KEYS = frozenset(region[1].lower() for region in REGIONS)
 
 LANGUAGES_BY_SHORTCODE = {lang[0].lower(): lang[1] for lang in LANGUAGES}
-LANGUAGES_NAME_KEYS = [lang[1].lower() for lang in LANGUAGES]
+LANGUAGES_NAME_KEYS = frozenset(lang[1].lower() for lang in LANGUAGES)
 
 
 class CoverSize(Enum):

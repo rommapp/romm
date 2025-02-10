@@ -70,16 +70,16 @@ start_bin_nginx() {
 	fi
 }
 
-start_bin_redis-server() {
-	info_log "starting redis-server"
-	# Check if /usr/local/etc/redis/redis.conf exists and use it if so
-	if [[ -f /usr/local/etc/redis/redis.conf ]]; then
-		redis-server /usr/local/etc/redis/redis.conf &
+start_bin_valkey-server() {
+	info_log "starting valkey-server"
+	# Check if /usr/local/etc/valkey/valkey.conf exists and use it if so
+	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
+		valkey-server /usr/local/etc/valkey/valkey.conf &
 	else
-		redis-server --dir /redis-data &
+		valkey-server --dir /redis-data &
 	fi
-	REDIS_PID=$!
-	echo "${REDIS_PID}" >/tmp/redis-server.pid
+	VALKEY_PID=$!
+	echo "${VALKEY_PID}" >/tmp/valkey-server.pid
 }
 
 # function that runs our independent python scripts and creates corresponding PID files,
@@ -115,30 +115,54 @@ watchdog_process_pid() {
 	fi
 }
 
+stop_process_pid() {
+	PROCESS=$1
+	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
+		PID=$(cat "/tmp/${PROCESS}.pid") || true
+		if [[ -d "/proc/${PID}" ]]; then
+			info_log "stopping ${PROCESS}"
+			kill "${PID}" || true
+			# wait for process exit
+			while [[ -e "/proc/${PID}" ]]; do sleep 0.1; done
+		fi
+	fi
+}
+
+shutdown() {
+	# shutdown in reverse order
+	stop_process_pid scheduler
+	stop_process_pid worker
+	stop_process_pid watcher
+	stop_process_pid nginx
+	stop_process_pid gunicorn
+	stop_process_pid valkey-server
+}
+
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
 info_log "Starting up, please wait..."
 
+# setup trap handler
+exited=0
+trap 'exited=1 && shutdown' SIGINT SIGTERM EXIT
+
 # clear any leftover PID files
 rm /tmp/*.pid -f
 
 # function definition done, lets start our main loop
-while true; do
-	# check for died processes every 5 seconds
-	sleep 5
-
-	# Start redis server if we dont have a corresponding PID file
-	# and REDIS_HOST is not set (which would mean we're using an external redis)
+while ! ((exited)); do
+	# Start Valkey server if we dont have a corresponding PID file
+	# and REDIS_HOST is not set (which would mean we're using an external Redis/Valkey)
 	if [[ -z ${REDIS_HOST:=""} ]]; then
-		watchdog_process_pid bin redis-server
+		watchdog_process_pid bin valkey-server
 	fi
 
 	# Run needed database migrations on startup,
 	# but only if it was not successful since the last full docker container start
 	if [[ ${ALEMBIC_SUCCESS:="false"} == "false" ]]; then
 		if alembic upgrade head; then
-			debug_log "database schema migrations suceeded"
+			debug_log "database schema migrations succeeded"
 			ALEMBIC_SUCCESS="true"
 		else
 			error_log "Something went horribly wrong with our database"
@@ -165,4 +189,7 @@ while true; do
 	watchdog_process_pid python worker
 	# Start scheduler if we dont have a corresponding PID file
 	watchdog_process_pid python scheduler
+
+	# check for died processes every 5 seconds
+	sleep 5
 done
