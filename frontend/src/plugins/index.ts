@@ -1,11 +1,12 @@
+import i18n from "@/locales";
+import type { Events } from "@/types/emitter";
+import mitt from "mitt";
 import type { App } from "vue";
-
-import { loadFonts } from "./webfontloader";
 import vuetify from "./vuetify";
-import router from "./router";
 import pinia from "./pinia";
+import { configureMDEditor } from "./mdeditor";
 
 export function registerPlugins(app: App) {
-  loadFonts();
-  app.use(vuetify).use(router).use(pinia);
+  configureMDEditor();
+  app.use(vuetify).use(pinia).use(i18n).provide("emitter", mitt<Events>());
 }

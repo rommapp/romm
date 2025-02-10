@@ -1,47 +1,60 @@
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 from anyio import open_file
-from config import ASSETS_BASE_PATH, IS_PYTEST_RUN
+from config import ASSETS_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import UserSchema
 from fastapi import Depends, HTTPException, Request, status
 from handler.auth import auth_handler
+from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from logger.logger import log
 from models.user import Role, User
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/users",
+    tags=["users"],
+)
 
 
 @protected_route(
     router.post,
-    "/users",
-    (
-        []
-        if not IS_PYTEST_RUN and len(db_user_handler.get_admin_users()) == 0
-        else ["users.write"]
-    ),
+    "/",
+    [],
     status_code=status.HTTP_201_CREATED,
 )
-def add_user(request: Request, username: str, password: str, role: str) -> UserSchema:
+def add_user(
+    request: Request, username: str, password: str, email: str, role: str
+) -> UserSchema:
     """Create user endpoint
 
     Args:
         request (Request): Fastapi Requests object
         username (str): User username
         password (str): User password
+        email (str): User email
         role (str): RomM Role object represented as string
 
     Returns:
-        UserSchema: Created user info
+        UserSchema: Newly created user
     """
 
-    if username in [user.username for user in db_user_handler.get_users()]:
+    # If there are admin users already, enforce the USERS_WRITE scope.
+    if (
+        Scope.USERS_WRITE not in request.auth.scopes
+        and len(db_user_handler.get_admin_users()) > 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+    if db_user_handler.get_user_by_username(username):
         msg = f"Username {username} already exists"
         log.error(msg)
         raise HTTPException(
@@ -49,16 +62,25 @@ def add_user(request: Request, username: str, password: str, role: str) -> UserS
             detail=msg,
         )
 
+    if email and db_user_handler.get_user_by_email(email):
+        msg = f"User with email {email} already exists"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
     user = User(
-        username=username,
+        username=username.lower(),
         hashed_password=auth_handler.get_password_hash(password),
+        email=email.lower() or None,
         role=Role[role.upper()],
     )
 
-    return db_user_handler.add_user(user)
+    return UserSchema.model_validate(db_user_handler.add_user(user))
 
 
-@protected_route(router.get, "/users", ["users.read"])
+@protected_route(router.get, "/", [Scope.USERS_READ])
 def get_users(request: Request) -> list[UserSchema]:
     """Get all users endpoint
 
@@ -69,10 +91,10 @@ def get_users(request: Request) -> list[UserSchema]:
         list[UserSchema]: All users stored in the RomM's database
     """
 
-    return db_user_handler.get_users()
+    return [UserSchema.model_validate(u) for u in db_user_handler.get_users()]
 
 
-@protected_route(router.get, "/users/me", ["me.read"])
+@protected_route(router.get, "/me", [Scope.ME_READ])
 def get_current_user(request: Request) -> UserSchema | None:
     """Get current user endpoint
 
@@ -86,7 +108,7 @@ def get_current_user(request: Request) -> UserSchema | None:
     return request.user
 
 
-@protected_route(router.get, "/users/{id}", ["users.read"])
+@protected_route(router.get, "/{id}", [Scope.USERS_READ])
 def get_user(request: Request, id: int) -> UserSchema:
     """Get user endpoint
 
@@ -101,10 +123,10 @@ def get_user(request: Request, id: int) -> UserSchema:
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return user
+    return UserSchema.model_validate(user)
 
 
-@protected_route(router.put, "/users/{id}", ["me.write"])
+@protected_route(router.put, "/{id}", [Scope.ME_WRITE])
 async def update_user(
     request: Request, id: int, form_data: Annotated[UserForm, Depends()]
 ) -> UserSchema:
@@ -133,11 +155,10 @@ async def update_user(
     if db_user.id != request.user.id and request.user.role != Role.ADMIN:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-    cleaned_data = {}
+    cleaned_data: dict[str, Any] = {}
 
     if form_data.username and form_data.username != db_user.username:
-        existing_user = db_user_handler.get_user_by_username(form_data.username.lower())
-        if existing_user:
+        if db_user_handler.get_user_by_username(form_data.username):
             msg = f"Username {form_data.username} already exists"
             log.error(msg)
             raise HTTPException(
@@ -151,6 +172,17 @@ async def update_user(
         cleaned_data["hashed_password"] = auth_handler.get_password_hash(
             form_data.password
         )
+
+    if form_data.email is not None and form_data.email != db_user.email:
+        if form_data.email and db_user_handler.get_user_by_email(form_data.email):
+            msg = f"User with email {form_data.email} already exists"
+            log.error(msg)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=msg,
+            )
+
+        cleaned_data["email"] = form_data.email.lower() or None
 
     # You can't change your own role
     if form_data.role and request.user.id != id:
@@ -182,10 +214,16 @@ async def update_user(
         if request.user.id == id and creds_updated:
             request.session.clear()
 
-    return db_user_handler.get_user(id)
+    db_user = db_user_handler.get_user(id)
+    if not db_user:
+        msg = f"Username with id {id} not found"
+        log.error(msg)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+
+    return UserSchema.model_validate(db_user)
 
 
-@protected_route(router.delete, "/users/{id}", ["users.write"])
+@protected_route(router.delete, "/{id}", [Scope.USERS_WRITE])
 def delete_user(request: Request, id: int) -> MessageResponse:
     """Delete user endpoint
 

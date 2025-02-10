@@ -7,13 +7,19 @@ export const userApi = api;
 async function createUser({
   username,
   password,
+  email,
   role,
 }: {
   username: string;
   password: string;
+  email: string;
   role: string;
 }): Promise<{ data: UserSchema }> {
-  return api.post("/users", {}, { params: { username, password, role } });
+  return api.post(
+    "/users",
+    {},
+    { params: { username, password, email, role } },
+  );
 }
 
 async function fetchUsers(): Promise<{ data: UserSchema[] }> {
@@ -48,6 +54,7 @@ async function updateUser({
       params: {
         username: attrs.username,
         password: attrs.password,
+        email: attrs.email,
         enabled: attrs.enabled,
         role: attrs.role,
       },

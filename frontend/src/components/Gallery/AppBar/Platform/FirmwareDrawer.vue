@@ -9,11 +9,13 @@ import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, watch, onMounted } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
-const { xs, mdAndUp } = useDisplay();
+const { t } = useI18n();
+const { xs, mdAndUp, smAndDown } = useDisplay();
 const auth = storeAuth();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
@@ -30,10 +32,6 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-const page = ref(1);
-const itemsPerPage = ref(5);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [5, 10, 25];
 
 // Functions
 function downloadSelectedFirmware() {
@@ -50,32 +48,27 @@ function deleteSelectedFirmware() {
   emitter?.emit("showDeleteFirmwareDialog", selectedFirmware.value);
   selectedFirmware.value = [];
 }
-
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(
-    Number(currentPlatform.value?.firmware?.length) / itemsPerPage.value
-  );
-}
-
-watch(itemsPerPage, async () => {
-  updateDataTablePages();
-});
-
-onMounted(() => {
-  updateDataTablePages();
-});
 </script>
 
 <template>
-  <v-navigation-drawer v-model="activeFirmwareDrawer" mobile location="bottom">
-    <v-data-table
+  <v-navigation-drawer
+    mobile
+    floating
+    location="bottom"
+    v-model="activeFirmwareDrawer"
+    :class="{
+      'my-2 px-1': activeFirmwareDrawer,
+      'drawer-mobile': smAndDown,
+      'drawer-desktop': !smAndDown,
+    }"
+    class="bg-surface border-0 rounded mx-2 px-1"
+    style="width: unset"
+  >
+    <v-data-table-virtual
       :items="currentPlatform?.firmware ?? []"
       :width="mdAndUp ? '60vw' : '95vw'"
-      :items-per-page="itemsPerPage"
-      :items-per-page-options="PER_PAGE_OPTIONS"
       :headers="HEADERS"
       v-model="selectedFirmware"
-      v-model:page="page"
       return-object
       show-select
     >
@@ -165,9 +158,7 @@ onMounted(() => {
         </v-list-item>
       </template>
       <template #no-data
-        ><span
-          >No firmware found for {{ currentPlatform?.name }}</span
-        ></template
+        ><span>{{ t("platform.no-firmware-found") }}</span></template
       >
       <template #item.actions="{ item }">
         <v-btn-group divided density="compact">
@@ -187,33 +178,16 @@ onMounted(() => {
           </v-btn>
         </v-btn-group>
       </template>
-      <template #bottom>
-        <v-divider />
-        <v-row no-gutters class="pa-1 align-center justify-center">
-          <v-col cols="8" sm="9" md="10" class="px-3">
-            <v-pagination
-              :show-first-last-page="!xs"
-              v-model="page"
-              rounded="0"
-              active-color="romm-accent-1"
-              :length="pageCount"
-            />
-          </v-col>
-          <v-col>
-            <v-select
-              v-model="itemsPerPage"
-              class="pa-2"
-              label="Files per page"
-              density="compact"
-              variant="outlined"
-              :items="PER_PAGE_OPTIONS"
-              hide-details
-            />
-          </v-col>
-        </v-row>
-      </template>
-    </v-data-table>
+    </v-data-table-virtual>
   </v-navigation-drawer>
   <upload-firmware-dialog />
   <delete-firmware-dialog />
 </template>
+<style scoped>
+.drawer-desktop {
+  width: calc(100% - 76px) !important;
+}
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>

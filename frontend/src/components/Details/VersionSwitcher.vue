@@ -1,21 +1,22 @@
 <script setup lang="ts">
-import type { Platform } from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
+import type { RomSchema } from "@/__generated__";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 
 // Props
-const props = defineProps<{ rom: DetailedRom; platform: Platform }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const router = useRouter();
 const version = ref(props.rom.id);
 
 // Functions
-function formatTitle(rom: DetailedRom) {
+function formatTitle(rom: RomSchema) {
   const langs = rom.languages.map((l) => languageToEmoji(l)).join(" ");
   const regions = rom.regions.map((r) => regionToEmoji(r)).join(" ");
+  const revision = rom.revision ? `[rev-${rom.revision}]` : "";
   const tags = rom.tags.map((t) => `(${t})`).join(" ");
-  return `${langs} ${regions} ${tags}`.trim();
+  return `${langs} ${regions} ${revision} ${tags}`.trim();
 }
 
 function updateVersion() {
@@ -31,7 +32,6 @@ function updateVersion() {
     v-model="version"
     label="Version"
     single-line
-    rounded="0"
     variant="solo-filled"
     density="compact"
     max-width="fit-content"

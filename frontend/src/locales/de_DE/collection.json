@@ -1,0 +1,16 @@
+{
+  "search-collection": "Sammlung durchsuchen",
+  "add-collection": "Sammlung hinzufügen",
+  "edit-collection": "Sammlung bearbeiten",
+  "name": "Name",
+  "description": "Beschreibung",
+  "owner": "Besitzer",
+  "public": "Öffentlich",
+  "public-desc": "Öffentlich (für alle sichtbar)",
+  "private": "Privat",
+  "private-desc": "Privat (nur für mich sichtbar)",
+  "danger-zone": "Gefahrenzone",
+  "delete-collection": "Sammlung löschen",
+  "removing-collection-1": "Löschen Sammlung",
+  "removing-collection-2": "aus RomM. Bist du sicher?"
+}

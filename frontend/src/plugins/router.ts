@@ -1,98 +1,206 @@
 // Composables
 import { createRouter, createWebHistory } from "vue-router";
 import storeHeartbeat from "@/stores/heartbeat";
+import storeAuth from "@/stores/auth";
+import { storeToRefs } from "pinia";
+import type { User } from "@/stores/users";
+
+export const ROUTES = {
+  SETUP: "setup",
+  LOGIN: "login",
+  MAIN: "main",
+  HOME: "home",
+  SEARCH: "search",
+  PLATFORM: "platform",
+  COLLECTION: "collection",
+  ROM: "rom",
+  EMULATORJS: "emulatorjs",
+  RUFFLE: "ruffle",
+  SCAN: "scan",
+  USER_INTERFACE: "user-interface",
+  LIBRARY_MANAGEMENT: "library-management",
+  ADMINISTRATION: "administration",
+  NOT_FOUND: "404",
+} as const;
 
 const routes = [
   {
-    path: "/login",
-    name: "login",
-    component: () => import("@/views/Login.vue"),
+    path: "/setup",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: ROUTES.SETUP,
+        component: () => import("@/views/Auth/Setup.vue"),
+      },
+    ],
   },
   {
-    path: "/setup",
-    name: "setup",
-    component: () => import("@/views/Setup.vue"),
+    path: "/login",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: ROUTES.LOGIN,
+        component: () => import("@/views/Auth/Login.vue"),
+      },
+    ],
   },
   {
     path: "/",
-    name: "home",
-    component: () => import("@/views/Home.vue"),
+    name: ROUTES.MAIN,
+    component: () => import("@/layouts/Main.vue"),
     children: [
       {
-        path: "/",
-        name: "dashboard",
-        component: () => import("@/views/Dashboard.vue"),
+        path: "",
+        name: ROUTES.HOME,
+        component: () => import("@/views/Home.vue"),
       },
       {
-        path: "/platform/:platform",
-        name: "platform",
+        path: "search",
+        name: ROUTES.SEARCH,
+        component: () => import("@/views/Gallery/Search.vue"),
+      },
+      {
+        path: "platform/:platform",
+        name: ROUTES.PLATFORM,
         component: () => import("@/views/Gallery/Platform.vue"),
       },
       {
-        path: "/collection/:collection",
-        name: "collection",
+        path: "collection/:collection",
+        name: ROUTES.COLLECTION,
         component: () => import("@/views/Gallery/Collection.vue"),
       },
       {
-        path: "/rom/:rom",
-        name: "rom",
+        path: "rom/:rom",
+        name: ROUTES.ROM,
         component: () => import("@/views/GameDetails.vue"),
       },
       {
-        path: "/rom/:rom/ejs",
-        name: "emulatorjs",
-        component: () => import("@/views/EmulatorJS/Base.vue"),
+        path: "rom/:rom/ejs",
+        name: ROUTES.EMULATORJS,
+        component: () => import("@/views/Player/EmulatorJS/Base.vue"),
       },
       {
-        path: "/rom/:rom/ruffle",
-        name: "ruffle",
-        component: () => import("@/views/RuffleRS/Base.vue"),
+        path: "rom/:rom/ruffle",
+        name: ROUTES.RUFFLE,
+        component: () => import("@/views/Player/RuffleRS/Base.vue"),
       },
       {
-        path: "/scan",
-        name: "scan",
+        path: "scan",
+        name: ROUTES.SCAN,
         component: () => import("@/views/Scan.vue"),
       },
       {
-        path: "/management",
-        name: "management",
-        component: () => import("@/views/Management.vue"),
+        path: "user-interface",
+        component: () => import("@/layouts/Settings.vue"),
+        children: [
+          {
+            path: "",
+            name: ROUTES.USER_INTERFACE,
+            component: () => import("@/views/Settings/UserInterface.vue"),
+          },
+        ],
       },
       {
-        path: "/settings",
-        name: "settings",
-        component: () => import("@/views/Settings.vue"),
+        path: "library-management",
+        component: () => import("@/layouts/Settings.vue"),
+        children: [
+          {
+            path: "",
+            name: ROUTES.LIBRARY_MANAGEMENT,
+            component: () => import("@/views/Settings/LibraryManagement.vue"),
+          },
+        ],
       },
       {
-        path: "/administration",
-        name: "administration",
-        component: () => import("@/views/Administration.vue"),
+        path: "administration",
+        component: () => import("@/layouts/Settings.vue"),
+        children: [
+          {
+            path: "",
+            name: ROUTES.ADMINISTRATION,
+            component: () => import("@/views/Settings/Administration.vue"),
+          },
+        ],
       },
       {
-        path: "/:pathMatch(.*)*",
-        name: "noMatch",
-        component: () => import("@/views/Dashboard.vue"),
+        path: ":pathMatch(.*)*",
+        name: ROUTES.NOT_FOUND,
+        component: () => import("@/views/404.vue"),
       },
     ],
   },
 ];
+
+interface RoutePermissions {
+  path: string;
+  requiredScopes: string[];
+}
 
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
 });
 
-router.beforeEach((to, _from, next) => {
+const routePermissions: RoutePermissions[] = [
+  { path: ROUTES.SCAN, requiredScopes: ["platforms.write"] },
+  { path: ROUTES.LIBRARY_MANAGEMENT, requiredScopes: ["platforms.write"] },
+  { path: ROUTES.ADMINISTRATION, requiredScopes: ["users.write"] },
+];
+
+function checkRoutePermissions(route: string, user: User | null): boolean {
+  // No checks needed for login and setup pages
+  if (route === ROUTES.LOGIN || route === ROUTES.SETUP) return true;
+
+  // No user, no access
+  if (!user) return false;
+
+  // Check if route has permissions requirements
+  const routeConfig = routePermissions.find((config) => config.path === route);
+  if (!routeConfig) return true;
+
+  // Check if user has required scopes
+  return routeConfig.requiredScopes.every((scope) =>
+    user.oauth_scopes.includes(scope),
+  );
+}
+
+router.beforeEach(async (to, _from, next) => {
   const heartbeat = storeHeartbeat();
-  if (to.name == "setup" && !heartbeat.value.SHOW_SETUP_WIZARD) {
-    next({ name: "dashboard" });
-  } else {
+  const auth = storeAuth();
+  const { user } = storeToRefs(auth);
+  const currentRoute = to.name?.toString();
+
+  try {
+    // Handle setup wizard
+    if (heartbeat.value.SYSTEM.SHOW_SETUP_WIZARD) {
+      return currentRoute !== "setup" ? next({ name: ROUTES.SETUP }) : next();
+    }
+
+    // Handle authentication
+    if (!user.value && currentRoute !== ROUTES.LOGIN) {
+      return next({ name: ROUTES.LOGIN });
+    }
+
+    if (user.value && currentRoute == ROUTES.SETUP) {
+      return next({ name: ROUTES.HOME });
+    }
+
+    // Check permissions
+    if (currentRoute && !checkRoutePermissions(currentRoute, user.value)) {
+      return next({ name: ROUTES.NOT_FOUND });
+    }
+
     next();
+  } catch (error) {
+    console.error("Navigation guard error:", error);
+    next({ name: ROUTES.LOGIN });
   }
 });
 
 router.afterEach(() => {
-  // Scroll to top to avoid annoying behaviour in mobile
+  // Scroll to top to avoid annoying behaviour on mobile
   window.scrollTo({ top: 0, left: 0 });
 });
 

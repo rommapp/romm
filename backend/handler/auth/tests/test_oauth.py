@@ -23,6 +23,8 @@ async def test_get_current_active_user_from_bearer_token(admin_user):
         },
     )
     user, claims = await oauth_handler.get_current_active_user_from_bearer_token(token)
+    if not user or not claims:
+        pytest.fail("User or claims not found")
 
     assert user.id == admin_user.id
     assert claims["sub"] == admin_user.username
@@ -61,7 +63,7 @@ async def test_get_current_active_user_from_bearer_token_disabled_user(admin_use
         await oauth_handler.get_current_active_user_from_bearer_token(token)
     except HTTPException as e:
         assert e.status_code == 401
-        assert e.detail == "Inactive user"
+        assert e.detail == "Disabled user"
 
 
 def test_protected_route():

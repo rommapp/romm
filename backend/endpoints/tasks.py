@@ -1,13 +1,17 @@
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from fastapi import Request
+from handler.auth.constants import Scope
 from tasks.update_switch_titledb import update_switch_titledb_task
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/tasks",
+    tags=["tasks"],
+)
 
 
-@protected_route(router.post, "/tasks/run", ["tasks.run"])
+@protected_route(router.post, "/run", [Scope.TASKS_RUN])
 async def run_tasks(request: Request) -> MessageResponse:
     """Run all tasks endpoint
 
@@ -21,7 +25,7 @@ async def run_tasks(request: Request) -> MessageResponse:
     return {"msg": "All tasks ran successfully!"}
 
 
-@protected_route(router.post, "/tasks/{task}/run", ["tasks.run"])
+@protected_route(router.post, "/{task}/run", [Scope.TASKS_RUN])
 async def run_task(request: Request, task: str) -> MessageResponse:
     """Run all tasks endpoint
 

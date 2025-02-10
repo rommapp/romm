@@ -78,12 +78,23 @@ def extract_metadata_from_moby_rom(rom: dict) -> MobyMetadata:
 
 class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.platform_url = "https://api.mobygames.com/v1/platforms"
-        self.games_url = "https://api.mobygames.com/v1/games"
+        self.BASE_URL = "https://api.mobygames.com/v1"
+        self.platform_url = f"{self.BASE_URL}/platforms"
+        self.games_url = f"{self.BASE_URL}/games"
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
         authorized_url = yarl.URL(url).update_query(api_key=MOBYGAMES_API_KEY)
+        masked_url = authorized_url.with_query(
+            self._mask_sensitive_values(dict(authorized_url.query))
+        )
+
+        log.debug(
+            "API request: URL=%s, Timeout=%s",
+            masked_url,
+            timeout,
+        )
+
         try:
             res = await httpx_client.get(str(authorized_url), timeout=timeout)
             res.raise_for_status()
@@ -107,10 +118,16 @@ class MobyGamesHandler(MetadataHandler):
                 log.error(err)
                 return {}
         except httpx.TimeoutException:
+            log.debug(
+                "Request to URL=%s timed out. Retrying with URL=%s", masked_url, url
+            )
             # Retry the request once if it times out
-            pass
-
         try:
+            log.debug(
+                "API request: URL=%s, Timeout=%s",
+                url,
+                timeout,
+            )
             res = await httpx_client.get(url, timeout=timeout)
             res.raise_for_status()
         except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
@@ -120,7 +137,6 @@ class MobyGamesHandler(MetadataHandler):
             ):
                 # Sometimes Mobygames returns 401 even with a valid API key
                 return {}
-
             # Log the error and return an empty dict if the request fails with a different code
             log.error(err)
             return {}
@@ -164,7 +180,7 @@ class MobyGamesHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, file_name: str, platform_moby_id: int) -> MobyGamesRom:
+    async def get_rom(self, fs_name: str, platform_moby_id: int) -> MobyGamesRom:
         from handler.filesystem import fs_rom_handler
 
         if not MOBY_API_ENABLED:
@@ -173,17 +189,17 @@ class MobyGamesHandler(MetadataHandler):
         if not platform_moby_id:
             return MobyGamesRom(moby_id=None)
 
-        search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = MobyGamesRom(moby_id=None)
 
         # Support for PS2 OPL filename format
-        match = PS2_OPL_REGEX.match(file_name)
+        match = PS2_OPL_REGEX.match(fs_name)
         if platform_moby_id == PS2_MOBY_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS3, PS3)
-        match = SONY_SERIAL_REGEX.search(file_name, re.IGNORECASE)
+        match = SONY_SERIAL_REGEX.search(fs_name, re.IGNORECASE)
         if platform_moby_id == PS1_MOBY_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
@@ -197,7 +213,7 @@ class MobyGamesHandler(MetadataHandler):
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
         # Support for switch titleID filename format
-        match = SWITCH_TITLEDB_REGEX.search(file_name)
+        match = SWITCH_TITLEDB_REGEX.search(fs_name)
         if platform_moby_id == SWITCH_MOBY_ID and match:
             search_term, index_entry = await self._switch_titledb_format(
                 match, search_term
@@ -212,7 +228,7 @@ class MobyGamesHandler(MetadataHandler):
                 )
 
         # Support for switch productID filename format
-        match = SWITCH_PRODUCT_ID_REGEX.search(file_name)
+        match = SWITCH_PRODUCT_ID_REGEX.search(fs_name)
         if platform_moby_id == SWITCH_MOBY_ID and match:
             search_term, index_entry = await self._switch_productid_format(
                 match, search_term
@@ -286,15 +302,15 @@ class MobyGamesHandler(MetadataHandler):
 
         return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
-    async def get_matched_roms_by_id(self, moby_id: int) -> list[MobyGamesRom]:
+    async def get_matched_rom_by_id(self, moby_id: int) -> MobyGamesRom | None:
         if not MOBY_API_ENABLED:
-            return []
+            return None
 
         rom = await self.get_rom_by_id(moby_id)
-        return [rom] if rom["moby_id"] else []
+        return rom if rom["moby_id"] else None
 
     async def get_matched_roms_by_name(
-        self, search_term: str, platform_moby_id: int
+        self, search_term: str, platform_moby_id: int | None
     ) -> list[MobyGamesRom]:
         if not MOBY_API_ENABLED:
             return []
@@ -309,8 +325,8 @@ class MobyGamesHandler(MetadataHandler):
         matched_roms = (await self._request(str(url))).get("games", [])
 
         return [
-            MobyGamesRom(  # type: ignore[misc]
-                {
+            MobyGamesRom(
+                {  # type: ignore[misc]
                     k: v
                     for k, v in {
                         "moby_id": rom["game_id"],

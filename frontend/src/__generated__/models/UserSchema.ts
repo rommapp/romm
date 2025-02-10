@@ -1,13 +1,12 @@
-/* generated using openapi-typescript-codegen -- do no edit */
+/* generated using openapi-typescript-codegen -- do not edit */
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-
 import type { Role } from './Role';
-
 export type UserSchema = {
     id: number;
     username: string;
+    email: (string | null);
     enabled: boolean;
     role: Role;
     oauth_scopes: Array<string>;

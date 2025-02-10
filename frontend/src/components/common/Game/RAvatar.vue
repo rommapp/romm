@@ -1,21 +1,34 @@
 <script setup lang="ts">
 import type { SimpleRom } from "@/stores/roms";
-import { useTheme } from "vuetify";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
+import { computed } from "vue";
 
-withDefaults(defineProps<{ rom: SimpleRom; size?: number }>(), { size: 45 });
-const theme = useTheme();
+const props = withDefaults(defineProps<{ rom: SimpleRom; size?: number }>(), {
+  size: 45,
+});
+
+const unmatchedCoverImage = computed(() =>
+  getUnmatchedCoverImage(props.rom.name || props.rom.fs_name),
+);
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(props.rom.name || props.rom.fs_name),
+);
 </script>
 
 <template>
-  <v-avatar :rounded="0" :size="size">
+  <v-avatar :width="size" rounded="0">
     <v-img
       :src="
         !rom.igdb_id && !rom.moby_id && !rom.has_cover
-          ? `/assets/default/cover/small_${theme.global.name.value}_unmatched.png`
+          ? unmatchedCoverImage
           : rom.has_cover
-          ? `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-          : `/assets/default/cover/small_${theme.global.name.value}_missing_cover.png`
+            ? `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
+            : missingCoverImage
       "
-    />
+    >
+      <template #error>
+        <v-img :src="missingCoverImage" />
+      </template>
+    </v-img>
   </v-avatar>
 </template>

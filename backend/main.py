@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import alembic.config
 import endpoints.sockets.scan  # noqa
+import sentry_sdk
 import uvicorn
 from config import (
     DEV_HOST,
@@ -11,11 +12,12 @@ from config import (
     DISABLE_CSRF_PROTECTION,
     IS_PYTEST_RUN,
     ROMM_AUTH_SECRET_KEY,
+    SENTRY_DSN,
 )
 from endpoints import (
     auth,
     collections,
-    config,
+    configs,
     feeds,
     firmware,
     heartbeat,
@@ -32,7 +34,7 @@ from endpoints import (
 )
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from handler.auth.base_handler import ALGORITHM
+from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
@@ -48,7 +50,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
 
 
-app = FastAPI(title="RomM API", version=get_version(), lifespan=lifespan)
+sentry_sdk.init(
+    dsn=SENTRY_DSN,
+    release="romm@" + get_version(),
+)
+
+app = FastAPI(
+    title="RomM API",
+    version=get_version(),
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -64,7 +77,7 @@ if not IS_PYTEST_RUN and not DISABLE_CSRF_PROTECTION:
         CustomCSRFMiddleware,
         cookie_name="romm_csrftoken",
         secret=ROMM_AUTH_SECRET_KEY,
-        exempt_urls=[re.compile(r"^/token.*"), re.compile(r"^/ws")],
+        exempt_urls=[re.compile(r"^/api/token.*"), re.compile(r"^/ws")],
     )
 
 # Handles both basic and oauth authentication
@@ -96,7 +109,7 @@ app.include_router(saves.router, prefix="/api")
 app.include_router(states.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(feeds.router, prefix="/api")
-app.include_router(config.router, prefix="/api")
+app.include_router(configs.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(raw.router, prefix="/api")
 app.include_router(screenshots.router, prefix="/api")

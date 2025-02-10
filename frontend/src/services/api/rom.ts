@@ -1,10 +1,15 @@
-import type { MessageResponse, SearchRomSchema } from "@/__generated__";
+import type {
+  MessageResponse,
+  SearchRomSchema,
+  RomUserSchema,
+} from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
-import { getDownloadLink } from "@/utils";
+import { getDownloadPath } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
+import storeHeartbeat from "@/stores/heartbeat";
 
 export const romApi = api;
 
@@ -15,6 +20,8 @@ async function uploadRoms({
   platformId: number;
   filesToUpload: File[];
 }): Promise<PromiseSettledResult<unknown>[]> {
+  const heartbeat = storeHeartbeat();
+
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
 
@@ -23,15 +30,15 @@ async function uploadRoms({
     formData.append(file.name, file);
 
     uploadStore.start(file.name);
-
     return new Promise((resolve, reject) => {
       api
         .post("/roms", formData, {
           headers: {
-            "Content-Type": "multipart/form-data; boundary=boundary",
+            "Content-Type": "multipart/form-data",
             "X-Upload-Platform": platformId.toString(),
             "X-Upload-Filename": file.name,
           },
+          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
           params: {},
           onUploadProgress: (progressEvent: AxiosProgressEvent) => {
             uploadStore.update(file.name, progressEvent);
@@ -68,6 +75,7 @@ async function getRoms({
       search_term: searchTerm,
       order_by: orderBy,
       order_dir: orderDir,
+      limit: 2500,
     },
   });
 }
@@ -75,6 +83,12 @@ async function getRoms({
 async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
   return api.get("/roms", {
     params: { order_by: "id", order_dir: "desc", limit: 15 },
+  });
+}
+
+async function getRecentPlayedRoms(): Promise<{ data: SimpleRom[] }> {
+  return api.get("/roms", {
+    params: { order_by: "last_played", order_dir: "desc", limit: 15 },
   });
 }
 
@@ -107,13 +121,13 @@ async function searchRom({
 // Used only for multi-file downloads
 async function downloadRom({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
   const a = document.createElement("a");
-  a.href = getDownloadLink({ rom, files });
+  a.href = getDownloadPath({ rom, fileIDs });
 
   document.body.appendChild(a);
   a.click();
@@ -128,22 +142,28 @@ async function updateRom({
   rom,
   renameAsSource = false,
   removeCover = false,
+  unmatch = false,
 }: {
   rom: UpdateRom;
   renameAsSource?: boolean;
   removeCover?: boolean;
+  unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
   const formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
   formData.append("name", rom.name || "");
-  formData.append("file_name", rom.file_name);
+  formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
   formData.append("url_cover", rom.url_cover || "");
   if (rom.artwork) formData.append("artwork", rom.artwork);
 
   return api.put(`/roms/${rom.id}`, formData, {
-    params: { rename_as_source: renameAsSource, remove_cover: removeCover },
+    params: {
+      rename_as_source: renameAsSource,
+      remove_cover: removeCover,
+      unmatch_metadata: unmatch,
+    },
   });
 }
 
@@ -162,19 +182,19 @@ async function deleteRoms({
 
 async function updateUserRomProps({
   romId,
-  noteRawMarkdown,
-  noteIsPublic,
-  isMainSibling,
+  data,
+  updateLastPlayed = false,
+  removeLastPlayed = false,
 }: {
   romId: number;
-  noteRawMarkdown: string;
-  noteIsPublic: boolean;
-  isMainSibling: boolean;
-}): Promise<{ data: DetailedRom }> {
+  data: Partial<RomUserSchema>;
+  updateLastPlayed?: boolean;
+  removeLastPlayed?: boolean;
+}): Promise<{ data: RomUserSchema }> {
   return api.put(`/roms/${romId}/props`, {
-    note_raw_markdown: noteRawMarkdown,
-    note_is_public: noteIsPublic,
-    is_main_sibling: isMainSibling,
+    data: data,
+    update_last_played: updateLastPlayed,
+    remove_last_played: removeLastPlayed,
   });
 }
 
@@ -182,6 +202,7 @@ export default {
   uploadRoms,
   getRoms,
   getRecentRoms,
+  getRecentPlayedRoms,
   getRom,
   downloadRom,
   searchRom,

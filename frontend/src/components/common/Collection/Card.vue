@@ -1,89 +1,104 @@
 <script setup lang="ts">
 import type { Collection } from "@/stores/collections";
-import { useTheme } from "vuetify";
+import storeGalleryView from "@/stores/galleryView";
+import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
+import { computed } from "vue";
 
-withDefaults(
+// Props
+const props = withDefaults(
   defineProps<{
     collection: Collection;
     transformScale?: boolean;
-    showTitle?: boolean;
+    titleOnHover?: boolean;
     showRomCount?: boolean;
     withLink?: boolean;
     src?: string;
   }>(),
   {
     transformScale: false,
-    showTitle: false,
+    titleOnHover: false,
     showRomCount: false,
-    withLink: true,
+    withLink: false,
     src: "",
-  }
+  },
 );
-const theme = useTheme();
+
+const galleryViewStore = storeGalleryView();
+const collectionCoverImage = computed(() =>
+  getCollectionCoverImage(props.collection.name),
+);
+const favoriteCoverImage = computed(() =>
+  getFavoriteCoverImage(props.collection.name),
+);
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
-      v-bind="hoverProps"
+      v-bind="{
+        ...hoverProps,
+        ...(withLink && collection
+          ? {
+              to: { name: 'collection', params: { collection: collection.id } },
+            }
+          : {}),
+      }"
       :class="{
         'on-hover': isHovering,
         'transform-scale': transformScale,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
-      :to="
-        withLink && collection
-          ? { name: 'collection', params: { collection: collection.id } }
-          : ''
-      "
     >
-      <v-row v-if="showTitle" class="pa-1 justify-center bg-primary">
-        <div
-          :title="collection.name?.toString()"
-          class="py-4 px-6 text-truncate text-caption"
-        >
-          <span>{{ collection.name }}</span>
-        </div>
-      </v-row>
       <v-img
         cover
         :src="
           src
             ? src
             : collection.has_cover
-            ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
-            : collection.name && collection.name.toLowerCase() == 'favourites'
-            ? `/assets/default/cover/big_${theme.global.name.value}_fav.png`
-            : `/assets/default/cover/big_${theme.global.name.value}_collection.png`
+              ? `/assets/romm/resources/${collection.path_cover_l}?ts=${collection.updated_at}`
+              : collection.name && collection.name.toLowerCase() == 'favourites'
+                ? favoriteCoverImage
+                : collectionCoverImage
         "
         :lazy-src="
           src
             ? src
             : collection.has_cover
-            ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
-            : collection.name && collection.name.toLowerCase() == 'favourites'
-            ? `/assets/default/cover/small_${theme.global.name.value}_fav.png`
-            : `/assets/default/cover/small_${theme.global.name.value}_collection.png`
+              ? `/assets/romm/resources/${collection.path_cover_s}?ts=${collection.updated_at}`
+              : collection.name && collection.name.toLowerCase() == 'favourites'
+                ? favoriteCoverImage
+                : collectionCoverImage
         "
-        :aspect-ratio="2 / 3"
+        :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
       >
+        <template v-if="titleOnHover">
+          <v-expand-transition>
+            <div
+              v-if="isHovering || !collection.has_cover"
+              class="translucent-dark text-caption text-center text-white"
+            >
+              <v-list-item>{{ collection.name }}</v-list-item>
+            </div>
+          </v-expand-transition>
+        </template>
+
         <div class="position-absolute append-inner">
           <slot name="append-inner"></slot>
         </div>
 
         <template #error>
           <v-img
-            :src="`/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`"
+            :src="collectionCoverImage"
             cover
-            :aspect-ratio="2 / 3"
-          ></v-img>
+            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+          />
         </template>
         <template #placeholder>
           <div class="d-flex align-center justify-center fill-height">
             <v-progress-circular
               :width="2"
               :size="40"
-              color="romm-accent-1"
+              color="primary"
               indeterminate
             />
           </div>
@@ -91,7 +106,7 @@ const theme = useTheme();
       </v-img>
       <v-chip
         v-if="showRomCount"
-        class="bg-chip position-absolute"
+        class="bg-background position-absolute"
         size="x-small"
         style="bottom: 0.5rem; right: 0.5rem"
         label

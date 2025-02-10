@@ -7,7 +7,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, watch } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -20,7 +20,6 @@ const { currentPlatform } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeleteFirmwareDialog", (firmwaresToDelete) => {
   firmwares.value = firmwaresToDelete;
-  updateDataTablePages();
   show.value = true;
 });
 const HEADERS = [
@@ -32,10 +31,6 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
-const page = ref(1);
-const itemsPerPage = ref(10);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Funtcions
 // TODO: remove firmwares from platform dialog (now refresh is needed)
@@ -48,7 +43,7 @@ async function deleteFirmware() {
     .then(() => {
       if (currentPlatform.value?.firmware) {
         currentPlatform.value.firmware = currentPlatform.value.firmware.filter(
-          (firm) => !firmwares.value.includes(firm)
+          (firm) => !firmwares.value.includes(firm),
         );
       }
       emitter?.emit("snackbarShow", {
@@ -70,14 +65,6 @@ async function deleteFirmware() {
   closeDialog();
 }
 
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(firmwares.value.length / itemsPerPage.value);
-}
-
-watch(page, async () => {
-  updateDataTablePages();
-});
-
 function closeDialog() {
   show.value = false;
   firmwaresToDeleteFromFs.value = [];
@@ -96,7 +83,7 @@ function closeDialog() {
     <template #header>
       <v-row no-gutters class="justify-center">
         <span>Removing</span>
-        <span class="text-romm-accent-1 mx-1">{{ firmwares.length }}</span>
+        <span class="text-primary mx-1">{{ firmwares.length }}</span>
         <span>firmware files from RomM</span>
       </v-row>
     </template>
@@ -109,15 +96,12 @@ function closeDialog() {
       </v-list-item>
     </template>
     <template #content>
-      <v-data-table
+      <v-data-table-virtual
         :item-value="(item) => item.id"
         :items="firmwares"
         :width="mdAndUp ? '60vw' : '95vw'"
-        :items-per-page="itemsPerPage"
-        :items-per-page-options="PER_PAGE_OPTIONS"
         :headers="HEADERS"
         v-model="firmwaresToDeleteFromFs"
-        v-model:page="page"
         show-select
       >
         <template #item.name="{ item }">
@@ -175,32 +159,7 @@ function closeDialog() {
             </template>
           </v-list-item>
         </template>
-        <template #bottom>
-          <v-divider />
-          <v-row no-gutters class="pt-2 align-center justify-center">
-            <v-col class="px-6">
-              <v-pagination
-                v-model="page"
-                rounded="0"
-                :show-first-last-page="true"
-                active-color="romm-accent-1"
-                :length="pageCount"
-              />
-            </v-col>
-            <v-col cols="5" sm="3" xl="2">
-              <v-select
-                v-model="itemsPerPage"
-                class="pa-2"
-                label="Firmwares per page"
-                density="compact"
-                variant="outlined"
-                :items="PER_PAGE_OPTIONS"
-                hide-details
-              />
-            </v-col>
-          </v-row>
-        </template>
-      </v-data-table>
+      </v-data-table-virtual>
     </template>
     <template #append>
       <v-row v-if="firmwaresToDeleteFromFs.length > 0" no-gutters>
@@ -220,11 +179,11 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
             Cancel
           </v-btn>
           <v-btn
-            class="text-romm-red bg-terciary"
+            class="text-romm-red bg-toplayer"
             variant="flat"
             @click="deleteFirmware"
           >

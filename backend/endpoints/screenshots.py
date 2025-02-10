@@ -1,37 +1,42 @@
 from decorators.auth import protected_route
-from endpoints.responses.assets import UploadedScreenshotsResponse
-from fastapi import File, HTTPException, Request, UploadFile, status
+from endpoints.responses.assets import ScreenshotSchema, UploadedScreenshotsResponse
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from fastapi import File, Request, UploadFile
+from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot
 from logger.logger import log
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/screenshots",
+    tags=["screenshots"],
+)
 
 
-@protected_route(router.post, "/screenshots", ["assets.write"])
+@protected_route(router.post, "/", [Scope.ASSETS_WRITE])
 def add_screenshots(
     request: Request,
     rom_id: int,
     screenshots: list[UploadFile] = File(...),  # noqa: B008
 ) -> UploadedScreenshotsResponse:
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     current_user = request.user
     log.info(f"Uploading screenshots to {rom.name}")
-
-    if screenshots is None:
-        log.error("No screenshots were uploaded")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No screenshots were uploaded",
-        )
 
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=request.user, platform_fs_slug=rom.platform_slug
     )
 
     for screenshot in screenshots:
+        if not screenshot.filename:
+            log.warning("Skipping empty screenshot")
+            continue
+
         fs_asset_handler.write_file(file=screenshot, path=screenshots_path)
 
         # Scan or update screenshot
@@ -55,8 +60,15 @@ def add_screenshots(
         db_screenshot_handler.add_screenshot(scanned_screenshot)
 
     rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
     return {
         "uploaded": len(screenshots),
-        "screenshots": [s for s in rom.screenshots if s.user_id == current_user.id],
+        "screenshots": [
+            ScreenshotSchema.model_validate(s)
+            for s in rom.screenshots
+            if s.user_id == current_user.id
+        ],
         "merged_screenshots": rom.merged_screenshots,
     }

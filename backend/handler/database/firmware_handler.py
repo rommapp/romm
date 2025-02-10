@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from decorators.database import begin_session
 from models.firmware import Firmware
 from sqlalchemy import and_, delete, select, update
@@ -26,7 +28,7 @@ class DBFirmwareHandler(DBBaseHandler):
         *,
         platform_id: int | None = None,
         session: Session = None,
-    ) -> list[Firmware]:
+    ) -> Sequence[Firmware]:
         return session.scalars(
             select(Firmware)
             .filter_by(platform_id=platform_id)
@@ -45,16 +47,17 @@ class DBFirmwareHandler(DBBaseHandler):
 
     @begin_session
     def update_firmware(self, id: int, data: dict, session: Session = None) -> Firmware:
-        return session.execute(
+        session.execute(
             update(Firmware)
             .where(Firmware.id == id)
             .values(**data)
             .execution_options(synchronize_session="evaluate")
         )
+        return session.query(Firmware).filter_by(id=id).one()
 
     @begin_session
     def delete_firmware(self, id: int, session: Session = None) -> None:
-        return session.execute(
+        session.execute(
             delete(Firmware)
             .where(Firmware.id == id)
             .execution_options(synchronize_session="evaluate")
@@ -62,15 +65,30 @@ class DBFirmwareHandler(DBBaseHandler):
 
     @begin_session
     def purge_firmware(
-        self, platform_id: int, firmware: list[str], session: Session = None
-    ) -> None:
-        return session.execute(
+        self, platform_id: int, fs_firmwares_to_keep: list[str], session: Session = None
+    ) -> Sequence[Firmware]:
+        purged_firmware = (
+            session.scalars(
+                select(Firmware)
+                .order_by(Firmware.file_name.asc())
+                .where(
+                    and_(
+                        Firmware.platform_id == platform_id,
+                        Firmware.file_name.not_in(fs_firmwares_to_keep),
+                    )
+                )
+            )  # type: ignore[attr-defined]
+            .unique()
+            .all()
+        )
+        session.execute(
             delete(Firmware)
             .where(
                 and_(
                     Firmware.platform_id == platform_id,
-                    Firmware.file_name.not_in(firmware),
+                    Firmware.file_name.not_in(fs_firmwares_to_keep),
                 )
             )
             .execution_options(synchronize_session="evaluate")
         )
+        return purged_firmware

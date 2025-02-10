@@ -1,0 +1,16 @@
+{
+  "search-collection": "搜索收藏",
+  "add-collection": "添加收藏",
+  "edit-collection": "编辑收藏",
+  "name": "名称",
+  "description": "描述",
+  "owner": "创建者",
+  "public": "公开",
+  "public-desc": "公开（所有用户可见）",
+  "private": "私有",
+  "private-desc": "私有（仅创建者可见）",
+  "danger-zone": "危险区",
+  "delete-collection": "删除收藏",
+  "removing-collection-1": "将从 RomM 中移除收藏 [",
+  "removing-collection-2": "] ，您确定吗？"
+}
