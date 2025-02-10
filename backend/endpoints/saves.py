@@ -12,10 +12,13 @@ from handler.scan_handler import scan_save
 from logger.logger import log
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/saves",
+    tags=["saves"],
+)
 
 
-@protected_route(router.post, "/saves", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "/", [Scope.ASSETS_WRITE])
 def add_saves(
     request: Request,
     rom_id: int,
@@ -84,17 +87,17 @@ def add_saves(
     }
 
 
-# @protected_route(router.get, "/saves", [Scope.ASSETS_READ])
+# @protected_route(router.get, "/", [Scope.ASSETS_READ])
 # def get_saves(request: Request) -> MessageResponse:
 #     pass
 
 
-# @protected_route(router.get, "/saves/{id}", [Scope.ASSETS_READ])
+# @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 # def get_save(request: Request, id: int) -> MessageResponse:
 #     pass
 
 
-@protected_route(router.put, "/saves/{id}", [Scope.ASSETS_WRITE])
+@protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
 async def update_save(request: Request, id: int) -> SaveSchema:
     data = await request.form()
 
@@ -128,7 +131,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
     return SaveSchema.model_validate(db_save)
 
 
-@protected_route(router.post, "/saves/delete", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "/delete", [Scope.ASSETS_WRITE])
 async def delete_saves(request: Request) -> MessageResponse:
     data: dict = await request.json()
     save_ids: list = data["saves"]
