@@ -12,10 +12,13 @@ from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/search",
+    tags=["search"],
+)
 
 
-@protected_route(router.get, "/search/roms", [Scope.ROMS_READ])
+@protected_route(router.get, "/roms", [Scope.ROMS_READ])
 async def search_rom(
     request: Request,
     rom_id: int,
@@ -117,7 +120,7 @@ async def search_rom(
     return matched_roms
 
 
-@protected_route(router.get, "/search/cover", [Scope.ROMS_READ])
+@protected_route(router.get, "/cover", [Scope.ROMS_READ])
 async def search_cover(
     request: Request,
     search_term: str = "",
