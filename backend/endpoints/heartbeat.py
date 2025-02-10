@@ -21,7 +21,9 @@ from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from utils import get_version
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    tags=["system"],
+)
 
 
 @router.get("/heartbeat")
