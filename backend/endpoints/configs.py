@@ -11,10 +11,13 @@ from handler.auth.constants import Scope
 from logger.logger import log
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/config",
+    tags=["config"],
+)
 
 
-@router.get("/config")
+@router.get("/")
 def get_config() -> ConfigResponse:
     """Get config endpoint
 
@@ -41,7 +44,7 @@ def get_config() -> ConfigResponse:
         ) from exc
 
 
-@protected_route(router.post, "/config/system/platforms", [Scope.PLATFORMS_WRITE])
+@protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
 async def add_platform_binding(request: Request) -> MessageResponse:
     """Add platform binding to the configuration"""
 
@@ -60,9 +63,7 @@ async def add_platform_binding(request: Request) -> MessageResponse:
     return {"msg": f"{fs_slug} binded to: {slug} successfully!"}
 
 
-@protected_route(
-    router.delete, "/config/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE]
-)
+@protected_route(router.delete, "/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE])
 async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResponse:
     """Delete platform binding from the configuration"""
 
@@ -77,7 +78,7 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResp
     return {"msg": f"{fs_slug} bind removed successfully!"}
 
 
-@protected_route(router.post, "/config/system/versions", [Scope.PLATFORMS_WRITE])
+@protected_route(router.post, "/system/versions", [Scope.PLATFORMS_WRITE])
 async def add_platform_version(request: Request) -> MessageResponse:
     """Add platform version to the configuration"""
 
@@ -96,9 +97,7 @@ async def add_platform_version(request: Request) -> MessageResponse:
     return {"msg": f"Added {fs_slug} as version of: {slug} successfully!"}
 
 
-@protected_route(
-    router.delete, "/config/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE]
-)
+@protected_route(router.delete, "/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE])
 async def delete_platform_version(request: Request, fs_slug: str) -> MessageResponse:
     """Delete platform version from the configuration"""
 
@@ -113,7 +112,7 @@ async def delete_platform_version(request: Request, fs_slug: str) -> MessageResp
     return {"msg": f"{fs_slug} version removed successfully!"}
 
 
-@protected_route(router.post, "/config/exclude", [Scope.PLATFORMS_WRITE])
+@protected_route(router.post, "/exclude", [Scope.PLATFORMS_WRITE])
 async def add_exclusion(request: Request) -> MessageResponse:
     """Add platform exclusion to the configuration"""
 
@@ -135,7 +134,7 @@ async def add_exclusion(request: Request) -> MessageResponse:
 
 @protected_route(
     router.delete,
-    "/config/exclude/{exclusion_type}/{exclusion_value}",
+    "/exclude/{exclusion_type}/{exclusion_value}",
     [Scope.PLATFORMS_WRITE],
 )
 async def delete_exclusion(

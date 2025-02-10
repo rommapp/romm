@@ -12,10 +12,13 @@ from handler.scan_handler import scan_state
 from logger.logger import log
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/states",
+    tags=["states"],
+)
 
 
-@protected_route(router.post, "/states", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "/", [Scope.ASSETS_WRITE])
 def add_states(
     request: Request,
     rom_id: int,
@@ -83,17 +86,17 @@ def add_states(
     }
 
 
-# @protected_route(router.get, "/states", [Scope.ASSETS_READ])
+# @protected_route(router.get, "/", [Scope.ASSETS_READ])
 # def get_states(request: Request) -> MessageResponse:
 #     pass
 
 
-# @protected_route(router.get, "/states/{id}", [Scope.ASSETS_READ])
+# @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
 # def get_state(request: Request, id: int) -> MessageResponse:
 #     pass
 
 
-@protected_route(router.put, "/states/{id}", [Scope.ASSETS_WRITE])
+@protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
 async def update_state(request: Request, id: int) -> StateSchema:
     data = await request.form()
 
@@ -126,7 +129,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
     return StateSchema.model_validate(db_state)
 
 
-@protected_route(router.post, "/states/delete", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "/delete", [Scope.ASSETS_WRITE])
 async def delete_states(request: Request) -> MessageResponse:
     data: dict = await request.json()
     state_ids: list = data["states"]

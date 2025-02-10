@@ -22,7 +22,9 @@ from models.rom import Rom
 from starlette.datastructures import URLPath
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    tags=["feeds"],
+)
 
 
 @protected_route(

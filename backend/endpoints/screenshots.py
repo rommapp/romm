@@ -9,10 +9,13 @@ from handler.scan_handler import scan_screenshot
 from logger.logger import log
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/screenshots",
+    tags=["screenshots"],
+)
 
 
-@protected_route(router.post, "/screenshots", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "/", [Scope.ASSETS_WRITE])
 def add_screenshots(
     request: Request,
     rom_id: int,

@@ -23,7 +23,9 @@ from utils.router import APIRouter
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
 REFRESH_TOKEN_EXPIRE_DAYS: Final = 7
 
-router = APIRouter()
+router = APIRouter(
+    tags=["auth"],
+)
 
 
 # Session authentication endpoints
