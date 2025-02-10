@@ -40,7 +40,7 @@
     "semver": "^7.6.2",
     "socket.io-client": "^4.7.5",
     "vue": "^3.4.27",
-    "vue-i18n": "^11.0.1",
+    "vue-i18n": "^11.1.1",
     "vue-router": "^4.3.2",
     "vuetify": "^3.7.9"
   },
