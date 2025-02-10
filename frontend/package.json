@@ -32,7 +32,7 @@
     "cronstrue": "^2.50.0",
     "js-cookie": "^3.0.5",
     "lodash": "^4.17.21",
-    "md-editor-v3": "^5.2.1",
+    "md-editor-v3": "^5.2.2",
     "mitt": "^3.0.1",
     "nanoid": "^5.0.7",
     "pinia": "^2.3.1",
