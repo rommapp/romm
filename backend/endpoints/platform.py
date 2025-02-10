@@ -14,10 +14,13 @@ from handler.scan_handler import scan_platform
 from logger.logger import log
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/platforms",
+    tags=["platforms"],
+)
 
 
-@protected_route(router.post, "/platforms", [Scope.PLATFORMS_WRITE])
+@protected_route(router.post, "/", [Scope.PLATFORMS_WRITE])
 async def add_platforms(request: Request) -> PlatformSchema:
     """Create platform endpoint
 
@@ -40,7 +43,7 @@ async def add_platforms(request: Request) -> PlatformSchema:
     )
 
 
-@protected_route(router.get, "/platforms", [Scope.PLATFORMS_READ])
+@protected_route(router.get, "/", [Scope.PLATFORMS_READ])
 def get_platforms(request: Request) -> list[PlatformSchema]:
     """Get platforms endpoint
 
@@ -57,7 +60,7 @@ def get_platforms(request: Request) -> list[PlatformSchema]:
     ]
 
 
-@protected_route(router.get, "/platforms/supported", [Scope.PLATFORMS_READ])
+@protected_route(router.get, "/supported", [Scope.PLATFORMS_READ])
 def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     """Get list of supported platforms endpoint
 
@@ -94,7 +97,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     return supported_platforms
 
 
-@protected_route(router.get, "/platforms/{id}", [Scope.PLATFORMS_READ])
+@protected_route(router.get, "/{id}", [Scope.PLATFORMS_READ])
 def get_platform(request: Request, id: int) -> PlatformSchema:
     """Get platforms endpoint
 
@@ -114,7 +117,7 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
     return PlatformSchema.model_validate(platform)
 
 
-@protected_route(router.put, "/platforms/{id}", [Scope.PLATFORMS_WRITE])
+@protected_route(router.put, "/{id}", [Scope.PLATFORMS_WRITE])
 async def update_platform(request: Request, id: int) -> PlatformSchema:
     """Update platform endpoint
 
@@ -138,7 +141,7 @@ async def update_platform(request: Request, id: int) -> PlatformSchema:
     return PlatformSchema.model_validate(platform_db)
 
 
-@protected_route(router.delete, "/platforms/{id}", [Scope.PLATFORMS_WRITE])
+@protected_route(router.delete, "/{id}", [Scope.PLATFORMS_WRITE])
 async def delete_platforms(request: Request, id: int) -> MessageResponse:
     """Delete platforms endpoint
 

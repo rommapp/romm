@@ -23,10 +23,13 @@ from PIL import Image
 from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/collections",
+    tags=["collections"],
+)
 
 
-@protected_route(router.post, "/collections", [Scope.COLLECTIONS_WRITE])
+@protected_route(router.post, "/", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
     artwork: UploadFile | None = None,
@@ -95,7 +98,7 @@ async def add_collection(
     return CollectionSchema.model_validate(created_collection)
 
 
-@protected_route(router.get, "/collections", [Scope.COLLECTIONS_READ])
+@protected_route(router.get, "/", [Scope.COLLECTIONS_READ])
 def get_collections(request: Request) -> list[CollectionSchema]:
     """Get collections endpoint
 
@@ -111,7 +114,7 @@ def get_collections(request: Request) -> list[CollectionSchema]:
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
 
 
-@protected_route(router.get, "/collections/{id}", [Scope.COLLECTIONS_READ])
+@protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
 def get_collection(request: Request, id: int) -> CollectionSchema:
     """Get collections endpoint
 
@@ -131,7 +134,7 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     return CollectionSchema.model_validate(collection)
 
 
-@protected_route(router.put, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
+@protected_route(router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
 async def update_collection(
     request: Request,
     id: int,
@@ -221,7 +224,7 @@ async def update_collection(
     return CollectionSchema.model_validate(updated_collection)
 
 
-@protected_route(router.delete, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
+@protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
 async def delete_collections(request: Request, id: int) -> MessageResponse:
     """Delete collections endpoint
 
