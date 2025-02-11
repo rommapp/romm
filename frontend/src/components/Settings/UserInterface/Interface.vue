@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption.vue";
 import RSection from "@/components/common/RSection.vue";
+import collectionApi from "@/services/api/collection";
+import storeCollections from "@/stores/collections";
 import { computed, ref } from "vue";
 import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
+const collectionsStore = storeCollections();
+
 // Initializing refs from localStorage
 const storedShowRecentRoms = localStorage.getItem("settings.showRecentRoms");
 const showRecentRomsRef = ref(
@@ -47,6 +51,22 @@ const showCollectionsRef = ref(
 const storedGridCollections = localStorage.getItem("settings.gridCollections");
 const gridCollectionsRef = ref(
   isNull(storedGridCollections) ? true : storedGridCollections === "true",
+);
+const storedShowVirtualCollections = localStorage.getItem(
+  "settings.showVirtualCollections",
+);
+const showVirtualCollectionsRef = ref(
+  isNull(storedShowVirtualCollections)
+    ? true
+    : storedShowVirtualCollections === "true",
+);
+const storedVirtualCollectionType = localStorage.getItem(
+  "settings.virtualCollectionType",
+);
+const virtualCollectionTypeRef = ref(
+  isNull(storedVirtualCollectionType)
+    ? "collection"
+    : storedVirtualCollectionType,
 );
 
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
@@ -214,6 +234,20 @@ const toggleGridCollections = (value: boolean) => {
   gridCollectionsRef.value = value;
   localStorage.setItem("settings.gridCollections", value.toString());
 };
+const toggleShowVirtualCollections = (value: boolean) => {
+  showVirtualCollectionsRef.value = value;
+  localStorage.setItem("settings.showVirtualCollections", value.toString());
+};
+const setVirtualCollectionType = async (value: string) => {
+  virtualCollectionTypeRef.value = value;
+  localStorage.setItem("settings.virtualCollectionType", value);
+
+  await collectionApi
+    .getVirtualCollections({ type: value })
+    .then(({ data: virtualCollections }) => {
+      collectionsStore.setVirtual(virtualCollections);
+    });
+};
 
 const toggleGroupRoms = (value: boolean) => {
   groupRomsRef.value = value;
@@ -292,6 +326,50 @@ const toggleStatus = (value: boolean) => {
             "
             v-model="option.model.value"
             @update:model-value="option.modelTrigger"
+          />
+        </v-col>
+      </v-row>
+      <v-chip
+        label
+        variant="text"
+        prepend-icon="mdi-view-grid"
+        class="ml-2 mt-4"
+        >{{ t("common.virtual-collections") }}</v-chip
+      >
+      <v-divider class="border-opacity-25 mx-2 mb-2" />
+      <v-row class="py-1" no-gutters>
+        <v-col cols="12" md="6">
+          <interface-option
+            class="mx-2"
+            :title="t('settings.show-virtual-collections')"
+            :description="t('settings.show-virtual-collections-desc')"
+            :icon="
+              showVirtualCollectionsRef
+                ? 'mdi-bookmark-box-multiple'
+                : 'mdi-bookmark-box-multiple'
+            "
+            v-model="showVirtualCollectionsRef"
+            @update:model-value="toggleShowVirtualCollections"
+          />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-select
+            v-model="virtualCollectionTypeRef"
+            :items="[
+              { title: 'IGDB Collection', value: 'collection' },
+              { title: 'Franchise', value: 'franchise' },
+              { title: 'Genre', value: 'genre' },
+              { title: 'Play Mode', value: 'mode' },
+              { title: 'Developer', value: 'company' },
+              { title: 'All (slow)', value: 'all' },
+            ]"
+            :label="t('settings.virtual-collection-type')"
+            class="mx-2"
+            dense
+            outlined
+            hide-details
+            :disabled="!showVirtualCollectionsRef"
+            @update:model-value="setVirtualCollectionType"
           />
         </v-col>
       </v-row>
