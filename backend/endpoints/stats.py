@@ -8,7 +8,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("")
 def stats() -> StatsReturn:
     """Endpoint to return the current RomM stats
 

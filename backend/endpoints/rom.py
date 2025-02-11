@@ -48,7 +48,7 @@ router = APIRouter(
 )
 
 
-@protected_route(router.post, "/", [Scope.ROMS_WRITE])
+@protected_route(router.post, "", [Scope.ROMS_WRITE])
 async def add_rom(request: Request):
     """Upload single rom endpoint
 
@@ -110,7 +110,7 @@ async def add_rom(request: Request):
     return Response(status_code=status.HTTP_201_CREATED)
 
 
-@protected_route(router.get, "/", [Scope.ROMS_READ])
+@protected_route(router.get, "", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
     platform_id: int | None = None,
