@@ -1,6 +1,9 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
-import storeCollection, { type Collection } from "@/stores/collections";
+import storeCollection, {
+  type Collection,
+  type VirtualCollection,
+} from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
@@ -18,6 +21,7 @@ export default defineStore("roms", {
   state: () => ({
     currentPlatform: null as Platform | null,
     currentCollection: null as Collection | null,
+    currentVirtualCollection: null as VirtualCollection | null,
     currentRom: null as DetailedRom | null,
     allRoms: [] as SimpleRom[],
     _grouped: [] as SimpleRom[],
@@ -97,6 +101,9 @@ export default defineStore("roms", {
     },
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
+    },
+    setCurrentVirtualCollection(collection: VirtualCollection | null) {
+      this.currentVirtualCollection = collection;
     },
     set(roms: SimpleRom[]) {
       this.allRoms = roms;
@@ -233,7 +240,7 @@ export default defineStore("roms", {
       const byFavourites = new Set(
         this.filteredRoms
           .filter((rom) =>
-            collectionStore.favCollection?.roms?.includes(rom.id),
+            collectionStore.favCollection?.rom_ids?.includes(rom.id),
           )
           .map((roms) => roms.id),
       );
@@ -277,7 +284,7 @@ export default defineStore("roms", {
       const byCollection = new Set(
         this.filteredRoms
           .filter((rom) =>
-            rom.collections.some(
+            rom.meta_collections.some(
               (collection) => collection === collectionToFilter,
             ),
           )

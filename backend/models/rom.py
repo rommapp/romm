@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
@@ -17,7 +17,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import CustomJSON, safe_float, safe_int
@@ -124,11 +123,18 @@ class Rom(BaseModel):
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
     )
-    files: Mapped[list[RomFile]] = relationship(back_populates="rom", lazy="immediate")
+    files: Mapped[list[RomFile]] = relationship(lazy="immediate", back_populates="rom")
     saves: Mapped[list[Save]] = relationship(back_populates="rom")
     states: Mapped[list[State]] = relationship(back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
     rom_users: Mapped[list[RomUser]] = relationship(back_populates="rom")
+
+    collections: Mapped[list[Collection]] = relationship(
+        "Collection",
+        secondary="collections_roms",
+        collection_class=set,
+        back_populates="roms",
+    )
 
     @property
     def platform_slug(self) -> str:
@@ -155,10 +161,6 @@ class Rom(BaseModel):
         return f"{self.fs_path}/{self.fs_name}"
 
     @cached_property
-    def has_cover(self) -> bool:
-        return bool(self.path_cover_s or self.path_cover_l)
-
-    @cached_property
     def merged_screenshots(self) -> list[str]:
         screenshots = [s.download_path for s in self.screenshots]
         if self.path_screenshots:
@@ -175,13 +177,29 @@ class Rom(BaseModel):
     def fs_size_bytes(self) -> int:
         return sum(f.file_size_bytes for f in self.files)
 
-    def get_collections(self) -> Sequence[Collection]:
-        from handler.database import db_collection_handler
+    @property
+    def fs_resources_path(self) -> str:
+        return f"roms/{str(self.platform_id)}/{str(self.id)}"
 
-        return db_collection_handler.get_collections_by_rom_id(
-            self.id,
-            order_by=[func.lower("name")],
+    @property
+    def path_cover_small(self) -> str:
+        return (
+            f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_s}?ts={self.updated_at}"
+            if self.path_cover_s
+            else ""
         )
+
+    @property
+    def path_cover_large(self) -> str:
+        return (
+            f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_l}?ts={self.updated_at}"
+            if self.path_cover_l
+            else ""
+        )
+
+    @property
+    def is_unidentified(self) -> bool:
+        return not self.igdb_id and not self.moby_id
 
     # Metadata fields
     @property
@@ -237,7 +255,7 @@ class Rom(BaseModel):
         return []
 
     @property
-    def collections(self) -> list[str]:
+    def meta_collections(self) -> list[str]:
         if self.igdb_metadata:
             return self.igdb_metadata.get("collections", [])
         return []
@@ -259,10 +277,6 @@ class Rom(BaseModel):
         if self.igdb_metadata:
             return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
         return []
-
-    @property
-    def fs_resources_path(self) -> str:
-        return f"roms/{str(self.platform_id)}/{str(self.id)}"
 
     def __repr__(self) -> str:
         return self.fs_name
