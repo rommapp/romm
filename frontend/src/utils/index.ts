@@ -94,6 +94,7 @@ export function getDownloadPath({
   fileIDs?: number[];
 }) {
   const queryParams = new URLSearchParams();
+  queryParams.append("hidden_folder", "true");
   if (fileIDs.length > 0) {
     fileIDs.forEach((fileId) =>
       queryParams.append("file_ids", fileId.toString()),

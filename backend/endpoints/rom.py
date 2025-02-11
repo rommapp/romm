@@ -31,7 +31,7 @@ from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
 from logger.logger import log
-from models.rom import Rom, RomUser
+from models.rom import Rom, RomFile, RomUser
 from PIL import Image
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
@@ -311,12 +311,39 @@ async def get_rom_content(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    hidden_folder = request.query_params.get("hidden_folder") == "true"
     file_ids = request.query_params.get("file_ids") or ""
     file_ids = [int(f) for f in file_ids.split(",") if f]
     files = db_rom_handler.get_rom_files(rom.id)
     files = [f for f in files if f.id in file_ids or not file_ids]
 
     log.info(f"User {current_username} is downloading {rom.fs_name}")
+
+    async def create_zip_content(f: RomFile, base_path: str = LIBRARY_BASE_PATH):
+        filename = f.full_path.replace(rom.full_path, "")
+        return ZipContentLine(
+            crc32=f.crc_hash,
+            size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
+            encoded_location=quote(f"{base_path}/{f.full_path}"),
+            filename=f".hidden/{filename}" if hidden_folder else filename,
+        )
+
+    def with_m3u_file(content_lines):
+        m3u_encoded_content = "\n".join(
+            [f.full_path.replace(rom.full_path, "") for f in files]
+        ).encode()
+        m3u_base64_content = b64encode(m3u_encoded_content).decode()
+        m3u_line = ZipContentLine(
+            crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
+            size_bytes=len(m3u_encoded_content),
+            encoded_location=f"/decode?value={m3u_base64_content}",
+            filename=f"{file_name}.m3u",
+        )
+
+        return ZipResponse(
+            content_lines=content_lines + [m3u_line],
+            filename=f"{quote(file_name)}.zip",
+        )
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
@@ -345,20 +372,9 @@ async def get_rom_content(
                 },
             )
 
-        content_lines = [
-            ZipContentLine(
-                crc32=f.crc_hash,
-                size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
-                encoded_location=quote(f"{LIBRARY_BASE_PATH}/{f.full_path}"),
-                filename=f.full_path.replace(rom.full_path, ""),
-            )
-            for f in files
-        ]
+        content_lines = [await create_zip_content(f) for f in files]
 
-        return ZipResponse(
-            content_lines=content_lines,
-            filename=f"{quote(file_name)}.zip",
-        )
+        return with_m3u_file(content_lines=content_lines)
 
     # Otherwise proxy through nginx
     if not rom.multi:
@@ -372,31 +388,9 @@ async def get_rom_content(
             download_path=Path(f"/library/{files[0].full_path}"),
         )
 
-    content_lines = [
-        ZipContentLine(
-            crc32=f.crc_hash,
-            size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
-            encoded_location=quote(f"/library-zip/{f.full_path}"),
-            filename=f.full_path.replace(rom.full_path, ""),
-        )
-        for f in files
-    ]
+    content_lines = [await create_zip_content(f, "/library-zip") for f in files]
 
-    m3u_encoded_content = "\n".join(
-        [f.full_path.replace(rom.full_path, "") for f in files]
-    ).encode()
-    m3u_base64_content = b64encode(m3u_encoded_content).decode()
-    m3u_line = ZipContentLine(
-        crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
-        size_bytes=len(m3u_encoded_content),
-        encoded_location=f"/decode?value={m3u_base64_content}",
-        filename=f"{file_name}.m3u",
-    )
-
-    return ZipResponse(
-        content_lines=content_lines + [m3u_line],
-        filename=f"{quote(file_name)}.zip",
-    )
+    return with_m3u_file(content_lines=content_lines)
 
 
 @protected_route(router.put, "/{id}", [Scope.ROMS_WRITE])
