@@ -58,12 +58,14 @@ async function uploadRoms({
 async function getRoms({
   platformId = null,
   collectionId = null,
+  virtualCollectionId = null,
   searchTerm = "",
   orderBy = "name",
   orderDir = "asc",
 }: {
   platformId?: number | null;
   collectionId?: number | null;
+  virtualCollectionId?: string | null;
   searchTerm?: string | null;
   orderBy?: string | null;
   orderDir?: string | null;
@@ -72,6 +74,7 @@ async function getRoms({
     params: {
       platform_id: platformId,
       collection_id: collectionId,
+      virtual_collection_id: virtualCollectionId,
       search_term: searchTerm,
       order_by: orderBy,
       order_dir: orderDir,

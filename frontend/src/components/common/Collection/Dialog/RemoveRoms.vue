@@ -7,11 +7,13 @@ import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { ROUTES } from "@/plugins/router";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 
 // Props
 const { t } = useI18n();
@@ -21,9 +23,13 @@ const romsStore = storeRoms();
 const collectionsStore = storeCollections();
 const selectedCollection = ref<UpdatedCollection>();
 const roms = ref<SimpleRom[]>([]);
+const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showRemoveFromCollectionDialog", (romsToRemove) => {
+  if (!romsStore.currentCollection) return;
+
   roms.value = romsToRemove;
+  selectedCollection.value = romsStore.currentCollection;
   show.value = true;
 });
 const HEADERS = [
@@ -37,7 +43,7 @@ const HEADERS = [
 
 async function removeRomsFromCollection() {
   if (!selectedCollection.value) return;
-  selectedCollection.value.roms = selectedCollection.value.roms.filter(
+  selectedCollection.value.rom_ids = selectedCollection.value.rom_ids.filter(
     (id) => !roms.value.map((r) => r.id).includes(id),
   );
   await collectionApi
@@ -63,6 +69,10 @@ async function removeRomsFromCollection() {
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       romsStore.resetSelection();
+      if (selectedCollection.value?.rom_ids.length == 0) {
+        router.push({ name: "home" });
+      }
+      closeDialog();
     });
   closeDialog();
 }
@@ -84,9 +94,9 @@ function closeDialog() {
   >
     <template #header>
       <v-row no-gutters class="justify-center">
-        <span>{{ t("rom.remove-from-collection-part1") }}</span>
+        <span>{{ t("rom.removing-from-collection-part1") }}</span>
         <span class="text-primary mx-1">{{ roms.length }}</span>
-        <span>{{ t("rom.remove-from-collection-part2") }}</span>
+        <span>{{ t("rom.removing-from-collection-part2") }}</span>
       </v-row>
     </template>
     <template #prepend>

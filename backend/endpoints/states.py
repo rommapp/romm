@@ -18,7 +18,7 @@ router = APIRouter(
 )
 
 
-@protected_route(router.post, "/", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "", [Scope.ASSETS_WRITE])
 def add_states(
     request: Request,
     rom_id: int,
@@ -86,7 +86,7 @@ def add_states(
     }
 
 
-# @protected_route(router.get, "/", [Scope.ASSETS_READ])
+# @protected_route(router.get, "", [Scope.ASSETS_READ])
 # def get_states(request: Request) -> MessageResponse:
 #     pass
 

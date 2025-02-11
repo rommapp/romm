@@ -29,11 +29,7 @@ const unmatchedCoverImage = computed(() =>
   >
     <v-img
       id="background-image"
-      :src="
-        !currentRom.igdb_id && !currentRom.moby_id && !currentRom.has_cover
-          ? unmatchedCoverImage
-          : `/assets/romm/resources/${currentRom.path_cover_l}?ts=${currentRom.updated_at}`
-      "
+      :src="currentRom?.path_cover_large || unmatchedCoverImage"
       lazy
       cover
     >

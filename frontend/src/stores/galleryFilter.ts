@@ -7,7 +7,7 @@ export type Platform = PlatformSchema;
 const filters = [
   "genres",
   "franchises",
-  "collections",
+  "meta_collections",
   "companies",
   "age_ratings",
   "status",
