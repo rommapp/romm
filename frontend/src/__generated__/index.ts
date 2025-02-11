@@ -58,6 +58,7 @@ export type { UploadedStatesResponse } from './models/UploadedStatesResponse';
 export type { UserNotesSchema } from './models/UserNotesSchema';
 export type { UserSchema } from './models/UserSchema';
 export type { ValidationError } from './models/ValidationError';
+export type { VirtualCollectionSchema } from './models/VirtualCollectionSchema';
 export type { WatcherDict } from './models/WatcherDict';
 export type { WebrcadeFeedCategorySchema } from './models/WebrcadeFeedCategorySchema';
 export type { WebrcadeFeedItemPropsSchema } from './models/WebrcadeFeedItemPropsSchema';

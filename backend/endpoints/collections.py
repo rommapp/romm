@@ -6,7 +6,7 @@ from anyio import Path
 from config import RESOURCES_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.collection import CollectionSchema
+from endpoints.responses.collection import CollectionSchema, VirtualCollectionSchema
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
@@ -111,7 +111,28 @@ def get_collections(request: Request) -> list[CollectionSchema]:
     """
 
     collections = db_collection_handler.get_collections()
+
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
+
+
+@protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
+def get_virtual_collections(
+    request: Request,
+    type: str,
+    limit: int | None = None,
+) -> list[VirtualCollectionSchema]:
+    """Get virtual collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[VirtualCollectionSchema]: List of virtual collections
+    """
+
+    virtual_collections = db_collection_handler.get_virtual_collections(type, limit)
+
+    return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
@@ -127,11 +148,29 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     """
 
     collection = db_collection_handler.get_collection(id)
-
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
     return CollectionSchema.model_validate(collection)
+
+
+@protected_route(router.get, "/virtual/{id}", [Scope.COLLECTIONS_READ])
+def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema:
+    """Get virtual collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (str): Virtual collection id
+
+    Returns:
+        VirtualCollectionSchema: Virtual collection
+    """
+
+    virtual_collection = db_collection_handler.get_virtual_collection(id)
+    if not virtual_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    return VirtualCollectionSchema.model_validate(virtual_collection)
 
 
 @protected_route(router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
@@ -164,17 +203,14 @@ async def update_collection(
         raise CollectionNotFoundInDatabaseException(id)
 
     try:
-        roms = json.loads(data["roms"])  # type: ignore
+        rom_ids = json.loads(data["rom_ids"])  # type: ignore
     except json.JSONDecodeError as e:
-        raise ValueError("Invalid list for roms field in update collection") from e
-    except KeyError:
-        roms = collection.roms
+        raise ValueError("Invalid list for rom_ids field in update collection") from e
 
     cleaned_data = {
         "name": data.get("name", collection.name),
         "description": data.get("description", collection.description),
         "is_public": is_public if is_public is not None else collection.is_public,
-        "roms": list(set(roms)),
         "user_id": request.user.id,
     }
 
@@ -219,7 +255,9 @@ async def update_collection(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
 
-    updated_collection = db_collection_handler.update_collection(id, cleaned_data)
+    updated_collection = db_collection_handler.update_collection(
+        id, cleaned_data, rom_ids
+    )
 
     return CollectionSchema.model_validate(updated_collection)
 

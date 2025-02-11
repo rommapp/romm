@@ -26,7 +26,7 @@ from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from handler.auth.constants import Scope
-from handler.database import db_collection_handler, db_platform_handler, db_rom_handler
+from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler
@@ -115,6 +115,7 @@ def get_roms(
     request: Request,
     platform_id: int | None = None,
     collection_id: int | None = None,
+    virtual_collection_id: str | None = None,
     search_term: str = "",
     limit: int | None = None,
     offset: int | None = None,
@@ -128,6 +129,7 @@ def get_roms(
         request (Request): Fastapi Request object
         platform_id (int, optional): Platform ID to filter ROMs
         collection_id (int, optional): Collection ID to filter ROMs
+        virtual_collection_id (str, optional): Virtual Collection ID to filter ROMs
         search_term (str, optional): Search term to filter ROMs
         limit (int, optional): Limit the number of ROMs returned
         offset (int, optional): Offset for pagination
@@ -143,6 +145,7 @@ def get_roms(
         roms = db_rom_handler.get_roms(
             platform_id=platform_id,
             collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
             search_term=search_term.lower(),
             order_by=order_by.lower(),
             order_dir=order_dir.lower(),
@@ -154,6 +157,7 @@ def get_roms(
             user_id=request.user.id,
             platform_id=platform_id,
             collection_id=collection_id,
+            virtual_collection_id=virtual_collection_id,
             search_term=search_term,
             order_by=order_by,
             order_dir=order_dir,
@@ -604,14 +608,6 @@ async def delete_roms(
 
         log.info(f"Deleting {rom.fs_name} from database")
         db_rom_handler.delete_rom(id)
-
-        # Update collections to remove the deleted rom
-        collections = db_collection_handler.get_collections_by_rom_id(id)
-        for collection in collections:
-            collection.roms = {rom_id for rom_id in collection.roms if rom_id != id}
-            db_collection_handler.update_collection(
-                collection.id, {"roms": collection.roms}
-            )
 
         try:
             rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
