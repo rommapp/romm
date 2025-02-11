@@ -17,7 +17,7 @@ router = APIRouter(
 )
 
 
-@router.get("/")
+@router.get("")
 def get_config() -> ConfigResponse:
     """Get config endpoint
 

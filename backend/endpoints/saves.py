@@ -18,7 +18,7 @@ router = APIRouter(
 )
 
 
-@protected_route(router.post, "/", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "", [Scope.ASSETS_WRITE])
 def add_saves(
     request: Request,
     rom_id: int,
@@ -87,7 +87,7 @@ def add_saves(
     }
 
 
-# @protected_route(router.get, "/", [Scope.ASSETS_READ])
+# @protected_route(router.get, "", [Scope.ASSETS_READ])
 # def get_saves(request: Request) -> MessageResponse:
 #     pass
 
