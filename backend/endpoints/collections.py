@@ -29,7 +29,7 @@ router = APIRouter(
 )
 
 
-@protected_route(router.post, "/", [Scope.COLLECTIONS_WRITE])
+@protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
     artwork: UploadFile | None = None,
@@ -98,7 +98,7 @@ async def add_collection(
     return CollectionSchema.model_validate(created_collection)
 
 
-@protected_route(router.get, "/", [Scope.COLLECTIONS_READ])
+@protected_route(router.get, "", [Scope.COLLECTIONS_READ])
 def get_collections(request: Request) -> list[CollectionSchema]:
     """Get collections endpoint
 

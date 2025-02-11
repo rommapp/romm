@@ -20,7 +20,7 @@ router = APIRouter(
 )
 
 
-@protected_route(router.post, "/", [Scope.PLATFORMS_WRITE])
+@protected_route(router.post, "", [Scope.PLATFORMS_WRITE])
 async def add_platforms(request: Request) -> PlatformSchema:
     """Create platform endpoint
 
@@ -43,7 +43,7 @@ async def add_platforms(request: Request) -> PlatformSchema:
     )
 
 
-@protected_route(router.get, "/", [Scope.PLATFORMS_READ])
+@protected_route(router.get, "", [Scope.PLATFORMS_READ])
 def get_platforms(request: Request) -> list[PlatformSchema]:
     """Get platforms endpoint
 

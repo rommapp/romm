@@ -17,7 +17,7 @@ router = APIRouter(
 )
 
 
-@protected_route(router.post, "/", [Scope.FIRMWARE_WRITE])
+@protected_route(router.post, "", [Scope.FIRMWARE_WRITE])
 def add_firmware(
     request: Request,
     platform_id: int,
@@ -84,7 +84,7 @@ def add_firmware(
     }
 
 
-@protected_route(router.get, "/", [Scope.FIRMWARE_READ])
+@protected_route(router.get, "", [Scope.FIRMWARE_READ])
 def get_platform_firmware(
     request: Request,
     platform_id: int | None = None,
