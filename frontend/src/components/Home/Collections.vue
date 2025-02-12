@@ -17,9 +17,9 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
   <r-section icon="mdi-bookmark-box-multiple" :title="t('common.collections')">
     <template #content>
       <v-row
+        class="py-2"
         :class="{
           'flex-nowrap overflow-x-auto': !gridCollections,
-          'py-2': true,
         }"
         no-gutters
       >
