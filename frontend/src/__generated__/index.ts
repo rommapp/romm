@@ -4,11 +4,11 @@
 /* eslint-disable */
 
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
-export type { Body_add_collection_api_collections__post } from './models/Body_add_collection_api_collections__post';
-export type { Body_add_firmware_api_firmware__post } from './models/Body_add_firmware_api_firmware__post';
-export type { Body_add_saves_api_saves__post } from './models/Body_add_saves_api_saves__post';
-export type { Body_add_screenshots_api_screenshots__post } from './models/Body_add_screenshots_api_screenshots__post';
-export type { Body_add_states_api_states__post } from './models/Body_add_states_api_states__post';
+export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
+export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firmware_api_firmware_post';
+export type { Body_add_saves_api_saves_post } from './models/Body_add_saves_api_saves_post';
+export type { Body_add_screenshots_api_screenshots_post } from './models/Body_add_screenshots_api_screenshots_post';
+export type { Body_add_states_api_states_post } from './models/Body_add_states_api_states_post';
 export type { Body_token_api_token_post } from './models/Body_token_api_token_post';
 export type { Body_update_collection_api_collections__id__put } from './models/Body_update_collection_api_collections__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
