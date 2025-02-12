@@ -74,6 +74,7 @@ function clear() {
         with-link
       />
       <template v-if="showVirtualCollections">
+        <v-divider class="my-4 mx-4" />
         <v-list-subheader class="uppercase">{{
           t("common.virtual-collections").toUpperCase()
         }}</v-list-subheader>
