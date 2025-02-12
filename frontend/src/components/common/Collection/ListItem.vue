@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { Collection } from "@/stores/collections";
+import type { Collection, VirtualCollection } from "@/stores/collections";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 
 // Props
 withDefaults(
   defineProps<{
-    collection: Collection;
+    collection: Collection | VirtualCollection;
     withTitle?: boolean;
     withDescription?: boolean;
     withRomCount?: boolean;

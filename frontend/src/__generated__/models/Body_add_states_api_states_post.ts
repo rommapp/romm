@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Body_add_saves_api_saves__post = {
-    saves: Array<Blob>;
+export type Body_add_states_api_states_post = {
+    states: Array<Blob>;
 };
 
