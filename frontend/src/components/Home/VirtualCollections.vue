@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import VirtualCollectionCard from "@/components/common/Collection/Virtual/Card.vue";
+import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeCollections from "@/stores/collections";
 import { views } from "@/utils";
@@ -20,6 +20,7 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
   >
     <template #content>
       <v-row
+        class="py-2"
         :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
         no-gutters
       >
@@ -33,9 +34,9 @@ const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <virtual-collection-card
+          <collection-card
             show-rom-count
-            show-title
+            title-on-hover
             transform-scale
             :key="collection.id"
             :collection="collection"
