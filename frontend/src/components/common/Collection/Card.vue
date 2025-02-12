@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import type { Collection } from "@/stores/collections";
+import type { Collection, VirtualCollection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
+import storeCollections from "@/stores/collections";
 import { computed, ref, watchEffect } from "vue";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 
 // Props
 const props = withDefaults(
   defineProps<{
-    collection: Collection;
+    collection: Collection | VirtualCollection;
     transformScale?: boolean;
     showTitle?: boolean;
     titleOnHover?: boolean;
@@ -26,6 +27,7 @@ const props = withDefaults(
 );
 
 const galleryViewStore = storeGalleryView();
+const collectionsStore = storeCollections();
 
 const memoizedCovers = ref({
   large: ["", ""],
@@ -47,7 +49,11 @@ watchEffect(() => {
     return;
   }
 
-  if (props.collection.path_cover_large && props.collection.path_cover_small) {
+  if (
+    !collectionsStore.isVirtualCollection(props.collection) &&
+    props.collection.path_cover_large &&
+    props.collection.path_cover_small
+  ) {
     memoizedCovers.value = {
       large: [
         props.collection.path_cover_large,
