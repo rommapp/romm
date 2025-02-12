@@ -3,10 +3,12 @@ from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
+from stat import S_IFREG
 from typing import Any
 from urllib.parse import quote
+from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
-from anyio import Path
+from anyio import Path, open_file
 from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
@@ -323,32 +325,6 @@ async def get_rom_content(
 
     log.info(f"User {current_username} is downloading {rom.fs_name}")
 
-    async def create_zip_content(f: RomFile, base_path: str = LIBRARY_BASE_PATH):
-        filename = f.full_path.replace(rom.full_path, "")
-        return ZipContentLine(
-            crc32=f.crc_hash,
-            size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
-            encoded_location=quote(f"{base_path}/{f.full_path}"),
-            filename=f".hidden/{filename}" if hidden_folder else filename,
-        )
-
-    def with_m3u_file(content_lines):
-        m3u_encoded_content = "\n".join(
-            [f.full_path.replace(rom.full_path, "") for f in files]
-        ).encode()
-        m3u_base64_content = b64encode(m3u_encoded_content).decode()
-        m3u_line = ZipContentLine(
-            crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
-            size_bytes=len(m3u_encoded_content),
-            encoded_location=f"/decode?value={m3u_base64_content}",
-            filename=f"{file_name}.m3u",
-        )
-
-        return ZipResponse(
-            content_lines=content_lines + [m3u_line],
-            filename=f"{quote(file_name)}.zip",
-        )
-
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
         if not rom.multi:
@@ -376,9 +352,64 @@ async def get_rom_content(
                 },
             )
 
-        content_lines = [await create_zip_content(f) for f in files]
+        async def build_zip_in_memory() -> bytes:
+            # Initialize in-memory buffer
+            zip_buffer = BytesIO()
+            now = datetime.now()
 
-        return with_m3u_file(content_lines=content_lines)
+            with ZipFile(zip_buffer, "w") as zip_file:
+                # Add content files
+                for file in files:
+                    file_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+                    file_name = file.full_path.replace(rom.full_path, "")
+                    try:
+                        # Read entire file into memory
+                        async with await open_file(file_path, "rb") as f:
+                            content = await f.read()
+
+                        # Create ZIP info with compression
+                        zip_info = ZipInfo(
+                            filename=(
+                                f".hidden/{file_name}" if hidden_folder else file_name
+                            ),
+                            date_time=now.timetuple()[:6],
+                        )
+                        zip_info.external_attr = S_IFREG | 0o600
+                        zip_info.compress_type = (
+                            ZIP_DEFLATED if file.file_size_bytes > 0 else ZIP_STORED
+                        )
+
+                        # Write file to ZIP
+                        zip_file.writestr(zip_info, content)
+
+                    except FileNotFoundError:
+                        log.error(f"File {file_path} not found!")
+                        raise
+
+                # Add M3U file
+                m3u_encoded_content = "\n".join(
+                    [f.full_path.replace(rom.full_path, "") for f in files]
+                ).encode()
+                m3u_filename = f"{rom.fs_name}.m3u"
+                m3u_info = ZipInfo(filename=m3u_filename, date_time=now.timetuple()[:6])
+                m3u_info.external_attr = S_IFREG | 0o600
+                m3u_info.compress_type = ZIP_STORED
+                zip_file.writestr(m3u_info, m3u_encoded_content)
+
+            # Get the completed ZIP file bytes
+            zip_buffer.seek(0)
+            return zip_buffer.getvalue()
+
+        zip_data = await build_zip_in_memory()
+
+        # Streams the zip file to the client
+        return Response(
+            content=zip_data,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
+            },
+        )
 
     # Otherwise proxy through nginx
     if not rom.multi:
@@ -392,9 +423,32 @@ async def get_rom_content(
             download_path=Path(f"/library/{files[0].full_path}"),
         )
 
+    async def create_zip_content(f: RomFile, base_path: str = LIBRARY_BASE_PATH):
+        filename = f.full_path.replace(rom.full_path, "")
+        return ZipContentLine(
+            crc32=f.crc_hash,
+            size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
+            encoded_location=quote(f"{base_path}/{f.full_path}"),
+            filename=f".hidden{filename}" if hidden_folder else filename,
+        )
+
     content_lines = [await create_zip_content(f, "/library-zip") for f in files]
 
-    return with_m3u_file(content_lines=content_lines)
+    m3u_encoded_content = "\n".join(
+        [f.full_path.replace(rom.full_path, "") for f in files]
+    ).encode()
+    m3u_base64_content = b64encode(m3u_encoded_content).decode()
+    m3u_line = ZipContentLine(
+        crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
+        size_bytes=len(m3u_encoded_content),
+        encoded_location=f"/decode?value={m3u_base64_content}",
+        filename=f"{file_name}.m3u",
+    )
+
+    return ZipResponse(
+        content_lines=content_lines + [m3u_line],
+        filename=f"{quote(file_name)}.zip",
+    )
 
 
 @protected_route(router.put, "/{id}", [Scope.ROMS_WRITE])
