@@ -147,7 +147,7 @@ class RomSchema(BaseModel):
     alternative_names: list[str]
     genres: list[str]
     franchises: list[str]
-    collections: list[str]
+    meta_collections: list[str]
     companies: list[str]
     game_modes: list[str]
     age_ratings: list[str]
@@ -155,13 +155,15 @@ class RomSchema(BaseModel):
     moby_metadata: RomMobyMetadata | None
     ss_metadata: RomMobyMetadata | None
 
-    path_cover_s: str | None
-    path_cover_l: str | None
-    has_cover: bool
+    path_cover_small: str | None
+    path_cover_large: str | None
     url_cover: str | None
+
     has_manual: bool
     path_manual: str | None
     url_manual: str | None
+
+    is_unidentified: bool
 
     revision: str | None
     regions: list[str]
@@ -242,7 +244,7 @@ class DetailedRomSchema(RomSchema):
             if s.user_id == user_id
         ]
         db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
-            user_id, [c for c in db_rom.get_collections()]
+            user_id, db_rom.collections
         )
 
         return cls.model_validate(db_rom)

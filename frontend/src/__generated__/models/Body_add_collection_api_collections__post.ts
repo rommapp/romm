@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Body_add_collection_api_collections_post = {
+export type Body_add_collection_api_collections__post = {
     artwork?: (Blob | null);
 };
 

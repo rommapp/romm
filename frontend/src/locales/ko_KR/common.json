@@ -7,6 +7,8 @@
   "games-n": "게임 {n}개 | 게임 {n}개",
   "collection": "모음집",
   "collections": "모음집",
+  "virtual-collection": "자동 생성된 모음집",
+  "virtual-collections": "자동 생성된 모음집",
   "save": "세이브",
   "saves": "세이브",
   "saves-n": "세이브 {n}개 | 세이브 {n}개",

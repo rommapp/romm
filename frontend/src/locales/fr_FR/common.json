@@ -7,6 +7,8 @@
   "games-n": "{n} Jeu | {n} Jeux",
   "collection": "Collection",
   "collections": "Collections",
+  "virtual-collection": "Collection autogénérée",
+  "virtual-collections": "Collections autogénérées",
   "save": "Sauvegarder",
   "saves": "Sauvegardes",
   "saves-n": "{n} Sauvegarder | {n} Sauvegardes",

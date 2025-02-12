@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type Body_add_firmware_api_firmware_post = {
-    files: Array<Blob>;
+export type Body_add_screenshots_api_screenshots__post = {
+    screenshots: Array<Blob>;
 };
 

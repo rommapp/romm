@@ -54,10 +54,10 @@ async function switchFromFavourites() {
       });
   }
   if (!collectionsStore.isFav(props.rom)) {
-    favCollection.value?.roms.push(props.rom.id);
+    favCollection.value?.rom_ids.push(props.rom.id);
   } else {
     if (favCollection.value) {
-      favCollection.value.roms = favCollection.value.roms.filter(
+      favCollection.value.rom_ids = favCollection.value.rom_ids.filter(
         (id) => id !== props.rom.id,
       );
       if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
