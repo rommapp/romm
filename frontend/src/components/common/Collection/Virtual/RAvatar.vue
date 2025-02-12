@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import type { Collection } from "@/stores/collections";
-import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
+import type { VirtualCollection } from "@/stores/collections";
 import { computed, ref, watchEffect } from "vue";
 import { useTheme } from "vuetify";
 
 const props = withDefaults(
-  defineProps<{ collection: Collection; size?: number }>(),
+  defineProps<{ collection: VirtualCollection; size?: number }>(),
   {
     size: 45,
   },
@@ -17,34 +16,21 @@ const memoizedCovers = ref({
   small: ["", ""],
 });
 
-const collectionCoverImage = computed(() =>
-  props.collection.is_favorite
-    ? getFavoriteCoverImage(props.collection.name)
-    : getCollectionCoverImage(props.collection.name),
-);
-
+// Watch for collection changes and update the memoized selection
 watchEffect(() => {
-  if (props.collection.path_cover_large && props.collection.path_cover_small) {
-    memoizedCovers.value = {
-      large: [
-        props.collection.path_cover_large,
-        props.collection.path_cover_large,
-      ],
-      small: [
-        props.collection.path_cover_small,
-        props.collection.path_cover_small,
-      ],
-    };
-    return;
-  }
-
   const largeCoverUrls = props.collection.path_covers_large || [];
   const smallCoverUrls = props.collection.path_covers_small || [];
 
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
-      large: [collectionCoverImage.value, collectionCoverImage.value],
-      small: [collectionCoverImage.value, collectionCoverImage.value],
+      large: [
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+        `/assets/default/cover/big_${theme.global.name.value}_collection.png`,
+      ],
+      small: [
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+        `/assets/default/cover/small_${theme.global.name.value}_collection.png`,
+      ],
     };
     return;
   }
@@ -58,6 +44,7 @@ watchEffect(() => {
   };
 });
 
+// Computed properties now use the memoized values
 const firstCover = computed(() => memoizedCovers.value.large[0]);
 const secondCover = computed(() => memoizedCovers.value.large[1]);
 const firstSmallCover = computed(() => memoizedCovers.value.small[0]);

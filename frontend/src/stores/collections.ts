@@ -1,14 +1,19 @@
-import type { CollectionSchema } from "@/__generated__";
+import type {
+  CollectionSchema,
+  VirtualCollectionSchema,
+} from "@/__generated__";
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
+export type VirtualCollection = VirtualCollectionSchema;
 
 export default defineStore("collections", {
   state: () => {
     return {
       allCollections: [] as Collection[],
+      virtualCollections: [] as VirtualCollection[],
       favCollection: {} as Collection | undefined,
       searchText: "" as string,
     };
@@ -16,6 +21,10 @@ export default defineStore("collections", {
   getters: {
     filteredCollections: ({ allCollections, searchText }) =>
       allCollections.filter((p) =>
+        p.name.toLowerCase().includes(searchText.toLowerCase()),
+      ),
+    filteredVirtualCollections: ({ virtualCollections, searchText }) =>
+      virtualCollections.filter((p) =>
         p.name.toLowerCase().includes(searchText.toLowerCase()),
       ),
   },
@@ -31,6 +40,9 @@ export default defineStore("collections", {
     },
     set(collections: Collection[]) {
       this.allCollections = collections;
+    },
+    setVirtual(collections: VirtualCollection[]) {
+      this.virtualCollections = collections;
     },
     add(collection: Collection) {
       this.allCollections.push(collection);
@@ -56,7 +68,7 @@ export default defineStore("collections", {
       return this.allCollections.find((p) => p.id === collectionId);
     },
     isFav(rom: SimpleRom) {
-      return this.favCollection?.roms?.includes(rom.id);
+      return this.favCollection?.rom_ids?.includes(rom.id);
     },
   },
 });

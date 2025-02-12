@@ -74,11 +74,10 @@ const computedAspectRatio = computed(() => {
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
-const unmatchedCoverImage = computed(() =>
-  getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
-);
-const missingCoverImage = computed(() =>
-  getMissingCoverImage(props.rom.name || props.rom.slug || ""),
+const fallbackCoverImage = computed(() =>
+  props.rom.igdb_id || props.rom.moby_id || props.rom.ss_id
+    ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
+    : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );
 </script>
 
@@ -125,31 +124,20 @@ const missingCoverImage = computed(() =>
             :src="
               src ||
               (romsStore.isSimpleRom(rom)
-                ? !rom.igdb_id && !rom.moby_id && !rom.ss_id && !rom.has_cover
-                  ? unmatchedCoverImage
-                  : (rom.igdb_id || rom.moby_id || rom.ss_id) && !rom.has_cover
-                    ? missingCoverImage
-                    : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
-                : !rom.igdb_url_cover &&
-                    !rom.moby_url_cover &&
-                    !rom.ss_url_cover
-                  ? missingCoverImage
-                  : rom.igdb_url_cover ||
-                    rom.moby_url_cover ||
-                    rom.ss_url_cover)
+                ? rom.path_cover_large || fallbackCoverImage
+                : rom.igdb_url_cover ||
+                  rom.moby_url_cover ||
+                  rom.ss_url_cover ||
+                  fallbackCoverImage)
             "
             :lazy-src="
-              romsStore.isSimpleRom(rom)
-                ? !rom.igdb_id && !rom.moby_id && !rom.ss_id && !rom.has_cover
-                  ? unmatchedCoverImage
-                  : (rom.igdb_id || rom.moby_id || rom.ss_id) && !rom.has_cover
-                    ? missingCoverImage
-                    : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-                : !rom.igdb_url_cover &&
-                    !rom.moby_url_cover &&
-                    !rom.ss_url_cover
-                  ? missingCoverImage
-                  : rom.igdb_url_cover || rom.moby_url_cover || rom.ss_url_cover
+              src ||
+              (romsStore.isSimpleRom(rom)
+                ? rom.path_cover_small || fallbackCoverImage
+                : rom.igdb_url_cover ||
+                  rom.moby_url_cover ||
+                  rom.ss_url_cover ||
+                  fallbackCoverImage)
             "
             :aspect-ratio="computedAspectRatio"
           >
@@ -159,7 +147,7 @@ const missingCoverImage = computed(() =>
                   <div
                     v-if="
                       isHovering ||
-                      (romsStore.isSimpleRom(rom) && !rom.has_cover) ||
+                      (romsStore.isSimpleRom(rom) && rom.is_unidentified) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
                         !rom.moby_url_cover &&
@@ -223,7 +211,7 @@ const missingCoverImage = computed(() =>
             </div>
             <template #error>
               <v-img
-                :src="missingCoverImage"
+                :src="fallbackCoverImage"
                 cover
                 :aspect-ratio="computedAspectRatio"
               ></v-img>

@@ -15,7 +15,7 @@ router = APIRouter(
 )
 
 
-@protected_route(router.post, "/", [Scope.ASSETS_WRITE])
+@protected_route(router.post, "", [Scope.ASSETS_WRITE])
 def add_screenshots(
     request: Request,
     rom_id: int,

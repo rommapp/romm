@@ -24,7 +24,7 @@ router = APIRouter(
 
 @protected_route(
     router.post,
-    "/",
+    "",
     [],
     status_code=status.HTTP_201_CREATED,
 )
@@ -80,7 +80,7 @@ def add_user(
     return UserSchema.model_validate(db_user_handler.add_user(user))
 
 
-@protected_route(router.get, "/", [Scope.USERS_READ])
+@protected_route(router.get, "", [Scope.USERS_READ])
 def get_users(request: Request) -> list[UserSchema]:
     """Get all users endpoint
 
