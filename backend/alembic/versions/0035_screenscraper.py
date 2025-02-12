@@ -1,7 +1,7 @@
 """empty message
 
-Revision ID: 0034_screenscraper
-Revises: 0033_rom_file_and_hashes
+Revision ID: 0035_screenscraper
+Revises: 0034_virtual_collections_db_view
 Create Date: 2025-01-02 18:58:55.557123
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0034_screenscraper"
-down_revision = "0033_rom_file_and_hashes"
+revision = "0035_screenscraper"
+down_revision = "0034_virtual_collections_db_view"
 branch_labels = None
 depends_on = None
 
