@@ -1,7 +1,7 @@
 """empty message
 
-Revision ID: 0035_screenscraper_platforms_id
-Revises: 0034_screenscraper
+Revision ID: 0036_screenscraper_platforms_id
+Revises: 0035_screenscraper
 Create Date: 2025-01-02 18:58:55.557123
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 from handler.metadata.ss_handler import SLUG_TO_SS_ID
 
 # revision identifiers, used by Alembic.
-revision = "0035_screenscraper_platforms_id"
-down_revision = "0034_screenscraper"
+revision = "0036_screenscraper_platforms_id"
+down_revision = "0035_screenscraper"
 branch_labels = None
 depends_on = None
 
