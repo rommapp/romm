@@ -70,5 +70,10 @@ export default defineStore("collections", {
     isFav(rom: SimpleRom) {
       return this.favCollection?.rom_ids?.includes(rom.id);
     },
+    isVirtualCollection(
+      collection: Collection | VirtualCollection,
+    ): collection is VirtualCollection {
+      return (collection as VirtualCollection).id !== undefined;
+    },
   },
 });
