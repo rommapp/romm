@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
-import VirtualCollectionListItem from "@/components/common/Collection/Virtual/ListItem.vue";
 import storeCollections from "@/stores/collections";
 import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
 import storeNavigation from "@/stores/navigation";
@@ -78,7 +77,7 @@ function clear() {
         <v-list-subheader class="uppercase">{{
           t("common.virtual-collections").toUpperCase()
         }}</v-list-subheader>
-        <virtual-collection-list-item
+        <collection-list-item
           v-for="collection in filteredVirtualCollections"
           :collection="collection"
           with-link

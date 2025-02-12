@@ -1,14 +1,16 @@
 <script setup lang="ts">
-import type { Collection } from "@/stores/collections";
+import type { Collection, VirtualCollection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
+import storeCollections from "@/stores/collections";
 import { computed, ref, watchEffect } from "vue";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 
 // Props
 const props = withDefaults(
   defineProps<{
-    collection: Collection;
+    collection: Collection | VirtualCollection;
     transformScale?: boolean;
+    showTitle?: boolean;
     titleOnHover?: boolean;
     showRomCount?: boolean;
     withLink?: boolean;
@@ -16,6 +18,7 @@ const props = withDefaults(
   }>(),
   {
     transformScale: false,
+    showTitle: true,
     titleOnHover: false,
     showRomCount: false,
     withLink: false,
@@ -24,6 +27,7 @@ const props = withDefaults(
 );
 
 const galleryViewStore = storeGalleryView();
+const collectionsStore = storeCollections();
 
 const memoizedCovers = ref({
   large: ["", ""],
@@ -45,7 +49,11 @@ watchEffect(() => {
     return;
   }
 
-  if (props.collection.path_cover_large && props.collection.path_cover_small) {
+  if (
+    !collectionsStore.isVirtualCollection(props.collection) &&
+    props.collection.path_cover_large &&
+    props.collection.path_cover_small
+  ) {
     memoizedCovers.value = {
       large: [
         props.collection.path_cover_large,
@@ -102,7 +110,7 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
-      <v-row class="pa-1 justify-center bg-primary">
+      <v-row v-if="showTitle" class="pa-1 justify-center bg-surface">
         <div
           :title="collection.name?.toString()"
           class="py-4 px-6 text-truncate text-caption"
@@ -161,10 +169,5 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 .first-image {
   clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);
   z-index: 1;
-}
-
-.second-image {
-  clip-path: polygon(0% 100%, 100% 0, 100% 100%);
-  z-index: 0;
 }
 </style>

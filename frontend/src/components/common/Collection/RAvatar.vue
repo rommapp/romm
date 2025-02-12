@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import type { Collection } from "@/stores/collections";
+import type { Collection, VirtualCollection } from "@/stores/collections";
+import storeCollections from "@/stores/collections";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 import { computed, ref, watchEffect } from "vue";
 import { useTheme } from "vuetify";
 
 const props = withDefaults(
-  defineProps<{ collection: Collection; size?: number }>(),
+  defineProps<{ collection: Collection | VirtualCollection; size?: number }>(),
   {
     size: 45,
   },
 );
 const theme = useTheme();
+const collectionsStore = storeCollections();
 
 const memoizedCovers = ref({
   large: ["", ""],
@@ -18,13 +20,18 @@ const memoizedCovers = ref({
 });
 
 const collectionCoverImage = computed(() =>
+  !collectionsStore.isVirtualCollection(props.collection) &&
   props.collection.is_favorite
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
 );
 
 watchEffect(() => {
-  if (props.collection.path_cover_large && props.collection.path_cover_small) {
+  if (
+    !collectionsStore.isVirtualCollection(props.collection) &&
+    props.collection.path_cover_large &&
+    props.collection.path_cover_small
+  ) {
     memoizedCovers.value = {
       large: [
         props.collection.path_cover_large,
