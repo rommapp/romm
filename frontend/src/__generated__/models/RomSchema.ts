@@ -39,13 +39,12 @@ export type RomSchema = {
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     ss_metadata: (RomMobyMetadata | null);
-    has_cover: boolean;
-    has_manual: boolean;
-    path_manual: (string | null);
-    url_manual: (string | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
+    has_manual: boolean;
+    path_manual: (string | null);
+    url_manual: (string | null);
     is_unidentified: boolean;
     revision: (string | null);
     regions: Array<string>;
