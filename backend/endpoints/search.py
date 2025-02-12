@@ -133,6 +133,7 @@ async def search_rom(
                 "summary": "",
                 "igdb_url_cover": "",
                 "moby_url_cover": "",
+                "ss_url_cover": "",
                 "platform_id": rom.platform_id,
             },
             **item,
