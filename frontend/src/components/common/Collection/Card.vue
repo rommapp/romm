@@ -51,7 +51,7 @@ watchEffect(() => {
   }
 
   if (
-    !collectionsStore.isVirtualCollection(props.collection) &&
+    !props.collection.is_virtual &&
     props.collection.path_cover_large &&
     props.collection.path_cover_small
   ) {
@@ -126,12 +126,7 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
         class="image-container"
         :style="{ aspectRatio: galleryViewStore.defaultAspectRatioCollection }"
       >
-        <template
-          v-if="
-            collectionsStore.isVirtualCollection(collection) ||
-            !collection.path_cover_large
-          "
-        >
+        <template v-if="collection.is_virtual || !collection.path_cover_large">
           <div class="split-image first-image">
             <v-img
               cover

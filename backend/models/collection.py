@@ -54,19 +54,19 @@ class Collection(BaseModel):
         return f"collections/{str(self.id)}"
 
     @property
-    def path_cover_small(self) -> str:
+    def path_cover_small(self) -> str | None:
         return (
             f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_s}?ts={self.updated_at}"
             if self.path_cover_s
-            else ""
+            else None
         )
 
     @property
-    def path_cover_large(self) -> str:
+    def path_cover_large(self) -> str | None:
         return (
             f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_l}?ts={self.updated_at}"
             if self.path_cover_l
-            else ""
+            else None
         )
 
     @property
@@ -135,6 +135,14 @@ class VirtualCollection(BaseModel):
     @property
     def rom_count(self) -> int:
         return len(self.rom_ids)
+
+    @property
+    def path_cover_small(self) -> str | None:
+        return None
+
+    @property
+    def path_cover_large(self) -> str | None:
+        return None
 
     @property
     def path_covers_small(self) -> list[str]:
