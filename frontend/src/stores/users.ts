@@ -33,7 +33,7 @@ export default defineStore("users", {
       });
     },
     reset() {
-      this.allUsers = [];
+      this.allUsers = [] as User[];
     },
   },
 });
