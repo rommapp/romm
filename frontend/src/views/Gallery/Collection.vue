@@ -392,7 +392,7 @@ onBeforeUnmount(() => {
         <!-- Gallery list view -->
         <v-row class="h-100" v-show="currentView == 2" no-gutters>
           <v-col class="h-100 pt-4 pb-2">
-            <game-data-table class="h-100 mx-2" />
+            <game-data-table show-platform-icon class="h-100 mx-2" />
           </v-col>
         </v-row>
         <fab-overlay />
