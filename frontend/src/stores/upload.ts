@@ -53,8 +53,8 @@ export default defineStore("upload", {
     clearFinished() {
       this.files = this.files.filter((f) => !f.finished && !f.failed);
     },
-    clearAll() {
-      this.files = [];
+    reset() {
+      this.files = [] as UploadingFile[];
     },
   },
 });
