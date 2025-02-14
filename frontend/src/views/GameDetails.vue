@@ -69,7 +69,7 @@ onBeforeMount(async () => {
   }
 
   const downloadStore = storeDownload();
-  downloadStore.clear();
+  downloadStore.reset();
 });
 
 watch(

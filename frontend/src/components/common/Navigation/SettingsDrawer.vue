@@ -8,7 +8,7 @@ import type { Events } from "@/types/emitter";
 import { defaultAvatarPath } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
+import { storeToRefs, getActivePinia, type StateTree } from "pinia";
 import { inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -35,8 +35,14 @@ async function logout() {
       icon: "mdi-check-bold",
       color: "green",
     });
-    navigationStore.switchActiveSettingsDrawer();
-    auth.setUser(null);
+
+    // Clear all pinia stores
+    // @ts-expect-error(2339)
+    getActivePinia()?._s.forEach((store: StateTree) => {
+      store.reset?.();
+    });
+
+    // Redirect to login page
     await router.push({ name: ROUTES.LOGIN });
   });
 }

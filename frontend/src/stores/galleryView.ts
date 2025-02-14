@@ -1,17 +1,17 @@
 import { defineStore } from "pinia";
 
+const defaultGalleryState = {
+  currentView: JSON.parse(localStorage.getItem("currentView") ?? "0") as number,
+  defaultAspectRatioCover: 2 / 3,
+  defaultAspectRatioCollection: 2 / 3,
+  defaultAspectRatioScreenshot: 16 / 9,
+  activeFirmwareDrawer: false,
+  scrolledToTop: false,
+  scroll: 0,
+};
+
 export default defineStore("galleryView", {
-  state: () => ({
-    currentView: JSON.parse(
-      localStorage.getItem("currentView") ?? "0",
-    ) as number,
-    defaultAspectRatioCover: 2 / 3,
-    defaultAspectRatioCollection: 2 / 3,
-    defaultAspectRatioScreenshot: 16 / 9,
-    activeFirmwareDrawer: false,
-    scrolledToTop: false,
-    scroll: 0,
-  }),
+  state: () => defaultGalleryState,
 
   actions: {
     setView(view: number) {
@@ -27,6 +27,9 @@ export default defineStore("galleryView", {
       } else {
         this.setView(this.currentView + 1);
       }
+    },
+    reset() {
+      Object.assign(this, defaultGalleryState);
     },
   },
 });

@@ -1,14 +1,16 @@
 import { defineStore } from "pinia";
 import { ROUTES } from "@/plugins/router";
 
+const defaultNavigationState = {
+  activePlatformsDrawer: false,
+  activeCollectionsDrawer: false,
+  activeSettingsDrawer: false,
+  activePlatformInfoDrawer: false,
+  activeCollectionInfoDrawer: false,
+};
+
 export default defineStore("navigation", {
-  state: () => ({
-    activePlatformsDrawer: false,
-    activeCollectionsDrawer: false,
-    activeSettingsDrawer: false,
-    activePlatformInfoDrawer: false,
-    activeCollectionInfoDrawer: false,
-  }),
+  state: () => defaultNavigationState,
 
   actions: {
     switchActivePlatformsDrawer() {
@@ -32,23 +34,19 @@ export default defineStore("navigation", {
       this.activeCollectionInfoDrawer = !this.activeCollectionInfoDrawer;
     },
     goHome() {
-      this.resetDrawers();
+      this.reset();
       this.$router.push({ name: ROUTES.HOME });
     },
     goScan() {
-      this.resetDrawers();
+      this.reset();
       this.$router.push({ name: ROUTES.SCAN });
     },
     goSearch() {
-      this.resetDrawers();
+      this.reset();
       this.$router.push({ name: ROUTES.SEARCH });
     },
-    resetDrawers() {
-      this.activePlatformsDrawer = false;
-      this.activeCollectionsDrawer = false;
-      this.activeSettingsDrawer = false;
-      this.activePlatformInfoDrawer = false;
-      this.activeCollectionInfoDrawer = false;
+    reset() {
+      Object.assign(this, defaultNavigationState);
     },
     resetDrawersExcept(drawer: string) {
       this.activePlatformsDrawer =
