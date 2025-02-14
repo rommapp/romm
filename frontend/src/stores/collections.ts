@@ -73,7 +73,13 @@ export default defineStore("collections", {
     isVirtualCollection(
       collection: Collection | VirtualCollection,
     ): collection is VirtualCollection {
-      return (collection as VirtualCollection).id !== undefined;
+      return (
+        collection &&
+        typeof collection === "object" &&
+        "id" in collection &&
+        "name" in collection &&
+        "virtual" in collection
+      );
     },
   },
 });

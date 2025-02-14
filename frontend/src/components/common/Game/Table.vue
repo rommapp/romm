@@ -173,7 +173,7 @@ function updateSelectedRom(rom: SimpleRom) {
           <template #prepend>
             <platform-icon
               class="mr-4"
-              size="30"
+              :size="30"
               v-if="showPlatformIcon"
               :slug="item.platform_slug"
             />
