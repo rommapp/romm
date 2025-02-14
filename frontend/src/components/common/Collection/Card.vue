@@ -23,7 +23,7 @@ const props = withDefaults(
     showRomCount: false,
     withLink: false,
     src: "",
-  }
+  },
 );
 
 const galleryViewStore = storeGalleryView();
@@ -37,7 +37,7 @@ const memoizedCovers = ref({
 const collectionCoverImage = computed(() =>
   props.collection.name?.toLowerCase() == "favourites"
     ? getFavoriteCoverImage(props.collection.name)
-    : getCollectionCoverImage(props.collection.name)
+    : getCollectionCoverImage(props.collection.name),
 );
 
 watchEffect(() => {
@@ -122,35 +122,40 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
         class="image-container"
         :style="{ aspectRatio: galleryViewStore.defaultAspectRatioCollection }"
       >
-      <template v-if="collectionsStore.isVirtualCollection(collection) || !collection.path_cover_large">
-        <div class="split-image first-image">
+        <template
+          v-if="
+            collectionsStore.isVirtualCollection(collection) ||
+            !collection.path_cover_large
+          "
+        >
+          <div class="split-image first-image">
+            <v-img
+              cover
+              :src="firstCover"
+              :lazy-src="firstSmallCover"
+              :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+            />
+          </div>
+          <div class="split-image second-image">
+            <v-img
+              cover
+              :src="secondCover"
+              :lazy-src="secondSmallCover"
+              :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+            />
+          </div>
+        </template>
+        <template v-else>
           <v-img
             cover
-            :src="firstCover"
-            :lazy-src="firstSmallCover"
+            :src="collection.path_cover_large"
+            :lazy-src="collection.path_cover_small?.toString()"
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
           />
+        </template>
+        <div class="position-absolute append-inner">
+          <slot name="append-inner"></slot>
         </div>
-        <div class="split-image second-image">
-          <v-img
-            cover
-            :src="secondCover"
-            :lazy-src="secondSmallCover"
-            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-          />
-        </div>
-      </template>
-      <template v-else>
-        <v-img
-          cover
-          :src="collection.path_cover_large"
-          :lazy-src="collection.path_cover_small?.toString()"
-          :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-        />
-      </template>
-      <div class="position-absolute append-inner">
-        <slot name="append-inner"></slot>
-      </div>
       </div>
       <v-chip
         v-if="showRomCount"
