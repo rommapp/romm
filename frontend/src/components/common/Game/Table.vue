@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
@@ -22,6 +23,14 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 
 // Props
+withDefaults(
+  defineProps<{
+    showPlatformIcon?: boolean;
+  }>(),
+  {
+    showPlatformIcon: false,
+  },
+);
 const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
@@ -159,34 +168,40 @@ function updateSelectedRom(rom: SimpleRom) {
       />
     </template>
     <template #item.name="{ item }">
-      <td>
-        <v-list-item :min-width="400" class="px-0 py-2">
-          <template #prepend>
-            <r-avatar-rom :rom="item" />
-          </template>
-          <v-row no-gutters>
-            <v-col>{{ item.name }}</v-col>
-          </v-row>
-          <v-row no-gutters>
-            <v-col class="text-primary">
-              {{ item.fs_name }}
-            </v-col>
-          </v-row>
-          <template #append>
-            <v-chip
-              v-if="
-                item.sibling_roms &&
-                item.sibling_roms.length > 0 &&
-                showSiblings
-              "
-              class="translucent-dark ml-4"
-              size="x-small"
-            >
-              <span class="text-caption">+{{ item.sibling_roms.length }}</span>
-            </v-chip>
-          </template>
-        </v-list-item>
-      </td>
+      <v-list-item
+        :min-width="400"
+        class="px-0 py-2"
+        :to="{ name: ROUTES.ROM, params: { rom: item.id } }"
+      >
+        <template #prepend>
+          <platform-icon
+            class="mr-4"
+            :size="30"
+            v-if="showPlatformIcon"
+            :slug="item.platform_slug"
+          />
+          <r-avatar-rom :rom="item" />
+        </template>
+        <v-row no-gutters>
+          <v-col>{{ item.name }}</v-col>
+        </v-row>
+        <v-row no-gutters>
+          <v-col class="text-primary">
+            {{ item.fs_name }}
+          </v-col>
+        </v-row>
+        <template #append>
+          <v-chip
+            v-if="
+              item.sibling_roms && item.sibling_roms.length > 0 && showSiblings
+            "
+            class="translucent-dark ml-4"
+            size="x-small"
+          >
+            <span class="text-caption">+{{ item.sibling_roms.length }}</span>
+          </v-chip>
+        </template>
+      </v-list-item>
     </template>
     <template #item.fs_size_bytes="{ item }">
       <span class="text-no-wrap">{{ formatBytes(item.fs_size_bytes) }}</span>

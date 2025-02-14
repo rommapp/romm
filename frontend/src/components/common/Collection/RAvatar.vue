@@ -74,22 +74,37 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 <template>
   <v-avatar :rounded="0" :size="size">
     <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
-      <div class="split-image first-image">
+      <template
+        v-if="
+          collectionsStore.isVirtualCollection(collection) ||
+          !collection.path_cover_large
+        "
+      >
+        <div class="split-image first-image">
+          <v-img
+            cover
+            :src="firstCover"
+            :lazy-src="firstSmallCover"
+            :aspect-ratio="1 / 1"
+          />
+        </div>
+        <div class="split-image second-image">
+          <v-img
+            cover
+            :src="secondCover"
+            :lazy-src="secondSmallCover"
+            :aspect-ratio="1 / 1"
+          />
+        </div>
+      </template>
+      <template v-else>
         <v-img
           cover
-          :src="firstCover"
-          :lazy-src="firstSmallCover"
+          :src="collection.path_cover_large"
+          :lazy-src="collection.path_cover_small?.toString()"
           :aspect-ratio="1 / 1"
         />
-      </div>
-      <div class="split-image second-image">
-        <v-img
-          cover
-          :src="secondCover"
-          :lazy-src="secondSmallCover"
-          :aspect-ratio="1 / 1"
-        />
-      </div>
+      </template>
     </div>
   </v-avatar>
 </template>
