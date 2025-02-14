@@ -24,7 +24,7 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.redis_handler import high_prio_queue, low_prio_queue, redis_client
+from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import ScanType, scan_firmware, scan_platform, scan_rom
 from handler.socket_handler import socket_handler
 from logger.formatter import LIGHTYELLOW, RED
@@ -471,14 +471,14 @@ async def _identify_rom(
     if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
         # Skip hashing games for platforms that don't have a hash database
         if platform.slug not in NON_HASHABLE_PLATFORMS:
-            # Uncomment this to run scan in the current process
-            # _set_rom_hashes(_added_rom.id)
+            _set_rom_hashes(_added_rom.id)
 
-            low_prio_queue.enqueue(
-                _set_rom_hashes,
-                _added_rom.id,
-                job_timeout=60 * 15,  # Timeout (15 minutes)
-            )
+            # Uncomment this to run scan in a background process
+            # low_prio_queue.enqueue(
+            #     _set_rom_hashes,
+            #     _added_rom.id,
+            #     job_timeout=60 * 15,  # Timeout (15 minutes)
+            # )
 
     # Return early if we're only scanning for hashes
     if scan_type == ScanType.HASHES:
