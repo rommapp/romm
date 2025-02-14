@@ -79,7 +79,7 @@ onBeforeMount(async () => {
       });
   }
 
-  navigationStore.resetDrawers();
+  navigationStore.reset();
 });
 </script>
 
