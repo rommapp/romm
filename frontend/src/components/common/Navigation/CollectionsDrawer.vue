@@ -73,7 +73,9 @@ function clear() {
         :collection="collection"
         with-link
       />
-      <template v-if="showVirtualCollections">
+      <template
+        v-if="showVirtualCollections && filteredVirtualCollections.length > 0"
+      >
         <v-list-subheader class="uppercase">{{
           t("common.virtual-collections").toUpperCase()
         }}</v-list-subheader>
