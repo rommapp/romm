@@ -18,5 +18,9 @@ export default defineStore("auth", {
     setUser(user: User | null) {
       this.user = user;
     },
+    reset() {
+      this.user = null;
+      this.oauth_scopes = [];
+    },
   },
 });

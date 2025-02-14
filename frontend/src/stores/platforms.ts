@@ -5,12 +5,11 @@ import { defineStore } from "pinia";
 export type Platform = PlatformSchema;
 
 export default defineStore("platforms", {
-  state: () => {
-    return {
-      allPlatforms: [] as Platform[],
-      searchText: "" as string,
-    };
-  },
+  state: () => ({
+    allPlatforms: [] as Platform[],
+    searchText: "" as string,
+  }),
+
   getters: {
     totalGames: ({ allPlatforms: value }) =>
       value.reduce((count, p) => count + p.rom_count, 0),
@@ -60,6 +59,10 @@ export default defineStore("platforms", {
       return platform && platform.aspect_ratio
         ? parseFloat(eval(platform.aspect_ratio as string))
         : 2 / 3;
+    },
+    reset() {
+      this.allPlatforms = [] as Platform[];
+      this.searchText = "";
     },
   },
 });
