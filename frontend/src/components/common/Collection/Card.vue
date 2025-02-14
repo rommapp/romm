@@ -2,6 +2,7 @@
 import type { Collection, VirtualCollection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeCollections from "@/stores/collections";
+import { ROUTES } from "@/plugins/router";
 import { computed, ref, watchEffect } from "vue";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 
@@ -100,7 +101,10 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
         ...hoverProps,
         ...(withLink && collection
           ? {
-              to: { name: 'collection', params: { collection: collection.id } },
+              to: {
+                name: ROUTES.COLLECTION,
+                params: { collection: collection.id },
+              },
             }
           : {}),
       }"

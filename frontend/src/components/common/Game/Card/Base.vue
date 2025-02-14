@@ -8,6 +8,7 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
+import { ROUTES } from "@/plugins/router";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import { computed } from "vue";
@@ -92,7 +93,7 @@ const fallbackCoverImage = computed(() =>
         ...hoverProps,
         ...(withLink && rom && romsStore.isSimpleRom(rom)
           ? {
-              to: { name: 'rom', params: { rom: rom.id } },
+              to: { name: ROUTES.ROM, params: { rom: rom.id } },
             }
           : {}),
       }"
