@@ -20,15 +20,14 @@ const memoizedCovers = ref({
 });
 
 const collectionCoverImage = computed(() =>
-  !collectionsStore.isVirtualCollection(props.collection) &&
-  props.collection.is_favorite
+  !props.collection.is_virtual && props.collection.is_favorite
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
 );
 
 watchEffect(() => {
   if (
-    !collectionsStore.isVirtualCollection(props.collection) &&
+    !props.collection.is_virtual &&
     props.collection.path_cover_large &&
     props.collection.path_cover_small
   ) {
@@ -74,12 +73,7 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 <template>
   <v-avatar :rounded="0" :size="size">
     <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
-      <template
-        v-if="
-          collectionsStore.isVirtualCollection(collection) ||
-          !collection.path_cover_large
-        "
-      >
+      <template v-if="collection.is_virtual || !collection.path_cover_large">
         <div class="split-image first-image">
           <v-img
             cover
