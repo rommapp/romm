@@ -222,6 +222,7 @@ watch(
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
+            :fs-slug="currentPlatform.fs_slug"
             class="platform-icon"
             :size="160"
           />

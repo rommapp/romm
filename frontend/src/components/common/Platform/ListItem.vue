@@ -23,6 +23,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
         :key="platform.slug"
         :slug="platform.slug"
         :name="platform.name"
+        :fs-slug="platform.fs_slug"
         :size="40"
       >
         <v-tooltip
