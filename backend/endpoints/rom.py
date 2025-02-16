@@ -311,7 +311,11 @@ async def get_rom_content(
         ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
     """
 
-    current_username = request.user.username if request.user else "unknown"
+    current_username = (
+        request.user.username
+        if request.user and request.user.is_authenticated
+        else "unknown"
+    )
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
