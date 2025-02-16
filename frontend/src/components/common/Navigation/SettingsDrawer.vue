@@ -120,7 +120,7 @@ async function logout() {
         @click="logout"
         append-icon="mdi-location-exit"
         block
-        class="bg-toplayer border-sm text-romm-red border-romm-red"
+        class="bg-toplayer text-romm-red"
         >{{ t("common.logout") }}</v-btn
       >
     </template>

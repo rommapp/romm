@@ -109,6 +109,7 @@ function clearFilter() {
             :key="item.raw.slug"
             :slug="item.raw.slug"
             :name="item.raw.display_name"
+            :fs-slug="item.raw.fs_slug"
           />
         </template>
       </v-list-item>
@@ -121,6 +122,7 @@ function clearFilter() {
             :key="item.raw.slug"
             :slug="item.raw.slug"
             :name="item.raw.display_name"
+            :fs-slug="item.raw.fs_slug"
           />
         </template>
       </v-list-item>

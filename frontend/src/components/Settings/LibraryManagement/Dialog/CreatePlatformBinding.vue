@@ -138,6 +138,7 @@ function closeDialog() {
                     :size="35"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
+                    :fs-slug="item.raw.fs_slug"
                   />
                 </template>
               </v-list-item>
@@ -150,6 +151,7 @@ function closeDialog() {
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
+                    :fs-slug="item.raw.fs_slug"
                   />
                 </template>
               </v-list-item>
