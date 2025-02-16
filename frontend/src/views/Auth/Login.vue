@@ -8,7 +8,6 @@ import type { Emitter } from "mitt";
 import storeAuth from "@/stores/auth";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
-import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
 // Props
@@ -17,7 +16,6 @@ const heartbeatStore = storeHeartbeat();
 const auth = storeAuth();
 const { user } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
-const router = useRouter();
 const username = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
@@ -44,7 +42,7 @@ async function login() {
         console.error("Error loading user: ", userError);
       }
       const params = new URLSearchParams(window.location.search);
-      router.push(params.get("next") ?? "/");
+      window.location.href = params.get("next") ?? "/";
     })
     .catch(({ response, message }) => {
       const errorMessage =
