@@ -71,6 +71,7 @@ async def scan_platform(
 
     cnfg = cm.get_config()
     swapped_platform_bindings = {v: k for k, v in cnfg.PLATFORMS_BINDING.items()}
+    swapped_platform_versions = {v: k for k, v in cnfg.PLATFORMS_VERSIONS.items()}
 
     # Sometimes users change the name of the folder, so we try to match it with the config
     if fs_slug not in fs_platforms:
@@ -81,10 +82,16 @@ async def scan_platform(
             platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
             if platform:
                 platform_attrs["fs_slug"] = swapped_platform_bindings[platform.slug]
+        elif fs_slug in swapped_platform_versions.keys():
+            platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+            if platform:
+                platform_attrs["fs_slug"] = swapped_platform_versions[platform.slug]
 
     try:
         if fs_slug in cnfg.PLATFORMS_BINDING.keys():
             platform_attrs["slug"] = cnfg.PLATFORMS_BINDING[fs_slug]
+        elif fs_slug in cnfg.PLATFORMS_VERSIONS.keys():
+            platform_attrs["slug"] = cnfg.PLATFORMS_VERSIONS[fs_slug]
         else:
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):

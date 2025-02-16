@@ -115,7 +115,7 @@ async function logout() {
         append-icon="mdi-security"
         >{{ t("common.administration") }}
       </v-list-item>
-      <template v-if="smAndDown && scopes.includes('me.write')" #append>
+      <template v-if="smAndDown && scopes.includes('me.write')">
         <v-list-item
           @click="logout"
           append-icon="mdi-location-exit"
@@ -125,7 +125,7 @@ async function logout() {
         >
       </template>
     </v-list>
-    <template v-if="!smAndDown && scopes.includes('me.write')">
+    <template v-if="!smAndDown && scopes.includes('me.write')" #append>
       <v-list class="pa-0">
         <v-list-item
           @click="logout"

@@ -140,6 +140,7 @@ async function stopScan() {
                 :size="35"
                 :slug="item.raw.slug"
                 :name="item.raw.name"
+                :fs-slug="item.raw.fs_slug"
               />
             </template>
             <template #append>
@@ -155,6 +156,7 @@ async function stopScan() {
               :key="item.raw.slug"
               :slug="item.raw.slug"
               :name="item.raw.name"
+              :fs-slug="item.raw.fs_slug"
               :size="20"
               class="mr-2"
             />
@@ -309,6 +311,7 @@ async function stopScan() {
                     :key="platform.slug"
                     :slug="platform.slug"
                     :name="platform.name"
+                    :fs-slug="platform.fs_slug"
                   />
                 </v-avatar>
               </template>
