@@ -139,7 +139,7 @@ async function uploadManuals() {
       const failedUploads = responses.filter((d) => d.status == "rejected");
 
       if (failedUploads.length == 0) {
-        uploadStore.clearAll();
+        uploadStore.reset();
       }
 
       if (successfulUploads.length == 0) {
