@@ -264,7 +264,7 @@ async def _identify_platform(
     await socket_manager.emit(
         "scan:scanning_platform",
         PlatformSchema.model_validate(platform).model_dump(
-            include={"id", "name", "slug"}
+            include={"id", "name", "slug", "fs_slug"}
         ),
     )
     await socket_manager.emit("", None)
@@ -525,6 +525,7 @@ async def _identify_rom(
         {
             "platform_name": platform.name,
             "platform_slug": platform.slug,
+            "platform_fs_slug": platform.fs_slug,
             **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
                 exclude={"created_at", "updated_at", "rom_user"}
             ),

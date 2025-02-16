@@ -71,7 +71,11 @@ function closeDialog() {
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
         <span class="mr-1">{{ t("platform.removing-platform-1") }}</span>
-        <platform-icon :slug="platform.slug" :name="platform.name" />
+        <platform-icon
+          :slug="platform.slug"
+          :name="platform.name"
+          :fs-slug="platform.fs_slug"
+        />
         <span class="ml-1"
           >{{ platform.name }} - [<span class="text-primary">{{
             platform.fs_slug

@@ -190,10 +190,11 @@ function closeDialog() {
               >
                 <template #prepend>
                   <platform-icon
-                    :key="item.raw.slug"
                     :size="35"
-                    :slug="item.raw.slug"
+                    :key="item.raw.slug"
                     :name="item.raw.name"
+                    :slug="item.raw.slug"
+                    :fs-slug="item.raw.fs_slug"
                   />
                 </template>
               </v-list-item>
@@ -206,6 +207,7 @@ function closeDialog() {
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
+                    :fs-slug="item.raw.fs_slug"
                   />
                 </template>
               </v-list-item>

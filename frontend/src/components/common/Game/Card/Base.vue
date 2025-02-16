@@ -176,6 +176,7 @@ const fallbackCoverImage = computed(() =>
                 :key="rom.platform_slug"
                 :slug="rom.platform_slug"
                 :name="rom.platform_name"
+                :fs-slug="rom.platform_slug"
                 class="label-platform"
               />
             </div>

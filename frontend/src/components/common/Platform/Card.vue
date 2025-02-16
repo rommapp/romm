@@ -29,6 +29,7 @@ defineProps<{ platform: Platform }>();
             :key="platform.slug"
             :slug="platform.slug"
             :name="platform.name"
+            :fs-slug="platform.fs_slug"
             :size="105"
             class="mt-2"
           />
