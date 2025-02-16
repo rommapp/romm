@@ -22,7 +22,7 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const showVirtualCollections = isNull(
-  localStorage.getItem("settings.showVirtualCollections")
+  localStorage.getItem("settings.showVirtualCollections"),
 )
   ? true
   : localStorage.getItem("settings.showVirtualCollections") === "true";
