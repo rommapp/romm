@@ -36,6 +36,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
       v-if="currentPlatform"
       :slug="currentPlatform.slug"
       :name="currentPlatform.name"
+      :fs-slug="currentPlatform.fs_slug"
       :size="36"
       class="mx-3 cursor-pointer platform-icon"
       :class="{ active: activePlatformInfoDrawer }"
