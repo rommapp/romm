@@ -1,28 +1,22 @@
 <script setup lang="ts">
-import storeConfig from "@/stores/config";
-import { storeToRefs } from "pinia";
-
 const props = withDefaults(
   defineProps<{
     slug: string;
     name?: string;
     size?: number;
     rounded?: number;
+    fsSlug?: string;
   }>(),
   { size: 40, rounded: 0 },
 );
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
+
+console.log(props);
 </script>
 
 <template>
   <v-avatar :size="size" :rounded="rounded" :title="name || slug">
     <v-img
-      :src="
-        config.PLATFORMS_VERSIONS?.[props.slug]?.toLowerCase()
-          ? `/assets/platforms/${config.PLATFORMS_VERSIONS?.[props.slug]?.toLowerCase()}.ico`
-          : `/assets/platforms/${props.slug.toLowerCase()}.ico`
-      "
+      :src="`/assets/platforms/${(props.fsSlug || props.slug).toLowerCase()}.ico`"
     >
       <template #error>
         <v-img :src="`/assets/platforms/${props.slug.toLowerCase()}.ico`">

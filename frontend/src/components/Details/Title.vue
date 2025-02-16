@@ -48,6 +48,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
             :name="rom.platform_name"
+            :fs-slug="rom.platform_fs_slug"
             :size="30"
             class="ml-2"
           />

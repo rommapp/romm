@@ -4,6 +4,7 @@ import type { SimpleRom } from "@/stores/roms";
 interface ScanningPlatforms {
   name: string;
   slug: string;
+  fs_slug: string;
   id: number;
   roms: SimpleRom[];
 }
