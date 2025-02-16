@@ -20,15 +20,14 @@ const memoizedCovers = ref({
 });
 
 const collectionCoverImage = computed(() =>
-  !collectionsStore.isVirtualCollection(props.collection) &&
-  props.collection.is_favorite
+  !props.collection.is_virtual && props.collection.is_favorite
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
 );
 
 watchEffect(() => {
   if (
-    !collectionsStore.isVirtualCollection(props.collection) &&
+    !props.collection.is_virtual &&
     props.collection.path_cover_large &&
     props.collection.path_cover_small
   ) {
@@ -74,22 +73,32 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 <template>
   <v-avatar :rounded="0" :size="size">
     <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
-      <div class="split-image first-image">
+      <template v-if="collection.is_virtual || !collection.path_cover_large">
+        <div class="split-image first-image">
+          <v-img
+            cover
+            :src="firstCover"
+            :lazy-src="firstSmallCover"
+            :aspect-ratio="1 / 1"
+          />
+        </div>
+        <div class="split-image second-image">
+          <v-img
+            cover
+            :src="secondCover"
+            :lazy-src="secondSmallCover"
+            :aspect-ratio="1 / 1"
+          />
+        </div>
+      </template>
+      <template v-else>
         <v-img
           cover
-          :src="firstCover"
-          :lazy-src="firstSmallCover"
+          :src="collection.path_cover_large"
+          :lazy-src="collection.path_cover_small?.toString()"
           :aspect-ratio="1 / 1"
         />
-      </div>
-      <div class="split-image second-image">
-        <v-img
-          cover
-          :src="secondCover"
-          :lazy-src="secondSmallCover"
-          :aspect-ratio="1 / 1"
-        />
-      </div>
+      </template>
     </div>
   </v-avatar>
 </template>

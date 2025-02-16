@@ -17,23 +17,25 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
+const defaultRomsState = {
+  currentPlatform: null as Platform | null,
+  currentCollection: null as Collection | null,
+  currentVirtualCollection: null as VirtualCollection | null,
+  currentRom: null as DetailedRom | null,
+  allRoms: [] as SimpleRom[],
+  _grouped: [] as SimpleRom[],
+  _filteredIDs: new Set<number>(),
+  _selectedIDs: new Set<number>(),
+  recentRoms: [] as SimpleRom[],
+  continuePlayingRoms: [] as SimpleRom[],
+  lastSelectedIndex: -1,
+  selecting: false,
+  itemsPerBatch: 72,
+  gettingRoms: false,
+};
+
 export default defineStore("roms", {
-  state: () => ({
-    currentPlatform: null as Platform | null,
-    currentCollection: null as Collection | null,
-    currentVirtualCollection: null as VirtualCollection | null,
-    currentRom: null as DetailedRom | null,
-    allRoms: [] as SimpleRom[],
-    _grouped: [] as SimpleRom[],
-    _filteredIDs: new Set<number>(),
-    _selectedIDs: new Set<number>(),
-    recentRoms: [] as SimpleRom[],
-    continuePlayingRoms: [] as SimpleRom[],
-    lastSelectedIndex: -1,
-    selecting: false,
-    itemsPerBatch: 72,
-    gettingRoms: false,
-  }),
+  state: () => defaultRomsState,
 
   getters: {
     filteredRoms: (state) =>
@@ -150,11 +152,7 @@ export default defineStore("roms", {
       roms.forEach((rom) => this._filteredIDs.delete(rom.id));
     },
     reset() {
-      this.allRoms = [];
-      this._grouped = [];
-      this._filteredIDs = new Set<number>();
-      this._selectedIDs = new Set<number>();
-      this.lastSelectedIndex = -1;
+      Object.assign(this, defaultRomsState);
     },
     // Filter roms by gallery filter store state
     setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {

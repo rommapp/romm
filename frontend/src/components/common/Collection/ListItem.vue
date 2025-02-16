@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Collection, VirtualCollection } from "@/stores/collections";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
+import { ROUTES } from "@/plugins/router";
 
 // Props
 withDefaults(
@@ -26,7 +27,10 @@ withDefaults(
     v-bind="{
       ...(withLink && collection
         ? {
-            to: { name: 'collection', params: { collection: collection.id } },
+            to: {
+              name: ROUTES.COLLECTION,
+              params: { collection: collection.id },
+            },
           }
         : {}),
     }"

@@ -2,6 +2,7 @@
 import type { Collection, VirtualCollection } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeCollections from "@/stores/collections";
+import { ROUTES } from "@/plugins/router";
 import { computed, ref, watchEffect } from "vue";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 
@@ -50,7 +51,7 @@ watchEffect(() => {
   }
 
   if (
-    !collectionsStore.isVirtualCollection(props.collection) &&
+    !props.collection.is_virtual &&
     props.collection.path_cover_large &&
     props.collection.path_cover_small
   ) {
@@ -100,7 +101,10 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
         ...hoverProps,
         ...(withLink && collection
           ? {
-              to: { name: 'collection', params: { collection: collection.id } },
+              to: {
+                name: ROUTES.COLLECTION,
+                params: { collection: collection.id },
+              },
             }
           : {}),
       }"
@@ -122,21 +126,34 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
         class="image-container"
         :style="{ aspectRatio: galleryViewStore.defaultAspectRatioCollection }"
       >
-        <div class="split-image first-image">
+        <template v-if="collection.is_virtual || !collection.path_cover_large">
+          <div class="split-image first-image">
+            <v-img
+              cover
+              :src="firstCover"
+              :lazy-src="firstSmallCover"
+              :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+            />
+          </div>
+          <div class="split-image second-image">
+            <v-img
+              cover
+              :src="secondCover"
+              :lazy-src="secondSmallCover"
+              :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
+            />
+          </div>
+        </template>
+        <template v-else>
           <v-img
             cover
-            :src="firstCover"
-            :lazy-src="firstSmallCover"
+            :src="collection.path_cover_large"
+            :lazy-src="collection.path_cover_small?.toString()"
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
           />
-        </div>
-        <div class="split-image second-image">
-          <v-img
-            cover
-            :src="secondCover"
-            :lazy-src="secondSmallCover"
-            :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-          />
+        </template>
+        <div class="position-absolute append-inner">
+          <slot name="append-inner"></slot>
         </div>
       </div>
       <v-chip
@@ -169,5 +186,10 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 .first-image {
   clip-path: polygon(0 0, 100% 0, 0% 100%, 0 100%);
   z-index: 1;
+}
+
+.append-inner {
+  bottom: 0rem;
+  right: 0rem;
 }
 </style>

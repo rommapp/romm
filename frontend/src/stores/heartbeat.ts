@@ -5,9 +5,9 @@ import { computed } from "vue";
 export type Heartbeat = HeartbeatResponse;
 
 export default defineStore("heartbeat", {
-  state: () => {
-    return { value: {} as HeartbeatResponse };
-  },
+  state: () => ({
+    value: {} as HeartbeatResponse,
+  }),
 
   actions: {
     set(data: HeartbeatResponse) {
@@ -31,6 +31,9 @@ export default defineStore("heartbeat", {
           disabled: !this.value.METADATA_SOURCES?.SS_API_ENABLED,
         },
       ]).value.filter((s) => !s.disabled);
+    },
+    reset() {
+      this.value = {} as HeartbeatResponse;
     },
   },
 });

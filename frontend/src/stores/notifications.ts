@@ -15,7 +15,7 @@ export default defineStore("notifications", {
         (notification) => notification.id !== id,
       );
     },
-    clear() {
+    reset() {
       this.notifications = [] as SnackbarStatus[];
     },
   },

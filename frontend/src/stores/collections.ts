@@ -10,14 +10,12 @@ export type Collection = CollectionSchema;
 export type VirtualCollection = VirtualCollectionSchema;
 
 export default defineStore("collections", {
-  state: () => {
-    return {
-      allCollections: [] as Collection[],
-      virtualCollections: [] as VirtualCollection[],
-      favCollection: {} as Collection | undefined,
-      searchText: "" as string,
-    };
-  },
+  state: () => ({
+    allCollections: [] as Collection[],
+    virtualCollections: [] as VirtualCollection[],
+    favCollection: {} as Collection | undefined,
+    searchText: "" as string,
+  }),
   getters: {
     filteredCollections: ({ allCollections, searchText }) =>
       allCollections.filter((p) =>
@@ -70,10 +68,11 @@ export default defineStore("collections", {
     isFav(rom: SimpleRom) {
       return this.favCollection?.rom_ids?.includes(rom.id);
     },
-    isVirtualCollection(
-      collection: Collection | VirtualCollection,
-    ): collection is VirtualCollection {
-      return (collection as VirtualCollection).id !== undefined;
+    reset() {
+      this.allCollections = [];
+      this.virtualCollections = [];
+      this.favCollection = undefined;
+      this.searchText = "";
     },
   },
 });
