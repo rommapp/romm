@@ -154,8 +154,7 @@ const fallbackCoverImage = computed(() =>
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
                         !rom.moby_url_cover &&
-                        !rom.ss_url_cover &&
-                        !rom.path_cover_large)
+                        !rom.ss_url_cover)
                     "
                     class="translucent-dark text-caption text-white"
                   >
