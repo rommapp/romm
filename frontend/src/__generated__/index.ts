@@ -36,6 +36,7 @@ export type { RomFileSchema } from './models/RomFileSchema';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
 export type { RomSchema } from './models/RomSchema';
+export type { RomSSMetadata } from './models/RomSSMetadata';
 export type { RomUserSchema } from './models/RomUserSchema';
 export type { RomUserStatus } from './models/RomUserStatus';
 export type { SaveSchema } from './models/SaveSchema';
