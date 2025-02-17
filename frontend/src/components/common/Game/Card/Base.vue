@@ -148,11 +148,14 @@ const fallbackCoverImage = computed(() =>
                   <div
                     v-if="
                       isHovering ||
-                      (romsStore.isSimpleRom(rom) && rom.is_unidentified) ||
+                      (romsStore.isSimpleRom(rom) &&
+                        rom.is_unidentified &&
+                        !rom.path_cover_large) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
                         !rom.moby_url_cover &&
-                        !rom.ss_url_cover)
+                        !rom.ss_url_cover &&
+                        !rom.path_cover_large)
                     "
                     class="translucent-dark text-caption text-white"
                   >
