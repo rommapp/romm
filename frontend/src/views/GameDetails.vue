@@ -5,7 +5,6 @@ import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
-import PdfViewer from "@/components/Details/PDFViewer.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
@@ -18,10 +17,14 @@ import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeMount, ref, watch } from "vue";
+import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+// Dynamic import for PDFViewer
+const PdfViewer = defineAsyncComponent(
+  () => import("@/components/Details/PDFViewer.vue"),
+);
 
 // Props
 const { t } = useI18n();
