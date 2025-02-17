@@ -54,7 +54,7 @@
     "@types/semver": "^7.5.8",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.7.0",
-    "eslint": "^9.20.0",
+    "eslint": "^9.20.1",
     "eslint-plugin-vue": "^9.26.0",
     "globals": "^15.15.0",
     "openapi-typescript-codegen": "^0.29.0",
