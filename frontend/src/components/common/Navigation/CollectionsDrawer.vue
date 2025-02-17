@@ -76,6 +76,7 @@ function clear() {
       <template
         v-if="showVirtualCollections && filteredVirtualCollections.length > 0"
       >
+        <v-divider class="my-4 mx-4" />
         <v-list-subheader class="uppercase">{{
           t("common.virtual-collections").toUpperCase()
         }}</v-list-subheader>

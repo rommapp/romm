@@ -79,8 +79,8 @@ def extract_metadata_from_moby_rom(rom: dict) -> MobyMetadata:
 class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = "https://api.mobygames.com/v1"
-        self.platform_url = f"{self.BASE_URL}/platforms"
-        self.games_url = f"{self.BASE_URL}/games"
+        self.platform_endpoint = f"{self.BASE_URL}/platforms"
+        self.games_endpoint = f"{self.BASE_URL}/games"
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
@@ -148,7 +148,7 @@ class MobyGamesHandler(MetadataHandler):
             return None
 
         search_term = uc(search_term)
-        url = yarl.URL(self.games_url).with_query(
+        url = yarl.URL(self.games_endpoint).with_query(
             platform=[platform_moby_id],
             title=quote(search_term, safe="/ "),
         )
@@ -283,7 +283,7 @@ class MobyGamesHandler(MetadataHandler):
         if not MOBY_API_ENABLED:
             return MobyGamesRom(moby_id=None)
 
-        url = yarl.URL(self.games_url).with_query(id=moby_id)
+        url = yarl.URL(self.games_endpoint).with_query(id=moby_id)
         roms = (await self._request(str(url))).get("games", [])
         res = pydash.get(roms, "[0]", None)
 
@@ -319,7 +319,7 @@ class MobyGamesHandler(MetadataHandler):
             return []
 
         search_term = uc(search_term)
-        url = yarl.URL(self.games_url).with_query(
+        url = yarl.URL(self.games_endpoint).with_query(
             platform=[platform_moby_id], title=quote(search_term, safe="/ ")
         )
         matched_roms = (await self._request(str(url))).get("games", [])

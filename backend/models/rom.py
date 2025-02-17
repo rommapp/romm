@@ -71,10 +71,12 @@ class Rom(BaseModel):
     igdb_id: Mapped[int | None]
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
+    ss_id: Mapped[int | None]
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
+        Index("idx_roms_ss_id", "ss_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=450))
@@ -92,11 +94,19 @@ class Rom(BaseModel):
     moby_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
+    ss_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
 
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
     url_cover: Mapped[str | None] = mapped_column(
         Text, default="", doc="URL to cover image stored in IGDB"
+    )
+
+    path_manual: Mapped[str | None] = mapped_column(Text, default="")
+    url_manual: Mapped[str | None] = mapped_column(
+        Text, default="", doc="URL to manual stored in ScreenScraper"
     )
 
     revision: Mapped[str | None] = mapped_column(String(length=100))
@@ -161,6 +171,10 @@ class Rom(BaseModel):
         return f"{self.fs_path}/{self.fs_name}"
 
     @cached_property
+    def has_manual(self) -> bool:
+        return bool(self.path_manual)
+
+    @cached_property
     def merged_screenshots(self) -> list[str]:
         screenshots = [s.download_path for s in self.screenshots]
         if self.path_screenshots:
@@ -213,6 +227,7 @@ class Rom(BaseModel):
         return (
             (self.igdb_metadata or {}).get("alternative_names", None)
             or (self.moby_metadata or {}).get("alternate_titles", None)
+            or (self.ss_metadata or {}).get("alternative_names", None)
             or []
         )
 
@@ -220,6 +235,8 @@ class Rom(BaseModel):
     def first_release_date(self) -> int | None:
         if self.igdb_metadata:
             return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
+        elif self.ss_metadata:
+            return safe_int(self.ss_metadata.get("first_release_date") or 0) * 1000
 
         return None
 
@@ -235,8 +252,13 @@ class Rom(BaseModel):
             if self.moby_metadata
             else 0.0
         )
+        ss_rating = (
+            safe_float(self.ss_metadata.get("ss_score") or 0)
+            if self.ss_metadata
+            else 0.0
+        )
 
-        ratings = [r for r in [igdb_rating, moby_rating * 10] if r != 0.0]
+        ratings = [r for r in [igdb_rating, moby_rating * 10, ss_rating] if r != 0.0]
 
         return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
 
@@ -245,6 +267,7 @@ class Rom(BaseModel):
         return (
             (self.igdb_metadata or {}).get("genres", None)
             or (self.moby_metadata or {}).get("genres", None)
+            or (self.ss_metadata or {}).get("genres", None)
             or []
         )
 
@@ -252,6 +275,8 @@ class Rom(BaseModel):
     def franchises(self) -> list[str]:
         if self.igdb_metadata:
             return self.igdb_metadata.get("franchises", [])
+        elif self.ss_metadata:
+            return self.ss_metadata.get("franchises", [])
         return []
 
     @property
@@ -264,12 +289,16 @@ class Rom(BaseModel):
     def companies(self) -> list[str]:
         if self.igdb_metadata:
             return self.igdb_metadata.get("companies", [])
+        elif self.ss_metadata:
+            return self.ss_metadata.get("companies", [])
         return []
 
     @property
     def game_modes(self) -> list[str]:
         if self.igdb_metadata:
             return self.igdb_metadata.get("game_modes", [])
+        elif self.ss_metadata:
+            return self.ss_metadata.get("game_modes", [])
         return []
 
     @property

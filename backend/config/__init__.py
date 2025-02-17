@@ -57,6 +57,10 @@ IGDB_CLIENT_SECRET: Final = os.environ.get(
     "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
 )
 
+# SCREENSCRAPER
+SCREENSCRAPER_USER: Final = os.environ.get("SCREENSCRAPER_USER", "")
+SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
+
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
 

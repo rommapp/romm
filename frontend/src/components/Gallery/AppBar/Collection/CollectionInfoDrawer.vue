@@ -195,7 +195,6 @@ async function updateCollection() {
             :with-link="false"
             :collection="currentCollection"
             :src="imagePreviewUrl"
-            title-on-hover
           >
             <template v-if="isEditable" #append-inner>
               <v-btn-group divided density="compact">
@@ -373,10 +372,10 @@ async function updateCollection() {
   z-index: 1;
 }
 .drawer-desktop {
-  top: 54px !important;
+  top: 56px !important;
 }
 .drawer-mobile {
-  top: 114px !important;
+  top: 110px !important;
   width: calc(100% - 16px) !important;
 }
 </style>

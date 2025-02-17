@@ -78,8 +78,8 @@ async def add_collection(
             )
     else:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-            overwrite=True,
             entity=_added_collection,
+            overwrite=True,
             url_cover=_added_collection.url_cover,
         )
 
@@ -247,8 +247,8 @@ async def update_collection(
                     {"url_cover": data.get("url_cover", collection.url_cover)}
                 )
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-                    overwrite=True,
                     entity=collection,
+                    overwrite=True,
                     url_cover=data.get("url_cover", ""),  # type: ignore
                 )
                 cleaned_data.update(

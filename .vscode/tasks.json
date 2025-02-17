@@ -35,7 +35,7 @@
     {
       "label": "Setup testing environment",
       "type": "shell",
-      "command": "export $(cat .env | grep DB_ROOT_PASSWD | xargs) && docker exec -i mariadb mariadb -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
+      "command": "export $(cat .env | grep DB_ROOT_PASSWD | xargs) && docker exec -i romm-db-dev mariadb -u root -p$DB_ROOT_PASSWD < backend/romm_test/setup.sql",
       "problemMatcher": []
     },
     {

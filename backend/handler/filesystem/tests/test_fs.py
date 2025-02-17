@@ -7,7 +7,7 @@ from models.platform import Platform
 
 async def test_get_rom_cover():
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        overwrite=False, entity=None, url_cover=""
+        entity=None, overwrite=False, url_cover=""
     )
 
     assert "" in path_cover_s

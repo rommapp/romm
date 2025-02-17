@@ -1,4 +1,5 @@
 import binascii
+import os
 from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
@@ -31,7 +32,8 @@ from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
-from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import Rom, RomFile, RomUser
 from PIL import Image
@@ -492,6 +494,7 @@ async def update_rom(
                 "igdb_id": None,
                 "sgdb_id": None,
                 "moby_id": None,
+                "ss_id": None,
                 "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
@@ -499,9 +502,11 @@ async def update_rom(
                 "path_cover_s": "",
                 "path_cover_l": "",
                 "url_cover": "",
+                "url_manual": "",
                 "slug": "",
                 "igdb_metadata": {},
                 "moby_metadata": {},
+                "ss_metadata": {},
                 "revision": "",
             },
         )
@@ -515,6 +520,7 @@ async def update_rom(
     cleaned_data: dict[str, Any] = {
         "igdb_id": data.get("igdb_id", rom.igdb_id),
         "moby_id": data.get("moby_id", rom.moby_id),
+        "ss_id": data.get("ss_id", rom.ss_id),
     }
 
     moby_id = cleaned_data["moby_id"]
@@ -527,9 +533,23 @@ async def update_rom(
         )
         cleaned_data.update({"path_screenshots": path_screenshots})
 
-    igdb_id = cleaned_data["igdb_id"]
-    if igdb_id and int(igdb_id) != rom.igdb_id:
-        igdb_rom = await meta_igdb_handler.get_rom_by_id(int(igdb_id))
+    if (
+        cleaned_data.get("ss_id", "")
+        and int(cleaned_data.get("ss_id", "")) != rom.ss_id
+    ):
+        ss_rom = await meta_ss_handler.get_rom_by_id(cleaned_data["ss_id"])
+        cleaned_data.update(ss_rom)
+        path_screenshots = await fs_resource_handler.get_rom_screenshots(
+            rom=rom,
+            url_screenshots=cleaned_data.get("url_screenshots", []),
+        )
+        cleaned_data.update({"path_screenshots": path_screenshots})
+
+    if (
+        cleaned_data.get("igdb_id", "")
+        and int(cleaned_data.get("igdb_id", "")) != rom.igdb_id
+    ):
+        igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
@@ -613,13 +633,28 @@ async def update_rom(
             ):
                 cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-                    overwrite=True,
                     entity=rom,
+                    overwrite=True,
                     url_cover=str(data.get("url_cover") or ""),
                 )
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
+
+    if data.get("url_manual", "") != rom.url_manual or not (
+        await fs_resource_handler.manual_exists(rom)
+    ):
+        cleaned_data.update({"url_manual": data.get("url_manual", rom.url_manual)})
+        url_manual = await fs_resource_handler.get_manual(
+            rom=rom,
+            overwrite=True,
+            url_manual=str(data.get("url_manual") or ""),
+        )
+        cleaned_data.update({"url_manual": url_manual})
+
+    log.debug(
+        f"Updating {hl(cleaned_data.get('name', ''))} [{id}] with data {cleaned_data}"
+    )
 
     db_rom_handler.update_rom(id, cleaned_data)
     rom = db_rom_handler.get_rom(id)
@@ -627,6 +662,60 @@ async def update_rom(
         raise RomNotFoundInDatabaseException(id)
 
     return DetailedRomSchema.from_orm_with_request(rom, request)
+
+
+@protected_route(router.post, "/{id}/manuals", [Scope.ROMS_WRITE])
+async def add_rom_manuals(request: Request, id: int):
+    """Upload manuals for a rom
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Raises:
+        HTTPException: No files were uploaded
+    """
+    rom = db_rom_handler.get_rom(id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(id)
+
+    filename = request.headers.get("x-upload-filename")
+
+    manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
+    file_location = Path(f"{manuals_path}/{rom.id}.pdf")
+    log.info(f"Uploading {file_location}")
+
+    if not os.path.exists(manuals_path):
+        await Path(manuals_path).mkdir(parents=True, exist_ok=True)
+
+    parser = StreamingFormDataParser(headers=request.headers)
+    parser.register("x-upload-platform", NullTarget())
+    parser.register(filename, FileTarget(str(file_location)))
+
+    async def cleanup_partial_file():
+        if await file_location.exists():
+            await file_location.unlink()
+
+    try:
+        async for chunk in request.stream():
+            parser.data_received(chunk)
+    except ClientDisconnect:
+        log.error("Client disconnected during upload")
+        await cleanup_partial_file()
+    except Exception as exc:
+        log.error("Error uploading files", exc_info=exc)
+        await cleanup_partial_file()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="There was an error uploading the file(s)",
+        ) from exc
+
+    path_manual = await fs_resource_handler.get_manual(
+        rom=rom, overwrite=False, url_manual=None
+    )
+
+    db_rom_handler.update_rom(id, {"path_manual": path_manual})
+
+    return Response(status_code=status.HTTP_201_CREATED)
 
 
 @protected_route(router.post, "/delete", [Scope.ROMS_WRITE])

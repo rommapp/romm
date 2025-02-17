@@ -57,7 +57,6 @@ async function logout() {
       'mx-2': smAndDown || activeSettingsDrawer,
       'my-2': !smAndDown || activeSettingsDrawer,
       'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface pa-1"
     style="height: unset"
@@ -115,26 +114,15 @@ async function logout() {
         append-icon="mdi-security"
         >{{ t("common.administration") }}
       </v-list-item>
-      <template v-if="smAndDown && scopes.includes('me.write')">
-        <v-list-item
-          @click="logout"
-          append-icon="mdi-location-exit"
-          rounded
-          class="bg-toplayer border-sm text-romm-red border-romm-red mt-1"
-          >{{ t("common.logout") }}</v-list-item
-        >
-      </template>
     </v-list>
-    <template v-if="!smAndDown && scopes.includes('me.write')" #append>
-      <v-list class="pa-0">
-        <v-list-item
-          @click="logout"
-          append-icon="mdi-location-exit"
-          rounded
-          class="bg-toplayer border-sm text-romm-red border-romm-red"
-          >{{ t("common.logout") }}</v-list-item
-        >
-      </v-list>
+    <template v-if="scopes.includes('me.write')" #append>
+      <v-btn
+        @click="logout"
+        append-icon="mdi-location-exit"
+        block
+        class="bg-toplayer text-romm-red"
+        >{{ t("common.logout") }}</v-btn
+      >
     </template>
   </v-navigation-drawer>
 </template>

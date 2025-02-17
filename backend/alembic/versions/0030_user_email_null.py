@@ -1,6 +1,6 @@
 """Change empty string in users.email to NULL.
 
-Revision ID: 951473b0c581
+Revision ID: 0030_user_email_null
 Revises: 0029_platforms_custom_name
 Create Date: 2025-01-14 01:30:39.696257
 
