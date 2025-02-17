@@ -10,7 +10,7 @@ from handler.filesystem.roms_handler import FSRom
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
-from handler.metadata.ss_handler import SSGamesPlatform, SSGamesRom
+from handler.metadata.ss_handler import SSPlatform, SSRom
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -117,7 +117,7 @@ async def scan_platform(
     ss_platform = (
         meta_ss_handler.get_platform(platform_attrs["slug"])
         if MetadataSource.SS in metadata_sources
-        else SSGamesPlatform(ss_id=None, slug=platform_attrs["slug"])
+        else SSPlatform(ss_id=None, slug=platform_attrs["slug"])
     )
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
@@ -322,7 +322,7 @@ async def scan_rom(
                 rom_attrs["fs_name"], platform_ss_id=platform.ss_id
             )
 
-        return SSGamesRom(ss_id=None)
+        return SSRom(ss_id=None)
 
     # Run both metadata fetches concurrently
     igdb_handler_rom, moby_handler_rom, ss_handler_rom = await asyncio.gather(

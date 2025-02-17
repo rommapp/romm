@@ -227,6 +227,7 @@ class Rom(BaseModel):
         return (
             (self.igdb_metadata or {}).get("alternative_names", None)
             or (self.moby_metadata or {}).get("alternate_titles", None)
+            or (self.ss_metadata or {}).get("alternative_names", None)
             or []
         )
 
@@ -234,6 +235,8 @@ class Rom(BaseModel):
     def first_release_date(self) -> int | None:
         if self.igdb_metadata:
             return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
+        elif self.ss_metadata:
+            return safe_int(self.ss_metadata.get("first_release_date") or 0) * 1000
 
         return None
 
@@ -249,8 +252,13 @@ class Rom(BaseModel):
             if self.moby_metadata
             else 0.0
         )
+        ss_rating = (
+            safe_float(self.ss_metadata.get("ss_score") or 0)
+            if self.ss_metadata
+            else 0.0
+        )
 
-        ratings = [r for r in [igdb_rating, moby_rating * 10] if r != 0.0]
+        ratings = [r for r in [igdb_rating, moby_rating * 10, ss_rating] if r != 0.0]
 
         return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
 
@@ -259,6 +267,7 @@ class Rom(BaseModel):
         return (
             (self.igdb_metadata or {}).get("genres", None)
             or (self.moby_metadata or {}).get("genres", None)
+            or (self.ss_metadata or {}).get("genres", None)
             or []
         )
 
@@ -266,6 +275,8 @@ class Rom(BaseModel):
     def franchises(self) -> list[str]:
         if self.igdb_metadata:
             return self.igdb_metadata.get("franchises", [])
+        elif self.ss_metadata:
+            return self.ss_metadata.get("franchises", [])
         return []
 
     @property
@@ -278,12 +289,16 @@ class Rom(BaseModel):
     def companies(self) -> list[str]:
         if self.igdb_metadata:
             return self.igdb_metadata.get("companies", [])
+        elif self.ss_metadata:
+            return self.ss_metadata.get("companies", [])
         return []
 
     @property
     def game_modes(self) -> list[str]:
         if self.igdb_metadata:
             return self.igdb_metadata.get("game_modes", [])
+        elif self.ss_metadata:
+            return self.ss_metadata.get("game_modes", [])
         return []
 
     @property

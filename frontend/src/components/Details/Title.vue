@@ -190,6 +190,9 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
               <v-img src="/assets/scrappers/ss.png" />
             </v-avatar>
             <span>{{ rom.ss_id }}</span>
+            <v-divider class="mx-2 border-opacity-25" vertical />
+            <span>{{ rom.ss_metadata?.ss_score }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
       </v-col>

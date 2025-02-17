@@ -7,6 +7,7 @@ import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomSchema } from './RomSchema';
+import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
@@ -45,7 +46,7 @@ export type DetailedRomSchema = {
     age_ratings: Array<string>;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
-    ss_metadata: (RomMobyMetadata | null);
+    ss_metadata: (RomSSMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);

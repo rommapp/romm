@@ -2,6 +2,7 @@ import asyncio
 import base64
 import http
 import re
+from datetime import datetime
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
@@ -103,25 +104,29 @@ ARCADE_SS_IDS: Final = [
 ]
 
 
-class SSGamesPlatform(TypedDict):
+class SSPlatform(TypedDict):
     slug: str
     ss_id: int | None
     name: NotRequired[str]
 
 
-class SSMetadataPlatform(TypedDict):
-    ss_id: int
-    name: str
+class SSAgeRating(TypedDict):
+    rating: str
+    category: str
+    rating_cover_url: str
 
 
 class SSMetadata(TypedDict):
     ss_score: str
+    first_release_date: int | None
+    alternative_names: list[str]
+    companies: list[str]
+    franchises: list[str]
+    game_modes: list[str]
     genres: list[str]
-    alternate_titles: list[str]
-    platforms: list[SSMetadataPlatform]
 
 
-class SSGamesRom(TypedDict):
+class SSRom(TypedDict):
     ss_id: int | None
     slug: NotRequired[str]
     name: NotRequired[str]
@@ -133,17 +138,73 @@ class SSGamesRom(TypedDict):
 
 
 def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
+    def _normalize_score(score: str) -> str:
+        """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
+        try:
+            return str(int(score) / 2)
+        except (ValueError, TypeError):
+            return ""
+
+    def _get_lowest_date(dates: list[str]) -> int | None:
+        lowest_date = pydash.chain(dates).map("text").sort().head().value()
+        if lowest_date:
+            try:
+                lowest_date = int(
+                    datetime.strptime(lowest_date, "%Y-%m-%d").timestamp()
+                )
+            except ValueError:
+                try:
+                    lowest_date = int(datetime.strptime(lowest_date, "%Y").timestamp())
+                except ValueError:
+                    lowest_date = None
+        else:
+            lowest_date = None
+        return lowest_date
+
     return SSMetadata(
         {
-            "ss_score": "",
-            "genres": [],
-            "alternate_titles": [],
-            "platforms": [],
+            "ss_score": _normalize_score(pydash.get(rom, "note.text", None)),
+            "alternative_names": pydash.map_(rom.get("noms", []), "text"),
+            "companies": [
+                pydash.get(rom, "editeur.text", None),
+                pydash.get(rom, "developpeur.text", None),
+            ],
+            "genres": pydash.chain(rom.get("genres", []))
+            .map("noms")
+            .flatten()
+            .filter({"langue": "en"})
+            .map("text")
+            .value(),
+            "first_release_date": _get_lowest_date(rom.get("dates", [])),
+            "franchises": pydash.chain(rom.get("familles", []))
+            .map("noms")
+            .flatten()
+            .filter({"langue": "en"})
+            .map("text")
+            .value()
+            or pydash.chain(rom.get("familles", []))
+            .map("noms")
+            .flatten()
+            .filter({"langue": "fr"})
+            .map("text")
+            .value(),
+            "game_modes": pydash.chain(rom.get("modes", []))
+            .map("noms")
+            .flatten()
+            .filter({"langue": "en"})
+            .map("text")
+            .value()
+            or pydash.chain(rom.get("modes", []))
+            .map("noms")
+            .flatten()
+            .filter({"langue": "fr"})
+            .map("text")
+            .value(),
         }
     )
 
 
-class SSBaseHandler(MetadataHandler):
+class SSHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = "https://api.screenscraper.fr/api2"
         self.search_endpoint = f"{self.BASE_URL}/jeuRecherche.php"
@@ -151,46 +212,6 @@ class SSBaseHandler(MetadataHandler):
         self.games_endpoint = f"{self.BASE_URL}/jeuInfos.php"
         self.LOGIN_ERROR_CHECK: Final = "Erreur de login"
         self.NO_GAME_ERROR: Final = "Erreur : Jeu non trouvée !"
-
-    @staticmethod
-    def _extract_value_by_region(data_list, key, target_value):
-        """Extract the first matching value by region."""
-        for item in data_list:
-            if item.get("region") == target_value:
-                return item.get(key, "")
-        return ""
-
-    @staticmethod
-    def _extract_value_by_language(data_list, key, target_language):
-        """Extract the first matching value by language."""
-        for item in data_list:
-            if item.get("langue") == target_language:
-                return item.get(key, "")
-        return ""
-
-    @staticmethod
-    def _extract_box2d_cover_url(data_list):
-        """Extract the first matching cover URL."""
-        for item in data_list:
-            if (
-                item.get("region") == "us"
-                and item.get("type") == "box-2D"
-                and item.get("parent") == "jeu"
-            ):
-                return item.get("url", "")
-        return ""
-
-    @staticmethod
-    def _extract_manual_url(data_list):
-        for item in data_list:
-            if (
-                item.get("type") == "manuel"
-                and item.get("region") == "us"
-                and item.get("parent") == "jeu"
-                and item.get("format") == "pdf"
-            ):
-                return item.get("url", "")
-        return ""
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
@@ -286,49 +307,49 @@ class SSBaseHandler(MetadataHandler):
         roms = [] if len(found_roms) == 1 and not found_roms[0] else found_roms
         return pydash.get(roms, "[0]", None)
 
-    def get_platform(self, slug: str) -> SSGamesPlatform:
+    def get_platform(self, slug: str) -> SSPlatform:
         platform = SLUG_TO_SS_ID.get(slug, None)
 
         if not platform:
-            return SSGamesPlatform(ss_id=None, slug=slug)
+            return SSPlatform(ss_id=None, slug=slug)
 
-        return SSGamesPlatform(
+        return SSPlatform(
             ss_id=platform["id"],
             slug=slug,
             name=platform["name"],
         )
 
-    async def get_rom(self, file_name: str, platform_ss_id: int) -> SSGamesRom:
+    async def get_rom(self, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
 
         if not SS_API_ENABLED:
-            return SSGamesRom(ss_id=None)
+            return SSRom(ss_id=None)
 
         if not platform_ss_id:
-            return SSGamesRom(ss_id=None)
+            return SSRom(ss_id=None)
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(file_name)
-        fallback_rom = SSGamesRom(ss_id=None)
+        fallback_rom = SSRom(ss_id=None)
 
         # Support for PS2 OPL filename format
         match = PS2_OPL_REGEX.match(file_name)
         if platform_ss_id == PS2_SS_ID and match:
             search_term = await self._ps2_opl_format(match, search_term)
-            fallback_rom = SSGamesRom(ss_id=None, name=search_term)
+            fallback_rom = SSRom(ss_id=None, name=search_term)
 
         # Support for sony serial filename format (PS, PS3, PS3)
         match = SONY_SERIAL_REGEX.search(file_name, re.IGNORECASE)
         if platform_ss_id == PS1_SS_ID and match:
             search_term = await self._ps1_serial_format(match, search_term)
-            fallback_rom = SSGamesRom(ss_id=None, name=search_term)
+            fallback_rom = SSRom(ss_id=None, name=search_term)
 
         if platform_ss_id == PS2_SS_ID and match:
             search_term = await self._ps2_serial_format(match, search_term)
-            fallback_rom = SSGamesRom(ss_id=None, name=search_term)
+            fallback_rom = SSRom(ss_id=None, name=search_term)
 
         if platform_ss_id == PSP_SS_ID and match:
             search_term = await self._psp_serial_format(match, search_term)
-            fallback_rom = SSGamesRom(ss_id=None, name=search_term)
+            fallback_rom = SSRom(ss_id=None, name=search_term)
 
         # Support for switch titleID filename format
         match = SWITCH_TITLEDB_REGEX.search(file_name)
@@ -337,7 +358,7 @@ class SSBaseHandler(MetadataHandler):
                 match, search_term
             )
             if index_entry:
-                fallback_rom = SSGamesRom(
+                fallback_rom = SSRom(
                     ss_id=None,
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
@@ -353,7 +374,7 @@ class SSBaseHandler(MetadataHandler):
                 match, search_term
             )
             if index_entry:
-                fallback_rom = SSGamesRom(
+                fallback_rom = SSRom(
                     ss_id=None,
                     name=index_entry["name"],
                     summary=index_entry.get("description", ""),
@@ -365,7 +386,7 @@ class SSBaseHandler(MetadataHandler):
         # Support for MAME arcade filename format
         if platform_ss_id in ARCADE_SS_IDS:
             search_term = await self._mame_format(search_term)
-            fallback_rom = SSGamesRom(ss_id=None, name=search_term)
+            fallback_rom = SSRom(ss_id=None, name=search_term)
 
         search_term = self.normalize_search_term(search_term)
         res = await self._search_rom(search_term, platform_ss_id)
@@ -384,45 +405,103 @@ class SSBaseHandler(MetadataHandler):
 
         rom = {
             "ss_id": ss_id,
-            "name": self._extract_value_by_region(res.get("noms", []), "text", "ss"),
-            "slug": self._extract_value_by_region(res.get("noms", []), "text", "ss"),
-            "summary": self._extract_value_by_language(
-                res.get("synopsis", []), "text", "en"
-            ),
-            "url_cover": self._extract_box2d_cover_url(res.get("medias", [])),
-            "url_manual": self._extract_manual_url(res.get("medias", [])),
+            "name": pydash.chain(res.get("noms", []))
+            .filter({"region": "ss"})
+            .map("text")
+            .head()
+            .value(),
+            "slug": pydash.chain(res.get("noms", []))
+            .filter({"region": "ss"})
+            .map("text")
+            .head()
+            .value(),
+            "summary": pydash.chain(res.get("synopsis", []))
+            .filter({"langue": "en"})
+            .map("text")
+            .head()
+            .value(),
+            "url_cover": pydash.chain(res.get("medias", []))
+            .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
+            .map("url")
+            .head()
+            .value()
+            or "",
+            "url_manual": pydash.chain(res.get("medias", []))
+            .filter(
+                {"region": "us", "type": "manuel", "parent": "jeu", "format": "pdf"}
+            )
+            .map("url")
+            .head()
+            .value()
+            or pydash.chain(res.get("medias", []))
+            .filter(
+                {"region": "eu", "type": "manuel", "parent": "jeu", "format": "pdf"}
+            )
+            .map("url")
+            .head()
+            .value()
+            or "",
             "url_screenshots": [],
             "ss_metadata": extract_metadata_from_ss_rom(res),
         }
 
-        return SSGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return SSRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
-    async def get_rom_by_id(self, ss_id: int) -> SSGamesRom:
+    async def get_rom_by_id(self, ss_id: int) -> SSRom:
         if not SS_API_ENABLED:
-            return SSGamesRom(ss_id=None)
+            return SSRom(ss_id=None)
 
         url = yarl.URL(self.games_endpoint).with_query(gameid=ss_id)
         res = (await self._request(str(url))).get("response", {}).get("jeu", [])
 
         if not res:
-            return SSGamesRom(ss_id=None)
+            return SSRom(ss_id=None)
 
         rom = {
             "ss_id": res.get("id"),
-            "name": self._extract_value_by_region(res.get("noms", []), "text", "ss"),
-            "slug": self._extract_value_by_region(res.get("noms", []), "text", "ss"),
-            "summary": self._extract_value_by_language(
-                res.get("synopsis", []), "text", "en"
-            ),
-            "url_cover": self._extract_box2d_cover_url(res.get("medias", [])),
-            "url_manual": self._extract_manual_url(res.get("medias", [])),
+            "name": pydash.chain(res.get("noms", []))
+            .filter({"region": "ss"})
+            .map("text")
+            .head()
+            .value(),
+            "slug": pydash.chain(res.get("noms", []))
+            .filter({"region": "ss"})
+            .map("text")
+            .head()
+            .value(),
+            "summary": pydash.chain(res.get("synopsis", []))
+            .filter({"langue": "en"})
+            .map("text")
+            .head()
+            .value(),
+            "url_cover": pydash.chain(res.get("medias", []))
+            .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
+            .map("url")
+            .head()
+            .value()
+            or "",
+            "url_manual": pydash.chain(res.get("medias", []))
+            .filter(
+                {"region": "us", "type": "manuel", "parent": "jeu", "format": "pdf"}
+            )
+            .map("url")
+            .head()
+            .value()
+            or pydash.chain(res.get("medias", []))
+            .filter(
+                {"region": "eu", "type": "manuel", "parent": "jeu", "format": "pdf"}
+            )
+            .map("url")
+            .head()
+            .value()
+            or "",
             "url_screenshots": [],
             "ss_metadata": extract_metadata_from_ss_rom(res),
         }
 
-        return SSGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return SSRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
-    async def get_matched_rom_by_id(self, ss_id: int) -> SSGamesRom | None:
+    async def get_matched_rom_by_id(self, ss_id: int) -> SSRom | None:
         if not SS_API_ENABLED:
             return None
 
@@ -431,7 +510,7 @@ class SSBaseHandler(MetadataHandler):
 
     async def get_matched_roms_by_name(
         self, search_term: str, platform_ss_id: int
-    ) -> list[SSGamesRom]:
+    ) -> list[SSRom]:
         if not SS_API_ENABLED:
             return []
 
@@ -448,29 +527,66 @@ class SSBaseHandler(MetadataHandler):
         matched_roms = [] if len(roms) == 1 and not roms[0] else roms
 
         return [
-            SSGamesRom(  # type: ignore[misc]
+            SSRom(  # type: ignore[misc]
                 {
                     k: v
                     for k, v in {
                         "ss_id": rom.get("id"),
-                        "name": self._extract_value_by_region(
-                            rom.get("noms", []), "text", "ss"
-                        ),
-                        "slug": self._extract_value_by_region(
-                            rom.get("noms", []), "text", "ss"
-                        ),
-                        "summary": self._extract_value_by_language(
-                            rom.get("synopsis", []), "text", "en"
-                        ),
-                        "url_cover": self._extract_box2d_cover_url(
-                            rom.get("medias", [])
-                        ),
-                        "url_manual": self._extract_manual_url(rom.get("medias", [])),
+                        "name": pydash.chain(rom.get("noms", []))
+                        .filter({"region": "ss"})
+                        .map("text")
+                        .head()
+                        .value(),
+                        "slug": pydash.chain(rom.get("noms", []))
+                        .filter({"region": "ss"})
+                        .map("text")
+                        .head()
+                        .value(),
+                        "summary": pydash.chain(rom.get("synopsis", []))
+                        .filter({"langue": "en"})
+                        .map("text")
+                        .head()
+                        .value(),
+                        "url_cover": pydash.chain(rom.get("medias", []))
+                        .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
+                        .map("url")
+                        .head()
+                        .value()
+                        or "",
+                        "url_manual": pydash.chain(rom.get("medias", []))
+                        .filter(
+                            {
+                                "region": "us",
+                                "type": "manuel",
+                                "parent": "jeu",
+                                "format": "pdf",
+                            }
+                        )
+                        .map("url")
+                        .head()
+                        .value()
+                        or pydash.chain(rom.get("medias", []))
+                        .filter(
+                            {
+                                "region": "eu",
+                                "type": "manuel",
+                                "parent": "jeu",
+                                "format": "pdf",
+                            }
+                        )
+                        .map("url")
+                        .head()
+                        .value()
+                        or "",
                         "url_screenshots": [],
                         "ss_metadata": extract_metadata_from_ss_rom(rom),
                     }.items()
                     if v
-                    and self._extract_value_by_region(rom.get("noms", []), "text", "ss")
+                    and pydash.chain(rom.get("noms", []))
+                    .filter({"region": "ss"})
+                    .map("text")
+                    .head()
+                    .value()
                     and rom.get("id", None)
                 }
             )

@@ -15,7 +15,7 @@ from handler.metadata import (
 from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
 from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
-from handler.metadata.ss_handler import SS_API_ENABLED, SSGamesRom
+from handler.metadata.ss_handler import SS_API_ENABLED, SSRom
 from handler.scan_handler import _get_main_platform_igdb_id
 from logger.logger import log
 from utils.router import APIRouter
@@ -72,7 +72,7 @@ async def search_rom(
 
     igdb_matched_roms: list[IGDBRom] = []
     moby_matched_roms: list[MobyGamesRom] = []
-    ss_matched_roms: list[SSGamesRom] = []
+    ss_matched_roms: list[SSRom] = []
 
     if search_by.lower() == "id":
         try:

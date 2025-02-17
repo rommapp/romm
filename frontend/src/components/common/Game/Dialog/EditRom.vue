@@ -124,7 +124,6 @@ async function handleRomUpdate(
 }
 
 async function uploadManuals() {
-  show.value = false;
   if (!rom.value) return;
 
   await romApi
