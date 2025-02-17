@@ -42,6 +42,7 @@
     "vue": "^3.4.27",
     "vue-i18n": "^11.1.1",
     "vue-router": "^4.3.2",
+    "vue3-pdf-app": "^1.0.3",
     "vuetify": "^3.7.9"
   },
   "devDependencies": {

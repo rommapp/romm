@@ -28,6 +28,7 @@
   "copy-link": "Copier le lien de téléchargement",
   "cant-copy-link": "Impossible de copier le lien dans le presse-papiers, copiez-le manuellement",
   "details": "Détails",
+  "manual": "Manuel utilisateur",
   "personal": "Personnel",
   "version": "Version",
   "default": "Par défaut",

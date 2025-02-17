@@ -13,6 +13,7 @@ export type PlatformSchema = {
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
     moby_id?: (number | null);
+    ss_id?: (number | null);
     category?: (string | null);
     generation?: (number | null);
     family_name?: (string | null);

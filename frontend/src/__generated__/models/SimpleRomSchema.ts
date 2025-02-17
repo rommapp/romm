@@ -6,12 +6,14 @@ import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomSchema } from './RomSchema';
+import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 export type SimpleRomSchema = {
     id: number;
     igdb_id: (number | null);
     sgdb_id: (number | null);
     moby_id: (number | null);
+    ss_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -39,9 +41,13 @@ export type SimpleRomSchema = {
     age_ratings: Array<string>;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
+    ss_metadata: (RomSSMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
+    has_manual: boolean;
+    path_manual: (string | null);
+    url_manual: (string | null);
     is_unidentified: boolean;
     revision: (string | null);
     regions: Array<string>;

@@ -76,7 +76,7 @@ const computedAspectRatio = computed(() => {
   return parseFloat(ratio.toString());
 });
 const fallbackCoverImage = computed(() =>
-  props.rom.igdb_id || props.rom.moby_id
+  props.rom.igdb_id || props.rom.moby_id || props.rom.ss_id
     ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
     : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );
@@ -128,6 +128,7 @@ const fallbackCoverImage = computed(() =>
                 ? rom.path_cover_large || fallbackCoverImage
                 : rom.igdb_url_cover ||
                   rom.moby_url_cover ||
+                  rom.ss_url_cover ||
                   fallbackCoverImage)
             "
             :lazy-src="
@@ -136,6 +137,7 @@ const fallbackCoverImage = computed(() =>
                 ? rom.path_cover_small || fallbackCoverImage
                 : rom.igdb_url_cover ||
                   rom.moby_url_cover ||
+                  rom.ss_url_cover ||
                   fallbackCoverImage)
             "
             :aspect-ratio="computedAspectRatio"
@@ -146,10 +148,13 @@ const fallbackCoverImage = computed(() =>
                   <div
                     v-if="
                       isHovering ||
-                      (romsStore.isSimpleRom(rom) && rom.is_unidentified) ||
+                      (romsStore.isSimpleRom(rom) &&
+                        rom.is_unidentified &&
+                        !rom.path_cover_large) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
-                        !rom.moby_url_cover)
+                        !rom.moby_url_cover &&
+                        !rom.ss_url_cover)
                     "
                     class="translucent-dark text-caption text-white"
                   >

@@ -9,6 +9,7 @@ from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
+from handler.metadata.ss_handler import SSMetadata
 from models.rom import Rom, RomFileCategory, RomUserStatus
 from pydantic import computed_field
 
@@ -24,6 +25,11 @@ RomIGDBMetadata = TypedDict(  # type: ignore[misc]
 RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
     dict((k, NotRequired[v]) for k, v in get_type_hints(MobyMetadata).items()),
+    total=False,
+)
+RomSSMetadata = TypedDict(  # type: ignore[misc]
+    "RomSSMetadata",
+    dict((k, NotRequired[v]) for k, v in get_type_hints(SSMetadata).items()),
     total=False,
 )
 
@@ -120,6 +126,7 @@ class RomSchema(BaseModel):
     igdb_id: int | None
     sgdb_id: int | None
     moby_id: int | None
+    ss_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -152,10 +159,16 @@ class RomSchema(BaseModel):
     age_ratings: list[str]
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
+    ss_metadata: RomSSMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None
     url_cover: str | None
+
+    has_manual: bool
+    path_manual: str | None
+    url_manual: str | None
+
     is_unidentified: bool
 
     revision: str | None

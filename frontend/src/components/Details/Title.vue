@@ -139,7 +139,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     </v-row>
 
     <v-row
-      v-if="rom.igdb_id || rom.moby_id"
+      v-if="rom.igdb_id || rom.moby_id || rom.ss_id"
       class="text-white text-shadow mt-2"
       :class="{ 'text-center': smAndDown }"
       no-gutters
@@ -151,12 +151,14 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           :href="`https://www.igdb.com/games/${rom.slug}`"
           target="_blank"
         >
-          <v-chip size="x-small" @click.stop>
-            <span>IGDB</span>
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/igdb.png" />
+            </v-avatar>
+            <span>{{ rom.igdb_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>ID: {{ rom.igdb_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>Rating: {{ rom.igdb_metadata?.total_rating }}</span>
+            <span>{{ rom.igdb_metadata?.total_rating }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
         <a
@@ -166,12 +168,31 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           target="_blank"
           :class="{ 'ml-1': rom.igdb_id }"
         >
-          <v-chip size="x-small" @click.stop>
-            <span>Mobygames</span>
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/moby.png" />
+            </v-avatar>
+            <span>{{ rom.moby_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>ID: {{ rom.moby_id }}</span>
+            <span>{{ rom.moby_metadata?.moby_score }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
+          </v-chip>
+        </a>
+        <a
+          v-if="rom.ss_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
+          target="_blank"
+          :class="{ 'ml-1': rom.igdb_id || rom.moby_id }"
+        >
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/ss.png" />
+            </v-avatar>
+            <span>{{ rom.ss_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>Rating: {{ rom.moby_metadata?.moby_score }}</span>
+            <span>{{ rom.ss_metadata?.ss_score }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
       </v-col>

@@ -7,9 +7,10 @@ from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import meta_igdb_handler, meta_moby_handler
+from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
+from handler.metadata.ss_handler import SSPlatform, SSRom
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -27,6 +28,12 @@ class ScanType(Enum):
     PARTIAL = "partial"
     COMPLETE = "complete"
     HASHES = "hashes"
+
+
+class MetadataSource:
+    IGDB = "igdb"
+    MOBY = "moby"
+    SS = "ss"
 
 
 async def _get_main_platform_igdb_id(platform: Platform):
@@ -64,7 +71,7 @@ async def scan_platform(
     log.info(f"· {hl(fs_slug)}")
 
     if metadata_sources is None:
-        metadata_sources = ["igdb", "moby"]
+        metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
 
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug
@@ -99,19 +106,30 @@ async def scan_platform(
 
     igdb_platform = (
         (await meta_igdb_handler.get_platform(platform_attrs["slug"]))
-        if "igdb" in metadata_sources
+        if MetadataSource.IGDB in metadata_sources
         else IGDBPlatform(igdb_id=None, slug=platform_attrs["slug"])
     )
     moby_platform = (
         meta_moby_handler.get_platform(platform_attrs["slug"])
-        if "moby" in metadata_sources
+        if MetadataSource.MOBY in metadata_sources
         else MobyGamesPlatform(moby_id=None, slug=platform_attrs["slug"])
+    )
+    ss_platform = (
+        meta_ss_handler.get_platform(platform_attrs["slug"])
+        if MetadataSource.SS in metadata_sources
+        else SSPlatform(ss_id=None, slug=platform_attrs["slug"])
     )
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
-    platform_attrs.update({**moby_platform, **igdb_platform})  # Reverse order
+    platform_attrs.update(
+        {**moby_platform, **ss_platform, **igdb_platform}
+    )  # Reverse order
 
-    if platform_attrs["igdb_id"] or platform_attrs["moby_id"]:
+    if (
+        platform_attrs["igdb_id"]
+        or platform_attrs["moby_id"]
+        or platform_attrs["ss_id"]
+    ):
         log.info(
             emoji.emojize(
                 f"  Identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
@@ -180,7 +198,7 @@ async def scan_rom(
     metadata_sources: list[str] | None = None,
 ) -> Rom:
     if not metadata_sources:
-        metadata_sources = ["igdb", "moby"]
+        metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
 
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
@@ -198,6 +216,7 @@ async def scan_rom(
         "platform_id": platform.id,
         "name": fs_rom["fs_name"],
         "url_cover": "",
+        "url_manual": "",
         "url_screenshots": [],
     }
 
@@ -207,6 +226,7 @@ async def scan_rom(
             {
                 "igdb_id": rom.igdb_id,
                 "moby_id": rom.moby_id,
+                "ss_id": rom.ss_id,
                 "sgdb_id": rom.sgdb_id,
                 "name": rom.name,
                 "slug": rom.slug,
@@ -214,6 +234,7 @@ async def scan_rom(
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
                 "url_cover": rom.url_cover,
+                "url_manual": rom.url_manual,
                 "path_cover_s": rom.path_cover_s,
                 "path_cover_l": rom.path_cover_l,
                 "path_screenshots": rom.path_screenshots,
@@ -253,7 +274,7 @@ async def scan_rom(
 
     async def fetch_igdb_rom():
         if (
-            "igdb" in metadata_sources
+            MetadataSource.IGDB in metadata_sources
             and platform.igdb_id
             and (
                 not rom
@@ -271,7 +292,7 @@ async def scan_rom(
 
     async def fetch_moby_rom():
         if (
-            "moby" in metadata_sources
+            MetadataSource.MOBY in metadata_sources
             and platform.moby_id
             and (
                 not rom
@@ -286,16 +307,37 @@ async def scan_rom(
 
         return MobyGamesRom(moby_id=None)
 
+    async def fetch_ss_rom():
+        if (
+            MetadataSource.SS in metadata_sources
+            and platform.ss_id
+            and (
+                not rom
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.PARTIAL and not rom.ss_id)
+                or (scan_type == ScanType.UNIDENTIFIED and not rom.ss_id)
+            )
+        ):
+            return await meta_ss_handler.get_rom(
+                rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+            )
+
+        return SSRom(ss_id=None)
+
     # Run both metadata fetches concurrently
-    igdb_handler_rom, moby_handler_rom = await asyncio.gather(
-        fetch_igdb_rom(), fetch_moby_rom()
+    igdb_handler_rom, moby_handler_rom, ss_handler_rom = await asyncio.gather(
+        fetch_igdb_rom(), fetch_moby_rom(), fetch_ss_rom()
     )
 
     # Reversed to prioritize IGDB
-    rom_attrs.update({**moby_handler_rom, **igdb_handler_rom})
+    rom_attrs.update({**moby_handler_rom, **ss_handler_rom, **igdb_handler_rom})
 
-    # If not found in IGDB or MobyGames
-    if not igdb_handler_rom.get("igdb_id") and not moby_handler_rom.get("moby_id"):
+    # If not found in IGDB, MobyGames and Screenscraper
+    if (
+        not igdb_handler_rom.get("igdb_id")
+        and not moby_handler_rom.get("moby_id")
+        and not ss_handler_rom.get("ss_id")
+    ):
         log.warning(
             emoji.emojize(
                 f"\t   Rom {rom_attrs['fs_name']} not identified :cross_mark:"

@@ -207,7 +207,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
     )
 
 
-class IGDBBaseHandler(MetadataHandler):
+class IGDBHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = "https://api.igdb.com/v4"
         self.platform_endpoint = f"{self.BASE_URL}/platforms"

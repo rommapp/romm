@@ -5,6 +5,7 @@ import BackgroundHeader from "@/components/Details/BackgroundHeader.vue";
 import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
+import PdfViewer from "@/components/Details/PDFViewer.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
 import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
@@ -27,6 +28,7 @@ const { t } = useI18n();
 const route = useRoute();
 const tab = ref<
   | "details"
+  | "manual"
   | "saves"
   | "states"
   | "personal"
@@ -40,6 +42,7 @@ const noRomError = ref(false);
 const romsStore = storeRoms();
 const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
+// Functions
 async function fetchDetails() {
   gettingRoms.value = true;
   await romApi
@@ -115,6 +118,9 @@ watch(
             :class="{ 'mt-4': smAndDown }"
           >
             <v-tab value="details"> {{ t("rom.details") }} </v-tab>
+            <v-tab value="manual" v-if="currentRom.has_manual">
+              {{ t("rom.manual") }}
+            </v-tab>
             <v-tab value="saves"> {{ t("common.saves") }} </v-tab>
             <v-tab value="states"> {{ t("common.states") }} </v-tab>
             <v-tab value="personal">
@@ -151,6 +157,9 @@ watch(
                     <game-info :rom="currentRom" />
                   </v-col>
                 </v-row>
+              </v-window-item>
+              <v-window-item value="manual">
+                <pdf-viewer v-if="currentRom.has_manual" :rom="currentRom" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="currentRom" />

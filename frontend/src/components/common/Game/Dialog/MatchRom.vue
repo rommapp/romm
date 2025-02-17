@@ -6,6 +6,7 @@ import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
@@ -16,7 +17,7 @@ import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: "IGDB" | "Mobygames";
+  name: "IGDB" | "Mobygames" | "Screenscraper";
   logo_path: string;
 };
 
@@ -27,6 +28,7 @@ const show = ref(false);
 const rom = ref<SimpleRom | null>(null);
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
+const platfotmsStore = storePlatforms();
 const searching = ref(false);
 const route = useRoute();
 const searchTerm = ref("");
@@ -42,9 +44,17 @@ const sources = ref<MatchedSource[]>([]);
 const heartbeat = storeHeartbeat();
 const isIGDBFiltered = ref(true);
 const isMobyFiltered = ref(true);
+const isSSFiltered = ref(true);
+const computedAspectRatio = computed(() => {
+  const ratio =
+    platfotmsStore.getAspectRatio(rom.value?.platform_id ?? -1) ||
+    galleryViewStore.defaultAspectRatioCover;
+  return parseFloat(ratio.toString());
+});
 emitter?.on("showMatchRomDialog", (romToSearch) => {
   rom.value = romToSearch;
   show.value = true;
+  matchedRoms.value = [];
 
   // Use name as search term, only when it's matched
   // Otherwise use the filename without tags and extensions
@@ -70,11 +80,17 @@ function toggleSourceFilter(source: MatchedSource["name"]) {
     heartbeat.value.METADATA_SOURCES.MOBY_API_ENABLED
   ) {
     isMobyFiltered.value = !isMobyFiltered.value;
+  } else if (
+    source == "Screenscraper" &&
+    heartbeat.value.METADATA_SOURCES.SS_API_ENABLED
+  ) {
+    isSSFiltered.value = !isSSFiltered.value;
   }
   filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
     if (
       (rom.igdb_id && isIGDBFiltered.value) ||
-      (rom.moby_id && isMobyFiltered.value)
+      (rom.moby_id && isMobyFiltered.value) ||
+      (rom.ss_id && isSSFiltered.value)
     ) {
       return true;
     }
@@ -103,7 +119,8 @@ async function searchRom() {
         filteredMatchedRoms.value = matchedRoms.value.filter((rom) => {
           if (
             (rom.igdb_id && isIGDBFiltered.value) ||
-            (rom.moby_id && isMobyFiltered.value)
+            (rom.moby_id && isMobyFiltered.value) ||
+            (rom.ss_id && isSSFiltered.value)
           ) {
             return true;
           }
@@ -131,16 +148,31 @@ function showSources(matchedRom: SearchRomSchema) {
   }
   showSelectSource.value = true;
   selectedMatchRom.value = matchedRom;
-  sources.value.push({
-    url_cover: matchedRom.igdb_url_cover,
-    name: "IGDB",
-    logo_path: "/assets/scrappers/igdb.png",
-  });
-  sources.value.push({
-    url_cover: matchedRom.moby_url_cover,
-    name: "Mobygames",
-    logo_path: "/assets/scrappers/moby.png",
-  });
+  sources.value = [];
+  if (matchedRom.igdb_url_cover || matchedRom.igdb_id) {
+    sources.value.push({
+      url_cover: matchedRom.igdb_url_cover,
+      name: "IGDB",
+      logo_path: "/assets/scrappers/igdb.png",
+    });
+  }
+  if (matchedRom.moby_url_cover || matchedRom.moby_id) {
+    sources.value.push({
+      url_cover: matchedRom.moby_url_cover,
+      name: "Mobygames",
+      logo_path: "/assets/scrappers/moby.png",
+    });
+  }
+  if (matchedRom.ss_url_cover || matchedRom.ss_id) {
+    sources.value.push({
+      url_cover: matchedRom.ss_url_cover,
+      name: "Screenscraper",
+      logo_path: "/assets/scrappers/ss.png",
+    });
+  }
+  if (sources.value.length == 1) {
+    selectedCover.value = sources.value[0];
+  }
 }
 
 function selectCover(source: MatchedSource) {
@@ -213,7 +245,6 @@ function closeDialog() {
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
   renameAsSource.value = false;
-  matchedRoms.value = [];
 }
 
 onBeforeUnmount(() => {
@@ -291,6 +322,34 @@ onBeforeUnmount(() => {
           >
             <v-img src="/assets/scrappers/moby.png" /></v-avatar></template
       ></v-tooltip>
+      <v-tooltip
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        :text="
+          heartbeat.value.METADATA_SOURCES.SS_API_ENABLED
+            ? 'Filter Screenscraper matches'
+            : 'Screenscraper source is not enabled'
+        "
+        open-delay="500"
+        ><template #activator="{ props }">
+          <v-avatar
+            @click="toggleSourceFilter('Screenscraper')"
+            v-bind="props"
+            class="ml-3 cursor-pointer opacity-40"
+            :class="{
+              'opacity-100':
+                isSSFiltered && heartbeat.value.METADATA_SOURCES.SS_API_ENABLED,
+              'cursor-not-allowed':
+                !heartbeat.value.METADATA_SOURCES.SS_API_ENABLED,
+            }"
+            size="30"
+            rounded="1"
+          >
+            <v-img src="/assets/scrappers/ss.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
     </template>
     <template #toolbar>
       <v-row class="align-center" no-gutters>
@@ -324,6 +383,7 @@ onBeforeUnmount(() => {
             @click="searchRom()"
             class="bg-toplayer"
             variant="text"
+            rounded="0"
             icon="mdi-search-web"
             block
             :disabled="searching"
@@ -371,7 +431,7 @@ onBeforeUnmount(() => {
               </v-card-text>
             </v-card>
           </v-col>
-          <v-col cols="12">
+          <v-col v-if="sources.length > 1" cols="12">
             <v-row no-gutters class="mt-4 justify-center text-center">
               <v-col>
                 <span class="text-body-1">{{
@@ -397,7 +457,7 @@ onBeforeUnmount(() => {
                   >
                     <v-img
                       :src="source.url_cover || missingCoverImage"
-                      :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
+                      :aspect-ratio="computedAspectRatio"
                       cover
                       lazy
                     >

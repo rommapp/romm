@@ -17,6 +17,7 @@ class PlatformSchema(BaseModel):
     igdb_id: int | None = None
     sgdb_id: int | None = None
     moby_id: int | None = None
+    ss_id: int | None = None
     category: str | None = None
     generation: int | None = None
     family_name: str | None = None

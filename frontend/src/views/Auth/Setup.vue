@@ -30,6 +30,12 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
   },
   {
+    name: "ScreenScrapper",
+    value: "ss",
+    logo_path: "/assets/scrappers/ss.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
+  },
+  {
     name: "SteamgridDB",
     value: "sgdb",
     logo_path: "/assets/scrappers/sgdb.png",
