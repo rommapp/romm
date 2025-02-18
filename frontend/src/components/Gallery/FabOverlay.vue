@@ -52,7 +52,7 @@ async function onScan() {
   socket.emit("scan", {
     platforms: [Number(route.params.platform)],
     roms_ids: romsStore.selectedRoms.map((r) => r.id),
-    type: "quick", // Quick scan so we can filter by selected roms
+    type: "partial", // Quick scan so we can filter by selected roms
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
@@ -180,7 +180,7 @@ function onDownload() {
         <v-icon color="romm-red"> mdi-delete </v-icon>
       </v-btn>
       <v-btn
-        title="Scan roms"
+        title="Refresh metadata"
         key="2"
         v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
