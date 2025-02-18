@@ -4,7 +4,7 @@ from typing import Final, NotRequired, TypedDict
 
 import httpx
 import pydash
-from adapters.services.igdb_types import GameCategory
+from adapters.services.igdb_types import GameType
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
 from fastapi import HTTPException, status
 from handler.redis_handler import async_cache
@@ -115,9 +115,9 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                 for p in rom.get("platforms", [])
             ],
             "age_ratings": [
-                IGDB_AGE_RATINGS[r["rating"]]
+                IGDB_AGE_RATINGS[r["rating_category"]]
                 for r in rom.get("age_ratings", [])
-                if r["rating"] in IGDB_AGE_RATINGS
+                if r["rating_category"] in IGDB_AGE_RATINGS
             ],
             "expansions": [
                 IGDBRelatedGame(
@@ -312,23 +312,23 @@ class IGDBHandler(MetadataHandler):
         return res.json()
 
     async def _search_rom(
-        self, search_term: str, platform_igdb_id: int, with_category: bool = False
+        self, search_term: str, platform_igdb_id: int, with_game_type: bool = False
     ) -> dict | None:
         if not platform_igdb_id:
             return None
 
         search_term = uc(search_term)
-        if with_category:
+        if with_game_type:
             categories = (
-                GameCategory.EXPANDED_GAME,
-                GameCategory.MAIN_GAME,
-                GameCategory.PORT,
-                GameCategory.REMAKE,
-                GameCategory.REMASTER,
+                GameType.EXPANDED_GAME,
+                GameType.MAIN_GAME,
+                GameType.PORT,
+                GameType.REMAKE,
+                GameType.REMASTER,
             )
-            category_filter = f"& category=({','.join(map(str, categories))})"
+            game_type_filter = f"& game_type=({','.join(map(str, categories))})"
         else:
-            category_filter = ""
+            game_type_filter = ""
 
         def is_exact_match(rom: dict, search_term: str) -> bool:
             search_term_lower = search_term.lower()
@@ -350,10 +350,10 @@ class IGDBHandler(MetadataHandler):
                 for rom_name in rom_names
             )
 
-        log.debug("Searching in games endpoint with category %s", category_filter)
+        log.debug("Searching in games endpoint with game_type %s", game_type_filter)
         roms = await self._request(
             self.games_endpoint,
-            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {category_filter};',
+            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {game_type_filter};',
         )
         for rom in roms:
             # Return early if an exact match is found.
@@ -399,7 +399,7 @@ class IGDBHandler(MetadataHandler):
                 slug=slug,
                 name=platform.get("name", slug),
                 category=IGDB_PLATFORM_CATEGORIES.get(
-                    platform.get("category", 0), "Unknown"
+                    platform.get("platform_type", 0), "Unknown"
                 ),
                 generation=platform.get("generation", None),
                 family_name=pydash.get(platform, "platform_family.name", None),
@@ -497,17 +497,17 @@ class IGDBHandler(MetadataHandler):
 
         search_term = self.normalize_search_term(search_term)
 
-        log.debug("Searching for %s on IGDB with category", search_term)
-        rom = await self._search_rom(search_term, platform_igdb_id, with_category=True)
+        log.debug("Searching for %s on IGDB with game_type", search_term)
+        rom = await self._search_rom(search_term, platform_igdb_id, with_game_type=True)
         if not rom:
-            log.debug("Searching for %s on IGDB without category", search_term)
+            log.debug("Searching for %s on IGDB without game_type", search_term)
             rom = await self._search_rom(search_term, platform_igdb_id)
 
         # Split the search term since igdb struggles with colons
         if not rom and ":" in search_term:
             for term in search_term.split(":")[::-1]:
                 log.debug(
-                    "Searching for %s on IGDB without category after splitting semicolon",
+                    "Searching for %s on IGDB without game_Type after splitting semicolon",
                     term,
                 )
                 rom = await self._search_rom(term, platform_igdb_id)
@@ -518,7 +518,7 @@ class IGDBHandler(MetadataHandler):
         if not rom and "/" in search_term:
             for term in search_term.split("/"):
                 log.debug(
-                    "Searching for %s on IGDB without category after splitting slash",
+                    "Searching for %s on IGDB without game_Type after splitting slash",
                     term,
                 )
                 rom = await self._search_rom(term.strip(), platform_igdb_id)
@@ -739,7 +739,7 @@ class TwitchAuth(MetadataHandler):
 PLATFORMS_FIELDS = (
     "id",
     "name",
-    "category",
+    "platform_type",
     "generation",
     "url",
     "platform_family.name",
@@ -795,7 +795,7 @@ GAMES_FIELDS = (
     "similar_games.slug",
     "similar_games.name",
     "similar_games.cover.url",
-    "age_ratings.rating",
+    "age_ratings.rating_category",
     "videos.video_id",
 )
 
