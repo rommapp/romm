@@ -26,10 +26,7 @@ const roms = ref<SimpleRom[]>([]);
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showRemoveFromCollectionDialog", (romsToRemove) => {
-  if (!romsStore.currentCollection) return;
-
   roms.value = romsToRemove;
-  selectedCollection.value = romsStore.currentCollection;
   show.value = true;
 });
 const HEADERS = [
