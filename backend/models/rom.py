@@ -211,10 +211,6 @@ class Rom(BaseModel):
             else ""
         )
 
-    @property
-    def is_unidentified(self) -> bool:
-        return not self.igdb_id and not self.moby_id
-
     # Metadata fields
     @property
     def youtube_video_id(self) -> str:
@@ -306,6 +302,18 @@ class Rom(BaseModel):
         if self.igdb_metadata:
             return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
         return []
+
+    @property
+    def is_unidentified(self) -> bool:
+        return not self.igdb_id and not self.moby_id and not self.ss_id
+
+    @property
+    def is_partially_identified(self) -> bool:
+        return not self.is_unidentified and not self.is_fully_identified
+
+    @property
+    def is_fully_identified(self) -> bool:
+        return self.igdb_id and self.moby_id and self.ss_id
 
     def __repr__(self) -> str:
         return self.fs_name

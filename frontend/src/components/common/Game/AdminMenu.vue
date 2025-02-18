@@ -131,7 +131,7 @@ async function onScan() {
   socket.emit("scan", {
     platforms: [props.rom.platform_id],
     roms_ids: [props.rom.id],
-    type: "quick", // Quick scan so we can filter by selected roms
+    type: "partial", // Quick scan so we can filter by selected roms
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
