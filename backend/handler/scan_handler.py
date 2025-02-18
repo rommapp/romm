@@ -287,6 +287,16 @@ async def scan_rom(
             return await meta_igdb_handler.get_rom(
                 rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
             )
+        elif rom and scan_type == ScanType.PARTIAL and rom.igdb_id:
+            return IGDBRom(
+                igdb_id=rom.igdb_id,
+                slug=rom.slug,
+                name=rom.name,
+                summary=rom.summary,
+                url_cover=rom.url_cover,
+                url_screenshots=rom.url_screenshots,
+                igdb_metadata=rom.igdb_metadata,
+            )
 
         return IGDBRom(igdb_id=None)
 
@@ -304,6 +314,16 @@ async def scan_rom(
             return await meta_moby_handler.get_rom(
                 rom_attrs["fs_name"], platform_moby_id=platform.moby_id
             )
+        elif rom and scan_type == ScanType.PARTIAL and rom.moby_id:
+            return MobyGamesRom(
+                moby_id=rom.moby_id,
+                slug=rom.slug,
+                name=rom.name,
+                summary=rom.summary,
+                url_cover=rom.url_cover,
+                url_screenshots=rom.url_screenshots,
+                moby_metadata=rom.moby_metadata,
+            )
 
         return MobyGamesRom(moby_id=None)
 
@@ -320,6 +340,17 @@ async def scan_rom(
         ):
             return await meta_ss_handler.get_rom(
                 rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+            )
+        elif rom and scan_type == ScanType.PARTIAL and rom.ss_id:
+            return SSRom(
+                ss_id=rom.ss_id,
+                slug=rom.slug,
+                name=rom.name,
+                summary=rom.summary,
+                url_cover=rom.url_cover,
+                url_manual=rom.url_manual,
+                url_screenshots=rom.url_screenshots,
+                ss_metadata=rom.ss_metadata,
             )
 
         return SSRom(ss_id=None)
