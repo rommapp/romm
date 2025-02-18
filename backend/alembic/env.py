@@ -81,6 +81,7 @@ def run_migrations_online() -> None:
     """
 
     engine = create_engine(ConfigManager.get_db_engine())
+    engine.transactional_ddl = True
 
     with engine.connect() as connection:
         context.configure(
