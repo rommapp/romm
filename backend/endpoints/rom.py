@@ -645,12 +645,12 @@ async def update_rom(
         await fs_resource_handler.manual_exists(rom)
     ):
         cleaned_data.update({"url_manual": data.get("url_manual", rom.url_manual)})
-        url_manual = await fs_resource_handler.get_manual(
+        path_manual = await fs_resource_handler.get_manual(
             rom=rom,
             overwrite=True,
             url_manual=str(data.get("url_manual") or ""),
         )
-        cleaned_data.update({"url_manual": url_manual})
+        cleaned_data.update({"path_manual": path_manual})
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''))} [{id}] with data {cleaned_data}"
