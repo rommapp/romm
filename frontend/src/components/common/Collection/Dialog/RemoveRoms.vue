@@ -27,7 +27,6 @@ const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showRemoveFromCollectionDialog", (romsToRemove) => {
   roms.value = romsToRemove;
-  selectedCollection.value = romsStore.currentCollection;
   show.value = true;
 });
 const HEADERS = [
