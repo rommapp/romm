@@ -124,7 +124,7 @@ async function onScan() {
   emitter?.emit("snackbarShow", {
     msg: `Refreshing ${props.rom.name} metadata...`,
     icon: "mdi-loading mdi-spin",
-    color: "romm-accent-1",
+    color: "primary",
   });
 
   if (!socket.connected) socket.connect();
