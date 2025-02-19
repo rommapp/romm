@@ -44,9 +44,9 @@ server {
     }
 
     # Internally redirect download requests
-    location /library {
+    location /library/ {
         internal;
-        alias /romm/library;
+        alias /romm/library/;
     }
 
     # This location, and the related server at port 8081, are used to serve files when
@@ -75,7 +75,7 @@ server {
     listen 8081;
     server_name localhost;
 
-    location /library {
-        alias /romm/library;
+    location /library/ {
+        alias /romm/library/;
     }
 }
