@@ -154,6 +154,7 @@ COPY ./backend /backend
 # Setup init script and config files
 COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/js/ /etc/nginx/js/
+COPY ./docker/nginx/templates/ /etc/nginx/templates/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 # User permissions

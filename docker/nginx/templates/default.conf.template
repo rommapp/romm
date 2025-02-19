@@ -1,0 +1,81 @@
+# This template is used to generate the default.conf file for the nginx server,
+# by using `envsubst` to replace the environment variables in the template with
+# their actual values.
+
+server {
+    root /var/www/html;
+    listen 8080;
+    server_name localhost;
+
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+        proxy_redirect off;
+        add_header Access-Control-Allow-Origin *;
+        add_header Access-Control-Allow-Methods *;
+        add_header Access-Control-Allow-Headers *;
+    }
+
+    # Static files
+    location /assets {
+        try_files $uri $uri/ =404;
+    }
+
+    # OpenAPI for swagger and redoc
+    location /openapi.json {
+        proxy_pass http://wsgi_server;
+    }
+
+    # Backend api calls
+    location /api {
+        proxy_pass http://wsgi_server;
+        proxy_request_buffering off;
+        proxy_buffering off;
+    }
+    location /ws {
+        proxy_pass http://wsgi_server;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Internally redirect download requests
+    location /library {
+        internal;
+        alias /romm/library;
+    }
+
+    # This location, and the related server at port 8081, are used to serve files when
+    # using the `mod_zip` module. This is because the `mod_zip` module does not support
+    # calculating CRC-32 values when using subrequests pointing directly to internal
+    # locations that access the filesystem.
+    # TODO: If that gets fixed, this workaround can be removed, and the `/library` location
+    # can be used directly (also removing the server at port 8081).
+    # Related issue: https://github.com/evanmiller/mod_zip/issues/90
+    location /library-zip {
+        internal;
+        rewrite ^/library-zip/(.*)$ /library/$1 break;
+        proxy_pass http://localhost:8081;
+        # Proxy buffering must be disabled, for the module to correctly calculate CRC-32 values.
+        proxy_buffering off;
+    }
+
+    # Internal decoding endpoint, used to decode base64 encoded data
+    location /decode {
+        internal;
+        js_content decode.decodeBase64;
+    }
+}
+
+server {
+    listen 8081;
+    server_name localhost;
+
+    location /library {
+        alias /romm/library;
+    }
+}
