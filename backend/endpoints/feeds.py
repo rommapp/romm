@@ -1,6 +1,6 @@
 from typing import Sequence
 
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, FRONTEND_RESOURCES_PATH
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
@@ -69,13 +69,13 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             if rom.path_cover_s:
                 category_item["thumbnail"] = str(
                     URLPath(
-                        f"/assets/romm/resources/{rom.path_cover_s}"
+                        f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_s}"
                     ).make_absolute_url(request.base_url)
                 )
             if rom.path_cover_l:
                 category_item["background"] = str(
                     URLPath(
-                        f"/assets/romm/resources/{rom.path_cover_l}"
+                        f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
                     ).make_absolute_url(request.base_url)
                 )
             category_items.append(category_item)
