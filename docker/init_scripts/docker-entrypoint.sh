@@ -33,6 +33,11 @@ for var_name in $(printenv | cut -d= -f1 | grep "_FILE$" || true); do
 	unset "${var_name}"
 done
 
+# Set default values for environment variables used by nginx templates.
+# Nginx uses `envsubst` to load environment variables into configuration files, but it does not
+# support the default value syntax `${VAR:-default}`.
+: "${ROMM_PORT:=8080}"
+
 # Replace environment variables used in nginx configuration templates.
 /docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null
 

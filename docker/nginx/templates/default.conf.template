@@ -4,7 +4,7 @@
 
 server {
     root /var/www/html;
-    listen 8080;
+    listen ${ROMM_PORT};
     server_name localhost;
 
     proxy_set_header Host $http_host;
