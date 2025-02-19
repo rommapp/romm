@@ -33,4 +33,7 @@ for var_name in $(printenv | cut -d= -f1 | grep "_FILE$" || true); do
 	unset "${var_name}"
 done
 
+# Replace environment variables used in nginx configuration templates.
+/docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null
+
 exec "$@"
