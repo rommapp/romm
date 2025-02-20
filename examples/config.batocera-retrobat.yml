@@ -110,6 +110,7 @@ system:
     prboom: doom
     ps2: ps2
     ps3: ps3
+    ps4: ps4--1
     psp: psp
     psvita: psvita
     psx: ps
@@ -119,7 +120,7 @@ system:
     saturn: saturn
     scummvm: scummvm
     scv: epoch-super-cassette-vision
-    sega32x: sega-32x
+    sega32x: sega32
     segacd: segacd
     sg1000: sg1000
     sgb: gbc
