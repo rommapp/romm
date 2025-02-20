@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!-- Generator: Adobe Illustrator 27.8.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 256 256" style="enable-background:new 0 0 256 256;" xml:space="preserve">
+<path style="opacity:0.5;fill:#FFFFFF;" d="M242,56H14C8.486,56,4,60.486,4,66v124c0,5.514,4.486,10,10,10h228
+	c5.514,0,10-4.486,10-10V66C252,60.486,247.514,56,242,56L242,56z"/>
+<path style="fill:#C4C0AA;" d="M242,192H14c-1.105,0-2-0.895-2-2V66c0-1.105,0.895-2,2-2h228c1.105,0,2,0.895,2,2v124
+	C244,191.105,243.105,192,242,192z"/>
+<rect x="20" y="68" style="fill:#262626;" width="216" height="12"/>
+<path style="fill:#262626;" d="M136,180H24c-2.209,0-4-1.791-4-4V92c0-2.209,1.791-4,4-4h112c2.209,0,4,1.791,4,4v84
+	C140,178.209,138.209,180,136,180z"/>
+<path style="fill:#262626;" d="M232,172h-76c-2.209,0-4-1.791-4-4V92c0-2.209,1.791-4,4-4h76c2.209,0,4,1.791,4,4v76
+	C236,170.209,234.209,172,232,172z"/>
+<path style="fill:#A6A390;" d="M148,180V88l-4,100H12v2c0,1.105,0.895,2,2,2h228c1.105,0,2-0.895,2-2v-2v-8H148z"/>
+<rect x="44" y="100" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="60" y="100" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="76" y="100" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="92" y="100" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="108" y="100" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="44" y="116" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="60" y="116" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="76" y="116" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="92" y="116" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="108" y="116" style="fill:#E77F22;" width="12" height="12"/>
+<rect x="100" y="152" style="fill:#E77F22;" width="20" height="12"/>
+<circle style="fill:#B80000;" cx="42" cy="158" r="2"/>
+<circle cx="58" cy="158" r="2"/>
+<circle cx="70" cy="158" r="2"/>
+<circle cx="82" cy="158" r="2"/>
+<rect x="156" y="96" width="76" height="8"/>
+<rect x="156" y="104" style="fill:#333333;" width="76" height="8"/>
+<rect x="156" y="117" style="fill:#333333;" width="76" height="2"/>
+<rect x="156" y="122" style="fill:#333333;" width="76" height="2"/>
+<rect x="156" y="127" style="fill:#333333;" width="76" height="2"/>
+<rect x="156" y="132" style="fill:#333333;" width="76" height="2"/>
+<rect x="156" y="137" style="fill:#333333;" width="76" height="2"/>
+<rect x="156" y="142" style="fill:#333333;" width="76" height="2"/>
+<rect x="156" y="147" style="fill:#333333;" width="76" height="2"/>
+<rect x="156" y="152" style="fill:#333333;" width="76" height="2"/>
+<rect x="156" y="157" style="fill:#333333;" width="76" height="2"/>
+</svg>
