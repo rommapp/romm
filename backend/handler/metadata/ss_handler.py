@@ -161,22 +161,19 @@ def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
             lowest_date = None
         return lowest_date
 
-    return SSMetadata(
-        {
-            "ss_score": _normalize_score(pydash.get(rom, "note.text", None)),
-            "alternative_names": pydash.map_(rom.get("noms", []), "text"),
-            "companies": [
-                pydash.get(rom, "editeur.text", None),
-                pydash.get(rom, "developpeur.text", None),
-            ],
-            "genres": pydash.chain(rom.get("genres", []))
+    def _get_genres(rom: dict) -> list[str]:
+        return (
+            pydash.chain(rom.get("genres", []))
             .map("noms")
             .flatten()
             .filter({"langue": "en"})
             .map("text")
-            .value(),
-            "first_release_date": _get_lowest_date(rom.get("dates", [])),
-            "franchises": pydash.chain(rom.get("familles", []))
+            .value()
+        )
+
+    def _get_franchises(rom: dict) -> list[str]:
+        return (
+            pydash.chain(rom.get("familles", []))
             .map("noms")
             .flatten()
             .filter({"langue": "en"})
@@ -187,8 +184,12 @@ def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
             .flatten()
             .filter({"langue": "fr"})
             .map("text")
-            .value(),
-            "game_modes": pydash.chain(rom.get("modes", []))
+            .value()
+        )
+
+    def _get_game_modes(rom: dict) -> list[str]:
+        return (
+            pydash.chain(rom.get("modes", []))
             .map("noms")
             .flatten()
             .filter({"langue": "en"})
@@ -199,7 +200,23 @@ def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
             .flatten()
             .filter({"langue": "fr"})
             .map("text")
-            .value(),
+            .value()
+        )
+
+    return SSMetadata(
+        {
+            "ss_score": _normalize_score(pydash.get(rom, "note.text", None)),
+            "alternative_names": pydash.map_(rom.get("noms", []), "text"),
+            "companies": pydash.compact(
+                [
+                    pydash.get(rom, "editeur.text", None),
+                    pydash.get(rom, "developpeur.text", None),
+                ]
+            ),
+            "genres": _get_genres(rom),
+            "first_release_date": _get_lowest_date(rom.get("dates", [])),
+            "franchises": _get_franchises(rom),
+            "game_modes": _get_game_modes(rom),
         }
     )
 
@@ -526,68 +543,96 @@ class SSHandler(MetadataHandler):
         # If no roms are return, "jeux" is list with an empty dict that can lead to issues. It needs to be checked.
         matched_roms = [] if len(roms) == 1 and not roms[0] else roms
 
+        def _get_name(rom: dict) -> str | None:
+            return (
+                pydash.chain(rom.get("noms", []))
+                .filter({"region": "ss"})
+                .map("text")
+                .head()
+                .value()
+            )
+
+        def _get_slug(rom: dict) -> str | None:
+            return (
+                pydash.chain(rom.get("noms", []))
+                .filter({"region": "ss"})
+                .map("text")
+                .head()
+                .value()
+            )
+
+        def _get_summary(rom: dict) -> str | None:
+            return (
+                pydash.chain(rom.get("synopsis", []))
+                .filter({"langue": "en"})
+                .map("text")
+                .head()
+                .value()
+            )
+
+        def _get_url_cover(rom: dict) -> str:
+            return (
+                pydash.chain(rom.get("medias", []))
+                .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
+                .map("url")
+                .head()
+                .value()
+                or ""
+            )
+
+        def _get_url_manual(rom: dict) -> str:
+            return (
+                pydash.chain(rom.get("medias", []))
+                .filter(
+                    {
+                        "region": "us",
+                        "type": "manuel",
+                        "parent": "jeu",
+                        "format": "pdf",
+                    }
+                )
+                .map("url")
+                .head()
+                .value()
+                or pydash.chain(rom.get("medias", []))
+                .filter(
+                    {
+                        "region": "eu",
+                        "type": "manuel",
+                        "parent": "jeu",
+                        "format": "pdf",
+                    }
+                )
+                .map("url")
+                .head()
+                .value()
+                or ""
+            )
+
+        def _is_ss_region(rom: dict) -> bool:
+            return bool(
+                pydash.chain(rom.get("noms", []))
+                .filter({"region": "ss"})
+                .map("text")
+                .head()
+                .value()
+            )
+
         return [
-            SSRom(  # type: ignore[misc]
-                {
+            SSRom(
+                {  # type: ignore[misc]
                     k: v
                     for k, v in {
                         "ss_id": rom.get("id"),
-                        "name": pydash.chain(rom.get("noms", []))
-                        .filter({"region": "ss"})
-                        .map("text")
-                        .head()
-                        .value(),
-                        "slug": pydash.chain(rom.get("noms", []))
-                        .filter({"region": "ss"})
-                        .map("text")
-                        .head()
-                        .value(),
-                        "summary": pydash.chain(rom.get("synopsis", []))
-                        .filter({"langue": "en"})
-                        .map("text")
-                        .head()
-                        .value(),
-                        "url_cover": pydash.chain(rom.get("medias", []))
-                        .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
-                        .map("url")
-                        .head()
-                        .value()
-                        or "",
-                        "url_manual": pydash.chain(rom.get("medias", []))
-                        .filter(
-                            {
-                                "region": "us",
-                                "type": "manuel",
-                                "parent": "jeu",
-                                "format": "pdf",
-                            }
-                        )
-                        .map("url")
-                        .head()
-                        .value()
-                        or pydash.chain(rom.get("medias", []))
-                        .filter(
-                            {
-                                "region": "eu",
-                                "type": "manuel",
-                                "parent": "jeu",
-                                "format": "pdf",
-                            }
-                        )
-                        .map("url")
-                        .head()
-                        .value()
-                        or "",
+                        "name": _get_name(rom),
+                        "slug": _get_slug(rom),
+                        "summary": _get_summary(rom),
+                        "url_cover": _get_url_cover(rom),
+                        "url_manual": _get_url_manual(rom),
                         "url_screenshots": [],
                         "ss_metadata": extract_metadata_from_ss_rom(rom),
                     }.items()
-                    if v
-                    and pydash.chain(rom.get("noms", []))
-                    .filter({"region": "ss"})
-                    .map("text")
-                    .head()
-                    .value()
-                    and rom.get("id", None)
+                    if v and _is_ss_region(rom) and rom.get("id", False)
                 }
             )
             for rom in matched_roms
