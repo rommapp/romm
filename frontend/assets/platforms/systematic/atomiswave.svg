@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!-- Generator: Adobe Illustrator 28.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 256 256" style="enable-background:new 0 0 256 256;" xml:space="preserve">
+<path style="opacity:0.5;fill:#FFFFFF;" d="M240,4H16C9.383,4,4,9.383,4,16v220c0,6.617,5.383,12,12,12h10.967H28v4h8h2h2h2h2h2h2h2
+	h2h2h2h2h2h8h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h2h8v-4h16h1.033H240
+	c6.617,0,12-5.383,12-12v-78.967V156V36v-1.033V16C252,9.383,246.617,4,240,4z"/>
+<rect x="36" y="236" style="fill:#0E6654;" width="24" height="8"/>
+<rect x="64" y="236" style="fill:#0E6654;" width="84" height="8"/>
+<rect x="38" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="42" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="46" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="50" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="54" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="58" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="66" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="70" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="74" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="78" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="82" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="86" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="90" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="94" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="98" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="102" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="106" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="110" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="114" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="118" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="122" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="126" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="130" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="134" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="138" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="142" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<rect x="146" y="236" style="fill:#D9AF63;" width="2" height="8"/>
+<path style="fill:#FF0000;" d="M240,240H16c-2.209,0-4-1.791-4-4V16c0-2.209,1.791-4,4-4h224c2.209,0,4,1.791,4,4v220
+	C244,238.209,242.209,240,240,240z"/>
+<rect x="28" y="36" style="fill:#B80000;" width="156" height="148"/>
+<path style="fill:#3D0000;" d="M50,60c-1.105,0-2,0.895-2,2v92c0,1.105,0.895,2,2,2h100c1.105,0,2-0.895,2-2V62c0-1.105-0.895-2-2-2
+	H50z"/>
+<path style="fill:#7B0000;" d="M148,150c0,1.105-0.895,2-2,2H54c-1.105,0-2-0.895-2-2V66c0-1.105,0.895-2,2-2h92
+	c1.105,0,2,0.895,2,2V150z"/>
+<rect x="136" y="78" style="fill:#828282;" width="4" height="40"/>
+<circle style="fill:#595959;" cx="138" cy="74" r="2"/>
+<circle style="fill:#595959;" cx="138" cy="122" r="2"/>
+<circle style="fill:#3D0000;" cx="78" cy="98" r="2"/>
+<polygon style="fill:#7B0000;" points="100,36 100,60 112,60 112,62 132,62 132,60 144,60 144,36 "/>
+<rect x="46" y="120" style="fill:#7B0000;" width="2" height="12"/>
+<rect x="152" y="68" style="fill:#7B0000;" width="2" height="12"/>
+<polygon style="fill:#B80000;" points="212,36 212,212 28,212 28,236 212,236 236,236 240,236 240,36 "/>
+<path style="fill:#F2F2F2;" d="M235,232h-50c-0.552,0-1-0.448-1-1v-46c0-0.552,0.448-1,1-1h50c0.552,0,1,0.448,1,1v46
+	C236,231.552,235.552,232,235,232z"/>
+<path style="fill:#3D0000;" d="M28,182c0-1.105,0.895-2,2-2h140c1.105,0,2,0.895,2,2v58h1.033v-58c0-1.672-1.361-3.033-3.033-3.033
+	H30c-1.672,0-3.033,1.361-3.033,3.033v58H28V182z"/>
+<path style="fill:#3D0000;" d="M244,156h-61.934c-1.141,0-2.066-0.925-2.066-2.066V38.066c0-1.141,0.925-2.066,2.066-2.066H244
+	v-1.033h-61.934c-1.708,0-3.098,1.39-3.098,3.098v115.869c0,1.708,1.39,3.098,3.098,3.098H244V156z"/>
+<polygon style="fill:#7B0000;" points="180,104 180,92 152,92 152,104 150,104 150,128 152,128 152,140 180,140 180,128 182,128 
+	182,104 "/>
+<polygon style="fill:#7B0000;" points="132,156 132,154 112,154 112,156 100,156 100,180 112,180 112,182 132,182 132,180 144,180 
+	144,156 "/>
+</svg>
