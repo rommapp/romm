@@ -161,22 +161,19 @@ def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
             lowest_date = None
         return lowest_date
 
-    return SSMetadata(
-        {
-            "ss_score": _normalize_score(pydash.get(rom, "note.text", None)),
-            "alternative_names": pydash.map_(rom.get("noms", []), "text"),
-            "companies": [
-                pydash.get(rom, "editeur.text", None),
-                pydash.get(rom, "developpeur.text", None),
-            ],
-            "genres": pydash.chain(rom.get("genres", []))
+    def _get_genres(rom: dict) -> list[str]:
+        return (
+            pydash.chain(rom.get("genres", []))
             .map("noms")
             .flatten()
             .filter({"langue": "en"})
             .map("text")
-            .value(),
-            "first_release_date": _get_lowest_date(rom.get("dates", [])),
-            "franchises": pydash.chain(rom.get("familles", []))
+            .value()
+        )
+
+    def _get_franchises(rom: dict) -> list[str]:
+        return (
+            pydash.chain(rom.get("familles", []))
             .map("noms")
             .flatten()
             .filter({"langue": "en"})
@@ -187,8 +184,12 @@ def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
             .flatten()
             .filter({"langue": "fr"})
             .map("text")
-            .value(),
-            "game_modes": pydash.chain(rom.get("modes", []))
+            .value()
+        )
+
+    def _get_game_modes(rom: dict) -> list[str]:
+        return (
+            pydash.chain(rom.get("modes", []))
             .map("noms")
             .flatten()
             .filter({"langue": "en"})
@@ -199,7 +200,23 @@ def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
             .flatten()
             .filter({"langue": "fr"})
             .map("text")
-            .value(),
+            .value()
+        )
+
+    return SSMetadata(
+        {
+            "ss_score": _normalize_score(pydash.get(rom, "note.text", None)),
+            "alternative_names": pydash.map_(rom.get("noms", []), "text"),
+            "companies": pydash.compact(
+                [
+                    pydash.get(rom, "editeur.text", None),
+                    pydash.get(rom, "developpeur.text", None),
+                ]
+            ),
+            "genres": _get_genres(rom),
+            "first_release_date": _get_lowest_date(rom.get("dates", [])),
+            "franchises": _get_franchises(rom),
+            "game_modes": _get_game_modes(rom),
         }
     )
 
