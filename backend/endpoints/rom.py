@@ -392,7 +392,12 @@ async def get_rom_content(
 
                 # Add M3U file
                 m3u_encoded_content = "\n".join(
-                    [f.full_path.replace(rom.full_path, ".hidden") for f in files]
+                    [
+                        f.full_path.replace(
+                            rom.full_path, ".hidden" if hidden_folder else ""
+                        )
+                        for f in files
+                    ]
                 ).encode()
                 m3u_filename = f"{rom.fs_name}.m3u"
                 m3u_info = ZipInfo(filename=m3u_filename, date_time=now.timetuple()[:6])
