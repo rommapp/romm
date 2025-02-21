@@ -320,7 +320,7 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
-    hidden_folder = request.query_params.get("hidden_folder").lower() == "true"
+    hidden_folder = request.query_params.get("hidden_folder", "").lower() == "true"
 
     file_ids = request.query_params.get("file_ids") or ""
     file_ids = [int(f) for f in file_ids.split(",") if f]
