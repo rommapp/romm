@@ -320,7 +320,7 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
-    hidden_folder = request.query_params.get("hidden_folder") == "true"
+    hidden_folder = request.query_params.get("hidden_folder").lower() == "true"
 
     file_ids = request.query_params.get("file_ids") or ""
     file_ids = [int(f) for f in file_ids.split(",") if f]
@@ -392,7 +392,7 @@ async def get_rom_content(
 
                 # Add M3U file
                 m3u_encoded_content = "\n".join(
-                    [f.full_path.replace(rom.full_path, "") for f in files]
+                    [f.full_path.replace(rom.full_path, ".hidden") for f in files]
                 ).encode()
                 m3u_filename = f"{rom.fs_name}.m3u"
                 m3u_info = ZipInfo(filename=m3u_filename, date_time=now.timetuple()[:6])
