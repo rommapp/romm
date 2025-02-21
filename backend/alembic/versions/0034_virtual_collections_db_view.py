@@ -52,6 +52,8 @@ def upgrade() -> None:
                 SELECT c.id, rom_id::INT, NOW(), NOW()
                 FROM collections c,
                 LATERAL jsonb_array_elements_text(c.roms) AS rom_id
+                LEFT JOIN roms r ON rom_id::INT = r.id
+                WHERE r.id IS NOT NULL;
                 """
             )
         )
@@ -143,6 +145,8 @@ def upgrade() -> None:
                 SELECT c.id, jt.rom_id, NOW(), NOW()
                 FROM collections c
                 JOIN JSON_TABLE(c.roms, '$[*]' COLUMNS (rom_id INT PATH '$')) AS jt
+                LEFT JOIN roms r ON jt.rom_id = r.id
+                WHERE r.id IS NOT NULL;
                 """
             )
         )
@@ -263,7 +267,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     with op.batch_alter_table("collections", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("roms", CustomJSON(), nullable=False))
+        batch_op.add_column(sa.Column("roms", CustomJSON(), nullable=True))
 
     connection = op.get_bind()
     if is_postgresql(connection):
@@ -271,10 +275,11 @@ def downgrade() -> None:
             sa.text(
                 """
                 UPDATE collections c
-                SET roms = (
-                    SELECT jsonb_agg(rom_id)
+                SET roms = COALESCE(
+                    (SELECT jsonb_agg(rom_id)
                     FROM collections_roms cr
-                    WHERE cr.collection_id = c.id
+                    WHERE cr.collection_id = c.id),
+                    '[]'::jsonb
                 );
                 """
             )
@@ -285,15 +290,19 @@ def downgrade() -> None:
                 """
                 UPDATE collections c
                 JOIN (
-                    SELECT collection_id, JSON_ARRAYAGG(rom_id) as roms
+                    SELECT collection_id, IFNULL(JSON_ARRAYAGG(rom_id), JSON_ARRAY()) AS roms
                     FROM collections_roms
                     GROUP BY collection_id
                 ) cr
                 ON c.id = cr.collection_id
                 SET c.roms = cr.roms;
+
                 """
             )
         )
+
+    with op.batch_alter_table("collections", schema=None) as batch_op:
+        batch_op.alter_column("roms", existing_type=CustomJSON(), nullable=False)
 
     op.drop_table("collections_roms")
 
