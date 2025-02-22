@@ -158,8 +158,13 @@ COPY ./docker/nginx/templates/ /etc/nginx/templates/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
 
 # User permissions
+# - Create default user `romm` (1000) and group `romm` (1000).
+# - Create base directories and make default user/group the owner.
+# - Make nginx configuration files writable by everyone, for `envsubst` to work
+#     when a custom UID/GID is used.
 RUN addgroup -g 1000 -S romm && adduser -u 1000 -D -S -G romm romm && \
-    mkdir /romm /redis-data && chown romm:romm /romm /redis-data
+    mkdir /romm /redis-data && chown romm:romm /romm /redis-data && \
+    chmod -R a+w /etc/nginx/conf.d
 
 
 FROM scratch AS slim-image
