@@ -18,7 +18,7 @@ class BaseCollectionSchema(BaseModel):
 
 class CollectionSchema(BaseCollectionSchema):
     id: int
-    url_cover: str
+    url_cover: str | None
     rom_ids: set[int]
     rom_count: int
     user_id: int
