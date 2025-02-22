@@ -15,6 +15,7 @@ from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
     RESOURCES_BASE_PATH,
+    str_to_bool,
 )
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
@@ -320,7 +321,7 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
-    hidden_folder = request.query_params.get("hidden_folder", "").lower() == "true"
+    hidden_folder = str_to_bool(request.query_params.get("hidden_folder", ""))
 
     file_ids = request.query_params.get("file_ids") or ""
     file_ids = [int(f) for f in file_ids.split(",") if f]
