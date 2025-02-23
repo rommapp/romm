@@ -419,6 +419,10 @@ export function areThreadsRequiredForEJSCore(core: string): boolean {
   return ["ppsspp"].includes(core);
 }
 
+const canvas = document.createElement("canvas");
+const gl =
+  canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
 /**
  * Check if EJS emulation is supported for a given platform.
  *
@@ -430,10 +434,6 @@ export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
 ) {
-  const canvas = document.createElement("canvas");
-  const gl =
-    canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-
   return (
     !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
     getSupportedEJSCores(platformSlug).length > 0 &&
