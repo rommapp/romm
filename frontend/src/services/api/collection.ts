@@ -4,7 +4,7 @@ import type { Collection, VirtualCollection } from "@/stores/collections";
 
 export type UpdatedCollection = Collection & {
   artwork?: File;
-  url_cover?: string;
+  url_cover?: string | null;
 };
 
 export const collectionApi = api;
