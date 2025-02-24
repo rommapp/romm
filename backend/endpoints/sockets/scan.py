@@ -7,7 +7,7 @@ from typing import Any, Final
 
 import emoji
 import socketio  # type: ignore
-from config import REDIS_URL, SCAN_TIMEOUT
+from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
 from exceptions.fs_exceptions import (
@@ -545,13 +545,13 @@ async def scan_handler(_sid: str, options: dict):
     roms_ids = options.get("roms_ids", [])
     metadata_sources = options.get("apis", [])
 
-    # Uncomment this to run scan in the current process
-    # await scan_platforms(
-    #     platform_ids=platform_ids,
-    #     scan_type=scan_type,
-    #     roms_ids=roms_ids,
-    #     metadata_sources=metadata_sources,
-    # )
+    if DEV_MODE:
+        return await scan_platforms(
+            platform_ids=platform_ids,
+            scan_type=scan_type,
+            roms_ids=roms_ids,
+            metadata_sources=metadata_sources,
+        )
 
     return high_prio_queue.enqueue(
         scan_platforms,

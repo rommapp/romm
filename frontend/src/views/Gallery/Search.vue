@@ -174,11 +174,13 @@ onMounted(async () => {
   resetGallery();
   window.addEventListener("wheel", onScroll);
   window.addEventListener("scroll", onScroll);
+  window.addEventListener("touchmove", onScroll);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("touchmove", onScroll);
   searchText.value = "";
 });
 </script>
