@@ -21,22 +21,22 @@ lint:
     - markdownlint@0.44.0
     - eslint@9.20.1
     - actionlint@1.7.7
-    - bandit@1.8.2
+    - bandit@1.8.3
     - black@25.1.0
-    - checkov@3.2.370
+    - checkov@3.2.372
     - git-diff-check
     - isort@6.0.0
     - mypy@1.15.0
     - osv-scanner@1.9.2
-    - oxipng@9.1.3
+    - oxipng@9.1.4
     - prettier@3.5.1
-    - ruff@0.9.6
+    - ruff@0.9.7
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - svgo@3.3.2
     - taplo@0.9.3
     - trivy@0.59.1
-    - trufflehog@3.88.8
+    - trufflehog@3.88.12
     - yamllint@1.35.1
   ignore:
     - linters: [ALL]

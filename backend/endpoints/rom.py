@@ -15,6 +15,7 @@ from config import (
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
     RESOURCES_BASE_PATH,
+    str_to_bool,
 )
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
@@ -237,18 +238,6 @@ async def head_rom_content(
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
-        if not rom.multi:
-            rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-            return FileResponse(
-                path=rom_path,
-                filename=rom.fs_name,
-                headers={
-                    "Content-Disposition": f'attachment; filename="{quote(rom.fs_name)}"',
-                    "Content-Type": "application/octet-stream",
-                    "Content-Length": str(rom.fs_size_bytes),
-                },
-            )
-
         if len(files) == 1:
             file = files[0]
             rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
@@ -270,12 +259,6 @@ async def head_rom_content(
         )
 
     # Otherwise proxy through nginx
-    if not rom.multi:
-        return FileRedirectResponse(
-            download_path=Path(f"/library/{rom.full_path}"),
-            filename=rom.fs_name,
-        )
-
     if len(files) == 1:
         return FileRedirectResponse(
             download_path=Path(f"/library/{files[0].full_path}"),
@@ -320,7 +303,7 @@ async def get_rom_content(
         raise RomNotFoundInDatabaseException(id)
 
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
-    hidden_folder = request.query_params.get("hidden_folder", "").lower() == "true"
+    hidden_folder = str_to_bool(request.query_params.get("hidden_folder", ""))
 
     file_ids = request.query_params.get("file_ids") or ""
     file_ids = [int(f) for f in file_ids.split(",") if f]
@@ -331,18 +314,6 @@ async def get_rom_content(
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
-        if not rom.multi:
-            rom_path = f"{LIBRARY_BASE_PATH}/{rom.full_path}"
-            return FileResponse(
-                path=rom_path,
-                filename=rom.fs_name,
-                headers={
-                    "Content-Disposition": f'attachment; filename="{quote(rom.fs_name)}"',
-                    "Content-Type": "application/octet-stream",
-                    "Content-Length": str(rom.fs_size_bytes),
-                },
-            )
-
         if len(files) == 1:
             file = files[0]
             rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
@@ -421,12 +392,6 @@ async def get_rom_content(
         )
 
     # Otherwise proxy through nginx
-    if not rom.multi:
-        return FileRedirectResponse(
-            download_path=Path(f"/library/{rom.full_path}"),
-            filename=rom.fs_name,
-        )
-
     if len(files) == 1:
         return FileRedirectResponse(
             download_path=Path(f"/library/{files[0].full_path}"),
