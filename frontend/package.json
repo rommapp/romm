@@ -46,8 +46,8 @@
     "vuetify": "^3.7.9"
   },
   "devDependencies": {
-    "@eslint/js": "^9.20.0",
-    "@types/eslint__js": "^8.42.3",
+    "@eslint/js": "^9.21.0",
+    "@types/eslint__js": "^9.14.0",
     "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.17.15",
     "@types/node": "^22.13.0",
