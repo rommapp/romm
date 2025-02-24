@@ -1,9 +1,11 @@
-name: Build and Push Docker Image
+name: Build Docker Image and Trigger Docs/Website
 
 on:
   push:
     tags:
       - "[0-9]+.[0-9]+.[0-9]+*"
+  release:
+    types: [published]
 
 permissions: read-all
 
@@ -101,3 +103,38 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           target: full-image
+
+  trigger-docs-and-web:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Trigger docs build
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = await github.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
+              owner: 'romapp',
+              repo: 'docs',
+              workflow_id: 'deploy.yml',
+              ref: 'main',
+              inputs: {
+                version: '${{ github.event.release.tag_name }}'
+              }
+            });
+            console.log(response);
+
+      - name: Trigger website build
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const response = await github.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
+              owner: 'romapp',
+              repo: 'marketing-site',
+              workflow_id: 'deploy.yml',
+              ref: 'main',
+              inputs: {
+                version: '${{ github.event.release.tag_name }}'
+              }
+            });
+            console.log(response);
