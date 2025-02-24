@@ -246,6 +246,7 @@ onMounted(async () => {
 
         window.addEventListener("wheel", onScroll);
         window.addEventListener("scroll", onScroll);
+        window.addEventListener("touchmove", onScroll);
       }
     },
     { immediate: true }, // Ensure watcher is triggered immediately
@@ -277,6 +278,7 @@ onMounted(async () => {
 
         window.addEventListener("wheel", onScroll);
         window.addEventListener("scroll", onScroll);
+        window.addEventListener("touchmove", onScroll);
       }
     },
     { immediate: true }, // Ensure watcher is triggered immediately
@@ -344,6 +346,7 @@ onBeforeRouteUpdate(async (to, from) => {
 onBeforeUnmount(() => {
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("touchmove", onScroll);
 });
 </script>
 
