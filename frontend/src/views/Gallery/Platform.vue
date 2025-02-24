@@ -179,6 +179,8 @@ function onGameTouchEnd() {
 
 function onScroll() {
   if (galleryViewStore.currentView != 2) {
+    clearTimeout(timeout);
+
     window.setTimeout(async () => {
       const { scrollTop, scrollHeight, clientHeight } =
         document.documentElement;
@@ -252,6 +254,7 @@ onMounted(async () => {
 
           window.addEventListener("wheel", onScroll);
           window.addEventListener("scroll", onScroll);
+          window.addEventListener("touchmove", onScroll);
         } else {
           noPlatformError.value = true;
         }
@@ -298,6 +301,7 @@ onBeforeRouteUpdate(async (to, from) => {
 onBeforeUnmount(() => {
   window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("touchmove", onScroll);
 });
 </script>
 

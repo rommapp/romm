@@ -12,7 +12,7 @@ export type CollectionSchema = {
     path_covers_small: Array<string>;
     path_covers_large: Array<string>;
     id: number;
-    url_cover: string;
+    url_cover: (string | null);
     user_id: number;
     user__username: string;
     is_public: boolean;
