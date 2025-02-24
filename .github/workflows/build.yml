@@ -12,11 +12,15 @@ permissions: read-all
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: github.event_name != 'push' || github.event_name == 'release'
     permissions:
       id-token: write
       contents: write
       packages: write
     steps:
+      - name: Run only once per release
+        run: echo "Triggered by ${{ github.event_name }}"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
