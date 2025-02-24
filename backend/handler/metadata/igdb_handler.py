@@ -211,8 +211,9 @@ class IGDBHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = "https://api.igdb.com/v4"
         self.platform_endpoint = f"{self.BASE_URL}/platforms"
-        self.platform_version_endpoint = f"{self.BASE_URL}/platform_versions"
         self.platforms_fields = PLATFORMS_FIELDS
+        self.platform_version_endpoint = f"{self.BASE_URL}/platform_versions"
+        self.platform_version_fields = PLATFORMS_VERSION_FIELDS
         self.games_endpoint = f"{self.BASE_URL}/games"
         self.games_fields = GAMES_FIELDS
         self.search_endpoint = f"{self.BASE_URL}/search"
@@ -415,7 +416,7 @@ class IGDBHandler(MetadataHandler):
         # Check if platform is a version if not found
         platform_versions = await self._request(
             self.platform_version_endpoint,
-            data=f'fields {",".join(self.platforms_fields)}; where slug="{slug.lower()}";',
+            data=f'fields {",".join(self.platform_version_fields)}; where slug="{slug.lower()}";',
         )
         version = pydash.get(platform_versions, "[0]", None)
         if version:
@@ -744,6 +745,13 @@ PLATFORMS_FIELDS = (
     "url",
     "platform_family.name",
     "platform_family.slug",
+    "platform_logo.url",
+)
+
+PLATFORMS_VERSION_FIELDS = (
+    "id",
+    "name",
+    "url",
     "platform_logo.url",
 )
 
