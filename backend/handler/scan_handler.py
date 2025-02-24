@@ -4,6 +4,7 @@ from typing import Any
 
 import emoji
 from config.config_manager import config_manager as cm
+from fastapi import HTTPException
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
@@ -45,11 +46,16 @@ async def _get_main_platform_igdb_id(platform: Platform):
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
         else:
-            main_platform_igdb_id = (
-                await meta_igdb_handler.get_platform(main_platform_slug)
-            )["igdb_id"]
-            if not main_platform_igdb_id:
-                main_platform_igdb_id = platform.igdb_id
+            main_platform_igdb_id = None
+            try:
+                main_platform_igdb_id = (
+                    await meta_igdb_handler.get_platform(main_platform_slug)
+                )["igdb_id"]
+            except (KeyError, HTTPException):
+                pass
+            finally:
+                if not main_platform_igdb_id:
+                    main_platform_igdb_id = platform.igdb_id
     else:
         main_platform_igdb_id = platform.igdb_id
     return main_platform_igdb_id
@@ -104,21 +110,32 @@ async def scan_platform(
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    igdb_platform = (
-        (await meta_igdb_handler.get_platform(platform_attrs["slug"]))
-        if MetadataSource.IGDB in metadata_sources
-        else IGDBPlatform(igdb_id=None, slug=platform_attrs["slug"])
-    )
-    moby_platform = (
-        meta_moby_handler.get_platform(platform_attrs["slug"])
-        if MetadataSource.MOBY in metadata_sources
-        else MobyGamesPlatform(moby_id=None, slug=platform_attrs["slug"])
-    )
-    ss_platform = (
-        meta_ss_handler.get_platform(platform_attrs["slug"])
-        if MetadataSource.SS in metadata_sources
-        else SSPlatform(ss_id=None, slug=platform_attrs["slug"])
-    )
+    try:
+        igdb_platform = (
+            (await meta_igdb_handler.get_platform(platform_attrs["slug"]))
+            if MetadataSource.IGDB in metadata_sources
+            else IGDBPlatform(igdb_id=None, slug=platform_attrs["slug"])
+        )
+    except HTTPException:
+        igdb_platform = IGDBPlatform(igdb_id=None, slug=platform_attrs["slug"])
+
+    try:
+        moby_platform = (
+            meta_moby_handler.get_platform(platform_attrs["slug"])
+            if MetadataSource.MOBY in metadata_sources
+            else MobyGamesPlatform(moby_id=None, slug=platform_attrs["slug"])
+        )
+    except HTTPException:
+        moby_platform = MobyGamesPlatform(moby_id=None, slug=platform_attrs["slug"])
+
+    try:
+        ss_platform = (
+            meta_ss_handler.get_platform(platform_attrs["slug"])
+            if MetadataSource.SS in metadata_sources
+            else SSPlatform(ss_id=None, slug=platform_attrs["slug"])
+        )
+    except HTTPException:
+        ss_platform = SSPlatform(ss_id=None, slug=platform_attrs["slug"])
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
@@ -284,9 +301,12 @@ async def scan_rom(
             )
         ):
             main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
-            return await meta_igdb_handler.get_rom(
-                rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
-            )
+            try:
+                return await meta_igdb_handler.get_rom(
+                    rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
+                )
+            except HTTPException:
+                return IGDBRom(igdb_id=None)
         elif rom and scan_type == ScanType.PARTIAL and rom.igdb_id:
             return IGDBRom(
                 igdb_id=rom.igdb_id,
@@ -311,9 +331,12 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.moby_id)
             )
         ):
-            return await meta_moby_handler.get_rom(
-                rom_attrs["fs_name"], platform_moby_id=platform.moby_id
-            )
+            try:
+                return await meta_moby_handler.get_rom(
+                    rom_attrs["fs_name"], platform_moby_id=platform.moby_id
+                )
+            except HTTPException:
+                return MobyGamesRom(moby_id=None)
         elif rom and scan_type == ScanType.PARTIAL and rom.moby_id:
             return MobyGamesRom(
                 moby_id=rom.moby_id,
@@ -338,9 +361,12 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.ss_id)
             )
         ):
-            return await meta_ss_handler.get_rom(
-                rom_attrs["fs_name"], platform_ss_id=platform.ss_id
-            )
+            try:
+                return await meta_ss_handler.get_rom(
+                    rom_attrs["fs_name"], platform_ss_id=platform.ss_id
+                )
+            except HTTPException:
+                return SSRom(ss_id=None)
         elif rom and scan_type == ScanType.PARTIAL and rom.ss_id:
             return SSRom(
                 ss_id=rom.ss_id,
