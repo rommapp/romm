@@ -90,7 +90,7 @@ system:
     msx2: msx2
     msx2+: msx2
     n64: n64
-    n64dd: nintendo-64dd
+    n64dd: 64dd
     naomi: arcade
     naomi2: arcade
     nds: nds
