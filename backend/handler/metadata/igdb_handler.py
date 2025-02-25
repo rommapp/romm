@@ -1,4 +1,5 @@
 import functools
+import json
 import re
 from typing import Final, NotRequired, TypedDict
 
@@ -276,20 +277,24 @@ class IGDBHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to IGDB, check your internet connection",
             ) from exc
-        except httpx.HTTPStatusError as err:
+        except httpx.HTTPStatusError as exc:
             # Retry once if the auth token is invalid
-            if err.response.status_code != 401:
-                log.error(err)
+            if exc.response.status_code != 401:
+                log.error(exc)
                 return []  # All requests to the IGDB API return a list
 
             # Attempt to force a token refresh if the token is invalid
             log.warning("Twitch token invalid: fetching a new one...")
             token = await self.twitch_auth._update_twitch_token()
             self.headers["Authorization"] = f"Bearer {token}"
+        except json.decoder.JSONDecodeError as exc:
+            # Log the error and return an empty list if the response is not valid JSON
+            log.error(exc)
+            return []
         except httpx.TimeoutException:
-            # Retry once the request if it times out
             pass
 
+        # Retry once the request if it times out
         try:
             log.debug(
                 "Making a second attempt API request: URL=%s, Headers=%s, Content=%s, Timeout=%s",
@@ -305,12 +310,11 @@ class IGDBHandler(MetadataHandler):
                 timeout=timeout,
             )
             res.raise_for_status()
-        except httpx.HTTPError as err:
+            return res.json()
+        except (httpx.HTTPError, json.decoder.JSONDecodeError) as exc:
             # Log the error and return an empty list if the request fails again
-            log.error(err)
+            log.error(exc)
             return []
-
-        return res.json()
 
     async def _search_rom(
         self, search_term: str, platform_igdb_id: int, with_game_type: bool = False
