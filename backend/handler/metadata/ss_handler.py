@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import http
+import json
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
@@ -228,7 +229,6 @@ class SSHandler(MetadataHandler):
         self.platform_endpoint = f"{self.BASE_URL}/systemesListe.php"
         self.games_endpoint = f"{self.BASE_URL}/jeuInfos.php"
         self.LOGIN_ERROR_CHECK: Final = "Erreur de login"
-        self.NO_GAME_ERROR: Final = "Erreur : Jeu non trouvée !"
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
@@ -259,8 +259,7 @@ class SSHandler(MetadataHandler):
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid screenscraper credentials",
                 )
-            elif self.NO_GAME_ERROR in res.text:
-                return {}
+
             return res.json()
         except httpx.NetworkError as exc:
             log.critical(
@@ -270,23 +269,28 @@ class SSHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Screenscrapper, check your internet connection",
             ) from exc
-        except httpx.HTTPStatusError as err:
-            if err.response.status_code == http.HTTPStatus.UNAUTHORIZED:
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 # Sometimes Screenscrapper returns 401 even with a valid API key
-                log.error(err)
+                log.error(exc)
                 return {}
-            elif err.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
+            elif exc.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
                 # Retry after 2 seconds if rate limit hit
                 await asyncio.sleep(2)
             else:
                 # Log the error and return an empty dict if the request fails with a different code
-                log.error(err)
+                log.error(exc)
                 return {}
+        except json.decoder.JSONDecodeError as exc:
+            # Log the error and return an empty list if the response is not valid JSON
+            log.error(exc)
+            return {}
         except httpx.TimeoutException:
             log.debug(
                 "Request to URL=%s timed out. Retrying with URL=%s", masked_url, url
             )
-            # Retry the request once if it times out
+
+        # Retry the request once if it times out
         try:
             log.debug(
                 "API request: URL=%s, Timeout=%s",
@@ -295,20 +299,23 @@ class SSHandler(MetadataHandler):
             )
             res = await httpx_client.get(url, timeout=timeout)
             res.raise_for_status()
+
             if self.LOGIN_ERROR_CHECK in res.text:
                 log.error("Invalid screenscraper credentials")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid screenscraper credentials",
                 )
-            elif self.NO_GAME_ERROR in res.text:
-                return {}
-        except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
-            # Log the error and return an empty dict if the request fails with a different code
-            log.error(err)
-            return {}
 
-        return res.json()
+            return res.json()
+        except (
+            httpx.HTTPStatusError,
+            httpx.TimeoutException,
+            json.decoder.JSONDecodeError,
+        ) as exc:
+            # Log the error and return an empty dict if the request fails with a different code
+            log.error(exc)
+            return {}
 
     async def _search_rom(self, search_term: str, platform_ss_id: int) -> dict | None:
         if not platform_ss_id:
