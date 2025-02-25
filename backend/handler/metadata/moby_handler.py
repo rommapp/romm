@@ -105,17 +105,17 @@ class MobyGamesHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Mobygames, check your internet connection",
             ) from exc
-        except httpx.HTTPStatusError as err:
-            if err.response.status_code == http.HTTPStatus.UNAUTHORIZED:
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 # Sometimes Mobygames returns 401 even with a valid API key
-                log.error(err)
+                log.error(exc)
                 return {}
-            elif err.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
+            elif exc.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
                 # Retry after 2 seconds if rate limit hit
                 await asyncio.sleep(2)
             else:
                 # Log the error and return an empty dict if the request fails with a different code
-                log.error(err)
+                log.error(exc)
                 return {}
         except httpx.TimeoutException:
             log.debug(
