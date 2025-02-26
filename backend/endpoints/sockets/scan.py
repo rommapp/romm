@@ -214,10 +214,11 @@ async def scan_platforms(
         await stop_scan()
         return
     except Exception as e:
-        log.error(e)
+        log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client
         await sm.emit("scan:done_ko", str(e))
-        return
+        # Re-raise the exception to be caught by the error handler
+        raise e
 
 
 async def _identify_platform(

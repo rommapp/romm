@@ -1,5 +1,6 @@
 import asyncio
 import http
+import json
 import re
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
@@ -105,23 +106,28 @@ class MobyGamesHandler(MetadataHandler):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Mobygames, check your internet connection",
             ) from exc
-        except httpx.HTTPStatusError as err:
-            if err.response.status_code == http.HTTPStatus.UNAUTHORIZED:
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == http.HTTPStatus.UNAUTHORIZED:
                 # Sometimes Mobygames returns 401 even with a valid API key
-                log.error(err)
+                log.error(exc)
                 return {}
-            elif err.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
+            elif exc.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
                 # Retry after 2 seconds if rate limit hit
                 await asyncio.sleep(2)
             else:
                 # Log the error and return an empty dict if the request fails with a different code
-                log.error(err)
+                log.error(exc)
                 return {}
+        except json.decoder.JSONDecodeError as exc:
+            # Log the error and return an empty list if the response is not valid JSON
+            log.error(exc)
+            return {}
         except httpx.TimeoutException:
             log.debug(
                 "Request to URL=%s timed out. Retrying with URL=%s", masked_url, url
             )
-            # Retry the request once if it times out
+
+        # Retry the request once if it times out
         try:
             log.debug(
                 "API request: URL=%s, Timeout=%s",
@@ -130,18 +136,22 @@ class MobyGamesHandler(MetadataHandler):
             )
             res = await httpx_client.get(url, timeout=timeout)
             res.raise_for_status()
-        except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
+            return res.json()
+        except (
+            httpx.HTTPStatusError,
+            httpx.TimeoutException,
+            json.decoder.JSONDecodeError,
+        ) as exc:
             if (
-                isinstance(err, httpx.HTTPStatusError)
-                and err.response.status_code == http.HTTPStatus.UNAUTHORIZED
+                isinstance(exc, httpx.HTTPStatusError)
+                and exc.response.status_code == http.HTTPStatus.UNAUTHORIZED
             ):
                 # Sometimes Mobygames returns 401 even with a valid API key
                 return {}
-            # Log the error and return an empty dict if the request fails with a different code
-            log.error(err)
-            return {}
 
-        return res.json()
+            # Log the error and return an empty dict if the request fails with a different code
+            log.error(exc)
+            return {}
 
     async def _search_rom(self, search_term: str, platform_moby_id: int) -> dict | None:
         if not platform_moby_id:
