@@ -78,10 +78,10 @@ As mentioned in the installation section, RomM requires a specific folder struct
  </tr>
  <tr>
   <td>
-    <code>library/roms/gbc/rom_1.gbc</code>
+    <code>library/roms/gbc/game_1.gbc</code>
   </td>
   <td>
-    <code>library/gbc/roms/rom_1.gbc</code>
+    <code>library/gbc/roms/game_1.gbc</code>
   </td>
  </tr>
  <tr>
@@ -90,27 +90,39 @@ As mentioned in the installation section, RomM requires a specific folder struct
         library/
         ├─ roms/
         │  ├─ gbc/
-        │  │  ├─ rom_1.gbc
-        │  │  ├─ rom_2.gbc
+        │  │  ├─ game_1.gbc
+        │  │  ├─ game_2.gbc
         │  │
         │  ├─ gba/
-        │  │  ├─ rom_1.gba
-        │  │  ├─ rom_2.gba
+        │  │  ├─ game_3.gba
+        │  │  ├─ game_4/
+        │  │  │  ├─ game_4.gba
+        │  │  │  ├─ dlc
+        │  │  │     ├─ game_4_dlc_1.7z
+        │  │  │     ├─ game_4_dlc_2.7z
+        │  │  │  ├─ hacks
+        │  │  │     ├─ game_4_hardmode.rar
+        │  │  │  ├─ manuals
+        │  │  │     ├─ game_4_manual.pdf
+        │  │  │  ├─ mods
+        │  │  │     ├─ game_4_crazy_mode.zip
+        │  │  │  ├─ patches
+        │  │  │     ├─ game_4_patch_v1.1.zip
         │  │
         │  ├─ ps/
-        │     ├─ my_multifile_game/
-        │     │   ├─ my_game_cd1.iso
-        │     │   ├─ my_game_cd2.iso
+        │     ├─ game_5/
+        │     │   ├─ game_5_cd_1.iso
+        │     │   ├─ game_5_cd_2.iso
         │     │
-        │     ├─ rom_1.iso
+        │     ├─ game_6.iso
         ├─ bios/
         │  ├─ gba/
         │  │  ├─ gba_bios.bin
         │  │
         │  ├─ ps/
         │     ├─ scph1001.bin
-        |     ├─ scph5501.bin
-        |     ├─ scph5502.bin
+        │     ├─ scph5501.bin
+        │     ├─ scph5502.bin
       </pre>
     </td>
     <td>
@@ -118,27 +130,39 @@ As mentioned in the installation section, RomM requires a specific folder struct
         library/
         ├─ gbc/
         │  ├─ roms/
-        │     ├─ rom_1.gbc
-        │     ├─ rom_2.gbc
+        │     ├─ game_1.gbc
+        │     ├─ game_2.gbc
         │
         ├─ gba/
         │  ├─ roms/
-        │     ├─ rom_1.gba
-        │     ├─ rom_2.gba
-        |  ├─ bios/
-        |     ├─ gba_bios.bin
+        │     ├─ game_3.gba
+        │     ├─ game_4/
+        │        ├─ game_4.gba
+        │        ├─ dlc
+        │           ├─ game_4_dlc_1.7z
+        │           ├─ game_4_dlc_2.7z
+        │        ├─ hacks
+        │           ├─ game_4_hardmode.rar
+        │        ├─ manuals
+        │           ├─ game_4_manual.pdf
+        │        ├─ mods
+        │           ├─ game_4_crazy_mode.zip
+        │        ├─ patches
+        │           ├─ game_4_patch_v1.1.zip
+        │  ├─ bios/
+        │     ├─ gba_bios.bin
         │
         ├─ ps/
         │  ├─ roms/
-        │     ├─ my_multifile_game/
-        │     │  ├─ my_game_cd1.iso
-        │     │  ├─ my_game_cd2.iso
+        │     ├─ game_5/
+        │     │  ├─ game_5_cd1.iso
+        │     │  ├─ game_5_cd2.iso
         │     │
-        │     ├─ rom_1.iso
-        |  ├─ bios/
-        |     ├─ scph1001.bin
-        |     ├─ scph5501.bin
-        |     ├─ scph5502.bin
+        │     ├─ game_6.iso
+        │  ├─ bios/
+        │     ├─ scph1001.bin
+        │     ├─ scph5501.bin
+        │     ├─ scph5502.bin
       </pre>
     </td>
  </tr>
