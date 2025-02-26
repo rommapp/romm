@@ -161,8 +161,6 @@ The scheduler allows you to schedule async tasks that run in the Redis container
 
 If you adhere to the [RomM folder structure][folder-structure], RomM supports all platforms listed on the [Supported Platforms][wiki-supported-platforms] page. **The folder is case-sensitive and must be used exactly as it appears on the list.** When scanning your library, RomM will use the folder name to determine the platform and fetch the appropriate game information, metadata, and cover art.
 
-Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki][wiki-platforms-icons]).
-
 ## Tag Support
 
 Games can be tagged with region, revision, or other tags by using parentheses in the file name. Additionally, you can set the region and language by adding a prefix: (USA), [reg-J], (French), [De].
@@ -215,14 +213,13 @@ Here are a few projects that we think you might like:
 
 <!-- Wiki links -->
 
-[wiki]: https://github.com/rommapp/romm/wiki
-[wiki-supported-platforms]: https://github.com/rommapp/romm/wiki/Supported-Platforms
-[wiki-authentication]: https://github.com/rommapp/romm/wiki/Authentication
-[wiki-platforms-icons]: https://github.com/rommapp/romm/wiki/Custom-Platform-Icons
-[wiki-troubleshooting]: https://github.com/rommapp/romm/wiki/Troubleshooting
-[wiki-emulatorjs]: https://github.com/rommapp/romm/wiki/EmulatorJS-Player
-[wiki-scheduled-tasks]: https://github.com/rommapp/romm/wiki/Scheduled-Tasks
-[wiki-quick-start-guide]: https://github.com/rommapp/romm/wiki/Quick-Start-Guide
+[wiki]: https://docs.romm.app/latest/
+[wiki-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
+[wiki-authentication]: https://docs.romm.app/latest/Getting-Started/Authentication/
+[wiki-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/
+[wiki-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
+[wiki-scheduled-tasks]: https://docs.romm.app/latest/Maintenance/Scheduled-Tasks/
+[wiki-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
 
 <!-- Badges -->
 
