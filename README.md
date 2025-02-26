@@ -96,18 +96,18 @@ As mentioned in the installation section, RomM requires a specific folder struct
         │  ├─ gba/
         │  │  ├─ game_3.gba
         │  │  ├─ game_4/
-        │  │  │  ├─ game_4.gba
-        │  │  │  ├─ dlc
-        │  │  │     ├─ game_4_dlc_1.7z
-        │  │  │     ├─ game_4_dlc_2.7z
-        │  │  │  ├─ hacks
-        │  │  │     ├─ game_4_hardmode.rar
-        │  │  │  ├─ manuals
-        │  │  │     ├─ game_4_manual.pdf
-        │  │  │  ├─ mods
-        │  │  │     ├─ game_4_crazy_mode.zip
-        │  │  │  ├─ patches
-        │  │  │     ├─ game_4_patch_v1.1.zip
+        │  │     ├─ game_4.gba
+        │  │     ├─ dlc
+        │  │     │  ├─ game_4_dlc_1.7z
+        │  │     │  ├─ game_4_dlc_2.7z
+        │  │     ├─ hacks
+        │  │     │  ├─ game_4_hardmode.rar
+        │  │     ├─ manuals
+        │  │     │  ├─ game_4_manual.pdf
+        │  │     ├─ mods
+        │  │     │  ├─ game_4_crazy_mode.zip
+        │  │     ├─ patches
+        │  │        ├─ game_4_patch_v1.1.zip
         │  │
         │  ├─ ps/
         │     ├─ game_5/
@@ -115,6 +115,7 @@ As mentioned in the installation section, RomM requires a specific folder struct
         │     │   ├─ game_5_cd_2.iso
         │     │
         │     ├─ game_6.iso
+        │
         ├─ bios/
         │  ├─ gba/
         │  │  ├─ gba_bios.bin
@@ -135,30 +136,32 @@ As mentioned in the installation section, RomM requires a specific folder struct
         │
         ├─ gba/
         │  ├─ roms/
-        │     ├─ game_3.gba
-        │     ├─ game_4/
-        │        ├─ game_4.gba
-        │        ├─ dlc
-        │           ├─ game_4_dlc_1.7z
-        │           ├─ game_4_dlc_2.7z
-        │        ├─ hacks
-        │           ├─ game_4_hardmode.rar
-        │        ├─ manuals
-        │           ├─ game_4_manual.pdf
-        │        ├─ mods
-        │           ├─ game_4_crazy_mode.zip
-        │        ├─ patches
-        │           ├─ game_4_patch_v1.1.zip
+        │  │  ├─ game_3.gba
+        │  │  ├─ game_4/
+        │  │     ├─ game_4.gba
+        │  │     ├─ dlc
+        │  │     │  ├─ game_4_dlc_1.7z
+        │  │     │  ├─ game_4_dlc_2.7z
+        │  │     ├─ hacks
+        │  │     │  ├─ game_4_hardmode.rar
+        │  │     ├─ manuals
+        │  │     │  ├─ game_4_manual.pdf
+        │  │     ├─ mods
+        │  │     │  ├─ game_4_crazy_mode.zip
+        │  │     ├─ patches
+        │  │        ├─ game_4_patch_v1.1.zip
+        │  │
         │  ├─ bios/
         │     ├─ gba_bios.bin
         │
         ├─ ps/
         │  ├─ roms/
-        │     ├─ game_5/
-        │     │  ├─ game_5_cd1.iso
-        │     │  ├─ game_5_cd2.iso
-        │     │
-        │     ├─ game_6.iso
+        │  │  ├─ game_5/
+        │  │  │  ├─ game_5_cd1.iso
+        │  │  │  ├─ game_5_cd2.iso
+        │  │  │
+        │  │  ├─ game_6.iso
+        │  │
         │  ├─ bios/
         │     ├─ scph1001.bin
         │     ├─ scph5501.bin
