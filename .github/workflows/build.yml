@@ -1,18 +1,38 @@
 name: Build Docker Image and Trigger Docs/Website
 
 on:
-  push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+*"
+  # push:
+  #   tags:
+  #     - "[0-9]+.[0-9]+.[0-9]+*"
   release:
     types: [published]
 
-permissions: read-all
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+  actions: write
 
 jobs:
-  build:
+  validate-tag-semver:
     runs-on: ubuntu-latest
-    if: github.event_name != 'push' || github.event_name == 'release'
+    outputs:
+      valid: ${{ steps.check_tag.outputs.valid }}
+    steps:
+      - name: Check if tag follows SemVer
+        id: check_tag
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+)?$ ]]; then
+            echo "valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: validate-tag-semver
+    runs-on: ubuntu-latest
+    if: needs.validate-tag-semver.outputs.valid == 'true'
     permissions:
       id-token: write
       contents: write
@@ -109,36 +129,28 @@ jobs:
           target: full-image
 
   trigger-docs-and-web:
+    permissions:
+      actions: write
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'release'
+    if: needs.build.result == 'success' && github.event.release.prerelease == false
     steps:
       - name: Trigger docs build
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const response = await github.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
-              owner: 'romapp',
-              repo: 'docs',
-              workflow_id: 'deploy.yml',
-              ref: 'main',
-              inputs: {
-                version: '${{ github.event.release.tag_name }}'
-              }
-            });
-            console.log(response);
+        run: |
+          curl -L -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${DOCS_PAT}" \
+            "https://api.github.com/repos/rommapp/docs/actions/workflows/deploy.yml/dispatches" \
+            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
+        env:
+          DOCS_PAT: ${{ secrets.DOCS_PAT }}
 
       - name: Trigger website build
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const response = await github.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
-              owner: 'romapp',
-              repo: 'marketing-site',
-              workflow_id: 'deploy.yml',
-              ref: 'main',
-              inputs: {
-                version: '${{ github.event.release.tag_name }}'
-              }
-            });
-            console.log(response);
+        run: |
+          curl -L -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: Bearer ${DOCS_PAT}" \
+            "https://api.github.com/repos/rommapp/marketing-site/actions/workflows/deploy.yml/dispatches" \
+            -d '{"ref":"main", "inputs": {"version": "${{ github.event.release.tag_name }}"}}'
+        env:
+          DOCS_PAT: ${{ secrets.DOCS_PAT }}
