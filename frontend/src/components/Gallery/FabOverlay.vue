@@ -52,7 +52,7 @@ async function onScan() {
   socket.emit("scan", {
     platforms: [Number(route.params.platform)],
     roms_ids: romsStore.selectedRoms.map((r) => r.id),
-    type: "partial", // Quick scan so we can filter by selected roms
+    type: "quick", // Quick scan so we can filter by selected roms
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
