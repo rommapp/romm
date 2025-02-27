@@ -29,7 +29,7 @@ export default defineStore("navigation", {
       this.resetDrawersExcept("activePlatformInfoDrawer");
       this.activePlatformInfoDrawer = !this.activePlatformInfoDrawer;
     },
-    swtichActiveCollectionInfoDrawer() {
+    switchActiveCollectionInfoDrawer() {
       this.resetDrawersExcept("activeCollectionInfoDrawer");
       this.activeCollectionInfoDrawer = !this.activeCollectionInfoDrawer;
     },

@@ -105,13 +105,15 @@ async function removeFromFavourites() {
   }
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
-    .then(() => {
+    .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Roms removed from favourites successfully!",
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
+      favCollection.value = data;
+      collectionsStore.update(data);
     })
     .catch((error) => {
       console.log(error);
