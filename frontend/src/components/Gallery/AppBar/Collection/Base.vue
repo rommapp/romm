@@ -31,7 +31,7 @@ const { currentCollection } = storeToRefs(romsStore);
   >
     <template #prepend>
       <r-avatar
-        @click="navigationStore.swtichActiveCollectionInfoDrawer"
+        @click="navigationStore.switchActiveCollectionInfoDrawer"
         class="collection-icon cursor-pointer"
         v-if="currentCollection"
         :size="45"
