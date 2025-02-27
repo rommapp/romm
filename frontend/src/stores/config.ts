@@ -58,8 +58,6 @@ export default defineStore("config", {
     isExclusionType(type: string): type is ExclusionTypes {
       return Object.keys(this.config).includes(type);
     },
-    reset() {
-      this.config = defaultConfig;
-    },
+    reset() {},
   },
 });
