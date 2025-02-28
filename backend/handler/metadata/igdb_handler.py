@@ -881,7 +881,6 @@ IGDB_PLATFORM_LIST = (
     {"slug": "nuon", "name": "Nuon"},
     {"slug": "ps", "name": "PlayStation"},
     {"slug": "64dd", "name": "Nintendo 64DD"},
-    {"slug": "64dd", "name": "Nintendo 64DD"},
     {"slug": "neo-geo-pocket-color", "name": "Neo Geo Pocket Color"},
     {"slug": "dvd-player", "name": "DVD Player"},
     {"slug": "pocketstation", "name": "PocketStation"},
