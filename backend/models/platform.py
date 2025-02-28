@@ -30,7 +30,6 @@ class Platform(BaseModel):
     generation: Mapped[int | None]
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
-    url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
     logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
@@ -50,3 +49,7 @@ class Platform(BaseModel):
 
     def __repr__(self) -> str:
         return self.name
+
+    @property
+    def url(self) -> str:
+        return f"https://www.igdb.com/platforms/{self.slug}.jpg"

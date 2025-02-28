@@ -9,7 +9,7 @@ from fastapi import Request
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
-from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
+from handler.metadata.igdb_handler import SLUG_TO_IGDB_PLATFORM
 from handler.scan_handler import scan_platform
 from logger.logger import log
 from utils.router import APIRouter
@@ -75,13 +75,13 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     db_platforms = db_platform_handler.get_platforms()
     db_platforms_map = {p.name: p.id for p in db_platforms}
 
-    for platform in IGDB_PLATFORM_LIST:
+    for slug in SLUG_TO_IGDB_PLATFORM.keys():
         now = datetime.now(timezone.utc)
         sup_plat = {
             "id": -1,
-            "name": platform["name"],
-            "fs_slug": platform["slug"],
-            "slug": platform["slug"],
+            "name": SLUG_TO_IGDB_PLATFORM[slug]["name"],
+            "fs_slug": slug,
+            "slug": slug,
             "logo_path": "",
             "roms": [],
             "rom_count": 0,
@@ -89,8 +89,8 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "updated_at": now,
         }
 
-        if platform["name"] in db_platforms_map:
-            sup_plat["id"] = db_platforms_map[platform["name"]]
+        if SLUG_TO_IGDB_PLATFORM[slug] in db_platforms_map:
+            sup_plat["id"] = db_platforms_map[slug]
 
         supported_platforms.append(PlatformSchema.model_validate(sup_plat).model_dump())
 
