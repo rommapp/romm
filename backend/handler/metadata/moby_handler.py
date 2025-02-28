@@ -376,7 +376,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "name": "Acorn Archimedes",
         "moby_slug": "acornarchimedes",
     },
-    "adventure-vision": {
+    "advision": {
         "id": 210,
         "name": "Adventure Vision",
         "moby_slug": "adventure-vision",
@@ -387,43 +387,33 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "altair-8800": {"id": 222, "name": "Altair 8800", "moby_slug": "altair-8800"},
     "amazonalexa": {"id": 237, "name": "Amazon Alexa", "moby_slug": "amazonalexa"},
     "amiga": {"id": 19, "name": "Amiga", "moby_slug": "amiga"},
-    "amiga-cd32": {"id": 56, "name": "Amiga CD32", "moby_slug": "amiga-cd32"},
+    "amigacd32": {"id": 56, "name": "Amiga CD32", "moby_slug": "amiga-cd32"},
     "amstradcpc": {"id": 60, "name": "Amstrad CPC", "moby_slug": "amstradcpc"},
-    "amstrad-pcw": {"id": 136, "name": "Amstrad PCW", "moby_slug": "amstrad-pcw"},
+    "amstradpcw": {"id": 136, "name": "Amstrad PCW", "moby_slug": "amstrad-pcw"},
     "android": {"id": 91, "name": "Android", "moby_slug": "android"},
     "antstream": {"id": 286, "name": "Antstream", "moby_slug": "antstream"},
-    "apple-i": {"id": 245, "name": "Apple I", "moby_slug": "apple-i"},
+    "apple": {"id": 245, "name": "Apple I", "moby_slug": "apple-i"},
     "apple2": {"id": 31, "name": "Apple II", "moby_slug": "apple2"},
-    "appleii": {"id": 31, "name": "Apple II", "moby_slug": "appleii"},  # IGDB
-    "apple2gs": {"id": 51, "name": "Apple IIGD", "moby_slug": "apple2gs"},
-    "apple-iigs": {"id": 51, "name": "Apple IIGD", "moby_slug": "apple-iigs"},  # IGDB
+    "apple2gs": {"id": 51, "name": "Apple IIGS", "moby_slug": "apple2gs"},
     "arcade": {"id": 143, "name": "Arcade", "moby_slug": "arcade"},
-    "arcadia-2001": {"id": 162, "name": "Arcadia 2001", "moby_slug": "arcadia-2001"},
+    "arcadia": {"id": 162, "name": "Arcadia 2001", "moby_slug": "arcadia-2001"},
     "arduboy": {"id": 215, "name": "Arduboy", "moby_slug": "arduboy"},
     "astral-2000": {"id": 241, "name": "Astral 2000", "moby_slug": "astral-2000"},
-    "atari-2600": {"id": 28, "name": "Atari 2600", "moby_slug": "atari-2600"},
-    "atari2600": {"id": 28, "name": "Atari 2600", "moby_slug": "atari2600"},  # IGDB
-    "atari-5200": {"id": 33, "name": "Atari 5200", "moby_slug": "atari-5200"},
-    "atari5200": {"id": 33, "name": "Atari 5200", "moby_slug": "atari5200"},  # IGDB
-    "atari7800": {"id": 34, "name": "Atari 7800", "moby_slug": "atari7800"},  # IGDB
+    "atari2600": {"id": 28, "name": "Atari 2600", "moby_slug": "atari-2600"},
+    "atari5200": {"id": 33, "name": "Atari 5200", "moby_slug": "atari-5200"},
+    "atari7800": {"id": 34, "name": "Atari 7800", "moby_slug": "atari-7800"},
     "atari-8-bit": {"id": 39, "name": "Atari 8-bit", "moby_slug": "atari-8-bit"},
-    "atari8bit": {"id": 39, "name": "Atari 8-bit", "moby_slug": "atari8bit"},  # IGDB
-    "atari-st": {"id": 24, "name": "Atari ST", "moby_slug": "atari-st"},
-    "atari-vcs": {"id": 319, "name": "Atari VCS", "moby_slug": "atari-vcs"},
+    "atari8bit": {"id": 39, "name": "Atari 8-bit", "moby_slug": "atari8bit"},
+    "atarist": {"id": 24, "name": "Atari ST", "moby_slug": "atari-st"},
+    "atarivcs": {"id": 319, "name": "Atari VCS", "moby_slug": "atari-vcs"},
     "atom": {"id": 129, "name": "Atom", "moby_slug": "atom"},
-    "bbc-micro": {"id": 92, "name": "BBC Micro", "moby_slug": "bbc-micro"},
-    "bbcmicro": {"id": 92, "name": "BBC Micro", "moby_slug": "bbcmicro"},  # IGDB
+    "bbcmicro": {"id": 92, "name": "BBC Micro", "moby_slug": "bbc-micro"},
     "brew": {"id": 63, "name": "BREW", "moby_slug": "brew"},
-    "bally-astrocade": {
+    "astrocade": {
         "id": 160,
         "name": "Bally Astrocade",
         "moby_slug": "bally-astrocade",
     },
-    "astrocade": {
-        "id": 160,
-        "name": "Bally Astrocade",
-        "moby_slug": "astrocade",
-    },  # IGDB
     "beos": {"id": 165, "name": "BeOS", "moby_slug": "beos"},
     "blackberry": {"id": 90, "name": "BlackBerry", "moby_slug": "blackberry"},
     "blacknut": {"id": 290, "name": "Blacknut", "moby_slug": "blacknut"},
@@ -436,13 +426,13 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 169,
         "name": "Blu-ray Player",
         "moby_slug": "blu-ray-player",
-    },  # IGDB
+    },
     "browser": {"id": 84, "name": "Browser", "moby_slug": "browser"},
     "bubble": {"id": 231, "name": "Bubble", "moby_slug": "bubble"},
     "cd-i": {"id": 73, "name": "CD-i", "moby_slug": "cd-i"},
-    "philips-cd-i": {"id": 73, "name": "CD-i", "moby_slug": "philips-cd-i"},  # IGDB
+    "philips-cd-i": {"id": 73, "name": "CD-i", "moby_slug": "philips-cd-i"},
     "cdtv": {"id": 83, "name": "CDTV", "moby_slug": "cdtv"},
-    "commodore-cdtv": {"id": 83, "name": "CDTV", "moby_slug": "commodore-cdtv"},  # IGDB
+    "commodore-cdtv": {"id": 83, "name": "CDTV", "moby_slug": "commodore-cdtv"},
     "fred-cosmac": {"id": 216, "name": "COSMAC", "moby_slug": "fred-cosmac"},
     "camputers-lynx": {
         "id": 154,
@@ -463,7 +453,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 76,
         "name": "Channel F",
         "moby_slug": "fairchild-channel-f",
-    },  # IGDB
+    },
     "clickstart": {"id": 188, "name": "ClickStart", "moby_slug": "clickstart"},
     "colecoadam": {"id": 156, "name": "Coleco Adam", "moby_slug": "colecoadam"},
     "colecovision": {"id": 29, "name": "ColecoVision", "moby_slug": "colecovision"},
@@ -478,11 +468,11 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 115,
         "name": "Commodore Plus/4",
         "moby_slug": "c-plus-4",
-    },  # IGDB
-    "c16": {"id": 115, "name": "Commodore 16", "moby_slug": "c16"},  # IGDB
+    },
+    "c16": {"id": 115, "name": "Commodore 16", "moby_slug": "c16"},
     "c64": {"id": 27, "name": "Commodore 64", "moby_slug": "c64"},
     "pet": {"id": 77, "name": "Commodore PET/CBM", "moby_slug": "pet"},
-    "cpet": {"id": 77, "name": "Commodore PET/CBM", "moby_slug": "cpet"},  # IGDB
+    "cpet": {"id": 77, "name": "Commodore PET/CBM", "moby_slug": "cpet"},
     "compal-80": {"id": 277, "name": "Compal 80", "moby_slug": "compal-80"},
     "compucolor-i": {"id": 243, "name": "Compucolor I", "moby_slug": "compucolor-i"},
     "compucolor-ii": {"id": 198, "name": "Compucolor II", "moby_slug": "compucolor-ii"},
@@ -513,16 +503,16 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 79,
         "name": "Dragon 32/64",
         "moby_slug": "dragon-32-slash-64",
-    },  # IGDB
+    },
     "dreamcast": {"id": 8, "name": "Dreamcast", "moby_slug": "dreamcast"},
-    "dc": {"id": 8, "name": "Dreamcast", "moby_slug": "dc"},  # IGDB
+    "dc": {"id": 8, "name": "Dreamcast", "moby_slug": "dc"},
     "ecd-micromind": {"id": 269, "name": "ECD Micromind", "moby_slug": "ecd-micromind"},
     "electron": {"id": 93, "name": "Electron", "moby_slug": "electron"},
     "acorn-electron": {
         "id": 93,
         "name": "Electron",
         "moby_slug": "acorn-electron",
-    },  # IGDB
+    },
     "enterprise": {"id": 161, "name": "Enterprise", "moby_slug": "enterprise"},
     "epoch-cassette-vision": {
         "id": 137,
@@ -548,7 +538,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "moby_slug": "exidy-sorcerer",
     },
     "fmtowns": {"id": 102, "name": "FM Towns", "moby_slug": "fmtowns"},
-    "fm-towns": {"id": 102, "name": "FM Towns", "moby_slug": "fm-towns"},  # IGDB
+    "fm-towns": {"id": 102, "name": "FM Towns", "moby_slug": "fm-towns"},
     "fm-7": {"id": 126, "name": "FM-7", "moby_slug": "fm-7"},
     "mobile-custom": {"id": 315, "name": "Feature phone", "moby_slug": "mobile-custom"},
     "fire-os": {"id": 159, "name": "Fire OS", "moby_slug": "fire-os"},
@@ -558,7 +548,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 205,
         "name": "Dedicated handheld",
         "moby_slug": "g-and-w",
-    },  # IGDB (Game & Watch)
+    },
     "g-cluster": {"id": 302, "name": "G-cluster", "moby_slug": "g-cluster"},
     "gimini": {"id": 251, "name": "GIMINI", "moby_slug": "gimini"},
     "gnex": {"id": 258, "name": "GNEX", "moby_slug": "gnex"},
@@ -568,22 +558,22 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "gvm": {"id": 257, "name": "GVM", "moby_slug": "gvm"},
     "galaksija": {"id": 236, "name": "Galaksija", "moby_slug": "galaksija"},
     "gameboy": {"id": 10, "name": "Game Boy", "moby_slug": "gameboy"},
-    "gb": {"id": 10, "name": "Game Boy", "moby_slug": "gb"},  # IGDB
+    "gb": {"id": 10, "name": "Game Boy", "moby_slug": "gb"},
     "gameboy-advance": {
         "id": 12,
         "name": "Game Boy Advance",
         "moby_slug": "gameboy-advance",
     },
-    "gba": {"id": 12, "name": "Game Boy Advance", "moby_slug": "gba"},  # IGDB
+    "gba": {"id": 12, "name": "Game Boy Advance", "moby_slug": "gba"},
     "gameboy-color": {"id": 11, "name": "Game Boy Color", "moby_slug": "gameboy-color"},
-    "gbc": {"id": 11, "name": "Game Boy Color", "moby_slug": "gbc"},  # IGDB
+    "gbc": {"id": 11, "name": "Game Boy Color", "moby_slug": "gbc"},
     "game-gear": {"id": 25, "name": "Game Gear", "moby_slug": "game-gear"},
-    "gamegear": {"id": 25, "name": "Game Gear", "moby_slug": "gamegear"},  # IGDB
+    "gamegear": {"id": 25, "name": "Game Gear", "moby_slug": "gamegear"},
     "game-wave": {"id": 104, "name": "Game Wave", "moby_slug": "game-wave"},
     "game-com": {"id": 50, "name": "Game.Com", "moby_slug": "game-com"},
-    "game-dot-com": {"id": 50, "name": "Game.Com", "moby_slug": "game-dot-com"},  # IGDB
+    "game-dot-com": {"id": 50, "name": "Game.Com", "moby_slug": "game-dot-com"},
     "gamecube": {"id": 14, "name": "GameCube", "moby_slug": "gamecube"},
-    "ngc": {"id": 14, "name": "GameCube", "moby_slug": "ngc"},  # IGDB
+    "ngc": {"id": 14, "name": "GameCube", "moby_slug": "ngc"},
     "gamestick": {"id": 155, "name": "GameStick", "moby_slug": "gamestick"},
     "genesis": {"id": 16, "name": "Genesis/Mega Drive", "moby_slug": "genesis"},
     "genesis-slash-megadrive": {
@@ -662,7 +652,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "mre": {"id": 229, "name": "MRE", "moby_slug": "mre"},
     "msx": {"id": 57, "name": "MSX", "moby_slug": "msx"},
     "macintosh": {"id": 74, "name": "Macintosh", "moby_slug": "macintosh"},
-    "mac": {"id": 74, "name": "Macintosh", "moby_slug": "mac"},  # IGDB
+    "mac": {"id": 74, "name": "Macintosh", "moby_slug": "mac"},
     "maemo": {"id": 157, "name": "Maemo", "moby_slug": "maemo"},
     "mainframe": {"id": 208, "name": "Mainframe", "moby_slug": "mainframe"},
     "matsushitapanasonic-jr": {
@@ -685,7 +675,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 97,
         "name": "Microvision",
         "moby_slug": "microvision--1",
-    },  # IGDB
+    },
     "mophun": {"id": 71, "name": "Mophun", "moby_slug": "mophun"},
     "motorola-6800": {"id": 235, "name": "Motorola 6800", "moby_slug": "motorola-6800"},
     "motorola-68k": {"id": 275, "name": "Motorola 68k", "moby_slug": "motorola-68k"},
@@ -695,8 +685,8 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "famicom": {"id": 22, "name": "NES", "moby_slug": "famicom"},
     "nascom": {"id": 175, "name": "Nascom", "moby_slug": "nascom"},
     "neo-geo": {"id": 36, "name": "Neo Geo", "moby_slug": "neo-geo"},
-    "neogeoaes": {"id": 36, "name": "Neo Geo", "moby_slug": "neogeoaes"},  # IGDB
-    "neogeomvs": {"id": 36, "name": "Neo Geo", "moby_slug": "neogeomvs"},  # IGDB
+    "neogeoaes": {"id": 36, "name": "Neo Geo", "moby_slug": "neogeoaes"},
+    "neogeomvs": {"id": 36, "name": "Neo Geo", "moby_slug": "neogeomvs"},
     "neo-geo-cd": {"id": 54, "name": "Neo Geo CD", "moby_slug": "neo-geo-cd"},
     "neo-geo-pocket": {
         "id": 52,
@@ -719,7 +709,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "3ds": {"id": 101, "name": "Nintendo 3DS", "moby_slug": "3ds"},
     "n64": {"id": 9, "name": "Nintendo 64", "moby_slug": "n64"},
     "nintendo-ds": {"id": 44, "name": "Nintendo DS", "moby_slug": "nintendo-ds"},
-    "nds": {"id": 44, "name": "Nintendo DS", "moby_slug": "nds"},  # IGDB
+    "nds": {"id": 44, "name": "Nintendo DS", "moby_slug": "nds"},
     "nintendo-dsi": {"id": 87, "name": "Nintendo DSi", "moby_slug": "nintendo-dsi"},
     "switch": {"id": 203, "name": "Nintendo Switch", "moby_slug": "switch"},
     "northstar": {"id": 266, "name": "North Star", "moby_slug": "northstar"},
@@ -729,7 +719,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "os2": {"id": 146, "name": "OS/2", "moby_slug": "os2"},
     "oculus-go": {"id": 218, "name": "Oculus Go", "moby_slug": "oculus-go"},
     "odyssey": {"id": 75, "name": "Odyssey", "moby_slug": "odyssey"},
-    "odyssey--1": {"id": 75, "name": "Odyssey", "moby_slug": "odyssey--1"},  # IGDB
+    "odyssey--1": {"id": 75, "name": "Odyssey", "moby_slug": "odyssey--1"},
     "odyssey-2": {"id": 78, "name": "Odyssey 2", "moby_slug": "odyssey-2"},
     "odyssey-2-slash-videopac-g7000": {
         "id": 78,
@@ -746,7 +736,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 282,
         "name": "OnLive Game System",
         "moby_slug": "onlive-game-system",
-    },  # IGDB
+    },
     "orao": {"id": 270, "name": "Orao", "moby_slug": "orao"},
     "oric": {"id": 111, "name": "Oric", "moby_slug": "oric"},
     "ouya": {"id": 144, "name": "Ouya", "moby_slug": "ouya"},
@@ -758,20 +748,20 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 94,
         "name": "PC-8800 Series",
         "moby_slug": "pc-8800-series",
-    },  # IGDB
+    },
     "pc98": {"id": 95, "name": "PC-98", "moby_slug": "pc98"},
     "pc-9800-series": {
         "id": 95,
         "name": "PC-9800 Series",
         "moby_slug": "pc-9800-series",
-    },  # IGDB
+    },
     "pc-fx": {"id": 59, "name": "PC-FX", "moby_slug": "pc-fx"},
     "pico": {"id": 316, "name": "PICO", "moby_slug": "pico"},
     "ps-vita": {"id": 105, "name": "PS Vita", "moby_slug": "ps-vita"},
-    "psvita": {"id": 105, "name": "PS Vita", "moby_slug": "psvita"},  # IGDB
+    "psvita": {"id": 105, "name": "PS Vita", "moby_slug": "psvita"},
     "psp": {"id": 46, "name": "PSP", "moby_slug": "psp"},
     "palmos": {"id": 65, "name": "Palm OS", "moby_slug": "palmos"},
-    "palm-os": {"id": 65, "name": "Palm OS", "moby_slug": "palm-os"},  # IGDB
+    "palm-os": {"id": 65, "name": "Palm OS", "moby_slug": "palm-os"},
     "pandora": {"id": 308, "name": "Pandora", "moby_slug": "pandora"},
     "pebble": {"id": 304, "name": "Pebble", "moby_slug": "pebble"},
     "philips-vg-5000": {
@@ -782,13 +772,13 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "photocd": {"id": 272, "name": "Photo CD", "moby_slug": "photocd"},
     "pippin": {"id": 112, "name": "Pippin", "moby_slug": "pippin"},
     "playstation": {"id": 6, "name": "PlayStation", "moby_slug": "playstation"},
-    "ps": {"id": 6, "name": "PlayStation", "moby_slug": "ps"},  # IGDB
+    "ps": {"id": 6, "name": "PlayStation", "moby_slug": "ps"},
     "ps2": {"id": 7, "name": "PlayStation 2", "moby_slug": "ps2"},
     "ps3": {"id": 81, "name": "PlayStation 3", "moby_slug": "ps3"},
     "playstation-4": {"id": 141, "name": "PlayStation 4", "moby_slug": "playstation-4"},
-    "ps4--1": {"id": 141, "name": "PlayStation 4", "moby_slug": "ps4--1"},  # IGDB
+    "ps4--1": {"id": 141, "name": "PlayStation 4", "moby_slug": "ps4--1"},
     "playstation-5": {"id": 288, "name": "PlayStation 5", "moby_slug": "playstation-5"},
-    "ps5": {"id": 288, "name": "PlayStation 5", "moby_slug": "ps5"},  # IGDB
+    "ps5": {"id": 288, "name": "PlayStation 5", "moby_slug": "ps5"},
     "playstation-now": {
         "id": 294,
         "name": "PlayStation Now",
@@ -812,18 +802,18 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "scmp": {"id": 255, "name": "SC/MP", "moby_slug": "scmp"},
     "sd-200270290": {"id": 267, "name": "SD-200/270/290", "moby_slug": "sd-200270290"},
     "sega-32x": {"id": 21, "name": "SEGA 32X", "moby_slug": "sega-32x"},
-    "sega32": {"id": 21, "name": "SEGA 32X", "moby_slug": "sega32"},  # IGDB
+    "sega32": {"id": 21, "name": "SEGA 32X", "moby_slug": "sega32"},
     "sega-cd": {"id": 20, "name": "SEGA CD", "moby_slug": "sega-cd"},
-    "segacd": {"id": 20, "name": "SEGA CD", "moby_slug": "segacd"},  # IGDB
+    "segacd": {"id": 20, "name": "SEGA CD", "moby_slug": "segacd"},
     "sega-master-system": {
         "id": 26,
         "name": "SEGA Master System",
         "moby_slug": "sega-master-system",
     },
-    "sms": {"id": 26, "name": "SEGA Master System", "moby_slug": "sms"},  # IGDB
+    "sms": {"id": 26, "name": "SEGA Master System", "moby_slug": "sms"},
     "sega-pico": {"id": 103, "name": "SEGA Pico", "moby_slug": "sega-pico"},
     "sega-saturn": {"id": 23, "name": "SEGA Saturn", "moby_slug": "sega-saturn"},
-    "saturn": {"id": 23, "name": "SEGA Saturn", "moby_slug": "saturn"},  # IGDB
+    "saturn": {"id": 23, "name": "SEGA Saturn", "moby_slug": "saturn"},
     "sg-1000": {"id": 114, "name": "SG-1000", "moby_slug": "sg-1000"},
     "sk-vm": {"id": 259, "name": "SK-VM", "moby_slug": "sk-vm"},
     "smc-777": {"id": 273, "name": "SMC-777", "moby_slug": "smc-777"},
@@ -842,7 +832,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "moby_slug": "sharp-mz-80k7008001500",
     },
     "sharp-x1": {"id": 121, "name": "Sharp X1", "moby_slug": "sharp-x1"},
-    "x1": {"id": 121, "name": "Sharp X1", "moby_slug": "x1"},  # IGDB
+    "x1": {"id": 121, "name": "Sharp X1", "moby_slug": "x1"},
     "sharp-x68000": {"id": 106, "name": "Sharp X68000", "moby_slug": "sharp-x68000"},
     "sharp-zaurus": {"id": 202, "name": "Sharp Zaurus", "moby_slug": "sharp-zaurus"},
     "signetics-2650": {
@@ -873,7 +863,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "moby_slug": "ti-programmable-calculator",
     },
     "ti-994a": {"id": 47, "name": "TI-99/4A", "moby_slug": "ti-994a"},
-    "ti-99": {"id": 47, "name": "TI-99/4A", "moby_slug": "ti-99"},  # IGDB
+    "ti-99": {"id": 47, "name": "TI-99/4A", "moby_slug": "ti-99"},
     "tim": {"id": 246, "name": "TIM", "moby_slug": "tim"},
     "trs-80": {"id": 58, "name": "TRS-80", "moby_slug": "trs-80"},
     "trs-80-coco": {
@@ -885,7 +875,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 62,
         "name": "TRS-80 Color Computer",
         "moby_slug": "trs-80-color-computer",
-    },  # IGDB
+    },
     "trs-80-mc-10": {"id": 193, "name": "TRS-80 MC-10", "moby_slug": "trs-80-mc-10"},
     "trs-80-model-100": {
         "id": 312,
@@ -934,7 +924,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 40,
         "name": "TurboGrafx-16",
         "moby_slug": "turbografx16--1",
-    },  # IGDB
+    },
     "vflash": {"id": 189, "name": "V.Flash", "moby_slug": "vflash"},
     "vsmile": {"id": 42, "name": "V.Smile", "moby_slug": "vsmile"},
     "vic-20": {"id": 43, "name": "VIC-20", "moby_slug": "vic-20"},
@@ -955,7 +945,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "wii-u": {"id": 132, "name": "Wii U", "moby_slug": "wii-u"},
     "wiiu": {"id": 132, "name": "Wii U", "moby_slug": "wiiu"},
     "windows": {"id": 3, "name": "Windows", "moby_slug": "windows"},
-    "win": {"id": 3, "name": "Windows", "moby_slug": "win"},  # IGDB
+    "win": {"id": 3, "name": "Windows", "moby_slug": "win"},
     "win3x": {"id": 5, "name": "Windows 3.x", "moby_slug": "win3x"},
     "windows-apps": {"id": 140, "name": "Windows Apps", "moby_slug": "windows-apps"},
     "windowsmobile": {"id": 66, "name": "Windows Mobile", "moby_slug": "windowsmobile"},
@@ -963,9 +953,9 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "id": 66,
         "name": "Windows Mobile",
         "moby_slug": "windows-mobile",
-    },  # IGDB
+    },
     "windows-phone": {"id": 98, "name": "Windows Phone", "moby_slug": "windows-phone"},
-    "winphone": {"id": 98, "name": "Windows Phone", "moby_slug": "winphone"},  # IGDB
+    "winphone": {"id": 98, "name": "Windows Phone", "moby_slug": "winphone"},
     "wonderswan": {"id": 48, "name": "WonderSwan", "moby_slug": "wonderswan"},
     "wonderswan-color": {
         "id": 49,
@@ -983,7 +973,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "xbox-one": {"id": 142, "name": "Xbox One", "moby_slug": "xbox-one"},
     "xboxone": {"id": 142, "name": "Xbox One", "moby_slug": "xboxone"},
     "xbox-series": {"id": 289, "name": "Xbox Series", "moby_slug": "xbox-series"},
-    "series-x": {"id": 289, "name": "Xbox Series X", "moby_slug": "series-x"},  # IGDB
+    "series-x": {"id": 289, "name": "Xbox Series X", "moby_slug": "series-x"},
     "xerox-alto": {"id": 254, "name": "Xerox Alto", "moby_slug": "xerox-alto"},
     "z-machine": {"id": 169, "name": "Z-machine", "moby_slug": "z-machine"},
     "zx-spectrum": {"id": 41, "name": "ZX Spectrum", "moby_slug": "zx-spectrum"},
@@ -994,7 +984,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     },
     "zx80": {"id": 118, "name": "ZX80", "moby_slug": "zx80"},
     "zx81": {"id": 119, "name": "ZX81", "moby_slug": "zx81"},
-    "sinclair-zx81": {"id": 119, "name": "ZX81", "moby_slug": "sinclair-zx81"},  # IGDB
+    "sinclair-zx81": {"id": 119, "name": "ZX81", "moby_slug": "sinclair-zx81"},
     "zeebo": {"id": 88, "name": "Zeebo", "moby_slug": "zeebo"},
     "z80": {"id": 227, "name": "Zilog Z80", "moby_slug": "z80"},
     "zilog-z8000": {"id": 276, "name": "Zilog Z8000", "moby_slug": "zilog-z8000"},

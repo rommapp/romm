@@ -425,9 +425,7 @@ class IGDBHandler(MetadataHandler):
                 igdb_id=platform.get("id", None),
                 slug=slug,
                 name=platform.get("name", slug),
-                category=IGDB_PLATFORM_CATEGORIES.get(
-                    platform.get("platform_type", 0), "Unknown"
-                ),
+                category=platform.get("category", "Unknown"),
                 generation=str(platform.get("generation")) or "",
                 family_name=pydash.get(platform, "platform_family.name", None),
                 family_slug=pydash.get(platform, "platform_family.slug", None),
@@ -956,7 +954,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "amiga",
         "url_logo": "",
     },
-    "amiga-cd32": {
+    "amigacd32": {
         "id": 114,
         "name": "Amiga CD32",
         "category": "Console",
@@ -966,7 +964,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "amiga-cd32",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7v.jpg",
     },
-    "amstrad-gx4000": {
+    "gx4000": {
         "id": 506,
         "name": "Amstrad GX4000",
         "category": "Console",
@@ -976,7 +974,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "amstrad-gx4000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plot.jpg",
     },
-    "amstrad-pcw": {
+    "amstradpcw": {
         "id": 154,
         "name": "Amstrad PCW",
         "category": "Computer",
@@ -985,16 +983,6 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "family_slug": None,
         "igdb_slug": "amstrad-pcw",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf7.jpg",
-    },
-    "analogueelectronics": {
-        "id": 100,
-        "name": "Analogue electronics",
-        "category": "Unknown",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "analogueelectronics",
-        "url_logo": "",
     },
     "android": {
         "id": 34,
@@ -1006,7 +994,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "android",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln3.jpg",
     },
-    "apple-iigs": {
+    "apple2gs": {
         "id": 115,
         "name": "Apple IIGS",
         "category": "Computer",
@@ -1016,7 +1004,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "apple-iigs",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl87.jpg",
     },
-    "apple-pippin": {
+    "pippin": {
         "id": 476,
         "name": "Apple Pippin",
         "category": "Console",
@@ -1026,7 +1014,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "apple-pippin",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnn.jpg",
     },
-    "appleii": {
+    "apple2": {
         "id": 75,
         "name": "Apple II",
         "category": "Computer",
@@ -1046,7 +1034,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "arcade",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmz.jpg",
     },
-    "arcadia-2001": {
+    "arcadia": {
         "id": 473,
         "name": "Arcadia 2001",
         "category": "Console",
@@ -1086,7 +1074,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "atari-jaguar-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj4.jpg",
     },
-    "atari-st": {
+    "atarist": {
         "id": 63,
         "name": "Atari ST/STE",
         "category": "Computer",
@@ -1136,7 +1124,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "atari8bit",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plad.jpg",
     },
-    "ay-3-8500": {
+    "ay38500": {
         "id": 140,
         "name": "AY-3-8500",
         "category": "Computer",
@@ -1146,7 +1134,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8500",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/x42zeitpbuo2ltn7ybb2.jpg",
     },
-    "ay-3-8603": {
+    "ay38603": {
         "id": 145,
         "name": "AY-3-8603",
         "category": "Console",
@@ -1156,7 +1144,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8603",
         "url_logo": "",
     },
-    "ay-3-8605": {
+    "ay38605": {
         "id": 146,
         "name": "AY-3-8605",
         "category": "Console",
@@ -1166,7 +1154,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8605",
         "url_logo": "",
     },
-    "ay-3-8606": {
+    "ay38606": {
         "id": 147,
         "name": "AY-3-8606",
         "category": "Console",
@@ -1176,7 +1164,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8606",
         "url_logo": "",
     },
-    "ay-3-8607": {
+    "ay38607": {
         "id": 148,
         "name": "AY-3-8607",
         "category": "Console",
@@ -1186,7 +1174,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8607",
         "url_logo": "",
     },
-    "ay-3-8610": {
+    "ay38610": {
         "id": 141,
         "name": "AY-3-8610",
         "category": "Computer",
@@ -1196,7 +1184,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8610",
         "url_logo": "",
     },
-    "ay-3-8710": {
+    "ay38710": {
         "id": 144,
         "name": "AY-3-8710",
         "category": "Console",
@@ -1206,7 +1194,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8710",
         "url_logo": "",
     },
-    "ay-3-8760": {
+    "ay38760": {
         "id": 143,
         "name": "AY-3-8760",
         "category": "Console",
