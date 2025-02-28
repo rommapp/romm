@@ -11,7 +11,6 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
 
 <template>
   <v-list-item
-    :key="platform.slug"
     :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
     :value="platform.slug"
     rounded
@@ -20,7 +19,6 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
   >
     <template #prepend>
       <platform-icon
-        :key="platform.slug"
         :slug="platform.slug"
         :name="platform.name"
         :fs-slug="platform.fs_slug"
