@@ -34,7 +34,6 @@ class Platform(BaseModel):
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
-    logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
     roms: Mapped[list[Rom]] = relationship(back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(

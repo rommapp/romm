@@ -40,7 +40,6 @@ class IGDBPlatform(TypedDict):
     family_name: NotRequired[str]
     family_slug: NotRequired[str]
     url_logo: NotRequired[str]
-    logo_path: NotRequired[str]
 
 
 class IGDBMetadataPlatform(TypedDict):
@@ -421,20 +420,24 @@ class IGDBHandler(MetadataHandler):
         platform = SLUG_TO_IGDB_PLATFORM.get(slug, None)
 
         if platform:
-            return IGDBPlatform(
-                igdb_id=platform.get("id", None),
+            igdb_platform = IGDBPlatform(
+                igdb_id=platform["id"],
                 slug=slug,
-                name=platform.get("name", slug),
-                category=platform.get("category", "Unknown"),
-                generation=str(platform.get("generation")) or "",
-                family_name=pydash.get(platform, "platform_family.name", None),
-                family_slug=pydash.get(platform, "platform_family.slug", None),
-                url_logo=self._normalize_cover_url(
-                    pydash.get(platform, "platform_logo.url", "").replace(
-                        "t_thumb", "t_1080p"
-                    )
-                ),
+                name=platform["name"],
+                category=platform["category"],
             )
+
+            # These fields might be null in the SLUG_TO_IGDB_PLATFORM dict
+            if platform["generation"]:
+                igdb_platform["generation"] = str(platform["generation"])
+            if platform["family_name"]:
+                igdb_platform["family_name"] = platform["family_name"]
+            if platform["family_slug"]:
+                igdb_platform["family_slug"] = platform["family_slug"]
+            if platform["url_logo"]:
+                igdb_platform["url_logo"] = platform["url_logo"]
+
+            return igdb_platform
 
         # Check if platform is a version if not found
         platform_versions = await self._request(

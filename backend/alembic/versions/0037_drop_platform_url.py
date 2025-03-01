@@ -20,6 +20,7 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.drop_column("url")
+        batch_op.drop_column("logo_path")
 
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.alter_column(
@@ -47,5 +48,10 @@ def downgrade() -> None:
         batch_op.add_column(
             sa.Column(
                 "url", sa.VARCHAR(length=1000), autoincrement=False, nullable=True
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "logo_path", sa.VARCHAR(length=1000), autoincrement=False, nullable=True
             )
         )

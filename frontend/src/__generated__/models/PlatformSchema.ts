@@ -21,7 +21,6 @@ export type PlatformSchema = {
     family_name?: (string | null);
     family_slug?: (string | null);
     url_logo?: (string | null);
-    logo_path?: (string | null);
     firmware?: Array<FirmwareSchema>;
     aspect_ratio?: string;
     created_at: string;
