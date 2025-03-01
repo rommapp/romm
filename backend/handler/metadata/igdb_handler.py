@@ -1224,7 +1224,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "blackberry",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/bezbkk17hk0uobdkhjcv.jpg",
     },
-    "blu-ray-player": {
+    "bluray": {
         "id": 239,
         "name": "Blu-ray Player",
         "category": "Console",
@@ -1244,7 +1244,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "browser",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
     },
-    "c-plus-4": {
+    "cplus4": {
         "id": 94,
         "name": "Commodore Plus/4",
         "category": "Computer",
@@ -1266,7 +1266,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
     },
     "c64": {
         "id": 15,
-        "name": "Commodore C64/128/MAX",
+        "name": "Commodore 64",
         "category": "Computer",
         "generation": None,
         "family_name": None,
@@ -1274,17 +1274,17 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "c64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll3.jpg",
     },
-    "call-a-computer": {
-        "id": 107,
-        "name": "Call-A-Computer time-shared mainframe computer system",
+    "c128": {
+        "id": 15,
+        "name": "Commodore 128",
         "category": "Computer",
         "generation": None,
         "family_name": None,
         "family_slug": None,
-        "igdb_slug": "call-a-computer",
-        "url_logo": "",
+        "igdb_slug": "c64",
+        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll3.jpg",
     },
-    "casio-loopy": {
+    "loopy": {
         "id": 380,
         "name": "Casio Loopy",
         "category": "Console",
@@ -1293,16 +1293,6 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "family_slug": None,
         "igdb_slug": "casio-loopy",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkm.jpg",
-    },
-    "cdccyber70": {
-        "id": 109,
-        "name": "CDC Cyber 70",
-        "category": "Computer",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "cdccyber70",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plae.jpg",
     },
     "colecovision": {
         "id": 68,
@@ -1314,7 +1304,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "colecovision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8n.jpg",
     },
-    "commodore-cdtv": {
+    "cdtv": {
         "id": 158,
         "name": "Commodore CDTV",
         "category": "Computer",
@@ -1334,17 +1324,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "cpet",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf3.jpg",
     },
-    "daydream": {
-        "id": 164,
-        "name": "Daydream",
-        "category": "Unknown",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "daydream",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lwbdsvaveyxmuwnsga7g.jpg",
-    },
-    "dc": {
+    "dreamcast": {
         "id": 23,
         "name": "Dreamcast",
         "category": "Console",
@@ -1364,16 +1344,6 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "digiblast",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo2.jpg",
     },
-    "donner30": {
-        "id": 85,
-        "name": "Donner Model 30",
-        "category": "Computer",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "donner30",
-        "url_logo": "",
-    },
     "dos": {
         "id": 13,
         "name": "DOS",
@@ -1384,7 +1354,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "dos",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/sqgw6vespav1buezgjjn.jpg",
     },
-    "dragon-32-slash-64": {
+    "dragon32": {
         "id": 153,
         "name": "Dragon 32/64",
         "category": "Computer",
@@ -1394,17 +1364,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "dragon-32-slash-64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8e.jpg",
     },
-    "duplicate-stadia": {
-        "id": 203,
-        "name": "DUPLICATE Stadia",
-        "category": "Unknown",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "duplicate-stadia",
-        "url_logo": "",
-    },
-    "dvd-player": {
+    "dvd": {
         "id": 238,
         "name": "DVD Player",
         "category": "Console",
@@ -1413,16 +1373,6 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "family_slug": None,
         "igdb_slug": "dvd-player",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbu.jpg",
-    },
-    "edsac--1": {
-        "id": 102,
-        "name": "EDSAC",
-        "category": "Computer",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "edsac--1",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plat.jpg",
     },
     "elektor-tv-games-computer": {
         "id": 505,
@@ -1434,7 +1384,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "elektor-tv-games-computer",
         "url_logo": "",
     },
-    "epoch-cassette-vision": {
+    "ecv": {
         "id": 375,
         "name": "Epoch Cassette Vision",
         "category": "Console",
@@ -1454,7 +1404,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "evercade",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plky.jpg",
     },
-    "exidy-sorcerer": {
+    "exidysorcerer": {
         "id": 236,
         "name": "Exidy Sorcerer",
         "category": "Computer",
@@ -1464,7 +1414,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "exidy-sorcerer",
         "url_logo": "",
     },
-    "fairchild-channel-f": {
+    "channelf": {
         "id": 127,
         "name": "Fairchild Channel F",
         "category": "Console",
@@ -1494,7 +1444,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "fds",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8b.jpg",
     },
-    "fm-7": {
+    "fm7": {
         "id": 152,
         "name": "FM-7",
         "category": "Computer",
@@ -1504,7 +1454,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "fm-7",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pley.jpg",
     },
-    "fm-towns": {
+    "fmtowns": {
         "id": 118,
         "name": "FM Towns",
         "category": "Computer",
@@ -1514,7 +1464,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "fm-towns",
         "url_logo": "",
     },
-    "g-and-w": {
+    "gameandwatch": {
         "id": 307,
         "name": "Game & Watch",
         "category": "Portable Console",
@@ -1534,7 +1484,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gamate",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plhf.jpg",
     },
-    "game-dot-com": {
+    "gamecom": {
         "id": 379,
         "name": "Game.com",
         "category": "Portable Console",
@@ -1584,7 +1534,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gbc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7l.jpg",
     },
-    "gear-vr": {
+    "gearvr": {
         "id": 388,
         "name": "Gear VR",
         "category": "Console",
@@ -1594,7 +1544,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gear-vr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkj.jpg",
     },
-    "genesis-slash-megadrive": {
+    "megadrive": {
         "id": 29,
         "name": "Sega Mega Drive/Genesis",
         "category": "Console",

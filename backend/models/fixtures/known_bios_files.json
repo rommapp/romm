@@ -257,19 +257,19 @@
     "md5": "646773759326fbac3b2311fd8c8793ee",
     "sha1": "e21545723fe8374e91342617604f1b3d703094f1"
   },
-  "fairchild-channel-f:sl31253.bin": {
+  "channelf:sl31253.bin": {
     "size": "1024",
     "crc": "04694ed9",
     "md5": "ac9804d4c0e9d07e33472e3726ed15c3",
     "sha1": "81193965a374d77b99b4743d317824b53c3e3c78"
   },
-  "fairchild-channel-f:sl31254.bin": {
+  "channelf:sl31254.bin": {
     "size": "1024",
     "crc": "9c047ba3",
     "md5": "da98f4bb3242ab80d76629021bb27585",
     "sha1": "8f70d1b74483ba3a37e86cf16c849d601a8c3d2c"
   },
-  "fairchild-channel-f:sl90025.bin": {
+  "channelf:sl90025.bin": {
     "size": "1024",
     "crc": "015c1e38",
     "md5": "95d339631d867c8f1d15a5f2ec26069d",
@@ -881,31 +881,31 @@
     "md5": "279008e4a0db2dc5f1c048853b033828",
     "sha1": "54b8d2c1317628de51a85fc1c424423a986775e4"
   },
-  "dc:dc_boot.bin": {
+  "dreamcast:dc_boot.bin": {
     "size": "2097152",
     "crc": "89f2b1a1",
     "md5": "e10c53c2f8b90bab96ead2d368858623",
     "sha1": "8951d1bb219ab2ff8583033d2119c899cc81f18c"
   },
-  "dc:boot.bin": {
+  "dreamcast:boot.bin": {
     "size": "2097152",
     "crc": "89f2b1a1",
     "md5": "e10c53c2f8b90bab96ead2d368858623",
     "sha1": "8951d1bb219ab2ff8583033d2119c899cc81f18c"
   },
-  "dc:dc_flash.bin": {
+  "dreamcast:dc_flash.bin": {
     "size": "131072",
     "crc": "c611b498",
     "md5": "0a93f7940c455905bea6e392dfde92a4",
     "sha1": "94d44d7f9529ec1642ba3771ed3c5f756d5bc872"
   },
-  "dc:flash.bin": {
+  "dreamcast:flash.bin": {
     "size": "131072",
     "crc": "c611b498",
     "md5": "0a93f7940c455905bea6e392dfde92a4",
     "sha1": "94d44d7f9529ec1642ba3771ed3c5f756d5bc872"
   },
-  "dc:naomi_boot.bin": {
+  "dreamcast:naomi_boot.bin": {
     "size": "2097152",
     "crc": "d2a1c6bf",
     "md5": "3bffafac42a7767d8dcecf771f5552ba",
@@ -959,37 +959,37 @@
     "md5": "2efd74e3232ff260e371b99f84024f7f",
     "sha1": "f4f315adcef9b8feb0364c21ab7f0eaf5457f3ed"
   },
-  "genesis-slash-megadrive:areplay.bin": {
+  "megadrive:areplay.bin": {
     "size": "32768",
     "crc": "95ff7c3e",
     "md5": "a0028b3043f9d59ceeb03da5b073b30d",
     "sha1": "1e0f246826be4ebc7b99bb3f9de7f1de347122e5"
   },
-  "genesis-slash-megadrive:bios_MD.bin": {
+  "megadrive:bios_MD.bin": {
     "size": "2048",
     "crc": "3f888cf4",
     "md5": "d3293ebaaa7f4eb2a6766b68a0fb4609",
     "sha1": "3f50b76b0529db7f79c396b5e808cc0786ffc311"
   },
-  "genesis-slash-megadrive:ggenie.bin": {
+  "megadrive:ggenie.bin": {
     "size": "32768",
     "crc": "14dbce4a",
     "md5": "e8af7fe115a75c849f6aab3701e7799b",
     "sha1": "937e1878ebd104f489e6bdbc410a184f79f1144a"
   },
-  "genesis-slash-megadrive:rom.db": {
+  "megadrive:rom.db": {
     "size": "17742",
     "crc": "c94e8c8b",
     "md5": "ff4a3572475236e859e3e9ac5c87d1f1",
     "sha1": "02c287d10da6de579af7a4ce73b134bbdf23c970"
   },
-  "genesis-slash-megadrive:sk.bin": {
+  "megadrive:sk.bin": {
     "size": "2097152",
     "crc": "0658f691",
     "md5": "4ea493ea4e9f6c9ebfccbdb15110367e",
     "sha1": "88d6499d874dcb5721ff58d76fe1b9af811192e3"
   },
-  "genesis-slash-megadrive:sk2chip.bin": {
+  "megadrive:sk2chip.bin": {
     "size": "262144",
     "crc": "4dcfd55c",
     "md5": "b4e76e416b887f4e7413ba76fa735f16",

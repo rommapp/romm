@@ -23,60 +23,52 @@ exclude:
 
 system:
   platforms:
-    3do: "3do" # 3DO Interactive Multiplayer
-    n3ds: "3ds" # Nintendo 3DS
-    amiga: "amiga" # Amiga
-    amigacd32: "amiga-cd32" # Amiga CD32
-    android: "android" # Android
-    arcade: "arcade" # Arcade
-    astrocde: "astrocade" # Bally Astrocade
-    apfm1000: "apf" # APF-M1000/Imagination Machine
-    atarijaguarcd: "jaguarcd" # Atari Jaguar CD
-    atari800: "atari8bit" # Atari 8-bit
-    pv1000: "casio-pv-1000" # Casio PV-1000
-    cdtv: "commodore-cdtv" # CDTV
-    crvision: "creativision" # CreatiVision
-    dreamcast: "dc" # Dreamcast
-    dragon32: "dragon-32-slash-64" # Dragon 32/64
-    channelf: "fairchild-channel-f" # Channel F
-    fmtowns: "fm-towns" # FM Towns
-    gameandwatch: "g-and-w" # Game & Watch
-    gamecom: "game-dot-com" # Game.Com
-    megadrive: "genesis-slash-megadrive" # Genesis/Mega Drive
-    lcdgames: "handheld-electronic-lcd" # Handheld Electronic LCD
-    atarijaguar: "jaguar" # Atari Jaguar
-    atarilynx: "lynx" # Atari Lynx
-    macintosh: "mac" # Mac
-    megaduck: "mega-duck-slash-cougar-boy" # Mega Duck/Cougar Boy
-    neogeocd: "neo-geo-cd" # Neo Geo CD
-    ngp: "neo-geo-pocket" # Neo Geo Pocket
-    ngpc: "neo-geo-pocket-color" # Neo Geo Pocket Color
-    neogeo: "neogeoaes" # Neo Geo
-    gc: "ngc" # GameCube
-    odyssey2: "odyssey-2-slash-videopac-g7000" # Odyssey 2/Videopac G7000
-    palm: "palm-os" # Palm OS
-    pc88: "pc-8800-series" # PC-8800 Series
-    pc98: "pc-9800-series" # PC-9800 Series
-    pcfx: "pc-fx" # PC-FX
-    pokemini: "pokemon-mini" # Pokémon mini
-    samcoupe: "sam-coupe" # SAM Coupé
-    mastersystem: "sega-master-system" # SEGA Master System
-    sega32x: "sega32" # Sega 32X
-    megacd: "segacd" # SEGA CD
-    sfc: "sfam" # Super Famicom
-    sg-1000: "sg1000" # SG-1000
-    x68000: "sharp-x68000" # Sharp X68000
-    ti99: "ti-99" # Texas Instruments TI-99
-    trs-80: "trs-80" # TRS-80
-    tg-cd: "turbografx-16-slash-pc-engine-cd" # TurboGrafx CD
-    tg16: "turbografx16--1" # TurboGrafx-16
-    vic20: "vic-20" # Commodore VIC-20
-    videopac: "videopac-g7400" # Videopac+ G7400
-    pc: "win" # PC (Microsoft Windows)
-    wonderswancolor: "wonderswan-color" # WonderSwan Color
-    zmachine: "z-machine" # Z-machine
-    zx81: "zx80" # ZX80
-    zxspectrum: "zxs" # ZX Spectrum
+    3do: "3do"
+    n3ds: "3ds"
+    amiga: "amiga"
+    amigacd32: "amiga-cd32"
+    android: "android"
+    arcade: "arcade"
+    astrocde: "astrocade"
+    apfm1000: "apf"
+    atarijaguarcd: "jaguarcd"
+    atari800: "atari8bit"
+    pv1000: "casio-pv-1000"
+    crvision: "creativision"
+    lcdgames: "handheld-electronic-lcd"
+    atarijaguar: "jaguar"
+    atarilynx: "lynx"
+    macintosh: "mac"
+    megaduck: "mega-duck-slash-cougar-boy"
+    neogeocd: "neo-geo-cd"
+    ngp: "neo-geo-pocket"
+    ngpc: "neo-geo-pocket-color"
+    neogeo: "neogeoaes"
+    gc: "ngc"
+    odyssey2: "odyssey-2-slash-videopac-g7000"
+    palm: "palm-os"
+    pc88: "pc-8800-series"
+    pc98: "pc-9800-series"
+    pcfx: "pc-fx"
+    pokemini: "pokemon-mini"
+    samcoupe: "sam-coupe"
+    mastersystem: "sega-master-system"
+    sega32x: "sega32"
+    megacd: "segacd"
+    sfc: "sfam"
+    sg-1000: "sg1000"
+    x68000: "sharp-x68000"
+    ti99: "ti-99"
+    trs-80: "trs-80"
+    tg-cd: "turbografx-16-slash-pc-engine-cd"
+    tg16: "turbografx16--1"
+    vic20: "vic-20"
+    videopac: "videopac-g7400"
+    pc: "win"
+    wonderswancolor: "wonderswan-color"
+    zmachine: "z-machine"
+    zx81: "zx80"
+    zxspectrum: "zxs"
     naomi: "arcade"
     naomi2: "arcade"
     naomigd: "arcade"

@@ -49,7 +49,3 @@ class Platform(BaseModel):
 
     def __repr__(self) -> str:
         return self.name
-
-    @property
-    def url(self) -> str:
-        return f"https://www.igdb.com/platforms/{self.slug}.jpg"

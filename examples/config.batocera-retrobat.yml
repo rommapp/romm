@@ -19,7 +19,7 @@ system:
     amiga1200: amiga
     amiga4000: amiga
     amiga500: amiga
-    amigacdtv: amigacd32
+    amigacdtv: cdtv
     astrocde: astrocade
     apfm1000: apf
     archimedes: acorn-archimedes
@@ -29,17 +29,11 @@ system:
     c20: vic-20
     camplynx: camputers-lynx
     cdi: philips-cd-i
-    channelf: fairchild-channel-f
     coco: trs-80-color-computer
-    cplus4: c-plus-4
     crvision: creativision
-    dreamcast: dc
     easyrpg: rpgmaker
     fbneo: arcade
     fm7: fm-7
-    fmtowns: fm-towns
-    gameandwatch: g-and-w
-    gamecom: game-dot-com
     gamecube: ngc
     gb2players: gb
     gba2players: gba
@@ -48,8 +42,7 @@ system:
     lcdgames: handheld-electronic-lcd
     mame: arcade
     mastersystem: sms
-    megadrive: genesis-slash-megadrive
-    megadrive-msu: genesis-slash-megadrive
+    megadrive-msu: megadrive
     model2: arcade
     model3: arcade
     msx1: msx
