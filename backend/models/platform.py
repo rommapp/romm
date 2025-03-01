@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pydash
+from handler.metadata.igdb_handler import SLUG_TO_IGDB_PLATFORM
+from handler.metadata.moby_handler import SLUG_TO_MOBY_PLATFORM
 from models.base import BaseModel
 from models.rom import Rom
 from sqlalchemy import String, func, select
@@ -49,3 +52,11 @@ class Platform(BaseModel):
 
     def __repr__(self) -> str:
         return self.name
+
+    @property
+    def igdb_slug(self) -> str | None:
+        return pydash.get(SLUG_TO_IGDB_PLATFORM, f"{self.slug}.igdb_slug", None)
+
+    @property
+    def moby_slug(self) -> str | None:
+        return pydash.get(SLUG_TO_MOBY_PLATFORM, f"{self.slug}.moby_slug", None)
