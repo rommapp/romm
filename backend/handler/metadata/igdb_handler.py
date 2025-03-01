@@ -2374,17 +2374,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "epoch-super-cassette-vision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkn.jpg",
     },
-    "sdssigma7": {
-        "id": 106,
-        "name": "SDS Sigma 7",
-        "category": "Computer",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "sdssigma7",
-        "url_logo": "",
-    },
-    "sega-cd-32x": {
+    "segacd32x": {
         "id": 482,
         "name": "Sega CD 32X",
         "category": "Console",
@@ -2394,7 +2384,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sega-cd-32x",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnu.jpg",
     },
-    "sega32": {
+    "sega32x": {
         "id": 30,
         "name": "Sega 32X",
         "category": "Console",
@@ -2414,9 +2404,9 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "segacd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7w.jpg",
     },
-    "series-x-s": {
+    "seriesxs": {
         "id": 169,
-        "name": "Xbox Series X|S",
+        "name": "Xbox Series X/S",
         "category": "Console",
         "generation": 9,
         "family_name": "Xbox",
@@ -2444,7 +2434,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sg1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmn.jpg",
     },
-    "sharp-mz-2200": {
+    "mz2200": {
         "id": 374,
         "name": "Sharp MZ-2200",
         "category": "Computer",
@@ -2454,7 +2444,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sharp-mz-2200",
         "url_logo": "",
     },
-    "sharp-x68000": {
+    "x68000": {
         "id": 121,
         "name": "Sharp X68000",
         "category": "Computer",
@@ -2464,7 +2454,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sharp-x68000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8i.jpg",
     },
-    "sinclair-ql": {
+    "sinclairql": {
         "id": 406,
         "name": "Sinclair QL",
         "category": "Computer",
@@ -2474,7 +2464,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sinclair-ql",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plih.jpg",
     },
-    "sinclair-zx81": {
+    "zx81": {
         "id": 373,
         "name": "Sinclair ZX81",
         "category": "Computer",
@@ -2504,7 +2494,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "snes",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ifw2tvdkynyxayquiyk4.jpg",
     },
-    "sol-20": {
+    "sol20": {
         "id": 237,
         "name": "Sol-20",
         "category": "Computer",
@@ -2524,7 +2514,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "stadia",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl94.jpg",
     },
-    "steam-vr": {
+    "steamvr": {
         "id": 163,
         "name": "SteamVR",
         "category": "Unknown",
@@ -2534,7 +2524,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "steam-vr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ipbdzzx7z3rwuzm9big4.jpg",
     },
-    "super-acan": {
+    "superacan": {
         "id": 480,
         "name": "Super A'Can",
         "category": "Console",
@@ -2543,16 +2533,6 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "family_slug": None,
         "igdb_slug": "super-acan",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plns.jpg",
-    },
-    "super-nes-cd-rom-system": {
-        "id": 131,
-        "name": "Super NES CD-ROM System",
-        "category": "Console",
-        "generation": 4,
-        "family_name": "Nintendo",
-        "family_slug": "nintendo",
-        "igdb_slug": "super-nes-cd-rom-system",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plep.jpg",
     },
     "supergrafx": {
         "id": 128,
@@ -2584,7 +2564,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "switch",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgu.jpg",
     },
-    "tatung-einstein": {
+    "tatungeinstein": {
         "id": 155,
         "name": "Tatung Einstein",
         "category": "Computer",
@@ -2594,7 +2574,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "tatung-einstein",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla8.jpg",
     },
-    "terebikko-slash-see-n-say-video-phone": {
+    "terebikko": {
         "id": 479,
         "name": "Terebikko / See 'n Say Video Phone",
         "category": "Console",

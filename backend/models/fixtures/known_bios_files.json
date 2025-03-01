@@ -1073,31 +1073,31 @@
     "md5": "851e4a5936f17d13f8c39a980cf00d77",
     "sha1": "1c1a0d8c9f4c446ccd7470516b215ddca5052fb2"
   },
-  "sharp-x68000:cgrom.dat": {
+  "x68000:cgrom.dat": {
     "size": "786432",
     "crc": "9f3195f1",
     "md5": "cb0a5cfcf7247a7eab74bb2716260269",
     "sha1": "8d72c5b4d63bb14c5dbdac495244d659aa1498b6"
   },
-  "sharp-x68000:iplrom.dat": {
+  "x68000:iplrom.dat": {
     "size": "131072",
     "crc": "72bdf532",
     "md5": "7fd4caabac1d9169e289f0f7bbf71d8e",
     "sha1": "0ed038ed2133b9f78c6e37256807424e0d927560"
   },
-  "sharp-x68000:iplrom30.dat": {
+  "x68000:iplrom30.dat": {
     "size": "131072",
     "crc": "e8f8fdad",
     "md5": "f373003710ab4322642f527f567e020a",
     "sha1": "239e9124568c862c31d9ec0605e32373ea74b86a"
   },
-  "sharp-x68000:iplromco.dat": {
+  "x68000:iplromco.dat": {
     "size": "131072",
     "crc": "6c7ef608",
     "md5": "cc78d4f4900f622bd6de1aed7f52592f",
     "sha1": "77511fc58798404701f66b6bbc9cbde06596eba7"
   },
-  "sharp-x68000:iplromxv.dat": {
+  "x68000:iplromxv.dat": {
     "size": "131072",
     "crc": "00eeb408",
     "md5": "0617321daa182c3f3d6f41fd02fb3275",

@@ -362,7 +362,7 @@ const _EJS_CORES_MAP = {
   psx: ["pcsx_rearmed", "mednafen_psx_hw"],
   psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
-  sega32: ["picodrive"],
+  sega32x: ["picodrive"],
   gamegear: ["genesis_plus_gx"],
   sms: ["genesis_plus_gx"],
   "sega-mark-iii": ["genesis_plus_gx"],
@@ -455,7 +455,7 @@ export function isEJSThreadsSupported(): boolean {
 // This is a workaround to set the control scheme for Sega systems using the same cores
 const _EJS_CONTROL_SCHEMES = {
   segacd: "segaCD",
-  sega32: "sega32x",
+  sega32x: "sega32x",
   gamegear: "segaGG",
   sms: "segaMS",
   "sega-mark-iii": "segaMS",

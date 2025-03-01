@@ -55,9 +55,7 @@ system:
     pv1000: casio-pv-1000
     samcoupe: sam-coupe
     scv: epoch-super-cassette-vision
-    sega32x: sega32
     snes-msu: snes
-    supracan: super-acan
     thomson: thomson-mo5
     ti99: ti-99
     tic80: tic
@@ -66,8 +64,6 @@ system:
     windows: win
     wswan: wonderswan
     wswanc: wonderswan-color
-    x68000: sharp-x68000
     zmachine: z-machine
-    zx81: sinclair-zx81
     zxspectrum: zxs
   versions: {}
