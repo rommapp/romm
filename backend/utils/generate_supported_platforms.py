@@ -28,7 +28,7 @@ if __name__ == "__main__":
                 "name": (igdb_info["name"] if igdb_info else None)
                 or (moby_info["name"] if moby_info else None)
                 or (ss_info["name"] if ss_info else None)
-                or slug,
+                or slug.capitalize(),
                 "igdb_slug": igdb_info["igdb_slug"] if igdb_info else None,
                 "moby_slug": moby_info["moby_slug"] if moby_info else None,
                 "ss_id": ss_info["id"] if ss_info else None,

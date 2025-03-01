@@ -15,6 +15,7 @@ from handler.metadata.moby_handler import SLUG_TO_MOBY_PLATFORM
 from handler.metadata.ss_handler import SLUG_TO_SS_PLATFORM
 from handler.scan_handler import scan_platform
 from logger.logger import log
+from models.platform import DEFAULT_COVER_ASPECT_RATIO, Platform
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -76,7 +77,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
 
     supported_platforms = []
     db_platforms = db_platform_handler.get_platforms()
-    db_platforms_map = {p.slug: p.id for p in db_platforms}
+    db_platforms_map = {p.slug: p for p in db_platforms}
 
     for slug in UNIVERSAL_PLATFORM_SLUGS:
         now = datetime.now(timezone.utc)
@@ -88,11 +89,12 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
 
         common_propeties = {
             "id": -1,
-            "name": slug,
+            "name": slug.capitalize(),
             "fs_slug": slug,
             "slug": slug,
             "roms": [],
             "rom_count": 0,
+            "aspect_ratio": DEFAULT_COVER_ASPECT_RATIO,
             "created_at": now,
             "updated_at": now,
         }
@@ -111,12 +113,19 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
                 }
             )
 
+        if moby_platform:
+            common_propeties.update(
+                {
+                    "name": moby_platform["name"],
+                    "moby_id": moby_platform["id"],
+                }
+            )
+
         if igdb_platform:
             common_propeties.update(
                 {
                     "name": igdb_platform["name"],
                     "igdb_id": igdb_platform["id"],
-                    "igdb_slug": igdb_platform["igdb_slug"],
                     "category": igdb_platform["category"],
                     "generation": igdb_platform["generation"],
                     "family_name": igdb_platform["family_name"],
@@ -125,18 +134,8 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
                 }
             )
 
-        if moby_platform:
-            common_propeties.update(
-                {
-                    "name": moby_platform["name"],
-                    "moby_id": moby_platform["id"],
-                    "moby_slug": moby_platform["moby_slug"],
-                }
-            )
-
-        supported_platforms.append(
-            PlatformSchema.model_validate(common_propeties).model_dump()
-        )
+        platform = Platform(**common_propeties)
+        supported_platforms.append(PlatformSchema.model_validate(platform).model_dump())
 
     return supported_platforms
 

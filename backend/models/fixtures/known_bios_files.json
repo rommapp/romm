@@ -713,49 +713,49 @@
     "md5": "d3a44ba7d42a74d3ac58cb9c14c6a5ca",
     "sha1": "ef86ea192eed03d5c413fdbbfd46043be1d7a127"
   },
-  "super-gb:SGB1.sfc": {
+  "sgb:SGB1.sfc": {
     "size": "262144",
     "crc": "8a4a174f",
     "md5": "b15ddb15721c657d82c5bab6db982ee9",
     "sha1": "973e10840db683cf3faf61bd443090786b3a9f04"
   },
-  "super-gb:SGB2.sfc": {
+  "sgb:SGB2.sfc": {
     "size": "524288",
     "crc": "cb176e45",
     "md5": "8ecd73eb4edf7ed7e81aef1be80031d5",
     "sha1": "e5b2922ca137051059e4269b236d07a22c07bc84"
   },
-  "super-gb:sgb1.boot.rom": {
+  "sgb:sgb1.boot.rom": {
     "size": "256",
     "crc": "ec8a83b9",
     "md5": "d574d4f9c12f305074798f54c091a8b4",
     "sha1": "aa2f50a77dfb4823da96ba99309085a3c6278515"
   },
-  "super-gb:sgb1.program.rom": {
+  "sgb:sgb1.program.rom": {
     "size": "262144",
     "crc": "8a4a174f",
     "md5": "b15ddb15721c657d82c5bab6db982ee9",
     "sha1": "973e10840db683cf3faf61bd443090786b3a9f04"
   },
-  "super-gb:sgb2.boot.rom": {
+  "sgb:sgb2.boot.rom": {
     "size": "256",
     "crc": "53d0dd63",
     "md5": "e0430bca9925fb9882148fd2dc2418c1",
     "sha1": "93407ea10d2f30ab96a314d8eca44fe160aea734"
   },
-  "super-gb:sgb2.program.rom": {
+  "sgb:sgb2.program.rom": {
     "size": "524288",
     "crc": "cb176e45",
     "md5": "8ecd73eb4edf7ed7e81aef1be80031d5",
     "sha1": "e5b2922ca137051059e4269b236d07a22c07bc84"
   },
-  "super-gb:sgb2_bios.bin": {
+  "sgb:sgb2_bios.bin": {
     "size": "256",
     "crc": "53d0dd63",
     "md5": "e0430bca9925fb9882148fd2dc2418c1",
     "sha1": "93407ea10d2f30ab96a314d8eca44fe160aea734"
   },
-  "super-gb:sgb_bios.bin": {
+  "sgb:sgb_bios.bin": {
     "size": "256",
     "crc": "ec8a83b9",
     "md5": "d574d4f9c12f305074798f54c091a8b4",

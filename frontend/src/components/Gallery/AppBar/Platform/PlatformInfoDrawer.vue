@@ -290,8 +290,9 @@ watch(
             <a
               v-if="currentPlatform.igdb_id"
               style="text-decoration: none; color: inherit"
-              :href="`https://www.igdb.com/platforms/${currentPlatform.slug}`"
+              :href="`https://www.igdb.com/platforms/${currentPlatform.igdb_slug}`"
               target="_blank"
+              class="mr-2"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
@@ -303,8 +304,9 @@ watch(
             <a
               v-if="currentPlatform.moby_id"
               style="text-decoration: none; color: inherit"
+              :href="`https://www.mobygames.com/platform/${currentPlatform.moby_slug}`"
               target="_blank"
-              :class="{ 'ml-1': currentPlatform.igdb_id }"
+              class="mr-2"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
@@ -318,9 +320,6 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
               target="_blank"
-              :class="{
-                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
-              }"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
