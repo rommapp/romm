@@ -346,7 +346,7 @@ const _EJS_CORES_MAP = {
   "game-televisison": ["fceumm"],
   "new-style-nes": ["fceumm"],
   n64: ["mupen64plus_next", "parallel_n64"],
-  "ique-player": ["mupen64plus_next"],
+  iqueplayer: ["mupen64plus_next"],
   nds: ["melonds", "desmume2015"],
   dslite: ["melonds", "desmume2015"],
   dsi: ["melonds", "desmume2015"],

@@ -460,10 +460,9 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "c64": {"id": 27, "name": "Commodore 64", "moby_slug": "c64"},
     "pet": {"id": 77, "name": "Commodore PET/CBM", "moby_slug": "pet"},
     "cpet": {"id": 77, "name": "Commodore PET/CBM", "moby_slug": "cpet"},
-    "compal-80": {"id": 277, "name": "Compal 80", "moby_slug": "compal-80"},
-    "compucolor-i": {"id": 243, "name": "Compucolor I", "moby_slug": "compucolor-i"},
-    "compucolor-ii": {"id": 198, "name": "Compucolor II", "moby_slug": "compucolor-ii"},
-    "compucorp-programmable-calculator": {
+    "compucolor": {"id": 243, "name": "Compucolor I", "moby_slug": "compucolor-i"},
+    "compucolor2": {"id": 198, "name": "Compucolor II", "moby_slug": "compucolor-ii"},
+    "compucorppc": {
         "id": 238,
         "name": "Compucorp Programmable Calculator",
         "moby_slug": "compucorp-programmable-calculator",
@@ -472,13 +471,13 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "cybervision": {"id": 301, "name": "Cybervision", "moby_slug": "cybervision"},
     "dos": {"id": 2, "name": "DOS", "moby_slug": "dos"},
     "dvd": {"id": 166, "name": "DVD Player", "moby_slug": "dvd-player"},
-    "danger-os": {"id": 285, "name": "Danger OS", "moby_slug": "danger-os"},
-    "dedicated-console": {
+    "dangeros": {"id": 285, "name": "Danger OS", "moby_slug": "danger-os"},
+    "dedicatedconsole": {
         "id": 204,
         "name": "Dedicated console",
         "moby_slug": "dedicated-console",
     },
-    "dedicated-handheld": {
+    "dedicatedhandheld": {
         "id": 205,
         "name": "Dedicated handheld",
         "moby_slug": "dedicated-handheld",
@@ -487,7 +486,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "doja": {"id": 72, "name": "DoJa", "moby_slug": "doja"},
     "dragon32": {"id": 79, "name": "Dragon 32/64", "moby_slug": "dragon-3264"},
     "dreamcast": {"id": 8, "name": "Dreamcast", "moby_slug": "dreamcast"},
-    "ecd-micromind": {"id": 269, "name": "ECD Micromind", "moby_slug": "ecd-micromind"},
+    "micromind": {"id": 269, "name": "ECD Micromind", "moby_slug": "ecd-micromind"},
     "acornelectron": {"id": 93, "name": "Electron", "moby_slug": "electron"},
     "enterprise": {"id": 161, "name": "Enterprise", "moby_slug": "enterprise"},
     "ecv": {
@@ -516,7 +515,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "fmtowns": {"id": 102, "name": "FM Towns", "moby_slug": "fmtowns"},
     "fm7": {"id": 126, "name": "FM-7", "moby_slug": "fm-7"},
     "mobile": {"id": 315, "name": "Feature phone", "moby_slug": "mobile-custom"},
-    "fire-os": {"id": 159, "name": "Fire OS", "moby_slug": "fire-os"},
+    "fireos": {"id": 159, "name": "Fire OS", "moby_slug": "fire-os"},
     "amazonfiretv": {"id": 159, "name": "Fire TV", "moby_slug": "amazonfiretv"},
     "freebox": {"id": 268, "name": "Freebox", "moby_slug": "freebox"},
     "gameandwatch": {
@@ -524,11 +523,11 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "name": "Dedicated handheld",
         "moby_slug": "g-and-w",
     },
-    "g-cluster": {"id": 302, "name": "G-cluster", "moby_slug": "g-cluster"},
+    "gcluster": {"id": 302, "name": "G-cluster", "moby_slug": "g-cluster"},
     "gimini": {"id": 251, "name": "GIMINI", "moby_slug": "gimini"},
     "gnex": {"id": 258, "name": "GNEX", "moby_slug": "gnex"},
     "gp2x": {"id": 122, "name": "GP2X", "moby_slug": "gp2x"},
-    "gp2x-wiz": {"id": 123, "name": "GP2X Wiz", "moby_slug": "gp2x-wiz"},
+    "gp2xwiz": {"id": 123, "name": "GP2X Wiz", "moby_slug": "gp2x-wiz"},
     "gp32": {"id": 108, "name": "GP32", "moby_slug": "gp32"},
     "gvm": {"id": 257, "name": "GVM", "moby_slug": "gvm"},
     "galaksija": {"id": 236, "name": "Galaksija", "moby_slug": "galaksija"},
@@ -548,9 +547,9 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "gizmondo": {"id": 55, "name": "Gizmondo", "moby_slug": "gizmondo"},
     "gloud": {"id": 292, "name": "Gloud", "moby_slug": "gloud"},
     "glulx": {"id": 172, "name": "Glulx", "moby_slug": "glulx"},
-    "hd-dvd-player": {"id": 167, "name": "HD DVD Player", "moby_slug": "hd-dvd-player"},
-    "hp-9800": {"id": 219, "name": "HP 9800", "moby_slug": "hp-9800"},
-    "hp-programmable-calculator": {
+    "hddvd": {"id": 167, "name": "HD DVD Player", "moby_slug": "hd-dvd-player"},
+    "hp9800": {"id": 219, "name": "HP 9800", "moby_slug": "hp-9800"},
+    "hppc": {
         "id": 234,
         "name": "HP Programmable Calculator",
         "moby_slug": "hp-programmable-calculator",
@@ -560,26 +559,26 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "name": "Heath/Zenith H8/H89",
         "moby_slug": "heathzenith",
     },
-    "heathkit-h11": {"id": 248, "name": "Heathkit H11", "moby_slug": "heathkit-h11"},
-    "hitachi-s1": {"id": 274, "name": "Hitachi S1", "moby_slug": "hitachi-s1"},
+    "heathkith11": {"id": 248, "name": "Heathkit H11", "moby_slug": "heathkit-h11"},
+    "hitachis1": {"id": 274, "name": "Hitachi S1", "moby_slug": "hitachi-s1"},
     "hugo": {"id": 170, "name": "Hugo", "moby_slug": "hugo"},
     "hyperscan": {"id": 192, "name": "HyperScan", "moby_slug": "hyperscan"},
-    "ibm-5100": {"id": 250, "name": "IBM 5100", "moby_slug": "ibm-5100"},
-    "ideal-computer": {
+    "ibm5100": {"id": 250, "name": "IBM 5100", "moby_slug": "ibm-5100"},
+    "idealcomputer": {
         "id": 252,
         "name": "Ideal-Computer",
         "moby_slug": "ideal-computer",
     },
-    "intel-8008": {"id": 224, "name": "Intel 8008", "moby_slug": "intel-8008"},
-    "intel-8080": {"id": 225, "name": "Intel 8080", "moby_slug": "intel-8080"},
-    "intel-8086": {"id": 317, "name": "Intel 8086 / 8088", "moby_slug": "intel-8086"},
+    "intel8008": {"id": 224, "name": "Intel 8008", "moby_slug": "intel-8008"},
+    "intel8080": {"id": 225, "name": "Intel 8080", "moby_slug": "intel-8080"},
+    "intel8086": {"id": 317, "name": "Intel 8086 / 8088", "moby_slug": "intel-8086"},
     "intellivision": {"id": 30, "name": "Intellivision", "moby_slug": "intellivision"},
-    "interact-model-one": {
+    "interactm1": {
         "id": 295,
         "name": "Interact Model One",
         "moby_slug": "interact-model-one",
     },
-    "interton-video-2000": {
+    "intertonv2000": {
         "id": 221,
         "name": "Interton Video 2000",
         "moby_slug": "interton-video-2000",
@@ -656,7 +655,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "name": "Neo Geo Pocket Color",
         "moby_slug": "neo-geo-pocket-color",
     },
-    "neo-geo-x": {"id": 279, "name": "Neo Geo X", "moby_slug": "neo-geo-x"},
+    "neogeox": {"id": 279, "name": "Neo Geo X", "moby_slug": "neo-geo-x"},
     "new3ds": {
         "id": 174,
         "name": "New Nintendo 3DS",
@@ -822,7 +821,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     },
     "tizen": {"id": 206, "name": "Tizen", "moby_slug": "tizen"},
     "tomahawk-f1": {"id": 256, "name": "Tomahawk F1", "moby_slug": "tomahawk-f1"},
-    "tomy-tutor": {"id": 151, "name": "Tomy Tutor", "moby_slug": "tomy-tutor"},
+    "tutor": {"id": 151, "name": "Tomy Tutor", "moby_slug": "tomy-tutor"},
     "triton": {"id": 310, "name": "Triton", "moby_slug": "triton"},
     "pcenginecd": {"id": 45, "name": "TurboGrafx CD", "moby_slug": "turbografx-cd"},
     "pcengine": {"id": 40, "name": "TurboGrafx-16", "moby_slug": "turbo-grafx"},
@@ -873,7 +872,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "xerox-alto": {"id": 254, "name": "Xerox Alto", "moby_slug": "xerox-alto"},
     "zmachine": {"id": 169, "name": "Z-machine", "moby_slug": "z-machine"},
     "zxs": {"id": 41, "name": "ZX Spectrum", "moby_slug": "zx-spectrum"},
-    "zx-spectrum-next": {
+    "zxsnext": {
         "id": 280,
         "name": "ZX Spectrum Next",
         "moby_slug": "zx-spectrum-next",
