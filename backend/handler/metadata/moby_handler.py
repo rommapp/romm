@@ -407,7 +407,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "atari2600": {"id": 28, "name": "Atari 2600", "moby_slug": "atari-2600"},
     "atari5200": {"id": 33, "name": "Atari 5200", "moby_slug": "atari-5200"},
     "atari7800": {"id": 34, "name": "Atari 7800", "moby_slug": "atari-7800"},
-    "atari8bit": {"id": 39, "name": "Atari 8-bit", "moby_slug": "atari8bit"},
+    "atari8bit": {"id": 39, "name": "Atari 8-bit", "moby_slug": "atari-8-bit"},
     "atarist": {"id": 24, "name": "Atari ST", "moby_slug": "atari-st"},
     "atarivcs": {"id": 319, "name": "Atari VCS", "moby_slug": "atari-vcs"},
     "atom": {"id": 129, "name": "Atom", "moby_slug": "atom"},
