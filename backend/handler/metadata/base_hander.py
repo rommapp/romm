@@ -424,6 +424,7 @@ UNIVERSAL_PLATFORM_SLUGS: Final = [
     "vc",
     "vc4000",
     "vectrex",
+    "videopacplus",
     "virtualboy",
     "visionos",
     "vmu",

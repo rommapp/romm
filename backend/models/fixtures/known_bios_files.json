@@ -863,19 +863,19 @@
     "md5": "dda40ccd57390c96e49d30a041f9a9e7",
     "sha1": "388e3721b94cd074d6ba0eca8616523d2118a6c3"
   },
-  "videopac-g7400:c52.bin": {
+  "videopacplus:c52.bin": {
     "size": "1024",
     "crc": "a318e8d6",
     "md5": "f1071cdb0b6b10dde94d3bc8a6146387",
     "sha1": "a6120aed50831c9c0d95dbdf707820f601d9452e"
   },
-  "videopac-g7400:g7400.bin": {
+  "videopacplus:g7400.bin": {
     "size": "1024",
     "crc": "e20a9f41",
     "md5": "c500ff71236068e0dc0d0603d265ae76",
     "sha1": "5130243429b40b01a14e1304d0394b8459a6fbae"
   },
-  "videopac-g7400:jopac.bin": {
+  "videopacplus:jopac.bin": {
     "size": "1024",
     "crc": "11647ca5",
     "md5": "279008e4a0db2dc5f1c048853b033828",

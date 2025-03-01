@@ -434,7 +434,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     },
     "cpm": {"id": 261, "name": "CP/M", "moby_slug": "cpm"},
     "loopy": {"id": 124, "name": "Casio Loopy", "moby_slug": "casio-loopy"},
-    "casio-pv-1000": {"id": 125, "name": "Casio PV-1000", "moby_slug": "casio-pv-1000"},
+    "pv1000": {"id": 125, "name": "Casio PV-1000", "moby_slug": "casio-pv-1000"},
     "casio-programmable-calculator": {
         "id": 306,
         "name": "Casio Programmable Calculator",
@@ -489,12 +489,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "dragon32": {"id": 79, "name": "Dragon 32/64", "moby_slug": "dragon-3264"},
     "dreamcast": {"id": 8, "name": "Dreamcast", "moby_slug": "dreamcast"},
     "ecd-micromind": {"id": 269, "name": "ECD Micromind", "moby_slug": "ecd-micromind"},
-    "electron": {"id": 93, "name": "Electron", "moby_slug": "electron"},
-    "acorn-electron": {
-        "id": 93,
-        "name": "Electron",
-        "moby_slug": "acorn-electron",
-    },
+    "acornelectron": {"id": 93, "name": "Electron", "moby_slug": "electron"},
     "enterprise": {"id": 161, "name": "Enterprise", "moby_slug": "enterprise"},
     "ecv": {
         "id": 137,
@@ -593,7 +588,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "j2me": {"id": 64, "name": "J2ME", "moby_slug": "j2me"},
     "jaguar": {"id": 17, "name": "Jaguar", "moby_slug": "jaguar"},
     "jolt": {"id": 247, "name": "Jolt", "moby_slug": "jolt"},
-    "jupiter-ace": {"id": 153, "name": "Jupiter Ace", "moby_slug": "jupiter-ace"},
+    "jupiterace": {"id": 153, "name": "Jupiter Ace", "moby_slug": "jupiter-ace"},
     "kim-1": {"id": 226, "name": "KIM-1", "moby_slug": "kim-1"},
     "kaios": {"id": 313, "name": "KaiOS", "moby_slug": "kaios"},
     "kindle": {"id": 145, "name": "Kindle Classic", "moby_slug": "kindle"},
@@ -706,7 +701,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "palmos": {"id": 65, "name": "Palm OS", "moby_slug": "palmos"},
     "pandora": {"id": 308, "name": "Pandora", "moby_slug": "pandora"},
     "pebble": {"id": 304, "name": "Pebble", "moby_slug": "pebble"},
-    "philips-vg-5000": {
+    "vg5000": {
         "id": 133,
         "name": "Philips VG 5000",
         "moby_slug": "philips-vg-5000",
@@ -771,7 +766,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "spectravideo": {"id": 85, "name": "Spectravideo", "moby_slug": "spectravideo"},
     "stadia": {"id": 281, "name": "Stadia", "moby_slug": "stadia"},
     "superacan": {"id": 110, "name": "Super A'can", "moby_slug": "super-acan"},
-    "super-vision-8000": {
+    "supervision8000": {
         "id": 296,
         "name": "Super Vision 8000",
         "moby_slug": "super-vision-8000",
@@ -800,7 +795,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "name": "TRS-80 Model 100",
         "moby_slug": "trs-80-model-100",
     },
-    "taito-x-55": {"id": 283, "name": "Taito X-55", "moby_slug": "taito-x-55"},
+    "x55": {"id": 283, "name": "Taito X-55", "moby_slug": "taito-x-55"},
     "tatungeinstein": {
         "id": 150,
         "name": "Tatung Einstein",
@@ -839,7 +834,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "vectrex": {"id": 37, "name": "Vectrex", "moby_slug": "vectrex"},
     "versatile": {"id": 299, "name": "Versatile", "moby_slug": "versatile"},
     "videobrain": {"id": 214, "name": "VideoBrain", "moby_slug": "videobrain"},
-    "videopac-g7400": {
+    "videopacplus": {
         "id": 128,
         "name": "Videopac+ G7400",
         "moby_slug": "videopac-g7400",
@@ -877,8 +872,8 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "xbox-series": {"id": 289, "name": "Xbox Series", "moby_slug": "xbox-series"},
     "seriesxs": {"id": 289, "name": "Xbox Series X/S", "moby_slug": "series-x"},
     "xerox-alto": {"id": 254, "name": "Xerox Alto", "moby_slug": "xerox-alto"},
-    "z-machine": {"id": 169, "name": "Z-machine", "moby_slug": "z-machine"},
-    "zx-spectrum": {"id": 41, "name": "ZX Spectrum", "moby_slug": "zx-spectrum"},
+    "zmachine": {"id": 169, "name": "Z-machine", "moby_slug": "z-machine"},
+    "zxs": {"id": 41, "name": "ZX Spectrum", "moby_slug": "zx-spectrum"},
     "zx-spectrum-next": {
         "id": 280,
         "name": "ZX Spectrum Next",
