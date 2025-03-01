@@ -501,12 +501,12 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "name": "Epoch Cassette Vision",
         "moby_slug": "epoch-cassette-vision",
     },
-    "epoch-game-pocket-computer": {
+    "egpc": {
         "id": 139,
         "name": "Epoch Game Pocket Computer",
         "moby_slug": "epoch-game-pocket-computer",
     },
-    "epoch-super-cassette-vision": {
+    "scv": {
         "id": 138,
         "name": "Epoch Super Cassette Vision",
         "moby_slug": "epoch-super-cassette-vision",
@@ -736,7 +736,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "moby_slug": "research-machines-380z",
     },
     "roku": {"id": 196, "name": "Roku", "moby_slug": "roku"},
-    "sam-coupe": {"id": 120, "name": "SAM Coupé", "moby_slug": "sam-coupe"},
+    "samcoupe": {"id": 120, "name": "SAM Coupé", "moby_slug": "sam-coupe"},
     "scmp": {"id": 255, "name": "SC/MP", "moby_slug": "scmp"},
     "sd-200270290": {"id": 267, "name": "SD-200/270/290", "moby_slug": "sd-200270290"},
     "sega32x": {"id": 21, "name": "SEGA 32X", "moby_slug": "sega-32x"},
@@ -786,22 +786,16 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "name": "TI Programmable Calculator",
         "moby_slug": "ti-programmable-calculator",
     },
-    "ti-994a": {"id": 47, "name": "TI-99/4A", "moby_slug": "ti-994a"},
-    "ti-99": {"id": 47, "name": "TI-99/4A", "moby_slug": "ti-99"},
+    "ti99": {"id": 47, "name": "TI-99/4A", "moby_slug": "ti-99"},
     "tim": {"id": 246, "name": "TIM", "moby_slug": "tim"},
-    "trs-80": {"id": 58, "name": "TRS-80", "moby_slug": "trs-80"},
-    "trs-80-coco": {
+    "trs80": {"id": 58, "name": "TRS-80", "moby_slug": "trs-80"},
+    "coco": {
         "id": 62,
         "name": "TRS-80 Color Computer",
         "moby_slug": "trs-80-coco",
     },
-    "trs-80-color-computer": {
-        "id": 62,
-        "name": "TRS-80 Color Computer",
-        "moby_slug": "trs-80-color-computer",
-    },
-    "trs-80-mc-10": {"id": 193, "name": "TRS-80 MC-10", "moby_slug": "trs-80-mc-10"},
-    "trs-80-model-100": {
+    "trs80mc10": {"id": 193, "name": "TRS-80 MC-10", "moby_slug": "trs-80-mc-10"},
+    "trs80model100": {
         "id": 312,
         "name": "TRS-80 Model 100",
         "moby_slug": "trs-80-model-100",
@@ -824,9 +818,8 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "moby_slug": "telstar-arcade",
     },
     "terminal": {"id": 209, "name": "Terminal", "moby_slug": "terminal"},
-    "thomson-mo": {"id": 147, "name": "Thomson MO", "moby_slug": "thomson-mo"},
-    "thomson-mo5": {"id": 147, "name": "Thomson MO5", "moby_slug": "thomson-mo5"},
-    "thomson-to": {"id": 130, "name": "Thomson TO", "moby_slug": "thomson-to"},
+    "thomsonmo": {"id": 147, "name": "Thomson MO", "moby_slug": "thomson-mo"},
+    "thomsonto": {"id": 130, "name": "Thomson TO", "moby_slug": "thomson-to"},
     "tiki-100": {"id": 263, "name": "Tiki 100", "moby_slug": "tiki-100"},
     "timex-sinclair-2068": {
         "id": 173,
@@ -837,21 +830,11 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "tomahawk-f1": {"id": 256, "name": "Tomahawk F1", "moby_slug": "tomahawk-f1"},
     "tomy-tutor": {"id": 151, "name": "Tomy Tutor", "moby_slug": "tomy-tutor"},
     "triton": {"id": 310, "name": "Triton", "moby_slug": "triton"},
-    "turbografx-cd": {"id": 45, "name": "TurboGrafx CD", "moby_slug": "turbografx-cd"},
-    "turbografx-16-slash-pc-engine-cd": {
-        "id": 45,
-        "name": "TurboGrafx CD",
-        "moby_slug": "turbografx-16-slash-pc-engine-cd",
-    },
-    "turbo-grafx": {"id": 40, "name": "TurboGrafx-16", "moby_slug": "turbo-grafx"},
-    "turbografx16--1": {
-        "id": 40,
-        "name": "TurboGrafx-16",
-        "moby_slug": "turbografx16--1",
-    },
+    "pcenginecd": {"id": 45, "name": "TurboGrafx CD", "moby_slug": "turbografx-cd"},
+    "pcengine": {"id": 40, "name": "TurboGrafx-16", "moby_slug": "turbo-grafx"},
     "vflash": {"id": 189, "name": "V.Flash", "moby_slug": "vflash"},
     "vsmile": {"id": 42, "name": "V.Smile", "moby_slug": "vsmile"},
-    "vic-20": {"id": 43, "name": "VIC-20", "moby_slug": "vic-20"},
+    "c20": {"id": 43, "name": "VIC-20", "moby_slug": "vic-20"},
     "vis": {"id": 164, "name": "VIS", "moby_slug": "vis"},
     "vectrex": {"id": 37, "name": "Vectrex", "moby_slug": "vectrex"},
     "versatile": {"id": 299, "name": "Versatile", "moby_slug": "versatile"},
@@ -873,15 +856,10 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "win3x": {"id": 5, "name": "Windows 3.x", "moby_slug": "win3x"},
     "windows-apps": {"id": 140, "name": "Windows Apps", "moby_slug": "windows-apps"},
     "windowsmobile": {"id": 66, "name": "Windows Mobile", "moby_slug": "windowsmobile"},
-    "windows-mobile": {
-        "id": 66,
-        "name": "Windows Mobile",
-        "moby_slug": "windows-mobile",
-    },
     "windows-phone": {"id": 98, "name": "Windows Phone", "moby_slug": "windows-phone"},
     "winphone": {"id": 98, "name": "Windows Phone", "moby_slug": "winphone"},
-    "wonderswan": {"id": 48, "name": "WonderSwan", "moby_slug": "wonderswan"},
-    "wonderswan-color": {
+    "wswan": {"id": 48, "name": "WonderSwan", "moby_slug": "wonderswan"},
+    "wswanc": {
         "id": 49,
         "name": "WonderSwan Color",
         "moby_slug": "wonderswan-color",

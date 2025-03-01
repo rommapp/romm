@@ -1634,7 +1634,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "intellivision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8o.jpg",
     },
-    "intellivision-amico": {
+    "amico": {
         "id": 382,
         "name": "Intellivision Amico",
         "category": "Console",
@@ -2584,7 +2584,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "terebikko-slash-see-n-say-video-phone",
         "url_logo": "",
     },
-    "thomson": {
+    "thomsonmo": {
         "id": 156,
         "name": "Thomson MO5",
         "category": "Computer",
@@ -2594,7 +2594,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "thomson-mo5",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plex.jpg",
     },
-    "ti-99": {
+    "ti99": {
         "id": 129,
         "name": "Texas Instruments TI-99",
         "category": "Computer",
@@ -2604,17 +2604,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ti-99",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf0.jpg",
     },
-    "tomy-tutor-slash-pyuta-slash-grandstand-tutor": {
-        "id": 481,
-        "name": "Tomy Tutor / Pyuta / Grandstand Tutor",
-        "category": "Computer",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "tomy-tutor-slash-pyuta-slash-grandstand-tutor",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnt.jpg",
-    },
-    "trs-80": {
+    "trs80": {
         "id": 126,
         "name": "TRS-80",
         "category": "Computer",
@@ -2624,7 +2614,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "trs-80",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plac.jpg",
     },
-    "trs-80-color-computer": {
+    "coco": {
         "id": 151,
         "name": "TRS-80 Color Computer",
         "category": "Computer",
@@ -2634,7 +2624,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "trs-80-color-computer",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf1.jpg",
     },
-    "turbografx16--1": {
+    "pcengine": {
         "id": 86,
         "name": "TurboGrafx-16/PC Engine",
         "category": "Console",
@@ -2664,7 +2654,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "vc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plao.jpg",
     },
-    "vc-4000": {
+    "vc4000": {
         "id": 138,
         "name": "VC 4000",
         "category": "Console",
@@ -2684,7 +2674,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "vectrex",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8h.jpg",
     },
-    "vic-20": {
+    "c20": {
         "id": 71,
         "name": "Commodore VIC-20",
         "category": "Computer",
@@ -2714,7 +2704,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "visionos",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnj.jpg",
     },
-    "visual-memory-unit-slash-visual-memory-system": {
+    "vmu": {
         "id": 440,
         "name": "Visual Memory Unit / Visual Memory System",
         "category": "Portable Console",
@@ -2734,7 +2724,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "vsmile",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plk7.jpg",
     },
-    "watara-slash-quickshot-supervision": {
+    "supervision": {
         "id": 415,
         "name": "Watara/QuickShot Supervision",
         "category": "Portable Console",
@@ -2774,7 +2764,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "win",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plim.jpg",
     },
-    "windows-mixed-reality": {
+    "windowsmx": {
         "id": 161,
         "name": "Windows Mixed Reality",
         "category": "Unknown",
@@ -2784,7 +2774,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "windows-mixed-reality",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm4.jpg",
     },
-    "windows-mobile": {
+    "windowsmobile": {
         "id": 405,
         "name": "Windows Mobile",
         "category": "Operative System",
@@ -2804,7 +2794,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "winphone",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla3.jpg",
     },
-    "wonderswan": {
+    "wswan": {
         "id": 57,
         "name": "WonderSwan",
         "category": "Portable Console",
@@ -2814,7 +2804,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "wonderswan",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7b.jpg",
     },
-    "wonderswan-color": {
+    "wswanc": {
         "id": 123,
         "name": "WonderSwan Color",
         "category": "Portable Console",

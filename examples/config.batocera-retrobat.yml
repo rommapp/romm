@@ -26,8 +26,6 @@ system:
     atari800: atari
     atomiswave: arcade
     bbc: bbcmicro
-    c20: vic-20
-    coco: trs-80-color-computer
     crvision: creativision
     easyrpg: rpgmaker
     fbneo: arcade
@@ -48,22 +46,15 @@ system:
     naomi2: arcade
     neogeo: neogeoaes
     oricatmos: oric
-    pcengine: turbografx16--1
-    pcenginecd: turbografx-16-slash-pc-engine-cd
     pet: cpet
     prboom: doom
     pv1000: casio-pv-1000
-    samcoupe: sam-coupe
-    scv: epoch-super-cassette-vision
     snes-msu: snes
-    thomson: thomson-mo5
-    ti99: ti-99
+    thomson: thomsonmo
     tic80: tic
     triforce: arcade
     tutor: tomy-tutor
     windows: win
-    wswan: wonderswan
-    wswanc: wonderswan-color
     zmachine: z-machine
     zxspectrum: zxs
   versions: {}

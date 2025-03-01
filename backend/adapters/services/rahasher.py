@@ -9,8 +9,7 @@ RAHASHER_VALID_HASH_REGEX = re.compile(r"^[0-9a-f]{32}$")
 # TODO: Centralize standarized platform slugs using StrEnum.
 PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
     "3do": 43,
-    "cpc": 37,
-    "acpc": 37,
+    "amstradcpc": 37,
     "apple2": 38,
     "arcade": 27,
     "arcadia": 73,
@@ -44,7 +43,6 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
     "pc88": 47,
     "pcfx": 49,
     "psp": 41,
-    "playstation": 12,
     "psx": 12,
     "ps2": 21,
     "pokemini": 24,
@@ -52,18 +50,15 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
     "sega32x": 10,
     "segacd": 9,
     "sms": 11,
-    "sg-1000": 33,
+    "sg1000": 33,
     "snes": 3,
-    "turbografx-cd": 76,
-    "turbografx-16-slash-pc-engine-cd": 76,
-    "turbo-grafx": 8,
-    "turbografx16--1": 8,
+    "pcenginecd": 76,
+    "pcengine": 8,
     "vectrex": 26,
-    "virtual-boy": 28,
     "virtualboy": 28,
-    "watara-slash-quickshot-supervision": 63,
-    "wonderswan": 53,
-    "wonderswan-color": 53,
+    "supervision": 63,
+    "wswan": 53,
+    "wswanc": 53,
 }
 
 

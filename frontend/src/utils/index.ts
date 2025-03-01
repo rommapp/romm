@@ -383,12 +383,12 @@ const _EJS_CORES_MAP = {
   "super-famicom-shvc-001": ["snes9x"],
   "super-famicom-jr-model-shvc-101": ["snes9x"],
   "new-style-super-nes-model-sns-101": ["snes9x"],
-  "turbografx16--1": ["mednafen_pce"],
-  "vic-20": ["vice_xvic"],
+  pcengine: ["mednafen_pce"],
+  c20: ["vice_xvic"],
   virtualboy: ["beetle_vb"],
-  wonderswan: ["mednafen_wswan"],
+  wswan: ["mednafen_wswan"],
   swancrystal: ["mednafen_wswan"],
-  "wonderswan-color": ["mednafen_wswan"],
+  wswanc: ["mednafen_wswan"],
 } as const;
 
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;

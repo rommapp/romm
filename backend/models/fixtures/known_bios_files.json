@@ -419,43 +419,43 @@
     "md5": "279efd1eae0d358eecd4edc7d9adedf3",
     "sha1": "7aec0134ad6a5177f4056fcb6047083e8e00529b"
   },
-  "turbografx16--1:gecard.pce": {
+  "pcengine:gecard.pce": {
     "size": "32768",
     "crc": "51a12d90",
     "md5": "6d2cb14fc3e1f65ceb135633d1694122",
     "sha1": "014881a959e045e00f4db8f52955200865d40280"
   },
-  "turbografx16--1:gexpress.pce": {
+  "pcengine:gexpress.pce": {
     "size": "32768",
     "crc": "51a12d90",
     "md5": "6d2cb14fc3e1f65ceb135633d1694122",
     "sha1": "014881a959e045e00f4db8f52955200865d40280"
   },
-  "turbografx16--1:syscard1.pce": {
+  "pcengine:syscard1.pce": {
     "size": "262144",
     "crc": "3f9f95a4",
     "md5": "2b7ccb3d86baa18f6402c176f3065082",
     "sha1": "a39a66da7de6ba94ab84d04eef7afeec7d4ee66a"
   },
-  "turbografx16--1:syscard2.pce": {
+  "pcengine:syscard2.pce": {
     "size": "262144",
     "crc": "283b74e0",
     "md5": "3cdd6614a918616bfc41c862e889dd79",
     "sha1": "88da02e2503f7c32810f5d93a34849d470742b6d"
   },
-  "turbografx16--1:syscard2u.pce": {
+  "pcengine:syscard2u.pce": {
     "size": "262144",
     "crc": "ff2a5ec3",
     "md5": "94279f315e8b52904f65ab3108542afe",
     "sha1": "2bea3dac98f84b2f2f469fa77ea720b8770d598d"
   },
-  "turbografx16--1:syscard3.pce": {
+  "pcengine:syscard3.pce": {
     "size": "262144",
     "crc": "6d9a73ef",
     "md5": "38179df8f4ac870017db21ebcbf53114",
     "sha1": "79f5ff55dd10187c7fd7b8daab0b3ffbd1f56a2c"
   },
-  "turbografx16--1:syscard3u.pce": {
+  "pcengine:syscard3u.pce": {
     "size": "262144",
     "crc": "2b5b75fe",
     "md5": "0754f903b52e3b3342202bdafb13efa5",
@@ -1601,25 +1601,25 @@
     "md5": "a17e0e0150155400d8cced329563d9c8",
     "sha1": "718c1a00d38e0810a1ad0ffde79f73447f846f01"
   },
-  "acpc:cpc464.rom": {
+  "amstradcpc:cpc464.rom": {
     "size": "32768",
     "crc": "40852f25",
     "md5": "a993f85b88ac4350cf4d41554e87fe4f",
     "sha1": "56d39c463da60968d93e58b4ba0e675829412a20"
   },
-  "acpc:cpc664.rom": {
+  "amstradcpc:cpc664.rom": {
     "size": "32768",
     "crc": "9ab5a036",
     "md5": "5a384a2310f472c7857888371c00ed66",
     "sha1": "073a7665527b5bd8a148747a3947dbd3328682c8"
   },
-  "acpc:cpc6128.rom": {
+  "amstradcpc:cpc6128.rom": {
     "size": "32768",
     "crc": "9e827fe1",
     "md5": "b96280dc6c95a48857b4b8eb931533ae",
     "sha1": "5977adbad3f7c1e0e082cd02fe76a700d9860c30"
   },
-  "acpc:cpc_amsdos.rom": {
+  "amstradcpc:cpc_amsdos.rom": {
     "size": "16384",
     "crc": "1fe22ecd",
     "md5": "25629dfe870d097469c217b95fdc1c95",

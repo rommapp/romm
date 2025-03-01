@@ -28,11 +28,11 @@ WEBRCADE_SUPPORTED_PLATFORM_SLUGS = frozenset(
         "sms",
         "snes",
         "supergrafx",
-        "turbografx-16-slash-pc-engine-cd",
-        "turbografx16--1",
+        "pcenginecd",
+        "pcengine",
         "virtualboy",
-        "wonderswan",
-        "wonderswan-color",
+        "wswan",
+        "wswanc",
     )
 )
 
@@ -41,8 +41,8 @@ WEBRCADE_SLUG_TO_TYPE_MAP = {
     "atari5200": "5200",
     "atari7800": "7800",
     "lynx": "lnx",
-    "turbografx16--1": "pce",
-    "turbografx-16-slash-pc-engine-cd": "pce",
+    "pcengine": "pce",
+    "pcenginecd": "pce",
     "supergrafx": "sgx",
     "pcfx": "pcfx",
     "virtualboy": "vb",
