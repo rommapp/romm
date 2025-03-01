@@ -186,9 +186,9 @@ async def scan_platforms(
         else:
             log.info(f"Found {len(platform_list)} platforms in the file system")
 
-        for platform_slug in platform_list:
+        for platform_fs_slug in platform_list:
             scan_stats += await _identify_platform(
-                platform_slug=platform_slug,
+                platform_fs_slug=platform_fs_slug,
                 scan_type=scan_type,
                 fs_platforms=fs_platforms,
                 roms_ids=roms_ids,
@@ -220,7 +220,7 @@ async def scan_platforms(
 
 
 async def _identify_platform(
-    platform_slug: str,
+    platform_fs_slug: str,
     scan_type: ScanType,
     fs_platforms: list[str],
     roms_ids: list[str],
@@ -233,18 +233,21 @@ async def _identify_platform(
 
     scan_stats = ScanStats()
 
-    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    platform = db_platform_handler.get_platform_by_fs_slug(platform_fs_slug)
     if platform and scan_type == ScanType.NEW_PLATFORMS:
         return scan_stats
 
     scanned_platform = await scan_platform(
-        platform_slug, fs_platforms, metadata_sources=metadata_sources
+        platform_fs_slug, fs_platforms, metadata_sources=metadata_sources
     )
+
     if platform:
+        # Keep the existing properties if they exist on the platform
         scanned_platform.id = platform.id
-        # Keep the existing ids if they exist on the platform
+        scanned_platform.slug = platform.slug
         scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
         scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
+        scanned_platform.ss_id = scanned_platform.ss_id or platform.ss_id
 
     scan_stats.scanned_platforms += 1
     scan_stats.added_platforms += 1 if not platform else 0
