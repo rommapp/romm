@@ -1597,7 +1597,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "hp3000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla9.jpg",
     },
-    "hyper-neo-geo-64": {
+    "hyperneogeo64": {
         "id": 135,
         "name": "Hyper Neo Geo 64",
         "category": "Arcade",

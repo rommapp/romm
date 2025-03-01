@@ -430,7 +430,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "c20": {"id": 43, "name": "VIC-20", "moby_slug": "vic-20"},
     "c64": {"id": 27, "name": "Commodore 64", "moby_slug": "c64"},
     "camplynx": {"id": 154, "name": "Camputers Lynx", "moby_slug": "camputers-lynx"},
-    "casiopc": {
+    "casiocalc": {
         "id": 306,
         "name": "Casio Programmable Calculator",
         "moby_slug": "casio-programmable-calculator",
@@ -446,7 +446,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "colourgenie": {"id": 197, "name": "Colour Genie", "moby_slug": "colour-genie"},
     "compucolor": {"id": 243, "name": "Compucolor I", "moby_slug": "compucolor-i"},
     "compucolor2": {"id": 198, "name": "Compucolor II", "moby_slug": "compucolor-ii"},
-    "compucorppc": {
+    "compucorpcalc": {
         "id": 238,
         "name": "Compucorp Programmable Calculator",
         "moby_slug": "compucorp-programmable-calculator",
@@ -528,7 +528,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     },
     "hitachis1": {"id": 274, "name": "Hitachi S1", "moby_slug": "hitachi-s1"},
     "hp9800": {"id": 219, "name": "HP 9800", "moby_slug": "hp-9800"},
-    "hppc": {
+    "hpcalc": {
         "id": 234,
         "name": "HP Programmable Calculator",
         "moby_slug": "hp-programmable-calculator",
@@ -732,7 +732,7 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "moby_slug": "tektronix-4050",
     },
     "telespiel": {"id": 220, "name": "Tele-Spiel ES-2201", "moby_slug": "tele-spiel"},
-    "telstar-arcade": {
+    "telstar": {
         "id": 233,
         "name": "Telstar Arcade",
         "moby_slug": "telstar-arcade",
@@ -748,13 +748,13 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
         "name": "Timex Sinclair 2068",
         "moby_slug": "timex-sinclair-2068",
     },
-    "tipc": {
+    "ticalc": {
         "id": 239,
         "name": "TI Programmable Calculator",
         "moby_slug": "ti-programmable-calculator",
     },
     "tizen": {"id": 206, "name": "Tizen", "moby_slug": "tizen"},
-    "tomahawk-f1": {"id": 256, "name": "Tomahawk F1", "moby_slug": "tomahawk-f1"},
+    "tomahawkf1": {"id": 256, "name": "Tomahawk F1", "moby_slug": "tomahawk-f1"},
     "triton": {"id": 310, "name": "Triton", "moby_slug": "triton"},
     "trs80": {"id": 58, "name": "TRS-80", "moby_slug": "trs-80"},
     "trs80mc10": {"id": 193, "name": "TRS-80 MC-10", "moby_slug": "trs-80-mc-10"},

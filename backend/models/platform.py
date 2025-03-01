@@ -44,6 +44,9 @@ class Platform(BaseModel):
         String(length=10), server_default=DEFAULT_COVER_ASPECT_RATIO
     )
 
+    # Temp column to store the old slug from the migration
+    temp_old_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
+
     # This runs a subquery to get the count of roms for the platform
     rom_count = column_property(
         select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
