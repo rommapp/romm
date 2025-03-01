@@ -305,7 +305,7 @@
     "md5": "66223be1497460f1e60885eeb35e03cc",
     "sha1": "db6b504744281369794e26ba71a6e385cf6227fa"
   },
-  "odyssey-2-slash-videopac-g7000:o2rom.bin": {
+  "odyssey2:o2rom.bin": {
     "size": "1024",
     "crc": "8016a315",
     "md5": "562d5ebf9e030a40d6fabfc2f33139fd",
@@ -461,97 +461,97 @@
     "md5": "0754f903b52e3b3342202bdafb13efa5",
     "sha1": "d02611d99921986147c753df14c7349b31d71950"
   },
-  "pc-9800-series:2608_bd.wav": {
+  "pc98:2608_bd.wav": {
     "size": "19192",
     "crc": "bb038714",
     "md5": "d94546e70f17fd899be8df3544ab6cbb",
     "sha1": "0a56c142ef40cec50f3ee56a6e42d0029c9e2818"
   },
-  "pc-9800-series:2608_hh.wav": {
+  "pc98:2608_hh.wav": {
     "size": "36722",
     "crc": "9898b372",
     "md5": "08c54a0c1f774a5538a848a6665a34b4",
     "sha1": "12f676cef249b82480b6f19c454e234b435ca7b6"
   },
-  "pc-9800-series:2608_rim.wav": {
+  "pc98:2608_rim.wav": {
     "size": "5288",
     "crc": "638864c1",
     "md5": "465ea0768b27da404aec45dfc501404b",
     "sha1": "c65592330c9dd84011151daed52f9aec926b7e56"
   },
-  "pc-9800-series:2608_sd.wav": {
+  "pc98:2608_sd.wav": {
     "size": "15558",
     "crc": "542cc58c",
     "md5": "d71004351c8bbfdad53b18222c061d49",
     "sha1": "3c79663ef74c0b0439d13351326eb1c52a657008"
   },
-  "pc-9800-series:2608_tom.wav": {
+  "pc98:2608_tom.wav": {
     "size": "23092",
     "crc": "93c57bba",
     "md5": "96a4ead13f364734f79b0c58af2f0e1f",
     "sha1": "9513fb4a3f41e75a972a273a5104cbd834c1e2c5"
   },
-  "pc-9800-series:2608_top.wav": {
+  "pc98:2608_top.wav": {
     "size": "57016",
     "crc": "ab73a296",
     "md5": "593cff6597ab9380d822b8f824fd2c28",
     "sha1": "aa4a8f766a86b830687d5083fd3b9db0652f46fc"
   },
-  "pc-9800-series:bios.rom": {
+  "pc98:bios.rom": {
     "size": "98304",
     "crc": "0a682b93",
     "md5": "cd237e16e7e77c06bb58540e9e9fca68",
     "sha1": "76a7360502fa0296ea93b4c537174610a834d367"
   },
-  "pc-9800-series:font.bmp": {
+  "pc98:font.bmp": {
     "size": "524350",
     "crc": "d271798b",
     "md5": "7da1e5b7c482d4108d22a5b09631d967",
     "sha1": "b4f14e58030ed40fff2dc312b58ea4440bdf8cc5"
   },
-  "pc-9800-series:font.rom": {
+  "pc98:font.rom": {
     "size": "288768",
     "crc": "456d9fc7",
     "md5": "38d32748ae49d1815b0614970849fd40",
     "sha1": "78ba9960f135372825ab7244b5e4e73a810002ff"
   },
-  "pc-9800-series:itf.rom": {
+  "pc98:itf.rom": {
     "size": "32768",
     "crc": "c1815325",
     "md5": "72ea51443070f0e9212bfc9b793ee28e",
     "sha1": "a2fb11c000ed7c976520622cfb7940ed6ddc904e"
   },
-  "pc-9800-series:sound.rom": {
+  "pc98:sound.rom": {
     "size": "16384",
     "crc": "fe9f57f2",
     "md5": "524473c1a5a03b17e21d86a0408ff827",
     "sha1": "d5dbc4fea3b8367024d363f5351baecd6adcd8ef"
   },
-  "pc-fx:fx-scsi.rom": {
+  "pcfx:fx-scsi.rom": {
     "size": "524288",
     "crc": "f3e60e5e",
     "md5": "430e9745f9235c515bc8e652d6ca3004",
     "sha1": "65482a23ac5c10a6095aee1db5824cca54ead6e5"
   },
-  "pc-fx:pcfx.rom": {
+  "pcfx:pcfx.rom": {
     "size": "1048576",
     "crc": "76ffb97a",
     "md5": "08e36edbea28a017f79f8d4f7ff9b6d7",
     "sha1": "1a77fd83e337f906aecab27a1604db064cf10074"
   },
-  "pc-fx:pcfxbios.bin": {
+  "pcfx:pcfxbios.bin": {
     "size": "1048576",
     "crc": "76ffb97a",
     "md5": "08e36edbea28a017f79f8d4f7ff9b6d7",
     "sha1": "1a77fd83e337f906aecab27a1604db064cf10074"
   },
-  "pc-fx:pcfxga.rom": {
+  "pcfx:pcfxga.rom": {
     "size": "1048576",
     "crc": "41c3776b",
     "md5": "5885bc9a64bf80d4530b9b9b978ff587",
     "sha1": "a9372202a5db302064c994fcda9b24d29bb1b41c"
   },
-  "pc-fx:pcfxv101.bin": {
+  "pcfx:pcfxv101.bin": {
     "size": "1048576",
     "crc": "236102c9",
     "md5": "e2fb7c7220e3a7838c2dd7e401a7f3d8",
@@ -683,7 +683,7 @@
     "md5": "7bfe8c0540ed4bd6a0f1e2a0f0118ced",
     "sha1": "26322f182540211e9b5e3647675b7c593706ae2b"
   },
-  "pokemon-mini:bios.min": {
+  "pokemini:bios.min": {
     "size": "4096",
     "crc": "aed3c14d",
     "md5": "1e4fb124a3a886865acb574f388c803d",
@@ -1385,199 +1385,199 @@
     "md5": "0da70a5d2a0e733398e005b96b7e4ba6",
     "sha1": "21695e3f2a8f796386ce66eea8a246b0ac44810c"
   },
-  "neo-geo-cd:000-lo.lo": {
+  "neogeocd:000-lo.lo": {
     "size": "131072",
     "crc": "5a86cff2",
     "md5": "fc7599f3f871578fe9a0453662d1c966",
     "sha1": "5992277debadeb64d1c1c64b0a92d9293eaf7e4a"
   },
-  "neo-geo-cd:front-sp1.bin": {
+  "neogeocd:front-sp1.bin": {
     "size": "524288",
     "crc": "cac62307",
     "md5": "5c2366f25ff92d71788468ca492ebeca",
     "sha1": "53bc1f283cdf00fa2efbb79f2e36d4c8038d743a"
   },
-  "neo-geo-cd:neocd.bin": {
+  "neogeocd:neocd.bin": {
     "size": "524288",
     "crc": "df9de490",
     "md5": "f39572af7584cb5b3f70ae8cc848aba2",
     "sha1": "7bb26d1e5d1e930515219cb18bcde5b7b23e2eda"
   },
-  "neo-geo-cd:neocd_f.rom": {
+  "neogeocd:neocd_f.rom": {
     "size": "524288",
     "crc": "6fd2a520",
     "md5": "8834880c33164ccbe6476b559f3e37de",
     "sha1": "a5f4a7a627b3083c979f6ebe1fabc5d2df6d083b"
   },
-  "neo-geo-cd:neocd_sf.rom": {
+  "neogeocd:neocd_sf.rom": {
     "size": "524288",
     "crc": "1101f313",
     "md5": "043d76d5f0ef836500700c34faef774d",
     "sha1": "4a94719ee5d0e3f2b981498f70efc1b8f1cef325"
   },
-  "neo-geo-cd:neocd_st.rom": {
+  "neogeocd:neocd_st.rom": {
     "size": "524288",
     "crc": "01c299cc",
     "md5": "f6325a33c6d63ea4b9162a3fa8c32727",
     "sha1": "19729b51bdab60c42aafef6e20ea9234c7eb8410"
   },
-  "neo-geo-cd:neocd_sz.rom": {
+  "neogeocd:neocd_sz.rom": {
     "size": "524288",
     "crc": "42f6b6c4",
     "md5": "971ee8a36fb72da57aed01758f0a37f5",
     "sha1": "6a947457031dd3a702a296862446d7485aa89dbb"
   },
-  "neo-geo-cd:neocd_t.rom": {
+  "neogeocd:neocd_t.rom": {
     "size": "524288",
     "crc": "56c9ecba",
     "md5": "de3cf45d227ad44645b22aa83b49f450",
     "sha1": "cc92b54a18a8bff6e595aabe8e5c360ba9e62eb5"
   },
-  "neo-geo-cd:neocd_z.rom": {
+  "neogeocd:neocd_z.rom": {
     "size": "524288",
     "crc": "33697892",
     "md5": "11526d58d4c524daef7d5d677dc6b004",
     "sha1": "b0f1c4fa8d4492a04431805f6537138b842b549f"
   },
-  "neo-geo-cd:top-sp1.bin": {
+  "neogeocd:top-sp1.bin": {
     "size": "524288",
     "crc": "c36a47c0",
     "md5": "122aee210324c72e8a11116e6ef9c0d0",
     "sha1": "235f4d1d74364415910f73c10ae5482d90b4274f"
   },
-  "neo-geo-cd:uni-bioscd.rom": {
+  "neogeocd:uni-bioscd.rom": {
     "size": "524288",
     "crc": "ff3abc59",
     "md5": "08ca8b2dba6662e8024f9e789711c6fc",
     "sha1": "5142f205912869b673a71480c5828b1eaed782a8"
   },
-  "neo-geo-cd:neocdz.zip": {
+  "neogeocd:neocdz.zip": {
     "size": "214876",
     "crc": "19681e91",
     "md5": "c38cb8e50321783e413dc5ff292a3ff8",
     "sha1": "bf6b379c204da77dece1aedf83ff35227a623e5d"
   },
-  "ps:PSXONPSP660.BIN": {
+  "psx:PSXONPSP660.BIN": {
     "size": "524288",
     "crc": "5660f34f",
     "md5": "c53ca5908936d412331790f4426c6c33",
     "sha1": "96880d1ca92a016ff054be5159bb06fe03cb4e14"
   },
-  "ps:scph1000.bin": {
+  "psx:scph1000.bin": {
     "size": "524288",
     "crc": "3b601fc8",
     "md5": "239665b1a3dade1b5a52c06338011044",
     "sha1": "343883a7b555646da8cee54aadd2795b6e7dd070"
   },
-  "ps:scph1001.bin": {
+  "psx:scph1001.bin": {
     "size": "524288",
     "crc": "37157331",
     "md5": "924e392ed05558ffdb115408c263dccf",
     "sha1": "10155d8d6e6e832d6ea66db9bc098321fb5e8ebf"
   },
-  "ps:scph1002.bin": {
+  "psx:scph1002.bin": {
     "size": "524288",
     "crc": "9bb87c4b",
     "md5": "54847e693405ffeb0359c6287434cbef",
     "sha1": "20b98f3d80f11cbf5a7bfd0779b0e63760ecc62c"
   },
-  "ps:scph100.bin": {
+  "psx:scph100.bin": {
     "size": "524288",
     "crc": "f2af798b",
     "md5": "8abc1b549a4a80954addc48ef02c4521",
     "sha1": "339a48f4fcf63e10b5b867b8c93cfd40945faf6c"
   },
-  "ps:scph101.bin": {
+  "psx:scph101.bin": {
     "size": "524288",
     "crc": "171bdcec",
     "md5": "6e3735ff4c7dc899ee98981385f6f3d0",
     "sha1": "dcffe16bd90a723499ad46c641424981338d8378"
   },
-  "ps:scph102A.bin": {
+  "psx:scph102A.bin": {
     "size": "524288",
     "crc": "0bad7ea9",
     "md5": "b10f5e0e3d9eb60e5159690680b1e774",
     "sha1": "beb0ac693c0dc26daf5665b3314db81480fa5c7c"
   },
-  "ps:scph102B.bin": {
+  "psx:scph102B.bin": {
     "size": "524288",
     "crc": "76b880e5",
     "md5": "de93caec13d1a141a40a79f5c86168d6",
     "sha1": "dbc7339e5d85827c095764fc077b41f78fd2ecae"
   },
-  "ps:scph102C.bin": {
+  "psx:scph102C.bin": {
     "size": "524288",
     "crc": "76b880e5",
     "md5": "de93caec13d1a141a40a79f5c86168d6",
     "sha1": "dbc7339e5d85827c095764fc077b41f78fd2ecae"
   },
-  "ps:scph3000.bin": {
+  "psx:scph3000.bin": {
     "size": "524288",
     "crc": "3539def6",
     "md5": "849515939161e62f6b866f6853006780",
     "sha1": "b06f4a861f74270be819aa2a07db8d0563a7cc4e"
   },
-  "ps:scph3500.bin": {
+  "psx:scph3500.bin": {
     "size": "524288",
     "crc": "bc190209",
     "md5": "cba733ceeff5aef5c32254f1d617fa62",
     "sha1": "e38466a4ba8005fba7e9e3c7b9efeba7205bee3f"
   },
-  "ps:scph5000.bin": {
+  "psx:scph5000.bin": {
     "size": "524288",
     "crc": "8c93a399",
     "md5": "eb201d2d98251a598af467d4347bb62f",
     "sha1": "e340db2696274dda5fdc25e434a914db71e8b02b"
   },
-  "ps:scph5500.bin": {
+  "psx:scph5500.bin": {
     "size": "524288",
     "crc": "ff3eeb8c",
     "md5": "8dd7d5296a650fac7319bce665a6a53c",
     "sha1": "b05def971d8ec59f346f2d9ac21fb742e3eb6917"
   },
-  "ps:scph5501.bin": {
+  "psx:scph5501.bin": {
     "size": "524288",
     "crc": "8d8cb7e4",
     "md5": "490f666e1afb15b7362b406ed1cea246",
     "sha1": "0555c6fae8906f3f09baf5988f00e55f88e9f30b"
   },
-  "ps:scph5502.bin": {
+  "psx:scph5502.bin": {
     "size": "524288",
     "crc": "d786f0b9",
     "md5": "32736f17079d0b2b7024407c39bd3050",
     "sha1": "f6bc2d1f5eb6593de7d089c425ac681d6fffd3f0"
   },
-  "ps:scph5552.bin": {
+  "psx:scph5552.bin": {
     "size": "524288",
     "crc": "d786f0b9",
     "md5": "32736f17079d0b2b7024407c39bd3050",
     "sha1": "f6bc2d1f5eb6593de7d089c425ac681d6fffd3f0"
   },
-  "ps:scph7001.bin": {
+  "psx:scph7001.bin": {
     "size": "524288",
     "crc": "502224b6",
     "md5": "1e68c231d0896b7eadcad1d7d8e76129",
     "sha1": "14df4f6c1e367ce097c11deae21566b4fe5647a9"
   },
-  "ps:scph7002.bin": {
+  "psx:scph7002.bin": {
     "size": "524288",
     "crc": "318178bf",
     "md5": "b9d9a0286c33dc6b7237bb13cd46fdee",
     "sha1": "8d5de56a79954f29e9006929ba3fed9b6a418c1d"
   },
-  "ps:scph7003.bin": {
+  "psx:scph7003.bin": {
     "size": "524288",
     "crc": "8d8cb7e4",
     "md5": "490f666e1afb15b7362b406ed1cea246",
     "sha1": "0555c6fae8906f3f09baf5988f00e55f88e9f30b"
   },
-  "ps:scph7502.bin": {
+  "psx:scph7502.bin": {
     "size": "524288",
     "crc": "318178bf",
     "md5": "b9d9a0286c33dc6b7237bb13cd46fdee",
     "sha1": "8d5de56a79954f29e9006929ba3fed9b6a418c1d"
   },
-  "ps:scph9002(7502).bin": {
+  "psx:scph9002(7502).bin": {
     "size": "524288",
     "crc": "318178bf",
     "md5": "b9d9a0286c33dc6b7237bb13cd46fdee",

@@ -27,8 +27,6 @@ system:
     atomiswave: arcade
     bbc: bbcmicro
     c20: vic-20
-    camplynx: camputers-lynx
-    cdi: philips-cd-i
     coco: trs-80-color-computer
     crvision: creativision
     easyrpg: rpgmaker
@@ -39,7 +37,6 @@ system:
     gba2players: gba
     gbc2players: gbc
     gzdoom: doom
-    lcdgames: handheld-electronic-lcd
     mame: arcade
     mastersystem: sms
     megadrive-msu: megadrive
@@ -50,19 +47,11 @@ system:
     naomi: arcade
     naomi2: arcade
     neogeo: neogeoaes
-    neogeocd: neo-geo-cd
-    ngp: neo-geo-pocket
-    ngpc: neo-geo-pocket-color
     oricatmos: oric
-    pc88: pc-8800-series
-    pc98: pc-9800-series
     pcengine: turbografx16--1
     pcenginecd: turbografx-16-slash-pc-engine-cd
-    pcfx: pc-fx
     pet: cpet
-    pokemini: pokemon-mini
     prboom: doom
-    psx: ps
     pv1000: casio-pv-1000
     samcoupe: sam-coupe
     scv: epoch-super-cassette-vision

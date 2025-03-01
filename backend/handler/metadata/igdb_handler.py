@@ -1564,17 +1564,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gizmondo",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnl.jpg",
     },
-    "gt40": {
-        "id": 98,
-        "name": "DEC GT40",
-        "category": "Unknown",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "gt40",
-        "url_logo": "",
-    },
-    "handheld-electronic-lcd": {
+    "lcdgames": {
         "id": 411,
         "name": "Handheld Electronic LCD",
         "category": "Portable Console",
@@ -1694,7 +1684,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "leapster",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj5.jpg",
     },
-    "leapster-explorer-slash-leadpad-explorer": {
+    "leapsterexplorer": {
         "id": 413,
         "name": "Leapster Explorer/LeadPad Explorer",
         "category": "Portable Console",
@@ -1714,7 +1704,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "leaptv",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj6.jpg",
     },
-    "legacy-computer": {
+    "legacypc": {
         "id": 409,
         "name": "Legacy Computer",
         "category": "Computer",
@@ -1754,7 +1744,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "mac",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo3.jpg",
     },
-    "mega-duck-slash-cougar-boy": {
+    "megaduck": {
         "id": 408,
         "name": "Mega Duck/Cougar Boy",
         "category": "Portable Console",
@@ -1764,7 +1754,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "mega-duck-slash-cougar-boy",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj3.jpg",
     },
-    "meta-quest-2": {
+    "quest2": {
         "id": 386,
         "name": "Meta Quest 2",
         "category": "Console",
@@ -1774,7 +1764,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "meta-quest-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll0.jpg",
     },
-    "meta-quest-3": {
+    "quest3": {
         "id": 471,
         "name": "Meta Quest 3",
         "category": "Console",
@@ -1784,17 +1774,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "meta-quest-3",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnb.jpg",
     },
-    "microcomputer": {
-        "id": 112,
-        "name": "Microcomputer",
-        "category": "Unknown",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "microcomputer--1",
-        "url_logo": "",
-    },
-    "microvision--1": {
+    "microvision": {
         "id": 89,
         "name": "Microvision",
         "category": "Portable Console",
@@ -1854,7 +1834,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nds",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6t.jpg",
     },
-    "nec-pc-6000-series": {
+    "pc60": {
         "id": 157,
         "name": "NEC PC-6000 Series",
         "category": "Computer",
@@ -1864,7 +1844,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nec-pc-6000-series",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaa.jpg",
     },
-    "neo-geo-cd": {
+    "neogeocd": {
         "id": 136,
         "name": "Neo Geo CD",
         "category": "Console",
@@ -1874,7 +1854,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "neo-geo-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7t.jpg",
     },
-    "neo-geo-pocket": {
+    "ngp": {
         "id": 119,
         "name": "Neo Geo Pocket",
         "category": "Portable Console",
@@ -1884,7 +1864,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "neo-geo-pocket",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plau.jpg",
     },
-    "neo-geo-pocket-color": {
+    "ngpc": {
         "id": 120,
         "name": "Neo Geo Pocket Color",
         "category": "Portable Console",
@@ -1924,7 +1904,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nes",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmo.jpg",
     },
-    "new-nintendo-3ds": {
+    "new3ds": {
         "id": 137,
         "name": "New Nintendo 3DS",
         "category": "Portable Console",
@@ -1954,17 +1934,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ngc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7a.jpg",
     },
-    "nimrod": {
-        "id": 101,
-        "name": "Ferranti Nimrod Computer",
-        "category": "Computer",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "nimrod",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaq.jpg",
-    },
-    "nintendo-dsi": {
+    "dsi": {
         "id": 159,
         "name": "Nintendo DSi",
         "category": "Portable Console",
@@ -1974,7 +1944,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nintendo-dsi",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6u.jpg",
     },
-    "nintendo-switch-2": {
+    "switch2": {
         "id": 508,
         "name": "Nintendo Switch 2",
         "category": "Console",
@@ -1994,7 +1964,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nuon",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7g.jpg",
     },
-    "oculus-go": {
+    "oculusgo": {
         "id": 387,
         "name": "Oculus Go",
         "category": "Console",
@@ -2004,7 +1974,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "oculus-go",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkk.jpg",
     },
-    "oculus-quest": {
+    "oculusquest": {
         "id": 384,
         "name": "Oculus Quest",
         "category": "Console",
@@ -2014,7 +1984,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "oculus-quest",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plh7.jpg",
     },
-    "oculus-rift": {
+    "oculusrift": {
         "id": 385,
         "name": "Oculus Rift",
         "category": "Console",
@@ -2024,7 +1994,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "oculus-rift",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln8.jpg",
     },
-    "oculus-vr": {
+    "oculusvr": {
         "id": 162,
         "name": "Oculus VR",
         "category": "Unknown",
@@ -2034,7 +2004,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "oculus-vr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pivaofe9ll2b8cqfvvbu.jpg",
     },
-    "odyssey--1": {
+    "odyssey": {
         "id": 88,
         "name": "Odyssey",
         "category": "Console",
@@ -2044,7 +2014,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "odyssey--1",
         "url_logo": "",
     },
-    "odyssey-2-slash-videopac-g7000": {
+    "odyssey2": {
         "id": 133,
         "name": "Odyssey 2 / Videopac G7000",
         "category": "Computer",
@@ -2054,7 +2024,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "odyssey-2-slash-videopac-g7000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fqwnmmpanb5se6ebccm3.jpg",
     },
-    "onlive-game-system": {
+    "onlive": {
         "id": 113,
         "name": "OnLive Game System",
         "category": "Platform",
@@ -2084,7 +2054,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ouya",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6k.jpg",
     },
-    "palm-os": {
+    "palmos": {
         "id": 417,
         "name": "Palm OS",
         "category": "Operative System",
@@ -2094,7 +2064,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "palm-os",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj9.jpg",
     },
-    "panasonic-jungle": {
+    "panasonicjungle": {
         "id": 477,
         "name": "Panasonic Jungle",
         "category": "Portable Console",
@@ -2104,7 +2074,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "panasonic-jungle",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnp.jpg",
     },
-    "panasonic-m2": {
+    "panasonicm2": {
         "id": 478,
         "name": "Panasonic M2",
         "category": "Console",
@@ -2114,7 +2084,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "panasonic-m2",
         "url_logo": "",
     },
-    "pc-50x-family": {
+    "pc50": {
         "id": 142,
         "name": "PC-50X Family",
         "category": "Console",
@@ -2124,7 +2094,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pc-50x-family",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/dpwrkxrjkuxwqroqwjsw.jpg",
     },
-    "pc-8800-series": {
+    "pc88": {
         "id": 125,
         "name": "PC-8800 Series",
         "category": "Computer",
@@ -2134,7 +2104,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pc-8800-series",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf2.jpg",
     },
-    "pc-9800-series": {
+    "pc98": {
         "id": 149,
         "name": "PC-9800 Series",
         "category": "Computer",
@@ -2144,7 +2114,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pc-9800-series",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla6.jpg",
     },
-    "pc-fx": {
+    "pcfx": {
         "id": 274,
         "name": "PC-FX",
         "category": "Console",
@@ -2163,26 +2133,6 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "family_slug": None,
         "igdb_slug": "turbografx-16-slash-pc-engine-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl83.jpg",
-    },
-    "pdp-7--1": {
-        "id": 103,
-        "name": "PDP-7",
-        "category": "Unknown",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "pdp-7--1",
-        "url_logo": "",
-    },
-    "pdp-8--1": {
-        "id": 97,
-        "name": "PDP-8",
-        "category": "Computer",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "pdp-8--1",
-        "url_logo": "",
     },
     "pdp1": {
         "id": 95,
@@ -2214,7 +2164,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pdp11",
         "url_logo": "",
     },
-    "philips-cd-i": {
+    "cdi": {
         "id": 117,
         "name": "Philips CD-i",
         "category": "Console",
@@ -2234,7 +2184,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sega-pico",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgo.jpg",
     },
-    "plato--1": {
+    "plato": {
         "id": 110,
         "name": "PLATO",
         "category": "Computer",
@@ -2264,7 +2214,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "playdia",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ples.jpg",
     },
-    "plug-and-play": {
+    "plugnplay": {
         "id": 377,
         "name": "Plug & Play",
         "category": "Platform",
@@ -2284,7 +2234,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pocketstation",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkc.jpg",
     },
-    "pokemon-mini": {
+    "pokemini": {
         "id": 166,
         "name": "Pokémon mini",
         "category": "Portable Console",
@@ -2294,17 +2244,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pokemon-mini",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7f.jpg",
     },
-    "polymega": {
-        "id": 509,
-        "name": "Polymega",
-        "category": "Console",
-        "generation": None,
-        "family_name": None,
-        "family_slug": None,
-        "igdb_slug": "polymega",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plox.jpg",
-    },
-    "ps": {
+    "psx": {
         "id": 7,
         "name": "PlayStation",
         "category": "Console",
@@ -2334,7 +2274,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ps3",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/tuyy1nrqodtmbqajp4jg.jpg",
     },
-    "ps4--1": {
+    "ps4": {
         "id": 48,
         "name": "PlayStation 4",
         "category": "Console",
@@ -2394,7 +2334,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "psvr2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo5.jpg",
     },
-    "r-zone": {
+    "rzone": {
         "id": 475,
         "name": "R-Zone",
         "category": "Portable Console",
