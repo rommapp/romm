@@ -23,12 +23,7 @@ exclude:
 
 system:
   platforms:
-    3do: "3do"
     n3ds: "3ds"
-    amiga: "amiga"
-    amigacd32: "amiga-cd32"
-    android: "android"
-    arcade: "arcade"
     astrocde: "astrocade"
     apfm1000: "apf"
     atarijaguarcd: "jaguarcd"

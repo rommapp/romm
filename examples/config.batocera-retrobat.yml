@@ -48,13 +48,11 @@ system:
     oricatmos: oric
     pet: cpet
     prboom: doom
-    pv1000: casio-pv-1000
     snes-msu: snes
     thomson: thomsonmo
     tic80: tic
     triforce: arcade
     tutor: tomy-tutor
     windows: win
-    zmachine: z-machine
     zxspectrum: zxs
   versions: {}
