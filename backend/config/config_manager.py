@@ -257,7 +257,10 @@ class ConfigManager:
                     },
                 },
             },
-            "filesystem": {"roms_folder": self.config.ROMS_FOLDER_NAME},
+            "filesystem": {
+                "roms_folder": self.config.ROMS_FOLDER_NAME,
+                "firmware_folder": self.config.FIRMWARE_FOLDER_NAME,
+            },
             "system": {
                 "platforms": self.config.PLATFORMS_BINDING,
                 "versions": self.config.PLATFORMS_VERSIONS,

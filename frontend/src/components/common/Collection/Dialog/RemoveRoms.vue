@@ -7,7 +7,6 @@ import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import { ROUTES } from "@/plugins/router";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
@@ -53,6 +52,7 @@ async function removeRomsFromCollection() {
         timeout: 2000,
       });
       emitter?.emit("refreshDrawer", null);
+      collectionsStore.update(data);
     })
     .catch((error) => {
       console.log(error);

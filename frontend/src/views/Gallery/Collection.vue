@@ -87,44 +87,6 @@ async function fetchRoms() {
   }
 }
 
-function setFilters() {
-  galleryFilterStore.setFilterGenres([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCompanies([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCollections([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.meta_collections.map((collection) => collection))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
-        .sort(),
-    ),
-  ]);
-}
-
 async function onFilterChange() {
   romsStore.setFiltered(allRoms.value, galleryFilterStore);
   emitter?.emit("updateDataTablePages", null);
@@ -197,7 +159,6 @@ function onScroll() {
         itemsShown.value < filteredRoms.value.length
       ) {
         itemsShown.value = itemsShown.value + itemsPerBatch.value;
-        setFilters();
         galleryViewStore.scroll = scrollHeight;
       }
     }, 100);
@@ -241,7 +202,6 @@ onMounted(async () => {
           romsStore.setCurrentVirtualCollection(null);
           resetGallery();
           await fetchRoms();
-          setFilters();
         }
 
         window.addEventListener("wheel", onScroll);
@@ -273,7 +233,6 @@ onMounted(async () => {
           romsStore.setCurrentVirtualCollection(collection);
           resetGallery();
           await fetchRoms();
-          setFilters();
         }
 
         window.addEventListener("wheel", onScroll);
@@ -311,7 +270,6 @@ onBeforeRouteUpdate(async (to, from) => {
           romsStore.setCurrentCollection(collection);
           romsStore.setCurrentVirtualCollection(null);
           await fetchRoms();
-          setFilters();
         }
       }
     },
@@ -335,7 +293,6 @@ onBeforeRouteUpdate(async (to, from) => {
           romsStore.setCurrentCollection(null);
           romsStore.setCurrentVirtualCollection(collection);
           await fetchRoms();
-          setFilters();
         }
       }
     },

@@ -3,14 +3,11 @@ import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
 import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
-import PlatformSelector from "@/components/Gallery/AppBar/Search/PlatformSelector.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
 import SearchBtn from "@/components/Gallery/AppBar/Search/SearchBtn.vue";
 import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 // Props
-const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 </script>
 
@@ -28,7 +25,6 @@ const { xs, smAndDown } = useDisplay();
     <filter-btn />
     <template v-if="!xs">
       <search-text-field />
-      <platform-selector />
     </template>
     <template #append>
       <search-btn v-if="!xs" />

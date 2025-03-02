@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { type FilterType } from "@/stores/galleryFilter";
+import RDialog from "@/components/common/RDialog.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import type { DetailedRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
@@ -15,6 +16,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const theme = useTheme();
 const show = ref(false);
+const zoom = ref(false);
 const carousel = ref(0);
 const router = useRouter();
 const filters = [
@@ -181,23 +183,26 @@ function onFilterClick(filter: FilterType, value: string) {
                 />
               </template>
             </v-carousel>
-            <v-dialog v-model="show">
-              <v-list-item>
-                <template #append>
-                  <v-btn @click="show = false" icon variant="flat" size="large"
-                    ><v-icon class="text-white text-shadow" size="25"
-                      >mdi-close</v-icon
-                    ></v-btn
-                  >
-                </template>
-              </v-list-item>
+            <r-dialog v-model="show">
+              <v-btn
+                @click="show = false"
+                icon
+                variant="flat"
+                size="large"
+                class="position-absolute right-0"
+              >
+                <v-icon class="text-white text-shadow" size="25">
+                  mdi-close
+                </v-icon>
+              </v-btn>
               <v-carousel
                 v-model="carousel"
                 hide-delimiter-background
                 delimiter-icon="mdi-square"
                 show-arrows="hover"
                 hide-delimiters
-                :height="xs ? '500' : '600'"
+                :height="zoom ? '100%' : xs ? '500' : '600'"
+                style="overflow: scroll"
               >
                 <template #prev="{ props }">
                   <v-btn
@@ -226,8 +231,10 @@ function onFilterClick(filter: FilterType, value: string) {
                   v-for="screenshot_url in rom.merged_screenshots"
                   :key="screenshot_url"
                   :src="screenshot_url"
-                >
-                </v-carousel-item>
+                  @click="zoom = !zoom"
+                  class="dialog-screenshot"
+                  :class="{ zoomed: zoom }"
+                />
                 <template #next="{ props }">
                   <v-btn
                     icon="mdi-chevron-right"
@@ -236,10 +243,20 @@ function onFilterClick(filter: FilterType, value: string) {
                   />
                 </template>
               </v-carousel>
-            </v-dialog>
+            </r-dialog>
           </v-col>
         </v-row>
       </template>
     </v-col>
   </v-row>
 </template>
+
+<style scoped>
+.dialog-screenshot {
+  cursor: zoom-in;
+
+  &.zoomed {
+    cursor: zoom-out;
+  }
+}
+</style>

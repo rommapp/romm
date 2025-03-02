@@ -52,7 +52,7 @@ async function onScan() {
   socket.emit("scan", {
     platforms: [Number(route.params.platform)],
     roms_ids: romsStore.selectedRoms.map((r) => r.id),
-    type: "partial", // Quick scan so we can filter by selected roms
+    type: "quick", // Quick scan so we can filter by selected roms
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }
@@ -105,13 +105,15 @@ async function removeFromFavourites() {
   }
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
-    .then(() => {
+    .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Roms removed from favourites successfully!",
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
+      favCollection.value = data;
+      collectionsStore.update(data);
     })
     .catch((error) => {
       console.log(error);

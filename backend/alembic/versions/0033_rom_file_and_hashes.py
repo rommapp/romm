@@ -105,7 +105,9 @@ def upgrade() -> None:
                 CASE WHEN NOT r.multi THEN r.md5_hash ELSE NULL END AS md5_hash,
                 CASE WHEN NOT r.multi THEN r.sha1_hash ELSE NULL END AS sha1_hash
             FROM roms r
-                CROSS JOIN jsonb_array_elements(r.files) AS file_data;
+            CROSS JOIN jsonb_array_elements(r.files) AS file_data
+            WHERE file_data->>'filename' IS NOT NULL
+            AND file_data->>'filename' <> '';
             """
         )
     else:
@@ -124,7 +126,10 @@ def upgrade() -> None:
             SELECT
                 r.id AS rom_id,
                 JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.filename')) AS file_name,
-                CASE WHEN r.multi = 0 THEN r.file_path ELSE CONCAT(TRIM(TRAILING '/' FROM r.file_path), '/', r.file_name) END AS file_path,
+                CASE
+                    WHEN r.multi = 0 THEN r.file_path
+                    ELSE CONCAT(TRIM(TRAILING '/' FROM r.file_path), '/', r.file_name)
+                END AS file_path,
                 JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.size')) AS file_size_bytes,
                 JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.last_modified')) AS last_modified,
                 CASE WHEN r.multi = 0 THEN r.crc_hash ELSE NULL END AS crc_hash,
@@ -135,7 +140,9 @@ def upgrade() -> None:
                 COLUMNS (
                     file_data JSON PATH '$'
                 )
-            ) AS extracted_files;
+            ) AS extracted_files
+            WHERE JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.filename')) IS NOT NULL
+            AND JSON_UNQUOTE(JSON_EXTRACT(file_data, '$.filename')) <> '';
             """
         )
 
