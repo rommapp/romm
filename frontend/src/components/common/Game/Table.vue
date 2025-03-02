@@ -192,9 +192,7 @@ function updateSelectedRom(rom: SimpleRom) {
         </v-row>
         <template #append>
           <v-chip
-            v-if="
-              item.sibling_roms && item.sibling_roms.length > 0 && showSiblings
-            "
+            v-if="item.sibling_roms.length > 0 && showSiblings"
             class="translucent-dark ml-4"
             size="x-small"
           >

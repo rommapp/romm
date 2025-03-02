@@ -46,7 +46,7 @@ watch(
   <v-row no-gutters>
     <v-col>
       <v-row
-        v-if="rom.sibling_roms && rom.sibling_roms.length > 0"
+        v-if="rom.sibling_roms.length > 0"
         class="align-center my-3"
         no-gutters
       >

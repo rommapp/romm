@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from models.platform import DEFAULT_COVER_ASPECT_RATIO
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, field_validator
 
 from .base import BaseModel
 from .firmware import FirmwareSchema
@@ -37,3 +37,7 @@ class PlatformSchema(BaseModel):
     @property
     def display_name(self) -> str:
         return self.custom_name or self.name
+
+    @field_validator("firmware")
+    def sort_files(cls, v: list[FirmwareSchema]) -> list[FirmwareSchema]:
+        return sorted(v, key=lambda x: x.file_name)
