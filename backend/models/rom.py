@@ -313,7 +313,7 @@ class Rom(BaseModel):
 
     @property
     def is_fully_identified(self) -> bool:
-        return self.igdb_id and self.moby_id and self.ss_id
+        return bool(self.igdb_id) and bool(self.moby_id) and bool(self.ss_id)
 
     def __repr__(self) -> str:
         return self.fs_name
