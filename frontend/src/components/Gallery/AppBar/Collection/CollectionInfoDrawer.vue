@@ -25,7 +25,6 @@ const auth = storeAuth();
 const romsStore = storeRoms();
 const collectionsStore = storeCollection();
 const { currentCollection } = storeToRefs(romsStore);
-const { allCollections } = storeToRefs(collectionsStore);
 const navigationStore = storeNavigation();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -105,19 +104,14 @@ async function updateCollection() {
       collection: updatedCollection.value,
       removeCover: removeCover.value,
     })
-    .then(({ data: collection }) => {
+    .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Collection updated successfully",
         icon: "mdi-check-bold",
         color: "green",
       });
-      currentCollection.value = collection;
-      const index = allCollections.value.findIndex(
-        (p) => p.id === collection.id,
-      );
-      if (index !== -1) {
-        allCollections.value[index] = collection;
-      }
+      currentCollection.value = data;
+      collectionsStore.update(data);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {

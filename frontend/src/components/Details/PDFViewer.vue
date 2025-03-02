@@ -4,7 +4,7 @@ import type { DetailedRom } from "@/stores/roms";
 import VuePdfApp from "vue3-pdf-app";
 
 // Props
-const props = defineProps<{ rom: DetailedRom }>();
+defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const theme = useTheme();
 const pdfViewerConfig = {

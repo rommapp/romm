@@ -172,6 +172,9 @@ export default defineStore("roms", {
       if (galleryFilter.filterDuplicates) {
         this._filterDuplicates();
       }
+      if (galleryFilter.selectedPlatform) {
+        this._filterPlatform(galleryFilter.selectedPlatform);
+      }
       if (galleryFilter.selectedGenre) {
         this._filterGenre(galleryFilter.selectedGenre);
       }
@@ -255,6 +258,16 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byDuplicates.intersection(this._filteredIDs);
+    },
+    _filterPlatform(platformToFilter: Platform) {
+      const byPlatform = new Set(
+        this.filteredRoms
+          .filter((rom) => rom.platform_id === platformToFilter.id)
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byPlatform.intersection(this._filteredIDs);
     },
     _filterGenre(genreToFilter: string) {
       const byGenre = new Set(
