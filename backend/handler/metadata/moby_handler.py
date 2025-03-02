@@ -817,5 +817,6 @@ SLUG_TO_MOBY_PLATFORM: dict[str, SlugToMobyPlatform] = {
     "zxsnext": {"id": 280, "name": "ZX Spectrum Next", "moby_slug": "zx-spectrum-next"},
 }
 
+MOBY_PLATFORM_SLUGS = SLUG_TO_MOBY_PLATFORM.keys()
 # Reverse lookup
 MOBY_ID_TO_MOBY_PLATFORM = {v["id"]: k for k, v in SLUG_TO_MOBY_PLATFORM.items()}

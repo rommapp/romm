@@ -2889,7 +2889,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
     },
 }
 
-
+IGDB_PLATFORM_SLUGS = SLUG_TO_IGDB_PLATFORM.keys()
 # Reverse lookup
 IGDB_ID_TO_PLATFORM = {v["id"]: k for k, v in SLUG_TO_IGDB_PLATFORM.items()}
 

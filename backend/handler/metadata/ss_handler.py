@@ -781,5 +781,6 @@ SLUG_TO_SS_PLATFORM: dict[str, SlugToSSId] = {
     "zxs": {"id": 76, "name": "ZX Spectrum"},
 }
 
+SS_PLATFORM_SLUGS = SLUG_TO_SS_PLATFORM.keys()
 # Reverse lookup
 SS_ID_TO_SS_PLATFORM = {v["id"]: k for k, v in SLUG_TO_SS_PLATFORM.items()}
