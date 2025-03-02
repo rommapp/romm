@@ -40,11 +40,8 @@ export default defineStore("platforms", {
       this.allPlatforms.push(platform);
       this._reorder();
     },
-    exists(platform: Platform) {
-      return (
-        this.allPlatforms.filter((p) => p.fs_slug == platform.fs_slug).length >
-        0
-      );
+    has(id: number) {
+      return this.allPlatforms.some((p) => p.id == id);
     },
     remove(platform: Platform) {
       this.allPlatforms = this.allPlatforms.filter((p) => {
