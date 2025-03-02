@@ -233,8 +233,8 @@ async def head_rom_content(
 
     file_ids = request.query_params.get("file_ids") or ""
     file_ids = [int(f) for f in file_ids.split(",") if f]
-    files = db_rom_handler.get_rom_files(rom.id)
-    files = [f for f in files if f.id in file_ids or not file_ids]
+    files = [f for f in rom.files if f.id in file_ids or not file_ids]
+    files.sort(key=lambda x: x.file_name)
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
@@ -307,8 +307,8 @@ async def get_rom_content(
 
     file_ids = request.query_params.get("file_ids") or ""
     file_ids = [int(f) for f in file_ids.split(",") if f]
-    files = db_rom_handler.get_rom_files(rom.id)
-    files = [f for f in files if f.id in file_ids or not file_ids]
+    files = [f for f in rom.files if f.id in file_ids or not file_ids]
+    files.sort(key=lambda x: x.file_name)
 
     log.info(f"User {current_username} is downloading {rom.fs_name}")
 
@@ -651,7 +651,7 @@ async def add_rom_manuals(request: Request, id: int):
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    filename = request.headers.get("x-upload-filename")
+    filename = request.headers.get("x-upload-filename", "")
 
     manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
     file_location = Path(f"{manuals_path}/{rom.id}.pdf")
