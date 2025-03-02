@@ -11,8 +11,6 @@ const props = withDefaults(
     size: 45,
   },
 );
-const theme = useTheme();
-const collectionsStore = storeCollections();
 
 const memoizedCovers = ref({
   large: ["", ""],

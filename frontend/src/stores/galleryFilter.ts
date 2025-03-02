@@ -20,9 +20,9 @@ export type FilterType = (typeof filters)[number];
 const defaultFilterState = {
   activeFilterDrawer: false,
   searchText: "",
-  filterPlatforms: [] as Platform[],
   filterText: "",
   filters: filters,
+  filterPlatforms: [] as Platform[],
   filterGenres: [] as string[],
   filterFranchises: [] as string[],
   filterCollections: [] as string[],
@@ -33,6 +33,7 @@ const defaultFilterState = {
   filterMatched: false,
   filterFavourites: false,
   filterDuplicates: false,
+  selectedPlatform: null as Platform | null,
   selectedGenre: null as string | null,
   selectedFranchise: null as string | null,
   selectedCollection: null as string | null,
@@ -65,6 +66,11 @@ export default defineStore("galleryFilter", {
     },
     setFilterAgeRatings(ageRatings: string[]) {
       this.filterAgeRatings = ageRatings;
+    },
+    setSelectedFilterPlatform(platform: Platform) {
+      this.selectedPlatform = platform
+        ? this.filterPlatforms.find((p) => p.id === platform.id) || null
+        : null;
     },
     setSelectedFilterGenre(genre: string) {
       this.selectedGenre = genre;
@@ -117,6 +123,7 @@ export default defineStore("galleryFilter", {
           this.filterMatched ||
           this.filterFavourites ||
           this.filterDuplicates ||
+          this.selectedPlatform ||
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||
