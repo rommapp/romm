@@ -80,44 +80,6 @@ async function fetchRoms() {
   }
 }
 
-function setFilters() {
-  galleryFilterStore.setFilterGenres([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCompanies([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCollections([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.meta_collections.map((collection) => collection))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
-        .sort(),
-    ),
-  ]);
-}
-
 async function onFilterChange() {
   romsStore.setFiltered(allRoms.value, galleryFilterStore);
   emitter?.emit("updateDataTablePages", null);
@@ -192,7 +154,6 @@ function onScroll() {
         itemsShown.value < filteredRoms.value.length
       ) {
         itemsShown.value = itemsShown.value + itemsPerBatch.value;
-        setFilters();
         galleryViewStore.scroll = scrollHeight;
       }
     }, 100);
@@ -240,7 +201,6 @@ onMounted(async () => {
             romsStore.setCurrentPlatform(platform);
             resetGallery();
             await fetchRoms();
-            setFilters();
           }
 
           // Check for query params to set filters
@@ -288,7 +248,6 @@ onBeforeRouteUpdate(async (to, from) => {
         ) {
           romsStore.setCurrentPlatform(platform);
           await fetchRoms();
-          setFilters();
         } else {
           noPlatformError.value = true;
         }
