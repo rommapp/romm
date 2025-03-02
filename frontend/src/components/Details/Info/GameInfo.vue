@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { type FilterType } from "@/stores/galleryFilter";
+import RDialog from "@/components/common/RDialog.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import type { DetailedRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
@@ -182,7 +183,7 @@ function onFilterClick(filter: FilterType, value: string) {
                 />
               </template>
             </v-carousel>
-            <v-dialog v-model="show" z-index="10000">
+            <r-dialog v-model="show">
               <v-btn
                 @click="show = false"
                 icon
@@ -242,7 +243,7 @@ function onFilterClick(filter: FilterType, value: string) {
                   />
                 </template>
               </v-carousel>
-            </v-dialog>
+            </r-dialog>
           </v-col>
         </v-row>
       </template>
