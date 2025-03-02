@@ -32,8 +32,6 @@ export default defineStore("heartbeat", {
         },
       ]).value.filter((s) => !s.disabled);
     },
-    reset() {
-      this.value = {} as HeartbeatResponse;
-    },
+    reset() {},
   },
 });

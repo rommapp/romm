@@ -47,6 +47,8 @@ async function addRomsToCollection() {
         color: "green",
         timeout: 2000,
       });
+      emitter?.emit("refreshDrawer", null);
+      collectionsStore.update(data);
     })
     .catch((error) => {
       console.log(error);

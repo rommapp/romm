@@ -52,7 +52,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
   </v-app-bar>
 
   <platform-info-drawer />
-  <filter-drawer />
+  <filter-drawer hide-platforms />
   <firmware-drawer />
 </template>
 

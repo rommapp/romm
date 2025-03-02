@@ -36,14 +36,14 @@ async function logout() {
       color: "green",
     });
 
+    // Redirect to login page
+    await router.push({ name: ROUTES.LOGIN });
+
     // Clear all pinia stores
     // @ts-expect-error(2339)
     getActivePinia()?._s.forEach((store: StateTree) => {
       store.reset?.();
     });
-
-    // Redirect to login page
-    await router.push({ name: ROUTES.LOGIN });
   });
 }
 </script>

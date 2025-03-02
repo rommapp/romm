@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import type { RouteLocationRaw } from "vue-router";
 
-withDefaults(defineProps<{ size?: number }>(), { size: 40 });
+withDefaults(defineProps<{ size?: number; to?: RouteLocationRaw }>(), {
+  size: 40,
+});
 
 const logos = {
   xbox: { path: "romm_logo_xbox_one_circle.svg", weight: 0.945 },
@@ -26,7 +29,17 @@ const randomLogo = ref<string>(getRandomLogo());
 </script>
 
 <template>
-  <v-avatar :size="size">
-    <img :src="`/assets/logos/${randomLogo}`" alt="Romm Logo" :width="size" />
-  </v-avatar>
+  <v-btn
+    :to="to"
+    icon
+    variant="flat"
+    color="background"
+    class="rounded-50"
+    :height="size"
+    :width="size"
+  >
+    <v-avatar :size="size">
+      <img :src="`/assets/logos/${randomLogo}`" alt="Romm Logo" :width="size" />
+    </v-avatar>
+  </v-btn>
 </template>

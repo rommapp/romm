@@ -67,7 +67,7 @@ async function switchFromFavourites() {
   }
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
-    .then(() => {
+    .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: `${props.rom.name} ${
           collectionsStore.isFav(props.rom) ? "added to" : "removed from"
@@ -76,6 +76,8 @@ async function switchFromFavourites() {
         color: "green",
         timeout: 2000,
       });
+      favCollection.value = data;
+      collectionsStore.update(data);
     })
     .catch((error) => {
       console.log(error);
@@ -131,7 +133,7 @@ async function onScan() {
   socket.emit("scan", {
     platforms: [props.rom.platform_id],
     roms_ids: [props.rom.id],
-    type: "partial", // Quick scan so we can filter by selected roms
+    type: "quick", // Quick scan so we can filter by selected roms
     apis: heartbeat.getMetadataOptions().map((s) => s.value),
   });
 }

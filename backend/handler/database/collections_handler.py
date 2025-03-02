@@ -77,16 +77,20 @@ class DBCollectionsHandler(DBBaseHandler):
             .execution_options(synchronize_session="evaluate")
         )
 
-        if rom_ids:
+        if rom_ids is not None:
             # Delete all existing CollectionRom entries for this collection
             session.execute(
                 delete(CollectionRom).where(CollectionRom.collection_id == id)
             )
             # Insert new CollectionRom entries for this collection
-            session.execute(
-                insert(CollectionRom),
-                [{"collection_id": id, "rom_id": rom_id} for rom_id in set(rom_ids)],
-            )
+            if rom_ids:
+                session.execute(
+                    insert(CollectionRom),
+                    [
+                        {"collection_id": id, "rom_id": rom_id}
+                        for rom_id in set(rom_ids)
+                    ],
+                )
 
         return session.query(Collection).filter_by(id=id).one()
 

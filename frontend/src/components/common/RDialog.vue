@@ -4,6 +4,7 @@ import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import { onMounted, ref, useSlots } from "vue";
+import { useTheme } from "vuetify";
 
 // Props
 withDefaults(
@@ -36,6 +37,7 @@ const hasToolbarSlot = ref(false);
 const hasPrependSlot = ref(false);
 const hasAppendSlot = ref(false);
 const hasFooterSlot = ref(false);
+const theme = useTheme();
 
 function closeDialog() {
   emit("update:modelValue", false);
@@ -60,6 +62,8 @@ onMounted(() => {
     scroll-strategy="block"
     no-click-animation
     persistent
+    z-index="10000"
+    :scrim="theme.name.value == 'dark' ? 'black' : 'white'"
   >
     <v-card :min-height="height" :max-height="height">
       <v-toolbar density="compact" class="bg-toplayer">
