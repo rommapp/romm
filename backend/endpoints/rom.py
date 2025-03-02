@@ -651,7 +651,7 @@ async def add_rom_manuals(request: Request, id: int):
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    filename = request.headers.get("x-upload-filename")
+    filename = request.headers.get("x-upload-filename", "")
 
     manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
     file_location = Path(f"{manuals_path}/{rom.id}.pdf")
