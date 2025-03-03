@@ -32,7 +32,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
           open-delay="500"
           ><template #activator="{ props }">
             <div
-              v-if="!platform.igdb_id && !platform.moby_id"
+              v-if="!platform.igdb_id && !platform.moby_id && !platform.ss_id"
               v-bind="props"
               class="not-found-icon"
             >
