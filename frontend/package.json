@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
-    "axios": "^1.7.4",
+    "axios": "^1.8.1",
     "cronstrue": "^2.50.0",
     "js-cookie": "^3.0.5",
     "lodash": "^4.17.21",
