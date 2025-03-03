@@ -1,3 +1,10 @@
+/**
+ * @license
+ * MIT License
+ * Copyright (c) 2023 Aaron Zhou
+ * https://github.com/Clarkkkk/vue-view-transitions/blob/main/LICENSE.md
+ */
+
 interface ViewTransition {
   captured: Promise<void>;
   updateCallbackDone: Promise<void>;

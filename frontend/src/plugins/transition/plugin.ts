@@ -1,3 +1,10 @@
+/**
+ * @license
+ * MIT License
+ * Copyright (c) 2023 Aaron Zhou
+ * https://github.com/Clarkkkk/vue-view-transitions/blob/main/LICENSE.md
+ */
+
 import type { Plugin, App } from "vue";
 
 function setViewTransitionName(
