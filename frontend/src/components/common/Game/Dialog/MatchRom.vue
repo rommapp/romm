@@ -59,7 +59,7 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
   // Use name as search term, only when it's matched
   // Otherwise use the filename without tags and extensions
   searchTerm.value =
-    romToSearch.igdb_id || romToSearch.moby_id
+    romToSearch.igdb_id || romToSearch.moby_id || romToSearch.ss_id
       ? (romToSearch.name ?? "")
       : romToSearch.fs_name_no_tags;
 

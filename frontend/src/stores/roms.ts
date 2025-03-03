@@ -57,7 +57,7 @@ export default defineStore("roms", {
           roms,
           (game) =>
             // If external id is null, generate a random id so that the roms are not grouped
-            game.igdb_id || game.moby_id || nanoid(),
+            game.igdb_id || game.moby_id || game.ss_id || nanoid(),
         ),
       ).map((games) => {
         // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
@@ -218,7 +218,7 @@ export default defineStore("roms", {
     _filterUnmatched() {
       const byUnmatched = new Set(
         this.filteredRoms
-          .filter((rom) => !rom.igdb_id && !rom.moby_id)
+          .filter((rom) => !rom.igdb_id && !rom.moby_id && !rom.ss_id)
           .map((roms) => roms.id),
       );
 
@@ -228,7 +228,7 @@ export default defineStore("roms", {
     _filterMatched() {
       const byMatched = new Set(
         this.filteredRoms
-          .filter((rom) => rom.igdb_id || rom.moby_id)
+          .filter((rom) => rom.igdb_id || rom.moby_id || rom.ss_id)
           .map((roms) => roms.id),
       );
 
