@@ -122,7 +122,7 @@ const fallbackCoverImage = computed(() =>
             cover
             :class="{ pointer: pointerOnHover }"
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
-            v-view-transition-name="`card-${rom.id}`"
+            :style="{ viewTransitionName: `card-${rom.id}` }"
             :src="
               src ||
               (romsStore.isSimpleRom(rom)
