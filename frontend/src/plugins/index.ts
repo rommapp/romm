@@ -5,8 +5,14 @@ import type { App } from "vue";
 import vuetify from "./vuetify";
 import pinia from "./pinia";
 import { configureMDEditor } from "./mdeditor";
+import vueTransitionPlugin from "./transition/plugin";
 
 export function registerPlugins(app: App) {
   configureMDEditor();
-  app.use(vuetify).use(pinia).use(i18n).provide("emitter", mitt<Events>());
+  app
+    .use(vuetify)
+    .use(pinia)
+    .use(i18n)
+    .use(vueTransitionPlugin())
+    .provide("emitter", mitt<Events>());
 }
