@@ -115,7 +115,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) 
         metadata_sources (list[str], optional): List of metadata sources to be used
     """
 
-    # This logic is tricky so only touch it if you know what you're doing"""
+    # This logic is tricky so only touch it if you know what you're doing
     return bool(
         (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
         or (scan_type == ScanType.COMPLETE)
@@ -244,10 +244,24 @@ async def _identify_platform(
     if platform:
         # Keep the existing properties if they exist on the platform
         scanned_platform.id = platform.id
-        scanned_platform.slug = platform.slug
         scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
         scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
         scanned_platform.ss_id = scanned_platform.ss_id or platform.ss_id
+
+        # Change this code only if you know what you're doing
+        # Only update the slug if we have a metadata match
+        if (
+            scanned_platform.igdb_id
+            or scanned_platform.moby_id
+            or scanned_platform.ss_id
+        ):
+            pass
+        # Or if the slug is different from the filesystem slug
+        elif scanned_platform.slug != scanned_platform.fs_slug:
+            pass
+        # Otherwise keep the existing slug
+        else:
+            scanned_platform.slug = platform.slug
 
     scan_stats.scanned_platforms += 1
     scan_stats.added_platforms += 1 if not platform else 0
