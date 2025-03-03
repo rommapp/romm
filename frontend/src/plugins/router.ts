@@ -4,6 +4,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeAuth from "@/stores/auth";
 import { storeToRefs } from "pinia";
 import type { User } from "@/stores/users";
+import { startViewTransition } from "@/plugins/transition";
 
 export const ROUTES = {
   SETUP: "setup",
@@ -202,6 +203,11 @@ router.beforeEach(async (to, _from, next) => {
 router.afterEach(() => {
   // Scroll to top to avoid annoying behaviour on mobile
   window.scrollTo({ top: 0, left: 0 });
+});
+
+router.beforeResolve(async () => {
+  const viewTransition = startViewTransition();
+  await viewTransition.captured;
 });
 
 export default router;

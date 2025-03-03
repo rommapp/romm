@@ -119,9 +119,10 @@ const fallbackCoverImage = computed(() =>
             @touchstart="handleTouchStart"
             @touchend="handleTouchEnd"
             v-bind="hoverProps"
-            :class="{ pointer: pointerOnHover }"
             cover
+            :class="{ pointer: pointerOnHover }"
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
+            v-view-transition-name="`card-${rom.id}`"
             :src="
               src ||
               (romsStore.isSimpleRom(rom)

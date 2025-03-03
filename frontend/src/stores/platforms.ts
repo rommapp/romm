@@ -28,16 +28,21 @@ export default defineStore("platforms", {
   },
   actions: {
     _reorder() {
-      this.allPlatforms = this.allPlatforms.sort((a, b) => {
+      this.allPlatforms = uniqBy(this.allPlatforms, "id").sort((a, b) => {
         return a.name.localeCompare(b.name);
       });
-      this.allPlatforms = uniqBy(this.allPlatforms, "id");
     },
     set(platforms: Platform[]) {
       this.allPlatforms = platforms;
+      this._reorder();
     },
     add(platform: Platform) {
       this.allPlatforms.push(platform);
+      this._reorder();
+    },
+    update(platform: Platform) {
+      const index = this.allPlatforms.findIndex((p) => p.id === platform.id);
+      this.allPlatforms[index] = platform;
       this._reorder();
     },
     has(id: number) {
