@@ -92,7 +92,7 @@ const fallbackCoverImage = computed(() =>
       :maxHeight="height"
       v-bind="{
         ...hoverProps,
-        ...(withLink && rom && romsStore.isSimpleRom(rom)
+        ...(withLink && rom.id
           ? {
               to: { name: ROUTES.ROM, params: { rom: rom.id } },
             }

@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export type SearchRomSchema = {
-    id: number;
+    id?: (number | null);
     igdb_id?: (number | null);
     moby_id?: (number | null);
     ss_id?: (number | null);
