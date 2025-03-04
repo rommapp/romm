@@ -14,6 +14,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -43,6 +44,7 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
 // Functions
@@ -72,6 +74,11 @@ onBeforeMount(async () => {
     await fetchDetails();
   } else {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+  }
+
+  if (currentRom.value) {
+    const currentPlatform = platformsStore.get(currentRom.value.platform_id);
+    if (currentPlatform) romsStore.setCurrentPlatform(currentPlatform);
   }
 
   const downloadStore = storeDownload();
