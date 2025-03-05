@@ -218,6 +218,11 @@ window.EJS_onGameStart = async () => {
   setTimeout(() => {
     if (saveRef.value) window.EJS_onLoadSave();
     if (stateRef.value) window.EJS_onLoadState();
+
+    window.EJS_emulator.settings = {
+      ...window.EJS_emulator.settings,
+      "save-state-location": "browser",
+    };
   }, 10);
 
   const savesMonitor = await createIndexedDBDiffMonitor("/data/saves", 2000);
