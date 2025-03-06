@@ -317,7 +317,11 @@ function closeDialog() {
             no-gutters
           >
             <v-col style="max-width: 240px">
-              <game-card :rom="rom" :src="imagePreviewUrl">
+              <game-card
+                :rom="rom"
+                :src="imagePreviewUrl"
+                disableViewTransition
+              >
                 <template #append-inner-right>
                   <v-btn-group divided density="compact" rounded="0">
                     <v-btn

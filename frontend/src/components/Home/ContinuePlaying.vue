@@ -48,6 +48,7 @@ const gridContinuePlayingRoms = isNull(
             transformScale
             showActionBar
             showPlatformIcon
+            disableViewTransition
           />
         </v-col>
       </v-row>

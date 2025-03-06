@@ -408,6 +408,7 @@ onBeforeUnmount(() => {
             transformScale
             titleOnHover
             pointerOnHover
+            disableViewTransition
           />
         </v-col>
       </v-row>
