@@ -23,7 +23,7 @@ def upgrade() -> None:
     for slug, ss_id in SLUG_TO_SS_PLATFORM.items():
         connection.execute(
             sa.text("UPDATE platforms SET ss_id = :ss_id WHERE slug = :slug"),
-            {"ss_id": ss_id["id"], "slug": slug},
+            {"ss_id": ss_id["id"], "slug": slug.value},
         )
     # ### end Alembic commands ###
 

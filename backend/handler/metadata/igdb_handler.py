@@ -19,6 +19,7 @@ from .base_hander import (
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     MetadataHandler,
+    UniversalPlatformSlug,
 )
 
 # Used to display the IGDB API status in the frontend
@@ -417,12 +418,13 @@ class IGDBHandler(MetadataHandler):
         ]
 
     async def get_platform(self, slug: str) -> IGDBPlatform:
+        slug = UniversalPlatformSlug(slug)
         platform = SLUG_TO_IGDB_PLATFORM.get(slug, None)
 
         if platform:
             igdb_platform = IGDBPlatform(
                 igdb_id=platform["id"],
-                slug=slug,
+                slug=slug.value,
                 name=platform["name"],
                 category=platform["category"],
             )
@@ -442,17 +444,17 @@ class IGDBHandler(MetadataHandler):
         # Check if platform is a version if not found
         platform_versions = await self._request(
             self.platform_version_endpoint,
-            data=f'fields {",".join(self.platform_version_fields)}; where slug="{slug.lower()}";',
+            data=f'fields {",".join(self.platform_version_fields)}; where slug="{slug.value.lower()}";',
         )
         version = pydash.get(platform_versions, "[0]", None)
         if version:
             return IGDBPlatform(
                 igdb_id=version["id"],
-                slug=slug,
+                slug=slug.value,
                 name=version["name"],
             )
 
-        return IGDBPlatform(igdb_id=None, slug=slug)
+        return IGDBPlatform(igdb_id=None, slug=slug.value)
 
     @check_twitch_token
     async def get_rom(self, fs_name: str, platform_igdb_id: int) -> IGDBRom:
@@ -846,8 +848,8 @@ class SlugToIGDBPlatform(TypedDict):
     url_logo: str | None
 
 
-SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
-    "1292apvs": {
+SLUG_TO_IGDB_PLATFORM: dict[UniversalPlatformSlug, SlugToIGDBPlatform] = {
+    UniversalPlatformSlug._1292APVS: {
         "id": 139,
         "name": "1292 Advanced Programmable Video System",
         "category": "Console",
@@ -857,7 +859,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "1292-advanced-programmable-video-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/yfdqsudagw0av25dawjr.jpg",
     },
-    "3do": {
+    UniversalPlatformSlug._3DO: {
         "id": 50,
         "name": "3DO Interactive Multiplayer",
         "category": "Console",
@@ -867,7 +869,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "3do",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7u.jpg",
     },
-    "3ds": {
+    UniversalPlatformSlug._3DS: {
         "id": 37,
         "name": "Nintendo 3DS",
         "category": "Portable Console",
@@ -877,7 +879,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "3ds",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln6.jpg",
     },
-    "n64dd": {
+    UniversalPlatformSlug.N64DD: {
         "id": 416,
         "name": "64DD",
         "category": "Console",
@@ -887,7 +889,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "64dd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj8.jpg",
     },
-    "acornarchimedes": {
+    UniversalPlatformSlug.ACORNARCHIMEDES: {
         "id": 116,
         "name": "Acorn Archimedes",
         "category": "Computer",
@@ -897,7 +899,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "acorn-archimedes",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plas.jpg",
     },
-    "acornelectron": {
+    UniversalPlatformSlug.ACORNELECTRON: {
         "id": 134,
         "name": "Acorn Electron",
         "category": "Computer",
@@ -907,7 +909,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "acorn-electron",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8d.jpg",
     },
-    "amstradcpc": {
+    UniversalPlatformSlug.AMSTRADCPC: {
         "id": 25,
         "name": "Amstrad CPC",
         "category": "Computer",
@@ -917,7 +919,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "acpc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnh.jpg",
     },
-    "picobeena": {
+    UniversalPlatformSlug.PICOBEENA: {
         "id": 507,
         "name": "Advanced Pico Beena",
         "category": "Console",
@@ -927,7 +929,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "advanced-pico-beena",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plou.jpg",
     },
-    "airconsole": {
+    UniversalPlatformSlug.AIRCONSOLE: {
         "id": 389,
         "name": "AirConsole",
         "category": "Platform",
@@ -937,7 +939,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "airconsole",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkq.jpg",
     },
-    "amazonfiretv": {
+    UniversalPlatformSlug.AMAZONFIRETV: {
         "id": 132,
         "name": "Amazon Fire TV",
         "category": "Platform",
@@ -947,7 +949,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "amazon-fire-tv",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl91.jpg",
     },
-    "amiga": {
+    UniversalPlatformSlug.AMIGA: {
         "id": 16,
         "name": "Amiga",
         "category": "Computer",
@@ -957,7 +959,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "amiga",
         "url_logo": "",
     },
-    "amigacd32": {
+    UniversalPlatformSlug.AMIGACD32: {
         "id": 114,
         "name": "Amiga CD32",
         "category": "Console",
@@ -967,7 +969,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "amiga-cd32",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7v.jpg",
     },
-    "gx4000": {
+    UniversalPlatformSlug.GX4000: {
         "id": 506,
         "name": "Amstrad GX4000",
         "category": "Console",
@@ -977,7 +979,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "amstrad-gx4000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plot.jpg",
     },
-    "amstradpcw": {
+    UniversalPlatformSlug.AMSTRADPCW: {
         "id": 154,
         "name": "Amstrad PCW",
         "category": "Computer",
@@ -987,7 +989,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "amstrad-pcw",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf7.jpg",
     },
-    "android": {
+    UniversalPlatformSlug.ANDROID: {
         "id": 34,
         "name": "Android",
         "category": "Operative System",
@@ -997,7 +999,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "android",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln3.jpg",
     },
-    "apple2gs": {
+    UniversalPlatformSlug.APPLE2GS: {
         "id": 115,
         "name": "Apple IIGS",
         "category": "Computer",
@@ -1007,7 +1009,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "apple-iigs",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl87.jpg",
     },
-    "pippin": {
+    UniversalPlatformSlug.PIPPIN: {
         "id": 476,
         "name": "Apple Pippin",
         "category": "Console",
@@ -1017,7 +1019,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "apple-pippin",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnn.jpg",
     },
-    "apple2": {
+    UniversalPlatformSlug.APPLE2: {
         "id": 75,
         "name": "Apple II",
         "category": "Computer",
@@ -1027,7 +1029,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "appleii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8r.jpg",
     },
-    "arcade": {
+    UniversalPlatformSlug.ARCADE: {
         "id": 52,
         "name": "Arcade",
         "category": "Arcade",
@@ -1037,7 +1039,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "arcade",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmz.jpg",
     },
-    "arcadia": {
+    UniversalPlatformSlug.ARCADIA: {
         "id": 473,
         "name": "Arcadia 2001",
         "category": "Console",
@@ -1047,7 +1049,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "arcadia-2001",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnk.jpg",
     },
-    "arduboy": {
+    UniversalPlatformSlug.ARDUBOY: {
         "id": 438,
         "name": "Arduboy",
         "category": "Portable Console",
@@ -1057,7 +1059,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "arduboy",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plk6.jpg",
     },
-    "astrocade": {
+    UniversalPlatformSlug.ASTROCADE: {
         "id": 91,
         "name": "Bally Astrocade",
         "category": "Console",
@@ -1067,7 +1069,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "astrocade",
         "url_logo": "",
     },
-    "jaguarcd": {
+    UniversalPlatformSlug.JAGUARCD: {
         "id": 410,
         "name": "Atari Jaguar CD",
         "category": "Console",
@@ -1077,7 +1079,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "atari-jaguar-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj4.jpg",
     },
-    "atarist": {
+    UniversalPlatformSlug.ATARIST: {
         "id": 63,
         "name": "Atari ST/STE",
         "category": "Computer",
@@ -1087,7 +1089,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "atari-st",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla7.jpg",
     },
-    "atari2600": {
+    UniversalPlatformSlug.ATARI2600: {
         "id": 59,
         "name": "Atari 2600",
         "category": "Console",
@@ -1097,7 +1099,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "atari2600",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln4.jpg",
     },
-    "atari5200": {
+    UniversalPlatformSlug.ATARI5200: {
         "id": 66,
         "name": "Atari 5200",
         "category": "Console",
@@ -1107,7 +1109,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "atari5200",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8g.jpg",
     },
-    "atari7800": {
+    UniversalPlatformSlug.ATARI7800: {
         "id": 60,
         "name": "Atari 7800",
         "category": "Console",
@@ -1117,7 +1119,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "atari7800",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8f.jpg",
     },
-    "atari8bit": {
+    UniversalPlatformSlug.ATARI8BIT: {
         "id": 65,
         "name": "Atari 8-bit",
         "category": "Computer",
@@ -1127,7 +1129,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "atari8bit",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plad.jpg",
     },
-    "ay38500": {
+    UniversalPlatformSlug.AY38500: {
         "id": 140,
         "name": "AY-3-8500",
         "category": "Computer",
@@ -1137,7 +1139,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8500",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/x42zeitpbuo2ltn7ybb2.jpg",
     },
-    "ay38603": {
+    UniversalPlatformSlug.AY38603: {
         "id": 145,
         "name": "AY-3-8603",
         "category": "Console",
@@ -1147,7 +1149,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8603",
         "url_logo": "",
     },
-    "ay38605": {
+    UniversalPlatformSlug.AY38605: {
         "id": 146,
         "name": "AY-3-8605",
         "category": "Console",
@@ -1157,7 +1159,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8605",
         "url_logo": "",
     },
-    "ay38606": {
+    UniversalPlatformSlug.AY38606: {
         "id": 147,
         "name": "AY-3-8606",
         "category": "Console",
@@ -1167,7 +1169,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8606",
         "url_logo": "",
     },
-    "ay38607": {
+    UniversalPlatformSlug.AY38607: {
         "id": 148,
         "name": "AY-3-8607",
         "category": "Console",
@@ -1177,7 +1179,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8607",
         "url_logo": "",
     },
-    "ay38610": {
+    UniversalPlatformSlug.AY38610: {
         "id": 141,
         "name": "AY-3-8610",
         "category": "Computer",
@@ -1187,7 +1189,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8610",
         "url_logo": "",
     },
-    "ay38710": {
+    UniversalPlatformSlug.AY38710: {
         "id": 144,
         "name": "AY-3-8710",
         "category": "Console",
@@ -1197,7 +1199,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8710",
         "url_logo": "",
     },
-    "ay38760": {
+    UniversalPlatformSlug.AY38760: {
         "id": 143,
         "name": "AY-3-8760",
         "category": "Console",
@@ -1207,7 +1209,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ay-3-8760",
         "url_logo": "",
     },
-    "bbcmicro": {
+    UniversalPlatformSlug.BBCMICRO: {
         "id": 69,
         "name": "BBC Microcomputer System",
         "category": "Computer",
@@ -1217,7 +1219,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "bbcmicro",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl86.jpg",
     },
-    "blackberry": {
+    UniversalPlatformSlug.BLACKBERRY: {
         "id": 73,
         "name": "BlackBerry OS",
         "category": "Operative System",
@@ -1227,7 +1229,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "blackberry",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/bezbkk17hk0uobdkhjcv.jpg",
     },
-    "bluray": {
+    UniversalPlatformSlug.BLURAY: {
         "id": 239,
         "name": "Blu-ray Player",
         "category": "Console",
@@ -1237,7 +1239,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "blu-ray-player",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbv.jpg",
     },
-    "browser": {
+    UniversalPlatformSlug.BROWSER: {
         "id": 82,
         "name": "Web browser",
         "category": "Platform",
@@ -1247,7 +1249,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "browser",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
     },
-    "cplus4": {
+    UniversalPlatformSlug.CPLUS4: {
         "id": 94,
         "name": "Commodore Plus/4",
         "category": "Computer",
@@ -1257,7 +1259,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "c-plus-4",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8m.jpg",
     },
-    "c16": {
+    UniversalPlatformSlug.C16: {
         "id": 93,
         "name": "Commodore 16",
         "category": "Computer",
@@ -1267,7 +1269,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "c16",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf4.jpg",
     },
-    "c64": {
+    UniversalPlatformSlug.C64: {
         "id": 15,
         "name": "Commodore 64",
         "category": "Computer",
@@ -1277,7 +1279,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "c64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll3.jpg",
     },
-    "c128": {
+    UniversalPlatformSlug.C128: {
         "id": 15,
         "name": "Commodore 128",
         "category": "Computer",
@@ -1287,7 +1289,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "c64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll3.jpg",
     },
-    "loopy": {
+    UniversalPlatformSlug.LOOPY: {
         "id": 380,
         "name": "Casio Loopy",
         "category": "Console",
@@ -1297,7 +1299,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "casio-loopy",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkm.jpg",
     },
-    "colecovision": {
+    UniversalPlatformSlug.COLECOVISION: {
         "id": 68,
         "name": "ColecoVision",
         "category": "Console",
@@ -1307,7 +1309,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "colecovision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8n.jpg",
     },
-    "cdtv": {
+    UniversalPlatformSlug.CDTV: {
         "id": 158,
         "name": "Commodore CDTV",
         "category": "Computer",
@@ -1317,7 +1319,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "commodore-cdtv",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl84.jpg",
     },
-    "cpet": {
+    UniversalPlatformSlug.CPET: {
         "id": 90,
         "name": "Commodore PET",
         "category": "Computer",
@@ -1327,7 +1329,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "cpet",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf3.jpg",
     },
-    "dreamcast": {
+    UniversalPlatformSlug.DREAMCAST: {
         "id": 23,
         "name": "Dreamcast",
         "category": "Console",
@@ -1337,7 +1339,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "dc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7i.jpg",
     },
-    "digiblast": {
+    UniversalPlatformSlug.DIGIBLAST: {
         "id": 486,
         "name": "Digiblast",
         "category": "Portable Console",
@@ -1347,7 +1349,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "digiblast",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo2.jpg",
     },
-    "dos": {
+    UniversalPlatformSlug.DOS: {
         "id": 13,
         "name": "DOS",
         "category": "Operative System",
@@ -1357,7 +1359,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "dos",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/sqgw6vespav1buezgjjn.jpg",
     },
-    "dragon32": {
+    UniversalPlatformSlug.DRAGON32: {
         "id": 153,
         "name": "Dragon 32/64",
         "category": "Computer",
@@ -1367,7 +1369,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "dragon-32-slash-64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8e.jpg",
     },
-    "dvd": {
+    UniversalPlatformSlug.DVD: {
         "id": 238,
         "name": "DVD Player",
         "category": "Console",
@@ -1377,7 +1379,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "dvd-player",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbu.jpg",
     },
-    "elektor-tv-games-computer": {
+    UniversalPlatformSlug.ELEKTOR: {
         "id": 505,
         "name": "Elektor TV Games Computer",
         "category": "Computer",
@@ -1387,7 +1389,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "elektor-tv-games-computer",
         "url_logo": "",
     },
-    "ecv": {
+    UniversalPlatformSlug.ECV: {
         "id": 375,
         "name": "Epoch Cassette Vision",
         "category": "Console",
@@ -1397,7 +1399,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "epoch-cassette-vision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plko.jpg",
     },
-    "evercade": {
+    UniversalPlatformSlug.EVERCADE: {
         "id": 309,
         "name": "Evercade",
         "category": "Portable Console",
@@ -1407,7 +1409,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "evercade",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plky.jpg",
     },
-    "exidysorcerer": {
+    UniversalPlatformSlug.EXIDYSORCERER: {
         "id": 236,
         "name": "Exidy Sorcerer",
         "category": "Computer",
@@ -1417,7 +1419,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "exidy-sorcerer",
         "url_logo": "",
     },
-    "channelf": {
+    UniversalPlatformSlug.CHANNELF: {
         "id": 127,
         "name": "Fairchild Channel F",
         "category": "Console",
@@ -1427,7 +1429,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "fairchild-channel-f",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8s.jpg",
     },
-    "famicom": {
+    UniversalPlatformSlug.FAMICOM: {
         "id": 99,
         "name": "Family Computer",
         "category": "Console",
@@ -1437,7 +1439,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "famicom",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnf.jpg",
     },
-    "fds": {
+    UniversalPlatformSlug.FDS: {
         "id": 51,
         "name": "Family Computer Disk System",
         "category": "Console",
@@ -1447,7 +1449,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "fds",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8b.jpg",
     },
-    "fm7": {
+    UniversalPlatformSlug.FM7: {
         "id": 152,
         "name": "FM-7",
         "category": "Computer",
@@ -1457,7 +1459,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "fm-7",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pley.jpg",
     },
-    "fmtowns": {
+    UniversalPlatformSlug.FMTOWNS: {
         "id": 118,
         "name": "FM Towns",
         "category": "Computer",
@@ -1467,7 +1469,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "fm-towns",
         "url_logo": "",
     },
-    "gameandwatch": {
+    UniversalPlatformSlug.GAMEANDWATCH: {
         "id": 307,
         "name": "Game & Watch",
         "category": "Portable Console",
@@ -1477,7 +1479,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "g-and-w",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pler.jpg",
     },
-    "gamate": {
+    UniversalPlatformSlug.GAMATE: {
         "id": 378,
         "name": "Gamate",
         "category": "Portable Console",
@@ -1487,7 +1489,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gamate",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plhf.jpg",
     },
-    "gamecom": {
+    UniversalPlatformSlug.GAMECOM: {
         "id": 379,
         "name": "Game.com",
         "category": "Portable Console",
@@ -1497,7 +1499,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "game-dot-com",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgk.jpg",
     },
-    "gamegear": {
+    UniversalPlatformSlug.GAMEGEAR: {
         "id": 35,
         "name": "Sega Game Gear",
         "category": "Portable Console",
@@ -1507,7 +1509,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gamegear",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7z.jpg",
     },
-    "gb": {
+    UniversalPlatformSlug.GB: {
         "id": 33,
         "name": "Game Boy",
         "category": "Portable Console",
@@ -1517,7 +1519,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gb",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7m.jpg",
     },
-    "gba": {
+    UniversalPlatformSlug.GBA: {
         "id": 24,
         "name": "Game Boy Advance",
         "category": "Portable Console",
@@ -1527,7 +1529,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gba",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl74.jpg",
     },
-    "gbc": {
+    UniversalPlatformSlug.GBC: {
         "id": 22,
         "name": "Game Boy Color",
         "category": "Portable Console",
@@ -1537,7 +1539,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gbc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7l.jpg",
     },
-    "gearvr": {
+    UniversalPlatformSlug.GEARVR: {
         "id": 388,
         "name": "Gear VR",
         "category": "Console",
@@ -1547,7 +1549,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gear-vr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkj.jpg",
     },
-    "megadrive": {
+    UniversalPlatformSlug.MEGADRIVE: {
         "id": 29,
         "name": "Sega Mega Drive/Genesis",
         "category": "Console",
@@ -1557,7 +1559,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "genesis-slash-megadrive",
         "url_logo": "",
     },
-    "gizmondo": {
+    UniversalPlatformSlug.GIZMONDO: {
         "id": 474,
         "name": "Gizmondo",
         "category": "Portable Console",
@@ -1567,7 +1569,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "gizmondo",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnl.jpg",
     },
-    "lcdgames": {
+    UniversalPlatformSlug.LCDGAMES: {
         "id": 411,
         "name": "Handheld Electronic LCD",
         "category": "Portable Console",
@@ -1577,7 +1579,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "handheld-electronic-lcd",
         "url_logo": "",
     },
-    "hp2100": {
+    UniversalPlatformSlug.HP2100: {
         "id": 104,
         "name": "HP 2100",
         "category": "Computer",
@@ -1587,7 +1589,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "hp2100",
         "url_logo": "",
     },
-    "hp3000": {
+    UniversalPlatformSlug.HP3000: {
         "id": 105,
         "name": "HP 3000",
         "category": "Computer",
@@ -1597,7 +1599,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "hp3000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla9.jpg",
     },
-    "hyperneogeo64": {
+    UniversalPlatformSlug.HYPERNEOGEO64: {
         "id": 135,
         "name": "Hyper Neo Geo 64",
         "category": "Arcade",
@@ -1607,7 +1609,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "hyper-neo-geo-64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ubf1qgytr069wm0ikh0z.jpg",
     },
-    "hyperscan": {
+    UniversalPlatformSlug.HYPERSCAN: {
         "id": 407,
         "name": "HyperScan",
         "category": "Console",
@@ -1617,7 +1619,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "hyperscan",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj2.jpg",
     },
-    "imlac-pds1": {
+    UniversalPlatformSlug.PDS1: {
         "id": 111,
         "name": "Imlac PDS-1",
         "category": "Unknown",
@@ -1627,7 +1629,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "imlac-pds1",
         "url_logo": "",
     },
-    "intellivision": {
+    UniversalPlatformSlug.INTELLIVISION: {
         "id": 67,
         "name": "Intellivision",
         "category": "Console",
@@ -1637,7 +1639,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "intellivision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8o.jpg",
     },
-    "amico": {
+    UniversalPlatformSlug.AMICO: {
         "id": 382,
         "name": "Intellivision Amico",
         "category": "Console",
@@ -1647,7 +1649,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "intellivision-amico",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkp.jpg",
     },
-    "ios": {
+    UniversalPlatformSlug.IOS: {
         "id": 39,
         "name": "iOS",
         "category": "Operative System",
@@ -1657,7 +1659,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ios",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6w.jpg",
     },
-    "jaguar": {
+    UniversalPlatformSlug.JAGUAR: {
         "id": 62,
         "name": "Atari Jaguar",
         "category": "Console",
@@ -1667,7 +1669,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "jaguar",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7y.jpg",
     },
-    "laseractive": {
+    UniversalPlatformSlug.LASERACTIVE: {
         "id": 487,
         "name": "LaserActive",
         "category": "Console",
@@ -1677,7 +1679,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "laseractive",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo4.jpg",
     },
-    "leapster": {
+    UniversalPlatformSlug.LEAPSTER: {
         "id": 412,
         "name": "Leapster",
         "category": "Portable Console",
@@ -1687,7 +1689,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "leapster",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj5.jpg",
     },
-    "leapsterexplorer": {
+    UniversalPlatformSlug.LEAPSTEREXPLORER: {
         "id": 413,
         "name": "Leapster Explorer/LeadPad Explorer",
         "category": "Portable Console",
@@ -1697,7 +1699,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "leapster-explorer-slash-leadpad-explorer",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plna.jpg",
     },
-    "leaptv": {
+    UniversalPlatformSlug.LEAPTV: {
         "id": 414,
         "name": "LeapTV",
         "category": "Console",
@@ -1707,7 +1709,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "leaptv",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj6.jpg",
     },
-    "legacypc": {
+    UniversalPlatformSlug.LEGACYPC: {
         "id": 409,
         "name": "Legacy Computer",
         "category": "Computer",
@@ -1717,7 +1719,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "legacy-computer",
         "url_logo": "",
     },
-    "linux": {
+    UniversalPlatformSlug.LINUX: {
         "id": 3,
         "name": "Linux",
         "category": "Operative System",
@@ -1727,7 +1729,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "linux",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plak.jpg",
     },
-    "lynx": {
+    UniversalPlatformSlug.LYNX: {
         "id": 61,
         "name": "Atari Lynx",
         "category": "Portable Console",
@@ -1737,7 +1739,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "lynx",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl82.jpg",
     },
-    "mac": {
+    UniversalPlatformSlug.MAC: {
         "id": 14,
         "name": "Mac",
         "category": "Operative System",
@@ -1747,7 +1749,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "mac",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo3.jpg",
     },
-    "megaduck": {
+    UniversalPlatformSlug.MEGADUCK: {
         "id": 408,
         "name": "Mega Duck/Cougar Boy",
         "category": "Portable Console",
@@ -1757,7 +1759,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "mega-duck-slash-cougar-boy",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj3.jpg",
     },
-    "quest2": {
+    UniversalPlatformSlug.QUEST2: {
         "id": 386,
         "name": "Meta Quest 2",
         "category": "Console",
@@ -1767,7 +1769,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "meta-quest-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll0.jpg",
     },
-    "quest3": {
+    UniversalPlatformSlug.QUEST3: {
         "id": 471,
         "name": "Meta Quest 3",
         "category": "Console",
@@ -1777,7 +1779,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "meta-quest-3",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnb.jpg",
     },
-    "microvision": {
+    UniversalPlatformSlug.MICROVISION: {
         "id": 89,
         "name": "Microvision",
         "category": "Portable Console",
@@ -1787,7 +1789,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "microvision--1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8q.jpg",
     },
-    "mobile": {
+    UniversalPlatformSlug.MOBILE: {
         "id": 55,
         "name": "Legacy Mobile Device",
         "category": "Portable Console",
@@ -1797,7 +1799,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "mobile",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnd.jpg",
     },
-    "msx": {
+    UniversalPlatformSlug.MSX: {
         "id": 27,
         "name": "MSX",
         "category": "Computer",
@@ -1807,7 +1809,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "msx",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8j.jpg",
     },
-    "msx2": {
+    UniversalPlatformSlug.MSX2: {
         "id": 53,
         "name": "MSX2",
         "category": "Computer",
@@ -1817,7 +1819,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "msx2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8k.jpg",
     },
-    "n64": {
+    UniversalPlatformSlug.N64: {
         "id": 4,
         "name": "Nintendo 64",
         "category": "Console",
@@ -1827,7 +1829,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "n64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl78.jpg",
     },
-    "nds": {
+    UniversalPlatformSlug.NDS: {
         "id": 20,
         "name": "Nintendo DS",
         "category": "Portable Console",
@@ -1837,7 +1839,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nds",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6t.jpg",
     },
-    "pc60": {
+    UniversalPlatformSlug.PC60: {
         "id": 157,
         "name": "NEC PC-6000 Series",
         "category": "Computer",
@@ -1847,7 +1849,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nec-pc-6000-series",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaa.jpg",
     },
-    "neogeocd": {
+    UniversalPlatformSlug.NEOGEOCD: {
         "id": 136,
         "name": "Neo Geo CD",
         "category": "Console",
@@ -1857,7 +1859,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "neo-geo-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7t.jpg",
     },
-    "ngp": {
+    UniversalPlatformSlug.NGP: {
         "id": 119,
         "name": "Neo Geo Pocket",
         "category": "Portable Console",
@@ -1867,7 +1869,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "neo-geo-pocket",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plau.jpg",
     },
-    "ngpc": {
+    UniversalPlatformSlug.NGPC: {
         "id": 120,
         "name": "Neo Geo Pocket Color",
         "category": "Portable Console",
@@ -1877,7 +1879,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "neo-geo-pocket-color",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7h.jpg",
     },
-    "neogeoaes": {
+    UniversalPlatformSlug.NEOGEOAES: {
         "id": 80,
         "name": "Neo Geo AES",
         "category": "Console",
@@ -1887,7 +1889,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "neogeoaes",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/hamfdrgnhenxb2d9g8mh.jpg",
     },
-    "neogeomvs": {
+    UniversalPlatformSlug.NEOGEOMVS: {
         "id": 79,
         "name": "Neo Geo MVS",
         "category": "Arcade",
@@ -1897,7 +1899,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "neogeomvs",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/cbhfilmhdgwdql8nzsy0.jpg",
     },
-    "nes": {
+    UniversalPlatformSlug.NES: {
         "id": 18,
         "name": "Nintendo Entertainment System",
         "category": "Console",
@@ -1907,7 +1909,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nes",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmo.jpg",
     },
-    "new3ds": {
+    UniversalPlatformSlug.NEW3DS: {
         "id": 137,
         "name": "New Nintendo 3DS",
         "category": "Portable Console",
@@ -1917,7 +1919,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "new-nintendo-3ds",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6j.jpg",
     },
-    "ngage": {
+    UniversalPlatformSlug.NGAGE: {
         "id": 42,
         "name": "N-Gage",
         "category": "Portable Console",
@@ -1927,7 +1929,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ngage",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl76.jpg",
     },
-    "ngc": {
+    UniversalPlatformSlug.NGC: {
         "id": 21,
         "name": "Nintendo GameCube",
         "category": "Console",
@@ -1937,7 +1939,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ngc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7a.jpg",
     },
-    "dsi": {
+    UniversalPlatformSlug.DSI: {
         "id": 159,
         "name": "Nintendo DSi",
         "category": "Portable Console",
@@ -1947,7 +1949,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nintendo-dsi",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6u.jpg",
     },
-    "switch2": {
+    UniversalPlatformSlug.SWITCH2: {
         "id": 508,
         "name": "Nintendo Switch 2",
         "category": "Console",
@@ -1957,7 +1959,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nintendo-switch-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plow.jpg",
     },
-    "nuon": {
+    UniversalPlatformSlug.NUON: {
         "id": 122,
         "name": "Nuon",
         "category": "Console",
@@ -1967,7 +1969,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "nuon",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7g.jpg",
     },
-    "oculusgo": {
+    UniversalPlatformSlug.OCULUSGO: {
         "id": 387,
         "name": "Oculus Go",
         "category": "Console",
@@ -1977,7 +1979,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "oculus-go",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkk.jpg",
     },
-    "oculusquest": {
+    UniversalPlatformSlug.OCULUSQUEST: {
         "id": 384,
         "name": "Oculus Quest",
         "category": "Console",
@@ -1987,7 +1989,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "oculus-quest",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plh7.jpg",
     },
-    "oculusrift": {
+    UniversalPlatformSlug.OCULUSRIFT: {
         "id": 385,
         "name": "Oculus Rift",
         "category": "Console",
@@ -1997,7 +1999,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "oculus-rift",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln8.jpg",
     },
-    "oculusvr": {
+    UniversalPlatformSlug.OCULUSVR: {
         "id": 162,
         "name": "Oculus VR",
         "category": "Unknown",
@@ -2007,7 +2009,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "oculus-vr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pivaofe9ll2b8cqfvvbu.jpg",
     },
-    "odyssey": {
+    UniversalPlatformSlug.ODYSSEY: {
         "id": 88,
         "name": "Odyssey",
         "category": "Console",
@@ -2017,7 +2019,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "odyssey--1",
         "url_logo": "",
     },
-    "odyssey2": {
+    UniversalPlatformSlug.ODYSSEY2: {
         "id": 133,
         "name": "Odyssey 2 / Videopac G7000",
         "category": "Computer",
@@ -2027,7 +2029,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "odyssey-2-slash-videopac-g7000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fqwnmmpanb5se6ebccm3.jpg",
     },
-    "onlive": {
+    UniversalPlatformSlug.ONLIVE: {
         "id": 113,
         "name": "OnLive Game System",
         "category": "Platform",
@@ -2037,7 +2039,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "onlive-game-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plan.jpg",
     },
-    "ooparts": {
+    UniversalPlatformSlug.OOPARTS: {
         "id": 372,
         "name": "OOParts",
         "category": "Platform",
@@ -2047,7 +2049,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ooparts",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgi.jpg",
     },
-    "ouya": {
+    UniversalPlatformSlug.OUYA: {
         "id": 72,
         "name": "Ouya",
         "category": "Console",
@@ -2057,7 +2059,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ouya",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6k.jpg",
     },
-    "palmos": {
+    UniversalPlatformSlug.PALMOS: {
         "id": 417,
         "name": "Palm OS",
         "category": "Operative System",
@@ -2067,7 +2069,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "palm-os",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj9.jpg",
     },
-    "panasonicjungle": {
+    UniversalPlatformSlug.PANASONICJUNGLE: {
         "id": 477,
         "name": "Panasonic Jungle",
         "category": "Portable Console",
@@ -2077,7 +2079,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "panasonic-jungle",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnp.jpg",
     },
-    "panasonicm2": {
+    UniversalPlatformSlug.PANASONICM2: {
         "id": 478,
         "name": "Panasonic M2",
         "category": "Console",
@@ -2087,7 +2089,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "panasonic-m2",
         "url_logo": "",
     },
-    "pc50": {
+    UniversalPlatformSlug.PC50: {
         "id": 142,
         "name": "PC-50X Family",
         "category": "Console",
@@ -2097,7 +2099,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pc-50x-family",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/dpwrkxrjkuxwqroqwjsw.jpg",
     },
-    "pc88": {
+    UniversalPlatformSlug.PC88: {
         "id": 125,
         "name": "PC-8800 Series",
         "category": "Computer",
@@ -2107,7 +2109,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pc-8800-series",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf2.jpg",
     },
-    "pc98": {
+    UniversalPlatformSlug.PC98: {
         "id": 149,
         "name": "PC-9800 Series",
         "category": "Computer",
@@ -2117,7 +2119,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pc-9800-series",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla6.jpg",
     },
-    "pcfx": {
+    UniversalPlatformSlug.PCFX: {
         "id": 274,
         "name": "PC-FX",
         "category": "Console",
@@ -2127,7 +2129,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pc-fx",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf8.jpg",
     },
-    "pcenginecd": {
+    UniversalPlatformSlug.PCENGINECD: {
         "id": 150,
         "name": "Turbografx-16/PC Engine CD",
         "category": "Computer",
@@ -2137,7 +2139,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "turbografx-16-slash-pc-engine-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl83.jpg",
     },
-    "pdp1": {
+    UniversalPlatformSlug.PDP1: {
         "id": 95,
         "name": "PDP-1",
         "category": "Computer",
@@ -2147,7 +2149,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pdp1",
         "url_logo": "",
     },
-    "pdp10": {
+    UniversalPlatformSlug.PDP10: {
         "id": 96,
         "name": "PDP-10",
         "category": "Computer",
@@ -2157,7 +2159,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pdp10",
         "url_logo": "",
     },
-    "pdp11": {
+    UniversalPlatformSlug.PDP11: {
         "id": 108,
         "name": "PDP-11",
         "category": "Computer",
@@ -2167,7 +2169,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pdp11",
         "url_logo": "",
     },
-    "cdi": {
+    UniversalPlatformSlug.CDI: {
         "id": 117,
         "name": "Philips CD-i",
         "category": "Console",
@@ -2177,7 +2179,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "philips-cd-i",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl80.jpg",
     },
-    "pico": {
+    UniversalPlatformSlug.PICO: {
         "id": 339,
         "name": "Sega Pico",
         "category": "Console",
@@ -2187,7 +2189,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sega-pico",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgo.jpg",
     },
-    "plato": {
+    UniversalPlatformSlug.PLATO: {
         "id": 110,
         "name": "PLATO",
         "category": "Computer",
@@ -2197,7 +2199,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "plato--1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaf.jpg",
     },
-    "playdate": {
+    UniversalPlatformSlug.PLAYDATE: {
         "id": 381,
         "name": "Playdate",
         "category": "Portable Console",
@@ -2207,7 +2209,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "playdate",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgx.jpg",
     },
-    "playdia": {
+    UniversalPlatformSlug.PLAYDIA: {
         "id": 308,
         "name": "Playdia",
         "category": "Console",
@@ -2217,7 +2219,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "playdia",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ples.jpg",
     },
-    "plugnplay": {
+    UniversalPlatformSlug.PLUGNPLAY: {
         "id": 377,
         "name": "Plug & Play",
         "category": "Platform",
@@ -2227,7 +2229,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "plug-and-play",
         "url_logo": "",
     },
-    "pocketstation": {
+    UniversalPlatformSlug.POCKETSTATION: {
         "id": 441,
         "name": "PocketStation",
         "category": "Portable Console",
@@ -2237,7 +2239,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pocketstation",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkc.jpg",
     },
-    "pokemini": {
+    UniversalPlatformSlug.POKEMINI: {
         "id": 166,
         "name": "Pokémon mini",
         "category": "Portable Console",
@@ -2247,7 +2249,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "pokemon-mini",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7f.jpg",
     },
-    "psx": {
+    UniversalPlatformSlug.PSX: {
         "id": 7,
         "name": "PlayStation",
         "category": "Console",
@@ -2257,7 +2259,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ps",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmb.jpg",
     },
-    "ps2": {
+    UniversalPlatformSlug.PS2: {
         "id": 8,
         "name": "PlayStation 2",
         "category": "Console",
@@ -2267,7 +2269,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ps2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl72.jpg",
     },
-    "ps3": {
+    UniversalPlatformSlug.PS3: {
         "id": 9,
         "name": "PlayStation 3",
         "category": "Console",
@@ -2277,7 +2279,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ps3",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/tuyy1nrqodtmbqajp4jg.jpg",
     },
-    "ps4": {
+    UniversalPlatformSlug.PS4: {
         "id": 48,
         "name": "PlayStation 4",
         "category": "Console",
@@ -2287,7 +2289,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ps4--1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6f.jpg",
     },
-    "ps5": {
+    UniversalPlatformSlug.PS5: {
         "id": 167,
         "name": "PlayStation 5",
         "category": "Console",
@@ -2297,7 +2299,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ps5",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plos.jpg",
     },
-    "psp": {
+    UniversalPlatformSlug.PSP: {
         "id": 38,
         "name": "PlayStation Portable",
         "category": "Portable Console",
@@ -2307,7 +2309,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "psp",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5y.jpg",
     },
-    "psvita": {
+    UniversalPlatformSlug.PSVITA: {
         "id": 46,
         "name": "PlayStation Vita",
         "category": "Portable Console",
@@ -2317,7 +2319,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "psvita",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6g.jpg",
     },
-    "psvr": {
+    UniversalPlatformSlug.PSVR: {
         "id": 165,
         "name": "PlayStation VR",
         "category": "Console",
@@ -2327,7 +2329,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "psvr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnc.jpg",
     },
-    "psvr2": {
+    UniversalPlatformSlug.PSVR2: {
         "id": 390,
         "name": "PlayStation VR2",
         "category": "Console",
@@ -2337,7 +2339,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "psvr2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo5.jpg",
     },
-    "rzone": {
+    UniversalPlatformSlug.RZONE: {
         "id": 475,
         "name": "R-Zone",
         "category": "Portable Console",
@@ -2347,7 +2349,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "r-zone",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnm.jpg",
     },
-    "satellaview": {
+    UniversalPlatformSlug.SATELLAVIEW: {
         "id": 306,
         "name": "Satellaview",
         "category": "Console",
@@ -2357,7 +2359,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "satellaview",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgj.jpg",
     },
-    "saturn": {
+    UniversalPlatformSlug.SATURN: {
         "id": 32,
         "name": "Sega Saturn",
         "category": "Console",
@@ -2367,7 +2369,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "saturn",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/hrmqljpwunky1all3v78.jpg",
     },
-    "scv": {
+    UniversalPlatformSlug.SCV: {
         "id": 376,
         "name": "Epoch Super Cassette Vision",
         "category": "Console",
@@ -2377,7 +2379,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "epoch-super-cassette-vision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkn.jpg",
     },
-    "segacd32x": {
+    UniversalPlatformSlug.SEGACD32X: {
         "id": 482,
         "name": "Sega CD 32X",
         "category": "Console",
@@ -2387,7 +2389,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sega-cd-32x",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnu.jpg",
     },
-    "sega32x": {
+    UniversalPlatformSlug.SEGA32X: {
         "id": 30,
         "name": "Sega 32X",
         "category": "Console",
@@ -2397,7 +2399,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sega32",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7r.jpg",
     },
-    "segacd": {
+    UniversalPlatformSlug.SEGACD: {
         "id": 78,
         "name": "Sega CD",
         "category": "Console",
@@ -2407,7 +2409,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "segacd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7w.jpg",
     },
-    "seriesxs": {
+    UniversalPlatformSlug.SERIESXS: {
         "id": 169,
         "name": "Xbox Series X/S",
         "category": "Console",
@@ -2417,7 +2419,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "series-x-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plfl.jpg",
     },
-    "sfam": {
+    UniversalPlatformSlug.SFAM: {
         "id": 58,
         "name": "Super Famicom",
         "category": "Console",
@@ -2427,7 +2429,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sfam",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/a9x7xjy4p9sqynrvomcf.jpg",
     },
-    "sg1000": {
+    UniversalPlatformSlug.SG1000: {
         "id": 84,
         "name": "SG-1000",
         "category": "Console",
@@ -2437,7 +2439,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sg1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmn.jpg",
     },
-    "mz2200": {
+    UniversalPlatformSlug.MZ2200: {
         "id": 374,
         "name": "Sharp MZ-2200",
         "category": "Computer",
@@ -2447,7 +2449,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sharp-mz-2200",
         "url_logo": "",
     },
-    "x68000": {
+    UniversalPlatformSlug.X68000: {
         "id": 121,
         "name": "Sharp X68000",
         "category": "Computer",
@@ -2457,7 +2459,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sharp-x68000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8i.jpg",
     },
-    "sinclairql": {
+    UniversalPlatformSlug.SINCLAIRQL: {
         "id": 406,
         "name": "Sinclair QL",
         "category": "Computer",
@@ -2467,7 +2469,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sinclair-ql",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plih.jpg",
     },
-    "zx81": {
+    UniversalPlatformSlug.ZX81: {
         "id": 373,
         "name": "Sinclair ZX81",
         "category": "Computer",
@@ -2477,7 +2479,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sinclair-zx81",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgr.jpg",
     },
-    "sms": {
+    UniversalPlatformSlug.SMS: {
         "id": 64,
         "name": "Sega Master System/Mark III",
         "category": "Console",
@@ -2487,7 +2489,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sms",
         "url_logo": "",
     },
-    "snes": {
+    UniversalPlatformSlug.SNES: {
         "id": 19,
         "name": "Super Nintendo Entertainment System",
         "category": "Console",
@@ -2497,7 +2499,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "snes",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ifw2tvdkynyxayquiyk4.jpg",
     },
-    "sol20": {
+    UniversalPlatformSlug.SOL20: {
         "id": 237,
         "name": "Sol-20",
         "category": "Computer",
@@ -2507,7 +2509,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "sol-20",
         "url_logo": "",
     },
-    "stadia": {
+    UniversalPlatformSlug.STADIA: {
         "id": 170,
         "name": "Google Stadia",
         "category": "Platform",
@@ -2517,7 +2519,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "stadia",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl94.jpg",
     },
-    "steamvr": {
+    UniversalPlatformSlug.STEAMVR: {
         "id": 163,
         "name": "SteamVR",
         "category": "Unknown",
@@ -2527,7 +2529,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "steam-vr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ipbdzzx7z3rwuzm9big4.jpg",
     },
-    "superacan": {
+    UniversalPlatformSlug.SUPERACAN: {
         "id": 480,
         "name": "Super A'Can",
         "category": "Console",
@@ -2537,7 +2539,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "super-acan",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plns.jpg",
     },
-    "supergrafx": {
+    UniversalPlatformSlug.SUPERGRAFX: {
         "id": 128,
         "name": "PC Engine SuperGrafx",
         "category": "Console",
@@ -2547,7 +2549,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "supergrafx",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla4.jpg",
     },
-    "swancrystal": {
+    UniversalPlatformSlug.SWANCRYSTAL: {
         "id": 124,
         "name": "SwanCrystal",
         "category": "Portable Console",
@@ -2557,7 +2559,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "swancrystal",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8v.jpg",
     },
-    "switch": {
+    UniversalPlatformSlug.SWITCH: {
         "id": 130,
         "name": "Nintendo Switch",
         "category": "Console",
@@ -2567,7 +2569,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "switch",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgu.jpg",
     },
-    "tatungeinstein": {
+    UniversalPlatformSlug.TATUNGEINSTEIN: {
         "id": 155,
         "name": "Tatung Einstein",
         "category": "Computer",
@@ -2577,7 +2579,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "tatung-einstein",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla8.jpg",
     },
-    "terebikko": {
+    UniversalPlatformSlug.TEREBIKKO: {
         "id": 479,
         "name": "Terebikko / See 'n Say Video Phone",
         "category": "Console",
@@ -2587,7 +2589,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "terebikko-slash-see-n-say-video-phone",
         "url_logo": "",
     },
-    "thomsonmo": {
+    UniversalPlatformSlug.THOMSONMO: {
         "id": 156,
         "name": "Thomson MO5",
         "category": "Computer",
@@ -2597,7 +2599,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "thomson-mo5",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plex.jpg",
     },
-    "ti99": {
+    UniversalPlatformSlug.TI99: {
         "id": 129,
         "name": "Texas Instruments TI-99",
         "category": "Computer",
@@ -2607,7 +2609,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "ti-99",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf0.jpg",
     },
-    "trs80": {
+    UniversalPlatformSlug.TRS80: {
         "id": 126,
         "name": "TRS-80",
         "category": "Computer",
@@ -2617,7 +2619,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "trs-80",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plac.jpg",
     },
-    "coco": {
+    UniversalPlatformSlug.COCO: {
         "id": 151,
         "name": "TRS-80 Color Computer",
         "category": "Computer",
@@ -2627,7 +2629,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "trs-80-color-computer",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf1.jpg",
     },
-    "pcengine": {
+    UniversalPlatformSlug.PCENGINE: {
         "id": 86,
         "name": "TurboGrafx-16/PC Engine",
         "category": "Console",
@@ -2637,7 +2639,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "turbografx16--1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl88.jpg",
     },
-    "uzebox": {
+    UniversalPlatformSlug.UZEBOX: {
         "id": 504,
         "name": "Uzebox",
         "category": "Console",
@@ -2647,7 +2649,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "uzebox",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plor.jpg",
     },
-    "vc": {
+    UniversalPlatformSlug.VC: {
         "id": 47,
         "name": "Virtual Console",
         "category": "Platform",
@@ -2657,7 +2659,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "vc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plao.jpg",
     },
-    "vc4000": {
+    UniversalPlatformSlug.VC4000: {
         "id": 138,
         "name": "VC 4000",
         "category": "Console",
@@ -2667,7 +2669,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "vc-4000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/phikgyfmv1fevj2jhzr5.jpg",
     },
-    "vectrex": {
+    UniversalPlatformSlug.VECTREX: {
         "id": 70,
         "name": "Vectrex",
         "category": "Console",
@@ -2677,7 +2679,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "vectrex",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8h.jpg",
     },
-    "c20": {
+    UniversalPlatformSlug.C20: {
         "id": 71,
         "name": "Commodore VIC-20",
         "category": "Computer",
@@ -2687,7 +2689,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "vic-20",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8p.jpg",
     },
-    "virtualboy": {
+    UniversalPlatformSlug.VIRTUALBOY: {
         "id": 87,
         "name": "Virtual Boy",
         "category": "Console",
@@ -2697,7 +2699,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "virtualboy",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7s.jpg",
     },
-    "visionos": {
+    UniversalPlatformSlug.VISIONOS: {
         "id": 472,
         "name": "visionOS",
         "category": "Operative System",
@@ -2707,7 +2709,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "visionos",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnj.jpg",
     },
-    "vmu": {
+    UniversalPlatformSlug.VMU: {
         "id": 440,
         "name": "Visual Memory Unit / Visual Memory System",
         "category": "Portable Console",
@@ -2717,7 +2719,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "visual-memory-unit-slash-visual-memory-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plk8.jpg",
     },
-    "vsmile": {
+    UniversalPlatformSlug.VSMILE: {
         "id": 439,
         "name": "V.Smile",
         "category": "Console",
@@ -2727,7 +2729,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "vsmile",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plk7.jpg",
     },
-    "supervision": {
+    UniversalPlatformSlug.SUPERVISION: {
         "id": 415,
         "name": "Watara/QuickShot Supervision",
         "category": "Portable Console",
@@ -2737,7 +2739,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "watara-slash-quickshot-supervision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj7.jpg",
     },
-    "wii": {
+    UniversalPlatformSlug.WII: {
         "id": 5,
         "name": "Wii",
         "category": "Console",
@@ -2747,7 +2749,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "wii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl92.jpg",
     },
-    "wiiu": {
+    UniversalPlatformSlug.WIIU: {
         "id": 41,
         "name": "Wii U",
         "category": "Console",
@@ -2757,7 +2759,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "wiiu",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6n.jpg",
     },
-    "win": {
+    UniversalPlatformSlug.WIN: {
         "id": 6,
         "name": "PC (Microsoft Windows)",
         "category": "Operative System",
@@ -2767,7 +2769,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "win",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plim.jpg",
     },
-    "windowsmx": {
+    UniversalPlatformSlug.WINDOWSMX: {
         "id": 161,
         "name": "Windows Mixed Reality",
         "category": "Unknown",
@@ -2777,7 +2779,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "windows-mixed-reality",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm4.jpg",
     },
-    "windowsmobile": {
+    UniversalPlatformSlug.WINDOWSMOBILE: {
         "id": 405,
         "name": "Windows Mobile",
         "category": "Operative System",
@@ -2787,7 +2789,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "windows-mobile",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkl.jpg",
     },
-    "winphone": {
+    UniversalPlatformSlug.WINPHONE: {
         "id": 74,
         "name": "Windows Phone",
         "category": "Operative System",
@@ -2797,7 +2799,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "winphone",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla3.jpg",
     },
-    "wswan": {
+    UniversalPlatformSlug.WSWAN: {
         "id": 57,
         "name": "WonderSwan",
         "category": "Portable Console",
@@ -2807,7 +2809,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "wonderswan",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7b.jpg",
     },
-    "wswanc": {
+    UniversalPlatformSlug.WSWANC: {
         "id": 123,
         "name": "WonderSwan Color",
         "category": "Portable Console",
@@ -2817,7 +2819,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "wonderswan-color",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl79.jpg",
     },
-    "x1": {
+    UniversalPlatformSlug.X1: {
         "id": 77,
         "name": "Sharp X1",
         "category": "Computer",
@@ -2827,7 +2829,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "x1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl89.jpg",
     },
-    "xbox": {
+    UniversalPlatformSlug.XBOX: {
         "id": 11,
         "name": "Xbox",
         "category": "Console",
@@ -2837,7 +2839,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "xbox",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7e.jpg",
     },
-    "xbox360": {
+    UniversalPlatformSlug.XBOX360: {
         "id": 12,
         "name": "Xbox 360",
         "category": "Console",
@@ -2847,7 +2849,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "xbox360",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plha.jpg",
     },
-    "xboxone": {
+    UniversalPlatformSlug.XBOXONE: {
         "id": 49,
         "name": "Xbox One",
         "category": "Console",
@@ -2857,7 +2859,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "xboxone",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl95.jpg",
     },
-    "zeebo": {
+    UniversalPlatformSlug.ZEEBO: {
         "id": 240,
         "name": "Zeebo",
         "category": "Console",
@@ -2867,7 +2869,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "zeebo",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbx.jpg",
     },
-    "zod": {
+    UniversalPlatformSlug.ZOD: {
         "id": 44,
         "name": "Tapwave Zodiac",
         "category": "Portable Console",
@@ -2877,7 +2879,7 @@ SLUG_TO_IGDB_PLATFORM: dict[str, SlugToIGDBPlatform] = {
         "igdb_slug": "zod",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lfsdnlko80ftakbugceu.jpg",
     },
-    "zxs": {
+    UniversalPlatformSlug.ZXS: {
         "id": 26,
         "name": "ZX Spectrum",
         "category": "Computer",

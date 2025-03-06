@@ -1,3 +1,4 @@
+import enum
 import json
 import os
 import re
@@ -233,391 +234,389 @@ class MetadataHandler:
         }
 
 
-UNIVERSAL_PLATFORM_SLUGS: Final = [
-    "1292apvs",
-    "3do",
-    "3ds",
-    "abc80",
-    "acornarchimedes",
-    "acornelectron",
-    "advision",
-    "airconsole",
-    "alice3290",
-    "altair680",
-    "altair8800",
-    "amazonalexa",
-    "amazonfiretv",
-    "amico",
-    "amiga",
-    "amigacd32",
-    "amstradcpc",
-    "amstradpcw",
-    "android",
-    "antstream",
-    "apf",
-    "apple",
-    "apple2",
-    "apple2gs",
-    "aquarius",
-    "arcade",
-    "arcadia",
-    "arduboy",
-    "astral2000",
-    "astrocade",
-    "atari2600",
-    "atari5200",
-    "atari7800",
-    "atari8bit",
-    "atarist",
-    "atarivcs",
-    "atom",
-    "ay38500",
-    "ay38603",
-    "ay38605",
-    "ay38606",
-    "ay38607",
-    "ay38610",
-    "ay38710",
-    "ay38760",
-    "bada",
-    "bbcmicro",
-    "beos",
-    "blackberry",
-    "blacknut",
-    "bluray",
-    "brew",
-    "browser",
-    "bubble",
-    "c128",
-    "c16",
-    "c16plus4",
-    "c20",
-    "c64",
-    "camplynx",
-    "casiocalc",
-    "cdi",
-    "cdtv",
-    "champion2711",
-    "channelf",
-    "clickstart",
-    "coco",
-    "colecoadam",
-    "colecovision",
-    "colour-genie",
-    "colourgenie",
-    "compucolor",
-    "compucolor2",
-    "compucorpcalc",
-    "cosmac",
-    "cpet",
-    "cplus4",
-    "cpm",
-    "creativision",
-    "cybervision",
-    "dangeros",
-    "dedicatedconsole",
-    "dedicatedhandheld",
-    "didj",
-    "digiblast",
-    "doja",
-    "dos",
-    "dragon32",
-    "dreamcast",
-    "dsi",
-    "dvd",
-    "ecv",
-    "egpc",
-    "elektor-tv-games-computer",
-    "enterprise",
-    "evercade",
-    "exelvision",
-    "exen",
-    "exidysorcerer",
-    "famicom",
-    "fds",
-    "fireos",
-    "fm7",
-    "fmtowns",
-    "freebox",
-    "galaksija",
-    "gamate",
-    "gameandwatch",
-    "gamecom",
-    "gamegear",
-    "gamestick",
-    "gamewave",
-    "gb",
-    "gba",
-    "gbc",
-    "gcluster",
-    "gearvr",
-    "gimini",
-    "gizmondo",
-    "gloud",
-    "glulx",
-    "gnex",
-    "gp2x",
-    "gp2xwiz",
-    "gp32",
-    "gvm",
-    "gx4000",
-    "hddvd",
-    "heathkith11",
-    "heathzenith",
-    "hitachis1",
-    "hp2100",
-    "hp3000",
-    "hp9800",
-    "hpcalc",
-    "hugo",
-    "hyper-neo-geo-64",
-    "hyperscan",
-    "ibm5100",
-    "idealcomputer",
-    "iircade",
-    "imlac-pds1",
-    "intel8008",
-    "intel8080",
-    "intel8086",
-    "intellivision",
-    "interactm1",
-    "intertonv2000",
-    "ios",
-    "ipad",
-    "iphone",
-    "ipod",
-    "j2me",
-    "jaguar",
-    "jaguarcd",
-    "jolt",
-    "jupiterace",
-    "kaios",
-    "kim1",
-    "kindle",
-    "laser200",
-    "laseractive",
-    "lcdgames",
-    "leapster",
-    "leapsterexplorer",
-    "leaptv",
-    "legacypc",
-    "linux",
-    "loopy",
-    "luna",
-    "lynx",
-    "mac",
-    "macintosh",
-    "maemo",
-    "mainframe",
-    "matsushitapanasonicjr",
-    "meego",
-    "megadrive",
-    "megaduck",
-    "memotechmtx",
-    "meritum",
-    "microbee",
-    "micromind",
-    "microtan65",
-    "microvision",
-    "mobile",
-    "mophun",
-    "mos6502",
-    "motorola6800",
-    "motorola68k",
-    "mre",
-    "msx",
-    "msx2",
-    "mz2200",
-    "n64",
-    "n64dd",
-    "nascom",
-    "nds",
-    "neogeoaes",
-    "neogeocd",
-    "neogeomvs",
-    "neogeox",
-    "nes",
-    "new3ds",
-    "newbrain",
-    "newton",
-    "ngage",
-    "ngage2",
-    "ngc",
-    "ngp",
-    "ngpc",
-    "northstar",
-    "noval760",
-    "nuon",
-    "oculusgo",
-    "oculusquest",
-    "oculusrift",
-    "oculusvr",
-    "odyssey",
-    "odyssey2",
-    "ohiosci",
-    "onlive",
-    "ooparts",
-    "orao",
-    "oric",
-    "os2",
-    "ouya",
-    "palmos",
-    "panasonicjungle",
-    "panasonicm2",
-    "pandora",
-    "pc50",
-    "pc60",
-    "pc8000",
-    "pc88",
-    "pc98",
-    "pcbooter",
-    "pcengine",
-    "pcenginecd",
-    "pcfx",
-    "pdp1",
-    "pdp10",
-    "pdp11",
-    "pebble",
-    "pet",
-    "photocd",
-    "pico",
-    "pico8",
-    "picobeena",
-    "pippin",
-    "plato",
-    "playdate",
-    "playdia",
-    "plexarcade",
-    "plugnplay",
-    "pocketstation",
-    "pokemini",
-    "pokitto",
-    "poly88",
-    "ps2",
-    "ps3",
-    "ps4",
-    "ps5",
-    "psnow",
-    "psp",
-    "psvita",
-    "psvr",
-    "psvr2",
-    "psx",
-    "pv1000",
-    "quest2",
-    "quest3",
-    "rcastudio2",
-    "rm380z",
-    "roku",
-    "rzone",
-    "samcoupe",
-    "satellaview",
-    "saturn",
-    "scmp",
-    "scv",
-    "sd200",
-    "sega32x",
-    "segacd",
-    "segacd32x",
-    "seriesxs",
-    "sfam",
-    "sg1000",
-    "sgb",
-    "signetics2650",
-    "sinclairql",
-    "skvm",
-    "smc777",
-    "sms",
-    "snes",
-    "socrates",
-    "sol20",
-    "sordm5",
-    "spectravideo",
-    "sri500",
-    "stadia",
-    "steamvr",
-    "sufami",
-    "superacan",
-    "supergrafx",
-    "supervision",
-    "supervision8000",
-    "sureshothd",
-    "swancrystal",
-    "switch",
-    "switch2",
-    "swtpc6800",
-    "symbian",
-    "tads",
-    "tatungeinstein",
-    "tektronix4050",
-    "telespiel",
-    "telstar",
-    "terebikko",
-    "terminal",
-    "thomsonmo",
-    "thomsonto",
-    "ti99",
-    "tiki100",
-    "tim",
-    "timex2068",
-    "ticalc",
-    "tizen",
-    "tomahawkf1",
-    "triton",
-    "trs80",
-    "trs80mc10",
-    "trs80model100",
-    "tutor",
-    "tvos",
-    "uzebox",
-    "vc",
-    "vc4000",
-    "vectrex",
-    "versatile",
-    "vflash",
-    "vg5000",
-    "videobrain",
-    "videopacplus",
-    "virtualboy",
-    "vis",
-    "visionos",
-    "vmu",
-    "vsmile",
-    "wang2200",
-    "wasm4",
-    "watchos",
-    "webos",
-    "wii",
-    "wiiu",
-    "win",
-    "win3x",
-    "windows",
-    "windowsapps",
-    "windowsmobile",
-    "windowsmx",
-    "winphone",
-    "wipi",
-    "wswan",
-    "wswanc",
-    "x1",
-    "x55",
-    "x68000",
-    "xavixport",
-    "xbox",
-    "xbox360",
-    "xboxcloudgaming",
-    "xboxone",
-    "xerox-alto",
-    "z80",
-    "z8000",
-    "zaurus",
-    "zeebo",
-    "zmachine",
-    "zod",
-    "zodiac",
-    "zune",
-    "zx80",
-    "zx81",
-    "zxs",
-    "zxsnext",
-]
+class UniversalPlatformSlug(enum.StrEnum):
+    _1292APVS = "1292apvs"
+    _3DO = "3do"
+    _3DS = "3ds"
+    ABC80 = "abc80"
+    ACORNARCHIMEDES = "acornarchimedes"
+    ACORNELECTRON = "acornelectron"
+    ADVISION = "advision"
+    AIRCONSOLE = "airconsole"
+    ALICE3290 = "alice3290"
+    ALTAIR680 = "altair680"
+    ALTAIR8800 = "altair8800"
+    AMAZONALEXA = "amazonalexa"
+    AMAZONFIRETV = "amazonfiretv"
+    AMICO = "amico"
+    AMIGA = "amiga"
+    AMIGACD32 = "amigacd32"
+    AMSTRADCPC = "amstradcpc"
+    AMSTRADPCW = "amstradpcw"
+    ANDROID = "android"
+    ANTSTREAM = "antstream"
+    APF = "apf"
+    APPLE = "apple"
+    APPLE2 = "apple2"
+    APPLE2GS = "apple2gs"
+    AQUARIUS = "aquarius"
+    ARCADE = "arcade"
+    ARCADIA = "arcadia"
+    ARDUBOY = "arduboy"
+    ASTRAL2000 = "astral2000"
+    ASTROCADE = "astrocade"
+    ATARI2600 = "atari2600"
+    ATARI5200 = "atari5200"
+    ATARI7800 = "atari7800"
+    ATARI8BIT = "atari8bit"
+    ATARIST = "atarist"
+    ATARIVCS = "atarivcs"
+    ATOM = "atom"
+    AY38500 = "ay38500"
+    AY38603 = "ay38603"
+    AY38605 = "ay38605"
+    AY38606 = "ay38606"
+    AY38607 = "ay38607"
+    AY38610 = "ay38610"
+    AY38710 = "ay38710"
+    AY38760 = "ay38760"
+    BADA = "bada"
+    BBCMICRO = "bbcmicro"
+    BEOS = "beos"
+    BLACKBERRY = "blackberry"
+    BLACKNUT = "blacknut"
+    BLURAY = "bluray"
+    BREW = "brew"
+    BROWSER = "browser"
+    BUBBLE = "bubble"
+    C128 = "c128"
+    C16 = "c16"
+    C16PLUS4 = "c16plus4"
+    C20 = "c20"
+    C64 = "c64"
+    CAMPLYNX = "camplynx"
+    CASIOCALC = "casiocalc"
+    CDI = "cdi"
+    CDTV = "cdtv"
+    CHAMPION2711 = "champion2711"
+    CHANNELF = "channelf"
+    CLICKSTART = "clickstart"
+    COCO = "coco"
+    COLECOADAM = "colecoadam"
+    COLECOVISION = "colecovision"
+    COLOURGENIE = "colourgenie"
+    COMPUCOLOR = "compucolor"
+    COMPUCOLOR2 = "compucolor2"
+    COMPUCORPCALC = "compucorpcalc"
+    COSMAC = "cosmac"
+    CPET = "cpet"
+    CPLUS4 = "cplus4"
+    CPM = "cpm"
+    CREATIVISION = "creativision"
+    CYBERVISION = "cybervision"
+    DANGEROS = "dangeros"
+    DEDICATEDCONSOLE = "dedicatedconsole"
+    DEDICATEDHANDHELD = "dedicatedhandheld"
+    DIDJ = "didj"
+    DIGIBLAST = "digiblast"
+    DOJA = "doja"
+    DOS = "dos"
+    DRAGON32 = "dragon32"
+    DREAMCAST = "dreamcast"
+    DSI = "dsi"
+    DVD = "dvd"
+    ECV = "ecv"
+    EGPC = "egpc"
+    ELEKTOR = "elektor"
+    ENTERPRISE = "enterprise"
+    EVERCADE = "evercade"
+    EXELVISION = "exelvision"
+    EXEN = "exen"
+    EXIDYSORCERER = "exidysorcerer"
+    FAMICOM = "famicom"
+    FDS = "fds"
+    FIREOS = "fireos"
+    FM7 = "fm7"
+    FMTOWNS = "fmtowns"
+    FREEBOX = "freebox"
+    GALAKSIJA = "galaksija"
+    GAMATE = "gamate"
+    GAMEANDWATCH = "gameandwatch"
+    GAMECOM = "gamecom"
+    GAMEGEAR = "gamegear"
+    GAMESTICK = "gamestick"
+    GAMEWAVE = "gamewave"
+    GB = "gb"
+    GBA = "gba"
+    GBC = "gbc"
+    GCLUSTER = "gcluster"
+    GEARVR = "gearvr"
+    GIMINI = "gimini"
+    GIZMONDO = "gizmondo"
+    GLOUD = "gloud"
+    GLULX = "glulx"
+    GNEX = "gnex"
+    GP2X = "gp2x"
+    GP2XWIZ = "gp2xwiz"
+    GP32 = "gp32"
+    GVM = "gvm"
+    GX4000 = "gx4000"
+    HDDVD = "hddvd"
+    HEATHKITH11 = "heathkith11"
+    HEATHZENITH = "heathzenith"
+    HITACHIS1 = "hitachis1"
+    HP2100 = "hp2100"
+    HP3000 = "hp3000"
+    HP9800 = "hp9800"
+    HPCALC = "hpcalc"
+    HUGO = "hugo"
+    HYPERNEOGEO64 = "hyper-neo-geo-64"
+    HYPERSCAN = "hyperscan"
+    IBM5100 = "ibm5100"
+    IDEALCOMPUTER = "idealcomputer"
+    IIRCADE = "iircade"
+    PDS1 = "pds1"
+    INTEL8008 = "intel8008"
+    INTEL8080 = "intel8080"
+    INTEL8086 = "intel8086"
+    INTELLIVISION = "intellivision"
+    INTERACTM1 = "interactm1"
+    INTERTONV2000 = "intertonv2000"
+    IOS = "ios"
+    IPAD = "ipad"
+    IPHONE = "iphone"
+    IPOD = "ipod"
+    J2ME = "j2me"
+    JAGUAR = "jaguar"
+    JAGUARCD = "jaguarcd"
+    JOLT = "jolt"
+    JUPITERACE = "jupiterace"
+    KAIOS = "kaios"
+    KIM1 = "kim1"
+    KINDLE = "kindle"
+    LASER200 = "laser200"
+    LASERACTIVE = "laseractive"
+    LCDGAMES = "lcdgames"
+    LEAPSTER = "leapster"
+    LEAPSTEREXPLORER = "leapsterexplorer"
+    LEAPTV = "leaptv"
+    LEGACYPC = "legacypc"
+    LINUX = "linux"
+    LOOPY = "loopy"
+    LUNA = "luna"
+    LYNX = "lynx"
+    MAC = "mac"
+    MACINTOSH = "macintosh"
+    MAEMO = "maemo"
+    MAINFRAME = "mainframe"
+    MATSUSHITAPANASONICJR = "matsushitapanasonicjr"
+    MEEGO = "meego"
+    MEGADRIVE = "megadrive"
+    MEGADUCK = "megaduck"
+    MEMOTECHMTX = "memotechmtx"
+    MERITUM = "meritum"
+    MICROBEE = "microbee"
+    MICROMIND = "micromind"
+    MICROTAN65 = "microtan65"
+    MICROVISION = "microvision"
+    MOBILE = "mobile"
+    MOPHUN = "mophun"
+    MOS6502 = "mos6502"
+    MOTOROLA6800 = "motorola6800"
+    MOTOROLA68K = "motorola68k"
+    MRE = "mre"
+    MSX = "msx"
+    MSX2 = "msx2"
+    MZ2200 = "mz2200"
+    N64 = "n64"
+    N64DD = "n64dd"
+    NASCOM = "nascom"
+    NDS = "nds"
+    NEOGEOAES = "neogeoaes"
+    NEOGEOCD = "neogeocd"
+    NEOGEOMVS = "neogeomvs"
+    NEOGEOX = "neogeox"
+    NES = "nes"
+    NEW3DS = "new3ds"
+    NEWBRAIN = "newbrain"
+    NEWTON = "newton"
+    NGAGE = "ngage"
+    NGAGE2 = "ngage2"
+    NGC = "ngc"
+    NGP = "ngp"
+    NGPC = "ngpc"
+    NORTHSTAR = "northstar"
+    NOVAL760 = "noval760"
+    NUON = "nuon"
+    OCULUSGO = "oculusgo"
+    OCULUSQUEST = "oculusquest"
+    OCULUSRIFT = "oculusrift"
+    OCULUSVR = "oculusvr"
+    ODYSSEY = "odyssey"
+    ODYSSEY2 = "odyssey2"
+    OHIOSCI = "ohiosci"
+    ONLIVE = "onlive"
+    OOPARTS = "ooparts"
+    ORAO = "orao"
+    ORIC = "oric"
+    OS2 = "os2"
+    OUYA = "ouya"
+    PALMOS = "palmos"
+    PANASONICJUNGLE = "panasonicjungle"
+    PANASONICM2 = "panasonicm2"
+    PANDORA = "pandora"
+    PC50 = "pc50"
+    PC60 = "pc60"
+    PC8000 = "pc8000"
+    PC88 = "pc88"
+    PC98 = "pc98"
+    PCBOOTER = "pcbooter"
+    PCENGINE = "pcengine"
+    PCENGINECD = "pcenginecd"
+    PCFX = "pcfx"
+    PDP1 = "pdp1"
+    PDP10 = "pdp10"
+    PDP11 = "pdp11"
+    PEBBLE = "pebble"
+    PET = "pet"
+    PHOTOCD = "photocd"
+    PICO = "pico"
+    PICO8 = "pico8"
+    PICOBEENA = "picobeena"
+    PIPPIN = "pippin"
+    PLATO = "plato"
+    PLAYDATE = "playdate"
+    PLAYDIA = "playdia"
+    PLEXARCADE = "plexarcade"
+    PLUGNPLAY = "plugnplay"
+    POCKETSTATION = "pocketstation"
+    POKEMINI = "pokemini"
+    POKITTO = "pokitto"
+    POLY88 = "poly88"
+    PS2 = "ps2"
+    PS3 = "ps3"
+    PS4 = "ps4"
+    PS5 = "ps5"
+    PSNOW = "psnow"
+    PSP = "psp"
+    PSVITA = "psvita"
+    PSVR = "psvr"
+    PSVR2 = "psvr2"
+    PSX = "psx"
+    PV1000 = "pv1000"
+    QUEST2 = "quest2"
+    QUEST3 = "quest3"
+    RCASTUDIO2 = "rcastudio2"
+    RM380Z = "rm380z"
+    ROKU = "roku"
+    RZONE = "rzone"
+    SAMCOUPE = "samcoupe"
+    SATELLAVIEW = "satellaview"
+    SATURN = "saturn"
+    SCMP = "scmp"
+    SCV = "scv"
+    SD200 = "sd200"
+    SEGA32X = "sega32x"
+    SEGACD = "segacd"
+    SEGACD32X = "segacd32x"
+    SERIESXS = "seriesxs"
+    SFAM = "sfam"
+    SG1000 = "sg1000"
+    SGB = "sgb"
+    SIGNETICS2650 = "signetics2650"
+    SINCLAIRQL = "sinclairql"
+    SKVM = "skvm"
+    SMC777 = "smc777"
+    SMS = "sms"
+    SNES = "snes"
+    SOCRATES = "socrates"
+    SOL20 = "sol20"
+    SORDM5 = "sordm5"
+    SPECTRAVIDEO = "spectravideo"
+    SRI500 = "sri500"
+    STADIA = "stadia"
+    STEAMVR = "steamvr"
+    SUFAMI = "sufami"
+    SUPERACAN = "superacan"
+    SUPERGRAFX = "supergrafx"
+    SUPERVISION = "supervision"
+    SUPERVISION8000 = "supervision8000"
+    SURESHOTHD = "sureshothd"
+    SWANCRYSTAL = "swancrystal"
+    SWITCH = "switch"
+    SWITCH2 = "switch2"
+    SWTPC6800 = "swtpc6800"
+    SYMBIAN = "symbian"
+    TADS = "tads"
+    TATUNGEINSTEIN = "tatungeinstein"
+    TEKTRONIX4050 = "tektronix4050"
+    TELESPIEL = "telespiel"
+    TELSTAR = "telstar"
+    TEREBIKKO = "terebikko"
+    TERMINAL = "terminal"
+    THOMSONMO = "thomsonmo"
+    THOMSONTO = "thomsonto"
+    TI99 = "ti99"
+    TIKI100 = "tiki100"
+    TIM = "tim"
+    TIMEX2068 = "timex2068"
+    TICALC = "ticalc"
+    TIZEN = "tizen"
+    TOMAHAWKF1 = "tomahawkf1"
+    TRITON = "triton"
+    TRS80 = "trs80"
+    TRS80MC10 = "trs80mc10"
+    TRS80MODEL100 = "trs80model100"
+    TUTOR = "tutor"
+    TVOS = "tvos"
+    UZEBOX = "uzebox"
+    VC = "vc"
+    VC4000 = "vc4000"
+    VECTREX = "vectrex"
+    VERSATILE = "versatile"
+    VFLASH = "vflash"
+    VG5000 = "vg5000"
+    VIDEOBRAIN = "videobrain"
+    VIDEOPACPLUS = "videopacplus"
+    VIRTUALBOY = "virtualboy"
+    VIS = "vis"
+    VISIONOS = "visionos"
+    VMU = "vmu"
+    VSMILE = "vsmile"
+    WANG2200 = "wang2200"
+    WASM4 = "wasm4"
+    WATCHOS = "watchos"
+    WEBOS = "webos"
+    WII = "wii"
+    WIIU = "wiiu"
+    WIN = "win"
+    WIN3X = "win3x"
+    WINDOWS = "windows"
+    WINDOWSAPPS = "windowsapps"
+    WINDOWSMOBILE = "windowsmobile"
+    WINDOWSMX = "windowsmx"
+    WINPHONE = "winphone"
+    WIPI = "wipi"
+    WSWAN = "wswan"
+    WSWANC = "wswanc"
+    X1 = "x1"
+    X55 = "x55"
+    X68000 = "x68000"
+    XAVIXPORT = "xavixport"
+    XBOX = "xbox"
+    XBOX360 = "xbox360"
+    XBOXCLOUDGAMING = "xboxcloudgaming"
+    XBOXONE = "xboxone"
+    XEROXALTO = "xerox-alto"
+    Z80 = "z80"
+    Z8000 = "z8000"
+    ZAURUS = "zaurus"
+    ZEEBO = "zeebo"
+    ZMACHINE = "zmachine"
+    ZOD = "zod"
+    ZODIAC = "zodiac"
+    ZUNE = "zune"
+    ZX80 = "zx80"
+    ZX81 = "zx81"
+    ZXS = "zxs"
+    ZXSNEXT = "zxsnext"

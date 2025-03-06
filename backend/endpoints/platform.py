@@ -9,7 +9,7 @@ from fastapi import Request
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
-from handler.metadata.base_hander import UNIVERSAL_PLATFORM_SLUGS
+from handler.metadata.base_hander import UniversalPlatformSlug
 from handler.metadata.igdb_handler import SLUG_TO_IGDB_PLATFORM
 from handler.metadata.moby_handler import SLUG_TO_MOBY_PLATFORM
 from handler.metadata.ss_handler import SLUG_TO_SS_PLATFORM
@@ -79,7 +79,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     db_platforms = db_platform_handler.get_platforms()
     db_platforms_map = {p.slug: p for p in db_platforms}
 
-    for slug in UNIVERSAL_PLATFORM_SLUGS:
+    for slug in UniversalPlatformSlug:
         now = datetime.now(timezone.utc)
 
         db_platform = db_platforms_map.get(slug, None)

@@ -1,7 +1,7 @@
 # poetry run python3 -m utils.generate_supported_platforms
 from typing import TypedDict
 
-from handler.metadata.base_hander import UNIVERSAL_PLATFORM_SLUGS
+from handler.metadata.base_hander import UniversalPlatformSlug
 from handler.metadata.igdb_handler import SLUG_TO_IGDB_PLATFORM
 from handler.metadata.moby_handler import SLUG_TO_MOBY_PLATFORM
 from handler.metadata.ss_handler import SLUG_TO_SS_PLATFORM
@@ -18,7 +18,7 @@ class SupportedPlatform(TypedDict):
 if __name__ == "__main__":
     supported_platforms: dict[str, SupportedPlatform] = {}
 
-    for slug in UNIVERSAL_PLATFORM_SLUGS:
+    for slug in UniversalPlatformSlug:
         igdb_info = SLUG_TO_IGDB_PLATFORM.get(slug)
         moby_info = SLUG_TO_MOBY_PLATFORM.get(slug)
         ss_info = SLUG_TO_SS_PLATFORM.get(slug)
