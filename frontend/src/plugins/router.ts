@@ -1,9 +1,16 @@
 // Composables
-import { createRouter, createWebHistory } from "vue-router";
+import {
+  createRouter,
+  createWebHistory,
+  type NavigationGuardWithThis,
+} from "vue-router";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeAuth from "@/stores/auth";
+import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import type { User } from "@/stores/users";
+import { startViewTransition } from "@/plugins/transition";
+import romApi from "@/services/api/rom";
 
 export const ROUTES = {
   SETUP: "setup",
@@ -75,6 +82,24 @@ const routes = [
         path: "rom/:rom",
         name: ROUTES.ROM,
         component: () => import("@/views/GameDetails.vue"),
+        beforeEnter: (async (to, _from, next) => {
+          const romsStore = storeRoms();
+
+          if (
+            !romsStore.currentRom ||
+            romsStore.currentRom.id !== parseInt(to.params.rom as string)
+          ) {
+            try {
+              const data = await romApi.getRom({
+                romId: parseInt(to.params.rom as string),
+              });
+              romsStore.setCurrentRom(data.data);
+            } catch (error) {
+              console.error(error);
+            }
+          }
+          next();
+        }) as NavigationGuardWithThis<undefined>,
       },
       {
         path: "rom/:rom/ejs",
@@ -202,6 +227,11 @@ router.beforeEach(async (to, _from, next) => {
 router.afterEach(() => {
   // Scroll to top to avoid annoying behaviour on mobile
   window.scrollTo({ top: 0, left: 0 });
+});
+
+router.beforeResolve(async () => {
+  const viewTransition = startViewTransition();
+  await viewTransition.captured;
 });
 
 export default router;

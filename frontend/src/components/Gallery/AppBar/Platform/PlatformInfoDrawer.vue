@@ -89,10 +89,7 @@ async function updatePlatform() {
         color: "green",
       });
       currentPlatform.value = platform;
-      const index = allPlatforms.value.findIndex((p) => p.id === platform.id);
-      if (index !== -1) {
-        allPlatforms.value[index] = platform;
-      }
+      platformsStore.update(platform);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
