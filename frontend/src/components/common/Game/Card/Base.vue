@@ -85,13 +85,14 @@ const fallbackCoverImage = computed(() =>
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
+      :style="{ viewTransitionName: `card-${rom.id}` }"
       :minWidth="width"
       :maxWidth="width"
       :minHeight="height"
       :maxHeight="height"
       v-bind="{
         ...hoverProps,
-        ...(withLink && rom && romsStore.isSimpleRom(rom)
+        ...(withLink && rom.id
           ? {
               to: { name: ROUTES.ROM, params: { rom: rom.id } },
             }
@@ -119,8 +120,8 @@ const fallbackCoverImage = computed(() =>
             @touchstart="handleTouchStart"
             @touchend="handleTouchEnd"
             v-bind="hoverProps"
-            :class="{ pointer: pointerOnHover }"
             cover
+            :class="{ pointer: pointerOnHover }"
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
             :src="
               src ||
@@ -260,7 +261,7 @@ const fallbackCoverImage = computed(() =>
 /* Apply styles to v-expand-transition component */
 .v-expand-transition-enter-active,
 .v-expand-transition-leave-active {
-  transition: max-height 0.5s; /* Adjust the transition duration if needed */
+  transition: max-height 0.5s;
 }
 .v-expand-transition-enter, .v-expand-transition-leave-to /* .v-expand-transition-leave-active in <2.1.8 */ {
   max-height: 0; /* Set max-height to 0 when entering or leaving */
