@@ -31,6 +31,7 @@ const props = withDefaults(
     showFav?: boolean;
     withBorderPrimary?: boolean;
     withLink?: boolean;
+    disableViewTransition?: boolean;
     src?: string;
   }>(),
   {
@@ -46,6 +47,7 @@ const props = withDefaults(
     showPlatformIcon: false,
     showFav: false,
     withBorderPrimary: false,
+    disableViewTransition: false,
     withLink: false,
     src: "",
   },
@@ -85,7 +87,9 @@ const fallbackCoverImage = computed(() =>
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
-      :style="{ viewTransitionName: `card-${rom.id}` }"
+      :style="
+        disableViewTransition ? {} : { viewTransitionName: `card-${rom.id}` }
+      "
       :minWidth="width"
       :maxWidth="width"
       :minHeight="height"
