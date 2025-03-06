@@ -1,6 +1,6 @@
 """empty message
 
-Revision ID: 0037_drop_platform_url
+Revision ID: 0037_migrate_platform_slugs
 Revises: 0036_screenscraper_platforms_id
 Create Date: 2025-03-01 16:42:16.618676
 
@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "0037_drop_platform_url"
+revision = "0037_migrate_platform_slugs"
 down_revision = "0036_screenscraper_platforms_id"
 branch_labels = None
 depends_on = None
