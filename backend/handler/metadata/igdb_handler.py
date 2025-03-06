@@ -418,6 +418,9 @@ class IGDBHandler(MetadataHandler):
         ]
 
     async def get_platform(self, slug: str) -> IGDBPlatform:
+        if not slug:
+            return IGDBPlatform(igdb_id=None, slug="")
+
         slug = UniversalPlatformSlug(slug)
         platform = SLUG_TO_IGDB_PLATFORM.get(slug, None)
 

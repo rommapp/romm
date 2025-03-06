@@ -333,6 +333,9 @@ class SSHandler(MetadataHandler):
         return pydash.get(roms, "[0]", None)
 
     def get_platform(self, slug: str) -> SSPlatform:
+        if not slug:
+            return SSPlatform(ss_id=None, slug=slug)
+
         slug = UniversalPlatformSlug(slug)
         platform = SLUG_TO_SS_PLATFORM.get(slug, None)
 
