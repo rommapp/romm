@@ -13,6 +13,7 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
+const auth = storeAuth();
 const romUser = ref(props.rom.rom_user);
 const romInfo = ref([
   { label: "SHA-1", value: props.rom.sha1_hash },
@@ -57,6 +58,7 @@ watch(
           <v-row class="align-center" no-gutters>
             <version-switcher :rom="rom" />
             <v-tooltip
+              v-if="auth.scopes.includes('roms.user.write')"
               location="top"
               class="tooltip"
               transition="fade-transition"
@@ -80,8 +82,8 @@ watch(
                     }}</v-icon
                   >{{ romUser.is_main_sibling ? "" : t("rom.default") }}</v-btn
                 >
-              </template></v-tooltip
-            >
+              </template>
+            </v-tooltip>
           </v-row>
         </v-col>
       </v-row>

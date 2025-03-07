@@ -54,10 +54,12 @@ watch(
 watch(
   romUser,
   () => {
-    romApi.updateUserRomProps({
-      romId: props.rom.id,
-      data: romUser.value,
-    });
+    if (scopes.value.includes("roms.user.write")) {
+      romApi.updateUserRomProps({
+        romId: props.rom.id,
+        data: romUser.value,
+      });
+    }
   },
   { deep: true },
 );
