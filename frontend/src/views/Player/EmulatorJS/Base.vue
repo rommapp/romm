@@ -4,6 +4,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
+import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
@@ -21,6 +22,7 @@ const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
+const auth = storeAuth();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
@@ -35,7 +37,7 @@ const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
 
 // Functions
 function onPlay() {
-  if (rom.value) {
+  if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({
       romId: rom.value.id,
       data: rom.value.rom_user,
