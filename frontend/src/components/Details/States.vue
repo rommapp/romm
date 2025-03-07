@@ -137,6 +137,7 @@ async function downloasStates() {
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
+          v-if="scopes.includes('assets.write')"
           drawer
           size="small"
           @click="

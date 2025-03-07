@@ -89,6 +89,8 @@ async function downloasSaves() {
           <v-icon>mdi-download</v-icon>
         </v-btn>
         <v-btn
+          v-if="scopes.includes('assets.write')"
+          drawer
           :class="{
             'text-romm-red': selectedSaves.length,
           }"
@@ -133,6 +135,8 @@ async function downloasSaves() {
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
+          v-if="scopes.includes('assets.write')"
+          drawer
           size="small"
           @click="
             emitter?.emit('showDeleteSavesDialog', {
