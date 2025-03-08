@@ -22,6 +22,7 @@ from .base_hander import (
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
     MetadataHandler,
+    UniversalPlatformSlug,
 )
 
 # Used to display the Screenscraper API status in the frontend
@@ -332,14 +333,18 @@ class SSHandler(MetadataHandler):
         return pydash.get(roms, "[0]", None)
 
     def get_platform(self, slug: str) -> SSPlatform:
-        platform = SLUG_TO_SS_ID.get(slug, None)
+        if not slug:
+            return SSPlatform(ss_id=None, slug=slug)
+
+        slug = UniversalPlatformSlug(slug)
+        platform = SLUG_TO_SS_PLATFORM.get(slug, None)
 
         if not platform:
-            return SSPlatform(ss_id=None, slug=slug)
+            return SSPlatform(ss_id=None, slug=slug.value)
 
         return SSPlatform(
             ss_id=platform["id"],
-            slug=slug,
+            slug=slug.value,
             name=platform["name"],
         )
 
@@ -651,183 +656,136 @@ class SlugToSSId(TypedDict):
     name: str
 
 
-SLUG_TO_SS_ID: dict[str, SlugToSSId] = {
-    "3do": {"id": 29, "name": "3DO"},
-    "amiga": {"id": 64, "name": "Amiga"},
-    "amiga-cd32": {"id": 134, "name": "Amiga CD"},
-    "cpc": {"id": 60, "name": "CPC"},
-    "acpc": {"id": 60, "name": "CPC"},  # IGDB
-    "android": {"id": 63, "name": "Android"},
-    "apple2": {"id": 86, "name": "Apple II"},
-    "appleii": {"id": 86, "name": "Apple II"},  # IGDB
-    "apple2gs": {"id": 217, "name": "Apple IIGS"},
-    "apple-iigs": {"id": 51, "name": "Apple IIGS"},  # IGDB
-    "arcadia-2001": {"id": 94, "name": "Arcadia 2001"},
-    "arduboy": {"id": 263, "name": "Arduboy"},
-    "atari-2600": {"id": 26, "name": "Atari 2600"},
-    "atari2600": {"id": 26, "name": "Atari 2600"},  # IGDB
-    "atari-5200": {"id": 40, "name": "Atari 5200"},
-    "atari5200": {"id": 40, "name": "Atari 5200"},  # IGDB
-    "atari-7800": {"id": 41, "name": "Atari 7800"},
-    "atari7800": {"id": 41, "name": "Atari 7800"},  # IGDB
-    "atari-8-bit": {"id": 43, "name": "Atari 8bit"},
-    "atari8bit": {"id": 43, "name": "Atari 8bit"},  # IGDB
-    "atari-st": {"id": 42, "name": "Atari ST"},
-    "atom": {"id": 36, "name": "Atom"},
-    "bbc-micro": {"id": 37, "name": "BBC Micro"},
-    "bbcmicro": {"id": 37, "name": "BBC Micro"},  # IGDB
-    "bally-astrocade": {"id": 44, "name": "Astrocade"},
-    "astrocade": {"id": 44, "name": "Astrocade"},  # IGDB
-    "cd-i": {"id": 133, "name": "CD-i"},
-    "philips-cd-i": {"id": 133, "name": "CD-i"},  # IGDB
-    "cdtv": {"id": 129, "name": "Amiga CDTV"},
-    "commodore-cdtv": {"id": 129, "name": "Amiga CDTV"},  # IGDB
-    "camputers-lynx": {"id": 88, "name": "Camputers Lynx"},
-    "casio-loopy": {"id": 98, "name": "Loopy"},
-    "casio-pv-1000": {"id": 74, "name": "PV-1000"},
-    "channel-f": {"id": 80, "name": "Channel F"},
-    "fairchild-channel-f": {"id": 80, "name": "Channel F"},  # IGDB
-    "colecoadam": {"id": 89, "name": "Adam"},
-    "colecovision": {"id": 48, "name": "Colecovision"},
-    "colour-genie": {"id": 92, "name": "EG2000 Colour Genie"},
-    "c128": {"id": 66, "name": "Commodore 64"},
-    "commodore-16-plus4": {"id": 99, "name": "Plus/4"},
-    "c-plus-4": {"id": 99, "name": "Plus/4"},  # IGDB
-    "c16": {"id": 99, "name": "Plus/4"},  # IGDB
-    "c64": {"id": 66, "name": "Commodore 64"},
-    "pet": {"id": 240, "name": "PET"},
-    "cpet": {"id": 240, "name": "PET"},  # IGDB
-    "creativision": {"id": 241, "name": "CreatiVision"},
-    "dos": {"id": 135, "name": "PC Dos"},
-    "dragon-3264": {"id": 91, "name": "Dragon 32/64"},
-    "dragon-32-slash-64": {"id": 91, "name": "Dragon 32/64"},  # IGDB
-    "dreamcast": {"id": 23, "name": "Dreamcast"},
-    "dc": {"id": 23, "name": "Dreamcast"},  # IGDB
-    "electron": {"id": 85, "name": "Electron"},
-    "acorn-electron": {"id": 85, "name": "Electron"},  # IGDB
-    "epoch-game-pocket-computer": {"id": 95, "name": "Game Pocket Computer"},
-    "epoch-super-cassette-vision": {"id": 67, "name": "Super Cassette Vision"},
-    "exelvision": {"id": 96, "name": "EXL 100"},
-    "exidy-sorcerer": {"id": 165, "name": "Exidy"},
-    "fmtowns": {"id": 253, "name": "FM Towns"},
-    "fm-towns": {"id": 253, "name": "FM Towns"},  # IGDB
-    "fm-7": {"id": 97, "name": "FM-7"},
-    "g-and-w": {"id": 52, "name": "Game & Watch"},  # IGDB (Game & Watch)
-    "gp32": {"id": 101, "name": "GP32"},
-    "gameboy": {"id": 9, "name": "Game Boy"},
-    "gb": {"id": 9, "name": "Game Boy"},  # IGDB
-    "gameboy-advance": {"id": 12, "name": "Game Boy Advance"},
-    "gba": {"id": 12, "name": "Game Boy Advance"},  # IGDB
-    "gameboy-color": {"id": 10, "name": "Game Boy Color"},
-    "gbc": {"id": 10, "name": "Game Boy Color"},  # IGDB
-    "game-gear": {"id": 21, "name": "Game Gear"},
-    "gamegear": {"id": 21, "name": "Game Gear"},  # IGDB
-    "game-com": {"id": 121, "name": "Game.com"},
-    "game-dot-com": {"id": 121, "name": "Game.com"},  # IGDB
-    "gamecube": {"id": 13, "name": "GameCube"},
-    "ngc": {"id": 13, "name": "GameCube"},  # IGDB
-    "genesis": {"id": 1, "name": "Megadrive"},
-    "genesis-slash-megadrive": {"id": 1, "name": "Megadrive"},
-    "intellivision": {"id": 115, "name": "Intellivision"},
-    "jaguar": {"id": 27, "name": "Jaguar"},
-    "jupiter-ace": {"id": 126, "name": "Jupiter Ace"},
-    "linux": {"id": 145, "name": "Linux"},
-    "lynx": {"id": 28, "name": "Lynx"},
-    "msx": {"id": 113, "name": "MSX"},
-    "macintosh": {"id": 146, "name": "Mac OS"},
-    "mac": {"id": 146, "name": "Mac OS"},  # IGDB
-    "ngage": {"id": 30, "name": "N-Gage"},
-    "nes": {"id": 3, "name": "NES"},
-    "famicom": {"id": 3, "name": "NES"},
-    "neo-geo": {"id": 142, "name": "Neo-Geo"},
-    "neogeoaes": {"id": 142, "name": "Neo-Geo"},  # IGDB
-    "neogeomvs": {"id": 68, "name": "Neo-Geo MVS"},  # IGDB
-    "neo-geo-cd": {"id": 70, "name": "Neo-Geo CD"},
-    "neo-geo-pocket": {"id": 25, "name": "Neo-Geo Pocket"},
-    "neo-geo-pocket-color": {"id": 82, "name": "Neo-Geo Pocket Color"},
-    "3ds": {"id": 17, "name": "Nintendo 3DS"},
-    "n64": {"id": 14, "name": "Nintendo 64"},
-    "nintendo-ds": {"id": 15, "name": "Nintendo DS"},
-    "nds": {"id": 15, "name": "Nintendo DS"},  # IGDB
-    "nintendo-dsi": {"id": 15, "name": "Nintendo DS"},
-    "switch": {"id": 225, "name": "Switch"},
-    "odyssey-2": {"id": 104, "name": "Videopac G7000"},
-    "odyssey-2-slash-videopac-g7000": {"id": 104, "name": "Videopac G7000"},
-    "oric": {"id": 131, "name": "Oric 1 / Atmos"},
-    "pc88": {"id": 221, "name": "NEC PC-8801"},
-    "pc-8800-series": {"id": 221, "name": "NEC PC-8801"},  # IGDB
-    "pc98": {"id": 208, "name": "NEC PC-9801"},
-    "pc-9800-series": {"id": 208, "name": "NEC PC-9801"},  # IGDB
-    "pc-fx": {"id": 72, "name": "PC-FX"},
-    "pico": {"id": 234, "name": "Pico-8"},
-    "ps-vita": {"id": 62, "name": "PS Vita"},
-    "psvita": {"id": 62, "name": "PS Vita"},  # IGDB
-    "psp": {"id": 61, "name": "PSP"},
-    "palmos": {"id": 219, "name": "Palm OS"},
-    "palm-os": {"id": 219, "name": "Palm OS"},  # IGDB
-    "philips-vg-5000": {"id": 261, "name": "Philips VG 5000"},
-    "playstation": {"id": 57, "name": "Playstation"},
-    "ps": {"id": 57, "name": "Playstation"},  # IGDB
-    "ps2": {"id": 58, "name": "Playstation 2"},
-    "ps3": {"id": 59, "name": "Playstation 3"},
-    "playstation-4": {"id": 60, "name": "Playstation 4"},
-    "ps4--1": {"id": 60, "name": "Playstation 4"},  # IGDB
-    "playstation-5": {"id": 284, "name": "Playstation 5"},
-    "ps5": {"id": 284, "name": "Playstation 5"},  # IGDB
-    "pokemon-mini": {"id": 211, "name": "Pokémon mini"},
-    "sam-coupe": {"id": 213, "name": "MGT SAM Coupé"},
-    "sega-32x": {"id": 19, "name": "Megadrive 32X"},
-    "sega32": {"id": 19, "name": "Megadrive 32X"},  # IGDB
-    "sega-cd": {"id": 20, "name": "Mega-CD"},
-    "segacd": {"id": 20, "name": "Mega-CD"},  # IGDB
-    "sega-master-system": {"id": 2, "name": "Master System"},
-    "sms": {"id": 2, "name": "Master System"},  # IGDB
-    "sega-pico": {"id": 250, "name": "Sega Pico"},
-    "sega-saturn": {"id": 22, "name": "Saturn"},
-    "saturn": {"id": 22, "name": "Saturn"},  # IGDB
-    "sg-1000": {"id": 109, "name": "SG-1000"},
-    "snes": {"id": 4, "name": "Super Nintendo"},
-    "sharp-x1": {"id": 220, "name": "Sharp X1"},
-    "x1": {"id": 220, "name": "Sharp X1"},  # IGDB
-    "sharp-x68000": {"id": 79, "name": "Sharp X68000"},
-    "spectravideo": {"id": 218, "name": "Spectravideo"},
-    "super-acan": {"id": 100, "name": "Super A'can"},
-    "supergrafx": {"id": 105, "name": "PC Engine SuperGrafx"},
-    "supervision": {"id": 207, "name": "Watara Supervision"},
-    "ti-99": {"id": 205, "name": "TI-99/4A"},  # IGDB
-    "trs-80-coco": {"id": 144, "name": "TRS-80 Color Computer"},
-    "trs-80-color-computer": {"id": 144, "name": "TRS-80 Color Computer"},  # IGDB
-    "taito-x-55": {"id": 112, "name": "Type X"},
-    "thomson-mo": {"id": 141, "name": "Thomson MO/TO"},
-    "thomson-mo5": {"id": 141, "name": "Thomson MO/TO"},
-    "thomson-to": {"id": 141, "name": "Thomson MO/TO"},
-    "turbografx-cd": {"id": 114, "name": "PC Engine CD-Rom"},
-    "turbografx-16-slash-pc-engine-cd": {"id": 114, "name": "PC Engine CD-Rom"},
-    "turbo-grafx": {"id": 31, "name": "PC Engine"},
-    "turbografx16--1": {"id": 31, "name": "PC Engine"},  # IGDB
-    "vsmile": {"id": 120, "name": "V.Smile"},
-    "vic-20": {"id": 73, "name": "Vic-20"},
-    "vectrex": {"id": 102, "name": "Vectrex"},
-    "videopac-g7400": {"id": 104, "name": "Videopac G7000"},
-    "virtual-boy": {"id": 11, "name": "Virtual Boy"},
-    "virtualboy": {"id": 11, "name": "Virtual Boy"},
-    "wii": {"id": 18, "name": "Wii"},
-    "wii-u": {"id": 18, "name": "Wii U"},
-    "wiiu": {"id": 18, "name": "Wii U"},
-    "windows": {"id": 3, "name": "Windows"},
-    "win": {"id": 138, "name": "PC Windows"},  # IGDB
-    "win3x": {"id": 136, "name": "PC Win3.xx"},
-    "wonderswan": {"id": 45, "name": "WonderSwan"},
-    "wonderswan-color": {"id": 46, "name": "WonderSwan Color"},
-    "xbox": {"id": 32, "name": "Xbox"},
-    "xbox360": {"id": 33, "name": "Xbox 360"},
-    "xbox-one": {"id": 34, "name": "Xbox One"},
-    "xboxone": {"id": 34, "name": "Xbox One"},
-    "z-machine": {"id": 215, "name": "Z-Machine"},
-    "zx-spectrum": {"id": 76, "name": "ZX Spectrum"},
-    "zx81": {"id": 77, "name": "ZX81"},
-    "sinclair-zx81": {"id": 77, "name": "ZX81"},  # IGDB
+SLUG_TO_SS_PLATFORM: dict[UniversalPlatformSlug, SlugToSSId] = {
+    UniversalPlatformSlug._3DO: {"id": 29, "name": "3DO"},
+    UniversalPlatformSlug._3DS: {"id": 17, "name": "Nintendo 3DS"},
+    UniversalPlatformSlug.ACORNELECTRON: {"id": 85, "name": "Electron"},
+    UniversalPlatformSlug.AMIGA: {"id": 64, "name": "Amiga"},
+    UniversalPlatformSlug.AMIGACD32: {"id": 134, "name": "Amiga CD"},
+    UniversalPlatformSlug.AMSTRADCPC: {"id": 60, "name": "Amstrad CPC"},
+    UniversalPlatformSlug.ANDROID: {"id": 63, "name": "Android"},
+    UniversalPlatformSlug.APPLE2: {"id": 86, "name": "Apple II"},
+    UniversalPlatformSlug.APPLE2GS: {"id": 217, "name": "Apple IIGS"},
+    UniversalPlatformSlug.ARCADIA: {"id": 94, "name": "Arcadia 2001"},
+    UniversalPlatformSlug.ARDUBOY: {"id": 263, "name": "Arduboy"},
+    UniversalPlatformSlug.ASTROCADE: {"id": 44, "name": "Astrocade"},
+    UniversalPlatformSlug.ATARI2600: {"id": 26, "name": "Atari 2600"},
+    UniversalPlatformSlug.ATARI5200: {"id": 40, "name": "Atari 5200"},
+    UniversalPlatformSlug.ATARI7800: {"id": 41, "name": "Atari 7800"},
+    UniversalPlatformSlug.ATARI8BIT: {"id": 43, "name": "Atari 8bit"},
+    UniversalPlatformSlug.ATARIST: {"id": 42, "name": "Atari ST"},
+    UniversalPlatformSlug.ATOM: {"id": 36, "name": "Atom"},
+    UniversalPlatformSlug.BBCMICRO: {"id": 37, "name": "BBC Micro"},
+    UniversalPlatformSlug.C128: {"id": 66, "name": "Commodore 64"},
+    UniversalPlatformSlug.C16: {"id": 99, "name": "Plus/4"},
+    UniversalPlatformSlug.C20: {"id": 73, "name": "Vic-20"},
+    UniversalPlatformSlug.C64: {"id": 66, "name": "Commodore 64"},
+    UniversalPlatformSlug.CAMPLYNX: {"id": 88, "name": "Camputers Lynx"},
+    UniversalPlatformSlug.CDI: {"id": 133, "name": "CD-i"},
+    UniversalPlatformSlug.CDTV: {"id": 129, "name": "Amiga CDTV"},
+    UniversalPlatformSlug.CHANNELF: {"id": 80, "name": "Channel F"},
+    UniversalPlatformSlug.COCO: {"id": 144, "name": "TRS-80 Color Computer"},
+    UniversalPlatformSlug.COLECOADAM: {"id": 89, "name": "Adam"},
+    UniversalPlatformSlug.COLECOVISION: {"id": 48, "name": "Colecovision"},
+    UniversalPlatformSlug.COLOURGENIE: {"id": 92, "name": "EG2000 Colour Genie"},
+    UniversalPlatformSlug.CPET: {"id": 240, "name": "PET"},
+    UniversalPlatformSlug.CPLUS4: {"id": 99, "name": "Commodore Plus/4"},
+    UniversalPlatformSlug.CREATIVISION: {"id": 241, "name": "CreatiVision"},
+    UniversalPlatformSlug.DOS: {"id": 135, "name": "PC Dos"},
+    UniversalPlatformSlug.DRAGON32: {"id": 91, "name": "Dragon 32/64"},
+    UniversalPlatformSlug.DREAMCAST: {"id": 23, "name": "Dreamcast"},
+    UniversalPlatformSlug.DSI: {"id": 15, "name": "Nintendo DSi"},
+    UniversalPlatformSlug.EGPC: {"id": 95, "name": "Game Pocket Computer"},
+    UniversalPlatformSlug.EXELVISION: {"id": 96, "name": "EXL 100"},
+    UniversalPlatformSlug.EXIDYSORCERER: {"id": 165, "name": "Exidy"},
+    UniversalPlatformSlug.FAMICOM: {"id": 3, "name": "NES"},
+    UniversalPlatformSlug.FM7: {"id": 97, "name": "FM-7"},
+    UniversalPlatformSlug.FMTOWNS: {"id": 253, "name": "FM Towns"},
+    UniversalPlatformSlug.GAMEANDWATCH: {"id": 52, "name": "Game & Watch"},
+    UniversalPlatformSlug.GAMECOM: {"id": 121, "name": "Game.com"},
+    UniversalPlatformSlug.GAMEGEAR: {"id": 21, "name": "Game Gear"},
+    UniversalPlatformSlug.GB: {"id": 9, "name": "Game Boy"},
+    UniversalPlatformSlug.GBA: {"id": 12, "name": "Game Boy Advance"},
+    UniversalPlatformSlug.GBC: {"id": 10, "name": "Game Boy Color"},
+    UniversalPlatformSlug.GP32: {"id": 101, "name": "GP32"},
+    UniversalPlatformSlug.INTELLIVISION: {"id": 115, "name": "Intellivision"},
+    UniversalPlatformSlug.JAGUAR: {"id": 27, "name": "Jaguar"},
+    UniversalPlatformSlug.JUPITERACE: {"id": 126, "name": "Jupiter Ace"},
+    UniversalPlatformSlug.LINUX: {"id": 145, "name": "Linux"},
+    UniversalPlatformSlug.LOOPY: {"id": 98, "name": "Loopy"},
+    UniversalPlatformSlug.LYNX: {"id": 28, "name": "Lynx"},
+    UniversalPlatformSlug.MAC: {"id": 146, "name": "Mac OS"},
+    UniversalPlatformSlug.MACINTOSH: {"id": 146, "name": "Mac OS"},
+    UniversalPlatformSlug.MEGADRIVE: {"id": 1, "name": "Megadrive"},
+    UniversalPlatformSlug.MSX: {"id": 113, "name": "MSX"},
+    UniversalPlatformSlug.N64: {"id": 14, "name": "Nintendo 64"},
+    UniversalPlatformSlug.NDS: {"id": 15, "name": "Nintendo DS"},
+    UniversalPlatformSlug.NEOGEOAES: {"id": 142, "name": "Neo-Geo"},
+    UniversalPlatformSlug.NEOGEOCD: {"id": 70, "name": "Neo-Geo CD"},
+    UniversalPlatformSlug.NEOGEOMVS: {"id": 68, "name": "Neo-Geo MVS"},
+    UniversalPlatformSlug.NES: {"id": 3, "name": "NES"},
+    UniversalPlatformSlug.NGAGE: {"id": 30, "name": "N-Gage"},
+    UniversalPlatformSlug.NGC: {"id": 13, "name": "GameCube"},
+    UniversalPlatformSlug.NGP: {"id": 25, "name": "Neo-Geo Pocket"},
+    UniversalPlatformSlug.NGPC: {"id": 82, "name": "Neo-Geo Pocket Color"},
+    UniversalPlatformSlug.ODYSSEY2: {"id": 104, "name": "Videopac G7000"},
+    UniversalPlatformSlug.ORIC: {"id": 131, "name": "Oric 1 / Atmos"},
+    UniversalPlatformSlug.PALMOS: {"id": 219, "name": "Palm OS"},
+    UniversalPlatformSlug.PC88: {"id": 221, "name": "NEC PC-8801"},
+    UniversalPlatformSlug.PC98: {"id": 208, "name": "NEC PC-9801"},
+    UniversalPlatformSlug.PCENGINE: {"id": 31, "name": "PC Engine"},
+    UniversalPlatformSlug.PCENGINECD: {"id": 114, "name": "PC Engine CD-Rom"},
+    UniversalPlatformSlug.PCFX: {"id": 72, "name": "PC-FX"},
+    UniversalPlatformSlug.PET: {"id": 240, "name": "PET"},
+    UniversalPlatformSlug.PICO: {"id": 250, "name": "Sega Pico"},
+    UniversalPlatformSlug.PICO8: {"id": 234, "name": "Pico-8"},
+    UniversalPlatformSlug.POKEMINI: {"id": 211, "name": "Pokémon mini"},
+    UniversalPlatformSlug.PS2: {"id": 58, "name": "Playstation 2"},
+    UniversalPlatformSlug.PS3: {"id": 59, "name": "Playstation 3"},
+    UniversalPlatformSlug.PS4: {"id": 60, "name": "Playstation 4"},
+    UniversalPlatformSlug.PS5: {"id": 284, "name": "Playstation 5"},
+    UniversalPlatformSlug.PSP: {"id": 61, "name": "PSP"},
+    UniversalPlatformSlug.PSVITA: {"id": 62, "name": "PS Vita"},
+    UniversalPlatformSlug.PSX: {"id": 57, "name": "Playstation"},
+    UniversalPlatformSlug.PV1000: {"id": 74, "name": "PV-1000"},
+    UniversalPlatformSlug.SAMCOUPE: {"id": 213, "name": "MGT SAM Coupé"},
+    UniversalPlatformSlug.SATURN: {"id": 22, "name": "Saturn"},
+    UniversalPlatformSlug.SCV: {"id": 67, "name": "Super Cassette Vision"},
+    UniversalPlatformSlug.SEGA32X: {"id": 19, "name": "Megadrive 32X"},
+    UniversalPlatformSlug.SEGACD: {"id": 20, "name": "Mega-CD"},
+    UniversalPlatformSlug.SG1000: {"id": 109, "name": "SG-1000"},
+    UniversalPlatformSlug.SMS: {"id": 2, "name": "Master System"},
+    UniversalPlatformSlug.SNES: {"id": 4, "name": "Super Nintendo"},
+    UniversalPlatformSlug.SPECTRAVIDEO: {"id": 218, "name": "Spectravideo"},
+    UniversalPlatformSlug.SUPERACAN: {"id": 100, "name": "Super A'can"},
+    UniversalPlatformSlug.SUPERGRAFX: {"id": 105, "name": "PC Engine SuperGrafx"},
+    UniversalPlatformSlug.SUPERVISION: {"id": 207, "name": "Watara Supervision"},
+    UniversalPlatformSlug.SWITCH: {"id": 225, "name": "Switch"},
+    UniversalPlatformSlug.THOMSONMO: {"id": 141, "name": "Thomson MO/TO"},
+    UniversalPlatformSlug.TI99: {"id": 205, "name": "TI-99/4A"},
+    UniversalPlatformSlug.VECTREX: {"id": 102, "name": "Vectrex"},
+    UniversalPlatformSlug.VG5000: {"id": 261, "name": "Philips VG 5000"},
+    UniversalPlatformSlug.VIDEOPACPLUS: {"id": 104, "name": "Videopac G7000"},
+    UniversalPlatformSlug.VIRTUALBOY: {"id": 11, "name": "Virtual Boy"},
+    UniversalPlatformSlug.VSMILE: {"id": 120, "name": "V.Smile"},
+    UniversalPlatformSlug.WII: {"id": 18, "name": "Wii"},
+    UniversalPlatformSlug.WIIU: {"id": 18, "name": "Wii U"},
+    UniversalPlatformSlug.WIN: {"id": 138, "name": "PC Windows"},
+    UniversalPlatformSlug.WIN3X: {"id": 136, "name": "PC Win3.xx"},
+    UniversalPlatformSlug.WINDOWS: {"id": 3, "name": "Windows"},
+    UniversalPlatformSlug.WSWAN: {"id": 45, "name": "WonderSwan"},
+    UniversalPlatformSlug.WSWANC: {"id": 46, "name": "WonderSwan Color"},
+    UniversalPlatformSlug.X1: {"id": 220, "name": "Sharp X1"},
+    UniversalPlatformSlug.X55: {"id": 112, "name": "Type X"},
+    UniversalPlatformSlug.X68000: {"id": 79, "name": "Sharp X68000"},
+    UniversalPlatformSlug.XBOX: {"id": 32, "name": "Xbox"},
+    UniversalPlatformSlug.XBOX360: {"id": 33, "name": "Xbox 360"},
+    UniversalPlatformSlug.XBOXONE: {"id": 34, "name": "Xbox One"},
+    UniversalPlatformSlug.ZMACHINE: {"id": 215, "name": "Z-Machine"},
+    UniversalPlatformSlug.ZX81: {"id": 77, "name": "ZX81"},
+    UniversalPlatformSlug.ZXS: {"id": 76, "name": "ZX Spectrum"},
 }
 
+SS_PLATFORM_SLUGS = SLUG_TO_SS_PLATFORM.keys()
 # Reverse lookup
-SS_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_SS_ID.items()}
+SS_ID_TO_SS_PLATFORM = {v["id"]: k for k, v in SLUG_TO_SS_PLATFORM.items()}

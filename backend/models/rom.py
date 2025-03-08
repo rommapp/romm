@@ -6,6 +6,9 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
+from handler.metadata.igdb_handler import IGDB_PLATFORM_SLUGS
+from handler.metadata.moby_handler import MOBY_PLATFORM_SLUGS
+from handler.metadata.ss_handler import SS_PLATFORM_SLUGS
 from models.base import BaseModel
 from sqlalchemy import (
     TIMESTAMP,
@@ -313,7 +316,17 @@ class Rom(BaseModel):
 
     @property
     def is_fully_identified(self) -> bool:
-        return bool(self.igdb_id) and bool(self.moby_id) and bool(self.ss_id)
+        is_igdb_identified = (
+            bool(self.igdb_id) or self.platform_slug not in IGDB_PLATFORM_SLUGS
+        )
+        is_moby_identified = (
+            bool(self.moby_id) or self.platform_slug not in MOBY_PLATFORM_SLUGS
+        )
+        is_ss_identified = (
+            bool(self.ss_id) or self.platform_slug not in SS_PLATFORM_SLUGS
+        )
+
+        return is_igdb_identified and is_moby_identified and is_ss_identified
 
     def __repr__(self) -> str:
         return self.fs_name
