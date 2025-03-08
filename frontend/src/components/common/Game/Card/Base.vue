@@ -102,11 +102,11 @@ const fallbackCoverImage = computed(() =>
             }
           : {}),
       }"
+      class="bg-transparent"
       :class="{
         'on-hover': isHovering,
         'border-selected': withBorderPrimary,
         'transform-scale': transformScale,
-        'bg-surface': !isHovering,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
