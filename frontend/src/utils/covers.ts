@@ -13,8 +13,8 @@ function translatedBGs(str: string) {
       y: -75 + (hashString(str) % 50),
     },
     right: {
-      x: 250 - (hashString(str) % 100),
-      y: 150 - (hashString(str) % 50),
+      x: 350 - (hashString(str) % 100),
+      y: 250 - (hashString(str) % 50),
     },
   };
 }
