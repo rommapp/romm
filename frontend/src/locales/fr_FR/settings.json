@@ -26,6 +26,10 @@
   "show-collections-desc": "Afficher la section des collections sur la page d'accueil",
   "show-collections-as-grid": "Collections en grille",
   "show-collections-as-grid-desc": "Voir les cartes des collections en grille sur la page d'accueil",
+  "show-virtual-collections": "Afficher les collections générées automatiquement",
+  "show-virtual-collections-desc": "Affiché sur la page d'accueil et dans la barre latérale des collections.",
+  "virtual-collection-type": "Type de collection virtuelle (méthode de regroupement des roms)",
+
   "group-roms": "Grouper les roms",
   "group-roms-desc": "Grouper les versions du même rom ensemble dans la galerie",
   "show-siblings": "Afficher les frères et sœurs",

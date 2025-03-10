@@ -11,7 +11,6 @@ import { getDownloadPath } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
 import storeHeartbeat from "@/stores/heartbeat";
 
-const heartbeat = storeHeartbeat();
 export const romApi = api;
 
 async function uploadRoms({
@@ -21,6 +20,8 @@ async function uploadRoms({
   platformId: number;
   filesToUpload: File[];
 }): Promise<PromiseSettledResult<unknown>[]> {
+  const heartbeat = storeHeartbeat();
+
   if (!socket.connected) socket.connect();
   const uploadStore = storeUpload();
 
@@ -57,12 +58,14 @@ async function uploadRoms({
 async function getRoms({
   platformId = null,
   collectionId = null,
+  virtualCollectionId = null,
   searchTerm = "",
   orderBy = "name",
   orderDir = "asc",
 }: {
   platformId?: number | null;
   collectionId?: number | null;
+  virtualCollectionId?: string | null;
   searchTerm?: string | null;
   orderBy?: string | null;
   orderDir?: string | null;
@@ -71,6 +74,7 @@ async function getRoms({
     params: {
       platform_id: platformId,
       collection_id: collectionId,
+      virtual_collection_id: virtualCollectionId,
       search_term: searchTerm,
       order_by: orderBy,
       order_dir: orderDir,
@@ -120,13 +124,13 @@ async function searchRom({
 // Used only for multi-file downloads
 async function downloadRom({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
   const a = document.createElement("a");
-  a.href = getDownloadPath({ rom, files });
+  a.href = getDownloadPath({ rom, fileIDs });
 
   document.body.appendChild(a);
   a.click();
@@ -151,8 +155,9 @@ async function updateRom({
   const formData = new FormData();
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
+  if (rom.ss_id) formData.append("ss_id", rom.ss_id.toString());
   formData.append("name", rom.name || "");
-  formData.append("file_name", rom.file_name);
+  formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");
   formData.append("url_cover", rom.url_cover || "");
   if (rom.artwork) formData.append("artwork", rom.artwork);
@@ -163,6 +168,64 @@ async function updateRom({
       remove_cover: removeCover,
       unmatch_metadata: unmatch,
     },
+  });
+}
+
+async function uploadManuals({
+  romId,
+  filesToUpload,
+}: {
+  romId: number;
+  filesToUpload: File[];
+}): Promise<PromiseSettledResult<unknown>[]> {
+  const heartbeat = storeHeartbeat();
+  const uploadStore = storeUpload();
+
+  console.log(filesToUpload);
+  const promises = filesToUpload.map((file) => {
+    const formData = new FormData();
+    formData.append(file.name, file);
+
+    uploadStore.start(file.name);
+    return new Promise((resolve, reject) => {
+      api
+        .post(`/roms/${romId}/manuals`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            "X-Upload-Filename": file.name,
+          },
+          timeout: heartbeat.value.FRONTEND.UPLOAD_TIMEOUT * 1000,
+          params: {},
+          onUploadProgress: (progressEvent: AxiosProgressEvent) => {
+            uploadStore.update(file.name, progressEvent);
+          },
+        })
+        .then(resolve)
+        .catch((error) => {
+          uploadStore.fail(file.name, error.response?.data?.detail);
+          reject(error);
+        });
+    });
+  });
+
+  return Promise.allSettled(promises);
+}
+
+async function updateUserRomProps({
+  romId,
+  data,
+  updateLastPlayed = false,
+  removeLastPlayed = false,
+}: {
+  romId: number;
+  data: Partial<RomUserSchema>;
+  updateLastPlayed?: boolean;
+  removeLastPlayed?: boolean;
+}): Promise<{ data: RomUserSchema }> {
+  return api.put(`/roms/${romId}/props`, {
+    data: data,
+    update_last_played: updateLastPlayed,
+    remove_last_played: removeLastPlayed,
   });
 }
 
@@ -179,21 +242,6 @@ async function deleteRoms({
   });
 }
 
-async function updateUserRomProps({
-  romId,
-  data,
-  updateLastPlayed = false,
-}: {
-  romId: number;
-  data: Partial<RomUserSchema>;
-  updateLastPlayed?: boolean;
-}): Promise<{ data: RomUserSchema }> {
-  return api.put(`/roms/${romId}/props`, {
-    data: data,
-    update_last_played: updateLastPlayed,
-  });
-}
-
 export default {
   uploadRoms,
   getRoms,
@@ -203,6 +251,7 @@ export default {
   downloadRom,
   searchRom,
   updateRom,
-  deleteRoms,
+  uploadManuals,
   updateUserRomProps,
+  deleteRoms,
 };

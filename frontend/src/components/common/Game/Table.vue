@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
-import storeDownload from "@/stores/download";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeConfig from "@/stores/config";
+import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
-import type { Events } from "@/types/emitter";
+import storeAuth from "@/stores/auth";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   formatBytes,
   isEJSEmulationSupported,
@@ -15,33 +16,33 @@ import {
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
-import type { Emitter } from "mitt";
-import { inject, onMounted, ref, watch, computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
+import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 
 // Props
-const { xs } = useDisplay();
-const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("updateDataTablePages", updateDataTablePages);
+withDefaults(
+  defineProps<{
+    showPlatformIcon?: boolean;
+  }>(),
+  {
+    showPlatformIcon: false,
+  },
+);
 const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
 const router = useRouter();
-const route = useRoute();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const { filteredRoms, selectedRoms } = storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
-const page = ref(parseInt(window.location.hash.slice(1)) || 1);
-const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
-const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+const auth = storeAuth();
+
 const HEADERS = [
   {
     title: "Title",
@@ -53,7 +54,7 @@ const HEADERS = [
     title: "Size",
     align: "start",
     sortable: true,
-    key: "file_size_bytes",
+    key: "fs_size_bytes",
   },
   {
     title: "Added",
@@ -97,16 +98,8 @@ const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
 // Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
-  router.push({ name: "rom", params: { rom: row.item.id } });
+  router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
   romsStore.resetSelection();
-}
-
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(filteredRoms.value.length / itemsPerPage.value);
-}
-
-function updateUrlHash() {
-  window.location.hash = String(page.value);
 }
 
 function getTruePlatformSlug(platformSlug: string) {
@@ -140,37 +133,21 @@ function updateSelectedRom(rom: SimpleRom) {
     romsStore.addToSelection(rom);
   }
 }
-
-watch(itemsPerPage, async () => {
-  localStorage.setItem("romsPerPage", itemsPerPage.value.toString());
-  updateDataTablePages();
-});
-
-// Watch route to avoid race condition
-watch(route, () => {
-  page.value = parseInt(window.location.hash.slice(1)) || 1;
-});
-
-onMounted(() => {
-  updateDataTablePages();
-});
 </script>
 
 <template>
-  <v-data-table
+  <v-data-table-virtual
     @click:row="rowClick"
-    :items-per-page="itemsPerPage"
-    :items-per-page-options="PER_PAGE_OPTIONS"
     :item-value="(item: SimpleRom) => item"
     :items="filteredRoms"
     :headers="HEADERS"
     v-model="selectedRomIDs"
-    v-model:page="page"
     show-select
     fixed-header
     fixed-footer
     hide-default-footer
     hover
+    class="rounded"
   >
     <template #header.data-table-select>
       <v-checkbox-btn
@@ -191,37 +168,41 @@ onMounted(() => {
       />
     </template>
     <template #item.name="{ item }">
-      <td>
-        <v-list-item class="px-0">
-          <template #prepend>
-            <r-avatar-rom :rom="item" />
-          </template>
-          <v-row no-gutters>
-            <v-col>{{ item.name }}</v-col>
-          </v-row>
-          <v-row no-gutters>
-            <v-col class="text-romm-accent-1">
-              {{ item.file_name }}
-            </v-col>
-          </v-row>
-          <template #append>
-            <v-chip
-              v-if="
-                item.sibling_roms &&
-                item.sibling_roms.length > 0 &&
-                showSiblings
-              "
-              class="translucent-dark ml-4"
-              size="x-small"
-            >
-              <span class="text-caption">+{{ item.sibling_roms.length }}</span>
-            </v-chip>
-          </template>
-        </v-list-item>
-      </td>
+      <v-list-item
+        :min-width="400"
+        class="px-0 py-2"
+        :to="{ name: ROUTES.ROM, params: { rom: item.id } }"
+      >
+        <template #prepend>
+          <platform-icon
+            class="mr-4"
+            :size="30"
+            v-if="showPlatformIcon"
+            :slug="item.platform_slug"
+          />
+          <r-avatar-rom :rom="item" />
+        </template>
+        <v-row no-gutters>
+          <v-col>{{ item.name }}</v-col>
+        </v-row>
+        <v-row no-gutters>
+          <v-col class="text-primary">
+            {{ item.fs_name }}
+          </v-col>
+        </v-row>
+        <template #append>
+          <v-chip
+            v-if="item.sibling_roms.length > 0 && showSiblings"
+            class="translucent-dark ml-4"
+            size="x-small"
+          >
+            <span class="text-caption">+{{ item.sibling_roms.length }}</span>
+          </v-chip>
+        </template>
+      </v-list-item>
     </template>
-    <template #item.file_size_bytes="{ item }">
-      <span class="text-no-wrap">{{ formatBytes(item.file_size_bytes) }}</span>
+    <template #item.fs_size_bytes="{ item }">
+      <span class="text-no-wrap">{{ formatBytes(item.fs_size_bytes) }}</span>
     </template>
     <template #item.created_at="{ item }">
       <span v-if="item.created_at" class="text-no-wrap">{{
@@ -305,7 +286,7 @@ onMounted(() => {
           size="small"
           @click.stop="
             $router.push({
-              name: 'emulatorjs',
+              name: ROUTES.EMULATORJS,
               params: { rom: item?.id },
             })
           "
@@ -317,14 +298,21 @@ onMounted(() => {
           size="small"
           @click.stop="
             $router.push({
-              name: 'ruffle',
+              name: ROUTES.RUFFLE,
               params: { rom: item?.id },
             })
           "
         >
           <v-icon>mdi-play</v-icon>
         </v-btn>
-        <v-menu location="bottom">
+        <v-menu
+          v-if="
+            auth.scopes.includes('roms.write') ||
+            auth.scopes.includes('roms.user.write') ||
+            auth.scopes.includes('collections.write')
+          "
+          location="bottom"
+        >
           <template #activator="{ props }">
             <v-btn v-bind="props" size="small">
               <v-icon>mdi-dots-vertical</v-icon>
@@ -334,36 +322,7 @@ onMounted(() => {
         </v-menu>
       </v-btn-group>
     </template>
-
-    <template #bottom>
-      <v-divider />
-      <div>
-        <v-row no-gutters class="pa-1 align-center justify-center">
-          <v-col cols="8" sm="9" md="10" class="px-3">
-            <v-pagination
-              :show-first-last-page="!xs"
-              v-model="page"
-              @update:model-value="updateUrlHash"
-              rounded="0"
-              active-color="romm-accent-1"
-              :length="pageCount"
-            />
-          </v-col>
-          <v-col>
-            <v-select
-              v-model="itemsPerPage"
-              class="pa-2"
-              label="Roms per page"
-              density="compact"
-              variant="outlined"
-              :items="PER_PAGE_OPTIONS"
-              hide-details
-            />
-          </v-col>
-        </v-row>
-      </div>
-    </template>
-  </v-data-table>
+  </v-data-table-virtual>
 </template>
 
 <style scoped>
@@ -371,5 +330,8 @@ onMounted(() => {
   vertical-align: super;
   font-size: 75%;
   opacity: 75%;
+}
+.v-data-table {
+  width: calc(100% - 16px) !important;
 }
 </style>

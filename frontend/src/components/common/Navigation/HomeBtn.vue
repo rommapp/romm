@@ -1,18 +1,9 @@
 <script setup lang="ts">
-import { ref } from "vue";
 import RIsotipo from "@/components/common/RIsotipo.vue";
-import storeNavigation from "@/stores/navigation";
-
-const homeUrl = ref(`${location.protocol}//${location.host}`);
-const navigationStore = storeNavigation();
+import { ROUTES } from "@/plugins/router";
 </script>
 <template>
-  <r-isotipo
-    :to="homeUrl"
-    @click="navigationStore.goHome"
-    class="cursor-pointer"
-    :size="40"
-  />
+  <r-isotipo :to="{ name: ROUTES.HOME }" class="cursor-pointer" :size="40" />
 </template>
 
 <style scoped>
@@ -21,6 +12,6 @@ const navigationStore = storeNavigation();
 }
 .v-avatar:hover,
 .v-avatar.active {
-  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-primary)));
 }
 </style>

@@ -21,8 +21,7 @@ import { useDisplay } from "vuetify";
 // Props
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
-const { xs } = useDisplay();
-const viewportWidth = ref(window.innerWidth);
+const { smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
@@ -70,7 +69,7 @@ function showEditable() {
 }
 
 function closeEditable() {
-  updatedPlatform.value = {};
+  updatedPlatform.value = { ...currentPlatform.value };
   isEditable.value = false;
 }
 
@@ -90,10 +89,7 @@ async function updatePlatform() {
         color: "green",
       });
       currentPlatform.value = platform;
-      const index = allPlatforms.value.findIndex((p) => p.id === platform.id);
-      if (index !== -1) {
-        allPlatforms.value[index] = platform;
-      }
+      platformsStore.update(platform);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -104,7 +100,7 @@ async function updatePlatform() {
         color: "red",
       });
     });
-  updatedPlatform.value = {};
+  updatedPlatform.value = { ...currentPlatform.value };
   updating.value = false;
 }
 
@@ -172,11 +168,18 @@ watch(
 
 <template>
   <v-navigation-drawer
-    v-model="activePlatformInfoDrawer"
-    floating
-    mobile
-    :width="xs ? viewportWidth : '500'"
     v-if="currentPlatform"
+    mobile
+    floating
+    width="500"
+    v-model="activePlatformInfoDrawer"
+    :class="{
+      'mx-2 px-1': activePlatformInfoDrawer,
+      'drawer-mobile': smAndDown && activePlatformInfoDrawer,
+      'drawer-desktop': !smAndDown,
+    }"
+    class="bg-surface border-0 rounded my-2 py-1"
+    style="height: unset"
   >
     <v-row no-gutters class="justify-center align-center pa-4">
       <v-col cols="12">
@@ -186,13 +189,13 @@ watch(
               <v-btn
                 v-if="!isEditable"
                 :loading="updating"
-                class="bg-terciary"
+                class="bg-toplayer"
                 @click="showEditable"
                 size="small"
               >
                 <template #loader>
                   <v-progress-circular
-                    color="romm-accent-1"
+                    color="primary"
                     :width="2"
                     :size="20"
                     indeterminate
@@ -201,13 +204,13 @@ watch(
                 <v-icon>mdi-pencil</v-icon></v-btn
               >
               <template v-else>
-                <v-btn @click="closeEditable" size="small" class="bg-terciary"
+                <v-btn @click="closeEditable" size="small" class="bg-toplayer"
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
                   @click="updatePlatform()"
                   size="small"
-                  class="bg-terciary ml-1"
+                  class="bg-toplayer ml-1"
                   ><v-icon color="romm-green">mdi-check</v-icon></v-btn
                 >
               </template>
@@ -216,6 +219,7 @@ watch(
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
+            :fs-slug="currentPlatform.fs_slug"
             class="platform-icon"
             :size="160"
           />
@@ -240,7 +244,7 @@ watch(
           </div>
           <div class="mt-6">
             <v-btn
-              class="bg-terciary my-1"
+              class="bg-toplayer my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
               <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
@@ -251,17 +255,17 @@ watch(
               rounded="4"
               :loading="scanning"
               @click="scan"
-              class="ml-2 my-1 bg-terciary"
+              class="ml-2 my-1 bg-toplayer"
             >
               <template #prepend>
-                <v-icon :color="scanning ? '' : 'romm-accent-1'"
+                <v-icon :color="scanning ? '' : 'primary'"
                   >mdi-magnify-scan</v-icon
                 >
               </template>
               {{ t("scan.scan") }}
               <template #loader>
                 <v-progress-circular
-                  color="romm-accent-1"
+                  color="primary"
                   :width="2"
                   :size="20"
                   indeterminate
@@ -270,32 +274,61 @@ watch(
             </v-btn>
           </div>
         </div>
-        <div class="mt-4 text-center">
-          <a
-            v-if="currentPlatform.igdb_id"
-            style="text-decoration: none; color: inherit"
-            :href="currentPlatform.url ? currentPlatform.url : ''"
-            target="_blank"
-          >
-            <v-chip size="x-small" @click.stop>
-              <span>IGDB</span>
-              <v-divider class="mx-2 border-opacity-25" vertical />
-              <span>ID: {{ currentPlatform.igdb_id }}</span>
-            </v-chip>
-          </a>
-          <v-chip
-            size="x-small"
-            class="ml-1"
-            @click.stop
-            :class="{ 'ml-1': currentPlatform.igdb_id }"
-            v-if="currentPlatform.moby_id"
-          >
-            <span>Mobygames</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>ID: {{ currentPlatform.moby_id }}</span>
-          </v-chip>
-        </div>
-        <v-card class="mt-4 bg-terciary fill-width" elevation="0">
+        <v-row
+          v-if="
+            currentPlatform.igdb_id ||
+            currentPlatform.moby_id ||
+            currentPlatform.ss_id
+          "
+          class="text-white text-shadow mt-2 text-center"
+          no-gutters
+        >
+          <v-col cols="12">
+            <a
+              v-if="currentPlatform.igdb_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.igdb.com/platforms/${currentPlatform.slug}`"
+              target="_blank"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/igdb.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.igdb_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.moby_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              :class="{ 'ml-1': currentPlatform.igdb_id }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/moby.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.moby_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.ss_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
+              target="_blank"
+              :class="{
+                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
+              }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/ss.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.ss_id }}</span>
+              </v-chip>
+            </a>
+          </v-col>
+        </v-row>
+        <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
           <v-card-text class="pa-4">
             <template
               v-for="(field, index) in platformInfoFields"
@@ -325,12 +358,14 @@ watch(
       icon="mdi-cog"
       :title="t('platform.settings')"
       elevation="0"
+      titleDivider
+      bgColor="bg-toplayer"
     >
       <template #content>
         <v-chip
           label
           variant="text"
-          class="ml-2"
+          class="ml-2 mt-2"
           prepend-icon="mdi-aspect-ratio"
           >{{ t("platform.cover-style") }}</v-chip
         >
@@ -347,7 +382,7 @@ watch(
             <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
-                  :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+                  :color="isSelected ? 'primary' : 'romm-gray'"
                   variant="outlined"
                   @click="toggle"
                 >
@@ -357,7 +392,7 @@ watch(
                     <v-img
                       :aspect-ratio="aspectRatio.size"
                       cover
-                      src="/assets/login_bg.png"
+                      src="/assets/default/cover/empty.svg"
                       :class="{ greyscale: !isSelected }"
                       class="d-flex align-center justify-center"
                     >
@@ -382,11 +417,13 @@ watch(
       icon-color="red"
       :title="t('platform.danger-zone')"
       elevation="0"
+      titleDivider
+      bgColor="bg-toplayer"
     >
       <template #content>
         <div class="text-center">
           <v-btn
-            class="text-romm-red bg-terciary ma-2"
+            class="text-romm-red bg-toplayer ma-2"
             variant="flat"
             @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"
           >
@@ -407,9 +444,16 @@ watch(
   z-index: 1;
 }
 .platform-icon {
-  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
 }
 .greyscale {
   filter: grayscale(100%);
+}
+.drawer-desktop {
+  top: 56px !important;
+}
+.drawer-mobile {
+  top: 110px !important;
+  width: calc(100% - 16px) !important;
 }
 </style>

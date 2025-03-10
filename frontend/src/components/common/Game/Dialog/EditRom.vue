@@ -6,16 +6,17 @@ import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useRoute } from "vue-router";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { getMissingCoverImage } from "@/utils/covers";
 
 // Props
 const { t } = useI18n();
-const theme = useTheme();
 const { lgAndUp, smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
@@ -24,8 +25,10 @@ const rom = ref<UpdateRom>();
 const romsStore = storeRoms();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
+const manualFiles = ref<File[]>([]);
 const platfotmsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
+const uploadStore = storeUpload();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
@@ -43,10 +46,13 @@ const computedAspectRatio = computed(() => {
     : galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
+);
 
 // Functions
-function triggerFileInput() {
-  const fileInput = document.getElementById("file-input");
+function triggerFileInput(id: string) {
+  const fileInput = document.getElementById(id);
   fileInput?.click();
 }
 
@@ -70,12 +76,12 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  imagePreviewUrl.value = missingCoverImage.value;
   removeCover.value = true;
 }
 
 const noMetadataMatch = computed(() => {
-  return !rom.value?.igdb_id && !rom.value?.moby_id && !rom.value?.sgdb_id;
+  return !rom.value?.igdb_id && !rom.value?.moby_id && !rom.value?.ss_id;
 });
 
 async function handleRomUpdate(
@@ -117,6 +123,51 @@ async function handleRomUpdate(
     });
 }
 
+async function uploadManuals() {
+  if (!rom.value) return;
+
+  await romApi
+    .uploadManuals({
+      romId: rom.value.id,
+      filesToUpload: manualFiles.value,
+    })
+    .then((responses: PromiseSettledResult<unknown>[]) => {
+      const successfulUploads = responses.filter(
+        (d) => d.status == "fulfilled",
+      );
+      const failedUploads = responses.filter((d) => d.status == "rejected");
+
+      if (failedUploads.length == 0) {
+        uploadStore.reset();
+      }
+
+      if (successfulUploads.length == 0) {
+        return emitter?.emit("snackbarShow", {
+          msg: `All manuals skipped, nothing to upload.`,
+          icon: "mdi-close-circle",
+          color: "orange",
+          timeout: 5000,
+        });
+      }
+
+      emitter?.emit("snackbarShow", {
+        msg: `${successfulUploads.length} manuals uploaded successfully (and ${failedUploads.length} skipped/failed).`,
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 3000,
+      });
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Unable to upload manuals: ${response?.data?.detail || response?.statusText || message}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    });
+  manualFiles.value = [];
+}
+
 async function unmatchRom() {
   if (!rom.value) return;
   await handleRomUpdate(
@@ -126,7 +177,7 @@ async function unmatchRom() {
 }
 
 async function updateRom() {
-  if (!rom.value?.file_name) {
+  if (!rom.value?.fs_name) {
     emitter?.emit("snackbarShow", {
       msg: "Cannot save: file name is required",
       icon: "mdi-close-circle",
@@ -176,7 +227,7 @@ function closeDialog() {
           <v-row class="px-2" no-gutters>
             <v-col>
               <v-text-field
-                v-model="rom.file_name"
+                v-model="rom.fs_name"
                 class="py-2"
                 :rules="[(value: string) => !!value]"
                 :label="rom.multi ? t('rom.foldername') : t('rom.filename')"
@@ -186,11 +237,11 @@ function closeDialog() {
               >
                 <template #details>
                   <v-label class="text-caption text-wrap">
-                    <v-icon size="small" class="mr-2 text-romm-accent-1">
+                    <v-icon size="small" class="mr-2 text-primary">
                       mdi-folder-file-outline
                     </v-icon>
                     <span>
-                      /romm/library/{{ rom.file_path }}/{{ rom.file_name }}
+                      /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
                     </span>
                   </v-label>
                 </template>
@@ -210,6 +261,54 @@ function closeDialog() {
               />
             </v-col>
           </v-row>
+          <v-row class="px-2 mt-2" no-gutters>
+            <v-col>
+              <v-chip
+                :variant="rom.has_manual ? 'flat' : 'tonal'"
+                label
+                size="large"
+                class="pr-0 bg-toplayer"
+              >
+                <span
+                  :class="{
+                    'text-romm-red': !rom.has_manual,
+                    'text-romm-green': rom.has_manual,
+                  }"
+                  >{{ t("rom.manual")
+                  }}<v-icon class="ml-1">{{
+                    rom.has_manual ? "mdi-check" : "mdi-close"
+                  }}</v-icon></span
+                >
+                <v-btn
+                  @click="triggerFileInput('manual-file-input')"
+                  class="bg-toplayer ml-3"
+                  icon="mdi-upload"
+                  rounded="0"
+                  size="small"
+                >
+                  <v-icon size="large">mdi-upload</v-icon>
+                  <v-file-input
+                    id="manual-file-input"
+                    v-model="manualFiles"
+                    accept="application/pdf"
+                    hide-details
+                    multiple
+                    required
+                    class="file-input"
+                    @change="uploadManuals"
+                  />
+                </v-btn>
+              </v-chip>
+              <div v-if="rom.has_manual" class="mt-1">
+                <v-label class="text-caption text-wrap">
+                  <v-icon size="small" class="mr-2 text-primary">
+                    mdi-folder-file-outline
+                  </v-icon>
+                  <span> /romm/resources/{{ rom.path_manual }} </span>
+                </v-label>
+              </div>
+            </v-col>
+          </v-row>
         </v-col>
         <v-col cols="12" md="4" xl="3">
           <v-row
@@ -218,9 +317,13 @@ function closeDialog() {
             no-gutters
           >
             <v-col style="max-width: 240px">
-              <game-card :rom="rom" :src="imagePreviewUrl">
+              <game-card
+                :rom="rom"
+                :src="imagePreviewUrl"
+                disableViewTransition
+              >
                 <template #append-inner-right>
-                  <v-btn-group rounded="0" divided density="compact">
+                  <v-btn-group divided density="compact" rounded="0">
                     <v-btn
                       :disabled="
                         !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
@@ -239,11 +342,11 @@ function closeDialog() {
                     <v-btn
                       size="small"
                       class="translucent-dark"
-                      @click="triggerFileInput"
+                      @click="triggerFileInput('cover-file-input')"
                     >
                       <v-icon size="large">mdi-pencil</v-icon>
                       <v-file-input
-                        id="file-input"
+                        id="cover-file-input"
                         v-model="rom.artwork"
                         accept="image/*"
                         hide-details
@@ -270,17 +373,17 @@ function closeDialog() {
       <v-row class="justify-space-between px-4 py-2 mt-1" no-gutters>
         <v-btn
           :disabled="noMetadataMatch"
-          :class="` ${noMetadataMatch ? '' : 'bg-terciary text-romm-red'}`"
+          :class="` ${noMetadataMatch ? '' : 'bg-toplayer text-romm-red'}`"
           variant="flat"
           @click="unmatchRom"
         >
           {{ t("rom.unmatch-rom") }}
         </v-btn>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
-          <v-btn class="text-romm-green bg-terciary" @click="updateRom">
+          <v-btn class="text-romm-green bg-toplayer" @click="updateRom">
             {{ t("common.apply") }}
           </v-btn>
         </v-btn-group>

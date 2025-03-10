@@ -5,12 +5,11 @@ import { defineStore } from "pinia";
 export type Platform = PlatformSchema;
 
 export default defineStore("platforms", {
-  state: () => {
-    return {
-      allPlatforms: [] as Platform[],
-      searchText: "" as string,
-    };
-  },
+  state: () => ({
+    allPlatforms: [] as Platform[],
+    searchText: "" as string,
+  }),
+
   getters: {
     totalGames: ({ allPlatforms: value }) =>
       value.reduce((count, p) => count + p.rom_count, 0),
@@ -29,23 +28,25 @@ export default defineStore("platforms", {
   },
   actions: {
     _reorder() {
-      this.allPlatforms = this.allPlatforms.sort((a, b) => {
+      this.allPlatforms = uniqBy(this.allPlatforms, "id").sort((a, b) => {
         return a.name.localeCompare(b.name);
       });
-      this.allPlatforms = uniqBy(this.allPlatforms, "id");
     },
     set(platforms: Platform[]) {
       this.allPlatforms = platforms;
+      this._reorder();
     },
     add(platform: Platform) {
       this.allPlatforms.push(platform);
       this._reorder();
     },
-    exists(platform: Platform) {
-      return (
-        this.allPlatforms.filter((p) => p.fs_slug == platform.fs_slug).length >
-        0
-      );
+    update(platform: Platform) {
+      const index = this.allPlatforms.findIndex((p) => p.id === platform.id);
+      this.allPlatforms[index] = platform;
+      this._reorder();
+    },
+    has(id: number) {
+      return this.allPlatforms.some((p) => p.id == id);
     },
     remove(platform: Platform) {
       this.allPlatforms = this.allPlatforms.filter((p) => {
@@ -60,6 +61,10 @@ export default defineStore("platforms", {
       return platform && platform.aspect_ratio
         ? parseFloat(eval(platform.aspect_ratio as string))
         : 2 / 3;
+    },
+    reset() {
+      this.allPlatforms = [] as Platform[];
+      this.searchText = "";
     },
   },
 });

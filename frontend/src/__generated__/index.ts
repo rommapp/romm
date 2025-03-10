@@ -1,4 +1,4 @@
-/* generated using openapi-typescript-codegen -- do no edit */
+/* generated using openapi-typescript-codegen -- do not edit */
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
@@ -31,10 +31,12 @@ export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
 export type { OIDCDict } from './models/OIDCDict';
 export type { PlatformSchema } from './models/PlatformSchema';
 export type { Role } from './models/Role';
-export type { RomFile } from './models/RomFile';
+export type { RomFileCategory } from './models/RomFileCategory';
+export type { RomFileSchema } from './models/RomFileSchema';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
 export type { RomSchema } from './models/RomSchema';
+export type { RomSSMetadata } from './models/RomSSMetadata';
 export type { RomUserSchema } from './models/RomUserSchema';
 export type { RomUserStatus } from './models/RomUserStatus';
 export type { SaveSchema } from './models/SaveSchema';
@@ -57,6 +59,7 @@ export type { UploadedStatesResponse } from './models/UploadedStatesResponse';
 export type { UserNotesSchema } from './models/UserNotesSchema';
 export type { UserSchema } from './models/UserSchema';
 export type { ValidationError } from './models/ValidationError';
+export type { VirtualCollectionSchema } from './models/VirtualCollectionSchema';
 export type { WatcherDict } from './models/WatcherDict';
 export type { WebrcadeFeedCategorySchema } from './models/WebrcadeFeedCategorySchema';
 export type { WebrcadeFeedItemPropsSchema } from './models/WebrcadeFeedItemPropsSchema';

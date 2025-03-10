@@ -6,8 +6,9 @@ import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
+import { storeToRefs, getActivePinia, type StateTree } from "pinia";
 import { inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -34,21 +35,35 @@ async function logout() {
       icon: "mdi-check-bold",
       color: "green",
     });
-    navigationStore.switchActiveSettingsDrawer();
-    auth.setUser(null);
-    await router.push({ name: "login" });
+
+    // Redirect to login page
+    await router.push({ name: ROUTES.LOGIN });
+
+    // Clear all pinia stores
+    // @ts-expect-error(2339)
+    getActivePinia()?._s.forEach((store: StateTree) => {
+      store.reset?.();
+    });
   });
 }
 </script>
 <template>
   <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
     mobile
-    width="500"
+    :location="smAndDown ? 'top' : 'left'"
+    width="450"
     v-model="activeSettingsDrawer"
-    class="bg-terciary"
+    :class="{
+      'mx-2': smAndDown || activeSettingsDrawer,
+      'my-2': !smAndDown || activeSettingsDrawer,
+      'drawer-mobile': smAndDown,
+    }"
+    class="bg-surface pa-1"
+    style="height: unset"
+    rounded
+    :border="0"
   >
-    <v-list rounded="0" class="pa-0">
+    <v-list class="pa-0">
       <v-list-img>
         <v-img
           :src="
@@ -57,6 +72,7 @@ async function logout() {
               : defaultAvatarPath
           "
           cover
+          class="rounded"
         >
         </v-img>
       </v-list-img>
@@ -67,41 +83,51 @@ async function logout() {
       >
       </v-list-item>
     </v-list>
-    <v-list rounded="0" class="pa-0">
+    <v-list class="py-1 px-0">
       <v-list-item
-        @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
+        v-if="scopes.includes('me.write')"
+        rounded
+        @click="emitter?.emit('showEditUserDialog', user as UserSchema)"
         append-icon="mdi-account"
         >{{ t("common.profile") }}</v-list-item
       >
-      <v-list-item :to="{ name: 'userInterface' }" append-icon="mdi-palette">{{
-        t("common.user-interface")
-      }}</v-list-item>
+      <v-list-item
+        class="mt-1"
+        rounded
+        :to="{ name: ROUTES.USER_INTERFACE }"
+        append-icon="mdi-palette"
+        >{{ t("common.user-interface") }}</v-list-item
+      >
       <v-list-item
         v-if="scopes.includes('platforms.write')"
+        class="mt-1"
+        rounded
         append-icon="mdi-table-cog"
-        :to="{ name: 'libraryManagement' }"
+        :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
-        :to="{ name: 'administration' }"
+        class="mt-1"
+        rounded
+        :to="{ name: ROUTES.ADMINISTRATION }"
         append-icon="mdi-security"
-        >{{ t("common.administration") }}</v-list-item
-      >
-      <template v-if="smAndDown">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit">{{
-          t("common.logout")
-        }}</v-list-item>
-      </template>
+        >{{ t("common.administration") }}
+      </v-list-item>
     </v-list>
-    <template v-if="!smAndDown" #append>
-      <v-list rounded="0" class="pa-0">
-        <v-divider />
-        <v-list-item @click="logout" append-icon="mdi-location-exit">{{
-          t("common.logout")
-        }}</v-list-item>
-      </v-list>
+    <template v-if="scopes.includes('me.write')" #append>
+      <v-btn
+        @click="logout"
+        append-icon="mdi-location-exit"
+        block
+        class="bg-toplayer text-romm-red"
+        >{{ t("common.logout") }}</v-btn
+      >
     </template>
   </v-navigation-drawer>
 </template>
+<style scoped>
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
+</style>

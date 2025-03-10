@@ -7,7 +7,7 @@ export type Platform = PlatformSchema;
 const filters = [
   "genres",
   "franchises",
-  "collections",
+  "meta_collections",
   "companies",
   "age_ratings",
   "status",
@@ -17,30 +17,33 @@ const statusFilters = Object.values(romStatusMap).map((status) => status.text);
 
 export type FilterType = (typeof filters)[number];
 
+const defaultFilterState = {
+  activeFilterDrawer: false,
+  searchText: "",
+  filterText: "",
+  filters: filters,
+  filterPlatforms: [] as Platform[],
+  filterGenres: [] as string[],
+  filterFranchises: [] as string[],
+  filterCollections: [] as string[],
+  filterCompanies: [] as string[],
+  filterAgeRatings: [] as string[],
+  filterStatuses: statusFilters,
+  filterUnmatched: false,
+  filterMatched: false,
+  filterFavourites: false,
+  filterDuplicates: false,
+  selectedPlatform: null as Platform | null,
+  selectedGenre: null as string | null,
+  selectedFranchise: null as string | null,
+  selectedCollection: null as string | null,
+  selectedCompany: null as string | null,
+  selectedAgeRating: null as string | null,
+  selectedStatus: null as string | null,
+};
+
 export default defineStore("galleryFilter", {
-  state: () => ({
-    activeFilterDrawer: false,
-    searchText: "",
-    filterPlatforms: [] as Platform[],
-    filterText: "",
-    filters: filters,
-    filterGenres: [] as string[],
-    filterFranchises: [] as string[],
-    filterCollections: [] as string[],
-    filterCompanies: [] as string[],
-    filterAgeRatings: [] as string[],
-    filterStatuses: statusFilters,
-    filterUnmatched: false,
-    filterMatched: false,
-    filterFavourites: false,
-    filterDuplicates: false,
-    selectedGenre: null as string | null,
-    selectedFranchise: null as string | null,
-    selectedCollection: null as string | null,
-    selectedCompany: null as string | null,
-    selectedAgeRating: null as string | null,
-    selectedStatus: null as string | null,
-  }),
+  state: () => defaultFilterState,
 
   actions: {
     switchActiveFilterDrawer() {
@@ -63,6 +66,11 @@ export default defineStore("galleryFilter", {
     },
     setFilterAgeRatings(ageRatings: string[]) {
       this.filterAgeRatings = ageRatings;
+    },
+    setSelectedFilterPlatform(platform: Platform) {
+      this.selectedPlatform = platform
+        ? this.filterPlatforms.find((p) => p.id === platform.id) || null
+        : null;
     },
     setSelectedFilterGenre(genre: string) {
       this.selectedGenre = genre;
@@ -115,6 +123,7 @@ export default defineStore("galleryFilter", {
           this.filterMatched ||
           this.filterFavourites ||
           this.filterDuplicates ||
+          this.selectedPlatform ||
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||
@@ -124,16 +133,7 @@ export default defineStore("galleryFilter", {
       );
     },
     reset() {
-      this.filterGenres = [];
-      this.filterFranchises = [];
-      this.filterCollections = [];
-      this.filterCompanies = [];
-      this.selectedGenre = null;
-      this.selectedFranchise = null;
-      this.selectedCollection = null;
-      this.selectedCompany = null;
-      this.selectedAgeRating = null;
-      this.selectedStatus = null;
+      Object.assign(this, defaultFilterState);
     },
   },
 });

@@ -2,5 +2,6 @@
   "python.testing.cwd": "${workspaceFolder}/backend",
   "python.testing.pytestArgs": ["."],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "postman.settings.dotenv-detection-notification-visibility": false
 }

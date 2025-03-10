@@ -34,7 +34,7 @@ onMounted(() => {
 });
 
 watch(
-  router.currentRoute.value.query,
+  () => router.currentRoute.value.query,
   (query) => {
     if (query.search && query.search !== filterText.value) {
       filterText.value = query.search as string;
@@ -50,8 +50,8 @@ watch(
     v-model="filterText"
     prepend-inner-icon="mdi-filter-outline"
     :label="t('common.filter')"
-    rounded="0"
     hide-details
+    rounded="0"
     clearable
     @click:clear="clear"
     @update:model-value="nextTick(filterRoms)"
