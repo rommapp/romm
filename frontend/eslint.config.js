@@ -28,7 +28,7 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         parser: "@typescript-eslint/parser",
-        project: "./tsconfig.json",
+        projectService: true,
         ecmaVersion: 2022,
         extraFileExtensions: [".vue"],
       },

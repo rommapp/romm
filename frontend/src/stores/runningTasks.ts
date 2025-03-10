@@ -7,5 +7,8 @@ export default defineStore("runningTasks", {
     set(runningTasks: boolean) {
       this.value = runningTasks;
     },
+    reset() {
+      this.value = false;
+    },
   },
 });

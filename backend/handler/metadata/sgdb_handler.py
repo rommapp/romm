@@ -1,5 +1,6 @@
 import asyncio
 import itertools
+import json
 from typing import Any, Final
 
 from config import STEAMGRIDDB_API_KEY
@@ -48,13 +49,20 @@ class SGDBBaseHandler(MetadataHandler):
             self.timeout,
         )
 
-        search_response = (
-            await httpx_client.get(
-                url,
-                headers=self.headers,
-                timeout=self.timeout,
+        res = await httpx_client.get(
+            url,
+            headers=self.headers,
+            timeout=self.timeout,
+        )
+
+        try:
+            search_response = res.json()
+        except json.decoder.JSONDecodeError as exc:
+            log.error(
+                "Failed to decode JSON response from SteamGridDB: %s",
+                str(exc),
             )
-        ).json()
+            return []
 
         if len(search_response["data"]) == 0:
             log.warning(f"Could not find '{search_term}' on SteamGridDB")
@@ -91,14 +99,21 @@ class SGDBBaseHandler(MetadataHandler):
                 self.timeout,
             )
 
-            covers_response = (
-                await httpx_client.get(
-                    url,
-                    headers=self.headers,
-                    timeout=self.timeout,
-                    params=params,
+            res = await httpx_client.get(
+                url,
+                headers=self.headers,
+                timeout=self.timeout,
+                params=params,
+            )
+
+            try:
+                covers_response = res.json()
+            except json.decoder.JSONDecodeError as exc:
+                log.error(
+                    "Failed to decode JSON response from SteamGridDB: %s",
+                    str(exc),
                 )
-            ).json()
+                return None
 
             page_covers = covers_response["data"]
             game_covers.extend(page_covers)

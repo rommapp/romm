@@ -5,6 +5,7 @@ import userApi from "@/services/api/user";
 import api from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
@@ -27,6 +28,12 @@ const metadataOptions = computed(() => [
     value: "moby",
     logo_path: "/assets/scrappers/moby.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+  },
+  {
+    name: "ScreenScrapper",
+    value: "ss",
+    logo_path: "/assets/scrappers/ss.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
   },
   {
     name: "SteamgridDB",
@@ -58,7 +65,7 @@ async function finishWizard() {
       await refetchCSRFToken();
       await api.get("/heartbeat").then(({ data: heartbeatData }) => {
         heartbeat.set(heartbeatData);
-        router.push({ name: "login" });
+        router.push({ name: ROUTES.LOGIN });
       });
     })
     .catch(({ response, message }) => {

@@ -14,19 +14,25 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeMount, ref, watch } from "vue";
+import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+// Dynamic import for PDFViewer
+const PdfViewer = defineAsyncComponent(
+  () => import("@/components/Details/PDFViewer.vue"),
+);
 
 // Props
 const { t } = useI18n();
 const route = useRoute();
 const tab = ref<
   | "details"
+  | "manual"
   | "saves"
   | "states"
   | "personal"
@@ -38,8 +44,10 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
+// Functions
 async function fetchDetails() {
   gettingRoms.value = true;
   await romApi
@@ -68,8 +76,13 @@ onBeforeMount(async () => {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
   }
 
+  if (currentRom.value) {
+    const currentPlatform = platformsStore.get(currentRom.value.platform_id);
+    if (currentPlatform) romsStore.setCurrentPlatform(currentPlatform);
+  }
+
   const downloadStore = storeDownload();
-  downloadStore.clear();
+  downloadStore.reset();
 });
 
 watch(
@@ -100,7 +113,7 @@ watch(
 
       <v-col>
         <div
-          class="ml-4"
+          class="pl-4"
           :class="{ 'position-absolute title-desktop': mdAndUp }"
         >
           <title-info :rom="currentRom" />
@@ -111,14 +124,16 @@ watch(
         >
           <v-tabs
             v-model="tab"
-            slider-color="romm-accent-1"
+            slider-color="primary"
             :class="{ 'mt-4': smAndDown }"
-            rounded="0"
           >
-            <v-tab value="details" rounded="0"> {{ t("rom.details") }} </v-tab>
-            <v-tab value="saves" rounded="0"> {{ t("common.saves") }} </v-tab>
-            <v-tab value="states" rounded="0"> {{ t("common.states") }} </v-tab>
-            <v-tab value="personal" rounded="0">
+            <v-tab value="details"> {{ t("rom.details") }} </v-tab>
+            <v-tab value="manual" v-if="currentRom.has_manual">
+              {{ t("rom.manual") }}
+            </v-tab>
+            <v-tab value="saves"> {{ t("common.saves") }} </v-tab>
+            <v-tab value="states"> {{ t("common.states") }} </v-tab>
+            <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
             <v-tab
@@ -128,12 +143,9 @@ watch(
                   (currentRom.igdb_metadata?.dlcs ?? []).length > 0)
               "
               value="additionalcontent"
-              rounded="0"
             >
               {{ t("rom.additional-content") }}
             </v-tab>
-            <!-- TODO: user screenshots -->
-            <!-- <v-tab value="screenshots" rounded="0">Screenshots</v-tab> -->
             <v-tab
               v-if="
                 smAndDown &&
@@ -142,12 +154,11 @@ watch(
                   (currentRom.igdb_metadata?.expanded_games ?? []).length > 0)
               "
               value="relatedgames"
-              rounded="0"
             >
               {{ t("rom.related-content") }}
             </v-tab>
           </v-tabs>
-          <v-col cols="12" class="px-2">
+          <v-col cols="12" class="px-1">
             <v-window disabled v-model="tab" class="py-2">
               <v-window-item value="details">
                 <v-row no-gutters>
@@ -156,6 +167,9 @@ watch(
                     <game-info :rom="currentRom" />
                   </v-col>
                 </v-row>
+              </v-window-item>
+              <v-window-item value="manual">
+                <pdf-viewer v-if="currentRom.has_manual" :rom="currentRom" />
               </v-window-item>
               <v-window-item value="saves">
                 <saves :rom="currentRom" />

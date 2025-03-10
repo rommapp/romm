@@ -4,9 +4,10 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
@@ -21,13 +22,14 @@ const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
-const heartbeat = storeHeartbeat();
+const auth = storeAuth();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
 const saveRef = ref<SaveSchema | null>(null);
 const stateRef = ref<StateSchema | null>(null);
 const coreRef = ref<string | null>(null);
+const discRef = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
@@ -35,7 +37,7 @@ const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
 
 // Functions
 function onPlay() {
-  if (rom.value) {
+  if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({
       romId: rom.value.id,
       data: rom.value.rom_user,
@@ -117,6 +119,11 @@ onMounted(async () => {
     // Otherwise auto select first supported core
     coreRef.value = supportedCores.value[0];
   }
+
+  const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
+  if (storedDisc) {
+    discRef.value = parseInt(storedDisc);
+  }
 });
 </script>
 
@@ -129,7 +136,7 @@ onMounted(async () => {
       xl="10"
       id="game-wrapper"
       :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
-      class="bg-primary"
+      class="bg-background"
       rounded
     >
       <player
@@ -138,6 +145,7 @@ onMounted(async () => {
         :save="saveRef"
         :bios="biosRef"
         :core="coreRef"
+        :disc="discRef"
       />
     </v-col>
 
@@ -155,18 +163,33 @@ onMounted(async () => {
             src="/assets/emulatorjs/powered_by_emulatorjs.png"
           />
           <v-divider class="my-4" />
-          <rom-list-item :rom="rom" with-filename />
+          <rom-list-item :rom="rom" with-filename with-size />
           <v-divider class="my-4" />
+          <v-select
+            v-if="rom.multi"
+            v-model="discRef"
+            class="my-1"
+            hide-details
+            rounded="0"
+            variant="outlined"
+            clearable
+            :label="t('rom.file')"
+            :items="
+              rom.files.map((f) => ({
+                title: f.file_name,
+                value: f.id,
+              }))
+            "
+          />
           <v-select
             v-if="supportedCores.length > 1"
             :disabled="gameRunning"
             v-model="coreRef"
             class="my-1"
-            rounded="0"
             hide-details
             variant="outlined"
             clearable
-            label="Core"
+            :label="t('common.core')"
             :items="
               supportedCores.map((c) => ({
                 title: c,
@@ -179,7 +202,6 @@ onMounted(async () => {
             :disabled="gameRunning"
             class="my-1"
             hide-details
-            rounded="0"
             variant="outlined"
             clearable
             :label="t('common.firmware')"
@@ -197,7 +219,6 @@ onMounted(async () => {
             hide-details
             variant="outlined"
             clearable
-            rounded="0"
             :label="t('common.save')"
             :items="
               rom.user_saves?.map((s) => ({
@@ -208,7 +229,7 @@ onMounted(async () => {
             "
           >
             <template #selection="{ item }">
-              <v-list-item class="py-4" :title="item.value.file_name ?? ''">
+              <v-list-item class="pa-0" :title="item.value.file_name ?? ''">
                 <template #append>
                   <v-chip size="x-small" class="ml-1" color="orange" label>{{
                     item.value.emulator
@@ -247,7 +268,6 @@ onMounted(async () => {
             :disabled="gameRunning"
             class="my-1"
             hide-details
-            rounded="0"
             variant="outlined"
             clearable
             :label="t('common.state')"
@@ -299,7 +319,7 @@ onMounted(async () => {
             hide-details
             variant="outlined"
             clearable
-            rounded="0"
+            
             disabled
             label="Patch"
             :items="[
@@ -317,11 +337,10 @@ onMounted(async () => {
               <v-btn
                 block
                 size="large"
-                rounded="0"
                 @click="onFullScreenChange"
                 :disabled="gameRunning"
                 :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
-                :color="fullScreenOnPlay ? 'romm-accent-1' : ''"
+                :color="fullScreenOnPlay ? 'primary' : ''"
                 ><v-icon class="mr-1">{{
                   fullScreenOnPlay
                     ? "mdi-checkbox-outline"
@@ -336,10 +355,9 @@ onMounted(async () => {
               :xl="gameRunning ? 12 : 9"
             >
               <v-btn
-                color="romm-accent-1"
+                color="primary"
                 block
                 :disabled="gameRunning"
-                rounded="0"
                 variant="outlined"
                 size="large"
                 prepend-icon="mdi-play"
@@ -351,7 +369,6 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-refresh"
@@ -361,13 +378,12 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'rom',
+                name: ROUTES.ROM,
                 params: { rom: rom?.id },
               })
             "
@@ -376,13 +392,12 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'platform',
+                name: ROUTES.PLATFORM,
                 params: { platform: rom?.platform_id },
               })
             "

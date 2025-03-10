@@ -14,7 +14,7 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs } = useDisplay();
+const { xs, smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
@@ -23,18 +23,20 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 
 <template>
   <v-app-bar
-    id="gallery-app-bar"
     elevation="0"
     density="compact"
-    mode="shift"
-    app
-    fixed
-    top
+    class="ma-2"
+    :class="{
+      'gallery-app-bar-mobile': smAndDown,
+      'gallery-app-bar-desktop': !smAndDown,
+    }"
+    rounded
   >
     <platform-icon
       v-if="currentPlatform"
       :slug="currentPlatform.slug"
       :name="currentPlatform.name"
+      :fs-slug="currentPlatform.fs_slug"
       :size="36"
       class="mx-3 cursor-pointer platform-icon"
       :class="{ active: activePlatformInfoDrawer }"
@@ -50,23 +52,26 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
   </v-app-bar>
 
   <platform-info-drawer />
-  <filter-drawer />
+  <filter-drawer hide-platforms />
   <firmware-drawer />
 </template>
 
 <style scoped>
-#gallery-app-bar {
-  z-index: 999 !important;
+.gallery-app-bar-desktop {
+  width: calc(100% - 76px) !important;
+}
+.gallery-app-bar-mobile {
+  width: calc(100% - 16px) !important;
 }
 .platform-icon {
   transition:
     filter 0.15s ease-in-out,
     transform 0.15s ease-in-out;
-  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
 }
 .platform-icon:hover,
 .platform-icon.active {
-  filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-primary)));
   transform: scale(1.1);
 }
 </style>

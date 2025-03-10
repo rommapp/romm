@@ -11,9 +11,11 @@ import qrcode from "qrcode";
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
+const rom = ref<SimpleRom>({} as SimpleRom);
 
 emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
   show.value = true;
+  rom.value = romToView;
 
   await nextTick();
 
@@ -22,7 +24,7 @@ emitter?.on("showQRCodeDialog", async (romToView: SimpleRom) => {
 
   const downloadLink = getDownloadLink({
     rom: romToView,
-    files: is3DSFile ? [] : [matchingFiles[0].filename],
+    fileIDs: is3DSFile ? [] : [matchingFiles[0].id],
   });
 
   const qrCode = document.getElementById("qr-code");
@@ -43,11 +45,13 @@ function closeDialog() {
     v-model="show"
     icon="mdi-pencil-box"
     scroll-content
-    :width="lgAndUp ? 400 : 300"
+    :width="lgAndUp ? 400 : 400"
   >
     <template #content>
       <v-row no-gutters>
-        <v-col cols="12" class="text-center">
+        <v-col cols="12" class="text-center px-4">
+          <h3 class="mt-5">{{ rom.name }}</h3>
+          <h4 class="text-primary">{{ rom.fs_name }}</h4>
           <canvas id="qr-code"></canvas>
         </v-col>
       </v-row>

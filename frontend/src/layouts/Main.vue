@@ -18,7 +18,8 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount } from "vue";
+import { inject, onBeforeMount, ref } from "vue";
+import { isNull } from "lodash";
 
 // Props
 const navigationStore = storeNavigation();
@@ -30,6 +31,21 @@ emitter?.on("refreshDrawer", async () => {
   platformsStore.set(platformData);
 });
 
+const showVirtualCollections = isNull(
+  localStorage.getItem("settings.showVirtualCollections"),
+)
+  ? true
+  : localStorage.getItem("settings.showVirtualCollections") === "true";
+
+const storedVirtualCollectionType = localStorage.getItem(
+  "settings.virtualCollectionType",
+);
+const virtualCollectionTypeRef = ref(
+  isNull(storedVirtualCollectionType)
+    ? "collection"
+    : storedVirtualCollectionType,
+);
+
 // Functions
 onBeforeMount(async () => {
   await platformApi
@@ -40,6 +56,7 @@ onBeforeMount(async () => {
     .catch((error) => {
       console.error(error);
     });
+
   await collectionApi
     .getCollections()
     .then(({ data: collections }) => {
@@ -53,16 +70,22 @@ onBeforeMount(async () => {
     .catch((error) => {
       console.error(error);
     });
-  navigationStore.resetDrawers();
+
+  if (showVirtualCollections) {
+    await collectionApi
+      .getVirtualCollections({ type: virtualCollectionTypeRef.value })
+      .then(({ data: virtualCollections }) => {
+        collectionsStore.setVirtual(virtualCollections);
+      });
+  }
+
+  navigationStore.reset();
 });
 </script>
 
 <template>
   <notification />
-
   <main-app-bar />
-
-  <!-- <view-loader /> -->
   <router-view />
 
   <match-rom-dialog />

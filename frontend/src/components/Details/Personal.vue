@@ -9,6 +9,7 @@ import "md-editor-v3/lib/style.css";
 import { ref, watch } from "vue";
 import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
@@ -16,6 +17,7 @@ const props = defineProps<{ rom: DetailedRom }>();
 const auth = storeAuth();
 const theme = useTheme();
 const { mdAndUp, smAndDown } = useDisplay();
+const { scopes } = storeToRefs(auth);
 const editingNote = ref(false);
 const romUser = ref(props.rom.rom_user);
 const publicNotes =
@@ -52,18 +54,20 @@ watch(
 watch(
   romUser,
   () => {
-    romApi.updateUserRomProps({
-      romId: props.rom.id,
-      data: romUser.value,
-    });
+    if (scopes.value.includes("roms.user.write")) {
+      romApi.updateUserRomProps({
+        romId: props.rom.id,
+        data: romUser.value,
+      });
+    }
   },
   { deep: true },
 );
 </script>
 
 <template>
-  <v-card rounded="0" class="mb-2">
-    <v-card-title class="bg-terciary">
+  <v-card class="mb-2">
+    <v-card-title class="bg-toplayer">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">{{ t("rom.status") }}</span>
       </v-list-item>
@@ -76,8 +80,9 @@ watch(
       >
         <v-col cols="12" md="5">
           <v-checkbox
+            :disabled="!scopes.includes('roms.user.write')"
             v-model="romUser.backlogged"
-            color="romm-accent-1"
+            color="primary"
             hide-details
           >
             <template #label
@@ -88,8 +93,9 @@ watch(
             >
           </v-checkbox>
           <v-checkbox
+            :disabled="!scopes.includes('roms.user.write')"
             v-model="romUser.now_playing"
-            color="romm-accent-1"
+            color="primary"
             hide-details
           >
             <template #label
@@ -100,8 +106,9 @@ watch(
             >
           </v-checkbox>
           <v-checkbox
+            :disabled="!scopes.includes('roms.user.write')"
             v-model="romUser.hidden"
-            color="romm-accent-1"
+            color="primary"
             hide-details
           >
             <template #label
@@ -128,6 +135,7 @@ watch(
                 ripple
                 length="10"
                 size="26"
+                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.rating"
                 @update:model-value="
                   romUser.rating =
@@ -148,6 +156,7 @@ watch(
                 ripple
                 length="10"
                 size="26"
+                :disabled="!scopes.includes('roms.user.write')"
                 full-icon="mdi-chili-mild"
                 empty-icon="mdi-chili-mild-outline"
                 v-model="romUser.difficulty"
@@ -166,12 +175,13 @@ watch(
             <v-col cols="12" md="10">
               <v-slider
                 :class="{ 'ml-4': mdAndUp }"
+                :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.completion"
                 min="1"
                 max="100"
                 step="1"
                 hide-details
-                track-fill-color="romm-accent-1"
+                track-fill-color="primary"
                 ><template #append>
                   <v-label class="ml-2 opacity-100">
                     {{ romUser.completion }}%
@@ -182,12 +192,12 @@ watch(
           </v-row>
           <div class="d-flex align-center mt-4">
             <v-select
+              :disabled="!scopes.includes('roms.user.write')"
               v-model="romUser.status"
               :items="statusOptions"
               hide-details
               :label="t('rom.status')"
               clearable
-              rounded="0"
               variant="outlined"
               density="compact"
               class="mt-1"
@@ -199,11 +209,7 @@ watch(
                 }}</span>
               </template>
               <template #item="{ item }">
-                <v-list-item
-                  link
-                  rounded="0"
-                  @click="onStatusItemClick(item.raw)"
-                >
+                <v-list-item link @click="onStatusItemClick(item.raw)">
                   <span>{{ getEmojiForStatus(item.raw as RomUserStatus) }}</span
                   ><span class="ml-2">{{
                     getTextForStatus(item.raw as RomUserStatus)
@@ -217,8 +223,8 @@ watch(
     </v-card-text>
   </v-card>
 
-  <v-card rounded="0">
-    <v-card-title class="bg-terciary">
+  <v-card>
+    <v-card-title class="bg-toplayer">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">{{ t("rom.my-notes") }}</span>
         <template #append>
@@ -231,9 +237,10 @@ watch(
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
+                  :disabled="!scopes.includes('roms.user.write')"
                   @click="romUser.note_is_public = !romUser.note_is_public"
                   v-bind="tooltipProps"
-                  class="bg-terciary"
+                  class="bg-toplayer"
                 >
                   <v-icon size="large">
                     {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
@@ -249,9 +256,10 @@ watch(
               open-delay="500"
               ><template #activator="{ props: tooltipProps }">
                 <v-btn
+                  :disabled="!scopes.includes('roms.user.write')"
                   @click="editNote"
                   v-bind="tooltipProps"
-                  class="bg-terciary"
+                  class="bg-toplayer"
                 >
                   <v-icon size="large">
                     {{ editingNote ? "mdi-check" : "mdi-pencil" }}
@@ -266,6 +274,7 @@ watch(
     <v-card-text class="pa-2">
       <MdEditor
         v-if="editingNote"
+        :disabled="!scopes.includes('roms.user.write')"
         v-model="romUser.note_raw_markdown"
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         language="en-US"
@@ -283,8 +292,8 @@ watch(
     </v-card-text>
   </v-card>
 
-  <v-card rounded="0" v-if="publicNotes && publicNotes.length > 0" class="mt-2">
-    <v-card-title class="bg-terciary">
+  <v-card v-if="publicNotes && publicNotes.length > 0" class="mt-2">
+    <v-card-title class="bg-toplayer">
       <v-list-item class="pl-2 pr-0">
         <span class="text-h6">{{ t("rom.public-notes") }}</span>
       </v-list-item>
@@ -293,12 +302,12 @@ watch(
     <v-divider />
 
     <v-card-text class="pa-0">
-      <v-expansion-panels multiple flat rounded="0" variant="accordion">
+      <v-expansion-panels multiple flat variant="accordion">
         <v-expansion-panel v-for="note in publicNotes">
-          <v-expansion-panel-title class="bg-terciary">
+          <v-expansion-panel-title class="bg-toplayer">
             <span class="text-body-1">{{ note.username }}</span>
           </v-expansion-panel-title>
-          <v-expansion-panel-text class="bg-secondary">
+          <v-expansion-panel-text class="bg-surface">
             <MdPreview
               :model-value="note.note_raw_markdown"
               :theme="theme.name.value == 'dark' ? 'dark' : 'light'"

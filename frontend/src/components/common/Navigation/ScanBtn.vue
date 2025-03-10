@@ -33,12 +33,22 @@ if (!socket.connected) socket.connect();
 
 socket.on(
   "scan:scanning_platform",
-  ({ name, slug, id }: { name: string; slug: string; id: number }) => {
+  ({
+    name,
+    slug,
+    id,
+    fs_slug,
+  }: {
+    name: string;
+    slug: string;
+    id: number;
+    fs_slug: string;
+  }) => {
     scanningStore.set(true);
     scanningPlatforms.value = scanningPlatforms.value.filter(
       (platform) => platform.name !== name,
     );
-    scanningPlatforms.value.push({ name, slug, id, roms: [] });
+    scanningPlatforms.value.push({ name, slug, id, fs_slug, roms: [] });
   },
 );
 
@@ -63,6 +73,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
       name: rom.platform_name,
       slug: rom.platform_slug,
       id: rom.platform_id,
+      fs_slug: rom.platform_fs_slug,
       roms: [],
     });
     scannedPlatform = scanningPlatforms.value[0];
@@ -106,20 +117,21 @@ onBeforeUnmount(() => {
   <v-btn
     v-if="auth.scopes.includes('platforms.write')"
     :block="block"
-    rounded="0"
     variant="flat"
-    color="primary"
+    rounded="0"
     icon
+    color="background"
+    class="rounded my-1"
     @click="navigationStore.goScan"
   >
     <v-progress-circular
       v-if="scanning"
-      color="romm-accent-1"
+      color="primary"
       :width="2"
       :size="20"
       indeterminate
     />
-    <v-icon v-else :color="$route.name == 'scan' ? 'romm-accent-1' : ''"
+    <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''"
       >mdi-magnify-scan</v-icon
     >
   </v-btn>

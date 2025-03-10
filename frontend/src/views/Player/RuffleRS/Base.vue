@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import romApi from "@/services/api/rom";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
+import { getDownloadPath } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { nextTick, onMounted, ref } from "vue";
@@ -16,7 +17,6 @@ const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
 const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
-const heartbeat = storeHeartbeat();
 const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
@@ -36,6 +36,8 @@ function onPlay() {
   gameRunning.value = true;
 
   nextTick(() => {
+    if (!rom.value) return;
+
     const ruffle = window.RufflePlayer.newest();
     const player = ruffle.createPlayer();
     const container = document.getElementById("game");
@@ -46,7 +48,7 @@ function onPlay() {
       backgroundColor: "#0D1117",
       openUrlMode: "confirm",
       publicPath: "/assets/ruffle/",
-      url: `/api/roms/${rom.value?.id}/content/${rom.value?.file_name}`,
+      url: getDownloadPath({ rom: rom.value }),
     });
     player.style.width = "100%";
     player.style.height = "100%";
@@ -73,8 +75,7 @@ onMounted(async () => {
 
   script.onerror = () => {
     const fallbackScript = document.createElement("script");
-    fallbackScript.src =
-      "https://unpkg.com/@ruffle-rs/ruffle@${RUFFLE_VERSION}/ruffle.js";
+    fallbackScript.src = `https://unpkg.com/@ruffle-rs/ruffle@${RUFFLE_VERSION}/ruffle.js`;
     document.body.appendChild(fallbackScript);
   };
 
@@ -91,7 +92,7 @@ onMounted(async () => {
       xl="10"
       id="game-wrapper"
       :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
-      class="bg-secondary"
+      class="bg-surface"
       rounded
     >
       <div id="game" />
@@ -111,7 +112,7 @@ onMounted(async () => {
             src="/assets/ruffle/powered_by_ruffle.png"
           />
           <v-divider class="my-4" />
-          <rom-list-item :rom="rom" with-filename />
+          <rom-list-item :rom="rom" with-filename with-size />
           <v-divider class="my-4" />
         </v-col>
       </v-row>
@@ -122,11 +123,10 @@ onMounted(async () => {
               <v-btn
                 block
                 size="large"
-                rounded="0"
                 @click="onFullScreenChange"
                 :disabled="gameRunning"
                 :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
-                :color="fullScreenOnPlay ? 'romm-accent-1' : ''"
+                :color="fullScreenOnPlay ? 'primary' : ''"
                 ><v-icon class="mr-1">{{
                   fullScreenOnPlay
                     ? "mdi-checkbox-outline"
@@ -141,10 +141,9 @@ onMounted(async () => {
               :xl="gameRunning ? 12 : 9"
             >
               <v-btn
-                color="romm-accent-1"
+                color="primary"
                 block
                 :disabled="gameRunning"
-                rounded="0"
                 variant="outlined"
                 size="large"
                 prepend-icon="mdi-play"
@@ -156,7 +155,6 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-refresh"
@@ -166,13 +164,12 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'rom',
+                name: ROUTES.ROM,
                 params: { rom: rom?.id },
               })
             "
@@ -181,13 +178,12 @@ onMounted(async () => {
           <v-btn
             class="mt-4"
             block
-            rounded="0"
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
             @click="
               $router.push({
-                name: 'platform',
+                name: ROUTES.PLATFORM,
                 params: { platform: rom?.platform_id },
               })
             "

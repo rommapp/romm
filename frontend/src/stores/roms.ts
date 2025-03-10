@@ -1,6 +1,9 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
-import storeCollection, { type Collection } from "@/stores/collections";
+import storeCollection, {
+  type Collection,
+  type VirtualCollection,
+} from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
@@ -11,27 +14,28 @@ import { defineStore } from "pinia";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
-const collectionStore = storeCollection();
-
 export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
 
+const defaultRomsState = {
+  currentPlatform: null as Platform | null,
+  currentCollection: null as Collection | null,
+  currentVirtualCollection: null as VirtualCollection | null,
+  currentRom: null as DetailedRom | null,
+  allRoms: [] as SimpleRom[],
+  _grouped: [] as SimpleRom[],
+  _filteredIDs: new Set<number>(),
+  _selectedIDs: new Set<number>(),
+  recentRoms: [] as SimpleRom[],
+  continuePlayingRoms: [] as SimpleRom[],
+  lastSelectedIndex: -1,
+  selecting: false,
+  itemsPerBatch: 72,
+  gettingRoms: false,
+};
+
 export default defineStore("roms", {
-  state: () => ({
-    currentPlatform: null as Platform | null,
-    currentCollection: null as Collection | null,
-    currentRom: null as DetailedRom | null,
-    allRoms: [] as SimpleRom[],
-    _grouped: [] as SimpleRom[],
-    _filteredIDs: new Set<number>(),
-    _selectedIDs: new Set<number>(),
-    recentRoms: [] as SimpleRom[],
-    continuePlayingRoms: [] as SimpleRom[],
-    lastSelectedIndex: -1,
-    selecting: false,
-    itemsPerBatch: 72,
-    gettingRoms: false,
-  }),
+  state: () => defaultRomsState,
 
   getters: {
     filteredRoms: (state) =>
@@ -41,6 +45,25 @@ export default defineStore("roms", {
   },
 
   actions: {
+    _shouldGroupRoms(): boolean {
+      return isNull(localStorage.getItem("settings.groupRoms"))
+        ? true
+        : localStorage.getItem("settings.groupRoms") === "true";
+    },
+    _getGroupedRoms(roms: SimpleRom[]): SimpleRom[] {
+      // Group roms by external id.
+      return Object.values(
+        groupBy(
+          roms,
+          (game) =>
+            // If external id is null, generate a random id so that the roms are not grouped
+            game.igdb_id || game.moby_id || game.ss_id || nanoid(),
+        ),
+      ).map((games) => {
+        // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
+        return games.find((game) => game.rom_user?.is_main_sibling) || games[0];
+      });
+    },
     _reorder() {
       // Sort roms by comparator string
       this.allRoms = uniqBy(this.allRoms, "id").sort((a, b) => {
@@ -48,32 +71,15 @@ export default defineStore("roms", {
       });
 
       // Check if roms should be grouped
-      const groupRoms = isNull(localStorage.getItem("settings.groupRoms"))
-        ? true
-        : localStorage.getItem("settings.groupRoms") === "true";
-      if (!groupRoms) {
+      if (!this._shouldGroupRoms()) {
         this._grouped = this.allRoms;
         return;
       }
 
       // Group roms by external id
-      this._grouped = Object.values(
-        groupBy(
-          this.allRoms,
-          (game) =>
-            // If external id is null, generate a random id so that the roms are not grouped
-            game.igdb_id || game.moby_id || nanoid(),
-        ),
-      )
-        .map((games) => {
-          // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
-          return (
-            games.find((game) => game.rom_user?.is_main_sibling) || games[0]
-          );
-        })
-        .sort((a, b) => {
-          return a.sort_comparator.localeCompare(b.sort_comparator);
-        });
+      this._grouped = this._getGroupedRoms(this.allRoms).sort((a, b) => {
+        return a.sort_comparator.localeCompare(b.sort_comparator);
+      });
     },
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
@@ -82,13 +88,24 @@ export default defineStore("roms", {
       this.currentRom = rom;
     },
     setRecentRoms(roms: SimpleRom[]) {
-      this.recentRoms = roms;
+      if (this._shouldGroupRoms()) {
+        // Group by external ID to only display a single entry per sibling,
+        // and sorted on rom ID in descending order.
+        this.recentRoms = this._getGroupedRoms(roms).sort(
+          (a, b) => b.id - a.id,
+        );
+      } else {
+        this.recentRoms = roms;
+      }
     },
     setContinuePlayedRoms(roms: SimpleRom[]) {
       this.continuePlayingRoms = roms;
     },
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
+    },
+    setCurrentVirtualCollection(collection: VirtualCollection | null) {
+      this.currentVirtualCollection = collection;
     },
     set(roms: SimpleRom[]) {
       this.allRoms = roms;
@@ -135,11 +152,7 @@ export default defineStore("roms", {
       roms.forEach((rom) => this._filteredIDs.delete(rom.id));
     },
     reset() {
-      this.allRoms = [];
-      this._grouped = [];
-      this._filteredIDs = new Set<number>();
-      this._selectedIDs = new Set<number>();
-      this.lastSelectedIndex = -1;
+      Object.assign(this, defaultRomsState);
     },
     // Filter roms by gallery filter store state
     setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {
@@ -158,6 +171,9 @@ export default defineStore("roms", {
       }
       if (galleryFilter.filterDuplicates) {
         this._filterDuplicates();
+      }
+      if (galleryFilter.selectedPlatform) {
+        this._filterPlatform(galleryFilter.selectedPlatform);
       }
       if (galleryFilter.selectedGenre) {
         this._filterGenre(galleryFilter.selectedGenre);
@@ -191,7 +207,7 @@ export default defineStore("roms", {
           .filter(
             (rom) =>
               rom.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-              rom.file_name?.toLowerCase().includes(searchFilter.toLowerCase()),
+              rom.fs_name?.toLowerCase().includes(searchFilter.toLowerCase()),
           )
           .map((roms) => roms.id),
       );
@@ -202,7 +218,7 @@ export default defineStore("roms", {
     _filterUnmatched() {
       const byUnmatched = new Set(
         this.filteredRoms
-          .filter((rom) => !rom.igdb_id && !rom.moby_id)
+          .filter((rom) => !rom.igdb_id && !rom.moby_id && !rom.ss_id)
           .map((roms) => roms.id),
       );
 
@@ -212,7 +228,7 @@ export default defineStore("roms", {
     _filterMatched() {
       const byMatched = new Set(
         this.filteredRoms
-          .filter((rom) => rom.igdb_id || rom.moby_id)
+          .filter((rom) => rom.igdb_id || rom.moby_id || rom.ss_id)
           .map((roms) => roms.id),
       );
 
@@ -220,10 +236,12 @@ export default defineStore("roms", {
       this._filteredIDs = byMatched.intersection(this._filteredIDs);
     },
     _filterFavourites() {
+      const collectionStore = storeCollection();
+
       const byFavourites = new Set(
         this.filteredRoms
           .filter((rom) =>
-            collectionStore.favCollection?.roms?.includes(rom.id),
+            collectionStore.favCollection?.rom_ids?.includes(rom.id),
           )
           .map((roms) => roms.id),
       );
@@ -240,6 +258,16 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byDuplicates.intersection(this._filteredIDs);
+    },
+    _filterPlatform(platformToFilter: Platform) {
+      const byPlatform = new Set(
+        this.filteredRoms
+          .filter((rom) => rom.platform_id === platformToFilter.id)
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byPlatform.intersection(this._filteredIDs);
     },
     _filterGenre(genreToFilter: string) {
       const byGenre = new Set(
@@ -267,7 +295,7 @@ export default defineStore("roms", {
       const byCollection = new Set(
         this.filteredRoms
           .filter((rom) =>
-            rom.collections.some(
+            rom.meta_collections.some(
               (collection) => collection === collectionToFilter,
             ),
           )

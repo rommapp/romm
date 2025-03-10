@@ -14,18 +14,7 @@ emitter?.on("showLoadingDialog", (args) => {
 </script>
 
 <template>
-  <v-dialog
-    :model-value="show"
-    :scrim="false"
-    scroll-strategy="none"
-    width="auto"
-    persistent
-  >
-    <v-progress-circular
-      :width="3"
-      :size="70"
-      color="romm-accent-1"
-      indeterminate
-    />
+  <v-dialog :model-value="show" scroll-strategy="none" width="auto" persistent>
+    <v-progress-circular :width="3" :size="70" color="primary" indeterminate />
   </v-dialog>
 </template>

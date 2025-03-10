@@ -60,8 +60,8 @@ services:
       - authentik-media:/media
       - authentik-templates:/templates
     ports:
-      - 9000:9000
-      - 9443:9443
+      - 9001:9000
+      - 9444:9443
     depends_on:
       - romm-postgres-dev
       - romm-valkey-dev

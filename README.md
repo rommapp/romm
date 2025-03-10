@@ -2,7 +2,9 @@
 <!-- trunk-ignore(markdownlint/MD041) -->
 <div align="center">
 
-  <img src=".github/resources/romm_complete.png" height="220px" width="auto" alt="romm logo">
+  <img src=".github/resources/isotipo.png" height="180px" width="auto" alt="romm logo">
+  <br />
+  <img src=".github/resources/logotipo.png" height="45px" width="auto" alt="romm logotype">
 
   <h3 style="font-size: 25px;">
     A beautiful, powerful, self-hosted rom manager.
@@ -76,10 +78,10 @@ As mentioned in the installation section, RomM requires a specific folder struct
  </tr>
  <tr>
   <td>
-    <code>library/roms/gbc/rom_1.gbc</code>
+    <code>library/roms/gbc/game_1.gbc</code>
   </td>
   <td>
-    <code>library/gbc/roms/rom_1.gbc</code>
+    <code>library/gbc/roms/game_1.gbc</code>
   </td>
  </tr>
  <tr>
@@ -88,55 +90,82 @@ As mentioned in the installation section, RomM requires a specific folder struct
         library/
         ├─ roms/
         │  ├─ gbc/
-        │  │  ├─ rom_1.gbc
-        │  │  ├─ rom_2.gbc
+        │  │  ├─ game_1.gbc
+        │  │  └─ game_2.gbc
         │  │
         │  ├─ gba/
-        │  │  ├─ rom_1.gba
-        │  │  ├─ rom_2.gba
+        │  │  ├─ game_3.gba
+        │  │  └─ game_4/
+        │  │     ├─ game_4.gba
+        │  │     ├─ dlc
+        │  │     │  ├─ game_4_dlc_1.7z
+        │  │     │  └─ game_4_dlc_2.7z
+        │  │     ├─ hacks
+        │  │     │  └─ game_4_hardmode.rar
+        │  │     ├─ manuals
+        │  │     │  └─ game_4_manual.pdf
+        │  │     ├─ mods
+        │  │     │  └─ game_4_crazy_mode.zip
+        │  │     └─ patches
+        │  │        └─ game_4_patch_v1.1.zip
         │  │
-        │  ├─ ps/
-        │     ├─ my_multifile_game/
-        │     │   ├─ my_game_cd1.iso
-        │     │   ├─ my_game_cd2.iso
+        │  └─ ps/
+        │     ├─ game_5/
+        │     │   ├─ game_5_cd_1.iso
+        │     │   └─ game_5_cd_2.iso
         │     │
-        │     ├─ rom_1.iso
-        ├─ bios/
-        │  ├─ gba/
-        │  │  ├─ gba_bios.bin
-        │  │
-        │  ├─ ps/
-        │     ├─ scph1001.bin
-        |     ├─ scph5501.bin
-        |     ├─ scph5502.bin
+        │     └─ game_6.iso
+        │
+        └─ bios/
+           ├─ gba/
+           │  └─ gba_bios.bin
+           │
+           └─ ps/
+              ├─ scph1001.bin
+              ├─ scph5501.bin
+              └─ scph5502.bin
       </pre>
     </td>
     <td>
       <pre>
         library/
         ├─ gbc/
-        │  ├─ roms/
-        │     ├─ rom_1.gbc
-        │     ├─ rom_2.gbc
+        │  └─ roms/
+        │     ├─ game_1.gbc
+        │     └─ game_2.gbc
         │
         ├─ gba/
         │  ├─ roms/
-        │     ├─ rom_1.gba
-        │     ├─ rom_2.gba
-        |  ├─ bios/
-        |     ├─ gba_bios.bin
+        │  │  ├─ game_3.gba
+        │  │  └─ game_4/
+        │  │     ├─ game_4.gba
+        │  │     ├─ dlc
+        │  │     │  ├─ game_4_dlc_1.7z
+        │  │     │  └─ game_4_dlc_2.7z
+        │  │     ├─ hacks
+        │  │     │  └─ game_4_hardmode.rar
+        │  │     ├─ manuals
+        │  │     │  └─ game_4_manual.pdf
+        │  │     ├─ mods
+        │  │     │  └─ game_4_crazy_mode.zip
+        │  │     └─ patches
+        │  │        └─ game_4_patch_v1.1.zip
+        │  │
+        │  └─ bios/
+        │     └─ gba_bios.bin
         │
-        ├─ ps/
-        │  ├─ roms/
-        │     ├─ my_multifile_game/
-        │     │  ├─ my_game_cd1.iso
-        │     │  ├─ my_game_cd2.iso
-        │     │
-        │     ├─ rom_1.iso
-        |  ├─ bios/
-        |     ├─ scph1001.bin
-        |     ├─ scph5501.bin
-        |     ├─ scph5502.bin
+        └─ ps/
+           ├─ roms/
+           │  ├─ game_5/
+           │  │  ├─ game_5_cd1.iso
+           │  │  └─ game_5_cd2.iso
+           │  │
+           │  └─ game_6.iso
+           │
+           └─ bios/
+              ├─ scph1001.bin
+              ├─ scph5501.bin
+              └─ scph5502.bin
       </pre>
     </td>
  </tr>
@@ -158,8 +187,6 @@ The scheduler allows you to schedule async tasks that run in the Redis container
 ## Platform Support
 
 If you adhere to the [RomM folder structure][folder-structure], RomM supports all platforms listed on the [Supported Platforms][wiki-supported-platforms] page. **The folder is case-sensitive and must be used exactly as it appears on the list.** When scanning your library, RomM will use the folder name to determine the platform and fetch the appropriate game information, metadata, and cover art.
-
-Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki][wiki-platforms-icons]).
 
 ## Tag Support
 
@@ -213,14 +240,13 @@ Here are a few projects that we think you might like:
 
 <!-- Wiki links -->
 
-[wiki]: https://github.com/rommapp/romm/wiki
-[wiki-supported-platforms]: https://github.com/rommapp/romm/wiki/Supported-Platforms
-[wiki-authentication]: https://github.com/rommapp/romm/wiki/Authentication
-[wiki-platforms-icons]: https://github.com/rommapp/romm/wiki/Custom-Platform-Icons
-[wiki-troubleshooting]: https://github.com/rommapp/romm/wiki/Troubleshooting
-[wiki-emulatorjs]: https://github.com/rommapp/romm/wiki/EmulatorJS-Player
-[wiki-scheduled-tasks]: https://github.com/rommapp/romm/wiki/Scheduled-Tasks
-[wiki-quick-start-guide]: https://github.com/rommapp/romm/wiki/Quick-Start-Guide
+[wiki]: https://docs.romm.app/latest/
+[wiki-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
+[wiki-authentication]: https://docs.romm.app/latest/Getting-Started/Authentication/
+[wiki-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/
+[wiki-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
+[wiki-scheduled-tasks]: https://docs.romm.app/latest/Maintenance/Scheduled-Tasks/
+[wiki-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
 
 <!-- Badges -->
 

@@ -18,17 +18,15 @@ import { useDisplay } from "vuetify";
 // Props
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
-const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
-  storeToRefs(navigationStore);
 </script>
 <template>
   <!-- Mobile app bar -->
   <v-app-bar
     v-if="smAndDown"
     elevation="0"
-    class="bg-primary justify-center px-1"
+    class="bg-background justify-center px-1"
     mode="shift"
-    height="45"
+    height="55"
     app
     fixed
     left
@@ -54,10 +52,9 @@ const { activePlatformsDrawer, activeCollectionsDrawer, activeSettingsDrawer } =
     v-else
     permanent
     rail
-    :floating="
-      activePlatformsDrawer || activeCollectionsDrawer || activeSettingsDrawer
-    "
     rail-width="60"
+    class="bg-background pa-1"
+    :border="0"
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">

@@ -12,29 +12,29 @@ import storeRoms from "@/stores/roms";
 import { useDisplay } from "vuetify";
 
 // Props
-const { xs } = useDisplay();
+const { xs, smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
-const { activeCollectionInfoDrawer } = storeToRefs(navigationStore);
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
 </script>
 
 <template>
   <v-app-bar
-    id="gallery-app-bar"
     elevation="0"
     density="compact"
-    mode="shift"
-    app
-    fixed
-    top
+    class="ma-2"
+    :class="{
+      'gallery-app-bar-mobile': smAndDown,
+      'gallery-app-bar-desktop': !smAndDown,
+    }"
+    rounded
   >
     <template #prepend>
       <r-avatar
-        @click="navigationStore.swtichActiveCollectionInfoDrawer"
+        @click="navigationStore.switchActiveCollectionInfoDrawer"
         class="collection-icon cursor-pointer"
         v-if="currentCollection"
-        :size="75"
+        :size="45"
         :collection="currentCollection"
       />
       <filter-btn />
@@ -51,8 +51,11 @@ const { currentCollection } = storeToRefs(romsStore);
 </template>
 
 <style scoped>
-#gallery-app-bar {
-  z-index: 999 !important;
+.gallery-app-bar-desktop {
+  width: calc(100% - 76px) !important;
+}
+.gallery-app-bar-mobile {
+  width: calc(100% - 16px) !important;
 }
 .collection-icon {
   transition:

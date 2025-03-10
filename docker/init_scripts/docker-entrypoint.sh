@@ -33,4 +33,27 @@ for var_name in $(printenv | cut -d= -f1 | grep "_FILE$" || true); do
 	unset "${var_name}"
 done
 
+# Set default values for environment variables used by nginx templates.
+# Nginx uses `envsubst` to load environment variables into configuration files, but it does not
+# support the default value syntax `${VAR:-default}`.
+export ROMM_BASE_PATH=${ROMM_BASE_PATH:-/romm}
+export ROMM_PORT=${ROMM_PORT:-8080}
+
+# Replace environment variables used in nginx configuration templates.
+/docker-entrypoint.d/20-envsubst-on-templates.sh >/dev/null
+
+# Fix symbolic links used by nginx for assets, if they do not point to the correct location,
+# set by the ROMM_BASE_PATH environment variable.
+for subfolder in assets resources; do
+	if [[ -L /var/www/html/assets/romm/${subfolder} ]]; then
+		target=$(readlink "/var/www/html/assets/romm/${subfolder}")
+
+		# If the target is not the same as ${ROMM_BASE_PATH}/${subfolder}, recreate the symbolic link.
+		if [[ ${target} != "${ROMM_BASE_PATH}/${subfolder}" ]]; then
+			rm "/var/www/html/assets/romm/${subfolder}"
+			ln -s "${ROMM_BASE_PATH}/${subfolder}" "/var/www/html/assets/romm/${subfolder}"
+		fi
+	fi
+done
+
 exec "$@"

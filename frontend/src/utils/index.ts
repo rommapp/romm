@@ -1,7 +1,7 @@
 import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
-import type { RomFile, RomUserStatus } from "@/__generated__";
+import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 
 /**
  * Views configuration object.
@@ -50,7 +50,7 @@ export const views: Record<
 /**
  * Default path for user avatars.
  */
-export const defaultAvatarPath = "/assets/default/user.png";
+export const defaultAvatarPath = "/assets/default/user.svg";
 
 /**
  * Normalize a string by converting it to lowercase and removing diacritics.
@@ -88,28 +88,28 @@ export function convertCronExperssion(expression: string) {
  */
 export function getDownloadPath({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
   const queryParams = new URLSearchParams();
-  if (files.length) {
-    files.forEach((file) => queryParams.append("files", file));
+  if (fileIDs.length > 0) {
+    fileIDs.forEach((fileId) =>
+      queryParams.append("file_ids", fileId.toString()),
+    );
   }
-  return `/api/roms/${rom.id}/content/${
-    rom.file_name
-  }?${queryParams.toString()}`;
+  return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
 }
 
 export function getDownloadLink({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
-  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, files }))}`;
+  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, fileIDs }))}`;
 }
 
 /**
@@ -419,6 +419,10 @@ export function areThreadsRequiredForEJSCore(core: string): boolean {
   return ["ppsspp"].includes(core);
 }
 
+const canvas = document.createElement("canvas");
+const gl =
+  canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+
 /**
  * Check if EJS emulation is supported for a given platform.
  *
@@ -430,10 +434,6 @@ export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
 ) {
-  const canvas = document.createElement("canvas");
-  const gl =
-    canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-
   return (
     !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
     getSupportedEJSCores(platformSlug).length > 0 &&
@@ -570,12 +570,12 @@ export function getStatusKeyForText(text: string) {
 }
 
 export function is3DSCIAFile(rom: SimpleRom): boolean {
-  return rom.file_extension.toLowerCase() == "cia";
+  return rom.fs_extension.toLowerCase() == "cia";
 }
 
-export function get3DSCIAFiles(rom: SimpleRom): RomFile[] {
+export function get3DSCIAFiles(rom: SimpleRom): RomFileSchema[] {
   return rom.files.filter((file) =>
-    file.filename.toLowerCase().endsWith(".cia"),
+    file.file_name.toLowerCase().endsWith(".cia"),
   );
 }
 
