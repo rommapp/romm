@@ -8,7 +8,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
 import { getStatusKeyForText } from "@/utils";
-import { groupBy, isNull, uniqBy } from "lodash";
+import { groupBy, isNull, isUndefined, uniqBy } from "lodash";
 import { nanoid } from "nanoid";
 import { defineStore } from "pinia";
 
@@ -372,7 +372,7 @@ export default defineStore("roms", {
       this.lastSelectedIndex = -1;
     },
     isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
-      return (rom as SimpleRom).id !== undefined;
+      return !isNull(rom.id) && !isUndefined(rom.id);
     },
   },
 });
