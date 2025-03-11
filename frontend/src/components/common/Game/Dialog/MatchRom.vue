@@ -206,13 +206,17 @@ async function updateRom(selectedRom: SearchRomSchema) {
   // Set the properties from the selected rom
   rom.value = {
     ...rom.value,
-    igdb_id: selectedRom.igdb_id,
-    moby_id: selectedRom.moby_id,
-    ss_id: selectedRom.ss_id,
+    igdb_id: selectedRom.igdb_id || null,
+    moby_id: selectedRom.moby_id || null,
+    ss_id: selectedRom.ss_id || null,
     name: selectedRom.name,
     slug: selectedRom.slug,
     summary: selectedRom.summary,
-    url_cover: selectedRom.url_cover,
+    url_cover:
+      selectedRom.moby_url_cover ||
+      selectedRom.igdb_url_cover ||
+      selectedRom.ss_url_cover ||
+      null,
   };
 
   // Replace the cover image with a higher resolution
