@@ -125,7 +125,9 @@ export default async function createIndexedDBDiffMonitor(
             type: "added",
             newValue,
           });
-        } else if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+        } else if (
+          oldValue.timestamp.getTime() !== newValue.timestamp.getTime()
+        ) {
           newChanges.push({
             timestamp: newSnapshot.timestamp,
             store: storeName,
