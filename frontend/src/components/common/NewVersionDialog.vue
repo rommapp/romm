@@ -20,9 +20,14 @@ onMounted(async () => {
   );
   const json = await response.json();
   GITHUB_VERSION.value = json.tag_name;
+  const publishedAt = new Date(json.published_at);
   latestVersionDismissed.value =
+    // Hide if the version is not valid
     !semver.valid(VERSION) ||
-    json.tag_name === localStorage.getItem("dismissedVersion");
+    // Hide if the version is the same as the dismissed version
+    json.tag_name === localStorage.getItem("dismissedVersion") ||
+    // Hide if the version is less than 2 hours old
+    publishedAt.getTime() + 2 * 60 * 60 * 1000 > Date.now();
 });
 </script>
 
