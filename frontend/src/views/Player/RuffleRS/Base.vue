@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import romApi from "@/services/api/rom";
-import storeGalleryView from "@/stores/galleryView";
 import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
-import { storeToRefs } from "pinia";
 import { nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -16,8 +14,6 @@ const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
 // Props
 const { t } = useI18n();
 const route = useRoute();
-const galleryViewStore = storeGalleryView();
-const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
@@ -91,7 +87,6 @@ onMounted(async () => {
       md="8"
       xl="10"
       id="game-wrapper"
-      :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
       class="bg-surface"
       rounded
     >
@@ -196,9 +191,17 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-#game {
-  max-height: 100dvh;
+#game-wrapper {
   height: 100%;
+}
+
+#game {
   --splash-screen-background: none;
+}
+
+@media (max-width: 960px) {
+  #game-wrapper {
+    height: calc(100vh - 55px);
+  }
 }
 </style>
