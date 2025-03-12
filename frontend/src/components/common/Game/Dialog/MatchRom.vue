@@ -62,10 +62,6 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
     romToSearch.igdb_id || romToSearch.moby_id || romToSearch.ss_id
       ? (romToSearch.name ?? "")
       : romToSearch.fs_name_no_tags;
-
-  if (searchTerm.value) {
-    searchRom();
-  }
 });
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
@@ -207,7 +203,23 @@ async function updateRom(selectedRom: SearchRomSchema) {
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  Object.assign(rom.value, selectedRom);
+  // Set the properties from the selected rom
+  rom.value = {
+    ...rom.value,
+    igdb_id: selectedRom.igdb_id || null,
+    moby_id: selectedRom.moby_id || null,
+    ss_id: selectedRom.ss_id || null,
+    name: selectedRom.name,
+    slug: selectedRom.slug,
+    summary: selectedRom.summary,
+    url_cover:
+      selectedRom.moby_url_cover ||
+      selectedRom.igdb_url_cover ||
+      selectedRom.ss_url_cover ||
+      null,
+  };
+
+  // Replace the cover image with a higher resolution
   if (rom.value.url_cover) {
     rom.value.url_cover = rom.value.url_cover.replace("t_cover_big", "t_1080p");
   }

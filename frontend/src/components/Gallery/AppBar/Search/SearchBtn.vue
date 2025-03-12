@@ -19,7 +19,7 @@ const galleryFilterStore = storeGalleryFilter();
 const { searchText } = storeToRefs(galleryFilterStore);
 
 function fetchRoms() {
-  if (searchText.value) {
+  if (searchText.value !== null) {
     gettingRoms.value = true;
     const inputElement = document.getElementById("search-text-field");
     inputElement?.blur();

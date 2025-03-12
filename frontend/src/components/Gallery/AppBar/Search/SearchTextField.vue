@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
-import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onMounted, watch } from "vue";
@@ -21,7 +21,7 @@ const galleryFilterStore = storeGalleryFilter();
 const { searchText } = storeToRefs(galleryFilterStore);
 
 async function fetchRoms() {
-  if (searchText.value) {
+  if (searchText.value !== null) {
     // Auto hide android keyboard
     const inputElement = document.getElementById("search-text-field");
     inputElement?.blur();
@@ -52,18 +52,41 @@ async function fetchRoms() {
   }
 }
 
+const filterToSetFilter: Record<FilterType, Function> = {
+  genres: galleryFilterStore.setSelectedFilterGenre,
+  franchises: galleryFilterStore.setSelectedFilterFranchise,
+  meta_collections: galleryFilterStore.setSelectedFilterCollection,
+  companies: galleryFilterStore.setSelectedFilterCompany,
+  age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
+  status: galleryFilterStore.setSelectedFilterStatus,
+};
+
 onMounted(() => {
-  const { search: searchTerm } = router.currentRoute.value.query;
-  if (searchTerm && searchTerm !== searchText.value) {
-    searchText.value = searchTerm as string;
-    fetchRoms();
+  const {
+    search: searchParam,
+    filter: filterParam,
+    value: valueParam,
+  } = router.currentRoute.value.query;
+  if (searchParam !== undefined && searchParam !== searchText.value) {
+    searchText.value = searchParam as string;
   }
+
+  // Check for query params to set filters
+  if (filterParam && valueParam) {
+    const filter = filterParam as FilterType;
+    const value = valueParam as string;
+    filterToSetFilter[filter](value);
+    emitter?.emit("filter", null);
+    router.replace({ query: {} }); // Clear query params
+  }
+
+  fetchRoms();
 });
 
 watch(
   router.currentRoute.value.query,
   (query) => {
-    if (query.search && query.search !== searchText.value) {
+    if (query.search !== undefined && query.search !== searchText.value) {
       searchText.value = query.search as string;
       fetchRoms();
     }
