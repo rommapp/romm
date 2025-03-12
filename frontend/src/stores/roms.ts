@@ -157,7 +157,7 @@ export default defineStore("roms", {
     // Filter roms by gallery filter store state
     setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {
       this._filteredIDs = new Set(roms.map((rom) => rom.id));
-      if (galleryFilter.filterText) {
+      if (galleryFilter.filterText !== null) {
         this._filterText(galleryFilter.filterText);
       }
       if (galleryFilter.filterUnmatched) {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
-import { debounce } from "lodash";
+import { debounce, isUndefined } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, nextTick, onMounted, watch } from "vue";
@@ -22,12 +22,12 @@ const filterRoms = debounce(() => {
 }, 500);
 
 function clear() {
-  filterText.value = "";
+  filterText.value = null;
 }
 
 onMounted(() => {
   const { search: searchTerm } = router.currentRoute.value.query;
-  if (searchTerm && searchTerm !== filterText.value) {
+  if (!isUndefined(searchTerm) && searchTerm !== filterText.value) {
     filterText.value = searchTerm as string;
     filterRoms();
   }
@@ -36,7 +36,7 @@ onMounted(() => {
 watch(
   () => router.currentRoute.value.query,
   (query) => {
-    if (query.search && query.search !== filterText.value) {
+    if (!isUndefined(query.search) && query.search !== filterText.value) {
       filterText.value = query.search as string;
       filterRoms();
     }
