@@ -119,10 +119,14 @@ export default async function createIndexedDBDiffMonitor(
       for (const [key, newValue] of Object.entries(newStoreData)) {
         const oldValue = oldStoreData[key];
         if (
+          // The store is empty or the key is new
           oldValue === undefined ||
+          // The save timestamp has changed
           (oldValue.timestamp &&
             oldValue.timestamp.getTime() !== newValue.timestamp.getTime()) ||
+          // The state array length has changed
           (oldValue.length && oldValue.length !== newValue.length) ||
+          // The state array content has changed
           (oldValue.length && !isEqual(oldValue, newValue))
         ) {
           newChanges.push({
