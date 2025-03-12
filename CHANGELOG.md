@@ -39,7 +39,7 @@
 
 ## v3.0.0 (_11-03-2024_)
 
-- Highlight: [EmulatorJS player](https://github.com/rommapp/romm/wiki/EmulatorJS-Player): Play retro games in your web browser
+- Highlight: [EmulatorJS player](https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player): Play retro games in your web browser
 - Highlight: Saves and states: Upload/downlaod game saves, and play them with EmulatorJS
 - Highlight: More metadata: Extracts more information from IGDB, like release date, genres, related games, etc.
 - Highlight: New license: Now licensed under AGPL-3.0 to promote community contributions
