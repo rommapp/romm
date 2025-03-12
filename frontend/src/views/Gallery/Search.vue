@@ -9,12 +9,10 @@ import GameDataTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 // Props
@@ -37,53 +35,6 @@ const {
 
 const itemsShown = ref(itemsPerBatch.value);
 let timeout: ReturnType<typeof setTimeout>;
-
-const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("filter", onFilterChange);
-
-// Functions
-function setFilters() {
-  galleryFilterStore.setFilterGenres([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCompanies([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCollections([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.meta_collections.map((collection) => collection))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
-        .sort(),
-    ),
-  ]);
-}
-
-async function onFilterChange() {
-  romsStore.setFiltered(allRoms.value, galleryFilterStore);
-  emitter?.emit("updateDataTablePages", null);
-}
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
@@ -152,7 +103,6 @@ function onScroll() {
         itemsShown.value < filteredRoms.value.length
       ) {
         itemsShown.value = itemsShown.value + itemsPerBatch.value;
-        setFilters();
         galleryViewStore.scroll = scrollHeight;
       }
     }, 100);

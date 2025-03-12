@@ -42,7 +42,6 @@ const noCollectionError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("filter", onFilterChange);
 
 // Functions
 async function fetchRoms() {
@@ -85,11 +84,6 @@ async function fetchRoms() {
       scrim: false,
     });
   }
-}
-
-async function onFilterChange() {
-  romsStore.setFiltered(allRoms.value, galleryFilterStore);
-  emitter?.emit("updateDataTablePages", null);
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {

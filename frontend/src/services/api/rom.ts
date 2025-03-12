@@ -59,7 +59,7 @@ async function getRoms({
   platformId = null,
   collectionId = null,
   virtualCollectionId = null,
-  searchTerm = "",
+  searchTerm = null,
   orderBy = "name",
   orderDir = "asc",
 }: {
