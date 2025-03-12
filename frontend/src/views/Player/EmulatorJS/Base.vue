@@ -3,14 +3,12 @@ import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
-import storeGalleryView from "@/stores/galleryView";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
-import { storeToRefs } from "pinia";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -20,8 +18,6 @@ const EMULATORJS_VERSION = "4.2.1";
 // Props
 const { t } = useI18n();
 const route = useRoute();
-const galleryViewStore = storeGalleryView();
-const { defaultAspectRatioScreenshot } = storeToRefs(galleryViewStore);
 const auth = storeAuth();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
@@ -128,14 +124,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-row v-if="rom" class="align-center justify-center scroll" no-gutters>
+  <v-row v-if="rom" class="justify-center scroll" no-gutters>
     <v-col
       v-if="gameRunning"
       cols="12"
       md="8"
       xl="10"
       id="game-wrapper"
-      :style="`aspect-ratio: ${defaultAspectRatioScreenshot}`"
       class="bg-background"
       rounded
     >
@@ -162,9 +157,12 @@ onMounted(async () => {
             width="250"
             src="/assets/emulatorjs/powered_by_emulatorjs.png"
           />
-          <v-divider class="my-4" />
+          <v-divider class="my-4 mt-8" />
           <rom-list-item :rom="rom" with-filename with-size />
-          <v-divider class="my-4" />
+        </v-col>
+      </v-row>
+      <v-row v-if="!gameRunning" class="px-3 py-3" no-gutters>
+        <v-col>
           <v-select
             v-if="rom.multi"
             v-model="discRef"
@@ -183,7 +181,6 @@ onMounted(async () => {
           />
           <v-select
             v-if="supportedCores.length > 1"
-            :disabled="gameRunning"
             v-model="coreRef"
             class="my-1"
             hide-details
@@ -199,7 +196,6 @@ onMounted(async () => {
           />
           <v-select
             v-model="biosRef"
-            :disabled="gameRunning"
             class="my-1"
             hide-details
             variant="outlined"
@@ -214,7 +210,6 @@ onMounted(async () => {
           />
           <v-select
             v-model="saveRef"
-            :disabled="gameRunning"
             class="my-1"
             hide-details
             variant="outlined"
@@ -265,7 +260,6 @@ onMounted(async () => {
           </v-select>
           <v-select
             v-model="stateRef"
-            :disabled="gameRunning"
             class="my-1"
             hide-details
             variant="outlined"
@@ -314,25 +308,11 @@ onMounted(async () => {
               </v-list-item>
             </template>
           </v-select>
-          <!-- <v-select
-            class="my-1"
-            hide-details
-            variant="outlined"
-            clearable
-            
-            disabled
-            label="Patch"
-            :items="[
-              'Advance Wars Balance (AW1) by Kartal',
-              'War Room Sturm (AW1) by Kartal',
-            ]"
-          /> -->
         </v-col>
       </v-row>
       <v-row class="px-3 py-3 text-center" no-gutters>
         <v-col>
-          <v-divider class="my-4" />
-          <v-row class="align-center" no-gutters>
+          <v-row v-if="!gameRunning" class="align-center" no-gutters>
             <v-col>
               <v-btn
                 block
@@ -408,3 +388,15 @@ onMounted(async () => {
     </v-col>
   </v-row>
 </template>
+
+<style scoped>
+#game-wrapper {
+  height: 100%;
+}
+
+@media (max-width: 960px) {
+  #game-wrapper {
+    height: calc(100vh - 55px);
+  }
+}
+</style>
