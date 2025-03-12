@@ -291,7 +291,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+        <empty-game v-if="!gettingRoms" />
       </template>
     </template>
   </template>
