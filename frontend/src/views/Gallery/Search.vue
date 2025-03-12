@@ -185,9 +185,7 @@ onBeforeUnmount(() => {
       <fab-overlay />
     </template>
     <template v-else>
-      <empty-game
-        v-if="!gettingRoms && galleryFilterStore.isFiltered() && initialSearch"
-      />
+      <empty-game v-if="!gettingRoms && initialSearch" />
       <empty-search v-else-if="!initialSearch" />
     </template>
   </template>
