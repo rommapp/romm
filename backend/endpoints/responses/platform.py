@@ -18,13 +18,13 @@ class PlatformSchema(BaseModel):
     sgdb_id: int | None = None
     moby_id: int | None = None
     ss_id: int | None = None
+    igdb_slug: str | None
+    moby_slug: str | None
     category: str | None = None
     generation: int | None = None
     family_name: str | None = None
     family_slug: str | None = None
-    url: str | None = None
     url_logo: str | None = None
-    logo_path: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)
     aspect_ratio: str = DEFAULT_COVER_ASPECT_RATIO
     created_at: datetime
