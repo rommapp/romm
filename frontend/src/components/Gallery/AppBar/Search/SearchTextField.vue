@@ -9,7 +9,6 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { isUndefined } from "lodash";
 
 // Props
 const { xs } = useDisplay();
@@ -68,7 +67,7 @@ onMounted(() => {
     filter: filterParam,
     value: valueParam,
   } = router.currentRoute.value.query;
-  if (!isUndefined(searchParam) && searchParam !== searchText.value) {
+  if (searchParam !== undefined && searchParam !== searchText.value) {
     searchText.value = searchParam as string;
   }
 
@@ -87,7 +86,7 @@ onMounted(() => {
 watch(
   router.currentRoute.value.query,
   (query) => {
-    if (!isUndefined(query.search) && query.search !== searchText.value) {
+    if (query.search !== undefined && query.search !== searchText.value) {
       searchText.value = query.search as string;
       fetchRoms();
     }
