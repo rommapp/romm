@@ -698,7 +698,7 @@ SLUG_TO_SS_PLATFORM: dict[UniversalPlatformSlug, SlugToSSId] = {
     UniversalPlatformSlug.EGPC: {"id": 95, "name": "Game Pocket Computer"},
     UniversalPlatformSlug.EXELVISION: {"id": 96, "name": "EXL 100"},
     UniversalPlatformSlug.EXIDYSORCERER: {"id": 165, "name": "Exidy"},
-    UniversalPlatformSlug.FAMICOM: {"id": 3, "name": "NES"},
+    UniversalPlatformSlug.FDS: {"id": 106, "name": "Family Computer Disk System"},
     UniversalPlatformSlug.FM7: {"id": 97, "name": "FM-7"},
     UniversalPlatformSlug.FMTOWNS: {"id": 253, "name": "FM Towns"},
     UniversalPlatformSlug.GAMEANDWATCH: {"id": 52, "name": "Game & Watch"},
