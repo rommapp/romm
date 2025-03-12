@@ -1,0 +1,7 @@
+{
+  "username": "ユーザ名",
+  "password": "パスワード",
+  "login": "ログイン",
+  "login-oidc": "Login with {oidc}",
+  "or": "or"
+}
