@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { isEqual } from "lodash";
 
 interface DBSnapshot {
   timestamp: Date;
@@ -117,20 +118,22 @@ export default async function createIndexedDBDiffMonitor(
       // Check for added or modified keys
       for (const [key, newValue] of Object.entries(newStoreData)) {
         const oldValue = oldStoreData[key];
-        if (oldValue === undefined) {
+        if (
+          // The store is empty or the key is new
+          oldValue === undefined ||
+          // The save timestamp has changed
+          (oldValue.timestamp &&
+            oldValue.timestamp.getTime() !== newValue.timestamp.getTime()) ||
+          // The state array length has changed
+          (oldValue.length && oldValue.length !== newValue.length) ||
+          // The state array content has changed
+          (oldValue.length && !isEqual(oldValue, newValue))
+        ) {
           newChanges.push({
             timestamp: newSnapshot.timestamp,
             store: storeName,
             key,
             type: "added",
-            newValue,
-          });
-        } else if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-          newChanges.push({
-            timestamp: newSnapshot.timestamp,
-            store: storeName,
-            key,
-            type: "modified",
             oldValue,
             newValue,
           });

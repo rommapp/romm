@@ -121,7 +121,7 @@ def get_roms(
     platform_id: int | None = None,
     collection_id: int | None = None,
     virtual_collection_id: str | None = None,
-    search_term: str = "",
+    search_term: str | None = None,
     limit: int | None = None,
     offset: int | None = None,
     order_by: str = "name",
@@ -151,7 +151,7 @@ def get_roms(
             platform_id=platform_id,
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
-            search_term=search_term.lower(),
+            search_term=search_term,
             order_by=order_by.lower(),
             order_dir=order_dir.lower(),
             limit=limit,
@@ -164,8 +164,6 @@ def get_roms(
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
             search_term=search_term,
-            order_by=order_by,
-            order_dir=order_dir,
             limit=limit,
             offset=offset,
         )
@@ -296,7 +294,9 @@ async def get_rom_content(
         ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
     """
 
-    current_username = request.user.username if request.user else "unknown"
+    current_username = (
+        request.user.username if request.user.is_authenticated else "unknown"
+    )
     rom = db_rom_handler.get_rom(id)
 
     if not rom:

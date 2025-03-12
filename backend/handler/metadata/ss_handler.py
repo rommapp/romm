@@ -738,7 +738,7 @@ SLUG_TO_SS_ID: dict[str, SlugToSSId] = {
     "mac": {"id": 146, "name": "Mac OS"},  # IGDB
     "ngage": {"id": 30, "name": "N-Gage"},
     "nes": {"id": 3, "name": "NES"},
-    "famicom": {"id": 3, "name": "NES"},
+    "fds": {"id": 106, "name": "Famicom"},
     "neo-geo": {"id": 142, "name": "Neo-Geo"},
     "neogeoaes": {"id": 142, "name": "Neo-Geo"},  # IGDB
     "neogeomvs": {"id": 68, "name": "Neo-Geo MVS"},  # IGDB

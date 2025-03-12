@@ -1,5 +1,5 @@
 import type { PlatformSchema } from "@/__generated__";
-import { normalizeString, romStatusMap } from "@/utils";
+import { romStatusMap } from "@/utils";
 import { defineStore } from "pinia";
 
 export type Platform = PlatformSchema;
@@ -19,8 +19,8 @@ export type FilterType = (typeof filters)[number];
 
 const defaultFilterState = {
   activeFilterDrawer: false,
-  searchText: "",
-  filterText: "",
+  searchText: null as string | null,
+  filterText: null as string | null,
   filters: filters,
   filterPlatforms: [] as Platform[],
   filterGenres: [] as string[],
@@ -118,8 +118,7 @@ export default defineStore("galleryFilter", {
     },
     isFiltered() {
       return Boolean(
-        normalizeString(this.filterText).trim() != "" ||
-          this.filterUnmatched ||
+        this.filterUnmatched ||
           this.filterMatched ||
           this.filterFavourites ||
           this.filterDuplicates ||
