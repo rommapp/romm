@@ -29,11 +29,12 @@ class DBFirmwareHandler(DBBaseHandler):
         platform_id: int | None = None,
         session: Session = None,
     ) -> Sequence[Firmware]:
-        return session.scalars(
-            select(Firmware)
-            .filter_by(platform_id=platform_id)
-            .order_by(Firmware.file_name.asc())
-        ).all()
+        query = select(Firmware).order_by(Firmware.file_name.asc())
+
+        if platform_id:
+            query = query.filter_by(platform_id=platform_id)
+
+        return session.scalars(query).all()
 
     @begin_session
     def get_firmware_by_filename(
