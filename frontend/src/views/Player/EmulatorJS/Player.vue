@@ -289,13 +289,9 @@ window.EJS_onGameStart = async () => {
         stateApi
           .updateState({
             state: stateRef.value,
-            file: new File(
-              [change.newValue.contents],
-              stateRef.value.file_name,
-              {
-                type: "application/octet-stream",
-              },
-            ),
+            file: new File([change.newValue], stateRef.value.file_name, {
+              type: "application/octet-stream",
+            }),
           })
           .then(({ data }) => {
             stateRef.value = data;
@@ -307,7 +303,7 @@ window.EJS_onGameStart = async () => {
             rom: romRef.value,
             emulator: window.EJS_core,
             states: [
-              new File([change.newValue.contents], buildStateName(), {
+              new File([change.newValue], buildStateName(), {
                 type: "application/octet-stream",
               }),
             ],

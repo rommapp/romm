@@ -22,12 +22,12 @@ const filterRoms = debounce(() => {
 }, 500);
 
 function clear() {
-  filterText.value = "";
+  filterText.value = null;
 }
 
 onMounted(() => {
   const { search: searchTerm } = router.currentRoute.value.query;
-  if (searchTerm && searchTerm !== filterText.value) {
+  if (searchTerm !== undefined && searchTerm !== filterText.value) {
     filterText.value = searchTerm as string;
     filterRoms();
   }
@@ -36,7 +36,7 @@ onMounted(() => {
 watch(
   () => router.currentRoute.value.query,
   (query) => {
-    if (query.search && query.search !== filterText.value) {
+    if (query.search !== undefined && query.search !== filterText.value) {
       filterText.value = query.search as string;
       filterRoms();
     }
