@@ -29,9 +29,8 @@ const filters = [
 // Functions
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
-    name: "platform",
-    params: { platform: props.rom.platform_id },
-    query: { filter, value },
+    name: "search",
+    query: { search: "", filter, value },
   });
 }
 </script>

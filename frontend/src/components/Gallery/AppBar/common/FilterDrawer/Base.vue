@@ -24,7 +24,6 @@ withDefaults(defineProps<{ hidePlatforms?: boolean }>(), {
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const viewportWidth = ref(window.innerWidth);
-const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
@@ -45,8 +44,15 @@ const {
   selectedPlatform,
   filterPlatforms,
 } = storeToRefs(galleryFilterStore);
-const { filteredRoms } = storeToRefs(romsStore);
+const { allRoms, filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("filter", onFilterChange);
+
+async function onFilterChange() {
+  romsStore.setFiltered(allRoms.value, galleryFilterStore);
+  emitter?.emit("updateDataTablePages", null);
+}
 
 const filters = [
   {
@@ -96,7 +102,7 @@ function resetFilters() {
   nextTick(() => emitter?.emit("filter", null));
 }
 
-function setFilter() {
+function setFilters() {
   galleryFilterStore.setFilterPlatforms([
     ...new Set(
       romsStore.filteredRoms
@@ -145,13 +151,13 @@ function setFilter() {
 onMounted(async () => {
   watch(
     () => filteredRoms.value,
-    async () => setFilter(),
+    async () => setFilters(),
     { immediate: true }, // Ensure watcher is triggered immediately
   );
 
   watch(
     () => allPlatforms.value,
-    async () => setFilter(),
+    async () => setFilters(),
     { immediate: true }, // Ensure watcher is triggered immediately
   );
 });

@@ -46,7 +46,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 ## Features
 
-- Scans your existing games library and enhances it with metadata from [IGDB][igdb-api] and [MobyGames][mobygames-api]
+- Scans your existing games library and enhances it with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
 - Supports a large number of **[platforms][platform-support]**
 - Play games directly from the browser using [EmulatorJS][wiki-emulatorjs] and RuffleRS
 - Share your library with friends while [limiting access and permissions][wiki-authentication]
@@ -272,6 +272,7 @@ Here are a few projects that we think you might like:
 <!-- External links -->
 
 [igdb-api]: https://api-docs.igdb.com/#account-creation
+[screenscraper-api]: https://www.screenscraper.fr/membreinscription.php
 [mobygames-api]: https://www.mobygames.com/info/api/
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [kubernetes-helm-chart]: https://artifacthub.io/packages/helm/crystalnet/romm

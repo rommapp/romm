@@ -19,8 +19,7 @@ const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
-const panels = ref([0]);
-const panelIndex = ref(0);
+const panels = ref<number[]>([]);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
@@ -51,10 +50,15 @@ watch(metadataOptions, (newOptions) => {
 });
 
 // Adding each new scanned platform to panelIndex to be open by default
-watch(scanningPlatforms, () => {
-  panelIndex.value += 1;
-  panels.value.push(panelIndex.value);
-});
+watch(
+  scanningPlatforms,
+  () => {
+    panels.value = scanningPlatforms.value
+      .map((p, index) => (p.roms.length > 0 ? index : -1))
+      .filter((index) => index !== -1);
+  },
+  { deep: true },
+);
 
 const scanOptions = [
   {

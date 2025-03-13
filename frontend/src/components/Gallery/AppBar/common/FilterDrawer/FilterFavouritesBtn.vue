@@ -21,15 +21,13 @@ function setFavourites() {
   <v-btn
     block
     variant="tonal"
-    :color="filterFavourites ? 'primary' : 'romm-gray'"
+    :color="filterFavourites ? 'primary' : ''"
     @click="setFavourites()"
   >
-    <v-icon :color="filterFavourites ? 'primary' : 'romm-white'"
-      >mdi-star</v-icon
+    <v-icon :color="filterFavourites ? 'primary' : ''">mdi-star</v-icon
     ><span
       class="ml-2"
       :class="{
-        'text-romm-white': !filterFavourites,
         'text-primary': filterFavourites,
       }"
       >{{ t("platform.show-favourites") }}</span

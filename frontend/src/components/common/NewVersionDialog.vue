@@ -15,14 +15,23 @@ function dismissVersionBanner() {
   latestVersionDismissed.value = true;
 }
 onMounted(async () => {
-  const response = await fetch(
-    "https://api.github.com/repos/rommapp/romm/releases/latest",
-  );
-  const json = await response.json();
-  GITHUB_VERSION.value = json.tag_name;
-  latestVersionDismissed.value =
-    !semver.valid(VERSION) ||
-    json.tag_name === localStorage.getItem("dismissedVersion");
+  try {
+    const response = await fetch(
+      "https://api.github.com/repos/rommapp/romm/releases/latest",
+    );
+    const json = await response.json();
+    GITHUB_VERSION.value = json.tag_name;
+    const publishedAt = new Date(json.published_at);
+    latestVersionDismissed.value =
+      // Hide if the version is not valid
+      !semver.valid(VERSION) ||
+      // Hide if the version is the same as the dismissed version
+      json.tag_name === localStorage.getItem("dismissedVersion") ||
+      // Hide if the version is less than 2 hours old
+      publishedAt.getTime() + 2 * 60 * 60 * 1000 > Date.now();
+  } catch (error) {
+    console.error("Failed to fetch latest version from Github", error);
+  }
 });
 </script>
 

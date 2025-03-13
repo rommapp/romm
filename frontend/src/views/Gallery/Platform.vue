@@ -41,7 +41,6 @@ const noPlatformError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("filter", onFilterChange);
 
 // Functions
 async function fetchRoms() {
@@ -78,11 +77,6 @@ async function fetchRoms() {
       scrim: false,
     });
   }
-}
-
-async function onFilterChange() {
-  romsStore.setFiltered(allRoms.value, galleryFilterStore);
-  emitter?.emit("updateDataTablePages", null);
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -170,15 +164,6 @@ function resetGallery() {
   itemsShown.value = itemsPerBatch.value;
 }
 
-const filterToSetFilter: Record<FilterType, Function> = {
-  genres: galleryFilterStore.setSelectedFilterGenre,
-  franchises: galleryFilterStore.setSelectedFilterFranchise,
-  meta_collections: galleryFilterStore.setSelectedFilterCollection,
-  companies: galleryFilterStore.setSelectedFilterCompany,
-  age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
-  status: galleryFilterStore.setSelectedFilterStatus,
-};
-
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
   currentCollection.value = null;
@@ -201,15 +186,6 @@ onMounted(async () => {
             romsStore.setCurrentPlatform(platform);
             resetGallery();
             await fetchRoms();
-          }
-
-          // Check for query params to set filters
-          if (route.query.filter && route.query.value) {
-            const filter = route.query.filter as FilterType;
-            const value = route.query.value as string;
-            filterToSetFilter[filter](value);
-            onFilterChange(); // Update the UI
-            router.replace({ query: {} }); // Clear query params
           }
 
           window.addEventListener("wheel", onScroll);
@@ -315,7 +291,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+        <empty-game v-if="!gettingRoms" />
       </template>
     </template>
   </template>
