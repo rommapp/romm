@@ -327,6 +327,7 @@ onMounted(async () => {
               cols="12"
               :sm="gameRunning ? 12 : 7"
               :xl="gameRunning ? 12 : 9"
+              class="ml-2"
             >
               <v-btn
                 color="primary"
