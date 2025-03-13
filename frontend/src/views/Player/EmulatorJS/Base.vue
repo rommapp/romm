@@ -226,14 +226,11 @@ onMounted(async () => {
             <template #selection="{ item }">
               <v-list-item class="pa-0" :title="item.value.file_name ?? ''">
                 <template #append>
-                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
-                    item.value.emulator
-                  }}</v-chip>
-                  <v-chip size="x-small" class="ml-1" label>
-                    {{ formatTimestamp(item.value.updated_at) }}
-                  </v-chip>
                   <v-chip size="x-small" class="ml-1" label
                     >{{ formatBytes(item.value.file_size_bytes) }}
+                  </v-chip>
+                  <v-chip size="small" class="ml-1" label>
+                    {{ formatTimestamp(item.value.updated_at) }}
                   </v-chip>
                 </template>
               </v-list-item>
@@ -245,14 +242,11 @@ onMounted(async () => {
                 :title="item.value.file_name ?? ''"
               >
                 <template #append>
-                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
-                    item.value.emulator
-                  }}</v-chip>
-                  <v-chip size="x-small" class="ml-1" label>
-                    {{ formatTimestamp(item.value.updated_at) }}
-                  </v-chip>
                   <v-chip size="x-small" class="ml-1" label
                     >{{ formatBytes(item.value.file_size_bytes) }}
+                  </v-chip>
+                  <v-chip size="small" class="ml-1" label>
+                    {{ formatTimestamp(item.value.updated_at) }}
                   </v-chip>
                 </template>
               </v-list-item>
