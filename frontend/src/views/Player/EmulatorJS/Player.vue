@@ -225,11 +225,15 @@ window.EJS_onGameStart = async () => {
     };
   }, 10);
 
-  const savesMonitor = await createIndexedDBDiffMonitor("/data/saves", 2000);
-  const statesMonitor = await createIndexedDBDiffMonitor(
-    "EmulatorJS-states",
-    2000,
-  );
+  const savesMonitor = await createIndexedDBDiffMonitor({
+    dbName: "/data/saves",
+    intervalMs: 2000,
+  });
+  const statesMonitor = await createIndexedDBDiffMonitor({
+    dbName: "EmulatorJS-states",
+    storeName: "states",
+    intervalMs: 2000,
+  });
 
   // Start monitoring
   savesMonitor.start();
