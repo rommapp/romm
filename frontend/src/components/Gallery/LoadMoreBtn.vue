@@ -8,11 +8,16 @@ defineProps<{
 }>();
 const { t } = useI18n();
 const romsStore = storeRoms();
-const { allRoms, fetchingRoms, fetchTotalRoms } = storeToRefs(romsStore);
+const { allRoms, fetchingRoms, fetchTotalRoms, fetchLimit } =
+  storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-row class="mx-1 py-3 justify-center" no-gutters>
+  <v-row
+    v-if="fetchTotalRoms > fetchLimit"
+    class="mx-1 py-3 justify-center"
+    no-gutters
+  >
     <v-col cols="2" class="text-center">
       <template v-if="fetchTotalRoms > allRoms.length">
         <v-btn

@@ -43,7 +43,7 @@ const defaultFilterState = {
 };
 
 export default defineStore("galleryFilter", {
-  state: () => defaultFilterState,
+  state: () => ({ ...defaultFilterState }),
 
   actions: {
     switchActiveFilterDrawer() {
@@ -132,7 +132,7 @@ export default defineStore("galleryFilter", {
       );
     },
     reset() {
-      Object.assign(this, defaultFilterState);
+      Object.assign(this, { ...defaultFilterState });
     },
   },
 });

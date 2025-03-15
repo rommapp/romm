@@ -23,7 +23,7 @@ const defaultConfig = {
 
 export default defineStore("config", {
   state: () => ({
-    config: defaultConfig,
+    config: { ...defaultConfig },
   }),
 
   actions: {
