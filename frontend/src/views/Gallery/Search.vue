@@ -87,32 +87,49 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-function onScroll() {
-  if (currentView.value != 2) {
-    window.setTimeout(async () => {
-      const { scrollTop, scrollHeight, clientHeight } =
-        document.documentElement;
-      scrolledToTop.value = scrollTop === 0;
-      const totalScrollableHeight = scrollHeight - clientHeight;
-      const ninetyPercentPoint = totalScrollableHeight * 0.9;
-      if (
-        scrollTop >= ninetyPercentPoint &&
-        itemsShown.value < filteredRoms.value.length
-      ) {
-        itemsShown.value = itemsShown.value + itemsPerBatch.value;
-        galleryViewStore.scroll = scrollHeight;
-      }
-    }, 100);
-    clearTimeout(timeout);
-  }
-}
+// function onScroll() {
+//   clearTimeout(timeout);
+
+//   window.setTimeout(async () => {
+//     if (!galleryRef.value) return;
+
+//     const rect = galleryRef.value.$el.getBoundingClientRect();
+//     scrolledToTop.value = rect.top === 0;
+//     if (
+//       rect.bottom - window.innerHeight < 60 &&
+//       fetchTotalRoms.value > allRoms.value.length
+//     ) {
+//       await fetchRoms();
+//     }
+//   }, 100);
+// }
+
+// function onScroll() {
+//   if (currentView.value != 2) {
+//     window.setTimeout(async () => {
+//       const { scrollTop, scrollHeight, clientHeight } =
+//         document.documentElement;
+//       scrolledToTop.value = scrollTop === 0;
+//       const totalScrollableHeight = scrollHeight - clientHeight;
+//       const ninetyPercentPoint = totalScrollableHeight * 0.9;
+//       if (
+//         scrollTop >= ninetyPercentPoint &&
+//         itemsShown.value < filteredRoms.value.length
+//       ) {
+//         itemsShown.value = itemsShown.value + itemsPerBatch.value;
+//       }
+//     }, 100);
+//     clearTimeout(timeout);
+//   }
+// }
+
+function onScroll() {}
 
 function resetGallery() {
   romsStore.reset();
   galleryFilterStore.reset();
   galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
-  itemsShown.value = itemsPerBatch.value;
 }
 
 onMounted(async () => {
@@ -134,16 +151,15 @@ onBeforeUnmount(() => {
 
 <template>
   <gallery-app-bar-search />
-  <template v-if="fetchingRoms">
+  <template v-if="fetchingRoms && filteredRoms.length === 0">
     <skeleton />
   </template>
   <template v-else>
     <template v-if="filteredRoms.length > 0">
-      <v-row v-show="currentView != 2" class="mx-1 mt-3" no-gutters>
+      <v-row v-if="currentView != 2" class="mx-1 mt-3" no-gutters>
         <!-- Gallery cards view -->
-        <!-- v-show instead of v-if to avoid recalculate on view change -->
         <v-col
-          v-for="rom in filteredRoms.slice(0, itemsShown)"
+          v-for="rom in filteredRoms"
           :key="rom.id"
           class="pa-1 align-self-end"
           :cols="views[currentView]['size-cols']"
@@ -174,7 +190,7 @@ onBeforeUnmount(() => {
       </v-row>
 
       <!-- Gallery list view -->
-      <v-row class="h-100" v-show="currentView == 2" no-gutters>
+      <v-row class="h-100" v-else="currentView == 2" no-gutters>
         <v-col class="h-100 pt-4 pb-2">
           <game-data-table class="h-100 mx-2" />
         </v-col>
