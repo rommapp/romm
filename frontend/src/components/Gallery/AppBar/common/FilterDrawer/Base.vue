@@ -50,7 +50,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
 async function onFilterChange() {
-  romsStore.setFiltered(allRoms.value, galleryFilterStore);
+  romsStore.setFiltered(galleryFilterStore);
   emitter?.emit("updateDataTablePages", null);
 }
 

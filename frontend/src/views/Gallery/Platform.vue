@@ -15,10 +15,19 @@ import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  inject,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+  type VNodeRef,
+} from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -35,6 +44,7 @@ const {
   fetchingRoms,
   fetchTotalRoms,
 } = storeToRefs(romsStore);
+const galleryRef = ref<VNodeRef | undefined>(undefined);
 const noPlatformError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
@@ -135,12 +145,12 @@ function onScroll() {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-    scrolledToTop.value = scrollTop === 0;
-    const totalScrollableHeight = scrollHeight - clientHeight;
-    const ninetyPercentPoint = totalScrollableHeight * 0.9;
+    if (!galleryRef.value) return;
+
+    const rect = galleryRef.value.$el.getBoundingClientRect();
+    scrolledToTop.value = rect.top === 0;
     if (
-      scrollTop >= ninetyPercentPoint &&
+      rect.bottom - window.innerHeight < 60 &&
       fetchTotalRoms.value > allRoms.value.length
     ) {
       await fetchRoms();
@@ -235,12 +245,17 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noPlatformError">
     <gallery-app-bar />
-    <template v-if="fetchingRoms">
+    <template v-if="fetchingRoms && filteredRoms.length === 0">
       <skeleton />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
-        <v-row v-if="currentView != 2" class="pb-2 mx-1 mt-3" no-gutters>
+        <v-row
+          ref="galleryRef"
+          v-if="currentView != 2"
+          class="pb-2 mx-1 mt-3"
+          no-gutters
+        >
           <!-- Gallery cards view -->
           <v-col
             v-for="rom in filteredRoms"
@@ -280,6 +295,35 @@ onBeforeUnmount(() => {
             <game-data-table class="h-100 mx-2" />
           </v-col>
         </v-row>
+
+        <!-- Load more button -->
+        <v-row class="mx-1 py-3 justify-center" no-gutters>
+          <v-col cols="2" class="text-center">
+            <template v-if="fetchTotalRoms > allRoms.length">
+              <v-btn
+                @click="fetchRoms"
+                :loading="fetchingRoms"
+                :disabled="fetchingRoms"
+                size="large"
+                variant="flat"
+              >
+                {{ t("gallery.load-more") }}
+              </v-btn>
+            </template>
+            <template v-else>
+              <v-alert
+                dense
+                outlined
+                color="surface"
+                class="mx-auto text-gray px-6 py-4"
+                max-width="fit-content"
+              >
+                {{ t("gallery.all-loaded") }}
+              </v-alert>
+            </template>
+          </v-col>
+        </v-row>
+
         <fab-overlay />
       </template>
       <template v-else>

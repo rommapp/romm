@@ -125,8 +125,11 @@ export default defineStore("roms", {
             if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
             if (total !== null) this.fetchTotalRoms = total;
 
-            this.add(items);
-            this.setFiltered(items, galleryFilter);
+            // These need to happen in exactly this order
+            this.allRoms = this.allRoms.concat(items);
+            this._reorder();
+            this.setFiltered(galleryFilter);
+
             resolve(items);
           })
           .catch((error) => {
@@ -181,8 +184,8 @@ export default defineStore("roms", {
       Object.assign(this, defaultRomsState);
     },
     // Filter roms by gallery filter store state
-    setFiltered(roms: SimpleRom[], galleryFilter: GalleryFilterStore) {
-      this._filteredIDs = new Set(roms.map((rom) => rom.id));
+    setFiltered(galleryFilter: GalleryFilterStore) {
+      this._filteredIDs = new Set(this.allRoms.map((rom) => rom.id));
       if (galleryFilter.filterText !== null) {
         this._filterText(galleryFilter.filterText);
       }
