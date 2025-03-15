@@ -7,7 +7,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import Skeleton from "@/components/Gallery/Skeleton.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
-import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -16,19 +16,10 @@ import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import {
-  inject,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-  type VNodeRef,
-} from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
-import { useI18n } from "vue-i18n";
 
 // Props
-const { t } = useI18n();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -47,8 +38,8 @@ const {
 } = storeToRefs(romsStore);
 const noPlatformError = ref(false);
 const router = useRouter();
-let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
+let timeout: ReturnType<typeof setTimeout>;
 
 // Functions
 async function fetchRoms() {
@@ -182,8 +173,8 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             platform
           ) {
-            romsStore.setCurrentPlatform(platform);
             resetGallery();
+            romsStore.setCurrentPlatform(platform);
             await fetchRoms();
           }
 

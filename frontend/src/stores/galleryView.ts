@@ -10,7 +10,7 @@ const defaultGalleryState = {
 };
 
 export default defineStore("galleryView", {
-  state: () => defaultGalleryState,
+  state: () => ({ ...defaultGalleryState }),
 
   actions: {
     setView(view: number) {
@@ -28,7 +28,7 @@ export default defineStore("galleryView", {
       }
     },
     reset() {
-      Object.assign(this, defaultGalleryState);
+      Object.assign(this, { ...defaultGalleryState });
     },
   },
 });

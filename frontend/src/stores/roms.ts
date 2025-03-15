@@ -38,7 +38,7 @@ const defaultRomsState = {
 };
 
 export default defineStore("roms", {
-  state: () => defaultRomsState,
+  state: () => ({ ...defaultRomsState }),
 
   getters: {
     filteredRoms: (state) =>
@@ -130,6 +130,8 @@ export default defineStore("roms", {
             this._reorder();
             this.setFiltered(galleryFilter);
 
+            console.log("filtered", this.filteredRoms);
+
             resolve(items);
           })
           .catch((error) => {
@@ -181,7 +183,7 @@ export default defineStore("roms", {
       roms.forEach((rom) => this._filteredIDs.delete(rom.id));
     },
     reset() {
-      Object.assign(this, defaultRomsState);
+      Object.assign(this, { ...defaultRomsState });
     },
     // Filter roms by gallery filter store state
     setFiltered(galleryFilter: GalleryFilterStore) {
