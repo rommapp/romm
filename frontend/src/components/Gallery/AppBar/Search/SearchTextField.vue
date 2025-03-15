@@ -21,35 +21,28 @@ const galleryFilterStore = storeGalleryFilter();
 const { searchText } = storeToRefs(galleryFilterStore);
 
 async function fetchRoms() {
-  if (searchText.value !== null) {
-    // Auto hide android keyboard
-    const inputElement = document.getElementById("search-text-field");
-    inputElement?.blur();
-    fetchingRoms.value = true;
+  if (searchText.value === null) return;
 
-    // Update URL with search term
-    router.replace({ query: { search: searchText.value } });
+  // Auto hide android keyboard
+  const inputElement = document.getElementById("search-text-field");
+  inputElement?.blur();
 
-    try {
-      const { data } = await romApi.getRoms({ searchTerm: searchText.value });
-      const sortedData = data.sort((a, b) => {
-        return a.platform_name.localeCompare(b.platform_name);
-      });
-      romsStore.set(sortedData);
-      romsStore.setFiltered(sortedData, galleryFilterStore);
-    } catch (error) {
+  // Update URL with search term
+  router.replace({ query: { search: searchText.value } });
+
+  romsStore
+    .fetchRoms({ searchTerm: searchText.value }, galleryFilterStore)
+    .catch((error) => {
       emitter?.emit("snackbarShow", {
         msg: `Couldn't fetch roms: ${error}`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
       });
-      console.error(`Couldn't fetch roms: ${error}`);
-    } finally {
-      fetchingRoms.value = false;
+    })
+    .finally(() => {
       galleryFilterStore.activeFilterDrawer = false;
-    }
-  }
+    });
 }
 
 const filterToSetFilter: Record<FilterType, Function> = {

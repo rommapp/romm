@@ -55,7 +55,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   romsStore.addToRecent(rom);
   if (romsStore.currentPlatform?.id === rom.platform_id) {
     romsStore.add([rom]);
-    romsStore.setFiltered(romsStore.allRoms, galleryFilter);
+    romsStore.setFiltered(galleryFilter);
   }
 
   let scannedPlatform = scanningPlatforms.value.find(

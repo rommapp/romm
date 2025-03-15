@@ -7,7 +7,6 @@ const defaultGalleryState = {
   defaultAspectRatioScreenshot: 16 / 9,
   activeFirmwareDrawer: false,
   scrolledToTop: false,
-  scroll: 0,
 };
 
 export default defineStore("galleryView", {

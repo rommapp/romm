@@ -3,8 +3,9 @@ import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
@@ -290,40 +291,18 @@ onBeforeUnmount(() => {
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row class="h-100" v-if="currentView == 2" no-gutters>
+        <v-row
+          ref="galleryRef"
+          class="h-100"
+          v-if="currentView == 2"
+          no-gutters
+        >
           <v-col class="h-100 pt-4 pb-2">
             <game-data-table class="h-100 mx-2" />
           </v-col>
         </v-row>
 
-        <!-- Load more button -->
-        <v-row class="mx-1 py-3 justify-center" no-gutters>
-          <v-col cols="2" class="text-center">
-            <template v-if="fetchTotalRoms > allRoms.length">
-              <v-btn
-                @click="fetchRoms"
-                :loading="fetchingRoms"
-                :disabled="fetchingRoms"
-                size="large"
-                variant="flat"
-              >
-                {{ t("gallery.load-more") }}
-              </v-btn>
-            </template>
-            <template v-else>
-              <v-alert
-                dense
-                outlined
-                color="surface"
-                class="mx-auto text-gray px-6 py-4"
-                max-width="fit-content"
-              >
-                {{ t("gallery.all-loaded") }}
-              </v-alert>
-            </template>
-          </v-col>
-        </v-row>
-
+        <load-more-btn :fetchRoms="fetchRoms" />
         <fab-overlay />
       </template>
       <template v-else>

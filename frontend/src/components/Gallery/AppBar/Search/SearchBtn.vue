@@ -9,7 +9,6 @@ import type { Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 
-const { t } = useI18n();
 const romsStore = storeRoms();
 const { fetchingRoms } = storeToRefs(romsStore);
 const searched = ref(false);
@@ -19,48 +18,32 @@ const galleryFilterStore = storeGalleryFilter();
 const { searchText } = storeToRefs(galleryFilterStore);
 
 function fetchRoms() {
-  if (searchText.value !== null) {
-    fetchingRoms.value = true;
-    const inputElement = document.getElementById("search-text-field");
-    inputElement?.blur();
-    searched.value = true;
-    romApi
-      .getRoms({ searchTerm: searchText.value })
-      .then(({ data }) => {
-        data = data.sort((a, b) => {
-          return a.platform_name.localeCompare(b.platform_name);
-        });
-        romsStore.set(data);
-        romsStore.setFiltered(data, galleryFilterStore);
-      })
-      .catch((error) => {
-        emitter?.emit("snackbarShow", {
-          msg: `Couldn't fetch roms: ${error}`,
-          icon: "mdi-close-circle",
-          color: "red",
-          timeout: 4000,
-        });
-        console.error(`Couldn't fetch roms: ${error}`);
-      })
-      .finally(() => {
-        fetchingRoms.value = false;
+  if (searchText.value == null) return;
+
+  const inputElement = document.getElementById("search-text-field");
+  inputElement?.blur();
+  searched.value = true;
+
+  romsStore
+    .fetchRoms({ searchTerm: searchText.value }, galleryFilterStore)
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch roms: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
       });
-    filterRoms();
-    galleryFilterStore.activeFilterDrawer = false;
-  }
+    });
+
+  filterRoms();
+  galleryFilterStore.activeFilterDrawer = false;
 }
 
 function filterRoms() {
   if (selectedPlatform.value) {
-    romsStore.setFiltered(
-      romsStore.allRoms.filter(
-        (rom) => rom.platform_id === selectedPlatform.value?.id,
-      ),
-      galleryFilterStore,
-    );
-  } else {
-    romsStore.setFiltered(romsStore.allRoms, galleryFilterStore);
+    galleryFilterStore.setFilterPlatforms([selectedPlatform.value]);
   }
+  romsStore.setFiltered(galleryFilterStore);
 }
 </script>
 
