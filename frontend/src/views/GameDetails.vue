@@ -45,11 +45,11 @@ const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
-const { currentRom, gettingRoms } = storeToRefs(romsStore);
+const { currentRom, fetchingRoms } = storeToRefs(romsStore);
 
 // Functions
 async function fetchDetails() {
-  gettingRoms.value = true;
+  fetchingRoms.value = true;
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then(({ data }) => {
@@ -61,7 +61,7 @@ async function fetchDetails() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      gettingRoms.value = false;
+      fetchingRoms.value = false;
     });
 }
 
@@ -99,7 +99,7 @@ watch(
 </script>
 
 <template>
-  <template v-if="currentRom && !gettingRoms">
+  <template v-if="currentRom && !fetchingRoms">
     <background-header />
 
     <v-row class="px-5" no-gutters :class="{ 'justify-center': smAndDown }">

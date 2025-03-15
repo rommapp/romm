@@ -10,6 +10,7 @@ import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
 import storeHeartbeat from "@/stores/heartbeat";
+import { type LimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/LimitOffsetPage_SimpleRomSchema_";
 
 export const romApi = api;
 
@@ -55,41 +56,48 @@ async function uploadRoms({
   return Promise.allSettled(promises);
 }
 
+export interface GetRomsParams {
+  platformId?: number | null;
+  collectionId?: number | null;
+  virtualCollectionId?: string | null;
+  searchTerm?: string | null;
+  limit?: number;
+  offset?: number;
+  orderBy?: string | null;
+  orderDir?: string | null;
+}
+
 async function getRoms({
   platformId = null,
   collectionId = null,
   virtualCollectionId = null,
   searchTerm = null,
+  limit = 72,
+  offset = 0,
   orderBy = "name",
   orderDir = "asc",
-}: {
-  platformId?: number | null;
-  collectionId?: number | null;
-  virtualCollectionId?: string | null;
-  searchTerm?: string | null;
-  orderBy?: string | null;
-  orderDir?: string | null;
-}): Promise<{ data: SimpleRom[] }> {
+}: GetRomsParams): Promise<{ data: GetRomsResponse }> {
   return api.get(`/roms`, {
     params: {
       platform_id: platformId,
       collection_id: collectionId,
       virtual_collection_id: virtualCollectionId,
       search_term: searchTerm,
+      limit: limit,
+      offset: offset,
       order_by: orderBy,
       order_dir: orderDir,
-      limit: 2500,
     },
   });
 }
 
-async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
+async function getRecentRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
     params: { order_by: "id", order_dir: "desc", limit: 15 },
   });
 }
 
-async function getRecentPlayedRoms(): Promise<{ data: SimpleRom[] }> {
+async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
     params: { order_by: "last_played", order_dir: "desc", limit: 15 },
   });

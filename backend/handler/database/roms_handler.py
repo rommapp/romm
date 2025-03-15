@@ -129,11 +129,9 @@ class DBRomsHandler(DBBaseHandler):
         search_term: str | None = None,
         order_by: str = "name",
         order_dir: str = "asc",
-        limit: int | None = None,
-        offset: int | None = None,
         query: Query = None,
         session: Session = None,
-    ) -> Sequence[Rom]:
+    ) -> Query[Rom]:
         filtered_query = self._filter(
             query,
             platform_id,
@@ -142,10 +140,7 @@ class DBRomsHandler(DBBaseHandler):
             search_term,
             session,
         )
-        ordered_query = self._order(filtered_query, order_by, order_dir)
-        offset_query = ordered_query.offset(offset)
-        limited_query = offset_query.limit(limit)
-        return session.scalars(limited_query).unique().all()
+        return self._order(filtered_query, order_by, order_dir)
 
     @begin_session
     @with_details
@@ -266,17 +261,16 @@ class DBRomsHandler(DBBaseHandler):
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
         search_term: str | None = None,
-        limit: int | None = None,
-        offset: int | None = None,
         query: Query = None,
         session: Session = None,
-    ) -> Sequence[Rom]:
+    ) -> Query[Rom]:
         filtered_query = (
             query.join(RomUser)
             .filter(RomUser.user_id == user_id)
             .order_by(RomUser.last_played.desc())
         )
-        filtered_query = self._filter(
+
+        return self._filter(
             filtered_query,
             platform_id,
             collection_id,
@@ -284,9 +278,6 @@ class DBRomsHandler(DBBaseHandler):
             search_term,
             session,
         )
-        offset_query = filtered_query.offset(offset)
-        limited_query = offset_query.limit(limit)
-        return session.scalars(limited_query).unique().all()
 
     @begin_session
     def get_rom_user_by_id(self, id: int, session: Session = None) -> RomUser | None:
