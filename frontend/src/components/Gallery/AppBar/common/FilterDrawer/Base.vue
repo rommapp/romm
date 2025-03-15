@@ -44,7 +44,7 @@ const {
   selectedPlatform,
   filterPlatforms,
 } = storeToRefs(galleryFilterStore);
-const { allRoms, filteredRoms } = storeToRefs(romsStore);
+const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);

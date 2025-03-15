@@ -6,7 +6,7 @@ import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, type VNodeRef } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { isNull } from "lodash";
@@ -20,6 +20,8 @@ const { filteredCollections, filteredVirtualCollections, searchText } =
   storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
+const visibleVirtualCollections = ref(72);
+const collectionsList = ref<VNodeRef | undefined>(undefined);
 
 const showVirtualCollections = isNull(
   localStorage.getItem("settings.showVirtualCollections"),
@@ -34,6 +36,28 @@ async function addCollection() {
 function clear() {
   searchText.value = "";
 }
+
+function onScroll() {
+  if (
+    window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+    visibleVirtualCollections.value < filteredVirtualCollections.value.length
+  ) {
+    visibleVirtualCollections.value += 72;
+  }
+}
+
+onMounted(() => {
+  window.setTimeout(() => {
+    if (!collectionsList.value) return;
+    debugger;
+    collectionsList.value.$el.addEventListener("scroll", onScroll);
+  }, 10000);
+});
+
+onBeforeUnmount(() => {
+  if (!collectionsList.value) return;
+  collectionsList.value.$el.removeEventListener("scroll", onScroll);
+});
 </script>
 <template>
   <v-navigation-drawer
@@ -52,6 +76,7 @@ function clear() {
     style="height: unset"
     rounded
     :border="0"
+    ref="collectionsList"
   >
     <template #prepend>
       <v-text-field
@@ -81,7 +106,10 @@ function clear() {
           t("common.virtual-collections").toUpperCase()
         }}</v-list-subheader>
         <collection-list-item
-          v-for="collection in filteredVirtualCollections"
+          v-for="collection in filteredVirtualCollections.slice(
+            0,
+            visibleVirtualCollections,
+          )"
           :collection="collection"
           with-link
         />
