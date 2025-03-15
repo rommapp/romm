@@ -45,7 +45,6 @@ const {
   fetchingRoms,
   fetchTotalRoms,
 } = storeToRefs(romsStore);
-const galleryRef = ref<VNodeRef | undefined>(undefined);
 const noPlatformError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
@@ -146,12 +145,9 @@ function onScroll() {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    if (!galleryRef.value) return;
-
-    const rect = galleryRef.value.$el.getBoundingClientRect();
-    scrolledToTop.value = rect.top === 0;
+    scrolledToTop.value = window.scrollY === 0;
     if (
-      rect.bottom - window.innerHeight < 60 &&
+      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > allRoms.value.length
     ) {
       await fetchRoms();
@@ -191,9 +187,7 @@ onMounted(async () => {
             await fetchRoms();
           }
 
-          window.addEventListener("wheel", onScroll);
           window.addEventListener("scroll", onScroll);
-          window.addEventListener("touchmove", onScroll);
         } else {
           noPlatformError.value = true;
         }
@@ -237,9 +231,7 @@ onBeforeRouteUpdate(async (to, from) => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
-  window.removeEventListener("touchmove", onScroll);
 });
 </script>
 
@@ -251,12 +243,7 @@ onBeforeUnmount(() => {
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
-        <v-row
-          ref="galleryRef"
-          v-if="currentView != 2"
-          class="pb-2 mx-1 mt-3"
-          no-gutters
-        >
+        <v-row v-if="currentView != 2" class="pb-2 mx-1 mt-3" no-gutters>
           <!-- Gallery cards view -->
           <v-col
             v-for="rom in filteredRoms"
@@ -291,12 +278,7 @@ onBeforeUnmount(() => {
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row
-          ref="galleryRef"
-          class="h-100"
-          v-if="currentView == 2"
-          no-gutters
-        >
+        <v-row class="h-100" v-if="currentView == 2" no-gutters>
           <v-col class="h-100 pt-4 pb-2">
             <game-data-table class="h-100 mx-2" />
           </v-col>

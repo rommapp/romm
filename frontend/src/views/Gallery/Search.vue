@@ -12,8 +12,10 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
 // Props
 const galleryViewStore = storeGalleryView();
@@ -29,7 +31,9 @@ const {
   currentPlatform,
   currentCollection,
   fetchingRoms,
+  fetchTotalRoms,
 } = storeToRefs(romsStore);
+const emitter = inject<Emitter<Events>>("emitter");
 
 let timeout: ReturnType<typeof setTimeout>;
 
@@ -87,43 +91,35 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-// function onScroll() {
-//   clearTimeout(timeout);
+function fetchRoms() {
+  romsStore
+    .fetchRoms({ searchTerm: searchText.value }, galleryFilterStore)
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch roms: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    })
+    .finally(() => {
+      galleryFilterStore.activeFilterDrawer = false;
+    });
+}
 
-//   window.setTimeout(async () => {
-//     if (!galleryRef.value) return;
+function onScroll() {
+  clearTimeout(timeout);
 
-//     const rect = galleryRef.value.$el.getBoundingClientRect();
-//     scrolledToTop.value = rect.top === 0;
-//     if (
-//       rect.bottom - window.innerHeight < 60 &&
-//       fetchTotalRoms.value > allRoms.value.length
-//     ) {
-//       await fetchRoms();
-//     }
-//   }, 100);
-// }
-
-// function onScroll() {
-//   if (currentView.value != 2) {
-//     window.setTimeout(async () => {
-//       const { scrollTop, scrollHeight, clientHeight } =
-//         document.documentElement;
-//       scrolledToTop.value = scrollTop === 0;
-//       const totalScrollableHeight = scrollHeight - clientHeight;
-//       const ninetyPercentPoint = totalScrollableHeight * 0.9;
-//       if (
-//         scrollTop >= ninetyPercentPoint &&
-//         itemsShown.value < filteredRoms.value.length
-//       ) {
-//         itemsShown.value = itemsShown.value + itemsPerBatch.value;
-//       }
-//     }, 100);
-//     clearTimeout(timeout);
-//   }
-// }
-
-function onScroll() {}
+  window.setTimeout(async () => {
+    scrolledToTop.value = window.scrollY === 0;
+    if (
+      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      fetchTotalRoms.value > filteredRoms.value.length
+    ) {
+      await fetchRoms();
+    }
+  }, 100);
+}
 
 function resetGallery() {
   romsStore.reset();
@@ -136,15 +132,11 @@ onMounted(async () => {
   currentPlatform.value = null;
   currentCollection.value = null;
   resetGallery();
-  window.addEventListener("wheel", onScroll);
   window.addEventListener("scroll", onScroll);
-  window.addEventListener("touchmove", onScroll);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
-  window.removeEventListener("touchmove", onScroll);
   searchText.value = "";
 });
 </script>
