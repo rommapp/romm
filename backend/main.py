@@ -34,6 +34,7 @@ from endpoints import (
 )
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_pagination import add_pagination
 from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
@@ -117,6 +118,8 @@ app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
+
+add_pagination(app)
 
 
 if __name__ == "__main__":

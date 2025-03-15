@@ -6,7 +6,6 @@ import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import Skeleton from "@/components/Gallery/Skeleton.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
-import romApi from "@/services/api/rom";
 import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
@@ -33,10 +32,9 @@ const {
   selectedRoms,
   currentPlatform,
   currentCollection,
-  itemsPerBatch,
-  gettingRoms,
+  fetchingRoms,
+  fetchTotalRoms,
 } = storeToRefs(romsStore);
-const itemsShown = ref(itemsPerBatch.value);
 const noPlatformError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
@@ -44,46 +42,46 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
 async function fetchRoms() {
-  if (gettingRoms.value) return;
+  if (fetchingRoms.value) return;
 
-  gettingRoms.value = true;
   emitter?.emit("showLoadingDialog", {
-    loading: gettingRoms.value,
+    loading: true,
     scrim: false,
   });
 
-  try {
-    const { data } = await romApi.getRoms({
-      platformId: romsStore.currentPlatform?.id,
+  romsStore
+    .fetchRoms(
+      {
+        platformId: romsStore.currentPlatform?.id,
+      },
+      galleryFilterStore,
+    )
+    .then(() => {
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
+    })
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+      noPlatformError.value = true;
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
     });
-
-    romsStore.set(data);
-    romsStore.setFiltered(data, galleryFilterStore);
-  } catch (error) {
-    emitter?.emit("snackbarShow", {
-      msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-    console.error(
-      `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
-    );
-    noPlatformError.value = true;
-  } finally {
-    gettingRoms.value = false;
-    emitter?.emit("showLoadingDialog", {
-      loading: gettingRoms.value,
-      scrim: false,
-    });
-  }
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
     emitData.event.shiftKey ||
-    romsStore.selecting ||
+    romsStore.selectingRoms ||
     romsStore.selectedRoms.length > 0
   ) {
     emitData.event.preventDefault();
@@ -134,25 +132,20 @@ function onGameTouchEnd() {
 }
 
 function onScroll() {
-  if (galleryViewStore.currentView != 2) {
-    clearTimeout(timeout);
+  clearTimeout(timeout);
 
-    window.setTimeout(async () => {
-      const { scrollTop, scrollHeight, clientHeight } =
-        document.documentElement;
-      scrolledToTop.value = scrollTop === 0;
-      const totalScrollableHeight = scrollHeight - clientHeight;
-      const ninetyPercentPoint = totalScrollableHeight * 0.9;
-      if (
-        scrollTop >= ninetyPercentPoint &&
-        itemsShown.value < filteredRoms.value.length
-      ) {
-        itemsShown.value = itemsShown.value + itemsPerBatch.value;
-        galleryViewStore.scroll = scrollHeight;
-      }
-    }, 100);
-    clearTimeout(timeout);
-  }
+  window.setTimeout(async () => {
+    const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+    scrolledToTop.value = scrollTop === 0;
+    const totalScrollableHeight = scrollHeight - clientHeight;
+    const ninetyPercentPoint = totalScrollableHeight * 0.9;
+    if (
+      scrollTop >= ninetyPercentPoint &&
+      fetchTotalRoms.value > allRoms.value.length
+    ) {
+      await fetchRoms();
+    }
+  }, 100);
 }
 
 function resetGallery() {
@@ -161,7 +154,6 @@ function resetGallery() {
   galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
   noPlatformError.value = false;
-  itemsShown.value = itemsPerBatch.value;
 }
 
 onMounted(async () => {
@@ -243,7 +235,7 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noPlatformError">
     <gallery-app-bar />
-    <template v-if="gettingRoms">
+    <template v-if="fetchingRoms">
       <skeleton />
     </template>
     <template v-else>
@@ -251,7 +243,7 @@ onBeforeUnmount(() => {
         <v-row v-if="currentView != 2" class="pb-2 mx-1 mt-3" no-gutters>
           <!-- Gallery cards view -->
           <v-col
-            v-for="rom in filteredRoms.slice(0, itemsShown)"
+            v-for="rom in filteredRoms"
             :key="rom.id"
             class="pa-1 align-self-end"
             :cols="views[currentView]['size-cols']"
@@ -291,7 +283,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!gettingRoms" />
+        <empty-game v-if="!fetchingRoms" />
       </template>
     </template>
   </template>

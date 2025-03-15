@@ -1,5 +1,6 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
+import romApi, { type GetRomsParams } from "@/services/api/rom";
 import storeCollection, {
   type Collection,
   type VirtualCollection,
@@ -29,9 +30,11 @@ const defaultRomsState = {
   recentRoms: [] as SimpleRom[],
   continuePlayingRoms: [] as SimpleRom[],
   lastSelectedIndex: -1,
-  selecting: false,
-  itemsPerBatch: 72,
-  gettingRoms: false,
+  selectingRoms: false,
+  fetchingRoms: false,
+  fetchLimit: 72,
+  fetchOffset: 0,
+  fetchTotalRoms: 0,
 };
 
 export default defineStore("roms", {
@@ -107,9 +110,32 @@ export default defineStore("roms", {
     setCurrentVirtualCollection(collection: VirtualCollection | null) {
       this.currentVirtualCollection = collection;
     },
-    set(roms: SimpleRom[]) {
-      this.allRoms = roms;
-      this._reorder();
+    fetchRoms(params: GetRomsParams, galleryFilter: GalleryFilterStore) {
+      if (this.fetchingRoms) return Promise.resolve();
+      this.fetchingRoms = true;
+
+      return new Promise((resolve, reject) => {
+        romApi
+          .getRoms({
+            ...params,
+            limit: this.fetchLimit,
+            offset: this.fetchOffset,
+          })
+          .then(({ data: { items, offset, total } }) => {
+            if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
+            if (total !== null) this.fetchTotalRoms = total;
+
+            this.add(items);
+            this.setFiltered(items, galleryFilter);
+            resolve(items);
+          })
+          .catch((error) => {
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingRoms = false;
+          });
+      });
     },
     add(roms: SimpleRom[]) {
       this.allRoms = this.allRoms.concat(roms);
@@ -364,8 +390,8 @@ export default defineStore("roms", {
     updateLastSelected(index: number) {
       this.lastSelectedIndex = index;
     },
-    isSelecting() {
-      this.selecting = !this.selecting;
+    setSelecting() {
+      this.selectingRoms = !this.selectingRoms;
     },
     resetSelection() {
       this._selectedIDs = new Set<number>();

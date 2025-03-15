@@ -25,6 +25,7 @@ export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
+export type { LimitOffsetPage_SimpleRomSchema_ } from './models/LimitOffsetPage_SimpleRomSchema_';
 export type { MessageResponse } from './models/MessageResponse';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';

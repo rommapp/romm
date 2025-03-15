@@ -11,7 +11,7 @@ import type { Emitter } from "mitt";
 
 const { t } = useI18n();
 const romsStore = storeRoms();
-const { gettingRoms } = storeToRefs(romsStore);
+const { fetchingRoms } = storeToRefs(romsStore);
 const searched = ref(false);
 const selectedPlatform = ref<Platform | null>(null);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -20,7 +20,7 @@ const { searchText } = storeToRefs(galleryFilterStore);
 
 function fetchRoms() {
   if (searchText.value !== null) {
-    gettingRoms.value = true;
+    fetchingRoms.value = true;
     const inputElement = document.getElementById("search-text-field");
     inputElement?.blur();
     searched.value = true;
@@ -43,7 +43,7 @@ function fetchRoms() {
         console.error(`Couldn't fetch roms: ${error}`);
       })
       .finally(() => {
-        gettingRoms.value = false;
+        fetchingRoms.value = false;
       });
     filterRoms();
     galleryFilterStore.activeFilterDrawer = false;
@@ -73,6 +73,6 @@ function filterRoms() {
     class="bg-toplayer"
     variant="text"
     icon="mdi-magnify"
-    :disabled="gettingRoms || !searchText"
+    :disabled="fetchingRoms || !searchText"
   />
 </template>

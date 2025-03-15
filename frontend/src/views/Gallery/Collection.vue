@@ -34,10 +34,8 @@ const {
   currentPlatform,
   currentCollection,
   currentVirtualCollection,
-  itemsPerBatch,
-  gettingRoms,
+  fetchingRoms,
 } = storeToRefs(romsStore);
-const itemsShown = ref(itemsPerBatch.value);
 const noCollectionError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
@@ -45,52 +43,46 @@ const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
 async function fetchRoms() {
-  if (gettingRoms.value) return;
-
-  gettingRoms.value = true;
+  if (fetchingRoms.value) return;
   emitter?.emit("showLoadingDialog", {
-    loading: gettingRoms.value,
+    loading: true,
     scrim: false,
   });
 
-  try {
-    const { data } = await romApi.getRoms({
-      collectionId: romsStore.currentCollection?.id,
-      virtualCollectionId: romsStore.currentVirtualCollection?.id,
+  romsStore
+    .fetchRoms(
+      {
+        collectionId: romsStore.currentCollection?.id,
+        virtualCollectionId: romsStore.currentVirtualCollection?.id,
+      },
+      galleryFilterStore,
+    )
+    .then(() => {
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
+    })
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+      noCollectionError.value = true;
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
     });
-    romsStore.set(data);
-    romsStore.setFiltered(data, galleryFilterStore);
-
-    gettingRoms.value = false;
-    emitter?.emit("showLoadingDialog", {
-      loading: gettingRoms.value,
-      scrim: false,
-    });
-  } catch (error) {
-    emitter?.emit("snackbarShow", {
-      msg: `Couldn't fetch roms for collection ID ${currentCollection.value?.id}: ${error}`,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-    console.error(
-      `Couldn't fetch roms for collection ID ${currentCollection.value?.id}: ${error}`,
-    );
-    noCollectionError.value = true;
-  } finally {
-    gettingRoms.value = false;
-    emitter?.emit("showLoadingDialog", {
-      loading: gettingRoms.value,
-      scrim: false,
-    });
-  }
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
     emitData.event.shiftKey ||
-    romsStore.selecting ||
+    romsStore.selectingRoms ||
     romsStore.selectedRoms.length > 0
   ) {
     emitData.event.preventDefault();
@@ -304,7 +296,7 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noCollectionError">
     <gallery-app-bar-collection />
-    <template v-if="gettingRoms">
+    <template v-if="fetchingRoms">
       <skeleton />
     </template>
     <template v-else>
@@ -352,7 +344,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!gettingRoms" />
+        <empty-game v-if="!fetchingRoms" />
       </template>
     </template>
   </template>

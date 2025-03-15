@@ -24,23 +24,20 @@ const romsStore = storeRoms();
 const router = useRouter();
 const initialSearch = ref(false);
 const {
-  allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
   currentCollection,
-  itemsPerBatch,
-  gettingRoms,
+  fetchingRoms,
 } = storeToRefs(romsStore);
 
-const itemsShown = ref(itemsPerBatch.value);
 let timeout: ReturnType<typeof setTimeout>;
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
     emitData.event.shiftKey ||
-    romsStore.selecting ||
+    romsStore.selectingRoms ||
     romsStore.selectedRoms.length > 0
   ) {
     emitData.event.preventDefault();
@@ -137,7 +134,7 @@ onBeforeUnmount(() => {
 
 <template>
   <gallery-app-bar-search />
-  <template v-if="gettingRoms">
+  <template v-if="fetchingRoms">
     <skeleton />
   </template>
   <template v-else>
@@ -185,7 +182,7 @@ onBeforeUnmount(() => {
       <fab-overlay />
     </template>
     <template v-else>
-      <empty-game v-if="!gettingRoms && initialSearch" />
+      <empty-game v-if="!fetchingRoms && initialSearch" />
       <empty-search v-else-if="!initialSearch" />
     </template>
   </template>

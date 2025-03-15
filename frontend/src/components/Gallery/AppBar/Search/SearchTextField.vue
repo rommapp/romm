@@ -15,7 +15,7 @@ const { xs } = useDisplay();
 const { t } = useI18n();
 const router = useRouter();
 const romsStore = storeRoms();
-const { gettingRoms } = storeToRefs(romsStore);
+const { fetchingRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const { searchText } = storeToRefs(galleryFilterStore);
@@ -25,7 +25,7 @@ async function fetchRoms() {
     // Auto hide android keyboard
     const inputElement = document.getElementById("search-text-field");
     inputElement?.blur();
-    gettingRoms.value = true;
+    fetchingRoms.value = true;
 
     // Update URL with search term
     router.replace({ query: { search: searchText.value } });
@@ -46,7 +46,7 @@ async function fetchRoms() {
       });
       console.error(`Couldn't fetch roms: ${error}`);
     } finally {
-      gettingRoms.value = false;
+      fetchingRoms.value = false;
       galleryFilterStore.activeFilterDrawer = false;
     }
   }
@@ -102,7 +102,7 @@ watch(
     autofocus
     @keyup.enter="fetchRoms"
     v-model="searchText"
-    :disabled="gettingRoms"
+    :disabled="fetchingRoms"
     :label="t('common.search')"
     hide-details
     class="bg-toplayer"

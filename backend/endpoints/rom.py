@@ -29,8 +29,11 @@ from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
+from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
@@ -122,12 +125,12 @@ def get_roms(
     collection_id: int | None = None,
     virtual_collection_id: str | None = None,
     search_term: str | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
+    limit: int = 72,
+    offset: int = 0,
     order_by: str = "name",
     order_dir: str = "asc",
     with_extra: bool = True,
-) -> list[SimpleRomSchema | RomSchema]:
+) -> LimitOffsetPage[RomSchema | SimpleRomSchema]:
     """Get roms endpoint
 
     Args:
@@ -143,29 +146,25 @@ def get_roms(
         last_played (bool, optional): Flag to filter ROMs by last played
 
     Returns:
-        list[DetailedRomSchema]: List of ROMs stored in the database
+        list[RomSchema | SimpleRomSchema]: List of ROMs stored in the database
     """
 
     if hasattr(Rom, order_by):
-        roms = db_rom_handler.get_roms(
+        query = db_rom_handler.get_roms(
             platform_id=platform_id,
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
             search_term=search_term,
             order_by=order_by.lower(),
             order_dir=order_dir.lower(),
-            limit=limit,
-            offset=offset,
         )
     elif hasattr(RomUser, order_by):
-        roms = db_rom_handler.get_roms_user(
+        query = db_rom_handler.get_roms_user(
             user_id=request.user.id,
             platform_id=platform_id,
             collection_id=collection_id,
             virtual_collection_id=virtual_collection_id,
             search_term=search_term,
-            limit=limit,
-            offset=offset,
         )
     else:
         raise HTTPException(
@@ -173,9 +172,17 @@ def get_roms(
             detail="Invalid order_by field",
         )
 
-    SelectedSchema = SimpleRomSchema if with_extra else RomSchema
-    roms = [SelectedSchema.from_orm_with_request(rom, request) for rom in roms]
-    return [rom for rom in roms if rom]
+    with sync_session.begin() as session:
+        SelectedSchema = SimpleRomSchema if with_extra else RomSchema
+        limit_offser_params = LimitOffsetParams(limit=limit, offset=offset)
+        return paginate(
+            session,
+            query,
+            limit_offser_params,
+            transformer=lambda items: [
+                SelectedSchema.from_orm_with_request(i, request) for i in items
+            ],
+        )
 
 
 @protected_route(
