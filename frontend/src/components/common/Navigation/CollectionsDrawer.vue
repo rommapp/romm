@@ -6,7 +6,7 @@ import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, type VNodeRef } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { isNull } from "lodash";
@@ -21,7 +21,6 @@ const { filteredCollections, filteredVirtualCollections, searchText } =
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const visibleVirtualCollections = ref(72);
-const collectionsList = ref<VNodeRef | undefined>(undefined);
 
 const showVirtualCollections = isNull(
   localStorage.getItem("settings.showVirtualCollections"),
@@ -38,8 +37,15 @@ function clear() {
 }
 
 function onScroll() {
+  const collectionsDrawer = document.querySelector(
+    "#collections-drawer .v-navigation-drawer__content",
+  );
+  if (!collectionsDrawer) return;
+
+  const rect = collectionsDrawer.getBoundingClientRect();
   if (
-    window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+    collectionsDrawer.scrollTop + rect.height >=
+      collectionsDrawer.scrollHeight - 60 &&
     visibleVirtualCollections.value < filteredVirtualCollections.value.length
   ) {
     visibleVirtualCollections.value += 72;
@@ -47,20 +53,22 @@ function onScroll() {
 }
 
 onMounted(() => {
-  window.setTimeout(() => {
-    if (!collectionsList.value) return;
-    debugger;
-    collectionsList.value.$el.addEventListener("scroll", onScroll);
-  }, 10000);
+  const collectionsDrawer = document.querySelector(
+    "#collections-drawer .v-navigation-drawer__content",
+  );
+  collectionsDrawer?.addEventListener("scroll", onScroll);
 });
 
 onBeforeUnmount(() => {
-  if (!collectionsList.value) return;
-  collectionsList.value.$el.removeEventListener("scroll", onScroll);
+  const collectionsDrawer = document.querySelector(
+    "#collections-drawer .v-navigation-drawer__content",
+  );
+  collectionsDrawer?.removeEventListener("scroll", onScroll);
 });
 </script>
 <template>
   <v-navigation-drawer
+    id="collections-drawer"
     mobile
     :location="smAndDown ? 'top' : 'left'"
     @update:model-value="clear"
@@ -76,7 +84,6 @@ onBeforeUnmount(() => {
     style="height: unset"
     rounded
     :border="0"
-    ref="collectionsList"
   >
     <template #prepend>
       <v-text-field
