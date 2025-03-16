@@ -59,6 +59,8 @@ const filterToSetFilter: Record<FilterType, Function> = {
   companies: galleryFilterStore.setSelectedFilterCompany,
   age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
   status: galleryFilterStore.setSelectedFilterStatus,
+  regions: galleryFilterStore.setSelectedFilterRegion,
+  languages: galleryFilterStore.setSelectedFilterLanguage,
 };
 
 onMounted(() => {
