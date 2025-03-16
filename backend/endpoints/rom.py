@@ -30,7 +30,7 @@ from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
-from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from fastapi_pagination.limit_offset import LimitOffsetPage
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
@@ -125,8 +125,6 @@ def get_roms(
     collection_id: int | None = None,
     virtual_collection_id: str | None = None,
     search_term: str | None = None,
-    limit: int = 72,
-    offset: int = 0,
     order_by: str = "name",
     order_dir: str = "asc",
     with_extra: bool = True,
@@ -174,11 +172,9 @@ def get_roms(
 
     with sync_session.begin() as session:
         SelectedSchema = SimpleRomSchema if with_extra else RomSchema
-        limit_offser_params = LimitOffsetParams(limit=limit, offset=offset)
         return paginate(
             session,
             query,
-            limit_offser_params,
             transformer=lambda items: [
                 SelectedSchema.from_orm_with_request(i, request) for i in items
             ],
