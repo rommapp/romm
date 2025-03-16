@@ -81,7 +81,7 @@ window.EJS_defaultOptions = {
   "save-state-location": "browser",
   rewindEnabled: "enabled",
 };
-if (romRef.value.name) window.EJS_gameName = romRef.value.name;
+window.EJS_gameName = romRef.value.fs_name_no_tags;
 
 onBeforeUnmount(() => {
   window.location.reload();
