@@ -177,11 +177,7 @@ function selectCover(source: MatchedSource) {
 
 function confirm() {
   if (!selectedMatchRom.value || !selectedCover.value) return;
-  updateRom(
-    Object.assign(selectedMatchRom.value, {
-      url_cover: selectedCover.value.url_cover,
-    }),
-  );
+  updateRom(selectedMatchRom.value, selectedCover.value.url_cover);
   closeDialog();
 }
 
@@ -197,7 +193,10 @@ function backToMatched() {
   renameAsSource.value = false;
 }
 
-async function updateRom(selectedRom: SearchRomSchema) {
+async function updateRom(
+  selectedRom: SearchRomSchema,
+  urlCover: string | undefined,
+) {
   if (!rom.value) return;
 
   show.value = false;
@@ -213,9 +212,10 @@ async function updateRom(selectedRom: SearchRomSchema) {
     slug: selectedRom.slug,
     summary: selectedRom.summary,
     url_cover:
-      selectedRom.moby_url_cover ||
-      selectedRom.igdb_url_cover ||
+      urlCover ||
       selectedRom.ss_url_cover ||
+      selectedRom.igdb_url_cover ||
+      selectedRom.moby_url_cover ||
       null,
   };
 
