@@ -443,7 +443,7 @@ async def update_rom(
         request (Request): Fastapi Request object
         id (Rom): Rom internal id
         rename_as_source (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
-        artwork (UploadFile, optional): Custom artork to set as cover. Defaults to File(None).
+        artwork (UploadFile, optional): Custom artwork to set as cover. Defaults to File(None).
         unmatch_metadata: Remove the metadata matches for this game. Defaults to False.
 
     Raises:
