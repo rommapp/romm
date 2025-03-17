@@ -30,7 +30,7 @@
   "details": "자세히",
   "manual": "사용자 설명서",
   "personal": "개인",
-  "version": "버전",
+  "switch-version": "버전 전환",
   "default": "기본으로",
   "set-as-default": "기본 롬으로 설정",
   "file": "파일",
@@ -55,5 +55,7 @@
   "my-notes": "개인 노트",
   "public-notes": "공개 노트",
   "additional-content": "추가 컨텐츠",
-  "related-content": "관련 컨텐츠"
+  "related-content": "관련 컨텐츠",
+  "regions": "지역",
+  "languages": "언어"
 }
