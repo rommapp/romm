@@ -29,7 +29,7 @@
   "dependencies": {
     "@mdi/font": "7.4.47",
     "axios": "^1.8.1",
-    "cronstrue": "^2.55.0",
+    "cronstrue": "^2.56.0",
     "js-cookie": "^3.0.5",
     "lodash": "^4.17.21",
     "md-editor-v3": "^5.3.2",
