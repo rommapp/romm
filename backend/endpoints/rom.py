@@ -538,32 +538,6 @@ async def update_rom(
     )
 
     new_fs_name = str(data.get("fs_name") or rom.fs_name)
-
-    try:
-        if rename_as_source:
-            new_fs_name = rom.fs_name.replace(
-                rom.fs_name_no_tags or rom.fs_name_no_ext,
-                str(data.get("name") or rom.name),
-            )
-            new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_fs_rom(
-                old_name=rom.fs_name,
-                new_name=new_fs_name,
-                fs_path=rom.fs_path,
-            )
-        elif rom.fs_name != new_fs_name:
-            new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_fs_rom(
-                old_name=rom.fs_name,
-                new_name=new_fs_name,
-                fs_path=rom.fs_path,
-            )
-    except RomAlreadyExistsException as exc:
-        log.error(exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
-        ) from exc
-
     cleaned_data.update(
         {
             "fs_name": new_fs_name,
@@ -630,6 +604,46 @@ async def update_rom(
     )
 
     db_rom_handler.update_rom(id, cleaned_data)
+
+    # Rename the file/folder if the name has changed
+    should_update_fs = new_fs_name != rom.fs_name
+    try:
+        if rename_as_source:
+            new_fs_name = rom.fs_name.replace(
+                rom.fs_name_no_tags or rom.fs_name_no_ext,
+                rom.name or rom.fs_name,
+            )
+            new_fs_name = sanitize_filename(new_fs_name)
+            fs_rom_handler.rename_fs_rom(
+                old_name=rom.fs_name,
+                new_name=new_fs_name,
+                fs_path=rom.fs_path,
+            )
+        elif should_update_fs:
+            new_fs_name = sanitize_filename(new_fs_name)
+            fs_rom_handler.rename_fs_rom(
+                old_name=rom.fs_name,
+                new_name=new_fs_name,
+                fs_path=rom.fs_path,
+            )
+    except RomAlreadyExistsException as exc:
+        log.error(exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
+        ) from exc
+
+    # Update the rom files with the new fs_name
+    if rename_as_source or should_update_fs:
+        for file in rom.files:
+            db_rom_handler.update_rom_file(
+                file.id,
+                {
+                    "file_name": file.file_name.replace(rom.fs_name, new_fs_name),
+                    "file_path": file.file_path.replace(rom.fs_name, new_fs_name),
+                },
+            )
+
+    # Refetch the rom from the database
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
