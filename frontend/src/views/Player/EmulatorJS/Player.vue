@@ -14,6 +14,8 @@ import createIndexedDBDiffMonitor, {
 } from "@/utils/indexdb-monitor";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
+const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
+
 const props = defineProps<{
   rom: DetailedRom;
   save: SaveSchema | null;
@@ -81,7 +83,9 @@ window.EJS_defaultOptions = {
   "save-state-location": "browser",
   rewindEnabled: "enabled",
 };
-window.EJS_gameName = romRef.value.fs_name_no_tags;
+window.EJS_gameName = romRef.value.fs_name_no_tags
+  .replace(INVALID_CHARS_REGEX, "")
+  .trim();
 
 onBeforeUnmount(() => {
   window.location.reload();
@@ -243,7 +247,7 @@ window.EJS_onGameStart = async () => {
     console.log("Save changes detected:", changes);
 
     changes.forEach((change) => {
-      if (!change.key.includes(romRef.value.fs_name_no_tags)) return;
+      if (!change.key.includes(window.EJS_gameName)) return;
 
       if (saveRef.value) {
         saveApi
@@ -287,7 +291,7 @@ window.EJS_onGameStart = async () => {
     console.log("State changes detected:", changes);
 
     changes.forEach((change) => {
-      if (!change.key.includes(romRef.value.fs_name_no_tags)) return;
+      if (!change.key.includes(window.EJS_gameName)) return;
 
       if (stateRef.value) {
         stateApi
