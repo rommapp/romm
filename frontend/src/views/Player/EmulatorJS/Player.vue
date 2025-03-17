@@ -51,6 +51,7 @@ declare global {
     EJS_threads: boolean;
     EJS_controlScheme: string | null;
     EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    EJS_Buttons: Record<string, boolean>;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
     EJS_onLoadState: () => void;
@@ -79,13 +80,20 @@ window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
+// Force saving saves and states to the browser
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
   rewindEnabled: "enabled",
 };
+// Set a valid game name
 window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
+// Disable quick save and quick load
+window.EJS_Buttons = {
+  quickSave: false,
+  quickLoad: false,
+};
 
 onBeforeUnmount(() => {
   window.location.reload();
@@ -343,6 +351,14 @@ window.EJS_onGameStart = async () => {
 <style>
 #game .ejs_cheat_code {
   background-color: white;
+}
+
+#game .ejs_settings_transition {
+  height: fit-content;
+}
+
+#game .ejs_setting_menu .ejs_settings_main_bar:nth-child(3) {
+  display: none;
 }
 </style>
 
