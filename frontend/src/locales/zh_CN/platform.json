@@ -19,7 +19,6 @@
   "show-favourites": "显示喜好项",
   "show-duplicates": "显示重复项",
   "genre": "类型",
-  "genres": "类型",
   "franchise": "系列",
   "collection": "合集",
   "company": "公司",
@@ -28,5 +27,7 @@
   "reset-filters": "重置筛选器",
   "active-multi-select": "启用多选",
   "change-view": "切换视图",
-  "no-firmware-found": "没有找到固件"
+  "no-firmware-found": "没有找到固件",
+  "region": "地区",
+  "language": "语言"
 }

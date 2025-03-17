@@ -12,7 +12,7 @@ import { MdPreview } from "md-editor-v3";
 
 // Props
 const { t } = useI18n();
-const props = defineProps<{ rom: DetailedRom }>();
+defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const theme = useTheme();
 const show = ref(false);
@@ -20,6 +20,8 @@ const zoom = ref(false);
 const carousel = ref(0);
 const router = useRouter();
 const filters = [
+  { value: "regions", name: t("rom.regions") },
+  { value: "languages", name: t("rom.languages") },
   { value: "genres", name: t("rom.genres") },
   { value: "franchises", name: t("rom.franchises") },
   { value: "meta_collections", name: t("rom.collections") },

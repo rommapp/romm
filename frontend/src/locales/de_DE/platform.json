@@ -19,7 +19,6 @@
   "show-favourites": "Zeige Favoriten",
   "show-duplicates": "Zeige Duplikate",
   "genre": "Genre",
-  "genres": "Genres",
   "franchise": "Franchise",
   "collection": "Sammlung",
   "company": "Unternehmen",
@@ -28,5 +27,7 @@
   "reset-filters": "Filter zurücksetzen",
   "active-multi-select": "Mehrfachauswahl aktivieren",
   "change-view": "Ansicht anpassen",
-  "no-firmware-found": "Keine Firmware gefunden"
+  "no-firmware-found": "Keine Firmware gefunden",
+  "region": "Region",
+  "language": "Sprache"
 }

@@ -7,7 +7,7 @@ import Skeleton from "@/components/Gallery/Skeleton.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import romApi from "@/services/api/rom";
-import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";

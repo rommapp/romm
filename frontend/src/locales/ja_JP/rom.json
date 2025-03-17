@@ -20,9 +20,9 @@
   "remove-from-fav": "お気に入りから削除",
   "add-to-collection": "コレクションに追加",
   "remove-from-collection": "コレクションから削除",
-  "adding-to-collection-part1": "コレクションにrom",
+  "adding-to-collection-part1": "コレクションにROM",
   "adding-to-collection-part2": "を追加しています",
-  "removing-from-collection-part1": "コレクションからrom",
+  "removing-from-collection-part1": "コレクションからROM",
   "removing-from-collection-part2": "を削除しています",
   "delete-rom": "削除",
   "copy-link": "ダウンロードリンクをコピー",
@@ -30,9 +30,9 @@
   "details": "詳細",
   "manual": "ユーザーマニュアル",
   "personal": "マイステータス",
-  "version": "バージョン",
+  "switch-version": "バージョン切り替え",
   "default": "デフォルト",
-  "set-as-default": "romをデフォルトに設定",
+  "set-as-default": "ROMをデフォルトに設定",
   "file": "ファイル",
   "files": "ファイル",
   "info": "詳細",
@@ -55,5 +55,7 @@
   "my-notes": "メモ",
   "public-notes": "公開メモ",
   "additional-content": "追加コンテンツ",
-  "related-content": "関連コンテンツ"
+  "related-content": "関連コンテンツ",
+  "regions": "リージョン",
+  "languages": "言語"
 }

@@ -190,6 +190,12 @@ export default defineStore("roms", {
       if (galleryFilter.selectedAgeRating) {
         this._filterAgeRating(galleryFilter.selectedAgeRating);
       }
+      if (galleryFilter.selectedRegion) {
+        this._filterRegion(galleryFilter.selectedRegion);
+      }
+      if (galleryFilter.selectedLanguage) {
+        this._filterLanguage(galleryFilter.selectedLanguage);
+      }
       if (galleryFilter.selectedStatus) {
         this._filterStatus(galleryFilter.selectedStatus);
       } else {
@@ -330,6 +336,30 @@ export default defineStore("roms", {
 
       // @ts-expect-error intersection is recently defined on Set
       this._filteredIDs = byAgeRating.intersection(this._filteredIDs);
+    },
+    _filterRegion(regionToFilter: string) {
+      const byRegion = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.regions.some((region) => region === regionToFilter),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byRegion.intersection(this._filteredIDs);
+    },
+    _filterLanguage(languageToFilter: string) {
+      const byLanguage = new Set(
+        this.filteredRoms
+          .filter((rom) =>
+            rom.languages.some((language) => language === languageToFilter),
+          )
+          .map((rom) => rom.id),
+      );
+
+      // @ts-expect-error intersection is recently defined on Set
+      this._filteredIDs = byLanguage.intersection(this._filteredIDs);
     },
     _filterStatus(statusToFilter: string) {
       const stf = getStatusKeyForText(statusToFilter);
