@@ -4,30 +4,24 @@ import { defineStore } from "pinia";
 
 export type Platform = PlatformSchema;
 
-const filters = [
-  "genres",
-  "franchises",
-  "meta_collections",
-  "companies",
-  "age_ratings",
-  "status",
-] as const;
-
-const statusFilters = Object.values(romStatusMap).map((status) => status.text);
-
-export type FilterType = (typeof filters)[number];
+export type FilterType =
+  | "genres"
+  | "franchises"
+  | "meta_collections"
+  | "companies"
+  | "age_ratings"
+  | "status";
 
 const defaultFilterState = {
   activeFilterDrawer: false,
-  searchText: null as string | null,
-  filters: filters,
+  searchTerm: null as string | null,
   filterPlatforms: [] as Platform[],
   filterGenres: [] as string[],
   filterFranchises: [] as string[],
   filterCollections: [] as string[],
   filterCompanies: [] as string[],
   filterAgeRatings: [] as string[],
-  filterStatuses: statusFilters,
+  filterStatuses: Object.values(romStatusMap).map((status) => status.text),
   filterUnmatched: false,
   filterMatched: false,
   filterFavourites: false,
@@ -132,6 +126,19 @@ export default defineStore("galleryFilter", {
     },
     reset() {
       Object.assign(this, { ...defaultFilterState });
+    },
+    resetFilters() {
+      this.selectedPlatform = null;
+      this.selectedGenre = null;
+      this.selectedFranchise = null;
+      this.selectedCollection = null;
+      this.selectedCompany = null;
+      this.selectedAgeRating = null;
+      this.selectedStatus = null;
+      this.disableFilterUnmatched();
+      this.disableFilterMatched();
+      this.disableFilterFavourites();
+      this.disableFilterDuplicates();
     },
   },
 });

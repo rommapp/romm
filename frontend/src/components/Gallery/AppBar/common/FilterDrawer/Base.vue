@@ -50,7 +50,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
 async function onFilterChange() {
-  romsStore.setFiltered(galleryFilterStore);
+  romsStore.refetchRoms(galleryFilterStore);
   emitter?.emit("updateDataTablePages", null);
 }
 
@@ -89,16 +89,7 @@ const filters = [
 
 // Functions
 function resetFilters() {
-  selectedPlatform.value = null;
-  selectedGenre.value = null;
-  selectedFranchise.value = null;
-  selectedCollection.value = null;
-  selectedCompany.value = null;
-  selectedAgeRating.value = null;
-  selectedStatus.value = null;
-  galleryFilterStore.disableFilterUnmatched();
-  galleryFilterStore.disableFilterMatched();
-  galleryFilterStore.disableFilterFavourites();
+  galleryFilterStore.resetFilters();
   nextTick(() => emitter?.emit("filter", null));
 }
 

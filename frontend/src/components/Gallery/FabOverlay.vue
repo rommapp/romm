@@ -58,7 +58,7 @@ async function onScan() {
 }
 
 function selectAllRoms() {
-  romsStore.setSelection(romsStore.filteredRoms);
+  romsStore.setSelection(romsStore.allRoms);
 }
 
 function resetSelection() {

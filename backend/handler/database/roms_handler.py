@@ -2,10 +2,11 @@ import functools
 from collections.abc import Iterable
 from typing import Sequence
 
+from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
-from models.rom import Rom, RomFile, RomUser
-from sqlalchemy import and_, delete, func, or_, select, update
+from models.rom import Rom, RomFile, RomMetadata, RomUser
+from sqlalchemy import and_, delete, func, or_, select, text, update
 from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -14,12 +15,6 @@ from .base_handler import DBBaseHandler
 def with_details(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        session = kwargs.get("session")
-        if session is None:
-            raise TypeError(
-                f"{func} is missing required kwarg 'session' with type 'Session'"
-            )
-
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.saves),
             selectinload(Rom.states),
@@ -36,12 +31,6 @@ def with_details(func):
 def with_simple(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        session = kwargs.get("session")
-        if session is None:
-            raise TypeError(
-                f"{func} is missing required kwarg 'session' with type 'Session'"
-            )
-
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.rom_users), selectinload(Rom.sibling_roms)
         )
@@ -109,19 +98,108 @@ class DBRomsHandler(DBBaseHandler):
         favourites_collection = (
             session.query(Collection)
             .filter(Collection.name.ilike("favourites"))
-            .filter(or_(Collection.is_public.is_(True), Collection.user_id == user_id))
+            .filter(Collection.user_id == user_id)
             .one_or_none()
         )
+
         if favourites_collection:
             return query.filter(Rom.id.in_(favourites_collection.rom_ids))
+
         return query
 
     def filter_by_duplicates_only(self, query: Query):
         return query.filter(Rom.sibling_roms.any())
 
+    def filter_by_genre(self, query: Query, selected_genre: str):
+        if ROMM_DB_DRIVER == "postgresql":
+            return query.filter(
+                text("genres @> (:genre)::jsonb").bindparams(
+                    genre=f'["{selected_genre}"]'
+                )
+            )
+        else:
+            return query.filter(
+                text("JSON_OVERLAPS(genres, JSON_ARRAY(:genre))").bindparams(
+                    genre=selected_genre
+                )
+            )
+
+    def filter_by_franchise(self, query: Query, selected_franchise: str):
+        if ROMM_DB_DRIVER == "postgresql":
+            return query.filter(
+                text("franchises @> (:franchise)::jsonb").bindparams(
+                    franchise=f'["{selected_franchise}"]'
+                )
+            )
+        else:
+            return query.filter(
+                text("JSON_OVERLAPS(franchises, JSON_ARRAY(:franchise))").bindparams(
+                    franchise=selected_franchise
+                )
+            )
+
+    def filter_by_collection(self, query: Query, selected_collection: str):
+        if ROMM_DB_DRIVER == "postgresql":
+            return query.filter(
+                text("collections @> (:collection)::jsonb").bindparams(
+                    collection=f'["{selected_collection}"]'
+                )
+            )
+        else:
+            return query.filter(
+                text("JSON_OVERLAPS(collections, JSON_ARRAY(:collection))").bindparams(
+                    collection=selected_collection
+                )
+            )
+
+    def filter_by_company(self, query: Query, selected_company: str):
+        if ROMM_DB_DRIVER == "postgresql":
+            return query.filter(
+                text("companies @> (:company)::jsonb").bindparams(
+                    company=f'["{selected_company}"]'
+                )
+            )
+        else:
+            return query.filter(
+                text("JSON_OVERLAPS(companies, JSON_ARRAY(:company))").bindparams(
+                    company=selected_company
+                )
+            )
+
+    def filter_by_age_rating(self, query: Query, selected_age_rating: str):
+        if ROMM_DB_DRIVER == "postgresql":
+            return query.filter(
+                text("age_ratings @> (:age_rating)::jsonb").bindparams(
+                    age_rating=f'["{selected_age_rating}"]'
+                )
+            )
+        else:
+            return query.filter(
+                text("JSON_OVERLAPS(age_ratings, JSON_ARRAY(:age_rating))").bindparams(
+                    age_rating=selected_age_rating
+                )
+            )
+
+    def filter_by_status(self, query: Query, selected_status: str):
+        query = query.join(RomUser)
+
+        status_filter = RomUser.status == selected_status
+        if selected_status == "now_playing":
+            status_filter = RomUser.now_playing.is_(True)
+        elif selected_status == "backlogged":
+            status_filter = RomUser.backlogged.is_(True)
+        elif selected_status == "hidden":
+            status_filter = RomUser.hidden.is_(True)
+
+        if selected_status == "hidden":
+            return query.filter(status_filter)
+
+        return query.filter(status_filter, RomUser.hidden.is_(False))
+
     @begin_session
     def filter_roms(
         self,
+        query: Query,
         platform_id: int | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
@@ -137,7 +215,6 @@ class DBRomsHandler(DBBaseHandler):
         selected_age_rating: str | None = None,
         selected_status: str | None = None,
         user_id: int | None = None,
-        query: Query = None,
         session: Session = None,
     ) -> Query[Rom]:
         if platform_id:
@@ -165,6 +242,33 @@ class DBRomsHandler(DBBaseHandler):
 
         if duplicates_only:
             query = self.filter_by_duplicates_only(query)
+
+        if (
+            selected_genre
+            or selected_franchise
+            or selected_collection
+            or selected_company
+            or selected_age_rating
+        ):
+            query = query.join(RomMetadata)
+
+        if selected_genre:
+            query = self.filter_by_genre(query, selected_genre)
+
+        if selected_franchise:
+            query = self.filter_by_franchise(query, selected_franchise)
+
+        if selected_collection:
+            query = self.filter_by_collection(query, selected_collection)
+
+        if selected_company:
+            query = self.filter_by_company(query, selected_company)
+
+        if selected_age_rating:
+            query = self.filter_by_age_rating(query, selected_age_rating)
+
+        if selected_status:
+            query = self.filter_by_status(query, selected_status)
 
         return query
 

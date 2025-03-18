@@ -16,7 +16,7 @@ const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
-const { filteredCollections, filteredVirtualCollections, searchText } =
+const { filteredCollections, filteredVirtualCollections, filterText } =
   storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -33,7 +33,7 @@ async function addCollection() {
 }
 
 function clear() {
-  searchText.value = "";
+  filterText.value = "";
 }
 
 function onScroll() {
@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
   >
     <template #prepend>
       <v-text-field
-        v-model="searchText"
+        v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
         hide-details
