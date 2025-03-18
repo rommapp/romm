@@ -39,7 +39,7 @@ from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomFile, RomUser
+from models.rom import RomFile
 from PIL import Image
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
@@ -127,48 +127,66 @@ def get_roms(
     search_term: str | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
+    unmatched_only: bool = False,
+    matched_only: bool = False,
+    favourites_only: bool = False,
+    duplicates_only: bool = False,
+    selected_genre: str | None = None,
+    selected_franchise: str | None = None,
+    selected_collection: str | None = None,
+    selected_company: str | None = None,
+    selected_age_rating: str | None = None,
+    selected_status: str | None = None,
     with_extra: bool = True,
 ) -> LimitOffsetPage[RomSchema | SimpleRomSchema]:
     """Get roms endpoint
 
     Args:
-        request (Request): Fastapi Request object
-        platform_id (int, optional): Platform ID to filter ROMs
-        collection_id (int, optional): Collection ID to filter ROMs
-        virtual_collection_id (str, optional): Virtual Collection ID to filter ROMs
-        search_term (str, optional): Search term to filter ROMs
-        limit (int, optional): Limit the number of ROMs returned
-        offset (int, optional): Offset for pagination
-        order_by (str, optional): Field to order ROMs by
-        order_dir (str, optional): Direction to order ROMs (asc or desc)
-        last_played (bool, optional): Flag to filter ROMs by last played
+        request: Fastapi Request object
+        platform_id (int, optional): Platform internal id. Defaults to None.
+        collection_id (int, optional): Collection internal id. Defaults to None.
+        virtual_collection_id (str, optional): Virtual collection internal id. Defaults to None.
+        search_term (str, optional): Search term to filter roms. Defaults to None.
+        order_by (str, optional): Field to order by. Defaults to "name".
+        order_dir (str, optional): Order direction. Defaults to "asc".
+        with_extra (bool, optional): Include extra fields. Defaults to True.
+        unmatched_only (bool, optional): Filter only unmatched roms. Defaults to False.
+        matched_only (bool, optional): Filter only matched roms. Defaults to False.
+        favourites_only (bool, optional): Filter only favourite roms. Defaults to False.
+        duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False.
+        selected_genre (str, optional): Filter by genre. Defaults to None.
+        selected_franchise (str, optional): Filter by franchise. Defaults to None.
+        selected_collection (str, optional): Filter by collection. Defaults to None.
+        selected_company (str, optional): Filter by company. Defaults to None.
+        selected_age_rating (str, optional): Filter by age rating. Defaults to None.
+        selected_status (str, optional): Filter by status. Defaults to None.
 
     Returns:
         list[RomSchema | SimpleRomSchema]: List of ROMs stored in the database
     """
 
-    if hasattr(Rom, order_by):
-        query = db_rom_handler.get_roms(
-            platform_id=platform_id,
-            collection_id=collection_id,
-            virtual_collection_id=virtual_collection_id,
-            search_term=search_term,
-            order_by=order_by.lower(),
-            order_dir=order_dir.lower(),
-        )
-    elif hasattr(RomUser, order_by):
-        query = db_rom_handler.get_roms_user(
-            user_id=request.user.id,
-            platform_id=platform_id,
-            collection_id=collection_id,
-            virtual_collection_id=virtual_collection_id,
-            search_term=search_term,
-        )
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid order_by field",
-        )
+    query = db_rom_handler.get_roms(
+        user_id=request.user.id,
+        order_by=order_by.lower(),
+        order_dir=order_dir.lower(),
+    )
+
+    query = db_rom_handler.filter_roms(
+        platform_id=platform_id,
+        collection_id=collection_id,
+        virtual_collection_id=virtual_collection_id,
+        search_term=search_term,
+        unmatched_only=unmatched_only,
+        matched_only=matched_only,
+        favourites_only=favourites_only,
+        duplicates_only=duplicates_only,
+        selected_genre=selected_genre,
+        selected_franchise=selected_franchise,
+        selected_collection=selected_collection,
+        selected_company=selected_company,
+        selected_age_rating=selected_age_rating,
+        selected_status=selected_status,
+    )
 
     with sync_session.begin() as session:
         SelectedSchema = SimpleRomSchema if with_extra else RomSchema

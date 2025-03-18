@@ -12,23 +12,23 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 const router = useRouter();
 const galleryFilterStore = storeGalleryFilter();
-const { filterText } = storeToRefs(galleryFilterStore);
+const { searchText } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const filterRoms = debounce(() => {
   // Update URL with search term
-  router.replace({ query: { search: filterText.value } });
+  router.replace({ query: { search: searchText.value } });
   emitter?.emit("filter", null);
 }, 500);
 
 function clear() {
-  filterText.value = null;
+  searchText.value = null;
 }
 
 onMounted(() => {
   const { search: searchTerm } = router.currentRoute.value.query;
-  if (searchTerm !== undefined && searchTerm !== filterText.value) {
-    filterText.value = searchTerm as string;
+  if (searchTerm !== undefined && searchTerm !== searchText.value) {
+    searchText.value = searchTerm as string;
     filterRoms();
   }
 });
@@ -36,8 +36,8 @@ onMounted(() => {
 watch(
   () => router.currentRoute.value.query,
   (query) => {
-    if (query.search !== undefined && query.search !== filterText.value) {
-      filterText.value = query.search as string;
+    if (query.search !== undefined && query.search !== searchText.value) {
+      searchText.value = query.search as string;
       filterRoms();
     }
   },
@@ -47,7 +47,7 @@ watch(
 
 <template>
   <v-text-field
-    v-model="filterText"
+    v-model="searchText"
     prepend-inner-icon="mdi-filter-outline"
     :label="t('common.filter')"
     hide-details

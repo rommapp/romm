@@ -1,10 +1,7 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
 import romApi, { type GetRomsParams } from "@/services/api/rom";
-import storeCollection, {
-  type Collection,
-  type VirtualCollection,
-} from "@/stores/collections";
+import { type Collection, type VirtualCollection } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
@@ -120,6 +117,7 @@ export default defineStore("roms", {
             ...params,
             limit: this.fetchLimit,
             offset: this.fetchOffset,
+            ...galleryFilter.$state,
           })
           .then(({ data: { items, offset, total } }) => {
             if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
@@ -128,9 +126,7 @@ export default defineStore("roms", {
             // These need to happen in exactly this order
             this.allRoms = this.allRoms.concat(items);
             this._reorder();
-            this.setFiltered(galleryFilter);
-
-            console.log("filtered", this.filteredRoms);
+            this._filteredIDs = new Set(this.allRoms.map((rom) => rom.id));
 
             resolve(items);
           })
@@ -186,119 +182,42 @@ export default defineStore("roms", {
       Object.assign(this, { ...defaultRomsState });
     },
     // Filter roms by gallery filter store state
-    setFiltered(galleryFilter: GalleryFilterStore) {
-      this._filteredIDs = new Set(this.allRoms.map((rom) => rom.id));
-      if (galleryFilter.filterText !== null) {
-        this._filterText(galleryFilter.filterText);
-      }
-      if (galleryFilter.filterUnmatched) {
-        this._filterUnmatched();
-      }
-      if (galleryFilter.filterMatched) {
-        this._filterMatched();
-      }
-      if (galleryFilter.filterFavourites) {
-        this._filterFavourites();
-      }
-      if (galleryFilter.filterDuplicates) {
-        this._filterDuplicates();
-      }
-      if (galleryFilter.selectedPlatform) {
-        this._filterPlatform(galleryFilter.selectedPlatform);
-      }
-      if (galleryFilter.selectedGenre) {
-        this._filterGenre(galleryFilter.selectedGenre);
-      }
-      if (galleryFilter.selectedFranchise) {
-        this._filterFranchise(galleryFilter.selectedFranchise);
-      }
-      if (galleryFilter.selectedCollection) {
-        this._filterCollection(galleryFilter.selectedCollection);
-      }
-      if (galleryFilter.selectedCompany) {
-        this._filterCompany(galleryFilter.selectedCompany);
-      }
-      if (galleryFilter.selectedAgeRating) {
-        this._filterAgeRating(galleryFilter.selectedAgeRating);
-      }
-      if (galleryFilter.selectedStatus) {
-        this._filterStatus(galleryFilter.selectedStatus);
-      } else {
-        this._filteredIDs = new Set(
-          // Filter hidden roms if the status is not hidden
-          this.filteredRoms
-            .filter((rom) => !rom.rom_user.hidden)
-            .map((rom) => rom.id),
-        );
-      }
-    },
-    _filterText(searchFilter: string) {
-      const bySearch = new Set(
-        this.filteredRoms
-          .filter(
-            (rom) =>
-              rom.name?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-              rom.fs_name?.toLowerCase().includes(searchFilter.toLowerCase()),
-          )
-          .map((roms) => roms.id),
-      );
-
-      // @ts-expect-error intersection is recently defined on Set
-      this._filteredIDs = bySearch.intersection(this._filteredIDs);
-    },
-    _filterUnmatched() {
-      const byUnmatched = new Set(
-        this.filteredRoms
-          .filter((rom) => !rom.igdb_id && !rom.moby_id && !rom.ss_id)
-          .map((roms) => roms.id),
-      );
-
-      // @ts-expect-error intersection is recently defined on Set
-      this._filteredIDs = byUnmatched.intersection(this._filteredIDs);
-    },
-    _filterMatched() {
-      const byMatched = new Set(
-        this.filteredRoms
-          .filter((rom) => rom.igdb_id || rom.moby_id || rom.ss_id)
-          .map((roms) => roms.id),
-      );
-
-      // @ts-expect-error intersection is recently defined on Set
-      this._filteredIDs = byMatched.intersection(this._filteredIDs);
-    },
-    _filterFavourites() {
-      const collectionStore = storeCollection();
-
-      const byFavourites = new Set(
-        this.filteredRoms
-          .filter((rom) =>
-            collectionStore.favCollection?.rom_ids?.includes(rom.id),
-          )
-          .map((roms) => roms.id),
-      );
-
-      // @ts-expect-error intersection is recently defined on Set
-      this._filteredIDs = byFavourites.intersection(this._filteredIDs);
-    },
-    _filterDuplicates() {
-      const byDuplicates = new Set(
-        this.filteredRoms
-          .filter((rom) => rom.sibling_roms?.length)
-          .map((rom) => rom.id),
-      );
-
-      // @ts-expect-error intersection is recently defined on Set
-      this._filteredIDs = byDuplicates.intersection(this._filteredIDs);
-    },
-    _filterPlatform(platformToFilter: Platform) {
-      const byPlatform = new Set(
-        this.filteredRoms
-          .filter((rom) => rom.platform_id === platformToFilter.id)
-          .map((rom) => rom.id),
-      );
-
-      // @ts-expect-error intersection is recently defined on Set
-      this._filteredIDs = byPlatform.intersection(this._filteredIDs);
+    setFiltered() {
+      throw new Error("Method not implemented.");
+      // if (galleryFilter.filterFavourites) {
+      //   this._filterFavourites();
+      // }
+      // if (galleryFilter.filterDuplicates) {
+      //   this._filterDuplicates();
+      // }
+      // if (galleryFilter.selectedPlatform) {
+      //   this._filterPlatform(galleryFilter.selectedPlatform);
+      // }
+      // if (galleryFilter.selectedGenre) {
+      //   this._filterGenre(galleryFilter.selectedGenre);
+      // }
+      // if (galleryFilter.selectedFranchise) {
+      //   this._filterFranchise(galleryFilter.selectedFranchise);
+      // }
+      // if (galleryFilter.selectedCollection) {
+      //   this._filterCollection(galleryFilter.selectedCollection);
+      // }
+      // if (galleryFilter.selectedCompany) {
+      //   this._filterCompany(galleryFilter.selectedCompany);
+      // }
+      // if (galleryFilter.selectedAgeRating) {
+      //   this._filterAgeRating(galleryFilter.selectedAgeRating);
+      // }
+      // if (galleryFilter.selectedStatus) {
+      //   this._filterStatus(galleryFilter.selectedStatus);
+      // } else {
+      //   this._filteredIDs = new Set(
+      //     // Filter hidden roms if the status is not hidden
+      //     this.filteredRoms
+      //       .filter((rom) => !rom.rom_user.hidden)
+      //       .map((rom) => rom.id),
+      //   );
+      // }
     },
     _filterGenre(genreToFilter: string) {
       const byGenre = new Set(
