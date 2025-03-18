@@ -279,4 +279,4 @@ Here are a few projects that we think you might like:
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
 [playnite-app]: https://github.com/rommapp/playnite-plugin
-[muos-app]: github.com/rommapp/muos-app
+[muos-app]: https://github.com/rommapp/muos-app
