@@ -65,6 +65,17 @@ export interface GetRomsParams {
   offset?: number;
   orderBy?: string | null;
   orderDir?: string | null;
+  unmatchedOnly?: boolean;
+  matchedOnly?: boolean;
+  favouritesOnly?: boolean;
+  duplicatesOnly?: boolean;
+  selectedGenre?: string | null;
+  selectedFranchise?: string | null;
+  selectedCollection?: string | null;
+  selectedCompany?: string | null;
+  selectedAgeRating?: string | null;
+  selectedStatus?: string | null;
+  withExtra?: boolean;
 }
 
 async function getRoms({
@@ -76,6 +87,17 @@ async function getRoms({
   offset = 0,
   orderBy = "name",
   orderDir = "asc",
+  unmatchedOnly = false,
+  matchedOnly = false,
+  favouritesOnly = false,
+  duplicatesOnly = false,
+  selectedGenre = null,
+  selectedFranchise = null,
+  selectedCollection = null,
+  selectedCompany = null,
+  selectedAgeRating = null,
+  selectedStatus = null,
+  withExtra = true,
 }: GetRomsParams): Promise<{ data: GetRomsResponse }> {
   return api.get(`/roms`, {
     params: {
@@ -87,6 +109,17 @@ async function getRoms({
       offset: offset,
       order_by: orderBy,
       order_dir: orderDir,
+      unmatched_only: unmatchedOnly,
+      matched_only: matchedOnly,
+      favourites_only: favouritesOnly,
+      duplicates_only: duplicatesOnly,
+      selected_genre: selectedGenre,
+      selected_franchise: selectedFranchise,
+      selected_collection: selectedCollection,
+      selected_company: selectedCompany,
+      selected_age_rating: selectedAgeRating,
+      selected_status: selectedStatus,
+      with_extra: withExtra,
     },
   });
 }

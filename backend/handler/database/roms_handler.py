@@ -51,57 +51,122 @@ def with_simple(func):
 
 
 class DBRomsHandler(DBBaseHandler):
-    def _filter(
-        self,
-        data,
-        platform_id: int | None,
-        collection_id: int | None,
-        virtual_collection_id: str | None,
-        search_term: str | None,
-        session: Session,
+    def filter_by_platform_id(self, query: Query, platform_id: int):
+        return query.filter(Rom.platform_id == platform_id)
+
+    def filter_by_collection_id(
+        self, query: Query, session: Session, collection_id: int
     ):
+        collection = (
+            session.query(Collection)
+            .filter(Collection.id == collection_id)
+            .one_or_none()
+        )
+        if collection:
+            return query.filter(Rom.id.in_(collection.rom_ids))
+        return query
+
+    def filter_by_virtual_collection_id(
+        self, query: Query, session: Session, virtual_collection_id: str
+    ):
+        name, type = VirtualCollection.from_id(virtual_collection_id)
+        v_collection = (
+            session.query(VirtualCollection)
+            .filter(VirtualCollection.name == name, VirtualCollection.type == type)
+            .one_or_none()
+        )
+        if v_collection:
+            return query.filter(Rom.id.in_(v_collection.rom_ids))
+        return query
+
+    def filter_by_search_term(self, query: Query, search_term: str):
+        return query.filter(
+            or_(
+                Rom.fs_name.ilike(f"%{search_term}%"),
+                Rom.name.ilike(f"%{search_term}%"),
+            )
+        )
+
+    def filter_by_unmatched_only(self, query: Query):
+        return query.filter(
+            and_(
+                Rom.igdb_id.is_(None),
+                Rom.moby_id.is_(None),
+                Rom.ss_id.is_(None),
+            )
+        )
+
+    def filter_by_matched_only(self, query: Query):
+        return query.filter(
+            or_(
+                Rom.igdb_id.isnot(None),
+                Rom.moby_id.isnot(None),
+                Rom.ss_id.isnot(None),
+            )
+        )
+
+    def filter_by_favourites_only(self, query: Query, session: Session, user_id: int):
+        favourites_collection = (
+            session.query(Collection)
+            .filter(Collection.name.ilike("favourites"))
+            .filter(or_(Collection.is_public.is_(True), Collection.user_id == user_id))
+            .one_or_none()
+        )
+        if favourites_collection:
+            return query.filter(Rom.id.in_(favourites_collection.rom_ids))
+        return query
+
+    def filter_by_duplicates_only(self, query: Query):
+        return query.filter(Rom.sibling_roms.any())
+
+    @begin_session
+    def filter_roms(
+        self,
+        platform_id: int | None = None,
+        collection_id: int | None = None,
+        virtual_collection_id: str | None = None,
+        search_term: str | None = None,
+        unmatched_only: bool = False,
+        matched_only: bool = False,
+        favourites_only: bool = False,
+        duplicates_only: bool = False,
+        selected_genre: str | None = None,
+        selected_franchise: str | None = None,
+        selected_collection: str | None = None,
+        selected_company: str | None = None,
+        selected_age_rating: str | None = None,
+        selected_status: str | None = None,
+        user_id: int | None = None,
+        query: Query = None,
+        session: Session = None,
+    ) -> Query[Rom]:
         if platform_id:
-            data = data.filter(Rom.platform_id == platform_id)
+            query = self.filter_by_platform_id(query, platform_id)
 
         if collection_id:
-            collection = (
-                session.query(Collection)
-                .filter(Collection.id == collection_id)
-                .one_or_none()
-            )
-            if collection:
-                data = data.filter(Rom.id.in_(collection.rom_ids))
+            query = self.filter_by_collection_id(query, session, collection_id)
 
         if virtual_collection_id:
-            name, type = VirtualCollection.from_id(virtual_collection_id)
-            v_collection = (
-                session.query(VirtualCollection)
-                .filter(VirtualCollection.name == name, VirtualCollection.type == type)
-                .one_or_none()
-            )
-            if v_collection:
-                data = data.filter(Rom.id.in_(v_collection.rom_ids))
-
-        if search_term is not None:
-            data = data.filter(
-                or_(
-                    Rom.fs_name.ilike(f"%{search_term}%"),
-                    Rom.name.ilike(f"%{search_term}%"),
-                )
+            query = self.filter_by_virtual_collection_id(
+                query, session, virtual_collection_id
             )
 
-        return data
+        if search_term:
+            query = self.filter_by_search_term(query, search_term)
 
-    def _order(self, data, order_by: str, order_dir: str):
-        if order_by == "id":
-            _column = Rom.id
-        else:
-            _column = func.lower(Rom.name)
+        if unmatched_only:
+            query = self.filter_by_unmatched_only(query)
 
-        if order_dir == "desc":
-            return data.order_by(_column.desc())
-        else:
-            return data.order_by(_column.asc())
+        if matched_only:
+            query = self.filter_by_matched_only(query)
+
+        if favourites_only and user_id:
+            query = self.filter_by_favourites_only(query, session, user_id)
+
+        if duplicates_only:
+            query = self.filter_by_duplicates_only(query)
+
+        return query
 
     @begin_session
     @with_details
@@ -118,29 +183,29 @@ class DBRomsHandler(DBBaseHandler):
     ) -> Rom | None:
         return session.scalar(query.filter_by(id=id).limit(1))
 
-    @begin_session
     @with_simple
     def get_roms(
         self,
         *,
-        platform_id: int | None = None,
-        collection_id: int | None = None,
-        virtual_collection_id: str | None = None,
-        search_term: str | None = None,
         order_by: str = "name",
         order_dir: str = "asc",
+        user_id: int | None = None,
         query: Query = None,
-        session: Session = None,
     ) -> Query[Rom]:
-        filtered_query = self._filter(
-            query,
-            platform_id,
-            collection_id,
-            virtual_collection_id,
-            search_term,
-            session,
-        )
-        return self._order(filtered_query, order_by, order_dir)
+        if user_id and hasattr(RomUser, order_by):
+            query = query.join(RomUser).filter(RomUser.user_id == user_id)
+            order_attr = getattr(RomUser, order_by)
+        elif hasattr(Rom, order_by):
+            order_attr = getattr(Rom, order_by)
+        else:
+            order_attr = func.lower(Rom.name)
+
+        if order_dir.lower() == "desc":
+            order_attr = order_attr.desc()
+        else:
+            order_attr = order_attr.asc()
+
+        return query.order_by(order_attr)
 
     @begin_session
     @with_details
@@ -249,34 +314,6 @@ class DBRomsHandler(DBBaseHandler):
     ) -> RomUser | None:
         return session.scalar(
             select(RomUser).filter_by(rom_id=rom_id, user_id=user_id).limit(1)
-        )
-
-    @begin_session
-    @with_simple
-    def get_roms_user(
-        self,
-        *,
-        user_id: int,
-        platform_id: int | None = None,
-        collection_id: int | None = None,
-        virtual_collection_id: str | None = None,
-        search_term: str | None = None,
-        query: Query = None,
-        session: Session = None,
-    ) -> Query[Rom]:
-        filtered_query = (
-            query.join(RomUser)
-            .filter(RomUser.user_id == user_id)
-            .order_by(RomUser.last_played.desc())
-        )
-
-        return self._filter(
-            filtered_query,
-            platform_id,
-            collection_id,
-            virtual_collection_id,
-            search_term,
-            session,
         )
 
     @begin_session

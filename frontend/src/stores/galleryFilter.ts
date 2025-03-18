@@ -20,7 +20,6 @@ export type FilterType = (typeof filters)[number];
 const defaultFilterState = {
   activeFilterDrawer: false,
   searchText: null as string | null,
-  filterText: null as string | null,
   filters: filters,
   filterPlatforms: [] as Platform[],
   filterGenres: [] as string[],
