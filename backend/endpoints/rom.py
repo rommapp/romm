@@ -336,7 +336,6 @@ async def get_rom_content(
                 # Add content files
                 for file in files:
                     file_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
-                    file_name = file.full_path.replace(rom.full_path, "")
                     try:
                         # Read entire file into memory
                         async with await open_file(file_path, "rb") as f:
@@ -344,9 +343,7 @@ async def get_rom_content(
 
                         # Create ZIP info with compression
                         zip_info = ZipInfo(
-                            filename=(
-                                f".hidden/{file_name}" if hidden_folder else file_name
-                            ),
+                            filename=file.file_name_for_download(rom, hidden_folder),
                             date_time=now.timetuple()[:6],
                         )
                         zip_info.external_attr = S_IFREG | 0o600
@@ -363,12 +360,7 @@ async def get_rom_content(
 
                 # Add M3U file
                 m3u_encoded_content = "\n".join(
-                    [
-                        f.full_path.replace(
-                            rom.full_path, ".hidden" if hidden_folder else ""
-                        )
-                        for f in files
-                    ]
+                    [f.file_name_for_download(rom, hidden_folder) for f in files]
                 ).encode()
                 m3u_filename = f"{rom.fs_name}.m3u"
                 m3u_info = ZipInfo(filename=m3u_filename, date_time=now.timetuple()[:6])
@@ -398,21 +390,17 @@ async def get_rom_content(
         )
 
     async def create_zip_content(f: RomFile, base_path: str = LIBRARY_BASE_PATH):
-        filename = f.full_path.replace(rom.full_path, "")
         return ZipContentLine(
             crc32=f.crc_hash,
             size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
             encoded_location=quote(f"{base_path}/{f.full_path}"),
-            filename=f".hidden{filename}" if hidden_folder else filename,
+            filename=f.file_name_for_download(rom, hidden_folder),
         )
 
     content_lines = [await create_zip_content(f, "/library-zip") for f in files]
 
     m3u_encoded_content = "\n".join(
-        [
-            f.full_path.replace(rom.full_path, ".hidden" if hidden_folder else "")
-            for f in files
-        ]
+        [f.file_name_for_download(rom, hidden_folder) for f in files]
     ).encode()
     m3u_base64_content = b64encode(m3u_encoded_content).decode()
     m3u_line = ZipContentLine(
