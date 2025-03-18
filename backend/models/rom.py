@@ -76,12 +76,10 @@ class RomMetadata(BaseModel):
     companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    youtube_video_id: Mapped[str | None] = mapped_column(String(length=100))
-    alternative_names: Mapped[list[str] | None] = mapped_column(
-        CustomJSON(), default=[]
-    )
     first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
     average_rating: Mapped[float | None] = mapped_column(default=None)
+
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
 
 
 class Rom(BaseModel):
@@ -159,6 +157,9 @@ class Rom(BaseModel):
     states: Mapped[list[State]] = relationship(back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
     rom_users: Mapped[list[RomUser]] = relationship(back_populates="rom")
+    metadatum: Mapped[RomMetadata] = relationship(
+        lazy="immediate", back_populates="rom", uselist=False
+    )
 
     collections: Mapped[list[Collection]] = relationship(
         "Collection",
@@ -233,96 +234,52 @@ class Rom(BaseModel):
         )
 
     # # Metadata fields
-    # @property
-    # def youtube_video_id(self) -> str:
-    #     if self.igdb_metadata:
-    #         return self.igdb_metadata.get("youtube_video_id", "")
-    #     return ""
+    @property
+    def youtube_video_id(self) -> str:
+        if self.igdb_metadata:
+            return self.igdb_metadata.get("youtube_video_id", "")
+        return ""
 
-    # @property
-    # def alternative_names(self) -> list[str]:
-    #     return (
-    #         (self.igdb_metadata or {}).get("alternative_names", None)
-    #         or (self.moby_metadata or {}).get("alternate_titles", None)
-    #         or (self.ss_metadata or {}).get("alternative_names", None)
-    #         or []
-    #     )
+    @property
+    def alternative_names(self) -> list[str]:
+        return (
+            (self.igdb_metadata or {}).get("alternative_names", None)
+            or (self.moby_metadata or {}).get("alternate_titles", None)
+            or (self.ss_metadata or {}).get("alternative_names", None)
+            or []
+        )
 
-    # @property
-    # def first_release_date(self) -> int | None:
-    #     if self.igdb_metadata:
-    #         return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
-    #     elif self.ss_metadata:
-    #         return safe_int(self.ss_metadata.get("first_release_date") or 0) * 1000
+    @property
+    def first_release_date(self) -> int | None:
+        return self.metadatum.first_release_date
 
-    #     return None
+    @property
+    def average_rating(self) -> float | None:
+        return self.metadatum.average_rating
 
-    # @property
-    # def average_rating(self) -> float | None:
-    #     igdb_rating = (
-    #         safe_float(self.igdb_metadata.get("total_rating") or 0)
-    #         if self.igdb_metadata
-    #         else 0.0
-    #     )
-    #     moby_rating = (
-    #         safe_float(self.moby_metadata.get("moby_score") or 0)
-    #         if self.moby_metadata
-    #         else 0.0
-    #     )
-    #     ss_rating = (
-    #         safe_float(self.ss_metadata.get("ss_score") or 0)
-    #         if self.ss_metadata
-    #         else 0.0
-    #     )
+    @property
+    def genres(self) -> list[str]:
+        return self.metadatum.genres or []
 
-    #     ratings = [r for r in [igdb_rating, moby_rating * 10, ss_rating] if r != 0.0]
+    @property
+    def franchises(self) -> list[str]:
+        return self.metadatum.franchises or []
 
-    #     return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
+    @property
+    def meta_collections(self) -> list[str]:
+        return self.metadatum.collections or []
 
-    # @property
-    # def genres(self) -> list[str]:
-    #     return (
-    #         (self.igdb_metadata or {}).get("genres", None)
-    #         or (self.moby_metadata or {}).get("genres", None)
-    #         or (self.ss_metadata or {}).get("genres", None)
-    #         or []
-    #     )
+    @property
+    def companies(self) -> list[str]:
+        return self.metadatum.companies or []
 
-    # @property
-    # def franchises(self) -> list[str]:
-    #     if self.igdb_metadata:
-    #         return self.igdb_metadata.get("franchises", [])
-    #     elif self.ss_metadata:
-    #         return self.ss_metadata.get("franchises", [])
-    #     return []
+    @property
+    def game_modes(self) -> list[str]:
+        return self.metadatum.game_modes or []
 
-    # @property
-    # def meta_collections(self) -> list[str]:
-    #     if self.igdb_metadata:
-    #         return self.igdb_metadata.get("collections", [])
-    #     return []
-
-    # @property
-    # def companies(self) -> list[str]:
-    #     if self.igdb_metadata:
-    #         return self.igdb_metadata.get("companies", [])
-    #     elif self.ss_metadata:
-    #         return self.ss_metadata.get("companies", [])
-    #     return []
-
-    # @property
-    # def game_modes(self) -> list[str]:
-    #     if self.igdb_metadata:
-    #         return self.igdb_metadata.get("game_modes", [])
-    #     elif self.ss_metadata:
-    #         return self.ss_metadata.get("game_modes", [])
-    #     return []
-
-    # @property
-    # def age_ratings(self) -> list[str]:
-    #     if self.igdb_metadata:
-    #         return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
-    #     return []
+    @property
+    def age_ratings(self) -> list[str]:
+        return self.metadatum.age_ratings or []
 
     @property
     def is_unidentified(self) -> bool:

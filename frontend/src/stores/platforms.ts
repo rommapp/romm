@@ -7,7 +7,7 @@ export type Platform = PlatformSchema;
 export default defineStore("platforms", {
   state: () => ({
     allPlatforms: [] as Platform[],
-    searchText: "" as string,
+    filterText: "" as string,
   }),
 
   getters: {
@@ -17,12 +17,12 @@ export default defineStore("platforms", {
       all
         .filter((p) => p.rom_count > 0)
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
-    filteredPlatforms: ({ allPlatforms: all, searchText }) =>
+    filteredPlatforms: ({ allPlatforms: all, filterText }) =>
       all
         .filter(
           (p) =>
             p.rom_count > 0 &&
-            p.display_name.toLowerCase().includes(searchText.toLowerCase()),
+            p.display_name.toLowerCase().includes(filterText.toLowerCase()),
         )
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
   },
@@ -64,7 +64,7 @@ export default defineStore("platforms", {
     },
     reset() {
       this.allPlatforms = [] as Platform[];
-      this.searchText = "";
+      this.filterText = "";
     },
   },
 });

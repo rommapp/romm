@@ -51,12 +51,7 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms(
-      {
-        platformId: romsStore.currentPlatform?.id,
-      },
-      galleryFilterStore,
-    )
+    .fetchRoms(galleryFilterStore)
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
@@ -148,7 +143,7 @@ function onScroll() {
 
 function resetGallery() {
   romsStore.reset();
-  galleryFilterStore.reset();
+  galleryFilterStore.resetFilters();
   galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
   noPlatformError.value = false;

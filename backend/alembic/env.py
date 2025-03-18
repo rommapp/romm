@@ -9,7 +9,7 @@ from models.base import BaseModel
 from models.collection import VirtualCollection
 from models.firmware import Firmware  # noqa
 from models.platform import Platform  # noqa
-from models.rom import Rom, SiblingRom  # noqa
+from models.rom import Rom, RomMetadata, SiblingRom  # noqa
 from models.user import User  # noqa
 from sqlalchemy import create_engine
 
@@ -39,6 +39,7 @@ def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table" and name in [
         SiblingRom.__tablename__,
         VirtualCollection.__tablename__,
+        RomMetadata.__tablename__,
     ]:  # Virtual table
         return False
 

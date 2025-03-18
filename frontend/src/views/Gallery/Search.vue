@@ -21,7 +21,7 @@ import type { Events } from "@/types/emitter";
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
-const { searchText } = storeToRefs(galleryFilterStore);
+const { searchTerm } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
 const router = useRouter();
 const initialSearch = ref(false);
@@ -93,7 +93,7 @@ function onGameTouchEnd() {
 
 function fetchRoms() {
   romsStore
-    .fetchRoms({ searchTerm: searchText.value }, galleryFilterStore)
+    .fetchRoms(galleryFilterStore)
     .catch((error) => {
       emitter?.emit("snackbarShow", {
         msg: `Couldn't fetch roms: ${error}`,
@@ -123,7 +123,7 @@ function onScroll() {
 
 function resetGallery() {
   romsStore.reset();
-  galleryFilterStore.reset();
+  galleryFilterStore.resetFilters();
   galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
 }
@@ -137,7 +137,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener("scroll", onScroll);
-  searchText.value = "";
+  searchTerm.value = "";
 });
 </script>
 

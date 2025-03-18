@@ -18,20 +18,38 @@ const romsStore = storeRoms();
 const { fetchingRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
-const { searchText } = storeToRefs(galleryFilterStore);
+const { searchTerm } = storeToRefs(galleryFilterStore);
 
 async function fetchRoms() {
-  if (searchText.value === null) return;
+  if (searchTerm.value === null) return;
+
+  romsStore
+    .fetchRoms(galleryFilterStore)
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch roms: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    })
+    .finally(() => {
+      galleryFilterStore.activeFilterDrawer = false;
+    });
+}
+
+async function refetchRoms() {
+  if (searchTerm.value === null) return;
 
   // Auto hide android keyboard
   const inputElement = document.getElementById("search-text-field");
   inputElement?.blur();
 
   // Update URL with search term
-  router.replace({ query: { search: searchText.value } });
+  router.replace({ query: { search: searchTerm.value } });
 
   romsStore
-    .fetchRoms({ searchTerm: searchText.value }, galleryFilterStore)
+    .refetchRoms(galleryFilterStore)
     .catch((error) => {
       emitter?.emit("snackbarShow", {
         msg: `Couldn't fetch roms: ${error}`,
@@ -60,8 +78,8 @@ onMounted(() => {
     filter: filterParam,
     value: valueParam,
   } = router.currentRoute.value.query;
-  if (searchParam !== undefined && searchParam !== searchText.value) {
-    searchText.value = searchParam as string;
+  if (searchParam !== undefined && searchParam !== searchTerm.value) {
+    searchTerm.value = searchParam as string;
   }
 
   // Check for query params to set filters
@@ -79,8 +97,8 @@ onMounted(() => {
 watch(
   router.currentRoute.value.query,
   (query) => {
-    if (query.search !== undefined && query.search !== searchText.value) {
-      searchText.value = query.search as string;
+    if (query.search !== undefined && query.search !== searchTerm.value) {
+      searchTerm.value = query.search as string;
       fetchRoms();
     }
   },
@@ -93,8 +111,8 @@ watch(
     :density="xs ? 'comfortable' : 'default'"
     clearable
     autofocus
-    @keyup.enter="fetchRoms"
-    v-model="searchText"
+    @keyup.enter="refetchRoms"
+    v-model="searchTerm"
     :disabled="fetchingRoms"
     :label="t('common.search')"
     hide-details

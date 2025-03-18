@@ -172,6 +172,7 @@ def get_roms(
     )
 
     query = db_rom_handler.filter_roms(
+        query=query,
         platform_id=platform_id,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,

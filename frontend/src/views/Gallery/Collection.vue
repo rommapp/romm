@@ -58,13 +58,7 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms(
-      {
-        collectionId: romsStore.currentCollection?.id,
-        virtualCollectionId: romsStore.currentVirtualCollection?.id,
-      },
-      galleryFilterStore,
-    )
+    .fetchRoms(galleryFilterStore)
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
@@ -156,7 +150,7 @@ function onScroll() {
 
 function resetGallery() {
   romsStore.reset();
-  galleryFilterStore.reset();
+  galleryFilterStore.resetFilters();
   galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
   noCollectionError.value = false;

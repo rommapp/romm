@@ -14,16 +14,16 @@ export default defineStore("collections", {
     allCollections: [] as Collection[],
     virtualCollections: [] as VirtualCollection[],
     favCollection: {} as Collection | undefined,
-    searchText: "" as string,
+    filterText: "" as string,
   }),
   getters: {
-    filteredCollections: ({ allCollections, searchText }) =>
+    filteredCollections: ({ allCollections, filterText }) =>
       allCollections.filter((p) =>
-        p.name.toLowerCase().includes(searchText.toLowerCase()),
+        p.name.toLowerCase().includes(filterText.toLowerCase()),
       ),
-    filteredVirtualCollections: ({ virtualCollections, searchText }) =>
+    filteredVirtualCollections: ({ virtualCollections, filterText }) =>
       virtualCollections.filter((p) =>
-        p.name.toLowerCase().includes(searchText.toLowerCase()),
+        p.name.toLowerCase().includes(filterText.toLowerCase()),
       ),
   },
   actions: {
@@ -72,7 +72,7 @@ export default defineStore("collections", {
       this.allCollections = [];
       this.virtualCollections = [];
       this.favCollection = undefined;
-      this.searchText = "";
+      this.filterText = "";
     },
   },
 });
