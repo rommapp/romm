@@ -1,6 +1,6 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
-import romApi, { type GetRomsParams } from "@/services/api/rom";
+import romApi from "@/services/api/rom";
 import { type Collection, type VirtualCollection } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
