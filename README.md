@@ -46,13 +46,13 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 ## Features
 
-- Scans your existing games library and enhances it with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
-- Supports a large number of **[platforms][platform-support]**
-- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs] and RuffleRS
-- Share your library with friends while [limiting access and permissions][wiki-authentication]
-- Supports MAME, Nintendo Switch, and Sony Playstation naming schemes
-- Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
-- Can [parse tags][tag-support] in filenames (e.g. (E), (USA), (rev v1), etc.)
+- Scans and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
+- Metadata available for [400+ platforms][platform-support]
+- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs]
+- Share your library with friends with limited access and permissions
+- Official apps for [Playnite][playnite-app] and [muOS][muos-app]
+- Supports mutli-disk games, DCLs, mods, hacks, patches, and manuals
+- Parse and [filter by tags][tag-support] in filenames
 - View, upload, update, and delete games from any modern web browser
 
 ## Preview
@@ -243,7 +243,6 @@ Here are a few projects that we think you might like:
 
 [wiki]: https://docs.romm.app/latest/
 [wiki-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
-[wiki-authentication]: https://docs.romm.app/latest/Getting-Started/Authentication/
 [wiki-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/
 [wiki-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
 [wiki-scheduled-tasks]: https://docs.romm.app/latest/Maintenance/Scheduled-Tasks/
@@ -279,3 +278,5 @@ Here are a few projects that we think you might like:
 [kubernetes-helm-chart]: https://artifacthub.io/packages/helm/crystalnet/romm
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
+[playnite-app]: https://github.com/rommapp/playnite-plugin
+[muos-app]: github.com/rommapp/muos-app
