@@ -62,6 +62,12 @@ class RomFile(BaseModel):
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
 
+    def file_name_for_download(self, rom: Rom, hidden_folder: bool = False) -> str:
+        # This needs a trailing slash in the path to work!
+        return self.full_path.replace(
+            f"{rom.full_path}/", ".hidden/" if hidden_folder else ""
+        )
+
 
 class Rom(BaseModel):
     __tablename__ = "roms"
