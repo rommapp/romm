@@ -202,6 +202,7 @@ Tags can be used to search for games in the search bar. For example, searching f
 Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
 
 - [romm-comm][romm-comm-discord-bot]: Discord Bot by @idio-sync
+- [DeckRommSync][deck-romm-sync]: SteamOS downloader and sync by @PeriBluGaming
 - CasaOS app via the [BigBear App Store][big-bear-casaos]
 - [Helm Chart to deploy on Kubernetes][kubernetes-helm-chart] by @psych0d0g
 
@@ -277,3 +278,4 @@ Here are a few projects that we think you might like:
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [kubernetes-helm-chart]: https://artifacthub.io/packages/helm/crystalnet/romm
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
+[deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
