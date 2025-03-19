@@ -100,14 +100,18 @@ As mentioned in the installation section, RomM requires a specific folder struct
         │  │     ├─ dlc
         │  │     │  ├─ game_4_dlc_1.7z
         │  │     │  └─ game_4_dlc_2.7z
-        │  │     ├─ hacks
+        │  │     ├─ hack
         │  │     │  └─ game_4_hardmode.rar
-        │  │     ├─ manuals
+        │  │     ├─ manual
         │  │     │  └─ game_4_manual.pdf
-        │  │     ├─ mods
+        │  │     ├─ mod
         │  │     │  └─ game_4_crazy_mode.zip
-        │  │     └─ patches
-        │  │        └─ game_4_patch_v1.1.zip
+        │  │     ├─ patch
+        │  │     │  └─ game_4_patch_v1.1.zip
+        │  │     ├─ update
+        │  │     ├─ demo
+        │  │     ├─ translation
+        │  │     └─ prototype
         │  │
         │  └─ ps/
         │     ├─ game_5/
@@ -148,8 +152,12 @@ As mentioned in the installation section, RomM requires a specific folder struct
         │  │     │  └─ game_4_manual.pdf
         │  │     ├─ mods
         │  │     │  └─ game_4_crazy_mode.zip
-        │  │     └─ patches
-        │  │        └─ game_4_patch_v1.1.zip
+        │  │     ├─ patch
+        │  │     │  └─ game_4_patch_v1.1.zip
+        │  │     ├─ update
+        │  │     ├─ demo
+        │  │     ├─ translation
+        │  │     └─ prototype
         │  │
         │  └─ bios/
         │     └─ gba_bios.bin
