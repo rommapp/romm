@@ -386,7 +386,7 @@ onMounted(async () => {
 
 <style scoped>
 #game-wrapper {
-  height: 100%;
+  height: 100vh;
 }
 
 @media (max-width: 960px) {
