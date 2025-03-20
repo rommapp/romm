@@ -13,6 +13,9 @@ import createIndexedDBDiffMonitor, {
   type Change,
 } from "@/utils/indexdb-monitor";
 import { onBeforeUnmount, onMounted, ref } from "vue";
+import { useTheme } from "vuetify";
+
+const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -26,6 +29,8 @@ const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
 
+const theme = useTheme();
+
 // Declare global variables for EmulatorJS
 declare global {
   interface Window {
@@ -38,6 +43,7 @@ declare global {
     EJS_gameID: number;
     EJS_gameName: string;
     EJS_backgroundImage: string;
+    EJS_backgroundColor: string;
     EJS_gameUrl: string;
     EJS_loadStateURL: string | null;
     EJS_cheats: string;
@@ -49,6 +55,7 @@ declare global {
     EJS_threads: boolean;
     EJS_controlScheme: string | null;
     EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    EJS_Buttons: Record<string, boolean>;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
     EJS_onLoadState: () => void;
@@ -76,12 +83,22 @@ window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
+window.EJS_backgroundImage = `${window.location.protocol}//${window.location.host}/assets/emulatorjs/powered_by_emulatorjs.png`;
+window.EJS_backgroundColor = theme.current.value.colors.background;
+// Force saving saves and states to the browser
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
   rewindEnabled: "enabled",
 };
-if (romRef.value.name) window.EJS_gameName = romRef.value.name;
+// Set a valid game name
+window.EJS_gameName = romRef.value.fs_name_no_tags
+  .replace(INVALID_CHARS_REGEX, "")
+  .trim();
+// Disable quick save and quick load
+window.EJS_Buttons = {
+  quickSave: false,
+  quickLoad: false,
+};
 
 onBeforeUnmount(() => {
   window.location.reload();
@@ -243,7 +260,7 @@ window.EJS_onGameStart = async () => {
     console.log("Save changes detected:", changes);
 
     changes.forEach((change) => {
-      if (!change.key.includes(romRef.value.fs_name_no_tags)) return;
+      if (!change.key.includes(window.EJS_gameName)) return;
 
       if (saveRef.value) {
         saveApi
@@ -287,7 +304,7 @@ window.EJS_onGameStart = async () => {
     console.log("State changes detected:", changes);
 
     changes.forEach((change) => {
-      if (!change.key.includes(romRef.value.fs_name_no_tags)) return;
+      if (!change.key.includes(window.EJS_gameName)) return;
 
       if (stateRef.value) {
         stateApi
@@ -332,13 +349,25 @@ window.EJS_onGameStart = async () => {
 
 <style scoped>
 #game {
-  max-height: 100dvh;
+  height: 100%;
 }
 </style>
 
 <style>
 #game .ejs_cheat_code {
   background-color: white;
+}
+
+#game .ejs_settings_transition {
+  height: fit-content;
+}
+
+#game .ejs_setting_menu .ejs_settings_main_bar:nth-child(3) {
+  display: none;
+}
+
+#game .ejs_game_background {
+  background-size: 40%;
 }
 </style>
 

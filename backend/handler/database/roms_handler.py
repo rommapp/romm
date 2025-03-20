@@ -196,6 +196,34 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.filter(status_filter, RomUser.hidden.is_(False))
 
+    def filter_by_region(self, query: Query, selected_region: str):
+        if ROMM_DB_DRIVER == "postgresql":
+            return query.filter(
+                text("regions @> (:region)::jsonb").bindparams(
+                    region=f'["{selected_region}"]'
+                )
+            )
+        else:
+            return query.filter(
+                text("JSON_OVERLAPS(regions, JSON_ARRAY(:region))").bindparams(
+                    region=selected_region
+                )
+            )
+
+    def filter_by_language(self, query: Query, selected_language: str):
+        if ROMM_DB_DRIVER == "postgresql":
+            return query.filter(
+                text("languages @> (:language)::jsonb").bindparams(
+                    language=f'["{selected_language}"]'
+                )
+            )
+        else:
+            return query.filter(
+                text("JSON_OVERLAPS(languages, JSON_ARRAY(:language))").bindparams(
+                    language=selected_language
+                )
+            )
+
     @begin_session
     def filter_roms(
         self,
@@ -214,6 +242,8 @@ class DBRomsHandler(DBBaseHandler):
         selected_company: str | None = None,
         selected_age_rating: str | None = None,
         selected_status: str | None = None,
+        selected_region: str | None = None,
+        selected_language: str | None = None,
         user_id: int | None = None,
         session: Session = None,
     ) -> Query[Rom]:
@@ -269,6 +299,12 @@ class DBRomsHandler(DBBaseHandler):
 
         if selected_status:
             query = self.filter_by_status(query, selected_status)
+
+        if selected_region:
+            query = self.filter_by_region(query, selected_region)
+
+        if selected_language:
+            query = self.filter_by_language(query, selected_language)
 
         return query
 

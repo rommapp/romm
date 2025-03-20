@@ -8,6 +8,7 @@
   "settings": "Paramètres",
   "cover-style": "Style de couverture",
   "old-squared-cases": "Anciennes boîtes carrées",
+  "old-horizontal-cases": "Anciennes boîtes horizontales",
   "danger-zone": "Zone de danger",
   "delete-platform": "Supprimer la plateforme",
   "removing-platform-1": "Confirmez le retrait de",
@@ -19,7 +20,6 @@
   "show-favourites": "Jeux favoris",
   "show-duplicates": "Jeux doubles",
   "genre": "Genre",
-  "genres": "Genres",
   "franchise": "Franchise",
   "collection": "Collection",
   "company": "Entreprise",
@@ -28,5 +28,7 @@
   "reset-filters": "Réinitialiser les filtres",
   "active-multi-select": "Sélection multiple active",
   "change-view": "Changer la vue",
-  "no-firmware-found": "Aucun firmware trouvé"
+  "no-firmware-found": "Aucun firmware trouvé",
+  "region": "Région",
+  "language": "Langue"
 }

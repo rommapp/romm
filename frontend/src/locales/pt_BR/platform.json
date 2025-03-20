@@ -8,6 +8,7 @@
   "settings": "Configurações",
   "cover-style": "Estilo da capa",
   "old-squared-cases": "Caixas quadradas antigas",
+  "old-horizontal-cases": "Caixas horizontais antigas",
   "danger-zone": "Zona de perigo",
   "delete-platform": "Excluir plataforma",
   "removing-platform-1": "Removendo plataforma",
@@ -19,7 +20,6 @@
   "show-favourites": "Mostrar favoritos",
   "show-duplicates": "Mostrar duplicados",
   "genre": "Gênero",
-  "genres": "Gêneros",
   "franchise": "Franquia",
   "collection": "Coleção",
   "company": "Empresa",
@@ -28,5 +28,7 @@
   "reset-filters": "Redefinir filtros",
   "active-multi-select": "Seleção múltipla ativa",
   "change-view": "Mudar visualização",
-  "no-firmware-found": "Nenhum firmware encontrado"
+  "no-firmware-found": "Nenhum firmware encontrado",
+  "region": "Região",
+  "language": "Idioma"
 }

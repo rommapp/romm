@@ -327,7 +327,7 @@ onMounted(async () => {
               cols="12"
               :sm="gameRunning ? 12 : 7"
               :xl="gameRunning ? 12 : 9"
-              class="ml-2"
+              :class="gameRunning ? 'mt-2' : 'ml-2'"
             >
               <v-btn
                 color="primary"
@@ -386,7 +386,7 @@ onMounted(async () => {
 
 <style scoped>
 #game-wrapper {
-  height: 100%;
+  height: 100vh;
 }
 
 @media (max-width: 960px) {

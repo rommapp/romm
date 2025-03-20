@@ -30,7 +30,7 @@
   "details": "Детали",
   "manual": "Руководство пользователя",
   "personal": "Личное",
-  "version": "Версия",
+  "switch-version": "Переключить версию",
   "default": "По умолчанию",
   "set-as-default": "Установить ром по умолчанию",
   "file": "Файл",
@@ -55,5 +55,7 @@
   "my-notes": "Мои заметки",
   "public-notes": "Публичные заметки",
   "additional-content": "Дополнительный контент",
-  "related-content": "Связанный контент"
+  "related-content": "Связанный контент",
+  "regions": "Регионы",
+  "languages": "Языки"
 }
