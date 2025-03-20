@@ -56,41 +56,18 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
         <v-chip
           v-if="hasReleaseDate && !smAndDown"
           class="ml-1 font-italic"
-          size="x-small"
+          size="small"
         >
           {{ releaseDate }}
         </v-chip>
         <v-chip
           v-if="Number(rom.first_release_date) > 0 && smAndDown"
           class="font-italic ml-1"
-          size="x-small"
+          size="small"
         >
           {{ releaseDate }}
         </v-chip>
         <template v-if="!smAndDown">
-          <v-chip
-            class="ml-1"
-            v-if="rom.regions.filter(identity).length > 0"
-            size="small"
-            :title="`Regions: ${rom.regions.join(', ')}`"
-          >
-            <span v-for="region in rom.regions" :key="region" class="px-1">{{
-              regionToEmoji(region)
-            }}</span>
-          </v-chip>
-          <v-chip
-            v-if="rom.languages.filter(identity).length > 0"
-            size="small"
-            class="ml-1"
-            :title="`Languages: ${rom.languages.join(', ')}`"
-          >
-            <span
-              v-for="language in rom.languages"
-              :key="language"
-              class="px-1"
-              >{{ languageToEmoji(language) }}</span
-            >
-          </v-chip>
           <v-chip v-if="rom.revision" size="small" class="ml-1">
             Revision {{ rom.revision }}
           </v-chip>
@@ -99,39 +76,11 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     </v-row>
 
     <v-row
-      v-if="
-        smAndDown &&
-        rom.regions.filter(identity).length > 0 &&
-        rom.languages.filter(identity).length > 0 &&
-        rom.revision
-      "
+      v-if="smAndDown && rom.revision"
       class="text-white text-shadow mt-2 text-center"
       no-gutters
     >
       <v-col>
-        <v-chip
-          class="ml-1"
-          v-if="rom.regions.filter(identity).length > 0"
-          size="small"
-          :title="`Regions: ${rom.regions.join(', ')}`"
-        >
-          <span v-for="region in rom.regions" :key="region" class="px-1">{{
-            regionToEmoji(region)
-          }}</span>
-        </v-chip>
-        <v-chip
-          v-if="rom.languages.filter(identity).length > 0"
-          size="small"
-          class="ml-1"
-          :title="`Languages: ${rom.languages.join(', ')}`"
-        >
-          <span
-            v-for="language in rom.languages"
-            :key="language"
-            class="px-1"
-            >{{ languageToEmoji(language) }}</span
-          >
-        </v-chip>
         <v-chip v-if="rom.revision" size="small" class="ml-1">
           Revision {{ rom.revision }}
         </v-chip>

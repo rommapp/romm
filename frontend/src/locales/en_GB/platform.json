@@ -8,6 +8,7 @@
   "settings": "Settings",
   "cover-style": "Cover style",
   "old-squared-cases": "Old squared cases",
+  "old-horizontal-cases": "Old horizontal cases",
   "danger-zone": "Danger zone",
   "delete-platform": "Delete platform",
   "removing-platform-1": "Removing platform",
@@ -19,7 +20,6 @@
   "show-favourites": "Show favourites",
   "show-duplicates": "Show duplicates",
   "genre": "Genre",
-  "genres": "Genres",
   "franchise": "Franchise",
   "collection": "Collection",
   "company": "Company",
@@ -28,5 +28,7 @@
   "reset-filters": "Reset filters",
   "active-multi-select": "Active multi-select",
   "change-view": "Change view",
-  "no-firmware-found": "No firmware found"
+  "no-firmware-found": "No firmware found",
+  "region": "Region",
+  "language": "Language"
 }

@@ -21,6 +21,7 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
+    RomFileSchema,
     RomSchema,
     RomUserSchema,
     SimpleRomSchema,
@@ -137,6 +138,8 @@ def get_roms(
     selected_company: str | None = None,
     selected_age_rating: str | None = None,
     selected_status: str | None = None,
+    selected_region: str | None = None,
+    selected_language: str | None = None,
     with_extra: bool = True,
 ) -> LimitOffsetPage[RomSchema | SimpleRomSchema]:
     """Get roms endpoint
@@ -160,6 +163,8 @@ def get_roms(
         selected_company (str, optional): Filter by company. Defaults to None.
         selected_age_rating (str, optional): Filter by age rating. Defaults to None.
         selected_status (str, optional): Filter by status. Defaults to None.
+        selected_region (str, optional): Filter by region tag. Defaults to None.
+        selected_language (str, optional): Filter by language tag. Defaults to None.
 
     Returns:
         list[RomSchema | SimpleRomSchema]: List of ROMs stored in the database
@@ -173,6 +178,7 @@ def get_roms(
 
     query = db_rom_handler.filter_roms(
         query=query,
+        user_id=request.user.id,
         platform_id=platform_id,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
@@ -187,6 +193,8 @@ def get_roms(
         selected_company=selected_company,
         selected_age_rating=selected_age_rating,
         selected_status=selected_status,
+        selected_region=selected_region,
+        selected_language=selected_language,
     )
 
     with sync_session.begin() as session:
@@ -310,9 +318,11 @@ async def get_rom_content(
         file_name: Zip file output name
 
     Returns:
-        FileResponse: Returns one file for single file roms
+        Response: Returns a response with headers
 
     Yields:
+        FileResponse: Returns one file for single file roms
+        FileRedirectResponse: Redirects to the file download path
         ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
     """
 
@@ -358,7 +368,6 @@ async def get_rom_content(
                 # Add content files
                 for file in files:
                     file_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
-                    file_name = file.full_path.replace(rom.full_path, "")
                     try:
                         # Read entire file into memory
                         async with await open_file(file_path, "rb") as f:
@@ -366,9 +375,7 @@ async def get_rom_content(
 
                         # Create ZIP info with compression
                         zip_info = ZipInfo(
-                            filename=(
-                                f".hidden/{file_name}" if hidden_folder else file_name
-                            ),
+                            filename=file.file_name_for_download(rom, hidden_folder),
                             date_time=now.timetuple()[:6],
                         )
                         zip_info.external_attr = S_IFREG | 0o600
@@ -385,12 +392,7 @@ async def get_rom_content(
 
                 # Add M3U file
                 m3u_encoded_content = "\n".join(
-                    [
-                        f.full_path.replace(
-                            rom.full_path, ".hidden" if hidden_folder else ""
-                        )
-                        for f in files
-                    ]
+                    [f.file_name_for_download(rom, hidden_folder) for f in files]
                 ).encode()
                 m3u_filename = f"{rom.fs_name}.m3u"
                 m3u_info = ZipInfo(filename=m3u_filename, date_time=now.timetuple()[:6])
@@ -420,21 +422,17 @@ async def get_rom_content(
         )
 
     async def create_zip_content(f: RomFile, base_path: str = LIBRARY_BASE_PATH):
-        filename = f.full_path.replace(rom.full_path, "")
         return ZipContentLine(
             crc32=f.crc_hash,
             size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
             encoded_location=quote(f"{base_path}/{f.full_path}"),
-            filename=f".hidden{filename}" if hidden_folder else filename,
+            filename=f.file_name_for_download(rom, hidden_folder),
         )
 
     content_lines = [await create_zip_content(f, "/library-zip") for f in files]
 
     m3u_encoded_content = "\n".join(
-        [
-            f.full_path.replace(rom.full_path, ".hidden" if hidden_folder else "")
-            for f in files
-        ]
+        [f.file_name_for_download(rom, hidden_folder) for f in files]
     ).encode()
     m3u_base64_content = b64encode(m3u_encoded_content).decode()
     m3u_line = ZipContentLine(
@@ -465,7 +463,7 @@ async def update_rom(
         request (Request): Fastapi Request object
         id (Rom): Rom internal id
         rename_as_source (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
-        artwork (UploadFile, optional): Custom artork to set as cover. Defaults to File(None).
+        artwork (UploadFile, optional): Custom artwork to set as cover. Defaults to File(None).
         unmatch_metadata: Remove the metadata matches for this game. Defaults to False.
 
     Raises:
@@ -560,32 +558,6 @@ async def update_rom(
     )
 
     new_fs_name = str(data.get("fs_name") or rom.fs_name)
-
-    try:
-        if rename_as_source:
-            new_fs_name = rom.fs_name.replace(
-                rom.fs_name_no_tags or rom.fs_name_no_ext,
-                str(data.get("name") or rom.name),
-            )
-            new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_fs_rom(
-                old_name=rom.fs_name,
-                new_name=new_fs_name,
-                fs_path=rom.fs_path,
-            )
-        elif rom.fs_name != new_fs_name:
-            new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_fs_rom(
-                old_name=rom.fs_name,
-                new_name=new_fs_name,
-                fs_path=rom.fs_path,
-            )
-    except RomAlreadyExistsException as exc:
-        log.error(exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
-        ) from exc
-
     cleaned_data.update(
         {
             "fs_name": new_fs_name,
@@ -652,6 +624,46 @@ async def update_rom(
     )
 
     db_rom_handler.update_rom(id, cleaned_data)
+
+    # Rename the file/folder if the name has changed
+    should_update_fs = new_fs_name != rom.fs_name
+    try:
+        if rename_as_source:
+            new_fs_name = rom.fs_name.replace(
+                rom.fs_name_no_tags or rom.fs_name_no_ext,
+                rom.name or rom.fs_name,
+            )
+            new_fs_name = sanitize_filename(new_fs_name)
+            fs_rom_handler.rename_fs_rom(
+                old_name=rom.fs_name,
+                new_name=new_fs_name,
+                fs_path=rom.fs_path,
+            )
+        elif should_update_fs:
+            new_fs_name = sanitize_filename(new_fs_name)
+            fs_rom_handler.rename_fs_rom(
+                old_name=rom.fs_name,
+                new_name=new_fs_name,
+                fs_path=rom.fs_path,
+            )
+    except RomAlreadyExistsException as exc:
+        log.error(exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
+        ) from exc
+
+    # Update the rom files with the new fs_name
+    if rename_as_source or should_update_fs:
+        for file in rom.files:
+            db_rom_handler.update_rom_file(
+                file.id,
+                {
+                    "file_name": file.file_name.replace(rom.fs_name, new_fs_name),
+                    "file_path": file.file_path.replace(rom.fs_name, new_fs_name),
+                },
+            )
+
+    # Refetch the rom from the database
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
@@ -805,3 +817,75 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
 
     return RomUserSchema.model_validate(rom_user)
+
+
+@protected_route(
+    router.get,
+    "files/{id}",
+    [Scope.ROMS_READ],
+)
+async def get_romfile(
+    request: Request,
+    id: int,
+) -> RomFileSchema:
+    file = db_rom_handler.get_rom_file_by_id(id)
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    return RomFileSchema.model_validate(file)
+
+
+@protected_route(
+    router.get,
+    "files/{id}/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+async def get_romfile_content(
+    request: Request,
+    id: int,
+    file_name: str,
+):
+    """Download rom file endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): RomFile internal id
+        file_name (str): What to name the file when downloading
+
+    Returns:
+        FileResponse: Returns the response with headers
+    """
+
+    current_username = (
+        request.user.username if request.user.is_authenticated else "unknown"
+    )
+
+    file = db_rom_handler.get_rom_file_by_id(id)
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    log.info(f"User {current_username} is downloading {file_name}")
+
+    # Serve the file directly in development mode for emulatorjs
+    if DEV_MODE:
+        rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+        return FileResponse(
+            path=rom_path,
+            filename=file_name,
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(file_name)}"',
+                "Content-Type": "application/octet-stream",
+                "Content-Length": str(file.file_size_bytes),
+            },
+        )
+
+    # Otherwise proxy through nginx
+    return FileRedirectResponse(
+        download_path=Path(f"/library/{file.full_path}"),
+    )

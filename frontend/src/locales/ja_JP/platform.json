@@ -8,6 +8,7 @@
   "settings": "設定",
   "cover-style": "カバースタイル",
   "old-squared-cases": "正方形パッケージ",
+  "old-horizontal-cases": "古い横型ケース",
   "danger-zone": "危険",
   "delete-platform": "プラットフォームの削除",
   "removing-platform-1": "RomMからプラットフォームを削除しようとしています",
@@ -19,7 +20,6 @@
   "show-favourites": "お気に入りを表示",
   "show-duplicates": "重複を表示",
   "genre": "ジャンル",
-  "genres": "ジャンル",
   "franchise": "フランチャイズ",
   "collection": "コレクション",
   "company": "会社",
@@ -28,5 +28,7 @@
   "reset-filters": "フィルタをリセット",
   "active-multi-select": "複数選択を有効化",
   "change-view": "表示を変更",
-  "no-firmware-found": "ファームウェアが見つかりません"
+  "no-firmware-found": "ファームウェアが見つかりません",
+  "region": "地域",
+  "language": "言語"
 }

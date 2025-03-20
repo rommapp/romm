@@ -80,7 +80,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-row v-if="rom" class="align-center justify-center scroll" no-gutters>
+  <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
     <v-col
       v-if="gameRunning"
       cols="12"
@@ -134,6 +134,7 @@ onMounted(async () => {
               cols="12"
               :sm="gameRunning ? 12 : 7"
               :xl="gameRunning ? 12 : 9"
+              :class="gameRunning ? 'mt-2' : 'ml-2'"
             >
               <v-btn
                 color="primary"
@@ -196,6 +197,7 @@ onMounted(async () => {
 }
 
 #game {
+  height: 100%;
   --splash-screen-background: none;
 }
 

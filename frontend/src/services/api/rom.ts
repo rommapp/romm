@@ -75,6 +75,8 @@ export interface GetRomsParams {
   selectedCompany?: string | null;
   selectedAgeRating?: string | null;
   selectedStatus?: string | null;
+  selectedRegion?: string | null;
+  selectedLanguage?: string | null;
 }
 
 async function getRoms({
@@ -96,6 +98,8 @@ async function getRoms({
   selectedCompany = null,
   selectedAgeRating = null,
   selectedStatus = null,
+  selectedRegion = null,
+  selectedLanguage = null,
 }: GetRomsParams): Promise<{ data: GetRomsResponse }> {
   return api.get(`/roms`, {
     params: {
@@ -117,6 +121,8 @@ async function getRoms({
       selected_company: selectedCompany,
       selected_age_rating: selectedAgeRating,
       selected_status: getStatusKeyForText(selectedStatus),
+      selected_region: selectedRegion,
+      selected_language: selectedLanguage,
     },
   });
 }

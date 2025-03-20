@@ -43,6 +43,10 @@ const {
   filterStatuses,
   selectedPlatform,
   filterPlatforms,
+  selectedRegion,
+  filterRegions,
+  selectedLanguage,
+  filterLanguages,
 } = storeToRefs(galleryFilterStore);
 const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
@@ -81,6 +85,16 @@ const filters = [
     items: filterAgeRatings,
   },
   {
+    label: t("platform.region"),
+    selected: selectedRegion,
+    items: filterRegions,
+  },
+  {
+    label: t("platform.language"),
+    selected: selectedLanguage,
+    items: filterLanguages,
+  },
+  {
     label: t("platform.status"),
     selected: selectedStatus,
     items: filterStatuses,
@@ -103,39 +117,27 @@ function setFilters() {
     ),
   ]);
   galleryFilterStore.setFilterGenres([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort(),
-    ),
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.genres).sort()),
   ]);
   galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort(),
-    ),
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.franchises).sort()),
   ]);
   galleryFilterStore.setFilterCompanies([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company))
-        .sort(),
-    ),
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.companies).sort()),
   ]);
   galleryFilterStore.setFilterCollections([
     ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.meta_collections.map((collection) => collection))
-        .sort(),
+      romsStore.filteredRoms.flatMap((rom) => rom.meta_collections).sort(),
     ),
   ]);
   galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
-        .sort(),
-    ),
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.age_ratings).sort()),
+  ]);
+  galleryFilterStore.setFilterRegions([
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.regions).sort()),
+  ]);
+  galleryFilterStore.setFilterLanguages([
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.languages).sort()),
   ]);
 }
 
