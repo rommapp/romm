@@ -793,7 +793,7 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
 @protected_route(
     router.get,
     "files/{id}",
-    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    [Scope.ROMS_READ],
 )
 async def get_romfile(
     request: Request,
@@ -823,8 +823,8 @@ async def get_romfile_content(
 
     Args:
         request (Request): Fastapi Request object
-        id (int): Rom internal id
-        file_id (int): File internal id
+        id (int): RomFile internal id
+        file_name (str): What to name the file when downloading
 
     Returns:
         FileResponse: Returns the response with headers
