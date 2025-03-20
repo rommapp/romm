@@ -131,53 +131,51 @@ def upgrade():
                         NOW() AS created_at,
                         NOW() AS updated_at,
                         COALESCE(
-                            JSON_EXTRACT(t.igdb_metadata, '$.genres'),
-                            JSON_EXTRACT(t.moby_metadata, '$.genres'),
-                            JSON_EXTRACT(t.ss_metadata, '$.genres'),
+                            JSON_EXTRACT(r.igdb_metadata, '$.genres'),
+                            JSON_EXTRACT(r.moby_metadata, '$.genres'),
+                            JSON_EXTRACT(r.ss_metadata, '$.genres'),
                             JSON_ARRAY()
                         ) AS genres,
 
                         CASE
-                            WHEN JSON_CONTAINS_PATH(t.igdb_metadata, 'one', '$.franchises') THEN JSON_EXTRACT(t.igdb_metadata, '$.franchises')
-                            WHEN JSON_CONTAINS_PATH(t.ss_metadata, 'one', '$.franchises') THEN JSON_EXTRACT(t.ss_metadata, '$.franchises')
+                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.franchises') THEN JSON_EXTRACT(r.igdb_metadata, '$.franchises')
+                            WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.franchises') THEN JSON_EXTRACT(r.ss_metadata, '$.franchises')
                             ELSE JSON_ARRAY()
                         END AS franchises,
 
                         CASE
-                            WHEN JSON_CONTAINS_PATH(t.igdb_metadata, 'one', '$.collections') THEN JSON_EXTRACT(t.igdb_metadata, '$.collections')
+                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.collections') THEN JSON_EXTRACT(r.igdb_metadata, '$.collections')
                             ELSE JSON_ARRAY()
                         END AS collections,
 
                         CASE
-                            WHEN JSON_CONTAINS_PATH(t.igdb_metadata, 'one', '$.companies') THEN JSON_EXTRACT(t.igdb_metadata, '$.companies')
-                            WHEN JSON_CONTAINS_PATH(t.ss_metadata, 'one', '$.companies') THEN JSON_EXTRACT(t.ss_metadata, '$.companies')
+                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.companies') THEN JSON_EXTRACT(r.igdb_metadata, '$.companies')
+                            WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.companies') THEN JSON_EXTRACT(r.ss_metadata, '$.companies')
                             ELSE JSON_ARRAY()
                         END AS companies,
 
                         CASE
-                            WHEN JSON_CONTAINS_PATH(t.igdb_metadata, 'one', '$.game_modes') THEN JSON_EXTRACT(t.igdb_metadata, '$.game_modes')
-                            WHEN JSON_CONTAINS_PATH(t.ss_metadata, 'one', '$.game_modes') THEN JSON_EXTRACT(t.ss_metadata, '$.game_modes')
+                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.game_modes') THEN JSON_EXTRACT(r.igdb_metadata, '$.game_modes')
+                            WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.game_modes') THEN JSON_EXTRACT(r.ss_metadata, '$.game_modes')
                             ELSE JSON_ARRAY()
                         END AS game_modes,
 
                         CASE
-                            WHEN JSON_CONTAINS_PATH(t.igdb_metadata, 'one', '$.age_ratings') THEN
-                                (SELECT JSON_ARRAYAGG(JSON_EXTRACT(rating, '$.rating'))
-                                FROM JSON_TABLE(JSON_EXTRACT(t.igdb_metadata, '$.age_ratings'),
-                                            '$[*]' COLUMNS(rating JSON PATH '$')) as ratings)
+                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.age_ratings') THEN
+                                JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')
                             ELSE JSON_ARRAY()
                         END AS age_ratings,
 
                         CASE
-                            WHEN JSON_CONTAINS_PATH(t.igdb_metadata, 'one', '$.first_release_date') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(t.igdb_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(t.igdb_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
-                            THEN CAST(JSON_EXTRACT(t.igdb_metadata, '$.first_release_date') AS SIGNED) * 1000
+                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.first_release_date') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
+                            THEN CAST(JSON_EXTRACT(r.igdb_metadata, '$.first_release_date') AS SIGNED) * 1000
 
-                            WHEN JSON_CONTAINS_PATH(t.ss_metadata, 'one', '$.first_release_date') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(t.ss_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(t.ss_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
-                            THEN CAST(JSON_EXTRACT(t.ss_metadata, '$.first_release_date') AS SIGNED) * 1000
+                            WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.first_release_date') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
+                            THEN CAST(JSON_EXTRACT(r.ss_metadata, '$.first_release_date') AS SIGNED) * 1000
 
                             ELSE NULL
                         END AS first_release_date,
@@ -185,42 +183,45 @@ def upgrade():
                         (
                             SELECT
                                 CASE
-                                    WHEN COUNT(r) > 0 THEN SUM(r) / COUNT(r)
+                                    WHEN COUNT(rating_value) > 0 THEN SUM(rating_value) / COUNT(rating_value)
                                     ELSE NULL
                                 END
                             FROM (
                                 SELECT
                                     CASE
-                                        WHEN JSON_CONTAINS_PATH(t.igdb_metadata, 'one', '$.total_rating') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(t.igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(t.igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
-                                        THEN CAST(JSON_EXTRACT(t.igdb_metadata, '$.total_rating') AS DECIMAL(10,2))
+                                        WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.total_rating') AND
+                                            JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '') AND
+                                            JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                                        THEN CAST(JSON_EXTRACT(r.igdb_metadata, '$.total_rating') AS DECIMAL(10,2))
                                         ELSE NULL
-                                    END AS r
+                                    END AS rating_value
+                                from roms r
 
                                 UNION ALL
 
                                 SELECT
                                     CASE
-                                        WHEN JSON_CONTAINS_PATH(t.moby_metadata, 'one', '$.moby_score') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(t.moby_metadata, '$.moby_score')) NOT IN ('null', 'None', '') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(t.moby_metadata, '$.moby_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
-                                        THEN CAST(JSON_EXTRACT(t.moby_metadata, '$.moby_score') AS DECIMAL(10,2)) * 10
+                                        WHEN JSON_CONTAINS_PATH(r.moby_metadata, 'one', '$.moby_score') AND
+                                            JSON_UNQUOTE(JSON_EXTRACT(r.moby_metadata, '$.moby_score')) NOT IN ('null', 'None', '') AND
+                                            JSON_UNQUOTE(JSON_EXTRACT(r.moby_metadata, '$.moby_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                                        THEN CAST(JSON_EXTRACT(r.moby_metadata, '$.moby_score') AS DECIMAL(10,2)) * 10
                                         ELSE NULL
-                                    END AS r
+                                    END AS rating_value
+                                from roms r
 
                                 UNION ALL
 
                                 SELECT
                                     CASE
-                                        WHEN JSON_CONTAINS_PATH(t.ss_metadata, 'one', '$.ss_score') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(t.ss_metadata, '$.ss_score')) NOT IN ('null', 'None', '') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(t.ss_metadata, '$.ss_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
-                                        THEN CAST(JSON_EXTRACT(t.ss_metadata, '$.ss_score') AS DECIMAL(10,2))
+                                        WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.ss_score') AND
+                                            JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.ss_score')) NOT IN ('null', 'None', '') AND
+                                            JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.ss_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                                        THEN CAST(JSON_EXTRACT(r.ss_metadata, '$.ss_score') AS DECIMAL(10,2))
                                         ELSE NULL
-                                    END AS r
+                                    END AS rating_value
+                                from roms r
                             ) AS ratings
-                            WHERE r IS NOT NULL AND r != 0
+                            WHERE rating_value IS NOT NULL AND rating_value != 0
                         ) AS average_rating
                     FROM roms r;
                 """
