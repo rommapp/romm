@@ -49,6 +49,11 @@ const aspectRatioOptions = computed(() => [
     size: 1 / 1,
     source: t("platform.old-squared-cases"),
   },
+  {
+    name: "16 / 11",
+    size: 16 / 11,
+    source: t("platform.old-horizontal-cases"),
+  },
 ]);
 const platformInfoFields = [
   { key: "name", label: t("common.name") },
@@ -379,7 +384,11 @@ watch(
             no-gutters
             class="text-center justify-center align-center pa-2"
           >
-            <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
+            <v-col
+              cols="6"
+              class="pa-2"
+              v-for="aspectRatio in aspectRatioOptions"
+            >
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
                   :color="isSelected ? 'primary' : 'romm-gray'"
