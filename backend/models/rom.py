@@ -62,6 +62,24 @@ class RomFile(BaseModel):
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
 
+    @cached_property
+    def file_name_no_tags(self) -> str:
+        from handler.filesystem import fs_rom_handler
+
+        return fs_rom_handler.get_file_name_with_no_tags(self.file_name)
+
+    @cached_property
+    def file_name_no_ext(self) -> str:
+        from handler.filesystem import fs_rom_handler
+
+        return fs_rom_handler.get_file_name_with_no_extension(self.file_name)
+
+    @cached_property
+    def file_extension(self) -> str:
+        from handler.filesystem import fs_rom_handler
+
+        return fs_rom_handler.parse_file_extension(self.file_name)
+
     def file_name_for_download(self, rom: Rom, hidden_folder: bool = False) -> str:
         # This needs a trailing slash in the path to work!
         return self.full_path.replace(
