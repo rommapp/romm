@@ -32,5 +32,6 @@
   "library-management": "라이브러리 관리",
   "administration": "유저 관리",
   "logout": "로그아웃",
-  "name": "이름"
+  "name": "이름",
+  "slug": "슬러그"
 }
