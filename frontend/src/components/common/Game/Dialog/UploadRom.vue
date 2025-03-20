@@ -220,6 +220,7 @@ function closeDialog() {
             icon=""
             class="text-primary bg-toplayer"
             variant="text"
+            rounded="0"
             @click="triggerFileInput"
           >
             <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
