@@ -13,6 +13,7 @@ import createIndexedDBDiffMonitor, {
   type Change,
 } from "@/utils/indexdb-monitor";
 import { onBeforeUnmount, onMounted, ref } from "vue";
+import { useTheme } from "vuetify";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
@@ -28,6 +29,8 @@ const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
 
+const theme = useTheme();
+
 // Declare global variables for EmulatorJS
 declare global {
   interface Window {
@@ -40,6 +43,7 @@ declare global {
     EJS_gameID: number;
     EJS_gameName: string;
     EJS_backgroundImage: string;
+    EJS_backgroundColor: string;
     EJS_gameUrl: string;
     EJS_loadStateURL: string | null;
     EJS_cheats: string;
@@ -79,7 +83,8 @@ window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
+window.EJS_backgroundImage = `${window.location.protocol}//${window.location.host}/assets/emulatorjs/powered_by_emulatorjs.png`;
+window.EJS_backgroundColor = theme.current.value.colors.background;
 // Force saving saves and states to the browser
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
@@ -344,7 +349,7 @@ window.EJS_onGameStart = async () => {
 
 <style scoped>
 #game {
-  max-height: 100dvh;
+  height: 100%;
 }
 </style>
 
@@ -359,6 +364,10 @@ window.EJS_onGameStart = async () => {
 
 #game .ejs_setting_menu .ejs_settings_main_bar:nth-child(3) {
   display: none;
+}
+
+#game .ejs_game_background {
+  background-size: 40%;
 }
 </style>
 
