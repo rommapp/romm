@@ -21,6 +21,7 @@ from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
+    RomFileSchema,
     RomSchema,
     RomUserSchema,
     SimpleRomSchema,
@@ -288,9 +289,11 @@ async def get_rom_content(
         file_name: Zip file output name
 
     Returns:
-        FileResponse: Returns one file for single file roms
+        Response: Returns a response with headers
 
     Yields:
+        FileResponse: Returns one file for single file roms
+        FileRedirectResponse: Redirects to the file download path
         ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
     """
 
@@ -785,3 +788,75 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
 
     return RomUserSchema.model_validate(rom_user)
+
+
+@protected_route(
+    router.get,
+    "files/{id}",
+    [Scope.ROMS_READ],
+)
+async def get_romfile(
+    request: Request,
+    id: int,
+) -> RomFileSchema:
+    file = db_rom_handler.get_rom_file_by_id(id)
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    return RomFileSchema.model_validate(file)
+
+
+@protected_route(
+    router.get,
+    "files/{id}/content/{file_name}",
+    [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+)
+async def get_romfile_content(
+    request: Request,
+    id: int,
+    file_name: str,
+):
+    """Download rom file endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): RomFile internal id
+        file_name (str): What to name the file when downloading
+
+    Returns:
+        FileResponse: Returns the response with headers
+    """
+
+    current_username = (
+        request.user.username if request.user.is_authenticated else "unknown"
+    )
+
+    file = db_rom_handler.get_rom_file_by_id(id)
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found",
+        )
+
+    log.info(f"User {current_username} is downloading {file_name}")
+
+    # Serve the file directly in development mode for emulatorjs
+    if DEV_MODE:
+        rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+        return FileResponse(
+            path=rom_path,
+            filename=file_name,
+            headers={
+                "Content-Disposition": f'attachment; filename="{quote(file_name)}"',
+                "Content-Type": "application/octet-stream",
+                "Content-Length": str(file.file_size_bytes),
+            },
+        )
+
+    # Otherwise proxy through nginx
+    return FileRedirectResponse(
+        download_path=Path(f"/library/{file.full_path}"),
+    )
