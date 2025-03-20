@@ -337,7 +337,7 @@ const toggleStatus = (value: boolean) => {
         >{{ t("common.virtual-collections") }}</v-chip
       >
       <v-divider class="border-opacity-25 mx-2 mb-2" />
-      <v-row class="py-1" no-gutters>
+      <v-row class="py-1 align-center" no-gutters>
         <v-col cols="12" md="6">
           <interface-option
             class="mx-2"
@@ -365,8 +365,7 @@ const toggleStatus = (value: boolean) => {
             ]"
             :label="t('settings.virtual-collection-type')"
             class="mx-2"
-            dense
-            outlined
+            variant="outlined"
             hide-details
             :disabled="!showVirtualCollectionsRef"
             @update:model-value="setVirtualCollectionType"
