@@ -33,7 +33,7 @@ class DBPlatformsHandler(DBBaseHandler):
         platform = session.merge(platform)
         session.flush()
 
-        return query.filter_by(id=platform.id).one()
+        return session.scalar(query.filter_by(id=platform.id).limit(1))
 
     @begin_session
     @with_firmware

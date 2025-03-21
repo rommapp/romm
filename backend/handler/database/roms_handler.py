@@ -7,7 +7,7 @@ from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import and_, delete, func, or_, select, text, update
-from sqlalchemy.orm import Query, Session, joinedload, selectinload
+from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -366,6 +366,7 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
+    @with_details
     def get_roms_by_fs_name(
         self,
         platform_id: int,
