@@ -29,6 +29,7 @@ class PlatformSchema(BaseModel):
     aspect_ratio: str = DEFAULT_COVER_ASPECT_RATIO
     created_at: datetime
     updated_at: datetime
+    filesystem_size_bytes: int
 
     class Config:
         from_attributes = True
