@@ -167,7 +167,7 @@ def get_roms(
         list[RomSchema | SimpleRomSchema]: List of ROMs stored in the database
     """
 
-    query = db_rom_handler.get_roms(
+    query = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),

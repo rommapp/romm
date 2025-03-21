@@ -329,7 +329,7 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalar(query.filter_by(id=id).limit(1))
 
     @with_simple
-    def get_roms(
+    def get_roms_query(
         self,
         *,
         order_by: str = "name",
@@ -351,6 +351,40 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = order_attr.asc()
 
         return query.order_by(order_attr)
+
+    @begin_session
+    def get_roms_scalar(
+        self,
+        *,
+        session: Session = None,
+        **kwargs,
+    ) -> Sequence[Rom]:
+        query = self.get_roms_query(
+            order_by=kwargs.pop("order_by", "name"),
+            order_dir=kwargs.pop("order_dir", "asc"),
+            user_id=kwargs.pop("user_id", None),
+        )
+        roms = self.filter_roms(
+            query=query,
+            platform_id=kwargs.pop("platform_id", None),
+            collection_id=kwargs.pop("collection_id", None),
+            virtual_collection_id=kwargs.pop("virtual_collection_id", None),
+            search_term=kwargs.pop("search_term", None),
+            unmatched_only=kwargs.pop("unmatched_only", False),
+            matched_only=kwargs.pop("matched_only", False),
+            favourites_only=kwargs.pop("favourites_only", False),
+            duplicates_only=kwargs.pop("duplicates_only", False),
+            selected_genre=kwargs.pop("selected_genre", None),
+            selected_franchise=kwargs.pop("selected_franchise", None),
+            selected_collection=kwargs.pop("selected_collection", None),
+            selected_company=kwargs.pop("selected_company", None),
+            selected_age_rating=kwargs.pop("selected_age_rating", None),
+            selected_status=kwargs.pop("selected_status", None),
+            selected_region=kwargs.pop("selected_region", None),
+            selected_language=kwargs.pop("selected_language", None),
+            user_id=kwargs.pop("user_id", None),
+        )
+        return session.scalars(roms).all()
 
     @begin_session
     @with_details
