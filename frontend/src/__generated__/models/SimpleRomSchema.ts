@@ -5,9 +5,9 @@
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
-import type { RomSchema } from './RomSchema';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
+import type { SiblingRomSchema } from './SiblingRomSchema';
 export type SimpleRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -61,7 +61,7 @@ export type SimpleRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
-    sibling_roms: Array<RomSchema>;
+    siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
     readonly sort_comparator: string;
 };

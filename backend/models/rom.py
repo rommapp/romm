@@ -56,7 +56,7 @@ class RomFile(BaseModel):
         Enum(RomFileCategory), default=None
     )
 
-    rom: Mapped[Rom] = relationship(lazy="joined")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
 
     @cached_property
     def full_path(self) -> str:
@@ -170,25 +170,28 @@ class Rom(BaseModel):
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
-    platform: Mapped[Platform] = relationship(lazy="immediate")
+    platform: Mapped[Platform] = relationship(lazy="immediate", back_populates="roms")
     sibling_roms: Mapped[list[Rom]] = relationship(
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
+        lazy="select",
     )
-    files: Mapped[list[RomFile]] = relationship(lazy="immediate", back_populates="rom")
-    saves: Mapped[list[Save]] = relationship(back_populates="rom")
-    states: Mapped[list[State]] = relationship(back_populates="rom")
-    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
-    rom_users: Mapped[list[RomUser]] = relationship(back_populates="rom")
+    files: Mapped[list[RomFile]] = relationship(lazy="select", back_populates="rom")
+    saves: Mapped[list[Save]] = relationship(lazy="select", back_populates="rom")
+    states: Mapped[list[State]] = relationship(lazy="select", back_populates="rom")
+    screenshots: Mapped[list[Screenshot]] = relationship(
+        lazy="select", back_populates="rom"
+    )
+    rom_users: Mapped[list[RomUser]] = relationship(lazy="select", back_populates="rom")
     metadatum: Mapped[RomMetadata] = relationship(
-        lazy="immediate", back_populates="rom", uselist=False
+        lazy="select", back_populates="rom", uselist=False
     )
-
     collections: Mapped[list[Collection]] = relationship(
         "Collection",
         secondary="collections_roms",
         collection_class=set,
+        lazy="select",
         back_populates="roms",
     )
 

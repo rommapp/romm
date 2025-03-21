@@ -6,11 +6,11 @@ import type { CollectionSchema } from './CollectionSchema';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMobyMetadata } from './RomMobyMetadata';
-import type { RomSchema } from './RomSchema';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
+import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
 import type { UserNotesSchema } from './UserNotesSchema';
 export type DetailedRomSchema = {
@@ -67,7 +67,7 @@ export type DetailedRomSchema = {
     created_at: string;
     updated_at: string;
     merged_screenshots: Array<string>;
-    sibling_roms: Array<RomSchema>;
+    siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;

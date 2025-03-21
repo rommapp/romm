@@ -22,7 +22,6 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFileSchema,
-    RomSchema,
     RomUserSchema,
     SimpleRomSchema,
 )
@@ -140,8 +139,7 @@ def get_roms(
     selected_status: str | None = None,
     selected_region: str | None = None,
     selected_language: str | None = None,
-    with_extra: bool = True,
-) -> LimitOffsetPage[RomSchema | SimpleRomSchema]:
+) -> LimitOffsetPage[SimpleRomSchema]:
     """Get roms endpoint
 
     Args:
@@ -152,7 +150,6 @@ def get_roms(
         search_term (str, optional): Search term to filter roms. Defaults to None.
         order_by (str, optional): Field to order by. Defaults to "name".
         order_dir (str, optional): Order direction. Defaults to "asc".
-        with_extra (bool, optional): Include extra fields. Defaults to True.
         unmatched_only (bool, optional): Filter only unmatched roms. Defaults to False.
         matched_only (bool, optional): Filter only matched roms. Defaults to False.
         favourites_only (bool, optional): Filter only favourite roms. Defaults to False.
@@ -198,12 +195,11 @@ def get_roms(
     )
 
     with sync_session.begin() as session:
-        SelectedSchema = SimpleRomSchema if with_extra else RomSchema
         return paginate(
             session,
             query,
             transformer=lambda items: [
-                SelectedSchema.from_orm_with_request(i, request) for i in items
+                SimpleRomSchema.from_orm_with_request(i, request) for i in items
             ],
         )
 
