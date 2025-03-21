@@ -46,7 +46,7 @@ def test_roms(rom: Rom, platform: Platform):
         )
     )
 
-    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
     assert len(roms) == 2
 
     rom_1 = db_rom_handler.get_rom(roms[0].id)
@@ -60,17 +60,17 @@ def test_roms(rom: Rom, platform: Platform):
 
     db_rom_handler.delete_rom(rom.id)
 
-    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
     assert len(roms) == 1
 
     db_rom_handler.purge_roms(rom_2.platform_id, [])
 
-    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
     assert len(roms) == 0
 
 
 def test_utils(rom: Rom, platform: Platform):
-    roms = db_rom_handler.get_roms(platform_id=platform.id)
+    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
     rom_1 = db_rom_handler.get_rom_by_fs_name(
         platform_id=platform.id, fs_name=rom.fs_name
     )
