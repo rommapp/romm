@@ -7,7 +7,7 @@ from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import and_, delete, func, or_, select, text, update
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy.orm import Query, Session, joinedload, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -21,6 +21,8 @@ def with_details(func):
             selectinload(Rom.screenshots),
             selectinload(Rom.rom_users),
             selectinload(Rom.sibling_roms),
+            selectinload(Rom.metadatum),
+            selectinload(Rom.files),
             selectinload(Rom.collections),
         )
         return func(*args, **kwargs)
@@ -32,7 +34,10 @@ def with_simple(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
-            selectinload(Rom.rom_users), selectinload(Rom.sibling_roms)
+            selectinload(Rom.rom_users),
+            selectinload(Rom.sibling_roms),
+            selectinload(Rom.metadatum),
+            selectinload(Rom.files),
         )
         return func(*args, **kwargs)
 

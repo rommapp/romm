@@ -238,14 +238,42 @@ class RomSchema(BaseModel):
         return sorted(v, key=lambda x: x.file_name)
 
 
+class SiblingRomSchema(BaseModel):
+    id: int
+    name: str | None
+    fs_name_no_tags: str
+    fs_name_no_ext: str
+
+    @computed_field  # type: ignore
+    @property
+    def sort_comparator(self) -> str:
+        return (
+            SORT_COMPARE_REGEX.sub(
+                "",
+                self.name or self.fs_name_no_tags,
+            )
+            .strip()
+            .lower()
+        )
+
+
 class SimpleRomSchema(RomSchema):
-    sibling_roms: list[RomSchema]
+    siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         user_id = request.user.id
         db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
+        db_rom.siblings = [  # type: ignore
+            SiblingRomSchema(
+                id=s.id,
+                name=s.name,
+                fs_name_no_tags=s.fs_name_no_tags,
+                fs_name_no_ext=s.fs_name_no_ext,
+            )
+            for s in db_rom.sibling_roms
+        ]
         return cls.model_validate(db_rom)
 
     @classmethod
@@ -253,14 +281,14 @@ class SimpleRomSchema(RomSchema):
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
         return cls.model_validate(db_rom)
 
-    @field_validator("sibling_roms")
-    def sort_sibling_roms(cls, v: list[RomSchema]) -> list[RomSchema]:
+    @field_validator("siblings")
+    def sort_siblings(cls, v: list[RomSchema]) -> list[RomSchema]:
         return sorted(v, key=lambda x: x.sort_comparator)
 
 
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
-    sibling_roms: list[RomSchema]
+    siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
@@ -288,11 +316,20 @@ class DetailedRomSchema(RomSchema):
         db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
             user_id, db_rom.collections
         )
+        db_rom.siblings = [  # type: ignore
+            SiblingRomSchema(
+                id=s.id,
+                name=s.name,
+                fs_name_no_tags=s.fs_name_no_tags,
+                fs_name_no_ext=s.fs_name_no_ext,
+            )
+            for s in db_rom.sibling_roms
+        ]
 
         return cls.model_validate(db_rom)
 
-    @field_validator("sibling_roms")
-    def sort_sibling_roms(cls, v: list[RomSchema]) -> list[RomSchema]:
+    @field_validator("siblings")
+    def sort_siblings(cls, v: list[RomSchema]) -> list[RomSchema]:
         return sorted(v, key=lambda x: x.sort_comparator)
 
     @field_validator("user_saves")
