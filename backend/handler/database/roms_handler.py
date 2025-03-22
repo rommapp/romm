@@ -428,7 +428,6 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,
     ) -> dict[str, Rom]:
         """Retrieve a dictionary of roms by their filesystem names."""
-        query = query or select(Rom)
         roms = (
             session.scalars(
                 query.filter(Rom.fs_name.in_(fs_names)).filter_by(
