@@ -45,6 +45,21 @@ def with_simple(func):
 
 
 class DBRomsHandler(DBBaseHandler):
+    @begin_session
+    @with_details
+    def add_rom(self, rom: Rom, query: Query = None, session: Session = None) -> Rom:
+        rom = session.merge(rom)
+        session.flush()
+
+        return session.scalar(query.filter_by(id=rom.id).limit(1))
+
+    @begin_session
+    @with_details
+    def get_rom(
+        self, id: int, *, query: Query = None, session: Session = None
+    ) -> Rom | None:
+        return session.scalar(query.filter_by(id=id).limit(1))
+
     def filter_by_platform_id(self, query: Query, platform_id: int):
         return query.filter(Rom.platform_id == platform_id)
 
@@ -312,21 +327,6 @@ class DBRomsHandler(DBBaseHandler):
             query = self.filter_by_language(query, selected_language)
 
         return query
-
-    @begin_session
-    @with_details
-    def add_rom(self, rom: Rom, query: Query = None, session: Session = None) -> Rom:
-        rom = session.merge(rom)
-        session.flush()
-
-        return session.scalar(query.filter_by(id=rom.id).limit(1))
-
-    @begin_session
-    @with_details
-    def get_rom(
-        self, id: int, *, query: Query = None, session: Session = None
-    ) -> Rom | None:
-        return session.scalar(query.filter_by(id=id).limit(1))
 
     @with_simple
     def get_roms_query(
