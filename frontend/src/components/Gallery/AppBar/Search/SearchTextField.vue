@@ -48,8 +48,9 @@ async function refetchRoms() {
   // Update URL with search term
   router.replace({ query: { search: searchTerm.value } });
 
+  romsStore.resetPagination();
   romsStore
-    .refetchRoms(galleryFilterStore)
+    .fetchRoms(galleryFilterStore, false)
     .catch((error) => {
       emitter?.emit("snackbarShow", {
         msg: `Couldn't fetch roms: ${error}`,

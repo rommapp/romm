@@ -54,7 +54,8 @@ const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
 async function onFilterChange() {
-  romsStore.refetchRoms(galleryFilterStore);
+  romsStore.resetPagination();
+  romsStore.fetchRoms(galleryFilterStore, false);
   emitter?.emit("updateDataTablePages", null);
 }
 

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
 from stat import S_IFREG
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -49,6 +49,8 @@ from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
+
+T = TypeVar("T")
 
 router = APIRouter(
     prefix="/roms",
@@ -118,6 +120,10 @@ async def add_rom(request: Request):
     return Response(status_code=status.HTTP_201_CREATED)
 
 
+class CustomLimitOffsetPage(LimitOffsetPage[T]):
+    char_index: dict[str, int]
+
+
 @protected_route(router.get, "", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
@@ -139,7 +145,7 @@ def get_roms(
     selected_status: str | None = None,
     selected_region: str | None = None,
     selected_language: str | None = None,
-) -> LimitOffsetPage[SimpleRomSchema]:
+) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Get roms endpoint
 
     Args:
@@ -167,12 +173,14 @@ def get_roms(
         list[RomSchema | SimpleRomSchema]: List of ROMs stored in the database
     """
 
+    # Get the base roms query
     query = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
     )
 
+    # Filter down the query
     query = db_rom_handler.filter_roms(
         query=query,
         user_id=request.user.id,
@@ -194,6 +202,10 @@ def get_roms(
         selected_language=selected_language,
     )
 
+    # Get the char index for the roms
+    char_index = db_rom_handler.get_char_index(query=query)
+    char_index_dict = {char: index for (char, index) in char_index}
+
     with sync_session.begin() as session:
         return paginate(
             session,
@@ -201,6 +213,7 @@ def get_roms(
             transformer=lambda items: [
                 SimpleRomSchema.from_orm_with_request(i, request) for i in items
             ],
+            additional_data={"char_index": char_index_dict},
         )
 
 

@@ -30,6 +30,8 @@ const defaultRomsState = {
   fetchLimit: 72,
   fetchOffset: 0,
   fetchTotalRoms: 0,
+  characterIndex: {} as Record<string, number>,
+  selectedCharacter: null as string | null,
 };
 
 export default defineStore("roms", {
@@ -104,7 +106,7 @@ export default defineStore("roms", {
     setCurrentVirtualCollection(collection: VirtualCollection | null) {
       this.currentVirtualCollection = collection;
     },
-    fetchRoms(galleryFilter: GalleryFilterStore) {
+    fetchRoms(galleryFilter: GalleryFilterStore, concat = true) {
       if (this.fetchingRoms) return Promise.resolve();
       this.fetchingRoms = true;
 
@@ -121,48 +123,13 @@ export default defineStore("roms", {
             limit: this.fetchLimit,
             offset: this.fetchOffset,
           })
-          .then(({ data: { items, offset, total } }) => {
+          .then(({ data: { items, offset, total, char_index } }) => {
             if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
             if (total !== null) this.fetchTotalRoms = total;
 
             // These need to happen in exactly this order
-            this.allRoms = this.allRoms.concat(items);
-            this._reorder();
-
-            resolve(items);
-          })
-          .catch((error) => {
-            reject(error);
-          })
-          .finally(() => {
-            this.fetchingRoms = false;
-          });
-      });
-    },
-    refetchRoms(galleryFilter: GalleryFilterStore) {
-      if (this.fetchingRoms) return Promise.resolve();
-      this.fetchingRoms = true;
-      this.resetPagination();
-
-      return new Promise((resolve, reject) => {
-        romApi
-          .getRoms({
-            ...galleryFilter.$state,
-            platformId:
-              this.currentPlatform?.id ??
-              galleryFilter.selectedPlatform?.id ??
-              null,
-            collectionId: this.currentCollection?.id ?? null,
-            virtualCollectionId: this.currentVirtualCollection?.id ?? null,
-            limit: this.fetchLimit,
-            offset: this.fetchOffset,
-          })
-          .then(({ data: { items, offset, total } }) => {
-            if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
-            if (total !== null) this.fetchTotalRoms = total;
-
-            // These need to happen in exactly this order
-            this.allRoms = items;
+            this.allRoms = concat ? this.allRoms.concat(items) : items;
+            this.characterIndex = char_index;
             this._reorder();
 
             resolve(items);

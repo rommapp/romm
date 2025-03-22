@@ -1,12 +1,12 @@
 import functools
 from collections.abc import Iterable
-from typing import Sequence
+from typing import List, Sequence, Tuple
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
 from models.rom import Rom, RomFile, RomMetadata, RomUser
-from sqlalchemy import and_, delete, func, or_, select, text, update
+from sqlalchemy import Row, and_, delete, func, or_, select, text, update
 from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -385,6 +385,26 @@ class DBRomsHandler(DBBaseHandler):
             user_id=kwargs.pop("user_id", None),
         )
         return session.scalars(roms).all()
+
+    @begin_session
+    def get_char_index(
+        self, query: Query, session: Session = None
+    ) -> List[Row[Tuple[str, int]]]:
+        # Get the row number and first letter for each item
+        subquery = query.add_columns(
+            func.lower(func.substring(Rom.name, 1, 1)).label("letter"),
+            func.row_number().over(order_by=Rom.name).label("position"),
+        ).subquery()
+
+        # Get the minimum position for each letter
+        return (
+            session.query(
+                subquery.c.letter, func.min(subquery.c.position - 1).label("position")
+            )
+            .group_by(subquery.c.letter)
+            .order_by(subquery.c.letter)
+            .all()
+        )
 
     @begin_session
     @with_details
