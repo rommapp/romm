@@ -35,7 +35,6 @@ def with_simple(func):
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.rom_users),
-            selectinload(Rom.sibling_roms),
             selectinload(Rom.metadatum),
             selectinload(Rom.files),
         )
