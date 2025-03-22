@@ -15,6 +15,7 @@ export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom
 export type { Body_update_user_api_users__id__put } from './models/Body_update_user_api_users__id__put';
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
+export type { CustomLimitOffsetPage_SimpleRomSchema_ } from './models/CustomLimitOffsetPage_SimpleRomSchema_';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { EmulationDict } from './models/EmulationDict';
 export type { FilesystemDict } from './models/FilesystemDict';
@@ -25,7 +26,6 @@ export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
-export type { LimitOffsetPage_SimpleRomSchema_ } from './models/LimitOffsetPage_SimpleRomSchema_';
 export type { MessageResponse } from './models/MessageResponse';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';

@@ -10,7 +10,7 @@ import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import { getDownloadPath, getStatusKeyForText } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
 import storeHeartbeat from "@/stores/heartbeat";
-import { type LimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/LimitOffsetPage_SimpleRomSchema_";
+import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 
 export const romApi = api;
 

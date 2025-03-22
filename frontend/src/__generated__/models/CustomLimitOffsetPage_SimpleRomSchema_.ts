@@ -3,10 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { SimpleRomSchema } from './SimpleRomSchema';
-export type LimitOffsetPage_SimpleRomSchema_ = {
+export type CustomLimitOffsetPage_SimpleRomSchema_ = {
     items: Array<SimpleRomSchema>;
     total: (number | null);
     limit: (number | null);
     offset: (number | null);
+    char_index: Record<string, number>;
 };
 

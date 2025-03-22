@@ -7,6 +7,7 @@ import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.v
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
+import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
@@ -51,6 +52,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
     </template>
   </v-app-bar>
 
+  <char-index-bar />
   <platform-info-drawer />
   <filter-drawer hide-platforms />
   <firmware-drawer />
@@ -60,15 +62,18 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 .gallery-app-bar-desktop {
   width: calc(100% - 76px) !important;
 }
+
 .gallery-app-bar-mobile {
   width: calc(100% - 16px) !important;
 }
+
 .platform-icon {
   transition:
     filter 0.15s ease-in-out,
     transform 0.15s ease-in-out;
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
 }
+
 .platform-icon:hover,
 .platform-icon.active {
   filter: drop-shadow(0px 0px 3px rgba(var(--v-theme-primary)));
