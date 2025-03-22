@@ -52,8 +52,8 @@ onMounted(async () => {
   fetchingContinuePlaying.value = true;
   romApi
     .getRecentRoms()
-    .then(({ data: recentData }) => {
-      romsStore.setRecentRoms(recentData);
+    .then(({ data: { items } }) => {
+      romsStore.setRecentRoms(items);
     })
     .catch((error) => {
       console.error(error);
@@ -61,11 +61,12 @@ onMounted(async () => {
     .finally(() => {
       fetchingRecentAdded.value = false;
     });
+
   romApi
     .getRecentPlayedRoms()
-    .then(({ data: recentPlayedData }) => {
+    .then(({ data: { items } }) => {
       romsStore.setContinuePlayedRoms(
-        recentPlayedData.filter((rom) => rom.rom_user.last_played),
+        items.filter((rom) => rom.rom_user.last_played),
       );
     })
     .catch((error) => {

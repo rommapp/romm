@@ -54,7 +54,7 @@ const defaultHeartbeat: Heartbeat = {
 
 export default defineStore("heartbeat", {
   state: () => ({
-    value: defaultHeartbeat,
+    value: { ...defaultHeartbeat },
   }),
 
   actions: {

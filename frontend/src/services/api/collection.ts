@@ -29,12 +29,11 @@ async function getCollections(): Promise<{ data: Collection[] }> {
 
 async function getVirtualCollections({
   type = "collection",
-  limit = 100,
 }: {
   type?: string;
   limit?: number;
 }): Promise<{ data: VirtualCollection[] }> {
-  return api.get("/collections/virtual", { params: { type, limit } });
+  return api.get("/collections/virtual", { params: { type } });
 }
 
 async function getCollection(id: number): Promise<{ data: Collection }> {

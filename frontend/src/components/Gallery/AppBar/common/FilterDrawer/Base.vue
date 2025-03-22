@@ -48,13 +48,14 @@ const {
   selectedLanguage,
   filterLanguages,
 } = storeToRefs(galleryFilterStore);
-const { allRoms, filteredRoms } = storeToRefs(romsStore);
+const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
 async function onFilterChange() {
-  romsStore.setFiltered(allRoms.value, galleryFilterStore);
+  romsStore.resetPagination();
+  romsStore.fetchRoms(galleryFilterStore, false);
   emitter?.emit("updateDataTablePages", null);
 }
 
@@ -103,18 +104,7 @@ const filters = [
 
 // Functions
 function resetFilters() {
-  selectedPlatform.value = null;
-  selectedGenre.value = null;
-  selectedFranchise.value = null;
-  selectedCollection.value = null;
-  selectedCompany.value = null;
-  selectedAgeRating.value = null;
-  selectedRegion.value = null;
-  selectedLanguage.value = null;
-  selectedStatus.value = null;
-  galleryFilterStore.disableFilterUnmatched();
-  galleryFilterStore.disableFilterMatched();
-  galleryFilterStore.disableFilterFavourites();
+  galleryFilterStore.resetFilters();
   nextTick(() => emitter?.emit("filter", null));
 }
 
