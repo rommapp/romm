@@ -25,7 +25,7 @@ const { currentView } = storeToRefs(galleryViewStore);
         </v-col>
       </v-row>
 
-      <v-row class="h-100" v-if="currentView == 2" no-gutters>
+      <v-row class="h-100 mr-14" v-if="currentView == 2" no-gutters>
         <v-col class="h-100 pt-4 pb-2">
           <v-skeleton-loader
             class="mx-2"
