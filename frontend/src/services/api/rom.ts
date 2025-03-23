@@ -69,6 +69,7 @@ export interface GetRomsParams {
   filterMatched?: boolean;
   filterFavourites?: boolean;
   filterDuplicates?: boolean;
+  groupByMetaId?: boolean;
   selectedGenre?: string | null;
   selectedFranchise?: string | null;
   selectedCollection?: string | null;
@@ -92,6 +93,7 @@ async function getRoms({
   filterMatched = false,
   filterFavourites = false,
   filterDuplicates = false,
+  groupByMetaId = false,
   selectedGenre = null,
   selectedFranchise = null,
   selectedCollection = null,
@@ -115,6 +117,7 @@ async function getRoms({
       matched_only: filterMatched,
       favourites_only: filterFavourites,
       duplicates_only: filterDuplicates,
+      group_by_meta_id: groupByMetaId,
       selected_genre: selectedGenre,
       selected_franchise: selectedFranchise,
       selected_collection: selectedCollection,

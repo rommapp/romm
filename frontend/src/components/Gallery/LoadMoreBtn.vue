@@ -8,7 +8,7 @@ defineProps<{
 }>();
 const { t } = useI18n();
 const romsStore = storeRoms();
-const { allRoms, fetchingRoms, fetchTotalRoms, fetchLimit } =
+const { allRoms, fetchingRoms, fetchTotalRoms, fetchLimit, fetchOffset } =
   storeToRefs(romsStore);
 </script>
 
@@ -19,7 +19,7 @@ const { allRoms, fetchingRoms, fetchTotalRoms, fetchLimit } =
     no-gutters
   >
     <v-col cols="2" class="text-center">
-      <template v-if="fetchTotalRoms > allRoms.length">
+      <template v-if="fetchTotalRoms > fetchOffset">
         <v-btn
           @click="fetchRoms"
           :loading="fetchingRoms"

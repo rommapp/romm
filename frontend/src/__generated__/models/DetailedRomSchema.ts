@@ -74,6 +74,5 @@ export type DetailedRomSchema = {
     user_screenshots: Array<ScreenshotSchema>;
     user_notes: Array<UserNotesSchema>;
     user_collections: Array<CollectionSchema>;
-    readonly sort_comparator: string;
 };
 

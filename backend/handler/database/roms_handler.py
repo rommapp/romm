@@ -6,7 +6,7 @@ from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
 from models.rom import Rom, RomFile, RomMetadata, RomUser
-from sqlalchemy import Row, and_, delete, func, or_, select, text, update
+from sqlalchemy import Row, and_, case, delete, func, literal, or_, select, text, update
 from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -255,6 +255,7 @@ class DBRomsHandler(DBBaseHandler):
         matched_only: bool = False,
         favourites_only: bool = False,
         duplicates_only: bool = False,
+        group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
         selected_collection: str | None = None,
@@ -291,6 +292,45 @@ class DBRomsHandler(DBBaseHandler):
 
         if duplicates_only:
             query = self.filter_by_duplicates_only(query)
+
+        if group_by_meta_id:
+            group_id = case(
+                {
+                    Rom.igdb_id.isnot(None): Rom.igdb_id,
+                    Rom.moby_id.isnot(None): Rom.moby_id,
+                    Rom.ss_id.isnot(None): Rom.ss_id,
+                },
+                else_=Rom.id,
+            )
+
+            # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
+            is_main_sibling_order = (
+                func.ifnull(RomUser.is_main_sibling, 0).desc()
+                if user_id
+                else literal(1)
+            )
+
+            # Create a subquery with all ROMs and their group information
+            subquery = query.add_columns(
+                group_id.label("group_id"),
+                func.row_number()
+                .over(
+                    partition_by=group_id,
+                    order_by=[
+                        is_main_sibling_order,
+                        Rom.fs_name_no_ext,
+                    ],
+                )
+                .label("row_num"),
+            ).subquery()
+
+            # Query only the first ROM from each group
+            # We need to create a new query that joins the original table with the subquery
+            query = (
+                session.query(Rom)
+                .join(subquery, Rom.id == subquery.c.id)
+                .filter(subquery.c.row_num == 1)
+            )
 
         if (
             selected_genre
@@ -336,13 +376,23 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
         query: Query = None,
     ) -> Query[Rom]:
-        if user_id and hasattr(RomUser, order_by):
-            query = query.join(RomUser).filter(RomUser.user_id == user_id)
+        if user_id:
+            query = query.outerjoin(
+                RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
+            )
+
+        if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
+            query = query.filter(RomUser.user_id == user_id)
             order_attr = getattr(RomUser, order_by)
         elif hasattr(Rom, order_by):
             order_attr = getattr(Rom, order_by)
         else:
-            order_attr = func.lower(Rom.name)
+            order_attr = Rom.name
+
+        # Remove any leading articles
+        order_attr = func.trim(
+            func.lower(order_attr).regexp_replace(r"^(the|a|an)\s+", "", "i")
+        )
 
         if order_dir.lower() == "desc":
             order_attr = order_attr.desc()

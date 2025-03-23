@@ -63,6 +63,5 @@ export type SimpleRomSchema = {
     updated_at: string;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
-    readonly sort_comparator: string;
 };
 

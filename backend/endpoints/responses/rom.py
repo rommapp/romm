@@ -189,18 +189,6 @@ class RomSchema(BaseModel):
     class Config:
         from_attributes = True
 
-    @computed_field  # type: ignore
-    @property
-    def sort_comparator(self) -> str:
-        return (
-            SORT_COMPARE_REGEX.sub(
-                "",
-                self.name or self.fs_name_no_tags,
-            )
-            .strip()
-            .lower()
-        )
-
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, _request: Request) -> RomSchema:
         return cls.model_validate(db_rom)
@@ -282,7 +270,7 @@ class SimpleRomSchema(RomSchema):
         return cls.model_validate(db_rom)
 
     @field_validator("siblings")
-    def sort_siblings(cls, v: list[RomSchema]) -> list[RomSchema]:
+    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
         return sorted(v, key=lambda x: x.sort_comparator)
 
 
@@ -329,7 +317,7 @@ class DetailedRomSchema(RomSchema):
         return cls.model_validate(db_rom)
 
     @field_validator("siblings")
-    def sort_siblings(cls, v: list[RomSchema]) -> list[RomSchema]:
+    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
         return sorted(v, key=lambda x: x.sort_comparator)
 
     @field_validator("user_saves")

@@ -5,8 +5,7 @@ import { type Collection, type VirtualCollection } from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
-import { groupBy, isNull, isUndefined, uniqBy } from "lodash";
-import { nanoid } from "nanoid";
+import { isNull, isUndefined } from "lodash";
 import { defineStore } from "pinia";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
@@ -20,14 +19,13 @@ const defaultRomsState = {
   currentVirtualCollection: null as VirtualCollection | null,
   currentRom: null as DetailedRom | null,
   allRoms: [] as SimpleRom[],
-  _grouped: [] as SimpleRom[],
   _selectedIDs: new Set<number>(),
   recentRoms: [] as SimpleRom[],
   continuePlayingRoms: [] as SimpleRom[],
   lastSelectedIndex: -1,
   selectingRoms: false,
   fetchingRoms: false,
-  fetchLimit: 72,
+  fetchLimit: 100,
   fetchOffset: 0,
   fetchTotalRoms: 0,
   characterIndex: {} as Record<string, number>,
@@ -38,9 +36,9 @@ export default defineStore("roms", {
   state: () => ({ ...defaultRomsState }),
 
   getters: {
-    filteredRoms: (state) => state._grouped,
+    filteredRoms: (state) => state.allRoms,
     selectedRoms: (state) =>
-      state._grouped.filter((rom) => state._selectedIDs.has(rom.id)),
+      state.allRoms.filter((rom) => state._selectedIDs.has(rom.id)),
   },
 
   actions: {
@@ -49,37 +47,6 @@ export default defineStore("roms", {
         ? true
         : localStorage.getItem("settings.groupRoms") === "true";
     },
-    _getGroupedRoms(roms: SimpleRom[]): SimpleRom[] {
-      // Group roms by external id.
-      return Object.values(
-        groupBy(
-          roms,
-          (game) =>
-            // If external id is null, generate a random id so that the roms are not grouped
-            game.igdb_id || game.moby_id || game.ss_id || nanoid(),
-        ),
-      ).map((games) => {
-        // Find the index of the game where the 'rom_user' property has 'is_main_sibling' set to true.
-        return games.find((game) => game.rom_user?.is_main_sibling) || games[0];
-      });
-    },
-    _reorder() {
-      // Sort roms by comparator string
-      this.allRoms = uniqBy(this.allRoms, "id").sort((a, b) => {
-        return a.sort_comparator.localeCompare(b.sort_comparator);
-      });
-
-      // Check if roms should be grouped
-      if (!this._shouldGroupRoms()) {
-        this._grouped = this.allRoms;
-        return;
-      }
-
-      // Group roms by external id
-      this._grouped = this._getGroupedRoms(this.allRoms).sort((a, b) => {
-        return a.sort_comparator.localeCompare(b.sort_comparator);
-      });
-    },
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
     },
@@ -87,15 +54,7 @@ export default defineStore("roms", {
       this.currentRom = rom;
     },
     setRecentRoms(roms: SimpleRom[]) {
-      if (this._shouldGroupRoms()) {
-        // Group by external ID to only display a single entry per sibling,
-        // and sorted on rom ID in descending order.
-        this.recentRoms = this._getGroupedRoms(roms).sort(
-          (a, b) => b.id - a.id,
-        );
-      } else {
-        this.recentRoms = roms;
-      }
+      this.recentRoms = roms;
     },
     setContinuePlayedRoms(roms: SimpleRom[]) {
       this.continuePlayingRoms = roms;
@@ -122,6 +81,7 @@ export default defineStore("roms", {
             virtualCollectionId: this.currentVirtualCollection?.id ?? null,
             limit: this.fetchLimit,
             offset: this.fetchOffset,
+            groupByMetaId: this._shouldGroupRoms(),
           })
           .then(({ data: { items, offset, total, char_index } }) => {
             if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
@@ -130,7 +90,6 @@ export default defineStore("roms", {
             // These need to happen in exactly this order
             this.allRoms = concat ? this.allRoms.concat(items) : items;
             this.characterIndex = char_index;
-            this._reorder();
 
             resolve(items);
           })
@@ -144,7 +103,6 @@ export default defineStore("roms", {
     },
     add(roms: SimpleRom[]) {
       this.allRoms = this.allRoms.concat(roms);
-      this._reorder();
     },
     addToRecent(rom: SimpleRom) {
       this.recentRoms = [rom, ...this.recentRoms];
@@ -167,15 +125,9 @@ export default defineStore("roms", {
       this.recentRoms = this.recentRoms.map((value) =>
         value.id === rom.id ? rom : value,
       );
-      this._reorder();
     },
     remove(roms: SimpleRom[]) {
       this.allRoms = this.allRoms.filter((value) => {
-        return !roms.find((rom) => {
-          return rom.id === value.id;
-        });
-      });
-      this._grouped = this._grouped.filter((value) => {
         return !roms.find((rom) => {
           return rom.id === value.id;
         });
