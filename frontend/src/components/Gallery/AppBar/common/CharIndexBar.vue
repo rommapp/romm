@@ -63,7 +63,12 @@ watch(
     height="100%"
     class="position-fixed bg-surface mt-4 char-index-toolbar"
   >
-    <v-tabs v-model="selectedCharacter" bg-color="surface" direction="vertical">
+    <v-tabs
+      v-model="selectedCharacter"
+      slider-color="primary"
+      bg-color="surface"
+      direction="vertical"
+    >
       <v-tab
         v-for="char in Object.keys(characterIndex)"
         :key="char"
