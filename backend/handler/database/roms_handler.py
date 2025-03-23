@@ -309,27 +309,30 @@ class DBRomsHandler(DBBaseHandler):
                 if user_id
                 else literal(1)
             )
+            order_by = [is_main_sibling_order, Rom.fs_name_no_ext]
 
-            # Create a subquery with all ROMs and their group information
-            subquery = query.add_columns(
-                group_id.label("group_id"),
-                func.row_number()
-                .over(
-                    partition_by=group_id,
-                    order_by=[
-                        is_main_sibling_order,
-                        Rom.fs_name_no_ext,
-                    ],
+            # Create a subquery that identifies the first ROM in each group
+            group_subquery = (
+                session.query(Rom.id)
+                .add_columns(
+                    group_id.label("group_id"),
+                    func.row_number()
+                    .over(
+                        partition_by=group_id,
+                        order_by=order_by,
+                    )
+                    .label("row_num"),
                 )
-                .label("row_num"),
-            ).subquery()
+                .subquery()
+            )
 
-            # Query only the first ROM from each group
-            # We need to create a new query that joins the original table with the subquery
-            query = (
-                session.query(Rom)
-                .join(subquery, Rom.id == subquery.c.id)
-                .filter(subquery.c.row_num == 1)
+            # Add a filter to the original query to only include the first ROM from each group
+            query = query.filter(
+                Rom.id.in_(
+                    session.query(group_subquery.c.id).filter(
+                        group_subquery.c.row_num == 1
+                    )
+                )
             )
 
         if (

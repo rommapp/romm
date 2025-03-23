@@ -25,7 +25,7 @@ const defaultRomsState = {
   lastSelectedIndex: -1,
   selectingRoms: false,
   fetchingRoms: false,
-  fetchLimit: 100,
+  fetchLimit: 72,
   fetchOffset: 0,
   fetchTotalRoms: 0,
   characterIndex: {} as Record<string, number>,
