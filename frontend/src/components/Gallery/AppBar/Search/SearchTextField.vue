@@ -67,7 +67,7 @@ async function refetchRoms() {
 const filterToSetFilter: Record<FilterType, Function> = {
   genres: galleryFilterStore.setSelectedFilterGenre,
   franchises: galleryFilterStore.setSelectedFilterFranchise,
-  meta_collections: galleryFilterStore.setSelectedFilterCollection,
+  collections: galleryFilterStore.setSelectedFilterCollection,
   companies: galleryFilterStore.setSelectedFilterCompany,
   age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
   status: galleryFilterStore.setSelectedFilterStatus,

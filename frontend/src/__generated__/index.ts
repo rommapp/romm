@@ -35,6 +35,7 @@ export type { Role } from './models/Role';
 export type { RomFileCategory } from './models/RomFileCategory';
 export type { RomFileSchema } from './models/RomFileSchema';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
+export type { RomMetadataSchema } from './models/RomMetadataSchema';
 export type { RomMobyMetadata } from './models/RomMobyMetadata';
 export type { RomSSMetadata } from './models/RomSSMetadata';
 export type { RomUserSchema } from './models/RomUserSchema';

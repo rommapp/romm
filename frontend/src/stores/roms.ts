@@ -30,6 +30,8 @@ const defaultRomsState = {
   fetchTotalRoms: 0,
   characterIndex: {} as Record<string, number>,
   selectedCharacter: null as string | null,
+  orderBy: "name" as keyof SimpleRom,
+  orderDir: "asc" as "asc" | "desc",
 };
 
 export default defineStore("roms", {
@@ -81,6 +83,8 @@ export default defineStore("roms", {
             virtualCollectionId: this.currentVirtualCollection?.id ?? null,
             limit: this.fetchLimit,
             offset: this.fetchOffset,
+            orderBy: this.orderBy,
+            orderDir: this.orderDir,
             groupByMetaId: this._shouldGroupRoms(),
           })
           .then(({ data: { items, offset, total, char_index } }) => {
@@ -163,6 +167,12 @@ export default defineStore("roms", {
     resetSelection() {
       this._selectedIDs = new Set<number>();
       this.lastSelectedIndex = -1;
+    },
+    setOrderBy(orderBy: keyof SimpleRom) {
+      this.orderBy = orderBy;
+    },
+    setOrderDir(orderDir: "asc" | "desc") {
+      this.orderDir = orderDir;
     },
     isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
       return !isNull(rom.id) && !isUndefined(rom.id);
