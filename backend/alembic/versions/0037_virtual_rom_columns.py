@@ -82,43 +82,43 @@ def upgrade():
                         ELSE NULL
                     END AS first_release_date,
 
-                    (
-                        SELECT
-                            CASE
-                                WHEN COUNT(*) > 0 THEN SUM(r) / COUNT(*)
-                                ELSE NULL
-                            END
-                        FROM (
-                            SELECT
-                                CASE
-                                    WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'total_rating' AND
-                                        r.igdb_metadata ->> 'total_rating' NOT IN ('null', 'None', '') AND
-                                        r.igdb_metadata ->> 'total_rating' ~ '^[0-9]+(\\.[0-9]+)?$'
-                                    THEN (r.igdb_metadata ->> 'total_rating')::float
-                                    ELSE NULL
-                                END AS r
-                            UNION ALL
-                            SELECT
-                                CASE
-                                    WHEN r.moby_metadata IS NOT NULL AND r.moby_metadata ? 'moby_score' AND
-                                        r.moby_metadata ->> 'moby_score' NOT IN ('null', 'None', '') AND
-                                        r.moby_metadata ->> 'moby_score' ~ '^[0-9]+(\\.[0-9]+)?$'
-                                    THEN (r.moby_metadata ->> 'moby_score')::float * 10
-                                    ELSE NULL
-                                END
-                            UNION ALL
-                            SELECT
-                                CASE
-                                    WHEN r.ss_metadata IS NOT NULL AND r.ss_metadata ? 'ss_score' AND
-                                        r.ss_metadata ->> 'ss_score' NOT IN ('null', 'None', '') AND
-                                        r.ss_metadata ->> 'ss_score' ~ '^[0-9]+(\\.[0-9]+)?$'
-                                    THEN (r.ss_metadata ->> 'ss_score')::float
-                                    ELSE NULL
-                                END
-                        ) AS ratings
-                        WHERE r IS NOT NULL AND r != 0
-                    ) AS average_rating
-                FROM roms r;
+                    CASE
+                        WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL) THEN
+                            (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0)) /
+                            (CASE WHEN igdb_rating IS NOT NULL THEN 1 ELSE 0 END +
+                            CASE WHEN moby_rating IS NOT NULL THEN 1 ELSE 0 END +
+                            CASE WHEN ss_rating IS NOT NULL THEN 1 ELSE 0 END)
+                        ELSE NULL
+                    END AS average_rating
+                FROM (
+                    SELECT
+                        r.id,
+                        r.igdb_metadata,
+                        r.moby_metadata,
+                        r.ss_metadata,
+                        CASE
+                            WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'total_rating' AND
+                                r.igdb_metadata ->> 'total_rating' NOT IN ('null', 'None', '') AND
+                                r.igdb_metadata ->> 'total_rating' ~ '^[0-9]+(\\.[0-9]+)?$'
+                            THEN (r.igdb_metadata ->> 'total_rating')::float
+                            ELSE NULL
+                        END AS igdb_rating,
+                        CASE
+                            WHEN r.moby_metadata IS NOT NULL AND r.moby_metadata ? 'moby_score' AND
+                                r.moby_metadata ->> 'moby_score' NOT IN ('null', 'None', '') AND
+                                r.moby_metadata ->> 'moby_score' ~ '^[0-9]+(\\.[0-9]+)?$'
+                            THEN (r.moby_metadata ->> 'moby_score')::float * 10
+                            ELSE NULL
+                        END AS moby_rating,
+                        CASE
+                            WHEN r.ss_metadata IS NOT NULL AND r.ss_metadata ? 'ss_score' AND
+                                r.ss_metadata ->> 'ss_score' NOT IN ('null', 'None', '') AND
+                                r.ss_metadata ->> 'ss_score' ~ '^[0-9]+(\\.[0-9]+)?$'
+                            THEN (r.ss_metadata ->> 'ss_score')::float
+                            ELSE NULL
+                        END AS ss_rating
+                    FROM roms r
+                ) AS r;
                 """
             )
         )
@@ -180,50 +180,44 @@ def upgrade():
                             ELSE NULL
                         END AS first_release_date,
 
-                        (
-                            SELECT
-                                CASE
-                                    WHEN COUNT(rating_value) > 0 THEN SUM(rating_value) / COUNT(rating_value)
-                                    ELSE NULL
-                                END
-                            FROM (
-                                SELECT
-                                    CASE
-                                        WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.total_rating') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
-                                        THEN CAST(JSON_EXTRACT(r.igdb_metadata, '$.total_rating') AS DECIMAL(10,2))
-                                        ELSE NULL
-                                    END AS rating_value
-                                from roms r
+                        CASE
+                            WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL) THEN
+                                (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0)) /
+                                (CASE WHEN igdb_rating IS NOT NULL THEN 1 ELSE 0 END +
+                                CASE WHEN moby_rating IS NOT NULL THEN 1 ELSE 0 END +
+                                CASE WHEN ss_rating IS NOT NULL THEN 1 ELSE 0 END)
+                            ELSE NULL
+                        END AS average_rating
 
-                                UNION ALL
-
-                                SELECT
-                                    CASE
-                                        WHEN JSON_CONTAINS_PATH(r.moby_metadata, 'one', '$.moby_score') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(r.moby_metadata, '$.moby_score')) NOT IN ('null', 'None', '') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(r.moby_metadata, '$.moby_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
-                                        THEN CAST(JSON_EXTRACT(r.moby_metadata, '$.moby_score') AS DECIMAL(10,2)) * 10
-                                        ELSE NULL
-                                    END AS rating_value
-                                from roms r
-
-                                UNION ALL
-
-                                SELECT
-                                    CASE
-                                        WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.ss_score') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.ss_score')) NOT IN ('null', 'None', '') AND
-                                            JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.ss_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
-                                        THEN CAST(JSON_EXTRACT(r.ss_metadata, '$.ss_score') AS DECIMAL(10,2))
-                                        ELSE NULL
-                                    END AS rating_value
-                                from roms r
-                            ) AS ratings
-                            WHERE rating_value IS NOT NULL AND rating_value != 0
-                        ) AS average_rating
-                    FROM roms r;
+                    FROM (
+                        SELECT
+                            id,
+                            igdb_metadata,
+                            moby_metadata,
+                            ss_metadata,
+                            CASE
+                                WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                                THEN CAST(JSON_EXTRACT(igdb_metadata, '$.total_rating') AS DECIMAL(10,2))
+                                ELSE NULL
+                            END AS igdb_rating,
+                            CASE
+                                WHEN JSON_CONTAINS_PATH(moby_metadata, 'one', '$.moby_score') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(moby_metadata, '$.moby_score')) NOT IN ('null', 'None', '') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(moby_metadata, '$.moby_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                                THEN CAST(JSON_EXTRACT(moby_metadata, '$.moby_score') AS DECIMAL(10,2)) * 10
+                                ELSE NULL
+                            END AS moby_rating,
+                            CASE
+                                WHEN JSON_CONTAINS_PATH(ss_metadata, 'one', '$.ss_score') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.ss_score')) NOT IN ('null', 'None', '') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.ss_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                                THEN CAST(JSON_EXTRACT(ss_metadata, '$.ss_score') AS DECIMAL(10,2))
+                                ELSE NULL
+                            END AS ss_rating
+                        FROM roms
+                    ) AS r;
                 """
             )
         )
