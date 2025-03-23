@@ -121,6 +121,45 @@ class RomFileSchema(BaseModel):
         from_attributes = True
 
 
+class RomMetadataSchema(BaseModel):
+    rom_id: int
+    genres: list[str]
+    franchises: list[str]
+    collections: list[str]
+    companies: list[str]
+    game_modes: list[str]
+    age_ratings: list[str]
+    first_release_date: int | None
+    average_rating: float | None
+
+    class Config:
+        from_attributes = True
+
+    @field_validator("genres")
+    def sort_genres(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("franchises")
+    def sort_franchises(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("collections")
+    def sort_collections(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("companies")
+    def sort_companies(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("game_modes")
+    def sort_game_modes(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("age_ratings")
+    def sort_age_ratings(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+
 class RomSchema(BaseModel):
     id: int
     igdb_id: int | None
@@ -147,16 +186,9 @@ class RomSchema(BaseModel):
     summary: str | None
 
     # Metadata fields
-    first_release_date: int | None
-    youtube_video_id: str | None
-    average_rating: float | None
     alternative_names: list[str]
-    genres: list[str]
-    franchises: list[str]
-    meta_collections: list[str]
-    companies: list[str]
-    game_modes: list[str]
-    age_ratings: list[str]
+    youtube_video_id: str | None
+    metadatum: RomMetadataSchema
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
     ss_metadata: RomSSMetadata | None
@@ -195,30 +227,6 @@ class RomSchema(BaseModel):
 
     @field_validator("alternative_names")
     def sort_alternative_names(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("genres")
-    def sort_genres(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("franchises")
-    def sort_franchises(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("meta_collections")
-    def sort_meta_collections(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("companies")
-    def sort_companies(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("game_modes")
-    def sort_game_modes(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("age_ratings")
-    def sort_age_ratings(cls, v: list[str]) -> list[str]:
         return sorted(v)
 
     @field_validator("files")

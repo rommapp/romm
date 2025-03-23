@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
+import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
@@ -29,16 +30,9 @@ export type SimpleRomSchema = {
     name: (string | null);
     slug: (string | null);
     summary: (string | null);
-    first_release_date: (number | null);
-    youtube_video_id: (string | null);
-    average_rating: (number | null);
     alternative_names: Array<string>;
-    genres: Array<string>;
-    franchises: Array<string>;
-    meta_collections: Array<string>;
-    companies: Array<string>;
-    game_modes: Array<string>;
-    age_ratings: Array<string>;
+    youtube_video_id: (string | null);
+    metadatum: RomMetadataSchema;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     ss_metadata: (RomSSMetadata | null);

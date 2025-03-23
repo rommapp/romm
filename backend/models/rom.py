@@ -281,34 +281,6 @@ class Rom(BaseModel):
         return self.metadatum.first_release_date
 
     @property
-    def average_rating(self) -> float | None:
-        return self.metadatum.average_rating
-
-    @property
-    def genres(self) -> list[str]:
-        return self.metadatum.genres or []
-
-    @property
-    def franchises(self) -> list[str]:
-        return self.metadatum.franchises or []
-
-    @property
-    def meta_collections(self) -> list[str]:
-        return self.metadatum.collections or []
-
-    @property
-    def companies(self) -> list[str]:
-        return self.metadatum.companies or []
-
-    @property
-    def game_modes(self) -> list[str]:
-        return self.metadatum.game_modes or []
-
-    @property
-    def age_ratings(self) -> list[str]:
-        return self.metadatum.age_ratings or []
-
-    @property
     def is_unidentified(self) -> bool:
         return not self.igdb_id and not self.moby_id and not self.ss_id
 

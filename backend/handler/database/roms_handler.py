@@ -309,7 +309,6 @@ class DBRomsHandler(DBBaseHandler):
                 if user_id
                 else literal(1)
             )
-            order_by = [is_main_sibling_order, Rom.fs_name_no_ext]
 
             # Create a subquery that identifies the first ROM in each group
             group_subquery = (
@@ -319,7 +318,7 @@ class DBRomsHandler(DBBaseHandler):
                     func.row_number()
                     .over(
                         partition_by=group_id,
-                        order_by=order_by,
+                        order_by=[is_main_sibling_order, Rom.fs_name_no_ext],
                     )
                     .label("row_num"),
                 )
@@ -387,6 +386,9 @@ class DBRomsHandler(DBBaseHandler):
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
             query = query.filter(RomUser.user_id == user_id)
             order_attr = getattr(RomUser, order_by)
+        elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
+            query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
+            order_attr = getattr(RomMetadata, order_by)
         elif hasattr(Rom, order_by):
             order_attr = getattr(Rom, order_by)
         else:

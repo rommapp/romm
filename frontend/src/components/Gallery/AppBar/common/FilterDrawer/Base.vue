@@ -118,21 +118,29 @@ function setFilters() {
     ),
   ]);
   galleryFilterStore.setFilterGenres([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.genres).sort()),
+    ...new Set(
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.genres).sort(),
+    ),
   ]);
   galleryFilterStore.setFilterFranchises([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.franchises).sort()),
+    ...new Set(
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.franchises).sort(),
+    ),
   ]);
   galleryFilterStore.setFilterCompanies([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.companies).sort()),
+    ...new Set(
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.companies).sort(),
+    ),
   ]);
   galleryFilterStore.setFilterCollections([
     ...new Set(
-      romsStore.filteredRoms.flatMap((rom) => rom.meta_collections).sort(),
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.collections).sort(),
     ),
   ]);
   galleryFilterStore.setFilterAgeRatings([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.age_ratings).sort()),
+    ...new Set(
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.age_ratings).sort(),
+    ),
   ]);
   galleryFilterStore.setFilterRegions([
     ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.regions).sort()),

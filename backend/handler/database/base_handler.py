@@ -1,17 +1,17 @@
 import time
 
-from config import DEV_MODE
+from config import DEV_SQL_ECHO
 from config.config_manager import ConfigManager
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 sync_engine = create_engine(
-    ConfigManager.get_db_engine(), pool_pre_ping=True, echo=DEV_MODE
+    ConfigManager.get_db_engine(), pool_pre_ping=True, echo=DEV_SQL_ECHO
 )
 sync_session = sessionmaker(bind=sync_engine, expire_on_commit=False)
 
 
-if DEV_MODE:
+if DEV_SQL_ECHO:
 
     @event.listens_for(sync_engine, "before_cursor_execute")
     def before_cursor_execute(

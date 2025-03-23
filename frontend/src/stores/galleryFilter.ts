@@ -7,7 +7,7 @@ export type Platform = PlatformSchema;
 export type FilterType =
   | "genres"
   | "franchises"
-  | "meta_collections"
+  | "collections"
   | "companies"
   | "age_ratings"
   | "status"
