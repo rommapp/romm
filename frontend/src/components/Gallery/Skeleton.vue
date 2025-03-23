@@ -11,7 +11,7 @@ const { currentView } = storeToRefs(galleryViewStore);
 <template>
   <v-row no-gutters>
     <v-col>
-      <v-row v-if="currentView != 2" no-gutters class="mx-1 mt-3 mr-15">
+      <v-row v-if="currentView != 2" no-gutters class="mx-1 mt-3 mr-14">
         <v-col
           v-for="_ in 60"
           class="pa-1 align-self-end"
@@ -25,7 +25,7 @@ const { currentView } = storeToRefs(galleryViewStore);
         </v-col>
       </v-row>
 
-      <v-row class="h-100 mr-14" v-if="currentView == 2" no-gutters>
+      <v-row class="h-100 mr-13" v-if="currentView == 2" no-gutters>
         <v-col class="h-100 pt-4 pb-2">
           <v-skeleton-loader
             class="mx-2"
