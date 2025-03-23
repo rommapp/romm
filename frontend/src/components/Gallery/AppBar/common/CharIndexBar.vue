@@ -83,7 +83,7 @@ watch(
   transform: translateY(0px);
   height: fit-content;
   max-height: calc(100vh - 74px);
-  width: 48px;
+  width: 44px;
   overflow-y: scroll;
   scrollbar-width: none;
 }
