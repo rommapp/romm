@@ -277,10 +277,6 @@ class Rom(BaseModel):
         )
 
     @property
-    def first_release_date(self) -> int | None:
-        return self.metadatum.first_release_date
-
-    @property
     def is_unidentified(self) -> bool:
         return not self.igdb_id and not self.moby_id and not self.ss_id
 

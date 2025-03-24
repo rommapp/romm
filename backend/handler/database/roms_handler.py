@@ -384,11 +384,13 @@ class DBRomsHandler(DBBaseHandler):
             )
 
         if user_id and hasattr(RomUser, order_by) and not hasattr(Rom, order_by):
-            query = query.filter(RomUser.user_id == user_id)
             order_attr = getattr(RomUser, order_by)
+            query = query.filter(RomUser.user_id == user_id, order_attr.isnot(None))
         elif hasattr(RomMetadata, order_by) and not hasattr(Rom, order_by):
-            query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id)
             order_attr = getattr(RomMetadata, order_by)
+            query = query.outerjoin(RomMetadata, RomMetadata.rom_id == Rom.id).filter(
+                order_attr.isnot(None)
+            )
         elif hasattr(Rom, order_by):
             order_attr = getattr(Rom, order_by)
         else:

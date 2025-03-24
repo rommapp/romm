@@ -58,14 +58,12 @@ def upgrade():
                         ELSE '[]'::jsonb
                     END AS game_modes,
 
-                    (
-                        SELECT jsonb_agg(rating -> 'rating')
-                        FROM jsonb_array_elements(
-                            CASE WHEN r.igdb_metadata ? 'age_ratings'
-                                THEN r.igdb_metadata -> 'age_ratings'
-                                ELSE '[]'::jsonb
-                            END
-                        ) AS rating
+                    COALESCE(
+                        jsonb_path_query_array(
+                            r.igdb_metadata,
+                            '$.age_ratings[*].rating'
+                        ),
+                        '[]'::jsonb
                     ) AS age_ratings,
 
                     CASE
@@ -161,9 +159,12 @@ def upgrade():
                         END AS game_modes,
 
                         CASE
-                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.age_ratings') THEN
+                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.age_ratings')
+                                AND JSON_LENGTH(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings')) > 0
+                            THEN
                                 JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')
-                            ELSE JSON_ARRAY()
+                            ELSE
+                                JSON_ARRAY()
                         END AS age_ratings,
 
                         CASE
