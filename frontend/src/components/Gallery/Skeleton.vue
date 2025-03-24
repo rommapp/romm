@@ -29,7 +29,7 @@ const { currentView } = storeToRefs(galleryViewStore);
         <v-col class="h-100 pt-4 pb-2">
           <v-skeleton-loader
             class="mx-2"
-            type="table-heading, table-tbody, table-tbody, table-row, table-row, table-row, table-row, table-row"
+            type="table-heading, table-tbody, table-tbody, table-row"
           />
         </v-col>
       </v-row>
