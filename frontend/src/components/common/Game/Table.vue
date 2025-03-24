@@ -38,7 +38,8 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
-const { filteredRoms, selectedRoms, fetchTotalRoms } = storeToRefs(romsStore);
+const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
+  storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
@@ -162,9 +163,17 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     fixed-header
     fixed-footer
     hide-default-footer
+    :loading="fetchingRoms"
+    :disable-sort="fetchingRoms"
     hover
     class="rounded"
   >
+    <template #loading>
+      <v-skeleton-loader
+        class="mx-4"
+        :type="filteredRoms.map(() => 'table-row').slice(0, 72)"
+      />
+    </template>
     <template #header.data-table-select>
       <v-checkbox-btn
         :indeterminate="

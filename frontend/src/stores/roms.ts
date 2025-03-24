@@ -19,7 +19,7 @@ const defaultRomsState = {
   currentVirtualCollection: null as VirtualCollection | null,
   currentRom: null as DetailedRom | null,
   allRoms: [] as SimpleRom[],
-  _selectedIDs: new Set<number>(),
+  selectedIDs: new Set<number>(),
   recentRoms: [] as SimpleRom[],
   continuePlayingRoms: [] as SimpleRom[],
   lastSelectedIndex: -1,
@@ -40,7 +40,7 @@ export default defineStore("roms", {
   getters: {
     filteredRoms: (state) => state.allRoms,
     selectedRoms: (state) =>
-      state.allRoms.filter((rom) => state._selectedIDs.has(rom.id)),
+      state.allRoms.filter((rom) => state.selectedIDs.has(rom.id)),
   },
 
   actions: {
@@ -150,13 +150,13 @@ export default defineStore("roms", {
       this.fetchTotalRoms = 0;
     },
     setSelection(roms: SimpleRom[]) {
-      this._selectedIDs = new Set(roms.map((rom) => rom.id));
+      this.selectedIDs = new Set(roms.map((rom) => rom.id));
     },
     addToSelection(rom: SimpleRom) {
-      this._selectedIDs.add(rom.id);
+      this.selectedIDs.add(rom.id);
     },
     removeFromSelection(rom: SimpleRom) {
-      this._selectedIDs.delete(rom.id);
+      this.selectedIDs.delete(rom.id);
     },
     updateLastSelected(index: number) {
       this.lastSelectedIndex = index;
@@ -165,7 +165,7 @@ export default defineStore("roms", {
       this.selectingRoms = !this.selectingRoms;
     },
     resetSelection() {
-      this._selectedIDs = new Set<number>();
+      this.selectedIDs = new Set<number>();
       this.lastSelectedIndex = -1;
     },
     setOrderBy(orderBy: keyof SimpleRom) {
