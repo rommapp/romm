@@ -428,6 +428,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mt-4"
     >
       <template #content>
         <div class="text-center">
