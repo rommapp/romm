@@ -186,6 +186,40 @@ async function fetchSave(): Promise<Uint8Array> {
   return new Uint8Array(await file.arrayBuffer());
 }
 
+window.EJS_onSaveSave = async function ({ save }) {
+  if (saveRef.value) {
+    saveApi
+      .updateSave({
+        save: saveRef.value,
+        file: new File([save], saveRef.value.file_name, {
+          type: "application/octet-stream",
+        }),
+      })
+      .then(({ data }) => {
+        saveRef.value = data;
+      });
+  } else {
+    saveApi
+      .uploadSaves({
+        rom: romRef.value,
+        emulator: window.EJS_core,
+        saves: [
+          new File([save], buildSaveName(), {
+            type: "application/octet-stream",
+          }),
+        ],
+      })
+      .then(({ data }) => {
+        const allSaves = data.saves.sort(
+          (a: SaveSchema, b: SaveSchema) => a.id - b.id,
+        );
+        if (romRef.value) romRef.value.user_saves = allSaves;
+        saveRef.value = allSaves.pop() ?? null;
+      })
+      .catch();
+  }
+};
+
 window.EJS_onLoadSave = async function () {
   const sav = await fetchSave();
   const FS = window.EJS_emulator.gameManager.FS;
@@ -242,10 +276,6 @@ window.EJS_onGameStart = async () => {
     };
   }, 10);
 
-  const savesMonitor = await createIndexedDBDiffMonitor({
-    dbName: "/data/saves",
-    intervalMs: 2000,
-  });
   const statesMonitor = await createIndexedDBDiffMonitor({
     dbName: "EmulatorJS-states",
     storeName: "states",
@@ -253,52 +283,7 @@ window.EJS_onGameStart = async () => {
   });
 
   // Start monitoring
-  savesMonitor.start();
   statesMonitor.start();
-
-  savesMonitor.on("change", (changes: Change[]) => {
-    console.log("Save changes detected:", changes);
-
-    changes.forEach((change) => {
-      if (!change.key.includes(window.EJS_gameName)) return;
-
-      if (saveRef.value) {
-        saveApi
-          .updateSave({
-            save: saveRef.value,
-            file: new File(
-              [change.newValue.contents],
-              saveRef.value.file_name,
-              {
-                type: "application/octet-stream",
-              },
-            ),
-          })
-          .then(({ data }) => {
-            saveRef.value = data;
-          });
-      } else {
-        saveApi
-          .uploadSaves({
-            rom: romRef.value,
-            emulator: window.EJS_core,
-            saves: [
-              new File([change.newValue.contents], buildSaveName(), {
-                type: "application/octet-stream",
-              }),
-            ],
-          })
-          .then(({ data }) => {
-            const allSaves = data.saves.sort(
-              (a: SaveSchema, b: SaveSchema) => a.id - b.id,
-            );
-            if (romRef.value) romRef.value.user_saves = allSaves;
-            saveRef.value = allSaves.pop() ?? null;
-          })
-          .catch();
-      }
-    });
-  });
 
   statesMonitor.on("change", (changes: Change[]) => {
     console.log("State changes detected:", changes);
