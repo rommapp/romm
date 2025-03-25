@@ -1,0 +1,16 @@
+{
+  "search-collection": "Caută în colecție",
+  "add-collection": "Adaugă colecție",
+  "edit-collection": "Editează colecția",
+  "name": "Nume",
+  "description": "Descriere",
+  "owner": "Proprietar",
+  "public": "Public",
+  "public-desc": "Public (vizibil pentru toți)",
+  "private": "Privat",
+  "private-desc": "Privat (vizibil doar pentru mine)",
+  "danger-zone": "Zonă periculoasă",
+  "delete-collection": "Șterge colecția",
+  "removing-collection-1": "Confirmă eliminarea",
+  "removing-collection-2": "colecției din RomM?"
+}

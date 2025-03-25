@@ -60,7 +60,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 
 <style scoped>
 .gallery-app-bar-desktop {
-  width: calc(100% - 76px) !important;
+  width: calc(100% - 91px) !important;
 }
 
 .gallery-app-bar-mobile {

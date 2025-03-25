@@ -32,5 +32,6 @@
   "library-management": "Управление библиотекой",
   "administration": "Администрирование",
   "logout": "Выйти",
-  "name": "Имя"
+  "name": "Имя",
+  "slug": "Слаг"
 }
