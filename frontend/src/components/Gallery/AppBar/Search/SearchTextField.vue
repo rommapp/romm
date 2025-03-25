@@ -98,7 +98,7 @@ onMounted(() => {
 });
 
 watch(
-  router.currentRoute.value.query,
+  () => router.currentRoute.value.query,
   (query) => {
     if (query.search !== undefined && query.search !== searchTerm.value) {
       searchTerm.value = query.search as string;
