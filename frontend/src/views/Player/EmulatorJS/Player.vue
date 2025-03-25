@@ -83,7 +83,7 @@ window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = `${window.location.protocol}//${window.location.host}/assets/emulatorjs/powered_by_emulatorjs.png`;
+window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
 window.EJS_backgroundColor = theme.current.value.colors.background;
 // Force saving saves and states to the browser
 window.EJS_defaultOptions = {

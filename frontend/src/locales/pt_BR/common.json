@@ -32,5 +32,6 @@
   "library-management": "Gerenciamento de biblioteca",
   "administration": "Administração",
   "logout": "Sair",
-  "name": "Nome"
+  "name": "Nome",
+  "slug": "Slug"
 }
