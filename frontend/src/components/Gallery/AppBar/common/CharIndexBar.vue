@@ -65,6 +65,7 @@ watch(
   >
     <v-tabs
       v-model="selectedCharacter"
+      :mandatory="false"
       slider-color="primary"
       bg-color="surface"
       direction="vertical"
