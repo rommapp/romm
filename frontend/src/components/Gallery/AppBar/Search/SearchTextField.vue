@@ -15,7 +15,7 @@ const { xs } = useDisplay();
 const { t } = useI18n();
 const router = useRouter();
 const romsStore = storeRoms();
-const { fetchingRoms } = storeToRefs(romsStore);
+const { fetchingRoms, initialSearch } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
@@ -23,6 +23,7 @@ const { searchTerm } = storeToRefs(galleryFilterStore);
 async function fetchRoms() {
   if (searchTerm.value === null) return;
 
+  initialSearch.value = true;
   romsStore
     .fetchRoms(galleryFilterStore)
     .catch((error) => {
@@ -49,6 +50,7 @@ async function refetchRoms() {
   router.replace({ query: { search: searchTerm.value } });
 
   romsStore.resetPagination();
+  initialSearch.value = true;
   romsStore
     .fetchRoms(galleryFilterStore, false)
     .catch((error) => {

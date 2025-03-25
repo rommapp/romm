@@ -24,13 +24,13 @@ const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
 const router = useRouter();
-const initialSearch = ref(false);
 const {
   filteredRoms,
   selectedRoms,
   currentPlatform,
   currentCollection,
   fetchingRoms,
+  initialSearch,
   fetchTotalRoms,
 } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");

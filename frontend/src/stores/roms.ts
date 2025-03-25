@@ -25,6 +25,7 @@ const defaultRomsState = {
   lastSelectedIndex: -1,
   selectingRoms: false,
   fetchingRoms: false,
+  initialSearch: false,
   fetchLimit: 72,
   fetchOffset: 0,
   fetchTotalRoms: 0,
