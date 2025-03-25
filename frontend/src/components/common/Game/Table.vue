@@ -290,11 +290,11 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         >
           {{ regionToEmoji(region) }}
         </span>
-        <spa class="reglang-super">
+        <span class="reglang-super">
           {{
             item.regions.length > 3 ? `&nbsp;+${item.regions.length - 3}` : ""
           }}
-        </spa>
+        </span>
       </div>
       <span v-else>-</span>
     </template>
