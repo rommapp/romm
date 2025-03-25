@@ -7,7 +7,7 @@ from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import Row, and_, case, delete, func, literal, or_, select, text, update
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -294,13 +294,20 @@ class DBRomsHandler(DBBaseHandler):
             query = self.filter_by_duplicates_only(query)
 
         if group_by_meta_id:
+
+            def build_func(provider: str, column: InstrumentedAttribute):
+                if platform_id:
+                    return func.concat(provider, "-", Rom.platform_id, "-", column)
+
+                return func.concat(provider, "-", Rom.platform_id, "-", column)
+
             group_id = case(
                 {
-                    Rom.igdb_id.isnot(None): Rom.igdb_id,
-                    Rom.moby_id.isnot(None): Rom.moby_id,
-                    Rom.ss_id.isnot(None): Rom.ss_id,
+                    Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
+                    Rom.moby_id.isnot(None): build_func("moby", Rom.moby_id),
+                    Rom.ss_id.isnot(None): build_func("ss", Rom.ss_id),
                 },
-                else_=Rom.id,
+                else_=build_func("romm", Rom.id),
             )
 
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
@@ -313,6 +320,9 @@ class DBRomsHandler(DBBaseHandler):
             # Create a subquery that identifies the first ROM in each group
             group_subquery = (
                 session.query(Rom.id)
+                .outerjoin(
+                    RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
+                )
                 .add_columns(
                     group_id.label("group_id"),
                     func.row_number()
