@@ -7,8 +7,7 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 
 const romsStore = storeRoms();
-const { fetchingRoms } = storeToRefs(romsStore);
-const searched = ref(false);
+const { fetchingRoms, initialSearch } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
@@ -18,8 +17,7 @@ function fetchRoms() {
 
   const inputElement = document.getElementById("search-text-field");
   inputElement?.blur();
-  searched.value = true;
-
+  initialSearch.value = true;
   romsStore.fetchRoms(galleryFilterStore).catch((error) => {
     emitter?.emit("snackbarShow", {
       msg: `Couldn't fetch roms: ${error}`,
