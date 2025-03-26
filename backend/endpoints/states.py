@@ -30,7 +30,6 @@ async def add_state(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    current_user = request.user
     log.info(f"Uploading state of {rom.name}")
 
     states_path = fs_asset_handler.build_states_file_path(
@@ -60,7 +59,7 @@ async def add_state(
         emulator=emulator,
     )
     db_state = db_state_handler.get_state_by_filename(
-        rom_id=rom.id, user_id=current_user.id, file_name=stateFile.filename
+        user_id=request.user.id, rom_id=rom.id, file_name=stateFile.filename
     )
     if db_state:
         db_state = db_state_handler.update_state(
@@ -68,9 +67,9 @@ async def add_state(
         )
     else:
         scanned_state.rom_id = rom.id
-        scanned_state.user_id = current_user.id
+        scanned_state.user_id = request.user.id
         scanned_state.emulator = emulator
-        db_state = db_state_handler.add_state(scanned_state)
+        db_state = db_state_handler.add_state(state=scanned_state)
 
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
@@ -87,7 +86,7 @@ async def add_state(
             platform_fs_slug=rom.platform_slug,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
-            rom_id=rom.id, user_id=current_user.id, file_name=screenshotFile.filename
+            rom_id=rom.id, user_id=request.user.id, file_name=screenshotFile.filename
         )
         if db_screenshot:
             db_screenshot = db_screenshot_handler.update_screenshot(
@@ -96,13 +95,15 @@ async def add_state(
             )
         else:
             scanned_screenshot.rom_id = rom.id
-            scanned_screenshot.user_id = current_user.id
-            db_screenshot = db_screenshot_handler.add_screenshot(scanned_screenshot)
+            scanned_screenshot.user_id = request.user.id
+            db_screenshot = db_screenshot_handler.add_screenshot(
+                screenshot=scanned_screenshot
+            )
 
     # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
+    rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
+        rom_user = db_rom_handler.add_rom_user(rom_id=rom.id, user_id=request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -115,30 +116,38 @@ async def add_state(
     return StateSchema.model_validate(db_state)
 
 
-# @protected_route(router.get, "", [Scope.ASSETS_READ])
-# def get_states(request: Request) -> MessageResponse:
-#     pass
+@protected_route(router.get, "", [Scope.ASSETS_READ])
+def get_states(
+    request: Request, rom_id: int | None = None, platform_id: int | None = None
+) -> list[StateSchema]:
+    states = db_state_handler.get_states(
+        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
+    )
+
+    return [StateSchema.model_validate(state) for state in states]
 
 
-# @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
-# def get_state(request: Request, id: int) -> MessageResponse:
-#     pass
+@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
+def get_state(request: Request, id: int) -> StateSchema:
+    state = db_state_handler.get_state(user_id=request.user.id, id=id)
+
+    if not state:
+        error = f"State with ID {id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    return StateSchema.model_validate(state)
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
 async def update_state(request: Request, id: int) -> StateSchema:
     data = await request.form()
 
-    db_state = db_state_handler.get_state(id)
+    db_state = db_state_handler.get_state(user_id=request.user.id, id=id)
     if not db_state:
         error = f"State with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-    if db_state.user_id != request.user.id:
-        error = "You are not authorized to update this state"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
     if "stateFile" in data:
         stateFile: UploadFile = data["stateFile"]  # type: ignore
@@ -148,10 +157,9 @@ async def update_state(request: Request, id: int) -> StateSchema:
         )
 
     # Set the last played time for the current user
-    current_user = request.user
-    rom_user = db_rom_handler.get_rom_user(db_state.rom_id, current_user.id)
+    rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_state.rom_id, current_user.id)
+        rom_user = db_rom_handler.add_rom_user(db_state.rom_id, request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -172,16 +180,11 @@ async def delete_states(request: Request) -> MessageResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     for state_id in state_ids:
-        state = db_state_handler.get_state(state_id)
+        state = db_state_handler.get_state(user_id=request.user.id, id=state_id)
         if not state:
             error = f"State with ID {state_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-        if state.user_id != request.user.id:
-            error = "You are not authorized to delete this state"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
         db_state_handler.delete_state(state_id)
 

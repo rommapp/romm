@@ -30,7 +30,6 @@ async def add_save(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    current_user = request.user
     log.info(f"Uploading save of {rom.name}")
 
     saves_path = fs_asset_handler.build_saves_file_path(
@@ -60,7 +59,7 @@ async def add_save(
         emulator=emulator,
     )
     db_save = db_save_handler.get_save_by_filename(
-        rom_id=rom.id, user_id=current_user.id, file_name=saveFile.filename
+        user_id=request.user.id, rom_id=rom.id, file_name=saveFile.filename
     )
     if db_save:
         db_save = db_save_handler.update_save(
@@ -68,9 +67,9 @@ async def add_save(
         )
     else:
         scanned_save.rom_id = rom.id
-        scanned_save.user_id = current_user.id
+        scanned_save.user_id = request.user.id
         scanned_save.emulator = emulator
-        db_save = db_save_handler.add_save(scanned_save)
+        db_save = db_save_handler.add_save(save=scanned_save)
 
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
@@ -87,7 +86,7 @@ async def add_save(
             platform_fs_slug=rom.platform_slug,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
-            rom_id=rom.id, user_id=current_user.id, file_name=screenshotFile.filename
+            rom_id=rom.id, user_id=request.user.id, file_name=screenshotFile.filename
         )
         if db_screenshot:
             db_screenshot = db_screenshot_handler.update_screenshot(
@@ -96,13 +95,15 @@ async def add_save(
             )
         else:
             scanned_screenshot.rom_id = rom.id
-            scanned_screenshot.user_id = current_user.id
-            db_screenshot = db_screenshot_handler.add_screenshot(scanned_screenshot)
+            scanned_screenshot.user_id = request.user.id
+            db_screenshot = db_screenshot_handler.add_screenshot(
+                screenshot=scanned_screenshot
+            )
 
     # Set the last played time for the current user
-    rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
+    rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
+        rom_user = db_rom_handler.add_rom_user(rom_id=rom.id, user_id=request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -115,30 +116,38 @@ async def add_save(
     return SaveSchema.model_validate(db_save)
 
 
-# @protected_route(router.get, "", [Scope.ASSETS_READ])
-# def get_saves(request: Request) -> MessageResponse:
-#     pass
+@protected_route(router.get, "", [Scope.ASSETS_READ])
+def get_saves(
+    request: Request, rom_id: int | None = None, platform_id: int | None = None
+) -> list[SaveSchema]:
+    saves = db_save_handler.get_saves(
+        user_id=request.user.id, rom_id=rom_id, platform_id=platform_id
+    )
+
+    return [SaveSchema.model_validate(save) for save in saves]
 
 
-# @protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
-# def get_save(request: Request, id: int) -> MessageResponse:
-#     pass
+@protected_route(router.get, "/{id}", [Scope.ASSETS_READ])
+def get_save(request: Request, id: int) -> SaveSchema:
+    save = db_save_handler.get_save(user_id=request.user.id, id=id)
+
+    if not save:
+        error = f"Save with ID {id} not found"
+        log.error(error)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+
+    return SaveSchema.model_validate(save)
 
 
 @protected_route(router.put, "/{id}", [Scope.ASSETS_WRITE])
 async def update_save(request: Request, id: int) -> SaveSchema:
     data = await request.form()
 
-    db_save = db_save_handler.get_save(id)
+    db_save = db_save_handler.get_save(user_id=request.user.id, id=id)
     if not db_save:
         error = f"Save with ID {id} not found"
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-    if db_save.user_id != request.user.id:
-        error = "You are not authorized to update this save"
-        log.error(error)
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
     if "saveFile" in data:
         saveFile: UploadFile = data["saveFile"]  # type: ignore
@@ -148,10 +157,9 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         )
 
     # Set the last played time for the current user
-    current_user = request.user
-    rom_user = db_rom_handler.get_rom_user(db_save.rom_id, current_user.id)
+    rom_user = db_rom_handler.get_rom_user(db_save.rom_id, request.user.id)
     if not rom_user:
-        rom_user = db_rom_handler.add_rom_user(db_save.rom_id, current_user.id)
+        rom_user = db_rom_handler.add_rom_user(db_save.rom_id, request.user.id)
     db_rom_handler.update_rom_user(
         rom_user.id, {"last_played": datetime.now(timezone.utc)}
     )
@@ -172,16 +180,11 @@ async def delete_saves(request: Request) -> MessageResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
     for save_id in save_ids:
-        save = db_save_handler.get_save(save_id)
+        save = db_save_handler.get_save(user_id=request.user.id, id=save_id)
         if not save:
             error = f"Save with ID {save_id} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
-
-        if save.user_id != request.user.id:
-            error = "You are not authorized to delete this save"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
         db_save_handler.delete_save(save_id)
 
