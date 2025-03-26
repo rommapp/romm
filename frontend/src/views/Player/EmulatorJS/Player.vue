@@ -10,7 +10,7 @@ import {
 } from "@/utils";
 import SelectSave from "@/components/common/Game/Dialog/Asset/SelectSave.vue";
 import SelectState from "@/components/common/Game/Dialog/Asset/SelectState.vue";
-import { inject, onBeforeUnmount, onMounted } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 import {
   saveSave,
@@ -31,6 +31,7 @@ const props = defineProps<{
   core: string | null;
   disc: number | null;
 }>();
+const saveRef = ref<SaveSchema | null>(props.save);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 
@@ -114,24 +115,6 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 }
 
 onMounted(() => {
-  if (props.save) {
-    localStorage.setItem(
-      `player:${props.rom.id}:save_id`,
-      props.save.id.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${props.rom.id}:save_id`);
-  }
-
-  if (props.state) {
-    localStorage.setItem(
-      `player:${props.rom.id}:state_id`,
-      props.state.id.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${props.rom.id}:state_id`);
-  }
-
   if (props.bios) {
     localStorage.setItem(
       `player:${props.rom.platform_slug}:bios_id`,
@@ -166,6 +149,7 @@ onBeforeUnmount(async () => {
 // Saves management
 async function loadSave(save: SaveSchema) {
   window.EJS_emulator.play();
+  saveRef.value = save;
 
   const { data } = await api.get(save.download_path.replace("/api", ""), {
     responseType: "arraybuffer",
@@ -190,13 +174,10 @@ window.EJS_onSaveSave = async function ({
 }) {
   await saveSave({
     rom: props.rom,
+    save: saveRef.value,
     saveFile,
     screenshotFile,
   });
-  window.EJS_emulator.storage.states.put(
-    window.EJS_emulator.getBaseFileName() + ".state",
-    saveFile,
-  );
 };
 
 // States management

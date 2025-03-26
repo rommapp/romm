@@ -52,35 +52,47 @@ export async function saveState({
 
 export async function saveSave({
   rom,
+  save,
   saveFile,
   screenshotFile,
 }: {
   rom: DetailedRom;
+  save: SaveSchema | null;
   saveFile: Uint8Array;
   screenshotFile?: Uint8Array;
 }): Promise<SaveSchema | null> {
-  const saveName = buildSaveName(rom);
-  const uploadedSaves = await saveApi.uploadSaves({
-    rom: rom,
-    emulator: window.EJS_core,
-    savesToUpload: [
-      {
-        saveFile: new File([saveFile], saveName, {
-          type: "application/octet-stream",
-        }),
-        screenshotFile: screenshotFile
-          ? new File([screenshotFile], saveName, {
-              type: "application/octet-stream",
-            })
-          : undefined,
-      },
-    ],
-  });
+  if (save) {
+    const { data: updateSave } = await saveApi.updateSave({
+      save: save,
+      saveFile: new File([saveFile], save.file_name, {
+        type: "application/octet-stream",
+      }),
+    });
+    return updateSave;
+  } else {
+    const saveName = buildSaveName(rom);
+    const uploadedSaves = await saveApi.uploadSaves({
+      rom: rom,
+      emulator: window.EJS_core,
+      savesToUpload: [
+        {
+          saveFile: new File([saveFile], saveName, {
+            type: "application/octet-stream",
+          }),
+          screenshotFile: screenshotFile
+            ? new File([screenshotFile], saveName, {
+                type: "application/octet-stream",
+              })
+            : undefined,
+        },
+      ],
+    });
 
-  const uploadedSave = uploadedSaves[0];
-  if (uploadedSave.status == "fulfilled") {
-    if (rom) rom.user_saves.push(uploadedSave.value);
-    return uploadedSave.value;
+    const uploadedSave = uploadedSaves[0];
+    if (uploadedSave.status == "fulfilled") {
+      if (rom) rom.user_saves.push(uploadedSave.value);
+      return uploadedSave.value;
+    }
   }
 
   return null;

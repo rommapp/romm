@@ -81,6 +81,7 @@ async function saveAndQuit() {
   const saveFile = window.EJS_emulator.gameManager.getSaveFile();
   await saveSave({
     rom: rom.value,
+    save: saveRef.value,
     saveFile,
     screenshotFile,
   });
@@ -103,25 +104,8 @@ onMounted(async () => {
   supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
 
   // Load stored bios, save, state, and core
-  const storedSaveID = localStorage.getItem(`player:${rom.value.id}:save_id`);
-  if (storedSaveID) {
-    saveRef.value =
-      rom.value.user_saves?.find((s) => s.id === parseInt(storedSaveID)) ??
-      null;
-  }
-
-  const storedStateID = localStorage.getItem(`player:${rom.value.id}:state_id`);
-  if (storedStateID) {
-    stateRef.value =
-      rom.value.user_states?.find((s) => s.id === parseInt(storedStateID)) ??
-      null;
-  } else if (rom.value.user_states) {
-    // Otherwise auto select most recent state by last updated date
-    stateRef.value =
-      rom.value.user_states?.sort((a, b) =>
-        b.updated_at.localeCompare(a.updated_at),
-      )[0] ?? null;
-  }
+  saveRef.value = rom.value.user_saves[0] ?? null;
+  stateRef.value = rom.value.user_states[0] ?? null;
 
   const storedBiosID = localStorage.getItem(
     `player:${rom.value.platform_slug}:bios_id`,
