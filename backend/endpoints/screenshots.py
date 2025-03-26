@@ -22,7 +22,7 @@ async def add_screenshot(
 ) -> ScreenshotSchema:
     data = await request.form()
 
-    rom = db_rom_handler.get_rom(rom_id)
+    rom = db_rom_handler.get_rom(id=rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
@@ -73,9 +73,11 @@ async def add_screenshot(
     else:
         scanned_screenshot.rom_id = rom.id
         scanned_screenshot.user_id = current_user.id
-        db_screenshot = db_screenshot_handler.add_screenshot(scanned_screenshot)
+        db_screenshot = db_screenshot_handler.add_screenshot(
+            screenshot=scanned_screenshot
+        )
 
-    rom = db_rom_handler.get_rom(rom_id)
+    rom = db_rom_handler.get_rom(id=rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
