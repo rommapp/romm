@@ -12,6 +12,7 @@ import { isNull } from "lodash";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import CacheDialog from "./CacheDialog.vue";
 
 const EMULATORJS_VERSION = "4.2.1";
 
@@ -378,6 +379,7 @@ onMounted(async () => {
             "
             >{{ t("play.back-to-gallery") }}
           </v-btn>
+          <cache-dialog v-if="!gameRunning" />
         </v-col>
       </v-row>
     </v-col>
