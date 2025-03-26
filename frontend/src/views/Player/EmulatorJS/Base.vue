@@ -73,7 +73,6 @@ async function saveAndQuit() {
   const stateFile = window.EJS_emulator.gameManager.getState();
   await saveState({
     rom: rom.value,
-    state: stateRef.value,
     stateFile,
     screenshotFile,
   });
@@ -82,7 +81,6 @@ async function saveAndQuit() {
   const saveFile = window.EJS_emulator.gameManager.getSaveFile();
   await saveSave({
     rom: rom.value,
-    save: saveRef.value,
     saveFile,
     screenshotFile,
   });
