@@ -144,6 +144,7 @@ onBeforeUnmount(async () => {
   window.removeEventListener("beforeunload", onBeforeUnload);
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
+  window.EJS_emulator?.callEvent("exit");
 });
 
 // Saves management
