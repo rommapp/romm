@@ -67,14 +67,25 @@ function onFullScreenChange() {
 
 async function saveAndQuit() {
   if (!rom.value || !window.EJS_emulator) return window.history.back();
+  const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
 
   // Force a save of the current state
   const stateFile = window.EJS_emulator.gameManager.getState();
-  await saveState({ rom: rom.value, state: stateRef.value, file: stateFile });
+  await saveState({
+    rom: rom.value,
+    state: stateRef.value,
+    stateFile,
+    screenshotFile,
+  });
 
   // Force a save of the save file
   const saveFile = window.EJS_emulator.gameManager.getSaveFile();
-  await saveSave({ rom: rom.value, save: saveRef.value, file: saveFile });
+  await saveSave({
+    rom: rom.value,
+    save: saveRef.value,
+    saveFile,
+    screenshotFile,
+  });
 
   window.EJS_emulator.callEvent("exit");
   window.history.back();

@@ -26,11 +26,6 @@ const props = defineProps<{
   core: string | null;
   disc: number | null;
 }>();
-const romRef = ref<DetailedRom>(props.rom);
-const saveRef = ref<SaveSchema | null>(props.save);
-const stateRef = ref<StateSchema | null>(props.state);
-const statesMonitor = ref<null | DiffMonitor>(null);
-
 const theme = useTheme();
 
 // Declare global variables for EmulatorJS
@@ -59,23 +54,27 @@ declare global {
     EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     EJS_Buttons: Record<string, boolean>;
     EJS_onGameStart: () => void;
-    EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
+    EJS_onSaveState: (args: {
+      screenshot: Uint8Array;
+      state: Uint8Array;
+    }) => void;
     EJS_onLoadState: () => void;
-    EJS_onSaveSave: (args: { screenshot: File; save: File }) => void;
+    EJS_onSaveSave: (args: {
+      screenshot: Uint8Array;
+      save: Uint8Array;
+    }) => void;
     EJS_onLoadSave: () => void;
   }
 }
 
-const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
+const supportedCores = getSupportedEJSCores(props.rom.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
-window.EJS_controlScheme = getControlSchemeForPlatform(
-  romRef.value.platform_slug,
-);
+window.EJS_controlScheme = getControlSchemeForPlatform(props.rom.platform_slug);
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
-window.EJS_gameID = romRef.value.id;
+window.EJS_gameID = props.rom.id;
 window.EJS_gameUrl = getDownloadPath({
-  rom: romRef.value,
+  rom: props.rom,
   fileIDs: props.disc ? [props.disc] : [],
 });
 window.EJS_biosUrl = props.bios
@@ -93,7 +92,7 @@ window.EJS_defaultOptions = {
   rewindEnabled: "enabled",
 };
 // Set a valid game name
-window.EJS_gameName = romRef.value.fs_name_no_tags
+window.EJS_gameName = props.rom.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
 // Disable quick save and quick load
@@ -150,7 +149,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(async () => {
-  statesMonitor.value?.stop();
   window.removeEventListener("beforeunload", onBeforeUnload);
 });
 
@@ -184,12 +182,20 @@ window.EJS_onLoadSave = async function () {
   window.EJS_emulator.gameManager.loadSaveFiles();
 };
 
-window.EJS_onSaveSave = async function ({ save: saveFile }) {
+window.EJS_onSaveSave = async function ({
+  save: saveFile,
+  screenshot: screenshotFile,
+}) {
   const save = await saveSave({
-    rom: romRef.value,
+    rom: props.rom,
     save: saveRef.value,
-    file: saveFile,
+    saveFile,
+    screenshotFile,
   });
+  window.EJS_emulator.storage.states.put(
+    window.EJS_emulator.getBaseFileName() + ".state",
+    saveFile,
+  );
   if (save) saveRef.value = save;
 };
 
@@ -223,6 +229,19 @@ window.EJS_onLoadState = async function () {
   window.EJS_emulator.gameManager.loadState(new Uint8Array(state));
 };
 
+window.EJS_onSaveState = async function ({
+  state: stateFile,
+  screenshot: screenshotFile,
+}) {
+  const state = await saveState({
+    rom: props.rom,
+    state: stateRef.value,
+    stateFile,
+    screenshotFile,
+  });
+  if (state) stateRef.value = state;
+};
+
 window.EJS_onGameStart = async () => {
   setTimeout(() => {
     if (saveRef.value) window.EJS_onLoadSave();
@@ -233,28 +252,6 @@ window.EJS_onGameStart = async () => {
       "save-state-location": "browser",
     };
   }, 10);
-
-  const statesMonitor = await createIndexedDBDiffMonitor({
-    dbName: "EmulatorJS-states",
-    storeName: "states",
-    intervalMs: 2000,
-  });
-
-  // Start monitoring
-  statesMonitor.start();
-
-  statesMonitor.on("change", (changes: Change[]) => {
-    console.log("State changes detected:", changes);
-
-    changes.forEach((change) => {
-      if (!change.key.includes(window.EJS_gameName)) return;
-      saveState({
-        rom: romRef.value,
-        state: stateRef.value,
-        file: change.newValue,
-      });
-    });
-  });
 
   window.addEventListener("beforeunload", onBeforeUnload);
 };

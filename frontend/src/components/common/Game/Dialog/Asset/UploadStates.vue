@@ -54,16 +54,29 @@ function uploadStates() {
   stateApi
     .uploadStates({
       rom: rom.value,
-      states: filesToUpload.value,
+      statesToUpload: filesToUpload.value.map((stateFile) => ({
+        stateFile,
+      })),
     })
-    .then(({ data }) => {
-      const { states, uploaded } = data;
+    .then((data) => {
+      debugger;
+      const saves = data;
 
       emitter?.emit("snackbarShow", {
-        msg: `${uploaded} files uploaded successfully.`,
+        msg: `Uploaded ${saves.length} files successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
+      });
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Unable to upload saves: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
       });
     });
 

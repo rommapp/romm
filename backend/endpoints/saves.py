@@ -2,13 +2,13 @@ from datetime import datetime, timezone
 
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.assets import SaveSchema, UploadedSavesResponse
+from endpoints.responses.assets import SaveSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from fastapi import File, HTTPException, Request, UploadFile, status
+from fastapi import HTTPException, Request, UploadFile, status
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
-from handler.scan_handler import scan_save
+from handler.scan_handler import scan_save, scan_screenshot
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -19,72 +19,100 @@ router = APIRouter(
 
 
 @protected_route(router.post, "", [Scope.ASSETS_WRITE])
-def add_saves(
+async def add_save(
     request: Request,
     rom_id: int,
-    saves: list[UploadFile] = File(...),  # noqa: B008
     emulator: str | None = None,
-) -> UploadedSavesResponse:
+) -> SaveSchema:
+    data = await request.form()
+
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
     current_user = request.user
-    log.info(f"Uploading saves to {rom.name}")
+    log.info(f"Uploading save of {rom.name}")
 
     saves_path = fs_asset_handler.build_saves_file_path(
         user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
     )
 
-    for save in saves:
-        if not save.filename:
-            log.error("Save file has no filename")
-            continue
-
-        fs_asset_handler.write_file(file=save, path=saves_path)
-
-        # Scan or update save
-        scanned_save = scan_save(
-            file_name=save.filename,
-            user=request.user,
-            platform_fs_slug=rom.platform.fs_slug,
-            emulator=emulator,
+    if "saveFile" not in data:
+        log.error("No save file provided")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No save file provided"
         )
-        db_save = db_save_handler.get_save_by_filename(
-            rom_id=rom.id, user_id=current_user.id, file_name=save.filename
-        )
-        if db_save:
-            db_save_handler.update_save(
-                db_save.id, {"file_size_bytes": scanned_save.file_size_bytes}
-            )
-            continue
 
+    saveFile: UploadFile = data["saveFile"]  # type: ignore
+    if not saveFile.filename:
+        log.error("Save file has no filename")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
+        )
+
+    fs_asset_handler.write_file(file=saveFile, path=saves_path)
+
+    # Scan or update save
+    scanned_save = scan_save(
+        file_name=saveFile.filename,
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        emulator=emulator,
+    )
+    db_save = db_save_handler.get_save_by_filename(
+        rom_id=rom.id, user_id=current_user.id, file_name=saveFile.filename
+    )
+    if db_save:
+        db_save = db_save_handler.update_save(
+            db_save.id, {"file_size_bytes": scanned_save.file_size_bytes}
+        )
+    else:
         scanned_save.rom_id = rom.id
         scanned_save.user_id = current_user.id
         scanned_save.emulator = emulator
-        db_save_handler.add_save(scanned_save)
+        db_save = db_save_handler.add_save(scanned_save)
 
-        # Set the last played time for the current user
-        rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
-        if not rom_user:
-            rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
-        db_rom_handler.update_rom_user(
-            rom_user.id, {"last_played": datetime.now(timezone.utc)}
+    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
+    if screenshotFile and screenshotFile.filename:
+        screenshots_path = fs_asset_handler.build_screenshots_file_path(
+            user=request.user, platform_fs_slug=rom.platform_slug
         )
+
+        fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+
+        # Scan or update screenshot
+        scanned_screenshot = scan_screenshot(
+            file_name=screenshotFile.filename,
+            user=request.user,
+            platform_fs_slug=rom.platform_slug,
+        )
+        db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
+            rom_id=rom.id, user_id=current_user.id, file_name=screenshotFile.filename
+        )
+        if db_screenshot:
+            db_screenshot = db_screenshot_handler.update_screenshot(
+                db_screenshot.id,
+                {"file_size_bytes": scanned_screenshot.file_size_bytes},
+            )
+        else:
+            scanned_screenshot.rom_id = rom.id
+            scanned_screenshot.user_id = current_user.id
+            db_screenshot = db_screenshot_handler.add_screenshot(scanned_screenshot)
+
+    # Set the last played time for the current user
+    rom_user = db_rom_handler.get_rom_user(rom.id, current_user.id)
+    if not rom_user:
+        rom_user = db_rom_handler.add_rom_user(rom.id, current_user.id)
+    db_rom_handler.update_rom_user(
+        rom_user.id, {"last_played": datetime.now(timezone.utc)}
+    )
 
     # Refetch the rom to get updated saves
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    return {
-        "uploaded": len(saves),
-        "saves": [
-            SaveSchema.model_validate(s)
-            for s in rom.saves
-            if s.user_id == current_user.id
-        ],
-    }
+    return SaveSchema.model_validate(db_save)
 
 
 # @protected_route(router.get, "", [Scope.ASSETS_READ])
@@ -112,10 +140,12 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         log.error(error)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error)
 
-    if "file" in data:
-        file: UploadFile = data["file"]  # type: ignore
-        fs_asset_handler.write_file(file=file, path=db_save.file_path)
-        db_save_handler.update_save(db_save.id, {"file_size_bytes": file.size})
+    if "saveFile" in data:
+        saveFile: UploadFile = data["saveFile"]  # type: ignore
+        fs_asset_handler.write_file(file=saveFile, path=db_save.file_path)
+        db_save = db_save_handler.update_save(
+            db_save.id, {"file_size_bytes": saveFile.size}
+        )
 
     # Set the last played time for the current user
     current_user = request.user
@@ -127,7 +157,6 @@ async def update_save(request: Request, id: int) -> SaveSchema:
     )
 
     # Refetch the save to get updated fields
-    db_save = db_save_handler.get_save(id)
     return SaveSchema.model_validate(db_save)
 
 
