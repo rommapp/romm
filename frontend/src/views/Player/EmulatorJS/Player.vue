@@ -186,9 +186,8 @@ window.EJS_onSaveSave = async function ({
   save: saveFile,
   screenshot: screenshotFile,
 }) {
-  const save = await saveSave({
+  await saveSave({
     rom: props.rom,
-    save: saveRef.value,
     saveFile,
     screenshotFile,
   });
@@ -196,7 +195,6 @@ window.EJS_onSaveSave = async function ({
     window.EJS_emulator.getBaseFileName() + ".state",
     saveFile,
   );
-  if (save) saveRef.value = save;
 };
 
 // States management
@@ -235,17 +233,15 @@ window.EJS_onSaveState = async function ({
 }) {
   const state = await saveState({
     rom: props.rom,
-    state: stateRef.value,
     stateFile,
     screenshotFile,
   });
-  if (state) stateRef.value = state;
 };
 
 window.EJS_onGameStart = async () => {
   setTimeout(() => {
-    if (saveRef.value) window.EJS_onLoadSave();
-    if (stateRef.value) window.EJS_onLoadState();
+    if (props.save) window.EJS_onLoadSave();
+    if (props.state) window.EJS_onLoadState();
 
     window.EJS_emulator.settings = {
       ...window.EJS_emulator.settings,
