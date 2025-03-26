@@ -3,5 +3,9 @@
   "play": "プレイ",
   "save-and-quit": "保存して終了",
   "back-to-game-details": "ゲーム詳細へ戻る",
-  "back-to-gallery": "ギャラリーへ戻る"
+  "back-to-gallery": "ギャラリーへ戻る",
+  "clear-cache": "EmulatorJS キャッシュをクリア",
+  "clear-cache-title": "EmulatorJS キャッシュをクリアしてもよろしいですか？",
+  "clear-cache-warning": "これにより、ブラウザに保存されているすべてのセーブデータとステートが削除されます。",
+  "clear-cache-description": "サーバーに保存されているセーブデータやステートには影響しません。"
 }
