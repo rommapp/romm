@@ -66,7 +66,7 @@ function onFullScreenChange() {
 }
 
 async function saveAndQuit() {
-  if (!rom.value) return window.history.back();
+  if (!rom.value || !window.EJS_emulator) return window.history.back();
 
   // Force a save of the current state
   const stateFile = window.EJS_emulator.gameManager.getState();
