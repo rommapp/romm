@@ -87,7 +87,7 @@ function closeDialog() {
           <v-img
             v-if="item.screenshot"
             :src="item.screenshot.download_path"
-            height="100"
+            height="135"
             class="mr-2"
           />
         </template>
@@ -128,7 +128,8 @@ function closeDialog() {
 </template>
 
 <style>
-#select-state-dialog .v-data-table__td {
-  height: 100px !important;
+#select-state-dialog .v-data-table__td:nth-child(2) {
+  min-height: 150px !important;
+  min-width: 170px !important;
 }
 </style>
