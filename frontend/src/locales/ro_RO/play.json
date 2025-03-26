@@ -3,5 +3,9 @@
   "play": "Joacă",
   "save-and-quit": "Salvează și ieși",
   "back-to-game-details": "Înapoi la detaliile jocului",
-  "back-to-gallery": "Înapoi la galerie"
+  "back-to-gallery": "Înapoi la galerie",
+  "clear-cache": "Șterge cache-ul EmulatorJS",
+  "clear-cache-title": "Ești sigur că vrei să ștergi cache-ul EmulatorJS?",
+  "clear-cache-warning": "Acest lucru va elimina toate salvările și stările stocate în browser.",
+  "clear-cache-description": "Nu va afecta nicio salvare sau stare stocată pe server."
 }

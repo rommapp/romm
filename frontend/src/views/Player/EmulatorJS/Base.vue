@@ -13,6 +13,7 @@ import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { saveSave, saveState } from "./utils";
+import CacheDialog from "./CacheDialog.vue";
 
 const EMULATORJS_VERSION = "4.2.1";
 
@@ -377,6 +378,7 @@ onMounted(async () => {
           >
             {{ t("play.save-and-quit") }}
           </v-btn>
+          <cache-dialog v-if="!gameRunning" />
         </v-col>
       </v-row>
     </v-col>
