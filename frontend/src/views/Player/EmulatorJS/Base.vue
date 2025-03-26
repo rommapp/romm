@@ -76,6 +76,7 @@ async function saveAndQuit() {
   const saveFile = window.EJS_emulator.gameManager.getSaveFile();
   await saveSave({ rom: rom.value, save: saveRef.value, file: saveFile });
 
+  window.EJS_emulator.callEvent("exit");
   window.history.back();
 }
 
