@@ -12,6 +12,7 @@ import { isNull } from "lodash";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { saveSave, saveState } from "./utils";
 
 const EMULATORJS_VERSION = "4.2.1";
 
@@ -61,6 +62,20 @@ function onPlay() {
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
   localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
+}
+
+async function saveAndQuit() {
+  if (!rom.value) return window.history.back();
+
+  // Force a save of the current state
+  const stateFile = window.EJS_emulator.gameManager.getState();
+  await saveState({ rom: rom.value, state: stateRef.value, file: stateFile });
+
+  // Force a save of the save file
+  const saveFile = window.EJS_emulator.gameManager.getSaveFile();
+  await saveSave({ rom: rom.value, save: saveRef.value, file: saveFile });
+
+  window.history.back();
 }
 
 onMounted(async () => {
@@ -270,9 +285,14 @@ onMounted(async () => {
             <template #selection="{ item }">
               <v-list-item class="pa-0" :title="item.value.file_name ?? ''">
                 <template #append>
-                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
-                    item.value.emulator
-                  }}</v-chip>
+                  <v-chip
+                    v-if="item.value.emulator"
+                    size="x-small"
+                    class="ml-1"
+                    color="orange"
+                    label
+                    >{{ item.value.emulator }}</v-chip
+                  >
                   <v-chip size="x-small" class="ml-1" label
                     >{{ formatBytes(item.value.file_size_bytes) }}
                   </v-chip>
@@ -289,9 +309,14 @@ onMounted(async () => {
                 :title="item.value.file_name ?? ''"
               >
                 <template #append>
-                  <v-chip size="x-small" class="ml-1" color="orange" label>{{
-                    item.value.emulator
-                  }}</v-chip>
+                  <v-chip
+                    v-if="item.value.emulator"
+                    size="x-small"
+                    class="ml-1"
+                    color="orange"
+                    label
+                    >{{ item.value.emulator }}</v-chip
+                  >
                   <v-chip size="x-small" class="ml-1" label
                     >{{ formatBytes(item.value.file_size_bytes) }}
                   </v-chip>
@@ -342,41 +367,15 @@ onMounted(async () => {
             </v-col>
           </v-row>
           <v-btn
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-refresh"
-            @click="$router.go(0)"
-            >{{ t("play.reset-session") }}
-          </v-btn>
-          <v-btn
+            v-if="gameRunning"
             class="mt-4"
             block
             variant="outlined"
             size="large"
             prepend-icon="mdi-arrow-left"
-            @click="
-              $router.push({
-                name: ROUTES.ROM,
-                params: { rom: rom?.id },
-              })
-            "
-            >{{ t("play.back-to-game-details") }}
-          </v-btn>
-          <v-btn
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-arrow-left"
-            @click="
-              $router.push({
-                name: ROUTES.PLATFORM,
-                params: { platform: rom?.platform_id },
-              })
-            "
-            >{{ t("play.back-to-gallery") }}
+            @click="saveAndQuit"
+          >
+            {{ t("play.save-and-quit") }}
           </v-btn>
         </v-col>
       </v-row>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import saveApi, { saveApi as api } from "@/services/api/save";
-import stateApi from "@/services/api/state";
+import { saveApi as api } from "@/services/api/save";
 import type { DetailedRom } from "@/stores/roms";
 import {
   areThreadsRequiredForEJSCore,
@@ -11,9 +10,11 @@ import {
 } from "@/utils";
 import createIndexedDBDiffMonitor, {
   type Change,
+  type DiffMonitor,
 } from "@/utils/indexdb-monitor";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
+import { saveSave, saveState } from "./utils";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
@@ -28,6 +29,7 @@ const props = defineProps<{
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const stateRef = ref<StateSchema | null>(props.state);
+const statesMonitor = ref<null | DiffMonitor>(null);
 
 const theme = useTheme();
 
@@ -100,9 +102,11 @@ window.EJS_Buttons = {
   quickLoad: false,
 };
 
-onBeforeUnmount(() => {
-  window.location.reload();
-});
+function onBeforeUnload(event: BeforeUnloadEvent) {
+  event.preventDefault();
+  event.returnValue =
+    "Use the 'save and quit' button to save your progress and close the game.";
+}
 
 onMounted(() => {
   if (props.save) {
@@ -145,34 +149,12 @@ onMounted(() => {
   }
 });
 
-function buildStateName(): string {
-  const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.fs_name_no_ext.trim();
-  let stateName = `${romName}.state.auto`;
-  if (!states.includes(stateName)) return stateName;
-  let i = 1;
-  stateName = `${romName}.state1`;
-  while (states.includes(stateName)) {
-    i++;
-    stateName = `${romName}.state${i}`;
-  }
-  return stateName;
-}
+onBeforeUnmount(async () => {
+  statesMonitor.value?.stop();
+  window.removeEventListener("beforeunload", onBeforeUnload);
+});
 
-function buildSaveName(): string {
-  const saves = romRef.value.user_saves?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.fs_name_no_ext.trim();
-  let saveName = `${romName}.srm`;
-  if (!saves.includes(saveName)) return saveName;
-  let i = 2;
-  saveName = `${romName} (${i}).srm`;
-  while (saves.includes(saveName)) {
-    i++;
-    saveName = `${romName} (${i}).srm`;
-  }
-  return saveName;
-}
-
+// Saves management
 async function fetchSave(): Promise<Uint8Array> {
   if (saveRef.value) {
     const { data } = await api.get(
@@ -185,40 +167,6 @@ async function fetchSave(): Promise<Uint8Array> {
   const file = await window.EJS_emulator.selectFile();
   return new Uint8Array(await file.arrayBuffer());
 }
-
-window.EJS_onSaveSave = async function ({ save }) {
-  if (saveRef.value) {
-    saveApi
-      .updateSave({
-        save: saveRef.value,
-        file: new File([save], saveRef.value.file_name, {
-          type: "application/octet-stream",
-        }),
-      })
-      .then(({ data }) => {
-        saveRef.value = data;
-      });
-  } else {
-    saveApi
-      .uploadSaves({
-        rom: romRef.value,
-        emulator: window.EJS_core,
-        saves: [
-          new File([save], buildSaveName(), {
-            type: "application/octet-stream",
-          }),
-        ],
-      })
-      .then(({ data }) => {
-        const allSaves = data.saves.sort(
-          (a: SaveSchema, b: SaveSchema) => a.id - b.id,
-        );
-        if (romRef.value) romRef.value.user_saves = allSaves;
-        saveRef.value = allSaves.pop() ?? null;
-      })
-      .catch();
-  }
-};
 
 window.EJS_onLoadSave = async function () {
   const sav = await fetchSave();
@@ -236,6 +184,16 @@ window.EJS_onLoadSave = async function () {
   window.EJS_emulator.gameManager.loadSaveFiles();
 };
 
+window.EJS_onSaveSave = async function ({ save: saveFile }) {
+  const save = await saveSave({
+    rom: romRef.value,
+    save: saveRef.value,
+    file: saveFile,
+  });
+  if (save) saveRef.value = save;
+};
+
+// States management
 async function fetchState(): Promise<Uint8Array> {
   if (stateRef.value) {
     const { data } = await api.get(
@@ -290,41 +248,15 @@ window.EJS_onGameStart = async () => {
 
     changes.forEach((change) => {
       if (!change.key.includes(window.EJS_gameName)) return;
-
-      if (stateRef.value) {
-        stateApi
-          .updateState({
-            state: stateRef.value,
-            file: new File([change.newValue], stateRef.value.file_name, {
-              type: "application/octet-stream",
-            }),
-          })
-          .then(({ data }) => {
-            stateRef.value = data;
-          })
-          .catch();
-      } else {
-        stateApi
-          .uploadStates({
-            rom: romRef.value,
-            emulator: window.EJS_core,
-            states: [
-              new File([change.newValue], buildStateName(), {
-                type: "application/octet-stream",
-              }),
-            ],
-          })
-          .then(({ data }) => {
-            const allStates = data.states.sort(
-              (a: StateSchema, b: StateSchema) => a.id - b.id,
-            );
-            if (romRef.value) romRef.value.user_states = allStates;
-            stateRef.value = allStates.pop() ?? null;
-          })
-          .catch();
-      }
+      saveState({
+        rom: romRef.value,
+        state: stateRef.value,
+        file: change.newValue,
+      });
     });
   });
+
+  window.addEventListener("beforeunload", onBeforeUnload);
 };
 </script>
 
@@ -353,6 +285,10 @@ window.EJS_onGameStart = async () => {
 
 #game .ejs_game_background {
   background-size: 40%;
+}
+
+#game .ejs_menu_bar .ejs_menu_button:last-child {
+  display: none;
 }
 </style>
 
