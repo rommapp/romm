@@ -54,13 +54,16 @@ async function uploadSaves() {
   saveApi
     .uploadSaves({
       rom: rom.value,
-      saves: filesToUpload.value,
+      savesToUpload: filesToUpload.value.map((saveFile) => ({
+        saveFile,
+      })),
     })
-    .then(({ data }) => {
-      const { saves, uploaded } = data;
+    .then((data) => {
+      debugger;
+      const saves = data;
 
       emitter?.emit("snackbarShow", {
-        msg: `Uploaded ${uploaded} files successfully!`,
+        msg: `Uploaded ${saves.length} files successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
