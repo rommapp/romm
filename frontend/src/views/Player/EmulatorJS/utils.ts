@@ -23,16 +23,17 @@ export async function saveState({
   stateFile: Uint8Array;
   screenshotFile?: Uint8Array;
 }): Promise<StateSchema | null> {
+  const filename = buildStateName(rom);
   const uploadedStates = await stateApi.uploadStates({
     rom: rom,
     emulator: window.EJS_core,
     statesToUpload: [
       {
-        stateFile: new File([stateFile], buildStateName(rom), {
+        stateFile: new File([stateFile], filename, {
           type: "application/octet-stream",
         }),
         screenshotFile: screenshotFile
-          ? new File([screenshotFile], buildSaveName(rom), {
+          ? new File([screenshotFile], filename, {
               type: "application/octet-stream",
             })
           : undefined,
@@ -58,16 +59,17 @@ export async function saveSave({
   saveFile: Uint8Array;
   screenshotFile?: Uint8Array;
 }): Promise<SaveSchema | null> {
+  const saveName = buildSaveName(rom);
   const uploadedSaves = await saveApi.uploadSaves({
     rom: rom,
     emulator: window.EJS_core,
     savesToUpload: [
       {
-        saveFile: new File([saveFile], buildSaveName(rom), {
+        saveFile: new File([saveFile], saveName, {
           type: "application/octet-stream",
         }),
         screenshotFile: screenshotFile
-          ? new File([screenshotFile], buildSaveName(rom), {
+          ? new File([screenshotFile], saveName, {
               type: "application/octet-stream",
             })
           : undefined,
@@ -82,4 +84,23 @@ export async function saveSave({
   }
 
   return null;
+}
+
+export function loadEmulatorJSSave(save: Uint8Array) {
+  const FS = window.EJS_emulator.gameManager.FS;
+  const path = window.EJS_emulator.gameManager.getSaveFilePath();
+  const paths = path.split("/");
+  let cp = "";
+  for (let i = 0; i < paths.length - 1; i++) {
+    if (paths[i] === "") continue;
+    cp += "/" + paths[i];
+    if (!FS.analyzePath(cp).exists) FS.mkdir(cp);
+  }
+  if (FS.analyzePath(path).exists) FS.unlink(path);
+  FS.writeFile(path, save);
+  window.EJS_emulator.gameManager.loadSaveFiles();
+}
+
+export function loadEmulatorJSState(state: Uint8Array) {
+  window.EJS_emulator.gameManager.loadState(state);
 }
