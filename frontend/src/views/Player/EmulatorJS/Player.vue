@@ -8,13 +8,18 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
-import createIndexedDBDiffMonitor, {
-  type Change,
-  type DiffMonitor,
-} from "@/utils/indexdb-monitor";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import SelectSave from "@/components/common/Game/Dialog/Asset/SelectSave.vue";
+import SelectState from "@/components/common/Game/Dialog/Asset/SelectState.vue";
+import { inject, onBeforeUnmount, onMounted } from "vue";
 import { useTheme } from "vuetify";
-import { saveSave, saveState } from "./utils";
+import {
+  saveSave,
+  saveState,
+  loadEmulatorJSSave,
+  loadEmulatorJSState,
+} from "./utils";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
@@ -27,6 +32,7 @@ const props = defineProps<{
   disc: number | null;
 }>();
 const theme = useTheme();
+const emitter = inject<Emitter<Events>>("emitter");
 
 // Declare global variables for EmulatorJS
 declare global {
@@ -146,40 +152,36 @@ onMounted(() => {
   } else {
     localStorage.removeItem(`player:${props.rom.id}:disc`);
   }
+
+  emitter?.on("saveSelected", loadSave);
+  emitter?.on("stateSelected", loadState);
 });
 
 onBeforeUnmount(async () => {
   window.removeEventListener("beforeunload", onBeforeUnload);
+  emitter?.off("saveSelected", loadSave);
+  emitter?.off("stateSelected", loadState);
 });
 
 // Saves management
-async function fetchSave(): Promise<Uint8Array> {
-  if (saveRef.value) {
-    const { data } = await api.get(
-      saveRef.value.download_path.replace("/api", ""),
-      { responseType: "arraybuffer" },
-    );
-    if (data) return new Uint8Array(data);
+async function loadSave(save: SaveSchema) {
+  window.EJS_emulator.play();
+
+  const { data } = await api.get(save.download_path.replace("/api", ""), {
+    responseType: "arraybuffer",
+  });
+  if (data) {
+    loadEmulatorJSSave(new Uint8Array(data));
+    return;
   }
 
   const file = await window.EJS_emulator.selectFile();
-  return new Uint8Array(await file.arrayBuffer());
+  loadEmulatorJSSave(new Uint8Array(await file.arrayBuffer()));
 }
 
 window.EJS_onLoadSave = async function () {
-  const sav = await fetchSave();
-  const FS = window.EJS_emulator.gameManager.FS;
-  const path = window.EJS_emulator.gameManager.getSaveFilePath();
-  const paths = path.split("/");
-  let cp = "";
-  for (let i = 0; i < paths.length - 1; i++) {
-    if (paths[i] === "") continue;
-    cp += "/" + paths[i];
-    if (!FS.analyzePath(cp).exists) FS.mkdir(cp);
-  }
-  if (FS.analyzePath(path).exists) FS.unlink(path);
-  FS.writeFile(path, sav);
-  window.EJS_emulator.gameManager.loadSaveFiles();
+  window.EJS_emulator.pause();
+  emitter?.emit("selectSaveDialog", props.rom);
 };
 
 window.EJS_onSaveSave = async function ({
@@ -198,33 +200,24 @@ window.EJS_onSaveSave = async function ({
 };
 
 // States management
-async function fetchState(): Promise<Uint8Array> {
-  if (stateRef.value) {
-    const { data } = await api.get(
-      stateRef.value.download_path.replace("/api", ""),
-      { responseType: "arraybuffer" },
-    );
-    if (data) {
-      window.EJS_emulator.displayMessage("LOADED FROM ROMM");
-      return new Uint8Array(data);
-    }
+async function loadState(state: StateSchema) {
+  window.EJS_emulator.play();
+
+  const { data } = await api.get(state.download_path.replace("/api", ""), {
+    responseType: "arraybuffer",
+  });
+  if (data) {
+    loadEmulatorJSState(new Uint8Array(data));
+    return;
   }
-  if (window.EJS_emulator.saveInBrowserSupported()) {
-    const data = await window.EJS_emulator.storage.states.get(
-      window.EJS_emulator.getBaseFileName() + ".state",
-    );
-    if (data) {
-      window.EJS_emulator.displayMessage("LOADED FROM BROWSER");
-      return data;
-    }
-  }
+
   const file = await window.EJS_emulator.selectFile();
-  return new Uint8Array(await file.arrayBuffer());
+  loadEmulatorJSState(new Uint8Array(await file.arrayBuffer()));
 }
 
 window.EJS_onLoadState = async function () {
-  const state = await fetchState();
-  window.EJS_emulator.gameManager.loadState(new Uint8Array(state));
+  window.EJS_emulator.pause();
+  emitter?.emit("selectStateDialog", props.rom);
 };
 
 window.EJS_onSaveState = async function ({
@@ -236,12 +229,16 @@ window.EJS_onSaveState = async function ({
     stateFile,
     screenshotFile,
   });
+  window.EJS_emulator.storage.states.put(
+    window.EJS_emulator.getBaseFileName() + ".state",
+    state,
+  );
 };
 
 window.EJS_onGameStart = async () => {
-  setTimeout(() => {
-    if (props.save) window.EJS_onLoadSave();
-    if (props.state) window.EJS_onLoadState();
+  setTimeout(async () => {
+    if (props.save) await loadSave(props.save);
+    if (props.state) await loadState(props.state);
 
     window.EJS_emulator.settings = {
       ...window.EJS_emulator.settings,
@@ -255,6 +252,8 @@ window.EJS_onGameStart = async () => {
 
 <template>
   <div id="game" />
+  <select-save />
+  <select-state />
 </template>
 
 <style scoped>
