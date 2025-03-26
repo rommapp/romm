@@ -154,36 +154,8 @@ onMounted(async () => {
             variant="outlined"
             size="large"
             prepend-icon="mdi-refresh"
-            @click="$router.go(0)"
-            >{{ t("play.reset-session") }}
-          </v-btn>
-          <v-btn
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-arrow-left"
-            @click="
-              $router.push({
-                name: ROUTES.ROM,
-                params: { rom: rom?.id },
-              })
-            "
-            >{{ t("play.back-to-game-details") }}
-          </v-btn>
-          <v-btn
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-arrow-left"
-            @click="
-              $router.push({
-                name: ROUTES.PLATFORM,
-                params: { platform: rom?.platform_id },
-              })
-            "
-            >{{ t("play.back-to-gallery") }}
+            @click="$router.go(-1)"
+            >{{ t("play.save-and-quit") }}
           </v-btn>
         </v-col>
       </v-row>
