@@ -13,39 +13,12 @@ import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
-const { mdAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedStates = ref<StateSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-const HEADERS = [
-  {
-    title: "Name",
-    align: "start",
-    sortable: true,
-    key: "file_name",
-  },
-  {
-    title: "Core",
-    align: "start",
-    sortable: true,
-    key: "emulator",
-  },
-  {
-    title: "Updated",
-    align: "start",
-    sortable: true,
-    key: "updated_at",
-  },
-  {
-    title: "Size",
-    align: "start",
-    sortable: true,
-    key: "file_size_bytes",
-  },
-  { title: "", align: "end", key: "actions", sortable: false },
-] as const;
 
 // Functions
 async function downloasStates() {
@@ -63,8 +36,29 @@ async function downloasStates() {
 <template>
   <v-data-table-virtual
     :items="rom.user_states"
-    :width="mdAndUp ? '60vw' : '95vw'"
-    :headers="HEADERS"
+    :headers="[
+      lgAndUp
+        ? {
+            title: 'Screenshot',
+            align: 'start',
+            sortable: false,
+            key: 'screenshot',
+          }
+        : {},
+      {
+        title: 'Name',
+        align: 'start',
+        sortable: true,
+        key: 'file_name',
+      },
+      {
+        title: 'Updated',
+        align: 'center',
+        sortable: true,
+        key: 'updated_at',
+      },
+      { title: '', align: 'end', key: 'actions', sortable: false },
+    ]"
     class="rounded"
     return-object
     v-model="selectedStates"
@@ -109,22 +103,27 @@ async function downloasStates() {
         </v-btn>
       </v-btn-group>
     </template>
-    <template #item.file_name="{ item }">
-      <td class="name-row">
-        <span>{{ item.file_name }}</span>
-      </td>
+    <template #item.screenshot="{ item }">
+      <v-img
+        v-if="item.screenshot && lgAndUp"
+        :src="item.screenshot.download_path"
+        height="135"
+        width="180"
+        class="mr-2"
+      />
     </template>
-    <template #item.emulator="{ item }">
-      <v-chip size="x-small" color="orange" label>{{ item.emulator }}</v-chip>
+    <template #item.file_name="{ item }">
+      <v-row style="min-width: auto">{{ item.file_name }}</v-row>
+      <v-row class="mt-4" style="min-height: 20px">
+        <v-chip size="x-small" color="orange" label>{{ item.emulator }}</v-chip>
+        <v-chip size="x-small" label class="ml-2"
+          >{{ formatBytes(item.file_size_bytes) }}
+        </v-chip>
+      </v-row>
     </template>
     <template #item.updated_at="{ item }">
       <v-chip size="x-small" label>
         {{ formatTimestamp(item.updated_at) }}
-      </v-chip>
-    </template>
-    <template #item.file_size_bytes="{ item }">
-      <v-chip size="x-small" label
-        >{{ formatBytes(item.file_size_bytes) }}
       </v-chip>
     </template>
     <template #no-data
@@ -153,8 +152,13 @@ async function downloasStates() {
   </v-data-table-virtual>
   <upload-states-dialog />
 </template>
-<style scoped>
-.name-row {
-  min-width: 300px;
+
+<style>
+.v-table .v-data-table__td {
+  height: 62px !important;
+}
+
+.v-table .v-data-table__td:last-child {
+  padding-left: 0 !important;
 }
 </style>

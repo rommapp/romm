@@ -13,39 +13,12 @@ import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
-const { mdAndUp } = useDisplay();
+const { lgAndUp } = useDisplay();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedSaves = ref<SaveSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
-const HEADERS = [
-  {
-    title: "Name",
-    align: "start",
-    sortable: true,
-    key: "file_name",
-  },
-  {
-    title: "Core",
-    align: "start",
-    sortable: true,
-    key: "emulator",
-  },
-  {
-    title: "Updated",
-    align: "start",
-    sortable: true,
-    key: "updated_at",
-  },
-  {
-    title: "Size",
-    align: "start",
-    sortable: true,
-    key: "file_size_bytes",
-  },
-  { title: "", align: "end", key: "actions", sortable: false },
-] as const;
 
 // Functions
 async function downloasSaves() {
@@ -63,10 +36,31 @@ async function downloasSaves() {
 <template>
   <v-data-table-virtual
     :items="rom.user_saves"
-    :width="mdAndUp ? '60vw' : '95vw'"
-    :headers="HEADERS"
-    return-object
+    :headers="[
+      lgAndUp
+        ? {
+            title: 'Screenshot',
+            align: 'start',
+            sortable: false,
+            key: 'screenshot',
+          }
+        : {},
+      {
+        title: 'Name',
+        align: 'start',
+        sortable: true,
+        key: 'file_name',
+      },
+      {
+        title: 'Updated',
+        align: 'center',
+        sortable: true,
+        key: 'updated_at',
+      },
+      { title: '', align: 'end', key: 'actions', sortable: false },
+    ]"
     class="rounded"
+    return-object
     v-model="selectedSaves"
     show-select
   >
@@ -74,12 +68,14 @@ async function downloasSaves() {
       <v-btn-group divided density="compact">
         <v-btn
           v-if="scopes.includes('assets.write')"
+          drawer
           size="small"
           @click="emitter?.emit('addSavesDialog', rom)"
         >
           <v-icon>mdi-upload</v-icon>
         </v-btn>
         <v-btn
+          drawer
           :disabled="!selectedSaves.length"
           :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
           size="small"
@@ -93,7 +89,7 @@ async function downloasSaves() {
           :class="{
             'text-romm-red': selectedSaves.length,
           }"
-          :disabled="!selectedSaves.length || !scopes.includes('assets.write')"
+          :disabled="!selectedSaves.length"
           :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
           @click="
             emitter?.emit('showDeleteSavesDialog', {
@@ -107,22 +103,27 @@ async function downloasSaves() {
         </v-btn>
       </v-btn-group>
     </template>
-    <template #item.file_name="{ item }">
-      <td class="name-row">
-        <span>{{ item.file_name }}</span>
-      </td>
+    <template #item.screenshot="{ item }">
+      <v-img
+        v-if="item.screenshot && lgAndUp"
+        :src="item.screenshot.download_path"
+        height="135"
+        width="180"
+        class="mr-2"
+      />
     </template>
-    <template #item.emulator="{ item }">
-      <v-chip size="x-small" color="orange" label>{{ item.emulator }} </v-chip>
+    <template #item.file_name="{ item }">
+      <v-row style="min-width: auto">{{ item.file_name }}</v-row>
+      <v-row class="mt-4" style="min-height: 20px">
+        <v-chip size="x-small" color="orange" label>{{ item.emulator }}</v-chip>
+        <v-chip size="x-small" label class="ml-2"
+          >{{ formatBytes(item.file_size_bytes) }}
+        </v-chip>
+      </v-row>
     </template>
     <template #item.updated_at="{ item }">
       <v-chip size="x-small" label>
         {{ formatTimestamp(item.updated_at) }}
-      </v-chip>
-    </template>
-    <template #item.file_size_bytes="{ item }">
-      <v-chip size="x-small" label
-        >{{ formatBytes(item.file_size_bytes) }}
       </v-chip>
     </template>
     <template #no-data
@@ -130,7 +131,7 @@ async function downloasSaves() {
     >
     <template #item.actions="{ item }">
       <v-btn-group divided density="compact">
-        <v-btn :href="item.download_path" download size="small">
+        <v-btn drawer :href="item.download_path" download size="small">
           <v-icon> mdi-download </v-icon>
         </v-btn>
         <v-btn
@@ -151,8 +152,13 @@ async function downloasSaves() {
   </v-data-table-virtual>
   <upload-saves-dialog />
 </template>
-<style scoped>
-.name-row {
-  min-width: 350px;
+
+<style>
+.v-table .v-data-table__td {
+  height: 62px !important;
+}
+
+.v-table .v-data-table__td:last-child {
+  padding-left: 0 !important;
 }
 </style>
