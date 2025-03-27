@@ -50,6 +50,7 @@ const HEADERS = [
 ] as const;
 
 function closeDialog() {
+  window.EJS_emulator?.play();
   show.value = false;
   rom.value = null;
   selectedSaves.value = [];
