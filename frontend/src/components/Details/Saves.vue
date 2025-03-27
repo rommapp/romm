@@ -59,7 +59,7 @@ async function downloasSaves() {
       },
       { title: '', align: 'end', key: 'actions', sortable: false },
     ]"
-    class="rounded"
+    class="rounded saves-table"
     return-object
     v-model="selectedSaves"
     show-select
@@ -111,12 +111,20 @@ async function downloasSaves() {
         width="180"
         class="mr-2"
       />
+      <div v-else style="height: 62px"></div>
     </template>
     <template #item.file_name="{ item }">
       <v-row style="min-width: auto">{{ item.file_name }}</v-row>
       <v-row class="mt-4" style="min-height: 20px">
-        <v-chip size="x-small" color="orange" label>{{ item.emulator }}</v-chip>
-        <v-chip size="x-small" label class="ml-2"
+        <v-chip
+          v-if="item.emulator"
+          size="x-small"
+          color="orange"
+          label
+          class="mr-2"
+          >{{ item.emulator }}</v-chip
+        >
+        <v-chip size="x-small" label
           >{{ formatBytes(item.file_size_bytes) }}
         </v-chip>
       </v-row>
@@ -153,12 +161,13 @@ async function downloasSaves() {
   <upload-saves-dialog />
 </template>
 
-<style>
-.v-table .v-data-table__td {
-  height: 62px !important;
+<style scoped>
+.saves-table >>> .v-data-table__td {
+  height: unset !important;
+  min-height: 62px;
 }
 
-.v-table .v-data-table__td:last-child {
+.saves-table >>> .v-data-table__td:last-child {
   padding-left: 0 !important;
 }
 </style>
