@@ -17,6 +17,7 @@ import {
   saveState,
   loadEmulatorJSSave,
   loadEmulatorJSState,
+  createQuickLoadButton,
 } from "./utils";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
@@ -170,6 +171,7 @@ function displayMessage(
     icon?: string;
   },
 ) {
+  window.EJS_emulator.displayMessage(message, duration);
   const element = document.querySelector("#game .ejs_message");
   if (element) {
     element.classList.add(className, icon);
@@ -177,7 +179,6 @@ function displayMessage(
       element.classList.remove(className, icon);
     }, duration);
   }
-  window.EJS_emulator.displayMessage(message, duration);
 }
 
 // Saves management
@@ -269,7 +270,7 @@ window.EJS_onSaveState = async function ({
   });
   window.EJS_emulator.storage.states.put(
     window.EJS_emulator.getBaseFileName() + ".state",
-    state,
+    stateFile,
   );
 
   if (state) {
@@ -296,6 +297,24 @@ window.EJS_onGameStart = async () => {
       "save-state-location": "browser",
     };
   }, 10);
+
+  const quickLoad = createQuickLoadButton();
+  quickLoad.addEventListener("click", () => {
+    if (
+      window.EJS_emulator.settings["save-state-location"] === "browser" &&
+      window.EJS_emulator.saveInBrowserSupported()
+    ) {
+      window.EJS_emulator.storage.states
+        .get(window.EJS_emulator.getBaseFileName() + ".state")
+        .then((e: Uint8Array) => {
+          window.EJS_emulator.gameManager.loadState(e);
+          displayMessage("Quick load from browser", {
+            duration: 3000,
+            icon: "mdi-flash",
+          });
+        });
+    }
+  });
 
   window.addEventListener("beforeunload", onBeforeUnload);
 };

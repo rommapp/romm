@@ -344,9 +344,7 @@ onMounted(async () => {
               >
             </v-col>
             <v-col
-              cols="12"
-              :sm="gameRunning ? 12 : 7"
-              :xl="gameRunning ? 12 : 9"
+              :cols="gameRunning ? 12 : 8"
               :class="gameRunning ? 'mt-2' : 'ml-2'"
             >
               <v-btn
@@ -360,6 +358,36 @@ onMounted(async () => {
                 >{{ t("play.play") }}
               </v-btn>
             </v-col>
+          </v-row>
+          <v-row v-if="!gameRunning" class="align-center" no-gutters>
+            <v-btn
+              class="mt-4"
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-arrow-left"
+              @click="
+                $router.push({
+                  name: ROUTES.ROM,
+                  params: { rom: rom?.id },
+                })
+              "
+              >{{ t("play.back-to-game-details") }}
+            </v-btn>
+            <v-btn
+              class="mt-4"
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-arrow-left"
+              @click="
+                $router.push({
+                  name: ROUTES.PLATFORM,
+                  params: { platform: rom?.platform_id },
+                })
+              "
+              >{{ t("play.back-to-gallery") }}
+            </v-btn>
           </v-row>
           <v-btn
             v-if="gameRunning"

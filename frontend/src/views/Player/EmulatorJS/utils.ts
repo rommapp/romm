@@ -129,3 +129,30 @@ export function loadEmulatorJSSave(save: Uint8Array) {
 export function loadEmulatorJSState(state: Uint8Array) {
   window.EJS_emulator.gameManager.loadState(state);
 }
+
+export function createQuickLoadButton(): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("role", "presentation");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("viewBox", "2 2 20 20");
+  svg.innerHTML =
+    '<path d="M12,7L17,12H14V16H10V12H7L12,7M19,21H5A2,2 0 0,1 3,19V5A2,2 0 0,1 5,3H19A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21M19,19V5H5V19H19Z"></path>';
+  const text = document.createElement("span");
+  text.classList.add("ejs_menu_text");
+  text.innerText = "Quick Load";
+  button.classList.add("ejs_menu_button");
+  button.appendChild(svg);
+  button.appendChild(text);
+
+  const ejsMenuBar = document.querySelector("#game .ejs_menu_bar");
+  const loadStateBtn = ejsMenuBar?.querySelector(
+    ".ejs_menu_button:nth-child(5)",
+  );
+  if (ejsMenuBar && loadStateBtn) {
+    ejsMenuBar.insertBefore(button, loadStateBtn);
+  }
+
+  return button;
+}
