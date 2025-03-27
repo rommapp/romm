@@ -5,7 +5,7 @@ import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
+import { inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
@@ -49,17 +49,20 @@ const HEADERS = [
   },
 ] as const;
 
-function onLoad() {
-  if (selectedSaves.value.length == 0) return;
-  emitter?.emit("saveSelected", selectedSaves.value[0]);
-  closeDialog();
-}
-
 function closeDialog() {
   show.value = false;
   rom.value = null;
   selectedSaves.value = [];
 }
+
+watch(
+  () => selectedSaves.value,
+  () => {
+    if (selectedSaves.value.length == 0) return;
+    emitter?.emit("saveSelected", selectedSaves.value[0]);
+    closeDialog();
+  },
+);
 </script>
 
 <template>
@@ -113,14 +116,8 @@ function closeDialog() {
     </template>
     <template #append>
       <v-row class="justify-center my-2">
-        <v-btn
-          class="bg-toplayer"
-          color="primary"
-          variant="tonal"
-          :disabled="selectedSaves.length == 0"
-          @click="onLoad"
-        >
-          Load
+        <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
+          Cancel
         </v-btn>
       </v-row>
     </template>
