@@ -59,10 +59,11 @@ async function downloasStates() {
       },
       { title: '', align: 'end', key: 'actions', sortable: false },
     ]"
-    class="rounded states-table"
+    class="rounded"
     return-object
     v-model="selectedStates"
     show-select
+    id="states-table"
   >
     <template #header.actions>
       <v-btn-group divided density="compact">
@@ -162,12 +163,13 @@ async function downloasStates() {
 </template>
 
 <style scoped>
-.states-table >>> .v-data-table__td {
+#states-table >>> .v-data-table__td {
   height: unset !important;
-  min-height: 62px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
-.states-table >>> .v-data-table__td:last-child {
+#states-table >>> .v-data-table__td:last-child {
   padding-left: 0 !important;
 }
 </style>
