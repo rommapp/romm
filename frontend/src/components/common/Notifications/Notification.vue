@@ -29,18 +29,20 @@ function closeDialog() {
   <v-snackbar
     transition="scroll-y-transition"
     v-model="show"
-    :timeout="snackbarStatus.timeout || 3000"
+    :timeout="100000"
     @timeout="closeDialog"
     absolute
     :location="xs ? 'top' : 'top right'"
-    color="tooltip"
+    color="primary-darken"
   >
-    <v-icon
-      :icon="snackbarStatus.icon"
-      :color="snackbarStatus.color"
-      class="mx-2"
-    />
-    {{ snackbarStatus.msg }}
+    <template #text>
+      <v-row class="d-flex align-center px-2">
+        <v-icon :icon="snackbarStatus.icon" class="mx-2" />
+        <span class="text-subtitle-1 font-weight-bold">
+          {{ snackbarStatus.msg }}
+        </span>
+      </v-row>
+    </template>
     <template #actions>
       <v-btn variant="text" @click="closeDialog">
         <v-icon icon="mdi-close" />

@@ -27,7 +27,7 @@ export const light = {
   dark: false,
   colors: {
     primary: "#371f69",
-    secondary: "#553e98",
+    secondary: "#553E98",
     accent: "#E1A38D",
     surface: "#FFFFFF",
     background: "#F2F4F8",

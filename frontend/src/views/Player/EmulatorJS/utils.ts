@@ -24,27 +24,31 @@ export async function saveState({
   screenshotFile?: Uint8Array;
 }): Promise<StateSchema | null> {
   const filename = buildStateName(rom);
-  const uploadedStates = await stateApi.uploadStates({
-    rom: rom,
-    emulator: window.EJS_core,
-    statesToUpload: [
-      {
-        stateFile: new File([stateFile], filename, {
-          type: "application/octet-stream",
-        }),
-        screenshotFile: screenshotFile
-          ? new File([screenshotFile], filename, {
-              type: "application/octet-stream",
-            })
-          : undefined,
-      },
-    ],
-  });
+  try {
+    const uploadedStates = await stateApi.uploadStates({
+      rom: rom,
+      emulator: window.EJS_core,
+      statesToUpload: [
+        {
+          stateFile: new File([stateFile], filename, {
+            type: "application/octet-stream",
+          }),
+          screenshotFile: screenshotFile
+            ? new File([screenshotFile], filename, {
+                type: "application/octet-stream",
+              })
+            : undefined,
+        },
+      ],
+    });
 
-  const uploadedState = uploadedStates[0];
-  if (uploadedState.status == "fulfilled") {
-    if (rom) rom.user_states.push(uploadedState.value);
-    return uploadedState.value;
+    const uploadedState = uploadedStates[0];
+    if (uploadedState.status == "fulfilled") {
+      if (rom) rom.user_states.push(uploadedState.value);
+      return uploadedState.value;
+    }
+  } catch (e) {
+    console.error("Failed to upload state", e);
   }
 
   return null;
@@ -62,15 +66,22 @@ export async function saveSave({
   screenshotFile?: Uint8Array;
 }): Promise<SaveSchema | null> {
   if (save) {
-    const { data: updateSave } = await saveApi.updateSave({
-      save: save,
-      saveFile: new File([saveFile], save.file_name, {
-        type: "application/octet-stream",
-      }),
-    });
-    return updateSave;
-  } else {
-    const saveName = buildSaveName(rom);
+    try {
+      const { data: updateSave } = await saveApi.updateSave({
+        save: save,
+        saveFile: new File([saveFile], save.file_name, {
+          type: "application/octet-stream",
+        }),
+      });
+      return updateSave;
+    } catch (e) {
+      console.error("Failed to update save", e);
+      return null;
+    }
+  }
+
+  const saveName = buildSaveName(rom);
+  try {
     const uploadedSaves = await saveApi.uploadSaves({
       rom: rom,
       emulator: window.EJS_core,
@@ -93,6 +104,8 @@ export async function saveSave({
       if (rom) rom.user_saves.push(uploadedSave.value);
       return uploadedSave.value;
     }
+  } catch (e) {
+    console.error("Failed to upload save", e);
   }
 
   return null;

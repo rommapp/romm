@@ -157,6 +157,12 @@ async function loadSave(save: SaveSchema) {
   });
   if (data) {
     loadEmulatorJSSave(new Uint8Array(data));
+    emitter?.emit("snackbarShow", {
+      msg: "Save loaded from server",
+      icon: "mdi-cloud-download",
+      color: "primary",
+      timeout: 3000,
+    });
     return;
   }
 
@@ -173,12 +179,28 @@ window.EJS_onSaveSave = async function ({
   save: saveFile,
   screenshot: screenshotFile,
 }) {
-  await saveSave({
+  const save = await saveSave({
     rom: props.rom,
     save: saveRef.value,
     saveFile,
     screenshotFile,
   });
+
+  if (save) {
+    emitter?.emit("snackbarShow", {
+      msg: "Save synced with server",
+      icon: "mdi-sync",
+      color: "green",
+      timeout: 4000,
+    });
+  } else {
+    emitter?.emit("snackbarShow", {
+      msg: "Error syncing save with server",
+      icon: "mdi-sync-alert",
+      color: "red",
+      timeout: 4000,
+    });
+  }
 };
 
 // States management
@@ -190,6 +212,12 @@ async function loadState(state: StateSchema) {
   });
   if (data) {
     loadEmulatorJSState(new Uint8Array(data));
+    emitter?.emit("snackbarShow", {
+      msg: "State loaded from server",
+      icon: "mdi-cloud-download",
+      color: "primary",
+      timeout: 3000,
+    });
     return;
   }
 
@@ -215,6 +243,22 @@ window.EJS_onSaveState = async function ({
     window.EJS_emulator.getBaseFileName() + ".state",
     state,
   );
+
+  if (state) {
+    emitter?.emit("snackbarShow", {
+      msg: "State synced with server",
+      icon: "mdi-sync",
+      color: "green",
+      timeout: 4000,
+    });
+  } else {
+    emitter?.emit("snackbarShow", {
+      msg: "Error syncing state with server",
+      icon: "mdi-sync-alert",
+      color: "red",
+      timeout: 4000,
+    });
+  }
 };
 
 window.EJS_onGameStart = async () => {
