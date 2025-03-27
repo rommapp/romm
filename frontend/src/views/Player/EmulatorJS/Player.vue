@@ -304,7 +304,7 @@ window.EJS_onGameStart = async () => {
         .get(window.EJS_emulator.getBaseFileName() + ".state")
         .then((e: Uint8Array) => {
           window.EJS_emulator.gameManager.loadState(e);
-          displayMessage("Quick load from browser", {
+          displayMessage("Quick load from server", {
             duration: 3000,
             icon: "mdi-flash",
           });
