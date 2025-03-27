@@ -179,7 +179,6 @@ function displayMessage(
 
 // Saves management
 async function loadSave(save: SaveSchema) {
-  window.EJS_emulator.play();
   saveRef.value = save;
 
   const { data } = await api.get(save.download_path.replace("/api", ""), {
@@ -231,8 +230,6 @@ window.EJS_onSaveSave = async function ({
 
 // States management
 async function loadState(state: StateSchema) {
-  window.EJS_emulator.play();
-
   const { data } = await api.get(state.download_path.replace("/api", ""), {
     responseType: "arraybuffer",
   });

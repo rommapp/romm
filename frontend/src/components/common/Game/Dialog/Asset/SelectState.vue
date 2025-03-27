@@ -59,6 +59,7 @@ function closeDialog() {
   show.value = false;
   rom.value = null;
   selectedStates.value = [];
+  window.EJS_emulator?.play();
 }
 
 watch(
