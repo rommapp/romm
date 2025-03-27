@@ -52,6 +52,7 @@ declare global {
     EJS_gameUrl: string;
     EJS_loadStateURL: string | null;
     EJS_cheats: string;
+    EJS_gameParentUrl: string;
     EJS_gamePatchUrl: string;
     EJS_netplayServer: string;
     EJS_alignStartButton: "top" | "center" | "bottom";
@@ -61,6 +62,7 @@ declare global {
     EJS_controlScheme: string | null;
     EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     EJS_Buttons: Record<string, boolean>;
+    EJS_VirtualGamepadSettings: {};
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
       screenshot: Uint8Array;
@@ -156,6 +158,28 @@ onBeforeUnmount(async () => {
   window.EJS_emulator?.callEvent("exit");
 });
 
+function displayMessage(
+  message: string,
+  {
+    duration,
+    className = "msg-info",
+    icon = "",
+  }: {
+    duration: number;
+    className?: "msg-info" | "msg-error" | "msg-success";
+    icon?: string;
+  },
+) {
+  const element = document.querySelector("#game .ejs_message");
+  if (element) {
+    element.classList.add(className, icon);
+    setTimeout(() => {
+      element.classList.remove(className, icon);
+    }, duration);
+  }
+  window.EJS_emulator.displayMessage(message, duration);
+}
+
 // Saves management
 async function loadSave(save: SaveSchema) {
   window.EJS_emulator.play();
@@ -166,11 +190,9 @@ async function loadSave(save: SaveSchema) {
   });
   if (data) {
     loadEmulatorJSSave(new Uint8Array(data));
-    emitter?.emit("snackbarShow", {
-      msg: "Save loaded from server",
-      icon: "mdi-cloud-download",
-      color: "primary",
-      timeout: 3000,
+    displayMessage("Save loaded from server", {
+      duration: 3000,
+      icon: "mdi-cloud-upload",
     });
     return;
   }
@@ -197,18 +219,15 @@ window.EJS_onSaveSave = async function ({
   });
 
   if (save) {
-    emitter?.emit("snackbarShow", {
-      msg: "Save synced with server",
-      icon: "mdi-sync",
-      color: "green",
-      timeout: 4000,
+    displayMessage("Save synced with server", {
+      duration: 4000,
+      icon: "mdi-cloud-sync",
     });
   } else {
-    emitter?.emit("snackbarShow", {
-      msg: "Error syncing save with server",
+    displayMessage("Error syncing save with server", {
+      duration: 4000,
+      className: "msg-error",
       icon: "mdi-sync-alert",
-      color: "red",
-      timeout: 4000,
     });
   }
 };
@@ -222,11 +241,9 @@ async function loadState(state: StateSchema) {
   });
   if (data) {
     loadEmulatorJSState(new Uint8Array(data));
-    emitter?.emit("snackbarShow", {
-      msg: "State loaded from server",
-      icon: "mdi-cloud-download",
-      color: "primary",
-      timeout: 3000,
+    displayMessage("State loaded from server", {
+      duration: 3000,
+      icon: "mdi-cloud-upload",
     });
     return;
   }
@@ -256,18 +273,15 @@ window.EJS_onSaveState = async function ({
   );
 
   if (state) {
-    emitter?.emit("snackbarShow", {
-      msg: "State synced with server",
-      icon: "mdi-sync",
-      color: "green",
-      timeout: 4000,
+    displayMessage("State synced with server", {
+      duration: 4000,
+      icon: "mdi-cloud-sync",
     });
   } else {
-    emitter?.emit("snackbarShow", {
-      msg: "Error syncing state with server",
+    displayMessage("Error syncing state with server", {
+      duration: 4000,
+      className: "msg-error",
       icon: "mdi-sync-alert",
-      color: "red",
-      timeout: 4000,
     });
   }
 };
@@ -319,13 +333,37 @@ window.EJS_onGameStart = async () => {
 #game .ejs_menu_bar .ejs_menu_button:last-child {
   display: none;
 }
+
+#game .ejs_message {
+  visibility: hidden;
+  margin: 1rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  color: white;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  filter: opacity(0.85) drop-shadow(0 0 0.5rem rgba(0, 0, 0, 0.5));
+}
+
+#game .ejs_message::before {
+  margin-right: 8px;
+  font-size: 20px !important;
+  font: normal normal normal 24px / 1 "Material Design Icons";
+}
+
+#game .ejs_message.msg-info {
+  visibility: visible;
+  background-color: rgba(var(--v-theme-romm-blue));
+}
+
+#game .ejs_message.msg-error {
+  visibility: visible;
+  background-color: rgba(var(--v-theme-romm-red));
+}
+
+#game .ejs_message.msg-success {
+  visibility: visible;
+  background-color: rgba(var(--v-theme-romm-green));
+}
 </style>
-
-<!-- Other config options: https://emulatorjs.org/docs/options -->
-
-<!-- window.EJS_biosUrl; -->
-<!-- window.EJS_VirtualGamepadSettings; -->
-<!-- window.EJS_cheats; -->
-<!-- window.EJS_gamePatchUrl; -->
-<!-- window.EJS_gameParentUrl; -->
-<!-- window.EJS_netplayServer; -->

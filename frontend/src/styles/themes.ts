@@ -1,7 +1,8 @@
 const commonColors = {
-  "romm-red": "#da3633",
+  "romm-red": "#DA3633",
   "romm-green": "#3FB950",
-  "romm-white": "#fefdfe",
+  "romm-blue": "#0070F3",
+  "romm-white": "#FEFDFE",
   "romm-gray": "#5D5D5D",
   "romm-black": "#000000",
 };
