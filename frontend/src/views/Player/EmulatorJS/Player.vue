@@ -172,6 +172,7 @@ async function loadSave(save: SaveSchema) {
 
 window.EJS_onLoadSave = async function () {
   window.EJS_emulator.pause();
+  window.EJS_emulator.toggleFullscreen(false);
   emitter?.emit("selectSaveDialog", props.rom);
 };
 
@@ -227,6 +228,7 @@ async function loadState(state: StateSchema) {
 
 window.EJS_onLoadState = async function () {
   window.EJS_emulator.pause();
+  window.EJS_emulator.toggleFullscreen(false);
   emitter?.emit("selectStateDialog", props.rom);
 };
 
