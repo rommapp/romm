@@ -6,12 +6,12 @@ import { type StateSchema } from "@/__generated__";
 
 function buildStateName(rom: DetailedRom): string {
   const romName = rom.fs_name_no_ext.trim();
-  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}].state`;
+  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
 }
 
 function buildSaveName(rom: DetailedRom): string {
   const romName = rom.fs_name_no_ext.trim();
-  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}].srm`;
+  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
 }
 
 export async function saveState({
@@ -30,11 +30,11 @@ export async function saveState({
       emulator: window.EJS_core,
       statesToUpload: [
         {
-          stateFile: new File([stateFile], filename, {
+          stateFile: new File([stateFile], `${filename}.state`, {
             type: "application/octet-stream",
           }),
           screenshotFile: screenshotFile
-            ? new File([screenshotFile], filename, {
+            ? new File([screenshotFile], `${filename}.png`, {
                 type: "application/octet-stream",
               })
             : undefined,
@@ -80,18 +80,18 @@ export async function saveSave({
     }
   }
 
-  const saveName = buildSaveName(rom);
+  const filename = buildSaveName(rom);
   try {
     const uploadedSaves = await saveApi.uploadSaves({
       rom: rom,
       emulator: window.EJS_core,
       savesToUpload: [
         {
-          saveFile: new File([saveFile], saveName, {
+          saveFile: new File([saveFile], `${filename}.srm`, {
             type: "application/octet-stream",
           }),
           screenshotFile: screenshotFile
-            ? new File([screenshotFile], saveName, {
+            ? new File([screenshotFile], `${filename}.png`, {
                 type: "application/octet-stream",
               })
             : undefined,

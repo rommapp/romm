@@ -110,12 +110,6 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
 
-function onBeforeUnload(event: BeforeUnloadEvent) {
-  event.preventDefault();
-  event.returnValue =
-    "Use the 'save and quit' button to save your progress and close the game.";
-}
-
 onMounted(() => {
   if (props.bios) {
     localStorage.setItem(
@@ -149,7 +143,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(async () => {
-  window.removeEventListener("beforeunload", onBeforeUnload);
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
   window.EJS_emulator?.callEvent("exit");
@@ -312,10 +305,12 @@ window.EJS_onGameStart = async () => {
   const saveAndQuit = createSaveQuitButton();
   saveAndQuit.addEventListener("click", async () => {
     if (!romRef.value || !window.EJS_emulator) return window.history.back();
+
+    const stateFile = window.EJS_emulator.gameManager.getState();
+    const saveFile = window.EJS_emulator.gameManager.getSaveFile();
     const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
 
     // Force a save of the current state
-    const stateFile = window.EJS_emulator.gameManager.getState();
     await saveState({
       rom: romRef.value,
       stateFile,
@@ -323,7 +318,6 @@ window.EJS_onGameStart = async () => {
     });
 
     // Force a save of the save file
-    const saveFile = window.EJS_emulator.gameManager.getSaveFile();
     await saveSave({
       rom: romRef.value,
       save: saveRef.value,
@@ -334,8 +328,6 @@ window.EJS_onGameStart = async () => {
     window.EJS_emulator.callEvent("exit");
     window.history.back();
   });
-
-  window.addEventListener("beforeunload", onBeforeUnload);
 };
 </script>
 
@@ -360,14 +352,11 @@ window.EJS_onGameStart = async () => {
   height: fit-content;
 }
 
-#game .ejs_setting_menu .ejs_settings_main_bar:nth-child(3) {
-  display: none;
-}
-
 #game .ejs_game_background {
   background-size: 40%;
 }
 
+/* Hide the exit button */
 #game .ejs_menu_bar .ejs_menu_button:nth-child(-1) {
   display: none;
 }
