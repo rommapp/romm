@@ -59,10 +59,11 @@ async function downloasSaves() {
       },
       { title: '', align: 'end', key: 'actions', sortable: false },
     ]"
-    class="rounded saves-table"
+    class="rounded"
     return-object
     v-model="selectedSaves"
     show-select
+    id="saves-table"
   >
     <template #header.actions>
       <v-btn-group divided density="compact">
@@ -162,12 +163,13 @@ async function downloasSaves() {
 </template>
 
 <style scoped>
-.saves-table >>> .v-data-table__td {
+#saves-table >>> .v-data-table__td {
   height: unset !important;
-  min-height: 62px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
-.saves-table >>> .v-data-table__td:last-child {
+#saves-table >>> .v-data-table__td:last-child {
   padding-left: 0 !important;
 }
 </style>

@@ -111,7 +111,7 @@ watch(
           </v-chip>
         </template>
         <template #item.emulator="{ item }">
-          <v-chip size="x-small" color="orange" label
+          <v-chip v-if="item.emulator" size="x-small" color="orange" label
             >{{ item.emulator }}
           </v-chip>
         </template>
@@ -131,6 +131,12 @@ watch(
 </template>
 
 <style>
+#select-state-dialog .v-data-table__td {
+  height: unset !important;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
 #select-state-dialog .v-data-table__td:nth-child(2) {
   min-height: 150px !important;
   min-width: 170px !important;
