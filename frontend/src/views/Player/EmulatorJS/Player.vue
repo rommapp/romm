@@ -31,6 +31,7 @@ const props = defineProps<{
   core: string | null;
   disc: number | null;
 }>();
+const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -74,14 +75,16 @@ declare global {
   }
 }
 
-const supportedCores = getSupportedEJSCores(props.rom.platform_slug);
+const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
-window.EJS_controlScheme = getControlSchemeForPlatform(props.rom.platform_slug);
+window.EJS_controlScheme = getControlSchemeForPlatform(
+  romRef.value.platform_slug,
+);
 window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
-window.EJS_gameID = props.rom.id;
+window.EJS_gameID = romRef.value.id;
 window.EJS_gameUrl = getDownloadPath({
-  rom: props.rom,
+  rom: romRef.value,
   fileIDs: props.disc ? [props.disc] : [],
 });
 window.EJS_biosUrl = props.bios
@@ -99,7 +102,7 @@ window.EJS_defaultOptions = {
   rewindEnabled: "enabled",
 };
 // Set a valid game name
-window.EJS_gameName = props.rom.fs_name_no_tags
+window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
 // Disable quick save and quick load
@@ -117,23 +120,29 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 onMounted(() => {
   if (props.bios) {
     localStorage.setItem(
-      `player:${props.rom.platform_slug}:bios_id`,
+      `player:${romRef.value.platform_slug}:bios_id`,
       props.bios.id.toString(),
     );
   } else {
-    localStorage.removeItem(`player:${props.rom.platform_slug}:bios_id`);
+    localStorage.removeItem(`player:${romRef.value.platform_slug}:bios_id`);
   }
 
   if (props.core) {
-    localStorage.setItem(`player:${props.rom.platform_slug}:core`, props.core);
+    localStorage.setItem(
+      `player:${romRef.value.platform_slug}:core`,
+      props.core,
+    );
   } else {
-    localStorage.removeItem(`player:${props.rom.platform_slug}:core`);
+    localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
   }
 
   if (props.disc) {
-    localStorage.setItem(`player:${props.rom.id}:disc`, props.disc.toString());
+    localStorage.setItem(
+      `player:${romRef.value.id}:disc`,
+      props.disc.toString(),
+    );
   } else {
-    localStorage.removeItem(`player:${props.rom.id}:disc`);
+    localStorage.removeItem(`player:${romRef.value.id}:disc`);
   }
 
   emitter?.on("saveSelected", loadSave);
@@ -173,7 +182,7 @@ async function loadSave(save: SaveSchema) {
 window.EJS_onLoadSave = async function () {
   window.EJS_emulator.pause();
   window.EJS_emulator.toggleFullscreen(false);
-  emitter?.emit("selectSaveDialog", props.rom);
+  emitter?.emit("selectSaveDialog", romRef.value);
 };
 
 window.EJS_onSaveSave = async function ({
@@ -181,7 +190,7 @@ window.EJS_onSaveSave = async function ({
   screenshot: screenshotFile,
 }) {
   const save = await saveSave({
-    rom: props.rom,
+    rom: romRef.value,
     save: saveRef.value,
     saveFile,
     screenshotFile,
@@ -229,7 +238,7 @@ async function loadState(state: StateSchema) {
 window.EJS_onLoadState = async function () {
   window.EJS_emulator.pause();
   window.EJS_emulator.toggleFullscreen(false);
-  emitter?.emit("selectStateDialog", props.rom);
+  emitter?.emit("selectStateDialog", romRef.value);
 };
 
 window.EJS_onSaveState = async function ({
@@ -237,7 +246,7 @@ window.EJS_onSaveState = async function ({
   screenshot: screenshotFile,
 }) {
   const state = await saveState({
-    rom: props.rom,
+    rom: romRef.value,
     stateFile,
     screenshotFile,
   });
