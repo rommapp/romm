@@ -44,7 +44,7 @@ export async function saveState({
 
     const uploadedState = uploadedStates[0];
     if (uploadedState.status == "fulfilled") {
-      if (rom) rom.user_states.push(uploadedState.value);
+      if (rom) rom.user_states.unshift(uploadedState.value);
       return uploadedState.value;
     }
   } catch (e) {
@@ -101,7 +101,7 @@ export async function saveSave({
 
     const uploadedSave = uploadedSaves[0];
     if (uploadedSave.status == "fulfilled") {
-      if (rom) rom.user_saves.push(uploadedSave.value);
+      if (rom) rom.user_saves.unshift(uploadedSave.value);
       return uploadedSave.value;
     }
   } catch (e) {
