@@ -18,6 +18,7 @@ import {
   loadEmulatorJSSave,
   loadEmulatorJSState,
   createQuickLoadButton,
+  createSaveQuitButton,
 } from "./utils";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
@@ -108,11 +109,6 @@ window.EJS_defaultOptions = {
 window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
-// Disable quick save and quick load
-window.EJS_Buttons = {
-  quickSave: false,
-  quickLoad: false,
-};
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
   event.preventDefault();
@@ -316,6 +312,32 @@ window.EJS_onGameStart = async () => {
     }
   });
 
+  const saveAndQuit = createSaveQuitButton();
+  saveAndQuit.addEventListener("click", async () => {
+    if (!romRef.value || !window.EJS_emulator) return window.history.back();
+    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
+
+    // Force a save of the current state
+    const stateFile = window.EJS_emulator.gameManager.getState();
+    await saveState({
+      rom: romRef.value,
+      stateFile,
+      screenshotFile,
+    });
+
+    // Force a save of the save file
+    const saveFile = window.EJS_emulator.gameManager.getSaveFile();
+    await saveSave({
+      rom: romRef.value,
+      save: saveRef.value,
+      saveFile,
+      screenshotFile,
+    });
+
+    window.EJS_emulator.callEvent("exit");
+    window.history.back();
+  });
+
   window.addEventListener("beforeunload", onBeforeUnload);
 };
 </script>
@@ -349,7 +371,7 @@ window.EJS_onGameStart = async () => {
   background-size: 40%;
 }
 
-#game .ejs_menu_bar .ejs_menu_button:last-child {
+#game .ejs_menu_bar .ejs_menu_button:nth-child(-1) {
   display: none;
 }
 
