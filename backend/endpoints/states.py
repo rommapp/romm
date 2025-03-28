@@ -191,12 +191,9 @@ async def delete_states(request: Request) -> list[int]:
             fs_asset_handler.remove_file(
                 file_name=state.file_name, file_path=state.file_path
             )
-        except FileNotFoundError as exc:
+        except FileNotFoundError:
             error = f"State file {state.file_name} not found for platform {state.rom.platform_slug}"
             log.error(error)
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=error
-            ) from exc
 
         if state.screenshot:
             db_screenshot_handler.delete_screenshot(state.screenshot.id)

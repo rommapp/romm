@@ -191,12 +191,9 @@ async def delete_saves(request: Request) -> list[int]:
             fs_asset_handler.remove_file(
                 file_name=save.file_name, file_path=save.file_path
             )
-        except FileNotFoundError as exc:
+        except FileNotFoundError:
             error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
             log.error(error)
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=error
-            ) from exc
 
         if save.screenshot:
             db_screenshot_handler.delete_screenshot(save.screenshot.id)
