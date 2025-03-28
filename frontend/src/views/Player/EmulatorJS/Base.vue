@@ -255,19 +255,18 @@ onBeforeUnmount(async () => {
             <v-col cols="6">
               <v-card v-if="stateRef" class="bg-toplayer transform-scale">
                 <v-card-text class="d-flex flex-row justify-end h-100">
-                  <v-col>
+                  <v-col class="pa-0">
                     <v-img
                       cover
+                      height="100%"
                       :src="
                         stateRef.screenshot?.download_path ??
                         getEmptyCoverImage(stateRef.file_name)
                       "
                     />
                   </v-col>
-                  <v-col class="ml-2">
-                    <v-row class="mt-2 flex-grow-0">{{
-                      stateRef.file_name
-                    }}</v-row>
+                  <v-col class="ml-4">
+                    <v-row class="flex-grow-0">{{ stateRef.file_name }}</v-row>
                     <v-row
                       class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                       style="min-height: 20px"
@@ -314,19 +313,18 @@ onBeforeUnmount(async () => {
             <v-col cols="6">
               <v-card v-if="saveRef" class="bg-toplayer transform-scale">
                 <v-card-text class="d-flex flex-row justify-end h-100">
-                  <v-col>
+                  <v-col class="pa-0">
                     <v-img
                       cover
+                      height="100%"
                       :src="
                         saveRef.screenshot?.download_path ??
                         getEmptyCoverImage(saveRef.file_name)
                       "
                     />
                   </v-col>
-                  <v-col class="ml-2">
-                    <v-row class="mt-2 flex-grow-0">{{
-                      saveRef.file_name
-                    }}</v-row>
+                  <v-col class="ml-4">
+                    <v-row class="flex-grow-0">{{ saveRef.file_name }}</v-row>
                     <v-row
                       class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                       style="min-height: 20px"

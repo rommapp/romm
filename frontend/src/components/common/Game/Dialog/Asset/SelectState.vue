@@ -10,8 +10,10 @@ import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const { mdAndUp } = useDisplay();
@@ -46,9 +48,13 @@ function closeDialog() {
     :width="mdAndUp ? '50vw' : '95vw'"
     id="select-state-dialog"
   >
+    <template #header>
+      <span class="text-h5 ml-4">{{ t("play.select-state") }}</span>
+    </template>
     <template #content>
-      <div v-if="rom" class="d-flex justify-center ga-4 flex-md-wrap mt-6 px-2">
+      <div v-if="rom" class="d-flex justify-center ga-4 flex-md-wrap py-6 px-2">
         <v-hover
+          v-if="rom.user_states.length > 0"
           v-for="state in rom.user_states"
           v-slot="{ isHovering, props }"
         >
@@ -69,6 +75,7 @@ function closeDialog() {
               <v-row class="position-relative">
                 <v-img
                   cover
+                  height="100%"
                   :src="
                     state.screenshot?.download_path ??
                     getEmptyCoverImage(state.file_name)
@@ -97,9 +104,7 @@ function closeDialog() {
                   </v-btn>
                 </v-btn-group>
               </v-row>
-              <v-row class="mt-6 flex-grow-0">{{
-                state.file_name.replace(rom.fs_name_no_ext, "")
-              }}</v-row>
+              <v-row class="mt-6 flex-grow-0">{{ state.file_name }}</v-row>
               <v-row
                 class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                 style="min-height: 20px"
@@ -122,6 +127,12 @@ function closeDialog() {
             </v-card-text>
           </v-card>
         </v-hover>
+        <div v-else>
+          <v-col class="text-center mt-6">
+            <v-icon size="x-large">mdi-help-rhombus-outline</v-icon>
+            <p class="text-h4 mt-2">{{ t("rom.no-states-found") }}</p>
+          </v-col>
+        </div>
       </div>
     </template>
     <template #append>
