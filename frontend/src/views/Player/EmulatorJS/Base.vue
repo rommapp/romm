@@ -65,8 +65,12 @@ function onFullScreenChange() {
   localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
+async function onlyQuit() {
+  window.history.back();
+}
+
 async function saveAndQuit() {
-  if (!rom.value || !window.EJS_emulator) return window.history.back();
+  if (!rom.value) return window.history.back();
   const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
 
   // Force a save of the current state
@@ -86,7 +90,6 @@ async function saveAndQuit() {
     screenshotFile,
   });
 
-  window.EJS_emulator.callEvent("exit");
   window.history.back();
 }
 
@@ -395,7 +398,18 @@ onMounted(async () => {
             block
             variant="outlined"
             size="large"
-            prepend-icon="mdi-arrow-left"
+            prepend-icon="mdi-exit-to-app"
+            @click="onlyQuit"
+          >
+            {{ t("play.quit") }}
+          </v-btn>
+          <v-btn
+            v-if="gameRunning"
+            class="mt-4"
+            block
+            variant="outlined"
+            size="large"
+            prepend-icon="mdi-content-save-move"
             @click="saveAndQuit"
           >
             {{ t("play.save-and-quit") }}
