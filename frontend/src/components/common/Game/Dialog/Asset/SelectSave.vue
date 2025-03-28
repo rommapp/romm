@@ -10,8 +10,10 @@ import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const { mdAndUp } = useDisplay();
@@ -46,9 +48,16 @@ function closeDialog() {
     :width="mdAndUp ? '50vw' : '95vw'"
     id="select-save-dialog"
   >
+    <template #header>
+      <span class="text-h5 ml-4">{{ t("play.select-save") }}</span>
+    </template>
     <template #content>
-      <div v-if="rom" class="d-flex justify-center ga-4 flex-md-wrap mt-6 px-2">
-        <v-hover v-for="save in rom.user_saves" v-slot="{ isHovering, props }">
+      <div v-if="rom" class="d-flex justify-center ga-4 flex-md-wrap py-6 px-2">
+        <v-hover
+          v-if="rom.user_saves.length > 0"
+          v-for="save in rom.user_saves"
+          v-slot="{ isHovering, props }"
+        >
           <v-card
             v-bind="props"
             class="bg-toplayer transform-scale"
@@ -66,6 +75,7 @@ function closeDialog() {
               <v-row class="position-relative">
                 <v-img
                   cover
+                  height="100%"
                   :src="
                     save.screenshot?.download_path ??
                     getEmptyCoverImage(save.file_name)
@@ -94,9 +104,7 @@ function closeDialog() {
                   </v-btn>
                 </v-btn-group>
               </v-row>
-              <v-row class="mt-6 flex-grow-0">{{
-                save.file_name.replace(rom.fs_name_no_ext, "")
-              }}</v-row>
+              <v-row class="mt-6 flex-grow-0">{{ save.file_name }}</v-row>
               <v-row
                 class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                 style="min-height: 20px"
@@ -119,6 +127,12 @@ function closeDialog() {
             </v-card-text>
           </v-card>
         </v-hover>
+        <div v-else>
+          <v-col class="text-center mt-6">
+            <v-icon size="x-large">mdi-help-rhombus-outline</v-icon>
+            <p class="text-h4 mt-2">{{ t("rom.no-states-found") }}</p>
+          </v-col>
+        </div>
       </div>
     </template>
     <template #append>

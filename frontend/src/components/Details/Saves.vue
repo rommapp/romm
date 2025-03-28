@@ -8,8 +8,10 @@ import { inject, ref } from "vue";
 import storeAuth from "@/stores/auth";
 import { storeToRefs } from "pinia";
 import { getEmptyCoverImage } from "@/utils/covers";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
@@ -105,7 +107,11 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
     </v-btn-group>
   </div>
   <div class="d-flex ga-4 flex-md-wrap mt-6 px-2">
-    <v-hover v-for="save in rom.user_saves" v-slot="{ isHovering, props }">
+    <v-hover
+      v-if="rom.user_saves.length > 0"
+      v-for="save in rom.user_saves"
+      v-slot="{ isHovering, props }"
+    >
       <v-card
         v-bind="props"
         class="bg-toplayer transform-scale"
@@ -124,6 +130,7 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
           <v-row class="position-relative">
             <v-img
               cover
+              height="100%"
               :src="
                 save.screenshot?.download_path ??
                 getEmptyCoverImage(save.file_name)
@@ -152,9 +159,7 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
               </v-btn>
             </v-btn-group>
           </v-row>
-          <v-row class="mt-6 flex-grow-0">{{
-            save.file_name.replace(rom.fs_name_no_ext, "")
-          }}</v-row>
+          <v-row class="mt-6 flex-grow-0">{{ save.file_name }}</v-row>
           <v-row
             class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
             style="min-height: 20px"
@@ -172,5 +177,11 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
         </v-card-text>
       </v-card>
     </v-hover>
+    <div v-else>
+      <v-col class="text-center mt-6">
+        <v-icon size="x-large">mdi-help-rhombus-outline</v-icon>
+        <p class="text-h4 mt-2">{{ t("rom.no-saves-found") }}</p>
+      </v-col>
+    </div>
   </div>
 </template>
