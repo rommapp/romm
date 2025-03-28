@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SaveSchema } from "@/__generated__";
 import UploadSavesDialog from "@/components/common/Game/Dialog/Asset/UploadSaves.vue";
+import DeleteSavesDialog from "@/components/common/Game/Dialog/Asset/DeleteSaves.vue";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
@@ -160,6 +161,7 @@ async function downloasSaves() {
     </template>
   </v-data-table-virtual>
   <upload-saves-dialog />
+  <delete-saves-dialog />
 </template>
 
 <style scoped>

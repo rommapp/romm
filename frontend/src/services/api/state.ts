@@ -56,14 +56,11 @@ async function updateState({
 
 async function deleteStates({
   states,
-  deleteFromFs,
 }: {
   states: StateSchema[];
-  deleteFromFs: number[];
-}) {
+}): Promise<{ data: number[] }> {
   return api.post("/states/delete", {
     states: states.map((s) => s.id),
-    delete_from_fs: deleteFromFs,
   });
 }
 

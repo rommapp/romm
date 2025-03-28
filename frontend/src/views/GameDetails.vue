@@ -11,7 +11,6 @@ import States from "@/components/Details/States.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import DeleteAssetDialog from "@/components/common/Game/Dialog/Asset/DeleteAssets.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
@@ -223,7 +222,6 @@ watch(
   </template>
 
   <empty-game v-if="noRomError" />
-  <delete-asset-dialog />
 </template>
 
 <style scoped>

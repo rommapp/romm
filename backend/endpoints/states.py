@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
 from endpoints.responses.assets import StateSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from fastapi import HTTPException, Request, UploadFile, status
@@ -169,10 +168,9 @@ async def update_state(request: Request, id: int) -> StateSchema:
 
 
 @protected_route(router.post, "/delete", [Scope.ASSETS_WRITE])
-async def delete_states(request: Request) -> MessageResponse:
+async def delete_states(request: Request) -> list[int]:
     data: dict = await request.json()
     state_ids: list = data["states"]
-    delete_from_fs: list = data["delete_from_fs"]
 
     if not state_ids:
         error = "No states were provided"
@@ -187,32 +185,29 @@ async def delete_states(request: Request) -> MessageResponse:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         db_state_handler.delete_state(state_id)
+        log.info(f"Deleting {state.file_name} from filesystem")
 
-        if state_id in delete_from_fs:
-            log.info(f"Deleting {state.file_name} from filesystem")
-
-            try:
-                fs_asset_handler.remove_file(
-                    file_name=state.file_name, file_path=state.file_path
-                )
-            except FileNotFoundError as exc:
-                error = f"State file {state.file_name} not found for platform {state.rom.platform_slug}"
-                log.error(error)
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=error
-                ) from exc
+        try:
+            fs_asset_handler.remove_file(
+                file_name=state.file_name, file_path=state.file_path
+            )
+        except FileNotFoundError as exc:
+            error = f"State file {state.file_name} not found for platform {state.rom.platform_slug}"
+            log.error(error)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=error
+            ) from exc
 
         if state.screenshot:
             db_screenshot_handler.delete_screenshot(state.screenshot.id)
 
-            if delete_from_fs:
-                try:
-                    fs_asset_handler.remove_file(
-                        file_name=state.screenshot.file_name,
-                        file_path=state.screenshot.file_path,
-                    )
-                except FileNotFoundError:
-                    error = f"Screenshot file {state.screenshot.file_name} not found for state {state.file_name}"
-                    log.error(error)
+            try:
+                fs_asset_handler.remove_file(
+                    file_name=state.screenshot.file_name,
+                    file_path=state.screenshot.file_path,
+                )
+            except FileNotFoundError:
+                error = f"Screenshot file {state.screenshot.file_name} not found for state {state.file_name}"
+                log.error(error)
 
-    return {"msg": f"Successfully deleted {len(state_ids)} states"}
+    return state_ids

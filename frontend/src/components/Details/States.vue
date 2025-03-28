@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { StateSchema } from "@/__generated__";
 import UploadStatesDialog from "@/components/common/Game/Dialog/Asset/UploadStates.vue";
+import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
@@ -160,6 +161,7 @@ async function downloasStates() {
     </template>
   </v-data-table-virtual>
   <upload-states-dialog />
+  <delete-states-dialog />
 </template>
 
 <style scoped>
