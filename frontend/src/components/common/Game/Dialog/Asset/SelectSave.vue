@@ -7,7 +7,7 @@ import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 import type { Emitter } from "mitt";
-import { inject, ref, watch } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
@@ -72,7 +72,7 @@ function closeDialog() {
               class="d-flex flex-column justify-end h-100"
               style="padding: 1.5rem"
             >
-              <v-row class="position-relative">
+              <v-row>
                 <v-img
                   cover
                   height="100%"
@@ -81,28 +81,6 @@ function closeDialog() {
                     getEmptyCoverImage(save.file_name)
                   "
                 />
-                <v-btn-group
-                  v-if="isHovering"
-                  class="position-absolute bottom-0 right-0"
-                  density="compact"
-                >
-                  <v-btn
-                    v-if="scopes.includes('assets.write')"
-                    drawer
-                    size="small"
-                    @click="
-                      (e: MouseEvent) => {
-                        e.stopPropagation();
-                        emitter?.emit('showDeleteSavesDialog', {
-                          rom: rom,
-                          saves: [save],
-                        });
-                      }
-                    "
-                  >
-                    <v-icon class="text-romm-red">mdi-delete</v-icon>
-                  </v-btn>
-                </v-btn-group>
               </v-row>
               <v-row class="mt-6 flex-grow-0">{{ save.file_name }}</v-row>
               <v-row
