@@ -56,14 +56,11 @@ async function updateSave({
 
 async function deleteSaves({
   saves,
-  deleteFromFs,
 }: {
   saves: SaveSchema[];
-  deleteFromFs: number[];
-}) {
+}): Promise<{ data: number[] }> {
   return api.post("/saves/delete", {
     saves: saves.map((s) => s.id),
-    delete_from_fs: deleteFromFs,
   });
 }
 

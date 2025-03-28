@@ -47,8 +47,8 @@ export async function saveState({
       if (rom) rom.user_states.unshift(uploadedState.value);
       return uploadedState.value;
     }
-  } catch (e) {
-    console.error("Failed to upload state", e);
+  } catch (error) {
+    console.error("Failed to upload state", error);
   }
 
   return null;
@@ -74,8 +74,8 @@ export async function saveSave({
         }),
       });
       return updateSave;
-    } catch (e) {
-      console.error("Failed to update save", e);
+    } catch (error) {
+      console.error("Failed to update save", error);
       return null;
     }
   }
@@ -104,8 +104,8 @@ export async function saveSave({
       if (rom) rom.user_saves.unshift(uploadedSave.value);
       return uploadedSave.value;
     }
-  } catch (e) {
-    console.error("Failed to upload save", e);
+  } catch (error) {
+    console.error("Failed to upload save", error);
   }
 
   return null;

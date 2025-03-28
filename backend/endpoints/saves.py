@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
 from endpoints.responses.assets import SaveSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from fastapi import HTTPException, Request, UploadFile, status
@@ -169,10 +168,9 @@ async def update_save(request: Request, id: int) -> SaveSchema:
 
 
 @protected_route(router.post, "/delete", [Scope.ASSETS_WRITE])
-async def delete_saves(request: Request) -> MessageResponse:
+async def delete_saves(request: Request) -> list[int]:
     data: dict = await request.json()
     save_ids: list = data["saves"]
-    delete_from_fs: list = data["delete_from_fs"]
 
     if not save_ids:
         error = "No saves were provided"
@@ -188,31 +186,28 @@ async def delete_saves(request: Request) -> MessageResponse:
 
         db_save_handler.delete_save(save_id)
 
-        if save_id in delete_from_fs:
-            log.info(f"Deleting {save.file_name} from filesystem")
-
-            try:
-                fs_asset_handler.remove_file(
-                    file_name=save.file_name, file_path=save.file_path
-                )
-            except FileNotFoundError as exc:
-                error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
-                log.error(error)
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=error
-                ) from exc
+        log.info(f"Deleting {save.file_name} from filesystem")
+        try:
+            fs_asset_handler.remove_file(
+                file_name=save.file_name, file_path=save.file_path
+            )
+        except FileNotFoundError as exc:
+            error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
+            log.error(error)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=error
+            ) from exc
 
         if save.screenshot:
             db_screenshot_handler.delete_screenshot(save.screenshot.id)
 
-            if delete_from_fs:
-                try:
-                    fs_asset_handler.remove_file(
-                        file_name=save.screenshot.file_name,
-                        file_path=save.screenshot.file_path,
-                    )
-                except FileNotFoundError:
-                    error = f"Screenshot file {save.screenshot.file_name} not found for save {save.file_name}"
-                    log.error(error)
+            try:
+                fs_asset_handler.remove_file(
+                    file_name=save.screenshot.file_name,
+                    file_path=save.screenshot.file_path,
+                )
+            except FileNotFoundError:
+                error = f"Screenshot file {save.screenshot.file_name} not found for save {save.file_name}"
+                log.error(error)
 
-    return {"msg": f"Successfully deleted {len(save_ids)} saves"}
+    return save_ids
