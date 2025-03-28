@@ -59,7 +59,6 @@ async function uploadSaves() {
       })),
     })
     .then((data) => {
-      debugger;
       const saves = data;
 
       emitter?.emit("snackbarShow", {

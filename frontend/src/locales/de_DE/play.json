@@ -8,5 +8,7 @@
   "clear-cache": "EmulatorJS-Cache löschen",
   "clear-cache-title": "Möchtest du den EmulatorJS-Cache wirklich löschen?",
   "clear-cache-warning": "Dadurch werden alle im Browser gespeicherten Spielstände und Speicherungen entfernt.",
-  "clear-cache-description": "Es hat keine Auswirkungen auf Spielstände und Speicherungen, die auf dem Server gespeichert sind."
+  "clear-cache-description": "Es hat keine Auswirkungen auf Spielstände und Speicherungen, die auf dem Server gespeichert sind.",
+  "select-save": "Speicherstand auswählen",
+  "select-state": "Speicherstand auswählen"
 }
