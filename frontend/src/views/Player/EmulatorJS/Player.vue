@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { saveApi as api } from "@/services/api/save";
-import type { DetailedRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import {
   areThreadsRequiredForEJSCore,
   getSupportedEJSCores,
@@ -25,6 +25,7 @@ import type { Events } from "@/types/emitter";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
+const romsStore = storeRoms();
 const props = defineProps<{
   rom: DetailedRom;
   save: SaveSchema | null;
@@ -207,6 +208,8 @@ window.EJS_onSaveSave = async function ({
     screenshotFile,
   });
 
+  romsStore.update(romRef.value);
+
   if (save) {
     displayMessage("Save synced with server", {
       duration: 4000,
@@ -258,6 +261,8 @@ window.EJS_onSaveState = async function ({
     window.EJS_emulator.getBaseFileName() + ".state",
     stateFile,
   );
+
+  romsStore.update(romRef.value);
 
   if (state) {
     displayMessage("State synced with server", {
@@ -325,7 +330,7 @@ window.EJS_onGameStart = async () => {
       screenshotFile,
     });
 
-    window.EJS_emulator.callEvent("exit");
+    romsStore.update(romRef.value);
     window.history.back();
   });
 };
