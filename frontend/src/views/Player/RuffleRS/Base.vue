@@ -60,6 +60,10 @@ function onFullScreenChange() {
   localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
+async function onlyQuit() {
+  window.history.back();
+}
+
 onMounted(async () => {
   const romResponse = await romApi.getRom({
     romId: parseInt(route.params.rom as string),
@@ -148,14 +152,46 @@ onMounted(async () => {
               </v-btn>
             </v-col>
           </v-row>
+          <v-row v-if="!gameRunning" class="align-center" no-gutters>
+            <v-btn
+              class="mt-4"
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-arrow-left"
+              @click="
+                $router.push({
+                  name: ROUTES.ROM,
+                  params: { rom: rom?.id },
+                })
+              "
+              >{{ t("play.back-to-game-details") }}
+            </v-btn>
+            <v-btn
+              class="mt-4"
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-arrow-left"
+              @click="
+                $router.push({
+                  name: ROUTES.PLATFORM,
+                  params: { platform: rom?.platform_id },
+                })
+              "
+              >{{ t("play.back-to-gallery") }}
+            </v-btn>
+          </v-row>
           <v-btn
+            v-if="gameRunning"
             class="mt-4"
             block
             variant="outlined"
             size="large"
-            prepend-icon="mdi-refresh"
-            @click="$router.go(-1)"
-            >{{ t("play.save-and-quit") }}
+            prepend-icon="mdi-exit-to-app"
+            @click="onlyQuit"
+          >
+            {{ t("play.quit") }}
           </v-btn>
         </v-col>
       </v-row>
