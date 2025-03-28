@@ -266,7 +266,12 @@ onBeforeUnmount(async () => {
                     />
                   </v-col>
                   <v-col class="ml-4">
-                    <v-row class="flex-grow-0">{{ stateRef.file_name }}</v-row>
+                    <v-row class="text-h6">{{
+                      t("play.select-state").toUpperCase()
+                    }}</v-row>
+                    <v-row class="mt-4 flex-grow-0">{{
+                      stateRef.file_name
+                    }}</v-row>
                     <v-row
                       class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                       style="min-height: 20px"
@@ -324,7 +329,12 @@ onBeforeUnmount(async () => {
                     />
                   </v-col>
                   <v-col class="ml-4">
-                    <v-row class="flex-grow-0">{{ saveRef.file_name }}</v-row>
+                    <v-row class="text-h6">{{
+                      t("play.select-save").toUpperCase()
+                    }}</v-row>
+                    <v-row class="mt-4 flex-grow-0">{{
+                      saveRef.file_name
+                    }}</v-row>
                     <v-row
                       class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                       style="min-height: 20px"
