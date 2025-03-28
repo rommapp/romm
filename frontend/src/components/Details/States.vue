@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { StateSchema } from "@/__generated__";
-import UploadStatesDialog from "@/components/common/Game/Dialog/Asset/UploadStates.vue";
-import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
@@ -156,7 +154,9 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
               </v-btn>
             </v-btn-group>
           </v-row>
-          <v-row class="mt-6 flex-grow-0">{{ state.file_name }}</v-row>
+          <v-row class="mt-6 flex-grow-0">{{
+            state.file_name.replace(rom.fs_name_no_ext, "")
+          }}</v-row>
           <v-row
             class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
             style="min-height: 20px"
@@ -175,18 +175,4 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
       </v-card>
     </v-hover>
   </div>
-  <upload-states-dialog />
-  <delete-states-dialog />
 </template>
-
-<style scoped>
-#states-table >>> .v-data-table__td {
-  height: unset !important;
-  padding-top: 4px;
-  padding-bottom: 4px;
-}
-
-#states-table >>> .v-data-table__td:last-child {
-  padding-left: 0 !important;
-}
-</style>

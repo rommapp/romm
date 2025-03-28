@@ -8,8 +8,6 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
-import SelectSave from "@/components/common/Game/Dialog/Asset/SelectSave.vue";
-import SelectState from "@/components/common/Game/Dialog/Asset/SelectState.vue";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useTheme } from "vuetify";
 import {
@@ -338,8 +336,6 @@ window.EJS_onGameStart = async () => {
 
 <template>
   <div id="game" />
-  <select-save />
-  <select-state />
 </template>
 
 <style scoped>

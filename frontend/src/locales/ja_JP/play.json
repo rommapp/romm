@@ -8,5 +8,7 @@
   "clear-cache": "EmulatorJS キャッシュをクリア",
   "clear-cache-title": "EmulatorJS キャッシュをクリアしてもよろしいですか？",
   "clear-cache-warning": "これにより、ブラウザに保存されているすべてのセーブデータとステートが削除されます。",
-  "clear-cache-description": "サーバーに保存されているセーブデータやステートには影響しません。"
+  "clear-cache-description": "サーバーに保存されているセーブデータやステートには影響しません。",
+  "select-save": "セーブデータを選択",
+  "select-state": "ステートを選択"
 }

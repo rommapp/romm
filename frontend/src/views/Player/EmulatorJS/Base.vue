@@ -9,11 +9,14 @@ import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
-import { onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { saveSave, saveState } from "./utils";
 import CacheDialog from "./CacheDialog.vue";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
+import { getEmptyCoverImage } from "@/utils/covers";
 
 const EMULATORJS_VERSION = "4.2.1";
 
@@ -32,6 +35,7 @@ const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
+const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
 function onPlay() {
@@ -93,6 +97,22 @@ async function saveAndQuit() {
   window.history.back();
 }
 
+function saveSelected(save: SaveSchema) {
+  saveRef.value = save;
+  localStorage.setItem(
+    `player:${rom.value?.platform_slug}:save_id`,
+    save.id.toString(),
+  );
+}
+
+function stateSelected(state: StateSchema) {
+  stateRef.value = state;
+  localStorage.setItem(
+    `player:${rom.value?.platform_slug}:state_id`,
+    state.id.toString(),
+  );
+}
+
 onMounted(async () => {
   const romResponse = await romApi.getRom({
     romId: parseInt(route.params.rom as string),
@@ -133,6 +153,15 @@ onMounted(async () => {
   if (storedDisc) {
     discRef.value = parseInt(storedDisc);
   }
+
+  emitter?.on("saveSelected", saveSelected);
+  emitter?.on("stateSelected", stateSelected);
+});
+
+onBeforeUnmount(async () => {
+  emitter?.off("saveSelected", saveSelected);
+  emitter?.off("stateSelected", stateSelected);
+  window.EJS_emulator?.callEvent("exit");
 });
 </script>
 
@@ -208,6 +237,7 @@ onMounted(async () => {
             "
           />
           <v-select
+            v-if="firmwareOptions.length > 1"
             v-model="biosRef"
             class="my-1"
             hide-details
@@ -221,110 +251,126 @@ onMounted(async () => {
               })) ?? []
             "
           />
-          <v-select
-            v-model="saveRef"
-            class="my-1"
-            hide-details
-            variant="outlined"
-            clearable
-            :label="t('common.save')"
-            :items="
-              rom.user_saves?.map((s) => ({
-                title: s.file_name,
-                subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
-                value: s,
-              })) ?? []
-            "
-          >
-            <template #selection="{ item }">
-              <v-list-item class="pa-0" :title="item.value.file_name ?? ''">
-                <template #append>
-                  <v-chip size="x-small" class="ml-1" label
-                    >{{ formatBytes(item.value.file_size_bytes) }}
-                  </v-chip>
-                  <v-chip size="small" class="ml-1" label>
-                    {{ formatTimestamp(item.value.updated_at) }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </template>
-            <template #item="{ props, item }">
-              <v-list-item
-                class="py-4"
-                v-bind="props"
-                :title="item.value.file_name ?? ''"
-              >
-                <template #append>
-                  <v-chip size="x-small" class="ml-1" label
-                    >{{ formatBytes(item.value.file_size_bytes) }}
-                  </v-chip>
-                  <v-chip size="small" class="ml-1" label>
-                    {{ formatTimestamp(item.value.updated_at) }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </template>
-          </v-select>
-          <v-select
-            v-model="stateRef"
-            class="my-1"
-            hide-details
-            variant="outlined"
-            clearable
-            :label="t('common.state')"
-            :items="
-              rom.user_states?.map((s) => ({
-                title: s.file_name,
-                subtitle: `${s.emulator} - ${formatBytes(s.file_size_bytes)}`,
-                value: s,
-              })) ?? []
-            "
-          >
-            <template #selection="{ item }">
-              <v-list-item class="pa-0" :title="item.value.file_name ?? ''">
-                <template #append>
-                  <v-chip
-                    v-if="item.value.emulator"
-                    size="x-small"
-                    class="ml-1"
-                    color="orange"
-                    label
-                    >{{ item.value.emulator }}</v-chip
+          <v-row class="mt-2">
+            <v-col cols="6">
+              <v-card v-if="stateRef" class="bg-toplayer transform-scale">
+                <v-card-text class="d-flex flex-row justify-end h-100">
+                  <v-col>
+                    <v-img
+                      cover
+                      :src="
+                        stateRef.screenshot?.download_path ??
+                        getEmptyCoverImage(stateRef.file_name)
+                      "
+                    />
+                  </v-col>
+                  <v-col class="ml-2">
+                    <v-row class="mt-2 flex-grow-0">{{
+                      stateRef.file_name
+                    }}</v-row>
+                    <v-row
+                      class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
+                      style="min-height: 20px"
+                    >
+                      <v-chip
+                        v-if="stateRef.emulator"
+                        size="x-small"
+                        color="orange"
+                        label
+                      >
+                        {{ stateRef.emulator }}
+                      </v-chip>
+                      <v-chip size="x-small" label>
+                        {{ formatBytes(stateRef.file_size_bytes) }}
+                      </v-chip>
+                      <v-chip size="x-small" label>
+                        {{ formatTimestamp(stateRef.updated_at) }}
+                      </v-chip>
+                      <v-btn
+                        class="w-100 mt-4"
+                        variant="outlined"
+                        size="large"
+                        @click="stateRef = null"
+                      >
+                        <v-icon>mdi-close-circle-outline</v-icon>
+                      </v-btn>
+                    </v-row>
+                  </v-col>
+                </v-card-text>
+              </v-card>
+              <v-row v-else>
+                <v-col>
+                  <v-btn
+                    class="w-100"
+                    variant="outlined"
+                    size="large"
+                    @click="emitter?.emit('selectStateDialog', rom)"
                   >
-                  <v-chip size="x-small" class="ml-1" label
-                    >{{ formatBytes(item.value.file_size_bytes) }}
-                  </v-chip>
-                  <v-chip size="small" class="ml-1" label>
-                    {{ formatTimestamp(item.value.updated_at) }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </template>
-            <template #item="{ props, item }">
-              <v-list-item
-                class="py-4"
-                v-bind="props"
-                :title="item.value.file_name ?? ''"
-              >
-                <template #append>
-                  <v-chip
-                    v-if="item.value.emulator"
-                    size="x-small"
-                    class="ml-1"
-                    color="orange"
-                    label
-                    >{{ item.value.emulator }}</v-chip
+                    {{ t("play.select-state") }}
+                  </v-btn>
+                </v-col>
+              </v-row>
+            </v-col>
+            <v-col cols="6">
+              <v-card v-if="saveRef" class="bg-toplayer transform-scale">
+                <v-card-text class="d-flex flex-row justify-end h-100">
+                  <v-col>
+                    <v-img
+                      cover
+                      :src="
+                        saveRef.screenshot?.download_path ??
+                        getEmptyCoverImage(saveRef.file_name)
+                      "
+                    />
+                  </v-col>
+                  <v-col class="ml-2">
+                    <v-row class="mt-2 flex-grow-0">{{
+                      saveRef.file_name
+                    }}</v-row>
+                    <v-row
+                      class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
+                      style="min-height: 20px"
+                    >
+                      <v-chip
+                        v-if="saveRef.emulator"
+                        size="x-small"
+                        color="orange"
+                        label
+                      >
+                        {{ saveRef.emulator }}
+                      </v-chip>
+                      <v-chip size="x-small" label>
+                        {{ formatBytes(saveRef.file_size_bytes) }}
+                      </v-chip>
+                      <v-chip size="x-small" label>
+                        {{ formatTimestamp(saveRef.updated_at) }}
+                      </v-chip>
+                      <v-btn
+                        class="w-100 mt-4"
+                        variant="outlined"
+                        size="large"
+                        @click="saveRef = null"
+                      >
+                        <v-icon>mdi-close-circle-outline</v-icon>
+                      </v-btn>
+                    </v-row>
+                  </v-col>
+                </v-card-text>
+              </v-card>
+              <v-row v-else>
+                <v-col>
+                  <v-btn
+                    class="w-100"
+                    variant="outlined"
+                    size="large"
+                    @click="emitter?.emit('selectSaveDialog', rom)"
                   >
-                  <v-chip size="x-small" class="ml-1" label
-                    >{{ formatBytes(item.value.file_size_bytes) }}
-                  </v-chip>
-                  <v-chip size="small" class="ml-1" label>
-                    {{ formatTimestamp(item.value.updated_at) }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </template>
-          </v-select>
+                    {{ t("play.select-save") }}
+                  </v-btn>
+                </v-col>
+              </v-row>
+            </v-col>
+          </v-row>
         </v-col>
       </v-row>
       <v-row class="px-3 py-3 text-center" no-gutters>
@@ -348,7 +394,7 @@ onMounted(async () => {
             </v-col>
             <v-col
               :cols="gameRunning ? 12 : 8"
-              :class="gameRunning ? 'mt-2' : 'ml-2'"
+              :class="gameRunning ? 'mt-2' : 'ml-4'"
             >
               <v-btn
                 color="primary"
