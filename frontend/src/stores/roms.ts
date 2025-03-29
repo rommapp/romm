@@ -36,9 +36,10 @@ const defaultRomsState = {
 };
 
 // This caches the first 72 roms fetched for each platform
-const _romsCacheByPlatform = new Map<number, SimpleRom[]>();
-const _romsCacheByCollection = new Map<number, SimpleRom[]>();
-const _romsCacheByVirtualCollection = new Map<string, SimpleRom[]>();
+const _romsCacheByID = new Map<number, SimpleRom>();
+const _romsCacheByPlatform = new Map<number, number[]>();
+const _romsCacheByCollection = new Map<number, number[]>();
+const _romsCacheByVirtualCollection = new Map<string, number[]>();
 
 export default defineStore("roms", {
   state: () => ({ ...defaultRomsState }),
@@ -58,7 +59,12 @@ export default defineStore("roms", {
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
       if (platform) {
-        this.allRoms = _romsCacheByPlatform.get(platform.id) ?? [];
+        const romIDs = _romsCacheByPlatform.get(platform.id);
+        if (romIDs) {
+          this.allRoms = romIDs
+            .filter((id) => _romsCacheByID.has(id))
+            .map((id) => _romsCacheByID.get(id)!) as SimpleRom[];
+        }
       }
     },
     setCurrentRom(rom: DetailedRom) {
@@ -73,13 +79,23 @@ export default defineStore("roms", {
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
       if (collection) {
-        this.allRoms = _romsCacheByCollection.get(collection.id) ?? [];
+        const romIDs = _romsCacheByCollection.get(collection.id);
+        if (romIDs) {
+          this.allRoms = romIDs
+            .filter((id) => _romsCacheByID.has(id))
+            .map((id) => _romsCacheByID.get(id)!) as SimpleRom[];
+        }
       }
     },
     setCurrentVirtualCollection(collection: VirtualCollection | null) {
       this.currentVirtualCollection = collection;
       if (collection) {
-        this.allRoms = _romsCacheByVirtualCollection.get(collection.id) ?? [];
+        const romIDs = _romsCacheByVirtualCollection.get(collection.id);
+        if (romIDs) {
+          this.allRoms = romIDs
+            .filter((id) => _romsCacheByID.has(id))
+            .map((id) => _romsCacheByID.get(id)!) as SimpleRom[];
+        }
       }
     },
     fetchRoms(galleryFilter: GalleryFilterStore, concat = true) {
@@ -108,14 +124,23 @@ export default defineStore("roms", {
 
               // Cache the first batch of roms for each platform
               if (this.currentPlatform) {
-                _romsCacheByPlatform.set(this.currentPlatform.id, items);
+                _romsCacheByPlatform.set(
+                  this.currentPlatform.id,
+                  items.map((rom) => rom.id),
+                );
+                items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
               } else if (this.currentCollection) {
-                _romsCacheByCollection.set(this.currentCollection.id, items);
+                _romsCacheByCollection.set(
+                  this.currentCollection.id,
+                  items.map((rom) => rom.id),
+                );
+                items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
               } else if (this.currentVirtualCollection) {
                 _romsCacheByVirtualCollection.set(
                   this.currentVirtualCollection.id,
-                  items,
+                  items.map((rom) => rom.id),
                 );
+                items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
               }
             } else {
               this.allRoms = this.allRoms.concat(items);
