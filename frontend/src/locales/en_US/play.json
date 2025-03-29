@@ -3,5 +3,9 @@
   "play": "Play",
   "reset-session": "Reset Session",
   "back-to-game-details": "Back to game details",
-  "back-to-gallery": "Back to gallery"
+  "back-to-gallery": "Back to gallery",
+  "clear-cache": "Clear EmulatorJS Cache",
+  "clear-cache-title": "Are you sure you want to clear the EmulatorJS cache?",
+  "clear-cache-warning": "This will remove all saves and states stored in the browser.",
+  "clear-cache-description": "Any saves or states stored on the server will not be affected."
 }
