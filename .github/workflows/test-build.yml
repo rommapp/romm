@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       # trunk-ignore(checkov/CKV_GHA_7)
-      tag:
-        description: "Tag to build"
+      branch:
+        description: "Git branch to build"
         required: true
 
 permissions:
@@ -27,6 +27,9 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -47,7 +50,7 @@ jobs:
           images: |
             name=rommapp/romm-testing
           tags: |
-            type=raw,value=${{ github.event.inputs.tag }}
+            type=raw,value=${{ github.event.inputs.branch }}
 
       - name: Build full image
         id: build-full
