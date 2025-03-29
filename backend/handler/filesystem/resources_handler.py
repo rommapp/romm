@@ -3,7 +3,6 @@ import shutil
 import httpx
 from anyio import Path, open_file
 from config import RESOURCES_BASE_PATH
-from fastapi import HTTPException, status
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
@@ -67,13 +66,9 @@ class FSResourcesHandler(FSHandler):
                     async with await cover_file.open("wb") as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
-        except httpx.NetworkError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Unable to fetch cover at {url_cover}: {str(exc)}",
-            ) from exc
-        except httpx.ProtocolError:
-            log.warning(f"Failure writing cover {url_cover} to file (ProtocolError)")
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
+            return None
 
         if size == CoverSize.SMALL:
             with Image.open(cover_file) as img:
@@ -150,19 +145,21 @@ class FSResourcesHandler(FSHandler):
         return path_cover_l, path_cover_s, artwork_path
 
     @staticmethod
-    async def _store_screenshot(rom: Rom, url: str, idx: int):
+    async def _store_screenshot(rom: Rom, url_screenhot: str, idx: int):
         """Store roms resources in filesystem
 
         Args:
             rom: Rom object
-            url: url to get the screenshot
+            url_screenhot: URL to get the screenshot
         """
         screenshot_file = f"{idx}.jpg"
         screenshot_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/screenshots"
 
         httpx_client = ctx_httpx_client.get()
         try:
-            async with httpx_client.stream("GET", url, timeout=120) as response:
+            async with httpx_client.stream(
+                "GET", url_screenhot, timeout=120
+            ) as response:
                 if response.status_code == 200:
                     await Path(screenshot_path).mkdir(parents=True, exist_ok=True)
                     async with await open_file(
@@ -170,13 +167,9 @@ class FSResourcesHandler(FSHandler):
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
-        except httpx.NetworkError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Unable to fetch screenshot at {url}: {str(exc)}",
-            ) from exc
-        except httpx.ProtocolError:
-            log.warning(f"Failure writing screenshot {url} to file (ProtocolError)")
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
+            return None
 
     @staticmethod
     def _get_screenshot_path(rom: Rom, idx: str):
@@ -195,8 +188,8 @@ class FSResourcesHandler(FSHandler):
             return []
 
         path_screenshots: list[str] = []
-        for idx, url in enumerate(url_screenshots):
-            await self._store_screenshot(rom, url, idx)
+        for idx, url_screenhot in enumerate(url_screenshots):
+            await self._store_screenshot(rom, url_screenhot, idx)
             path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots
@@ -229,13 +222,9 @@ class FSResourcesHandler(FSHandler):
                     async with await manual_file.open("wb") as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
-        except httpx.NetworkError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Unable to fetch cover at {url_manual}: {str(exc)}",
-            ) from exc
-        except httpx.ProtocolError:
-            log.warning(f"Failure writing cover {url_manual} to file (ProtocolError)")
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
+            return None
 
     @staticmethod
     async def _get_manual_path(rom: Rom) -> str:
