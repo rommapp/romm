@@ -28,10 +28,9 @@ export default defineStore("collections", {
   },
   actions: {
     _reorder() {
-      this.allCollections = this.allCollections.sort((a, b) => {
+      this.allCollections = uniqBy(this.allCollections, "id").sort((a, b) => {
         return a.name.localeCompare(b.name);
       });
-      this.allCollections = uniqBy(this.allCollections, "id");
     },
     setFavCollection(favCollection: Collection | undefined) {
       this.favCollection = favCollection;
