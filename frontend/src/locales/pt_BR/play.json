@@ -3,5 +3,9 @@
   "play": "Jogar",
   "reset-session": "Redefinir sessão",
   "back-to-game-details": "Voltar aos detalhes do jogo",
-  "back-to-gallery": "Voltar à galeria"
+  "back-to-gallery": "Voltar à galeria",
+  "clear-cache": "Limpar cache do EmulatorJS",
+  "clear-cache-title": "Tem certeza de que deseja limpar o cache do EmulatorJS?",
+  "clear-cache-warning": "Isso removerá todos os saves e estados armazenados no navegador.",
+  "clear-cache-description": "Não afetará nenhum save ou estado armazenado no servidor."
 }
