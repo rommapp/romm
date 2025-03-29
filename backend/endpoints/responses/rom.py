@@ -275,6 +275,7 @@ class SimpleRomSchema(RomSchema):
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
+        db_rom.siblings = []  # type: ignore
         return cls.model_validate(db_rom)
 
     @field_validator("siblings")
