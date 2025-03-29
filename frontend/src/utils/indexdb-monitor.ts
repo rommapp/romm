@@ -23,7 +23,7 @@ type EventType = "change" | "error";
 type EventsListener = (changes: Change[]) => void;
 type ErrorsListener = (error: Error) => void;
 
-interface DiffMonitor {
+export interface DiffMonitor {
   start: () => void;
   stop: () => void;
   getChanges: () => Change[];
