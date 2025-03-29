@@ -35,6 +35,11 @@ const defaultRomsState = {
   orderDir: "asc" as "asc" | "desc",
 };
 
+// This caches the first 72 roms fetched for each platform
+const _romsCacheByPlatform = new Map<number, SimpleRom[]>();
+const _romsCacheByCollection = new Map<number, SimpleRom[]>();
+const _romsCacheByVirtualCollection = new Map<string, SimpleRom[]>();
+
 export default defineStore("roms", {
   state: () => ({ ...defaultRomsState }),
 
@@ -52,6 +57,9 @@ export default defineStore("roms", {
     },
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;
+      if (platform) {
+        this.allRoms = _romsCacheByPlatform.get(platform.id) ?? [];
+      }
     },
     setCurrentRom(rom: DetailedRom) {
       this.currentRom = rom;
@@ -64,9 +72,15 @@ export default defineStore("roms", {
     },
     setCurrentCollection(collection: Collection | null) {
       this.currentCollection = collection;
+      if (collection) {
+        this.allRoms = _romsCacheByCollection.get(collection.id) ?? [];
+      }
     },
     setCurrentVirtualCollection(collection: VirtualCollection | null) {
       this.currentVirtualCollection = collection;
+      if (collection) {
+        this.allRoms = _romsCacheByVirtualCollection.get(collection.id) ?? [];
+      }
     },
     fetchRoms(galleryFilter: GalleryFilterStore, concat = true) {
       if (this.fetchingRoms) return Promise.resolve();
@@ -89,11 +103,29 @@ export default defineStore("roms", {
             groupByMetaId: this._shouldGroupRoms(),
           })
           .then(({ data: { items, offset, total, char_index } }) => {
+            if (!concat || this.fetchOffset === 0) {
+              this.allRoms = items;
+
+              // Cache the first batch of roms for each platform
+              if (this.currentPlatform) {
+                _romsCacheByPlatform.set(this.currentPlatform.id, items);
+              } else if (this.currentCollection) {
+                _romsCacheByCollection.set(this.currentCollection.id, items);
+              } else if (this.currentVirtualCollection) {
+                _romsCacheByVirtualCollection.set(
+                  this.currentVirtualCollection.id,
+                  items,
+                );
+              }
+            } else {
+              this.allRoms = this.allRoms.concat(items);
+            }
+
+            // Update the offset and total roms in filtered database result
             if (offset !== null) this.fetchOffset = offset + this.fetchLimit;
             if (total !== null) this.fetchTotalRoms = total;
 
-            // These need to happen in exactly this order
-            this.allRoms = concat ? this.allRoms.concat(items) : items;
+            // Set the character index for the current platform
             this.characterIndex = char_index;
 
             resolve(items);

@@ -96,6 +96,7 @@ onMounted(() => {
     router.replace({ query: {} }); // Clear query params
   }
 
+  debugger;
   fetchRoms();
 });
 

@@ -81,23 +81,19 @@ onMounted(async () => {
 <template>
   <stats />
   <recent-skeleton-loader
-    v-if="showRecentRoms && fetchingRecentAdded"
+    v-if="showRecentRoms && fetchingRecentAdded && recentRoms.length === 0"
     :title="t('home.recently-added')"
   />
-  <recent-added
-    v-if="recentRoms.length > 0 && showRecentRoms && !fetchingRecentAdded"
-  />
+  <recent-added v-if="recentRoms.length > 0 && showRecentRoms" />
   <recent-skeleton-loader
-    v-if="showContinuePlaying && fetchingContinuePlaying"
+    v-if="
+      showContinuePlaying &&
+      fetchingContinuePlaying &&
+      recentPlayedRoms.length === 0
+    "
     :title="t('home.continue-playing')"
   />
-  <continue-playing
-    v-if="
-      recentPlayedRoms.length > 0 &&
-      showContinuePlaying &&
-      !fetchingContinuePlaying
-    "
-  />
+  <continue-playing v-if="recentPlayedRoms.length > 0 && showContinuePlaying" />
   <platforms v-if="filledPlatforms.length > 0 && showPlatforms" />
   <collections v-if="allCollections.length > 0 && showCollections" />
   <virtual-collections

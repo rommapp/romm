@@ -34,7 +34,6 @@ export default defineStore("platforms", {
     },
     set(platforms: Platform[]) {
       this.allPlatforms = platforms;
-      this._reorder();
     },
     add(platform: Platform) {
       this.allPlatforms.push(platform);
