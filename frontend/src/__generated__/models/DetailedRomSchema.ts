@@ -5,12 +5,13 @@
 import type { CollectionSchema } from './CollectionSchema';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
+import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
-import type { RomSchema } from './RomSchema';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
+import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
 import type { UserNotesSchema } from './UserNotesSchema';
 export type DetailedRomSchema = {
@@ -34,16 +35,9 @@ export type DetailedRomSchema = {
     name: (string | null);
     slug: (string | null);
     summary: (string | null);
-    first_release_date: (number | null);
-    youtube_video_id: (string | null);
-    average_rating: (number | null);
     alternative_names: Array<string>;
-    genres: Array<string>;
-    franchises: Array<string>;
-    meta_collections: Array<string>;
-    companies: Array<string>;
-    game_modes: Array<string>;
-    age_ratings: Array<string>;
+    youtube_video_id: (string | null);
+    metadatum: RomMetadataSchema;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     ss_metadata: (RomSSMetadata | null);
@@ -67,13 +61,12 @@ export type DetailedRomSchema = {
     created_at: string;
     updated_at: string;
     merged_screenshots: Array<string>;
-    sibling_roms: Array<RomSchema>;
+    siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;
     user_notes: Array<UserNotesSchema>;
     user_collections: Array<CollectionSchema>;
-    readonly sort_comparator: string;
 };
 

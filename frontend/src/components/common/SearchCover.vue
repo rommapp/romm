@@ -13,7 +13,7 @@ import { useDisplay } from "vuetify";
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const searching = ref(false);
-const searchTerm = ref("");
+const searchText = ref("");
 const coverType = ref("all");
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
@@ -24,11 +24,11 @@ const coverAspectRatio = ref(
   parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
 );
 emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
-  searchTerm.value = term;
+  searchText.value = term;
   show.value = true;
   // TODO: set default aspect ratio to 2/3
   if (aspectRatio) coverAspectRatio.value = aspectRatio;
-  if (searchTerm.value) searchCovers();
+  if (searchText.value) searchCovers();
 });
 
 // Functions
@@ -43,7 +43,7 @@ async function searchCovers() {
     searching.value = true;
     await sgdbApi
       .searchCover({
-        searchTerm: searchTerm.value,
+        searchTerm: searchText.value,
       })
       .then((response) => {
         covers.value = response.data;
@@ -101,7 +101,7 @@ function closeDialog() {
   show.value = false;
   covers.value = [];
   filteredCovers.value = [];
-  searchTerm.value = "";
+  searchText.value = "";
 }
 
 onBeforeUnmount(() => {
@@ -127,9 +127,9 @@ onBeforeUnmount(() => {
           <v-text-field
             id="search-text-field"
             @keyup.enter="searchCovers()"
-            @click:clear="searchTerm = ''"
+            @click:clear="searchText = ''"
             class="bg-toplayer"
-            v-model="searchTerm"
+            v-model="searchText"
             :disabled="searching"
             label="Search"
             hide-details

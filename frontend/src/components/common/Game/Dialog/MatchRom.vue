@@ -31,7 +31,7 @@ const galleryViewStore = storeGalleryView();
 const platfotmsStore = storePlatforms();
 const searching = ref(false);
 const route = useRoute();
-const searchTerm = ref("");
+const searchText = ref("");
 const searchBy = ref("Name");
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
@@ -58,7 +58,7 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
 
   // Use name as search term, only when it's matched
   // Otherwise use the filename without tags and extensions
-  searchTerm.value =
+  searchText.value =
     romToSearch.igdb_id || romToSearch.moby_id || romToSearch.ss_id
       ? (romToSearch.name ?? "")
       : romToSearch.fs_name_no_tags;
@@ -107,7 +107,7 @@ async function searchRom() {
     await romApi
       .searchRom({
         romId: rom.value.id,
-        searchTerm: searchTerm.value,
+        searchTerm: searchText.value,
         searchBy: searchBy.value,
       })
       .then((response) => {
@@ -370,9 +370,9 @@ onBeforeUnmount(() => {
             autofocus
             id="search-text-field"
             @keyup.enter="searchRom()"
-            @click:clear="searchTerm = ''"
+            @click:clear="searchText = ''"
             class="bg-toplayer"
-            v-model="searchTerm"
+            v-model="searchText"
             :disabled="searching"
             :label="t('common.search')"
             hide-details

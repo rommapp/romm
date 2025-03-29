@@ -33,8 +33,14 @@ def test_get_all_roms(client, access_token, rom, platform):
     assert response.status_code == 200
 
     body = response.json()
-    assert len(body) == 1
-    assert body[0]["id"] == rom.id
+
+    assert body["total"] == 1
+    assert body["limit"] == 50
+    assert body["offset"] == 0
+
+    items = body["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == rom.id
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")

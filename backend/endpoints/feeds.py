@@ -51,7 +51,8 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             continue
 
         category_items = []
-        for rom in db_rom_handler.get_roms(platform_id=p.id):
+        roms = db_rom_handler.get_roms_scalar(platform_id=p.id)
+        for rom in roms:
             category_item = WebrcadeFeedItemSchema(
                 title=rom.name or "",
                 description=rom.summary or "",
@@ -134,8 +135,6 @@ async def tinfoil_index_feed(
             error="Nintendo Switch platform not found",
         )
 
-    roms = db_rom_handler.get_roms(platform_id=switch.id)
-
     async def extract_titledb(
         roms: Sequence[Rom],
     ) -> dict[str, TinfoilFeedTitleDBSchema]:
@@ -183,6 +182,8 @@ async def tinfoil_index_feed(
                     )
 
         return titledb
+
+    roms = db_rom_handler.get_roms_scalar(platform_id=switch.id)
 
     return TinfoilFeedSchema(
         files=[

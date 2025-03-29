@@ -46,11 +46,17 @@ class User(BaseModel, SimpleUser):
     last_login: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     last_active: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
 
-    saves: Mapped[list[Save]] = relationship(back_populates="user")
-    states: Mapped[list[State]] = relationship(back_populates="user")
-    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="user")
-    rom_users: Mapped[list[RomUser]] = relationship(back_populates="user")
-    collections: Mapped[list[Collection]] = relationship(back_populates="user")
+    saves: Mapped[list[Save]] = relationship(lazy="select", back_populates="user")
+    states: Mapped[list[State]] = relationship(lazy="select", back_populates="user")
+    screenshots: Mapped[list[Screenshot]] = relationship(
+        lazy="select", back_populates="user"
+    )
+    rom_users: Mapped[list[RomUser]] = relationship(
+        lazy="select", back_populates="user"
+    )
+    collections: Mapped[list[Collection]] = relationship(
+        lazy="select", back_populates="user"
+    )
 
     @classmethod
     def kiosk_mode_user(cls) -> User:
