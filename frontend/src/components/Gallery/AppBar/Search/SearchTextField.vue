@@ -96,8 +96,10 @@ onMounted(() => {
     router.replace({ query: {} }); // Clear query params
   }
 
-  debugger;
-  fetchRoms();
+  // Check if search term is set in the URL (empty string is ok)
+  if (searchTerm.value !== null) {
+    fetchRoms();
+  }
 });
 
 watch(
