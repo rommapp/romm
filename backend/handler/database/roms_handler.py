@@ -6,7 +6,22 @@ from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
 from models.rom import Rom, RomFile, RomMetadata, RomUser
-from sqlalchemy import Row, and_, case, delete, func, literal, or_, select, text, update
+from sqlalchemy import (
+    BigInteger,
+    Integer,
+    Numeric,
+    Row,
+    SmallInteger,
+    and_,
+    case,
+    delete,
+    func,
+    literal,
+    or_,
+    select,
+    text,
+    update,
+)
 from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -406,10 +421,14 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = Rom.name
 
-        # Remove any leading articles
-        order_attr = func.trim(
-            func.lower(order_attr).regexp_replace(r"^(the|a|an)\s+", "", "i")
-        )
+        # Ignore case when the order attribute is a number
+        if not isinstance(
+            order_attr.type, (Integer, BigInteger, SmallInteger, Numeric)
+        ):
+            # Remove any leading articles
+            order_attr = func.trim(
+                func.lower(order_attr).regexp_replace(r"^(the|a|an)\s+", "", "i")
+            )
 
         if order_dir.lower() == "desc":
             order_attr = order_attr.desc()
