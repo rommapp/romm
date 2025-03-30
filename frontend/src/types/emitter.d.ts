@@ -75,6 +75,9 @@ export type Events = {
   firmwareDrawerShow: null;
   updateDataTablePages: null;
   sortBarShow: null;
-  romUpdated: DetailedRom;
   showQRCodeDialog: SimpleRom;
+  selectSaveDialog: DetailedRom;
+  selectStateDialog: DetailedRom;
+  saveSelected: SaveSchema;
+  stateSelected: StateSchema;
 };

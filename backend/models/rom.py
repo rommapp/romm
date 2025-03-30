@@ -225,12 +225,10 @@ class Rom(BaseModel):
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
-        screenshots = [s.download_path for s in self.screenshots]
         if self.path_screenshots:
-            screenshots += [
-                f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
-            ]
-        return screenshots
+            return [f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots]
+
+        return []
 
     @cached_property
     def multi(self) -> bool:

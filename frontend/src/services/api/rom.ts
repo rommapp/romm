@@ -2,6 +2,7 @@ import type {
   MessageResponse,
   SearchRomSchema,
   RomUserSchema,
+  RomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
@@ -20,7 +21,7 @@ async function uploadRoms({
 }: {
   platformId: number;
   filesToUpload: File[];
-}): Promise<PromiseSettledResult<unknown>[]> {
+}): Promise<PromiseSettledResult<RomSchema>[]> {
   const heartbeat = storeHeartbeat();
 
   if (!socket.connected) socket.connect();
@@ -31,7 +32,7 @@ async function uploadRoms({
     formData.append(file.name, file);
 
     uploadStore.start(file.name);
-    return new Promise((resolve, reject) => {
+    return new Promise<RomSchema>((resolve, reject) => {
       api
         .post("/roms", formData, {
           headers: {
@@ -45,7 +46,9 @@ async function uploadRoms({
             uploadStore.update(file.name, progressEvent);
           },
         })
-        .then(resolve)
+        .then(({ data }) => {
+          resolve(data);
+        })
         .catch((error) => {
           uploadStore.fail(file.name, error.response?.data?.detail);
           reject(error);

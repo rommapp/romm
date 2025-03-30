@@ -14,18 +14,36 @@ class DBStatesHandler(DBBaseHandler):
         return session.merge(state)
 
     @begin_session
-    def get_state(self, id: int, session: Session = None) -> State | None:
-        return session.get(State, id)
+    def get_state(self, user_id: int, id: int, session: Session = None) -> State | None:
+        return session.scalar(select(State).filter_by(user_id=user_id, id=id).limit(1))
 
     @begin_session
     def get_state_by_filename(
-        self, rom_id: int, user_id: int, file_name: str, session: Session = None
+        self, user_id: int, rom_id: int, file_name: str, session: Session = None
     ) -> State | None:
-        return session.scalars(
+        return session.scalar(
             select(State)
             .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
             .limit(1)
-        ).first()
+        )
+
+    @begin_session
+    def get_states(
+        self,
+        user_id: int,
+        rom_id: int | None = None,
+        platform_id: int | None = None,
+        session: Session = None,
+    ) -> Sequence[State]:
+        query = select(State).filter_by(user_id=user_id)
+
+        if rom_id:
+            query = query.filter_by(rom_id=rom_id)
+
+        if platform_id:
+            query = query.filter_by(platform_id=platform_id)
+
+        return session.scalars(query).all()
 
     @begin_session
     def update_state(self, id: int, data: dict, session: Session = None) -> State:

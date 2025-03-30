@@ -1,57 +1,71 @@
-import type { SaveSchema, UploadedSavesResponse } from "@/__generated__";
 import api from "@/services/api/index";
 import type { DetailedRom } from "@/stores/roms";
+import type { SaveSchema } from "@/__generated__";
 
 export const saveApi = api;
 
 async function uploadSaves({
   rom,
-  saves,
+  savesToUpload,
   emulator,
 }: {
   rom: DetailedRom;
-  saves: File[];
+  savesToUpload: {
+    saveFile: File;
+    screenshotFile?: File;
+  }[];
   emulator?: string;
-}): Promise<{ data: UploadedSavesResponse }> {
-  const formData = new FormData();
-  saves.forEach((save) => formData.append("saves", save));
+}): Promise<PromiseSettledResult<SaveSchema>[]> {
+  const promises = savesToUpload.map(({ saveFile, screenshotFile }) => {
+    const formData = new FormData();
+    formData.append("saveFile", saveFile);
+    if (screenshotFile) {
+      formData.append("screenshotFile", screenshotFile);
+    }
 
-  return api.post("/saves", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-    params: { rom_id: rom.id, emulator },
+    return new Promise<SaveSchema>((resolve, reject) => {
+      api
+        .post("/saves", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          params: { rom_id: rom.id, emulator },
+        })
+        .then(({ data }) => {
+          resolve(data);
+        })
+        .catch(reject);
+    });
   });
+
+  return Promise.allSettled(promises);
 }
 
 async function updateSave({
   save,
-  file,
+  saveFile,
 }: {
   save: SaveSchema;
-  file: File;
+  saveFile: File;
 }): Promise<{ data: SaveSchema }> {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("saveFile", saveFile);
 
   return api.put(`/saves/${save.id}`, formData);
 }
 
 async function deleteSaves({
   saves,
-  deleteFromFs,
 }: {
   saves: SaveSchema[];
-  deleteFromFs: number[];
-}) {
+}): Promise<{ data: number[] }> {
   return api.post("/saves/delete", {
     saves: saves.map((s) => s.id),
-    delete_from_fs: deleteFromFs,
   });
 }
 
 export default {
-  deleteSaves,
-  updateSave,
   uploadSaves,
+  updateSave,
+  deleteSaves,
 };

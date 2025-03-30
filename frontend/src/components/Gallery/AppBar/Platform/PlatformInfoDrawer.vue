@@ -69,7 +69,7 @@ const PLATFORM_INFO_FIELDS: {
   { key: "generation", label: t("platform.generation"), format: identity },
   { key: "family_name", label: t("platform.family"), format: identity },
   {
-    key: "filesystem_size_bytes",
+    key: "fs_size_bytes",
     label: t("common.size-on-disk"),
     format: (fs: number) => formatBytes(fs, 2),
   },
