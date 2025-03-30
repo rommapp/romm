@@ -76,6 +76,7 @@ function closeDialog() {
                 <v-img
                   cover
                   height="100%"
+                  min-height="75px"
                   :src="
                     state.screenshot?.download_path ??
                     getEmptyCoverImage(state.file_name)
