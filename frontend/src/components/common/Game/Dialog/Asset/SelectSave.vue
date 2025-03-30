@@ -76,6 +76,7 @@ function closeDialog() {
                 <v-img
                   cover
                   height="100%"
+                  min-height="75px"
                   :src="
                     save.screenshot?.download_path ??
                     getEmptyCoverImage(save.file_name)
@@ -99,7 +100,7 @@ function closeDialog() {
                   {{ formatBytes(save.file_size_bytes) }}
                 </v-chip>
                 <v-chip size="x-small" label>
-                  {{ formatTimestamp(save.updated_at) }}
+                  Updated: {{ formatTimestamp(save.updated_at) }}
                 </v-chip>
               </v-row>
             </v-card-text>

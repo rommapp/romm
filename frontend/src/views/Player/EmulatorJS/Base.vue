@@ -4,7 +4,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import type { DetailedRom } from "@/stores/roms";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
@@ -24,6 +24,7 @@ const EMULATORJS_VERSION = "4.2.1";
 const { t } = useI18n();
 const route = useRoute();
 const auth = storeAuth();
+const romsStore = storeRoms();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const biosRef = ref<FirmwareSchema | null>(null);
@@ -70,6 +71,7 @@ function onFullScreenChange() {
 }
 
 async function onlyQuit() {
+  if (rom.value) romsStore.update(rom.value);
   window.history.back();
 }
 
@@ -94,6 +96,7 @@ async function saveAndQuit() {
     screenshotFile,
   });
 
+  romsStore.update(rom.value);
   window.history.back();
 }
 

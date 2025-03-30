@@ -133,6 +133,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
             <v-img
               cover
               height="100%"
+              min-height="75px"
               :src="
                 state.screenshot?.download_path ??
                 getEmptyCoverImage(state.file_name)
@@ -140,8 +141,9 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
             />
             <v-btn-group
               v-if="isHovering"
-              class="position-absolute bottom-0 right-0"
+              class="position-absolute"
               density="compact"
+              style="bottom: 4px; right: 4px"
             >
               <v-btn drawer :href="state.download_path" download size="small">
                 <v-icon>mdi-download</v-icon>
@@ -173,17 +175,15 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
               {{ formatBytes(state.file_size_bytes) }}
             </v-chip>
             <v-chip size="x-small" label>
-              {{ formatTimestamp(state.updated_at) }}
+              Updated: {{ formatTimestamp(state.updated_at) }}
             </v-chip>
           </v-row>
         </v-card-text>
       </v-card>
     </v-hover>
-    <div v-else>
-      <v-col class="text-center mt-6">
-        <v-icon size="x-large">mdi-help-rhombus-outline</v-icon>
-        <p class="text-h4 mt-2">{{ t("rom.no-states-found") }}</p>
-      </v-col>
-    </div>
+    <v-col v-else class="text-center mt-6">
+      <v-icon size="x-large">mdi-help-rhombus-outline</v-icon>
+      <p class="text-h4 mt-2">{{ t("rom.no-states-found") }}</p>
+    </v-col>
   </div>
 </template>
