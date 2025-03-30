@@ -5,17 +5,54 @@ import type { Emitter } from "mitt";
 import { inject } from "vue";
 
 // Props
+withDefaults(
+  defineProps<{
+    block?: boolean;
+    height?: string;
+    rounded?: boolean;
+  }>(),
+  {
+    block: false,
+    height: "",
+    rounded: false,
+  },
+);
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 </script>
 <template>
   <v-btn
     v-if="auth.scopes.includes('roms.write')"
-    icon="mdi-upload"
+    icon
+    :block="block"
     variant="flat"
-    rounded="0"
     color="background"
-    class="rounded my-1"
+    :height="height"
+    :class="{ rounded: rounded }"
+    class="py-2 my-1 bg-background custom-btn"
     @click="emitter?.emit('showUploadRomDialog', null)"
-  />
+  >
+    <div class="icon-container">
+      <v-icon>mdi-upload</v-icon>
+      <span class="text-caption">Upload</span>
+    </div>
+  </v-btn>
 </template>
+
+<style scoped>
+.custom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.icon-container span {
+  text-align: center;
+}
+</style>

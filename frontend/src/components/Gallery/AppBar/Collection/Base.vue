@@ -52,7 +52,7 @@ const { currentCollection } = storeToRefs(romsStore);
 
 <style scoped>
 .gallery-app-bar-desktop {
-  width: calc(100% - 91px) !important;
+  width: calc(100% - 108px) !important;
 }
 .gallery-app-bar-mobile {
   width: calc(100% - 16px) !important;
