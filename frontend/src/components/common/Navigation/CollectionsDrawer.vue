@@ -6,7 +6,7 @@ import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { isNull } from "lodash";
@@ -16,10 +16,11 @@ const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
-const { filteredCollections, filteredVirtualCollections, searchText } =
+const { filteredCollections, filteredVirtualCollections, filterText } =
   storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
+const visibleVirtualCollections = ref(72);
 
 const showVirtualCollections = isNull(
   localStorage.getItem("settings.showVirtualCollections"),
@@ -32,11 +33,42 @@ async function addCollection() {
 }
 
 function clear() {
-  searchText.value = "";
+  filterText.value = "";
 }
+
+function onScroll() {
+  const collectionsDrawer = document.querySelector(
+    "#collections-drawer .v-navigation-drawer__content",
+  );
+  if (!collectionsDrawer) return;
+
+  const rect = collectionsDrawer.getBoundingClientRect();
+  if (
+    collectionsDrawer.scrollTop + rect.height >=
+      collectionsDrawer.scrollHeight - 60 &&
+    visibleVirtualCollections.value < filteredVirtualCollections.value.length
+  ) {
+    visibleVirtualCollections.value += 72;
+  }
+}
+
+onMounted(() => {
+  const collectionsDrawer = document.querySelector(
+    "#collections-drawer .v-navigation-drawer__content",
+  );
+  collectionsDrawer?.addEventListener("scroll", onScroll);
+});
+
+onBeforeUnmount(() => {
+  const collectionsDrawer = document.querySelector(
+    "#collections-drawer .v-navigation-drawer__content",
+  );
+  collectionsDrawer?.removeEventListener("scroll", onScroll);
+});
 </script>
 <template>
   <v-navigation-drawer
+    id="collections-drawer"
     mobile
     :location="smAndDown ? 'top' : 'left'"
     @update:model-value="clear"
@@ -55,7 +87,7 @@ function clear() {
   >
     <template #prepend>
       <v-text-field
-        v-model="searchText"
+        v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
         hide-details
@@ -81,7 +113,10 @@ function clear() {
           t("common.virtual-collections").toUpperCase()
         }}</v-list-subheader>
         <collection-list-item
-          v-for="collection in filteredVirtualCollections"
+          v-for="collection in filteredVirtualCollections.slice(
+            0,
+            visibleVirtualCollections,
+          )"
           :collection="collection"
           with-link
         />

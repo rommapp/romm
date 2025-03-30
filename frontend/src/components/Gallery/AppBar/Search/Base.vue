@@ -4,6 +4,7 @@ import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.v
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
+import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
 import SearchBtn from "@/components/Gallery/AppBar/Search/SearchBtn.vue";
 import { useDisplay } from "vuetify";
 
@@ -33,6 +34,7 @@ const { xs, smAndDown } = useDisplay();
     </template>
   </v-app-bar>
 
+  <char-index-bar />
   <filter-drawer />
 </template>
 
