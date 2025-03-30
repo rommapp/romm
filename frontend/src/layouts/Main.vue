@@ -11,6 +11,12 @@ import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
 import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import ShowQRCodeDialog from "@/components/common/Game/Dialog/ShowQRCode.vue";
+import UploadSavesDialog from "@/components/common/Game/Dialog/Asset/UploadSaves.vue";
+import UploadStatesDialog from "@/components/common/Game/Dialog/Asset/UploadStates.vue";
+import SelectSaveDialog from "@/components/common/Game/Dialog/Asset/SelectSave.vue";
+import SelectStateDialog from "@/components/common/Game/Dialog/Asset/SelectState.vue";
+import DeleteSavesDialog from "@/components/common/Game/Dialog/Asset/DeleteSaves.vue";
+import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
 import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
 import storeCollections from "@/stores/collections";
@@ -99,4 +105,11 @@ onBeforeMount(async () => {
 
   <new-version-dialog />
   <upload-progress />
+
+  <upload-saves-dialog />
+  <delete-saves-dialog />
+  <upload-states-dialog />
+  <delete-states-dialog />
+  <select-save-dialog />
+  <select-state-dialog />
 </template>
