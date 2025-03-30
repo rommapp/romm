@@ -14,18 +14,36 @@ class DBSavesHandler(DBBaseHandler):
         return session.merge(save)
 
     @begin_session
-    def get_save(self, id: int, session: Session = None) -> Save | None:
+    def get_save(self, user_id: int, id: int, session: Session = None) -> Save | None:
         return session.get(Save, id)
 
     @begin_session
     def get_save_by_filename(
-        self, rom_id: int, user_id: int, file_name: str, session: Session = None
+        self, user_id: int, rom_id: int, file_name: str, session: Session = None
     ) -> Save | None:
         return session.scalars(
             select(Save)
             .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
             .limit(1)
         ).first()
+
+    @begin_session
+    def get_saves(
+        self,
+        user_id: int,
+        rom_id: int | None = None,
+        platform_id: int | None = None,
+        session: Session = None,
+    ) -> Sequence[Save]:
+        query = select(Save).filter_by(user_id=user_id)
+
+        if rom_id:
+            query = query.filter_by(rom_id=rom_id)
+
+        if platform_id:
+            query = query.filter_by(platform_id=platform_id)
+
+        return session.scalars(query).all()
 
     @begin_session
     def update_save(self, id: int, data: dict, session: Session = None) -> Save:

@@ -137,12 +137,12 @@ def test_saves(save: Save, platform: Platform, admin_user: User):
     assert rom is not None
     assert len(rom.saves) == 2
 
-    new_save = db_save_handler.get_save(rom.saves[0].id)
+    new_save = db_save_handler.get_save(user_id=admin_user.id, id=rom.saves[0].id)
     assert new_save is not None
     assert new_save.file_name == "test_save.sav"
 
     db_save_handler.update_save(new_save.id, {"file_name": "test_save_2.sav"})
-    new_save = db_save_handler.get_save(new_save.id)
+    new_save = db_save_handler.get_save(user_id=admin_user.id, id=new_save.id)
     assert new_save is not None
     assert new_save.file_name == "test_save_2.sav"
 
@@ -167,22 +167,22 @@ def test_states(state: State, platform: Platform, admin_user: User):
         )
     )
 
-    rom = db_rom_handler.get_rom(state.rom_id)
+    rom = db_rom_handler.get_rom(id=state.rom_id)
     assert rom is not None
     assert len(rom.states) == 2
 
-    new_state = db_state_handler.get_state(rom.states[0].id)
+    new_state = db_state_handler.get_state(user_id=admin_user.id, id=rom.states[0].id)
     assert new_state is not None
     assert new_state.file_name == "test_state.state"
 
     db_state_handler.update_state(new_state.id, {"file_name": "test_state_2.state"})
-    new_state = db_state_handler.get_state(new_state.id)
+    new_state = db_state_handler.get_state(user_id=admin_user.id, id=new_state.id)
     assert new_state is not None
     assert new_state.file_name == "test_state_2.state"
 
-    db_state_handler.delete_state(new_state.id)
+    db_state_handler.delete_state(id=new_state.id)
 
-    rom = db_rom_handler.get_rom(state.rom_id)
+    rom = db_rom_handler.get_rom(id=state.rom_id)
     assert rom is not None
     assert len(rom.states) == 1
 
@@ -205,19 +205,19 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     assert rom is not None
     assert len(rom.screenshots) == 2
 
-    new_screenshot = db_screenshot_handler.get_screenshot(rom.screenshots[0].id)
+    new_screenshot = db_screenshot_handler.get_screenshot(id=rom.screenshots[0].id)
     assert new_screenshot is not None
     assert new_screenshot.file_name == "test_screenshot.png"
 
     db_screenshot_handler.update_screenshot(
         new_screenshot.id, {"file_name": "test_screenshot_2.png"}
     )
-    new_screenshot = db_screenshot_handler.get_screenshot(new_screenshot.id)
+    new_screenshot = db_screenshot_handler.get_screenshot(id=new_screenshot.id)
     assert new_screenshot is not None
     assert new_screenshot.file_name == "test_screenshot_2.png"
 
-    db_screenshot_handler.delete_screenshot(new_screenshot.id)
+    db_screenshot_handler.delete_screenshot(id=new_screenshot.id)
 
-    rom = db_rom_handler.get_rom(screenshot.rom_id)
+    rom = db_rom_handler.get_rom(id=screenshot.rom_id)
     assert rom is not None
     assert len(rom.screenshots) == 1

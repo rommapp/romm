@@ -57,7 +57,7 @@ class Save(RomAsset):
             return None
 
         for screenshot in db_rom.screenshots:
-            if screenshot.file_name_no_ext == self.file_name:
+            if screenshot.file_name_no_ext == self.file_name_no_ext:
                 return screenshot
 
         return None
@@ -81,7 +81,7 @@ class State(RomAsset):
             return None
 
         for screenshot in db_rom.screenshots:
-            if screenshot.file_name_no_ext == self.file_name:
+            if screenshot.file_name_no_ext == self.file_name_no_ext:
                 return screenshot
 
         return None
