@@ -58,7 +58,7 @@ async function onScan() {
 }
 
 function selectAllRoms() {
-  romsStore.setSelection(romsStore.filteredRoms);
+  romsStore.setSelection(romsStore.allRoms);
 }
 
 function resetSelection() {
@@ -272,6 +272,7 @@ function onDownload() {
   width: 100%;
   z-index: 1000;
   pointer-events: none;
+  padding-right: 72px !important;
 }
 .sticky-bottom * {
   pointer-events: auto; /* Re-enables pointer events for all child elements */

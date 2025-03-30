@@ -6,6 +6,7 @@ import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
+import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
 import { storeToRefs } from "pinia";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
@@ -46,6 +47,7 @@ const { currentCollection } = storeToRefs(romsStore);
     </template>
   </v-app-bar>
 
+  <char-index-bar />
   <collection-info-drawer />
   <filter-drawer />
 </template>

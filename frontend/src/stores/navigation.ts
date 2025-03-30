@@ -10,7 +10,7 @@ const defaultNavigationState = {
 };
 
 export default defineStore("navigation", {
-  state: () => defaultNavigationState,
+  state: () => ({ ...defaultNavigationState }),
 
   actions: {
     switchActivePlatformsDrawer() {
@@ -46,7 +46,7 @@ export default defineStore("navigation", {
       this.$router.push({ name: ROUTES.SEARCH });
     },
     reset() {
-      Object.assign(this, defaultNavigationState);
+      Object.assign(this, { ...defaultNavigationState });
     },
     resetDrawersExcept(drawer: string) {
       this.activePlatformsDrawer =

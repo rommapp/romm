@@ -10,8 +10,8 @@ const storeLanguage = languageStore();
 const { defaultLanguage, languages } = storeToRefs(storeLanguage);
 const selectedLanguage = ref(
   languages.value.find(
-    (lang) => lang.value === localStorage.getItem("settings.locale"),
-  ) || defaultLanguage.value,
+    (lang) => lang.value === localStorage.getItem("settings.locale")
+  ) || defaultLanguage.value
 );
 locale.value = selectedLanguage.value.value;
 storeLanguage.setLanguage(selectedLanguage.value);

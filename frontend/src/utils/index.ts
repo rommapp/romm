@@ -563,7 +563,8 @@ export function getTextForStatus(status: PlayingStatus) {
  * @param text The text to convert.
  * @returns The corresponding status key.
  */
-export function getStatusKeyForText(text: string) {
+export function getStatusKeyForText(text: string | null) {
+  if (!text) return null;
   return inverseRomStatusMap[text];
 }
 
