@@ -100,7 +100,7 @@ function closeDialog() {
                   {{ formatBytes(state.file_size_bytes) }}
                 </v-chip>
                 <v-chip size="x-small" label>
-                  {{ formatTimestamp(state.updated_at) }}
+                  Updated: {{ formatTimestamp(state.updated_at) }}
                 </v-chip>
               </v-row>
             </v-card-text>

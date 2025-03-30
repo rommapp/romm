@@ -67,13 +67,18 @@ export async function saveSave({
 }): Promise<SaveSchema | null> {
   if (save) {
     try {
-      const { data: updateSave } = await saveApi.updateSave({
+      const { data: updatedSave } = await saveApi.updateSave({
         save: save,
         saveFile: new File([saveFile], save.file_name, {
           type: "application/octet-stream",
         }),
       });
-      return updateSave;
+
+      // Update the save in the rom object
+      const index = rom.user_saves.findIndex((s) => s.id === updatedSave.id);
+      rom.user_saves[index] = updatedSave;
+
+      return updatedSave;
     } catch (error) {
       console.error("Failed to update save", error);
       return null;
