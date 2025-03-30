@@ -8,7 +8,7 @@
   "clear-cache": "Limpiar caché de EmulatorJS",
   "clear-cache-title": "¿Estás seguro de que quieres limpiar la caché de EmulatorJS?",
   "clear-cache-warning": "Esto eliminará todas las partidas y estados almacenados en el navegador.",
-  "clear-cache-description": "No afectará a las partidas o estados almacenados en el servidor.",
-  "select-save": "Seleccionar partida",
+  "clear-cache-description": "No afectará a las partidas guardadas o estados almacenados en el servidor.",
+  "select-save": "Seleccionar guardado",
   "select-state": "Seleccionar estado"
 }
