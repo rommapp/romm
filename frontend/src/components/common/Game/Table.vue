@@ -332,6 +332,6 @@ function updateSelectedRom(rom: SimpleRom) {
   opacity: 75%;
 }
 .v-data-table {
-  width: calc(100% - 16px) !important;
+  width: calc(100% - 18px) !important;
 }
 </style>

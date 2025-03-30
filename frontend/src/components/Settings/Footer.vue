@@ -23,7 +23,7 @@ const heartbeatStore = storeHeartbeat();
               'text-secondary': isHovering,
             }"
           >
-            <code class="px-2 py-1 rounded-sm bg-surface text-primary">
+            <code class="px-2 py-1 text-primary">
               {{ heartbeatStore.value.SYSTEM.VERSION }}
             </code>
           </a>

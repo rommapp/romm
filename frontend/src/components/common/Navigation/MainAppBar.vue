@@ -1,4 +1,3 @@
-<
 <script setup lang="ts">
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
@@ -11,48 +10,33 @@ import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue"
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
-import storeNavigation from "@/stores/navigation";
-import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
 // Props
 const { smAndDown } = useDisplay();
-const navigationStore = storeNavigation();
 </script>
 <template>
-  <!-- Mobile app bar -->
-  <v-app-bar
-    v-if="smAndDown"
+  <!-- Mobile bottom bar -->
+  <v-bottom-navigation
     elevation="0"
-    class="bg-background justify-center px-1"
-    mode="shift"
-    height="55"
-    app
-    fixed
-    left
+    class="bg-background align-center"
+    v-if="smAndDown"
   >
-    <template #prepend>
-      <home-btn />
-    </template>
-
-    <search-btn />
-    <platforms-btn />
-    <collections-btn />
-    <v-divider opacity="0" class="mx-3" vertical />
-    <upload-btn />
-    <scan-btn />
-
-    <template #append>
-      <user-btn />
-    </template>
-  </v-app-bar>
+    <home-btn value="home" class="mt-2 mr-4" />
+    <search-btn value="search" />
+    <platforms-btn value="platforms" />
+    <collections-btn value="collections" />
+    <upload-btn value="upload" />
+    <scan-btn value="scan" />
+    <user-btn value="user" class="mt-2 ml-4" />
+  </v-bottom-navigation>
 
   <!-- Desktop app bar -->
   <v-navigation-drawer
     v-else
     permanent
     rail
-    rail-width="60"
+    rail-width="90"
     class="bg-background pa-1"
     :border="0"
   >
@@ -62,13 +46,12 @@ const navigationStore = storeNavigation();
       </v-row>
     </template>
 
-    <v-divider opacity="0" class="my-4" />
-    <search-btn block />
-    <platforms-btn block />
-    <collections-btn block />
-    <v-divider opacity="0" class="my-3" />
-    <upload-btn block />
-    <scan-btn block />
+    <search-btn rounded class="mt-10" block />
+    <platforms-btn rounded class="mt-3" block />
+    <collections-btn rounded class="mt-3" block />
+    <upload-btn rounded class="mt-3" block />
+    <scan-btn rounded class="mt-3" block />
+
     <template #append>
       <v-row no-gutters class="my-2 justify-center">
         <user-btn />

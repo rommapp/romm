@@ -1,24 +1,60 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
 import storeNavigation from "@/stores/navigation";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
 
+// Props
+withDefaults(
+  defineProps<{
+    block?: boolean;
+    height?: string;
+    rounded?: boolean;
+  }>(),
+  {
+    block: false,
+    height: "",
+    rounded: false,
+  },
+);
 const navigationStore = storeNavigation();
-
-const emitter = inject<Emitter<Events>>("emitter");
 </script>
 <template>
   <v-btn
     icon
+    :block="block"
     variant="flat"
-    rounded="0"
+    rounded="1"
     color="background"
-    class="rounded my-1"
+    :height="height"
+    :class="{ rounded: rounded }"
+    class="py-2 my-1 bg-background custom-btn"
     @click="navigationStore.goSearch"
   >
-    <v-icon :color="$route.name == 'search' ? 'primary' : ''"
-      >mdi-magnify</v-icon
-    >
+    <div class="icon-container">
+      <v-icon :color="$route.name == 'search' ? 'primary' : ''"
+        >mdi-magnify</v-icon
+      >
+      <span
+        class="text-caption"
+        :class="{ 'text-primary': $route.name == 'search' }"
+        >Search</span
+      >
+    </div>
   </v-btn>
 </template>
+
+<style scoped>
+.custom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.icon-container span {
+  text-align: center;
+}
+</style>
