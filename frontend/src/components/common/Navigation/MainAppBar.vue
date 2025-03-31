@@ -32,16 +32,16 @@ function collapse() {
     v-if="smAndDown"
     elevation="0"
     floating
+    style="z-index: 9999 !important"
     class="bg-background align-center justify-center"
-    grow
   >
-    <home-btn value="home" class="mt-3 mx-4" />
+    <home-btn value="home" class="mt-3 mx-2" />
     <search-btn withTag />
     <platforms-btn withTag />
     <collections-btn withTag />
     <!-- <upload-btn withTag /> -->
-    <!-- <scan-btn withTag /> -->
-    <user-btn class="mt-3 mx-4" />
+    <scan-btn withTag />
+    <user-btn class="mt-3 mx-2" />
   </v-bottom-navigation>
 
   <!-- Desktop app bar -->
