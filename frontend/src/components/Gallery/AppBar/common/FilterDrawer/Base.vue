@@ -177,7 +177,7 @@ onMounted(async () => {
       'drawer-mobile': smAndDown && activeFilterDrawer,
       'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
+    class="bg-surface rounded my-2 py-1"
     style="height: unset"
   >
     <v-list>

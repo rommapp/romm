@@ -166,6 +166,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     :loading="fetchingRoms"
     :disable-sort="fetchingRoms"
     hover
+    density="compact"
     class="rounded bg-background"
   >
     <template #loading>
