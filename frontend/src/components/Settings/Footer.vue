@@ -37,15 +37,15 @@ const computedWidth = computed(() => {
             :href="`https://github.com/rommapp/romm/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-decoration-none text-body-2"
+            class="text-decoration-none text-primary"
             v-bind="props"
             :class="{
               'text-secondary': isHovering,
             }"
           >
-            <code class="px-2 py-1 text-primary">
-              {{ heartbeatStore.value.SYSTEM.VERSION }}
-            </code>
+            <!-- <code class="px-2 py-1 text-primary"> -->
+            {{ heartbeatStore.value.SYSTEM.VERSION }}
+            <!-- </code> -->
           </a>
         </v-hover>
         <v-icon>mdi-circle-small</v-icon>
