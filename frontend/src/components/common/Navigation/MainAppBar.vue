@@ -54,6 +54,7 @@ function collapse() {
     v-if="smAndDown"
     elevation="0"
     floating
+    grow
     style="z-index: 9999 !important"
     class="bg-background align-center justify-center"
   >
