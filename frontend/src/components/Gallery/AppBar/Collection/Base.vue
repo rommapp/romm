@@ -11,12 +11,20 @@ import { storeToRefs } from "pinia";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import { useDisplay } from "vuetify";
+import { computed } from "vue";
 
 // Props
 const { xs, smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
+const { mainBarCollapsed } = storeToRefs(navigationStore);
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
+// Computed property for dynamic width
+const galleryAppBarDesktopWidth = computed(() => {
+  return mainBarCollapsed.value
+    ? "calc(100% - 76px)!important"
+    : "calc(100% - 116px)!important";
+});
 </script>
 
 <template>
@@ -24,9 +32,10 @@ const { currentCollection } = storeToRefs(romsStore);
     elevation="0"
     density="compact"
     class="ma-2"
-    :class="{
-      'gallery-app-bar-mobile': smAndDown,
-      'gallery-app-bar-desktop': !smAndDown,
+    :style="{
+      width: !smAndDown
+        ? galleryAppBarDesktopWidth
+        : 'width: calc(100% - 16px) !important',
     }"
     rounded
   >
@@ -53,12 +62,6 @@ const { currentCollection } = storeToRefs(romsStore);
 </template>
 
 <style scoped>
-.gallery-app-bar-desktop {
-  width: calc(100% - 108px) !important;
-}
-.gallery-app-bar-mobile {
-  width: calc(100% - 16px) !important;
-}
 .collection-icon {
   transition:
     filter 0.15s ease-in-out,

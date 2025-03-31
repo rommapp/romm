@@ -360,6 +360,6 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   opacity: 75%;
 }
 .v-data-table {
-  width: calc(100% - 18px) !important;
+  width: calc(100% - 16px) !important;
 }
 </style>

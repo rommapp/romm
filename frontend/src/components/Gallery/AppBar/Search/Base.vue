@@ -6,20 +6,31 @@ import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
 import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
 import SearchBtn from "@/components/Gallery/AppBar/Search/SearchBtn.vue";
+import storeNavigation from "@/stores/navigation";
+import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { computed } from "vue";
 
 // Props
 const { xs, smAndDown } = useDisplay();
+const navigationStore = storeNavigation();
+const { mainBarCollapsed } = storeToRefs(navigationStore);
+// Computed property for dynamic width
+const galleryAppBarDesktopWidth = computed(() => {
+  return mainBarCollapsed.value
+    ? "calc(100% - 76px)!important"
+    : "calc(100% - 116px)!important";
+});
 </script>
-
 <template>
   <v-app-bar
     elevation="0"
     density="compact"
     class="ma-2"
-    :class="{
-      'gallery-app-bar-mobile': smAndDown,
-      'gallery-app-bar-desktop': !smAndDown,
+    :style="{
+      width: !smAndDown
+        ? galleryAppBarDesktopWidth
+        : 'width: calc(100% - 16px) !important',
     }"
     rounded
   >
@@ -37,12 +48,3 @@ const { xs, smAndDown } = useDisplay();
   <char-index-bar />
   <filter-drawer />
 </template>
-
-<style scoped>
-.gallery-app-bar-desktop {
-  width: calc(100% - 108px) !important;
-}
-.gallery-app-bar-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>

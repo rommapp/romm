@@ -10,11 +10,13 @@ withDefaults(
     block?: boolean;
     height?: string;
     rounded?: boolean;
+    withTag?: boolean;
   }>(),
   {
     block: false,
     height: "",
     rounded: false,
+    withTag: false,
   },
 );
 const emitter = inject<Emitter<Events>>("emitter");
@@ -34,7 +36,9 @@ const auth = storeAuth();
   >
     <div class="icon-container">
       <v-icon>mdi-upload</v-icon>
-      <span class="text-caption">Upload</span>
+      <v-expand-transition>
+        <span v-if="withTag" class="text-caption">Upload</span>
+      </v-expand-transition>
     </div>
   </v-btn>
 </template>

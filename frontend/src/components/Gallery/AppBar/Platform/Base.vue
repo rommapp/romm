@@ -13,23 +13,31 @@ import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { computed } from "vue";
 
 // Props
 const { xs, smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
-const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
+const { activePlatformInfoDrawer, mainBarCollapsed } =
+  storeToRefs(navigationStore);
+// Computed property for dynamic width
+const galleryAppBarDesktopWidth = computed(() => {
+  return mainBarCollapsed.value
+    ? "calc(100% - 76px)!important"
+    : "calc(100% - 116px)!important";
+});
 </script>
-
 <template>
   <v-app-bar
     elevation="0"
     density="compact"
     class="ma-2"
-    :class="{
-      'gallery-app-bar-mobile': smAndDown,
-      'gallery-app-bar-desktop': !smAndDown,
+    :style="{
+      width: !smAndDown
+        ? galleryAppBarDesktopWidth
+        : 'width: calc(100% - 16px) !important',
     }"
     rounded
   >
@@ -59,14 +67,6 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 </template>
 
 <style scoped>
-.gallery-app-bar-desktop {
-  width: calc(100% - 108px) !important;
-}
-
-.gallery-app-bar-mobile {
-  width: calc(100% - 16px) !important;
-}
-
 .platform-icon {
   transition:
     filter 0.15s ease-in-out,

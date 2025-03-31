@@ -7,11 +7,13 @@ withDefaults(
     block?: boolean;
     height?: string;
     rounded?: boolean;
+    withTag?: boolean;
   }>(),
   {
     block: false,
     height: "",
     rounded: false,
+    withTag: false,
   },
 );
 const navigationStore = storeNavigation();
@@ -32,11 +34,14 @@ const navigationStore = storeNavigation();
       <v-icon :color="$route.name == 'search' ? 'primary' : ''"
         >mdi-magnify</v-icon
       >
-      <span
-        class="text-caption"
-        :class="{ 'text-primary': $route.name == 'search' }"
-        >Search</span
-      >
+      <v-expand-transition>
+        <span
+          v-if="withTag"
+          class="text-caption"
+          :class="{ 'text-primary': $route.name == 'search' }"
+          >Search</span
+        >
+      </v-expand-transition>
     </div>
   </v-btn>
 </template>
