@@ -4,11 +4,13 @@ import RSection from "@/components/common/RSection.vue";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import { computed, ref } from "vue";
+import { useDisplay } from "vuetify";
 import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
+const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 
 // Initializing refs from localStorage
@@ -365,6 +367,7 @@ const toggleStatus = (value: boolean) => {
             ]"
             :label="t('settings.virtual-collection-type')"
             class="mx-2"
+            :class="{ 'mt-4': smAndDown }"
             variant="outlined"
             hide-details
             :disabled="!showVirtualCollectionsRef"
