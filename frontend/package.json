@@ -52,7 +52,7 @@
     "@types/lodash": "^4.17.16",
     "@types/node": "^22.13.14",
     "@types/qrcode": "^1.5.5",
-    "@types/semver": "^7.5.8",
+    "@types/semver": "^7.7.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.7.0",
     "eslint": "^9.23.0",
