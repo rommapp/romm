@@ -9,7 +9,7 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const navigationStore = storeNavigation();
-const { smAndDown } = useDisplay();
+const { smAndDown, mdAndUp } = useDisplay();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
@@ -26,13 +26,12 @@ function clear() {
     width="500"
     v-model="activePlatformsDrawer"
     :class="{
-      'mx-2': smAndDown || activePlatformsDrawer,
-      'my-2': !smAndDown || activePlatformsDrawer,
+      'my-2': mdAndUp || (smAndDown && activePlatformsDrawer),
+      'ml-2': (mdAndUp && activePlatformsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface pa-1"
-    style="height: unset"
+    :style="mdAndUp ? 'height: unset' : ''"
     rounded
     :border="0"
   >
