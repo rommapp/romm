@@ -14,7 +14,7 @@ import { isNull } from "lodash";
 // Props
 const { t } = useI18n();
 const navigationStore = storeNavigation();
-const { smAndDown } = useDisplay();
+const { mdAndUp, smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 const { filteredCollections, filteredVirtualCollections, filterText } =
   storeToRefs(collectionsStore);
@@ -75,14 +75,12 @@ onBeforeUnmount(() => {
     width="500"
     v-model="activeCollectionsDrawer"
     :class="{
-      'my-2': !smAndDown,
-      'ml-2': !smAndDown && activeCollectionsDrawer,
-      'ml-2': smAndDown,
-      'my-2': smAndDown && activeCollectionsDrawer,
+      'my-2': mdAndUp || (smAndDown && activeCollectionsDrawer),
+      'ml-2': (mdAndUp && activeCollectionsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
     }"
     class="bg-surface pa-1"
-    :style="!smAndDown ? 'height: unset' : ''"
+    :style="mdAndUp ? 'height: unset' : 'width: calc(100% - 16px) !important;'"
     rounded
     :border="0"
   >

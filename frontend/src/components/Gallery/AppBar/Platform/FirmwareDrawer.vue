@@ -3,13 +3,14 @@ import type { FirmwareSchema } from "@/__generated__";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
 import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
 import storeAuth from "@/stores/auth";
+import storeNavigation from "@/stores/navigation";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
+import { inject, ref, computed } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
@@ -21,6 +22,16 @@ const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const galleryViewStore = storeGalleryView();
 const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
+const navigationStore = storeNavigation();
+const { mainBarCollapsed } = storeToRefs(navigationStore);
+// Computed property for dynamic width
+const desktopWidth = computed(() => {
+  return smAndDown.value
+    ? "calc(100% - 16px) !important"
+    : mainBarCollapsed.value
+      ? "calc(100% - 76px) !important"
+      : "calc(100% - 116px) !important";
+});
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const HEADERS = [
@@ -58,11 +69,11 @@ function deleteSelectedFirmware() {
     v-model="activeFirmwareDrawer"
     :class="{
       'my-2 px-1': activeFirmwareDrawer,
-      'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface border-0 rounded mx-2 px-1"
-    style="width: unset"
+    :style="{
+      width: desktopWidth,
+    }"
   >
     <v-data-table-virtual
       :items="currentPlatform?.firmware ?? []"
@@ -183,11 +194,3 @@ function deleteSelectedFirmware() {
   <upload-firmware-dialog />
   <delete-firmware-dialog />
 </template>
-<style scoped>
-.drawer-desktop {
-  width: calc(100% - 91px) !important;
-}
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>
