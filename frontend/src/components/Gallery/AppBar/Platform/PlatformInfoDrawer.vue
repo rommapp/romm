@@ -263,7 +263,9 @@ watch(
               class="bg-toplayer my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
-              <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
+              <v-icon class="text-romm-green mr-2"
+                >mdi-cloud-upload-outline</v-icon
+              >
               {{ t("platform.upload-roms") }}
             </v-btn>
             <v-btn

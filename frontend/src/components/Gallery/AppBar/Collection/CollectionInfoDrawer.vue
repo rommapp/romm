@@ -214,7 +214,7 @@ async function updateCollection() {
                   class="translucent-dark"
                   @click="triggerFileInput"
                 >
-                  <v-icon size="large">mdi-upload</v-icon>
+                  <v-icon size="large">mdi-cloud-upload-outline</v-icon>
                   <v-file-input
                     id="file-input"
                     v-model="updatedCollection.artwork"

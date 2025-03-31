@@ -75,7 +75,7 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
         size="small"
         @click="emitter?.emit('addSavesDialog', rom)"
       >
-        <v-icon>mdi-upload</v-icon>
+        <v-icon>mdi-cloud-upload-outline</v-icon>
       </v-btn>
       <v-btn
         drawer
