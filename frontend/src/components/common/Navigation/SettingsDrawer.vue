@@ -22,7 +22,7 @@ const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const { activeSettingsDrawer } = storeToRefs(navigationStore);
-const { smAndDown } = useDisplay();
+const { mdAndUp, smAndDown } = useDisplay();
 
 // Functions
 async function logout() {
@@ -54,14 +54,12 @@ async function logout() {
     width="450"
     v-model="activeSettingsDrawer"
     :class="{
-      'my-2': !smAndDown,
-      'ml-2': !smAndDown && activeSettingsDrawer,
-      'ml-2': smAndDown,
-      'my-2': smAndDown && activeSettingsDrawer,
+      'my-2': mdAndUp || (smAndDown && activeSettingsDrawer),
+      'ml-2': (mdAndUp && activeSettingsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
     }"
     class="bg-surface pa-1"
-    :style="!smAndDown ? 'height: unset' : ''"
+    :style="mdAndUp ? 'height: unset' : 'width: calc(100% - 16px) !important;'"
     rounded
     :border="0"
   >
@@ -128,8 +126,3 @@ async function logout() {
     </template>
   </v-navigation-drawer>
 </template>
-<style scoped>
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>

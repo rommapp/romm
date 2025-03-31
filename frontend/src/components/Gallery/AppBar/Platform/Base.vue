@@ -23,10 +23,12 @@ const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer, mainBarCollapsed } =
   storeToRefs(navigationStore);
 // Computed property for dynamic width
-const galleryAppBarDesktopWidth = computed(() => {
-  return mainBarCollapsed.value
-    ? "calc(100% - 76px)!important"
-    : "calc(100% - 116px)!important";
+const computedWidth = computed(() => {
+  return smAndDown.value
+    ? "calc(100% - 16px) !important"
+    : mainBarCollapsed.value
+      ? "calc(100% - 76px) !important"
+      : "calc(100% - 116px) !important";
 });
 </script>
 <template>
@@ -34,11 +36,7 @@ const galleryAppBarDesktopWidth = computed(() => {
     elevation="0"
     density="compact"
     class="ma-2"
-    :style="{
-      width: !smAndDown
-        ? galleryAppBarDesktopWidth
-        : 'width: calc(100% - 16px) !important',
-    }"
+    :style="{ width: computedWidth }"
     rounded
   >
     <platform-icon
