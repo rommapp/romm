@@ -31,7 +31,7 @@ function clear() {
       'drawer-mobile': smAndDown,
     }"
     class="bg-surface pa-1"
-    :style="mdAndUp ? 'height: unset' : 'width: calc(100% - 16px) !important;'"
+    :style="mdAndUp ? 'height: unset' : ''"
     rounded
     :border="0"
   >
@@ -61,5 +61,6 @@ function clear() {
 <style scoped>
 .drawer-mobile {
   width: calc(100% - 16px) !important;
+  z-index: 1011 !important;
 }
 </style>
