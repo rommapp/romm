@@ -220,7 +220,6 @@ const toggleStatus = (value: boolean) => {
         >
           <interface-option
             class="ma-1"
-            :disabled="option.disabled"
             :title="option.title"
             :description="option.description"
             :icon="
