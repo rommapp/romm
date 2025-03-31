@@ -10,10 +10,15 @@ import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue"
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
+import navigationStore from "@/stores/navigation";
+import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { ref } from "vue";
 
 // Props
 const { smAndDown } = useDisplay();
+const storeNavigation = navigationStore();
+const { mainBarCollapsed } = storeToRefs(storeNavigation);
 </script>
 <template>
   <!-- Mobile bottom bar -->
@@ -36,7 +41,7 @@ const { smAndDown } = useDisplay();
     v-else
     permanent
     rail
-    rail-width="90"
+    :rail-width="mainBarCollapsed ? 60 : 100"
     class="bg-background pa-1"
     :border="0"
   >
@@ -46,11 +51,29 @@ const { smAndDown } = useDisplay();
       </v-row>
     </template>
 
-    <search-btn rounded class="mt-10" block />
-    <platforms-btn rounded class="mt-3" block />
-    <collections-btn rounded class="mt-3" block />
-    <upload-btn rounded class="mt-3" block />
-    <scan-btn rounded class="mt-3" block />
+    <v-row no-gutters class="justify-center mt-10">
+      <v-divider class="mx-2" />
+      <v-btn
+        @click="mainBarCollapsed = !mainBarCollapsed"
+        id="collapseBtn"
+        size="small"
+        density="comfortable"
+        variant="flat"
+        rounded
+        icon
+        ><v-icon>{{
+          mainBarCollapsed
+            ? "mdi-chevron-double-right"
+            : "mdi-chevron-double-left"
+        }}</v-icon></v-btn
+      >
+    </v-row>
+
+    <search-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
+    <platforms-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
+    <collections-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
+    <upload-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
+    <scan-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
 
     <template #append>
       <v-row no-gutters class="my-2 justify-center">
@@ -64,4 +87,8 @@ const { smAndDown } = useDisplay();
   <upload-rom-dialog />
   <settings-drawer />
 </template>
->
+<style scoped>
+#collapseBtn {
+  transform: translateY(-50%);
+}
+</style>

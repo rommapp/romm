@@ -16,11 +16,13 @@ withDefaults(
     block?: boolean;
     height?: string;
     rounded?: boolean;
+    withTag?: boolean;
   }>(),
   {
     block: false,
     height: "",
     rounded: false,
+    withTag: false,
   },
 );
 const navigationStore = storeNavigation();
@@ -134,11 +136,14 @@ onBeforeUnmount(() => {
       <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''"
         >mdi-magnify-scan</v-icon
       >
-      <span
-        class="text-caption"
-        :class="{ 'text-primary': $route.name == 'scan' }"
-        >Scan</span
-      >
+      <v-expand-transition>
+        <span
+          v-if="withTag"
+          class="text-caption"
+          :class="{ 'text-primary': $route.name == 'scan' }"
+          >Scan</span
+        >
+      </v-expand-transition>
     </div>
   </v-btn>
 </template>

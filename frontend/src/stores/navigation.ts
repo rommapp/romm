@@ -7,6 +7,7 @@ const defaultNavigationState = {
   activeSettingsDrawer: false,
   activePlatformInfoDrawer: false,
   activeCollectionInfoDrawer: false,
+  mainBarCollapsed: false,
 };
 
 export default defineStore("navigation", {

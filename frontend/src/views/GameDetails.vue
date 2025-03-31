@@ -114,10 +114,7 @@ watch(
       </v-col>
 
       <v-col>
-        <div
-          class="pl-4"
-          :class="{ 'position-absolute title-desktop': mdAndUp }"
-        >
+        <div :class="{ 'position-absolute title-desktop pl-4': mdAndUp }">
           <title-info :rom="currentRom" />
         </div>
         <v-row
@@ -229,8 +226,6 @@ watch(
 <style scoped>
 .title-desktop {
   margin-top: -190px;
-  top: 290px;
-  left: 350px;
 }
 
 #artwork-container {

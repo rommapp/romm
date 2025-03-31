@@ -8,11 +8,13 @@ withDefaults(
     block?: boolean;
     height?: string;
     rounded?: boolean;
+    withTag?: boolean;
   }>(),
   {
     block: false,
     height: "",
     rounded: false,
+    withTag: false,
   },
 );
 const navigationStore = storeNavigation();
@@ -34,11 +36,14 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
       <v-icon :color="$route.name == 'collection' ? 'primary' : ''"
         >mdi-bookmark-box-multiple</v-icon
       >
-      <span
-        class="text-caption"
-        :class="{ 'text-primary': $route.name == 'collection' }"
-        >Collections</span
-      >
+      <v-expand-transition>
+        <span
+          v-if="withTag"
+          class="text-caption"
+          :class="{ 'text-primary': $route.name == 'collection' }"
+          >Collections</span
+        >
+      </v-expand-transition>
     </div>
   </v-btn>
 </template>
