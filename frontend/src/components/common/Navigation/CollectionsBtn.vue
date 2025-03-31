@@ -25,9 +25,8 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
     icon
     :block="block"
     variant="flat"
-    rounded="1"
     :height="height"
-    class="py-2 my-1 bg-background custom-btn"
+    class="py-4 bg-background custom-btn"
     :class="{ rounded: rounded }"
     :color="activeCollectionsDrawer ? 'toplayer' : 'background'"
     @click="navigationStore.switchActiveCollectionsDrawer"

@@ -118,11 +118,10 @@ onBeforeUnmount(() => {
     icon
     :block="block"
     variant="flat"
-    rounded="1"
     color="background"
     :height="height"
     :class="{ rounded: rounded }"
-    class="py-2 my-1 bg-background custom-btn"
+    class="py-4 bg-background custom-btn"
     @click="navigationStore.goScan"
   >
     <div class="icon-container">
