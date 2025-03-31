@@ -31,11 +31,11 @@ const auth = storeAuth();
     color="background"
     :height="height"
     :class="{ rounded: rounded }"
-    class="py-2 my-1 bg-background custom-btn"
+    class="bg-background custom-btn"
     @click="emitter?.emit('showUploadRomDialog', null)"
   >
     <div class="icon-container">
-      <v-icon>mdi-upload</v-icon>
+      <v-icon>mdi-cloud-upload-outline</v-icon>
       <v-expand-transition>
         <span v-if="withTag" class="text-caption">Upload</span>
       </v-expand-transition>
