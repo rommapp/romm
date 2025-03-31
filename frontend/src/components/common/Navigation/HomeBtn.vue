@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { ROUTES } from "@/plugins/router";
+
 import RIsotipo from "@/components/common/RIsotipo.vue";
 </script>
 <template>
-  <a href="/" class="flex items-center">
-    <r-isotipo class="cursor-pointer" :size="40" />
-  </a>
+  <router-link :to="{ name: ROUTES.HOME }" class="cursor-pointer">
+    <r-isotipo :size="40" />
+  </router-link>
 </template>
