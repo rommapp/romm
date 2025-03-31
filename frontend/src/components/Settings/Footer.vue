@@ -1,15 +1,35 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
+import storeNavigation from "@/stores/navigation";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
 
 // Props
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const heartbeatStore = storeHeartbeat();
+const navigationStore = storeNavigation();
+const { mainBarCollapsed } = storeToRefs(navigationStore);
+// Computed property for dynamic width
+const computedWidth = computed(() => {
+  return smAndDown.value
+    ? "100% !important"
+    : mainBarCollapsed.value
+      ? "calc(100% - 60px) !important"
+      : "calc(100% - 100px) !important";
+});
 </script>
 <template>
-  <div :class="{ desktop: !smAndDown }" class="sticky-bottom">
+  <div
+    class="sticky-bottom"
+    :class="{
+      'sticky-bottom-desktop': !smAndDown,
+      'sticky-bottom-mobile': smAndDown,
+    }"
+    :style="{ width: computedWidth }"
+  >
     <v-card class="bg-toplayer ma-2 pa-2">
       <v-row class="align-center justify-center" no-gutters>
         <v-hover v-slot="{ isHovering, props }">
@@ -63,13 +83,12 @@ const heartbeatStore = storeHeartbeat();
 <style scoped>
 .sticky-bottom {
   position: fixed;
-  bottom: 0;
-  left: 0;
-  z-index: 1000;
-  width: 100%;
+  z-index: 1011;
 }
-.desktop {
-  margin-left: 60px !important;
-  width: calc(100% - 60px) !important;
+.sticky-bottom-desktop {
+  bottom: 0;
+}
+.sticky-bottom-mobile {
+  bottom: 50px;
 }
 </style>
