@@ -166,7 +166,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     :loading="fetchingRoms"
     :disable-sort="fetchingRoms"
     hover
-    class="rounded"
+    class="rounded bg-background"
   >
     <template #loading>
       <v-skeleton-loader
@@ -193,16 +193,12 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
       />
     </template>
     <template #item.name="{ item }">
-      <v-list-item
-        :min-width="400"
-        class="px-0 py-2"
-        :to="{ name: ROUTES.ROM, params: { rom: item.id } }"
-      >
+      <v-list-item :min-width="400" class="px-0 py-2">
         <template #prepend>
           <platform-icon
+            v-if="showPlatformIcon"
             class="mr-4"
             :size="30"
-            v-if="showPlatformIcon"
             :slug="item.platform_slug"
           />
           <r-avatar-rom :rom="item" />
@@ -304,6 +300,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         <v-btn
           :disabled="downloadStore.value.includes(item.id)"
           download
+          variant="text"
           size="small"
           @click.stop="romApi.downloadRom({ rom: item })"
         >
@@ -311,6 +308,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-btn>
         <v-btn
           v-if="checkIfEJSEmulationSupported(item.platform_slug)"
+          variant="text"
           size="small"
           @click.stop="
             $router.push({
@@ -323,6 +321,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-btn>
         <v-btn
           v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
+          variant="text"
           size="small"
           @click.stop="
             $router.push({
@@ -342,7 +341,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           location="bottom"
         >
           <template #activator="{ props }">
-            <v-btn v-bind="props" size="small">
+            <v-btn v-bind="props" variant="text" size="small">
               <v-icon>mdi-dots-vertical</v-icon>
             </v-btn>
           </template>
