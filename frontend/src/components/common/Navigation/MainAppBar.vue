@@ -23,7 +23,10 @@ const { mainBarCollapsed } = storeToRefs(storeNavigation);
 // Functions
 function collapse() {
   mainBarCollapsed.value = !mainBarCollapsed.value;
-  localStorage.setItem("settings.mainBarCollapsed", mainBarCollapsed.value);
+  localStorage.setItem(
+    "settings.mainBarCollapsed",
+    mainBarCollapsed.value.toString(),
+  );
 }
 </script>
 <template>
