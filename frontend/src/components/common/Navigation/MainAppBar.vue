@@ -30,6 +30,25 @@ function collapse() {
 }
 </script>
 <template>
+  <!-- Mobile top bar -->
+  <v-app-bar
+    v-if="smAndDown"
+    style="z-index: 9999 !important"
+    elevation="0"
+    class="bg-background justify-center px-1"
+    height="50"
+    fixed
+    left
+  >
+    <template #prepend>
+      <home-btn class="ml-1" />
+    </template>
+
+    <template #append>
+      <user-btn class="mr-1" />
+    </template>
+  </v-app-bar>
+
   <!-- Mobile bottom bar -->
   <v-bottom-navigation
     v-if="smAndDown"
@@ -38,18 +57,17 @@ function collapse() {
     style="z-index: 9999 !important"
     class="bg-background align-center justify-center"
   >
-    <home-btn value="home" class="mt-3 mx-2" />
     <search-btn withTag />
     <platforms-btn withTag />
     <collections-btn withTag />
-    <!-- <upload-btn withTag /> -->
+    <upload-btn withTag />
     <scan-btn withTag />
-    <user-btn class="mt-3 mx-2" />
   </v-bottom-navigation>
 
-  <!-- Desktop app bar -->
+  <!-- Desktop app side bar -->
   <v-navigation-drawer
     v-else
+    style="z-index: 9999 !important"
     permanent
     rail
     :rail-width="mainBarCollapsed ? 60 : 100"
