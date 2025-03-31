@@ -74,7 +74,7 @@ watch(
         v-for="char in Object.keys(characterIndex)"
         :key="char"
         :value="char"
-        class="py-4"
+        class="py-3"
       >
         {{ char }}
       </v-tab>
