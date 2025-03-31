@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ROUTES } from "@/plugins/router";
+import { isNull } from "lodash";
 
 const defaultNavigationState = {
   activePlatformsDrawer: false,
@@ -7,7 +8,9 @@ const defaultNavigationState = {
   activeSettingsDrawer: false,
   activePlatformInfoDrawer: false,
   activeCollectionInfoDrawer: false,
-  mainBarCollapsed: false,
+  mainBarCollapsed: isNull(localStorage.getItem("settings.mainBarCollapsed"))
+    ? false
+    : localStorage.getItem("settings.mainBarCollapsed") === "true",
 };
 
 export default defineStore("navigation", {

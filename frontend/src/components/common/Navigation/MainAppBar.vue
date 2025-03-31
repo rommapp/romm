@@ -19,6 +19,12 @@ import { ref } from "vue";
 const { smAndDown } = useDisplay();
 const storeNavigation = navigationStore();
 const { mainBarCollapsed } = storeToRefs(storeNavigation);
+
+// Functions
+function collapse() {
+  mainBarCollapsed.value = !mainBarCollapsed.value;
+  localStorage.setItem("settings.mainBarCollapsed", mainBarCollapsed.value);
+}
 </script>
 <template>
   <!-- Mobile bottom bar -->
@@ -54,7 +60,7 @@ const { mainBarCollapsed } = storeToRefs(storeNavigation);
     <v-row no-gutters class="justify-center mt-10">
       <v-divider class="mx-2" />
       <v-btn
-        @click="mainBarCollapsed = !mainBarCollapsed"
+        @click="collapse"
         id="collapseBtn"
         size="small"
         density="comfortable"
