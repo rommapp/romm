@@ -52,16 +52,14 @@ function collapse() {
 
     <!-- Mobile bottom bar -->
     <v-bottom-navigation
-      elevation="0"
-      floating
       grow
+      elevation="0"
       style="z-index: 9999 !important"
       class="bg-background align-center justify-center"
     >
       <search-btn withTag />
       <platforms-btn withTag />
       <collections-btn withTag />
-      <!-- <upload-btn withTag /> -->
       <scan-btn withTag />
     </v-bottom-navigation>
   </template>
