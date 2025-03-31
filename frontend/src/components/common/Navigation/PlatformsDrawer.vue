@@ -21,18 +21,19 @@ function clear() {
 <template>
   <v-navigation-drawer
     mobile
-    :location="smAndDown ? 'top' : 'left'"
+    :location="smAndDown ? 'bottom' : 'left'"
     @update:model-value="clear"
     width="500"
     v-model="activePlatformsDrawer"
     :class="{
-      'mx-2': smAndDown || activePlatformsDrawer,
-      'my-2': !smAndDown || activePlatformsDrawer,
+      'my-2': !smAndDown,
+      'ml-2': !smAndDown && activePlatformsDrawer,
+      'ml-2': smAndDown,
+      'my-2': smAndDown && activePlatformsDrawer,
       'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface pa-1"
-    style="height: unset"
+    :style="!smAndDown ? 'height: unset' : ''"
     rounded
     :border="0"
   >

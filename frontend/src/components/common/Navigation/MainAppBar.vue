@@ -29,17 +29,19 @@ function collapse() {
 <template>
   <!-- Mobile bottom bar -->
   <v-bottom-navigation
-    elevation="0"
-    class="bg-background align-center"
     v-if="smAndDown"
+    elevation="0"
+    floating
+    class="bg-background align-center justify-center"
+    grow
   >
-    <home-btn value="home" class="mt-2 mr-4" />
-    <search-btn value="search" />
-    <platforms-btn value="platforms" />
-    <collections-btn value="collections" />
-    <upload-btn value="upload" />
-    <scan-btn value="scan" />
-    <user-btn value="user" class="mt-2 ml-4" />
+    <home-btn value="home" class="mt-3 mx-4" />
+    <search-btn withTag />
+    <platforms-btn withTag />
+    <collections-btn withTag />
+    <!-- <upload-btn withTag /> -->
+    <!-- <scan-btn withTag /> -->
+    <user-btn class="mt-3 mx-4" />
   </v-bottom-navigation>
 
   <!-- Desktop app bar -->

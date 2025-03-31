@@ -70,18 +70,19 @@ onBeforeUnmount(() => {
   <v-navigation-drawer
     id="collections-drawer"
     mobile
-    :location="smAndDown ? 'top' : 'left'"
+    :location="smAndDown ? 'bottom' : 'left'"
     @update:model-value="clear"
     width="500"
     v-model="activeCollectionsDrawer"
     :class="{
-      'mx-2': smAndDown || activeCollectionsDrawer,
-      'my-2': !smAndDown || activeCollectionsDrawer,
+      'my-2': !smAndDown,
+      'ml-2': !smAndDown && activeCollectionsDrawer,
+      'ml-2': smAndDown,
+      'my-2': smAndDown && activeCollectionsDrawer,
       'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
     }"
     class="bg-surface pa-1"
-    style="height: unset"
+    :style="!smAndDown ? 'height: unset' : ''"
     rounded
     :border="0"
   >

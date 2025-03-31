@@ -169,16 +169,15 @@ onMounted(async () => {
   <v-navigation-drawer
     mobile
     floating
-    :width="xs ? viewportWidth : '350'"
+    width="500"
     v-model="activeFilterDrawer"
     @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     :class="{
-      'mx-2 px-1': activeFilterDrawer,
+      'ml-2': activeFilterDrawer,
       'drawer-mobile': smAndDown && activeFilterDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1"
+    style="z-index: 1011 !important; height: unset !important"
   >
     <v-list>
       <template v-if="xs">
@@ -239,11 +238,7 @@ onMounted(async () => {
   </v-navigation-drawer>
 </template>
 <style scoped>
-.drawer-desktop {
-  top: 56px !important;
-}
 .drawer-mobile {
-  top: 110px !important;
   width: calc(100% - 16px) !important;
 }
 </style>

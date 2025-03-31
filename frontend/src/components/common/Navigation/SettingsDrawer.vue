@@ -50,16 +50,18 @@ async function logout() {
 <template>
   <v-navigation-drawer
     mobile
-    :location="smAndDown ? 'top' : 'left'"
+    :location="smAndDown ? 'bottom' : 'left'"
     width="450"
     v-model="activeSettingsDrawer"
     :class="{
-      'mx-2': smAndDown || activeSettingsDrawer,
-      'my-2': !smAndDown || activeSettingsDrawer,
+      'my-2': !smAndDown,
+      'ml-2': !smAndDown && activeSettingsDrawer,
+      'ml-2': smAndDown,
+      'my-2': smAndDown && activeSettingsDrawer,
       'drawer-mobile': smAndDown,
     }"
     class="bg-surface pa-1"
-    style="height: unset"
+    :style="!smAndDown ? 'height: unset' : ''"
     rounded
     :border="0"
   >
