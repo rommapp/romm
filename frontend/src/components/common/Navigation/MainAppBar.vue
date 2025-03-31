@@ -31,40 +31,40 @@ function collapse() {
 </script>
 <template>
   <!-- Mobile top bar -->
-  <v-app-bar
-    v-if="smAndDown"
-    style="z-index: 9999 !important"
-    elevation="0"
-    class="bg-background justify-center px-1"
-    height="50"
-    fixed
-    left
-  >
-    <template #prepend>
-      <home-btn class="ml-1" />
-    </template>
+  <template v-if="smAndDown">
+    <v-app-bar
+      style="z-index: 9999 !important"
+      elevation="0"
+      class="bg-background justify-center px-1"
+      height="50"
+      fixed
+      left
+    >
+      <template #prepend>
+        <home-btn class="ml-1" />
+      </template>
 
-    <template #append>
-      <upload-btn class="mr-2" />
-      <user-btn class="mr-1" />
-    </template>
-  </v-app-bar>
+      <template #append>
+        <upload-btn class="mr-2" />
+        <user-btn class="mr-1" />
+      </template>
+    </v-app-bar>
 
-  <!-- Mobile bottom bar -->
-  <v-bottom-navigation
-    v-if="smAndDown"
-    elevation="0"
-    floating
-    grow
-    style="z-index: 9999 !important"
-    class="bg-background align-center justify-center"
-  >
-    <search-btn withTag />
-    <platforms-btn withTag />
-    <collections-btn withTag />
-    <!-- <upload-btn withTag /> -->
-    <scan-btn withTag />
-  </v-bottom-navigation>
+    <!-- Mobile bottom bar -->
+    <v-bottom-navigation
+      elevation="0"
+      floating
+      grow
+      style="z-index: 9999 !important"
+      class="bg-background align-center justify-center"
+    >
+      <search-btn withTag />
+      <platforms-btn withTag />
+      <collections-btn withTag />
+      <!-- <upload-btn withTag /> -->
+      <scan-btn withTag />
+    </v-bottom-navigation>
+  </template>
 
   <!-- Desktop app side bar -->
   <v-navigation-drawer

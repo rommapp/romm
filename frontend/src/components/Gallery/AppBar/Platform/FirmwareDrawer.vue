@@ -90,7 +90,7 @@ function deleteSelectedFirmware() {
             size="small"
             @click="emitter?.emit('addFirmwareDialog', null)"
           >
-            <v-icon>mdi-upload</v-icon>
+            <v-icon>mdi-cloud-upload-outline</v-icon>
           </v-btn>
           <v-btn
             :disabled="!selectedFirmware.length"

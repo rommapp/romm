@@ -77,7 +77,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
         size="small"
         @click="emitter?.emit('addStatesDialog', rom)"
       >
-        <v-icon>mdi-upload</v-icon>
+        <v-icon>mdi-cloud-upload-outline</v-icon>
       </v-btn>
       <v-btn
         drawer
