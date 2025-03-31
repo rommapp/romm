@@ -181,9 +181,9 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
         </v-card-text>
       </v-card>
     </v-hover>
-    <v-col v-else class="text-center mt-6">
-      <v-icon size="x-large">mdi-help-rhombus-outline</v-icon>
-      <p class="text-h4 mt-2">{{ t("rom.no-states-found") }}</p>
+    <v-col v-else class="text-center mt-2">
+      <v-icon size="large">mdi-help-rhombus-outline</v-icon>
+      <p class="text-h6 mt-2">{{ t("rom.no-states-found") }}</p>
     </v-col>
   </div>
 </template>
