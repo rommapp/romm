@@ -99,11 +99,11 @@ function collapse() {
         }}</v-icon></v-btn
       >
     </v-row>
-
     <search-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
     <platforms-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
     <collections-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
     <scan-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
+
     <template #append>
       <v-row no-gutters class="my-2 justify-center">
         <upload-btn :withTag="!mainBarCollapsed" rounded class="mb-5" block />
