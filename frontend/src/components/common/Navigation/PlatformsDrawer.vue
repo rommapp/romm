@@ -29,10 +29,9 @@ function clear() {
       'my-2': mdAndUp || (smAndDown && activePlatformsDrawer),
       'ml-2': (mdAndUp && activePlatformsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
+      'unset-height': mdAndUp || (smAndDown && activePlatformsDrawer),
     }"
     class="bg-surface pa-1"
-    :style="mdAndUp ? 'height: unset' : 'width: calc(100% - 16px) !important;'"
-    style="z-index: 9998 !important"
     rounded
     :border="0"
   >

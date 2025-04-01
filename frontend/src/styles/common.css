@@ -69,3 +69,9 @@ body {
 #main-app-bar ~ #gallery-app-bar {
   top: 45px !important;
 }
+.unset-height {
+  height: unset !important;
+}
+.drawer-mobile {
+  width: calc(100% - 16px) !important;
+}
