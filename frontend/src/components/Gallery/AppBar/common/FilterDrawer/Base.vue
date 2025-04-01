@@ -181,7 +181,6 @@ onMounted(async () => {
     floating
     width="500"
     v-model="activeFilterDrawer"
-    @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     :class="{
       'ml-2': activeFilterDrawer,
       'drawer-mobile': smAndDown && activeFilterDrawer,
