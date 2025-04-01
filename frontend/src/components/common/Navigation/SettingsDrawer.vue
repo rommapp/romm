@@ -22,7 +22,7 @@ const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const { activeSettingsDrawer } = storeToRefs(navigationStore);
-const { mdAndUp, smAndDown } = useDisplay();
+const { smAndDown, mdAndUp } = useDisplay();
 
 // Functions
 async function logout() {
@@ -58,9 +58,7 @@ async function logout() {
       'ml-2': (mdAndUp && activeSettingsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
     }"
-    class="bg-surface pa-1"
-    :style="mdAndUp ? 'height: unset' : 'width: calc(100% - 16px) !important;'"
-    style="z-index: 9998 !important"
+    class="bg-surface pa-1 unset-height"
     rounded
     :border="0"
   >

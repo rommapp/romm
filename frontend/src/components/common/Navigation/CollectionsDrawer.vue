@@ -78,10 +78,9 @@ onBeforeUnmount(() => {
       'my-2': mdAndUp || (smAndDown && activeCollectionsDrawer),
       'ml-2': (mdAndUp && activeCollectionsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
+      'unset-height': mdAndUp || (smAndDown && activeCollectionsDrawer),
     }"
     class="bg-surface pa-1"
-    :style="mdAndUp ? 'height: unset' : 'width: calc(100% - 16px) !important;'"
-    style="z-index: 9998 !important"
     rounded
     :border="0"
   >
