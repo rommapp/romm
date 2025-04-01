@@ -6,7 +6,7 @@ import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import type { UserItem } from "@/types/user";
-import { defaultAvatarPath } from "@/utils";
+import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import { inject, ref, onMounted, onUnmounted } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
@@ -161,7 +161,21 @@ onUnmounted(() => {
           :label="t('settings.role')"
           required
           hide-details
-        />
+        >
+          <template #selection="{ props, item }">
+            <v-list-item v-bind="props" class="pa-0">
+              <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+              {{ item.title }}
+            </v-list-item>
+          </template>
+          <template #item="{ props, item }">
+            <v-list-item v-bind="props" :title="item.title">
+              <template #prepend>
+                <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
+              </template>
+            </v-list-item>
+          </template>
+        </v-select>
       </v-col>
     </v-row>
     <v-row no-gutters class="mt-4 text-center">
