@@ -198,7 +198,7 @@ watch(
     class="bg-surface border-0 rounded my-2 py-1"
     style="height: unset"
   >
-    <v-row no-gutters class="justify-center align-center pa-4">
+    <v-row no-gutters class="justify-center align-center pa-2">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
@@ -431,6 +431,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mt-4"
     >
       <template #content>
         <div class="text-center">

@@ -20,7 +20,7 @@ storeLanguage.setLanguage(selectedLanguage.value);
 
 <template>
   <v-app>
-    <v-main height="100dvh">
+    <v-main min-height="100dvh">
       <router-view />
     </v-main>
   </v-app>

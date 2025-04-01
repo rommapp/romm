@@ -51,6 +51,7 @@ dependencies = [
   "websockets == 12.0",
   "yarl ~= 1.14",
   "zipfile-deflate64 ~= 0.2",
+  "fastapi-pagination (>=0.12.34,<0.13.0)",
 ]
 
 [project.optional-dependencies]
