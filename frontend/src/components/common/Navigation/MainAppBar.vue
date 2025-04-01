@@ -33,7 +33,6 @@ function collapse() {
   <!-- Mobile top bar -->
   <template v-if="smAndDown">
     <v-app-bar
-      style="z-index: 9999 !important"
       elevation="0"
       class="bg-background justify-center px-1"
       height="50"
@@ -54,7 +53,6 @@ function collapse() {
     <v-bottom-navigation
       grow
       elevation="0"
-      style="z-index: 9999 !important"
       class="bg-background align-center justify-center"
     >
       <search-btn withTag />
@@ -67,7 +65,6 @@ function collapse() {
   <!-- Desktop app side bar -->
   <v-navigation-drawer
     v-else
-    style="z-index: 9999 !important"
     permanent
     rail
     :rail-width="mainBarCollapsed ? 60 : 100"

@@ -136,12 +136,10 @@ async function updateCollection() {
     width="500"
     v-model="activeCollectionInfoDrawer"
     :class="{
-      'mx-2 px-1': activeCollectionInfoDrawer,
+      'ml-2': activeCollectionInfoDrawer,
       'drawer-mobile': smAndDown && activeCollectionInfoDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
     <v-row no-gutters class="justify-center align-center pa-2">
       <v-col style="max-width: 240px" cols="12">
@@ -364,12 +362,5 @@ async function updateCollection() {
   top: 0.3rem;
   right: 0.3rem;
   z-index: 1;
-}
-.drawer-desktop {
-  top: 56px !important;
-}
-.drawer-mobile {
-  top: 110px !important;
-  width: calc(100% - 16px) !important;
 }
 </style>

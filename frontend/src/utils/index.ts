@@ -2,6 +2,10 @@ import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import { computed } from "vue";
+import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import storeNavigation from "@/stores/navigation";
 
 /**
  * Views configuration object.
@@ -126,7 +130,9 @@ export function getDownloadLink({
   rom: SimpleRom;
   fileIDs?: number[];
 }) {
-  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, fileIDs }))}`;
+  return `${window.location.origin}${encodeURI(
+    getDownloadPath({ rom, fileIDs }),
+  )}`;
 }
 
 /**
@@ -609,4 +615,19 @@ export function is3DSCIARom(rom: SimpleRom): boolean {
   const hasValidFile = get3DSCIAFiles(rom).length > 0;
 
   return hasValidExtension || hasValidFile;
+}
+
+export function calculateMainLayoutWidth() {
+  const { smAndDown } = useDisplay();
+  const navigationStore = storeNavigation();
+  const { mainBarCollapsed } = storeToRefs(navigationStore);
+  const calculatedWidth = computed(() => {
+    return smAndDown.value
+      ? "calc(100% - 16px) !important"
+      : mainBarCollapsed.value
+        ? "calc(100% - 76px) !important"
+        : "calc(100% - 116px) !important";
+  });
+
+  return { calculatedWidth };
 }

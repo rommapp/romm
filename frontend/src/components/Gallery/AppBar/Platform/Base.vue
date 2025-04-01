@@ -32,6 +32,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
     </template>
   </base-gallery-app-bar>
 
+  <firmware-drawer />
   <platform-info-drawer />
 </template>
 

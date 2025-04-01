@@ -7,10 +7,8 @@ import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.v
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
-import storeNavigation from "@/stores/navigation";
-import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
-import { computed } from "vue";
+import { calculateMainLayoutWidth } from "@/utils";
 
 // Props
 withDefaults(
@@ -25,24 +23,15 @@ withDefaults(
     showSearchBar: false,
   },
 );
-const { xs, smAndDown } = useDisplay();
-const navigationStore = storeNavigation();
-const { mainBarCollapsed } = storeToRefs(navigationStore);
-// Computed property for dynamic width
-const computedWidth = computed(() => {
-  return smAndDown.value
-    ? "calc(100% - 16px) !important"
-    : mainBarCollapsed.value
-      ? "calc(100% - 76px) !important"
-      : "calc(100% - 116px) !important";
-});
+const { xs } = useDisplay();
+const { calculatedWidth } = calculateMainLayoutWidth();
 </script>
 <template>
   <v-app-bar
     elevation="0"
     density="compact"
     class="ma-2"
-    :style="{ width: computedWidth }"
+    :style="{ width: calculatedWidth }"
     rounded
   >
     <template #prepend>

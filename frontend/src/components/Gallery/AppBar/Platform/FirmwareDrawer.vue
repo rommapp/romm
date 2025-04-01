@@ -7,10 +7,10 @@ import storeNavigation from "@/stores/navigation";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes } from "@/utils";
+import { formatBytes, calculateMainLayoutWidth } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref, computed } from "vue";
+import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
@@ -24,14 +24,7 @@ const galleryViewStore = storeGalleryView();
 const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
 const navigationStore = storeNavigation();
 const { mainBarCollapsed } = storeToRefs(navigationStore);
-// Computed property for dynamic width
-const desktopWidth = computed(() => {
-  return smAndDown.value
-    ? "calc(100% - 16px) !important"
-    : mainBarCollapsed.value
-      ? "calc(100% - 76px) !important"
-      : "calc(100% - 116px) !important";
-});
+const { calculatedWidth } = calculateMainLayoutWidth();
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const HEADERS = [
@@ -70,9 +63,9 @@ function deleteSelectedFirmware() {
     :class="{
       'my-2 px-1': activeFirmwareDrawer,
     }"
-    class="bg-surface border-0 rounded mx-2 px-1"
+    class="bg-surface border-0 rounded mx-2 px-1 unset-height"
     :style="{
-      width: desktopWidth,
+      width: calculatedWidth,
     }"
   >
     <v-data-table-virtual

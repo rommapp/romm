@@ -23,10 +23,10 @@ const computedWidth = computed(() => {
 </script>
 <template>
   <div
-    class="sticky-bottom"
+    class="position-fixed"
     :class="{
-      'sticky-bottom-desktop': !smAndDown,
-      'sticky-bottom-mobile': smAndDown,
+      'bottom-0': !smAndDown,
+      'bottom-50': smAndDown,
     }"
     :style="{ width: computedWidth }"
   >
@@ -80,15 +80,3 @@ const computedWidth = computed(() => {
     </v-card>
   </div>
 </template>
-<style scoped>
-.sticky-bottom {
-  position: fixed;
-  z-index: 1011;
-}
-.sticky-bottom-desktop {
-  bottom: 0;
-}
-.sticky-bottom-mobile {
-  bottom: 50px;
-}
-</style>

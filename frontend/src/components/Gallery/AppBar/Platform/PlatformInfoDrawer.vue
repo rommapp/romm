@@ -194,8 +194,7 @@ watch(
       'ml-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
     }"
-    class="bg-surface rounded mt-4 mb-2 pa-1"
-    style="z-index: 1011 !important; height: unset !important"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
     <v-row no-gutters class="justify-center align-center pa-2">
       <v-col cols="12">
@@ -452,9 +451,6 @@ watch(
   <delete-platform-dialog />
 </template>
 <style scoped>
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
 .append-top-right {
   top: 0.3rem;
   right: 0.3rem;
@@ -462,8 +458,5 @@ watch(
 }
 .platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
-}
-.greyscale {
-  filter: grayscale(100%);
 }
 </style>

@@ -85,7 +85,6 @@ watch(
 <style scoped>
 .char-index-toolbar {
   right: 8px;
-  z-index: 1010;
   transform: translateY(0px);
   height: fit-content;
   max-height: calc(100vh - 74px);
