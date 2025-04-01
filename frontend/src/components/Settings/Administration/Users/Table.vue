@@ -122,6 +122,11 @@ onMounted(() => {
             />
           </v-avatar>
         </template>
+        <template #item.username="{ item }">
+          <v-list-item class="pa-0" min-width="120px">
+            {{ item.username }}
+          </v-list-item>
+        </template>
         <template #item.role="{ item }">
           <v-list-item class="pa-0" min-width="100px">
             <v-icon class="mr-2">{{ getRoleIcon(item.role) }}</v-icon>
