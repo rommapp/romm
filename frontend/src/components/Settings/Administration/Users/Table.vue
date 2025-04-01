@@ -123,8 +123,10 @@ onMounted(() => {
           </v-avatar>
         </template>
         <template #item.role="{ item }">
-          <v-icon class="mr-2">{{ getRoleIcon(item.role) }}</v-icon>
-          {{ item.role }}
+          <v-list-item class="pa-0" min-width="100px">
+            <v-icon class="mr-2">{{ getRoleIcon(item.role) }}</v-icon>
+            {{ item.role }}
+          </v-list-item>
         </template>
         <template #item.last_active="{ item }">
           {{ formatTimestamp(item.last_active) }}
