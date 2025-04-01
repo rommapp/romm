@@ -1,62 +1,32 @@
 <script setup lang="ts">
-import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
+import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import CollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/CollectionInfoDrawer.vue";
-import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
-import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
-import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
-import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
-import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
-import { storeToRefs } from "pinia";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
-import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
 import { computed } from "vue";
 
 // Props
-const { xs, smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
-const { mainBarCollapsed } = storeToRefs(navigationStore);
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
-// Computed property for dynamic width
-const computedWidth = computed(() => {
-  return smAndDown.value
-    ? "calc(100% - 16px) !important"
-    : mainBarCollapsed.value
-      ? "calc(100% - 76px) !important"
-      : "calc(100% - 116px) !important";
-});
 </script>
 
 <template>
-  <v-app-bar
-    elevation="0"
-    density="compact"
-    class="ma-2"
-    :style="{ width: computedWidth }"
-    rounded
-  >
+  <base-gallery-app-bar show-platforms-filter show-filter-bar>
     <template #prepend>
       <r-avatar
+        v-if="currentCollection"
         @click="navigationStore.switchActiveCollectionInfoDrawer"
         class="collection-icon cursor-pointer"
-        v-if="currentCollection"
         :size="45"
         :collection="currentCollection"
       />
-      <filter-btn />
     </template>
-    <filter-text-field v-if="!xs" />
-    <template #append>
-      <selecting-btn />
-      <gallery-view-btn />
-    </template>
-  </v-app-bar>
+  </base-gallery-app-bar>
 
-  <char-index-bar />
   <collection-info-drawer />
-  <filter-drawer />
 </template>
 
 <style scoped>
