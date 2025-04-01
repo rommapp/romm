@@ -4,6 +4,7 @@ import json
 from typing import Any, Final
 
 from config import STEAMGRIDDB_API_KEY
+from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from logger.logger import log
 from utils.context import ctx_httpx_client
 
@@ -56,6 +57,8 @@ class SGDBBaseHandler(MetadataHandler):
         )
 
         try:
+            if res.status_code == 401:
+                raise SGDBInvalidAPIKeyException
             search_response = res.json()
         except json.decoder.JSONDecodeError as exc:
             log.error(
