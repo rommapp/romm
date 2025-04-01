@@ -17,9 +17,18 @@ import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
 // Props
-withDefaults(defineProps<{ hidePlatforms?: boolean }>(), {
-  hidePlatforms: false,
-});
+withDefaults(
+  defineProps<{
+    showPlatformsFilter?: boolean;
+    showFilterBar?: boolean;
+    showSearchBar?: boolean;
+  }>(),
+  {
+    showPlatformsFilter: false,
+    showFilterBar: false,
+    showSearchBar: false,
+  },
+);
 
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
@@ -180,24 +189,22 @@ onMounted(async () => {
     style="z-index: 1011 !important; height: unset !important"
   >
     <v-list>
-      <template v-if="xs">
-        <template v-if="$route.name != 'search'">
-          <v-list-item>
-            <filter-text-field />
-          </v-list-item>
-        </template>
-        <template v-if="$route.name == 'search'">
-          <v-list-item>
-            <v-row no-gutters>
-              <v-col>
-                <search-text-field />
-              </v-col>
-              <v-col cols="auto">
-                <search-btn />
-              </v-col>
-            </v-row>
-          </v-list-item>
-        </template>
+      <template v-if="showFilterBar && xs">
+        <v-list-item>
+          <filter-text-field />
+        </v-list-item>
+      </template>
+      <template v-if="showSearchBar && xs">
+        <v-list-item>
+          <v-row no-gutters>
+            <v-col>
+              <search-text-field />
+            </v-col>
+            <v-col cols="auto">
+              <search-btn />
+            </v-col>
+          </v-row>
+        </v-list-item>
       </template>
       <v-list-item>
         <filter-unmatched-btn />
@@ -205,7 +212,7 @@ onMounted(async () => {
         <filter-favourites-btn class="mt-2" />
         <filter-duplicates-btn class="mt-2" />
       </v-list-item>
-      <v-list-item v-if="!hidePlatforms">
+      <v-list-item v-if="showPlatformsFilter">
         <v-autocomplete
           v-model="selectedPlatform"
           hide-details
