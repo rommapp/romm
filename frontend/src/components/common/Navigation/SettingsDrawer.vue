@@ -88,7 +88,7 @@ async function logout() {
       <v-list-item
         v-if="scopes.includes('me.write')"
         rounded
-        @click="emitter?.emit('showEditUserDialog', user as UserSchema)"
+        :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
         append-icon="mdi-account"
         >{{ t("common.profile") }}</v-list-item
       >
