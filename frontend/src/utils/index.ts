@@ -48,6 +48,25 @@ export const views: Record<
 };
 
 /**
+ * Get icon associated to role.
+ *
+ * @param role The role as string.
+ * @returns The mdi icon string.
+ */
+export function getRoleIcon(role: string) {
+  switch (role) {
+    case "admin":
+      return "mdi-shield-crown-outline";
+    case "editor":
+      return "mdi-file-edit-outline";
+    case "viewer":
+      return "mdi-book-open-variant-outline";
+    default:
+      return "mdi-account";
+  }
+}
+
+/**
  * Default path for user avatars.
  */
 export const defaultAvatarPath = "/assets/default/user.svg";

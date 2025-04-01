@@ -5,7 +5,7 @@ import { refetchCSRFToken } from "@/services/api/index";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
-import { defaultAvatarPath } from "@/utils";
+import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs, getActivePinia, type StateTree } from "pinia";
@@ -77,11 +77,13 @@ async function logout() {
         >
         </v-img>
       </v-list-img>
-      <v-list-item
-        :title="user?.username"
-        :subtitle="user?.role"
-        class="mb-1 text-shadow text-white"
-      >
+      <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
+        <template #subtitle>
+          <v-list-item-subtitle>
+            {{ user?.role }}
+            <v-icon size="x-small">{{ getRoleIcon(user?.role) }}</v-icon>
+          </v-list-item-subtitle>
+        </template>
       </v-list-item>
     </v-list>
     <v-list class="py-1 px-0">
