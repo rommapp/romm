@@ -113,7 +113,7 @@ watch(
         </v-container>
       </v-col>
 
-      <v-col>
+      <v-col md="7">
         <div :class="{ 'position-absolute title-desktop pl-4': mdAndUp }">
           <title-info :rom="currentRom" />
         </div>
