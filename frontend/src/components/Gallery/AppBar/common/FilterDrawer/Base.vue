@@ -179,7 +179,7 @@ onMounted(async () => {
   <v-navigation-drawer
     mobile
     floating
-    width="500"
+    width="400"
     v-model="activeFilterDrawer"
     :class="{
       'ml-2': activeFilterDrawer,
