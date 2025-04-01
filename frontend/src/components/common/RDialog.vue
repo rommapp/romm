@@ -62,7 +62,7 @@ onMounted(() => {
     scroll-strategy="block"
     no-click-animation
     persistent
-    z-index="10000"
+    z-index="9999"
     :scrim="theme.name.value == 'dark' ? 'black' : 'white'"
   >
     <v-card :min-height="height" :max-height="height">

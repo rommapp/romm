@@ -186,8 +186,7 @@ onMounted(async () => {
       'ml-2': activeFilterDrawer,
       'drawer-mobile': smAndDown && activeFilterDrawer,
     }"
-    class="bg-surface rounded mt-4 mb-2 pa-1"
-    style="z-index: 1011 !important; height: unset !important"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
     <v-list>
       <template v-if="showFilterBar && xs">
@@ -284,8 +283,3 @@ onMounted(async () => {
     </v-list>
   </v-navigation-drawer>
 </template>
-<style scoped>
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>

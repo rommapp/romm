@@ -3,13 +3,13 @@ body {
   background-color: rgba(var(--v-theme-background)) !important;
   overflow-y: auto;
 }
+.main-layout {
+  z-index: 1010 !important;
+}
 .text-shadow {
   text-shadow:
     1px 1px 3px #000000,
     0 0 3px #000000 !important;
-}
-.v-progress-linear {
-  z-index: 9999 !important;
 }
 .translucent {
   backdrop-filter: blur(3px) !important;
@@ -63,15 +63,18 @@ body {
   border: 1px solid rgba(var(--v-theme-primary)) !important;
   transform: scale(1.05);
 }
-#main-app-bar {
-  top: 0 !important;
-}
-#main-app-bar ~ #gallery-app-bar {
-  top: 45px !important;
+.greyscale {
+  filter: grayscale(100%);
 }
 .unset-height {
   height: unset !important;
 }
 .drawer-mobile {
   width: calc(100% - 16px) !important;
+}
+.bottom-0 {
+  bottom: 0 !important;
+}
+.bottom-50 {
+  bottom: 50px !important;
 }
