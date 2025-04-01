@@ -191,7 +191,7 @@ async function updateCollection() {
             :src="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
-              <v-btn-group divided density="compact">
+              <v-btn-group rounded="0" divided density="compact">
                 <v-btn
                   title="Search for cover in SteamGridDB"
                   :disabled="
