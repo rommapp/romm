@@ -104,7 +104,11 @@ watch(
   <template v-if="currentRom && !fetchingRoms">
     <background-header />
 
-    <v-row class="px-5" no-gutters :class="{ 'justify-center': smAndDown }">
+    <v-row
+      class="px-5 mb-6"
+      no-gutters
+      :class="{ 'justify-center': smAndDown }"
+    >
       <v-col cols="auto">
         <v-container :width="270" id="artwork-container" class="pa-0">
           <game-card :key="currentRom.updated_at" :rom="currentRom" />
