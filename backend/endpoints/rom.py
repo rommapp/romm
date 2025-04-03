@@ -243,7 +243,7 @@ async def head_rom_content(
                 path=rom_path,
                 filename=file.file_name,
                 headers={
-                    "Content-Disposition": f'attachment; filename="{quote(file.file_name)}"',
+                    "Content-Disposition": f'attachment; filename*=UTF-8\'\'{quote(file.file_name)}; filename="{quote(file.file_name)}"',
                     "Content-Type": "application/octet-stream",
                     "Content-Length": str(file.file_size_bytes),
                 },
@@ -252,7 +252,7 @@ async def head_rom_content(
         return Response(
             headers={
                 "Content-Type": "application/zip",
-                "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
+                "Content-Disposition": f'attachment; filename*=UTF-8\'\'{quote(file_name)}.zip; filename="{quote(file_name)}.zip"',
             },
         )
 
@@ -265,7 +265,7 @@ async def head_rom_content(
     return Response(
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
+                "Content-Disposition": f'attachment; filename*=UTF-8\'\'{quote(file_name)}.zip; filename="{quote(file_name)}.zip"',
         },
     )
 
@@ -321,7 +321,7 @@ async def get_rom_content(
                 path=rom_path,
                 filename=file.file_name,
                 headers={
-                    "Content-Disposition": f'attachment; filename="{quote(file.file_name)}"',
+                    "Content-Disposition": f'attachment; filename*=UTF-8\'\'{quote(file.file_name)}; filename="{quote(file.file_name)}"',
                     "Content-Type": "application/octet-stream",
                     "Content-Length": str(file.file_size_bytes),
                 },
@@ -387,7 +387,7 @@ async def get_rom_content(
             content=zip_data,
             media_type="application/zip",
             headers={
-                "Content-Disposition": f'attachment; filename="{quote(file_name)}.zip"',
+                "Content-Disposition": f'attachment; filename*=UTF-8\'\'{quote(file_name)}.zip; filename="{quote(file_name)}.zip"',
             },
         )
 
