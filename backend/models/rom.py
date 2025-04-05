@@ -337,6 +337,13 @@ class Rom(BaseModel):
     def is_fully_identified(self) -> bool:
         return bool(self.igdb_id) and bool(self.moby_id) and bool(self.ss_id)
 
+    def has_m3u_file(self) -> bool:
+        """
+        Check if the ROM has an M3U file associated with it.
+        This is used for multi-disc games.
+        """
+        return any(file.file_extension.lower() == "m3u" for file in self.files)
+
     def __repr__(self) -> str:
         return self.fs_name
 
