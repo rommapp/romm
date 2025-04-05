@@ -38,19 +38,19 @@ function clear() {
 <template>
   <v-navigation-drawer
     mobile
+    rounded
     :location="smAndDown ? 'top' : 'left'"
     @update:model-value="clear"
     width="500"
     v-model="activeCollectionsDrawer"
     :class="{
-      'mx-2': smAndDown || activeCollectionsDrawer,
-      'my-2': !smAndDown || activeCollectionsDrawer,
+      'my-2': mdAndUp || (smAndDown && activePlatformsDrawer),
+      'ml-2': (mdAndUp && activePlatformsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
       'drawer-desktop': !smAndDown,
     }"
     class="bg-surface pa-1"
-    style="height: unset"
-    rounded
+    :style="mdAndUp ? 'height: unset' : ''"
     :border="0"
   >
     <template #prepend>
