@@ -147,8 +147,8 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
         <template v-else>
           <v-img
             cover
-            :src="collection.path_cover_large"
-            :lazy-src="collection.path_cover_small?.toString()"
+            :src="src || collection.path_cover_large"
+            :lazy-src="src || collection.path_cover_small?.toString()"
             :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
           />
         </template>

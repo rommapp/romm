@@ -24,6 +24,7 @@ export const ROUTES = {
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
   SCAN: "scan",
+  USER_PROFILE: "user-profile",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
   ADMINISTRATION: "administration",
@@ -115,6 +116,17 @@ const routes = [
         path: "scan",
         name: ROUTES.SCAN,
         component: () => import("@/views/Scan.vue"),
+      },
+      {
+        path: "user/:user",
+        component: () => import("@/layouts/Settings.vue"),
+        children: [
+          {
+            path: "",
+            name: ROUTES.USER_PROFILE,
+            component: () => import("@/views/Settings/UserProfile.vue"),
+          },
+        ],
       },
       {
         path: "user-interface",

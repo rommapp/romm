@@ -11,13 +11,13 @@ import { useDisplay } from "vuetify";
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
-  Number(props.rom.first_release_date),
+  Number(props.rom.metadatum.first_release_date),
 ).toLocaleDateString("en-US", {
   day: "2-digit",
   month: "short",
   year: "numeric",
 });
-const hasReleaseDate = Number(props.rom.first_release_date) > 0;
+const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
 </script>
 <template>
   <div>
@@ -61,7 +61,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           {{ releaseDate }}
         </v-chip>
         <v-chip
-          v-if="Number(rom.first_release_date) > 0 && smAndDown"
+          v-if="Number(rom.metadatum.first_release_date) > 0 && smAndDown"
           class="font-italic ml-1"
           size="small"
         >

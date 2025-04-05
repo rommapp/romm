@@ -4,26 +4,19 @@ import { defineStore } from "pinia";
 
 export type Platform = PlatformSchema;
 
-const filters = [
-  "genres",
-  "franchises",
-  "meta_collections",
-  "companies",
-  "age_ratings",
-  "status",
-  "regions",
-  "languages",
-] as const;
-
-const statusFilters = Object.values(romStatusMap).map((status) => status.text);
-
-export type FilterType = (typeof filters)[number];
+export type FilterType =
+  | "genres"
+  | "franchises"
+  | "collections"
+  | "companies"
+  | "age_ratings"
+  | "status"
+  | "regions"
+  | "languages";
 
 const defaultFilterState = {
   activeFilterDrawer: false,
-  searchText: null as string | null,
-  filterText: null as string | null,
-  filters: filters,
+  searchTerm: null as string | null,
   filterPlatforms: [] as Platform[],
   filterGenres: [] as string[],
   filterFranchises: [] as string[],
@@ -32,7 +25,7 @@ const defaultFilterState = {
   filterAgeRatings: [] as string[],
   filterRegions: [] as string[],
   filterLanguages: [] as string[],
-  filterStatuses: statusFilters,
+  filterStatuses: Object.values(romStatusMap).map((status) => status.text),
   filterUnmatched: false,
   filterMatched: false,
   filterFavourites: false,
@@ -49,7 +42,7 @@ const defaultFilterState = {
 };
 
 export default defineStore("galleryFilter", {
-  state: () => defaultFilterState,
+  state: () => ({ ...defaultFilterState }),
 
   actions: {
     switchActiveFilterDrawer() {
@@ -152,7 +145,20 @@ export default defineStore("galleryFilter", {
       );
     },
     reset() {
-      Object.assign(this, defaultFilterState);
+      Object.assign(this, { ...defaultFilterState });
+    },
+    resetFilters() {
+      this.selectedPlatform = null;
+      this.selectedGenre = null;
+      this.selectedFranchise = null;
+      this.selectedCollection = null;
+      this.selectedCompany = null;
+      this.selectedAgeRating = null;
+      this.selectedStatus = null;
+      this.disableFilterUnmatched();
+      this.disableFilterMatched();
+      this.disableFilterFavourites();
+      this.disableFilterDuplicates();
     },
   },
 });

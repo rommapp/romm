@@ -3,10 +3,11 @@ import type { FirmwareSchema } from "@/__generated__";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
 import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
 import storeAuth from "@/stores/auth";
+import storeNavigation from "@/stores/navigation";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { formatBytes } from "@/utils";
+import { formatBytes, calculateMainLayoutWidth } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
@@ -21,6 +22,9 @@ const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const galleryViewStore = storeGalleryView();
 const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
+const navigationStore = storeNavigation();
+const { mainBarCollapsed } = storeToRefs(navigationStore);
+const { calculatedWidth } = calculateMainLayoutWidth();
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
 const HEADERS = [
@@ -58,11 +62,11 @@ function deleteSelectedFirmware() {
     v-model="activeFirmwareDrawer"
     :class="{
       'my-2 px-1': activeFirmwareDrawer,
-      'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded mx-2 px-1"
-    style="width: unset"
+    class="bg-surface border-0 rounded mx-2 px-1 unset-height"
+    :style="{
+      width: calculatedWidth,
+    }"
   >
     <v-data-table-virtual
       :items="currentPlatform?.firmware ?? []"
@@ -79,7 +83,7 @@ function deleteSelectedFirmware() {
             size="small"
             @click="emitter?.emit('addFirmwareDialog', null)"
           >
-            <v-icon>mdi-upload</v-icon>
+            <v-icon>mdi-cloud-upload-outline</v-icon>
           </v-btn>
           <v-btn
             :disabled="!selectedFirmware.length"
@@ -183,11 +187,3 @@ function deleteSelectedFirmware() {
   <upload-firmware-dialog />
   <delete-firmware-dialog />
 </template>
-<style scoped>
-.drawer-desktop {
-  width: calc(100% - 91px) !important;
-}
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>

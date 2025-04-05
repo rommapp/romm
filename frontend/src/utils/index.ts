@@ -2,6 +2,10 @@ import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import { computed } from "vue";
+import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import storeNavigation from "@/stores/navigation";
 
 /**
  * Views configuration object.
@@ -46,6 +50,25 @@ export const views: Record<
     "size-xl": 12,
   },
 };
+
+/**
+ * Get icon associated to role.
+ *
+ * @param role The role as string.
+ * @returns The mdi icon string.
+ */
+export function getRoleIcon(role: string) {
+  switch (role) {
+    case "admin":
+      return "mdi-shield-crown-outline";
+    case "editor":
+      return "mdi-file-edit-outline";
+    case "viewer":
+      return "mdi-book-open-variant-outline";
+    default:
+      return "mdi-account";
+  }
+}
 
 /**
  * Default path for user avatars.
@@ -107,7 +130,9 @@ export function getDownloadLink({
   rom: SimpleRom;
   fileIDs?: number[];
 }) {
-  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, fileIDs }))}`;
+  return `${window.location.origin}${encodeURI(
+    getDownloadPath({ rom, fileIDs }),
+  )}`;
 }
 
 /**
@@ -563,7 +588,8 @@ export function getTextForStatus(status: PlayingStatus) {
  * @param text The text to convert.
  * @returns The corresponding status key.
  */
-export function getStatusKeyForText(text: string) {
+export function getStatusKeyForText(text: string | null) {
+  if (!text) return null;
   return inverseRomStatusMap[text];
 }
 
@@ -589,4 +615,19 @@ export function is3DSCIARom(rom: SimpleRom): boolean {
   const hasValidFile = get3DSCIAFiles(rom).length > 0;
 
   return hasValidExtension || hasValidFile;
+}
+
+export function calculateMainLayoutWidth() {
+  const { smAndDown } = useDisplay();
+  const navigationStore = storeNavigation();
+  const { mainBarCollapsed } = storeToRefs(navigationStore);
+  const calculatedWidth = computed(() => {
+    return smAndDown.value
+      ? "calc(100% - 16px) !important"
+      : mainBarCollapsed.value
+        ? "calc(100% - 76px) !important"
+        : "calc(100% - 116px) !important";
+  });
+
+  return { calculatedWidth };
 }

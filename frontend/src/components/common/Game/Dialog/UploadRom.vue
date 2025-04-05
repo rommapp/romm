@@ -165,7 +165,7 @@ function closeDialog() {
   <r-dialog
     @close="closeDialog"
     v-model="show"
-    icon="mdi-upload"
+    icon="mdi-cloud-upload-outline"
     :width="mdAndUp ? '50vw' : '95vw'"
     scroll-content
   >

@@ -74,7 +74,7 @@ onMounted(async () => {
   bottom: 0;
   left: 0;
   width: 100%;
-  z-index: 1000;
+  z-index: 9999;
   pointer-events: none;
 }
 .sticky-bottom * {

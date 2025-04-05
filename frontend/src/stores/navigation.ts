@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ROUTES } from "@/plugins/router";
+import { isNull } from "lodash";
 
 const defaultNavigationState = {
   activePlatformsDrawer: false,
@@ -7,10 +8,13 @@ const defaultNavigationState = {
   activeSettingsDrawer: false,
   activePlatformInfoDrawer: false,
   activeCollectionInfoDrawer: false,
+  mainBarCollapsed: isNull(localStorage.getItem("settings.mainBarCollapsed"))
+    ? false
+    : localStorage.getItem("settings.mainBarCollapsed") === "true",
 };
 
 export default defineStore("navigation", {
-  state: () => defaultNavigationState,
+  state: () => ({ ...defaultNavigationState }),
 
   actions: {
     switchActivePlatformsDrawer() {
@@ -46,7 +50,7 @@ export default defineStore("navigation", {
       this.$router.push({ name: ROUTES.SEARCH });
     },
     reset() {
-      Object.assign(this, defaultNavigationState);
+      Object.assign(this, { ...defaultNavigationState });
     },
     resetDrawersExcept(drawer: string) {
       this.activePlatformsDrawer =

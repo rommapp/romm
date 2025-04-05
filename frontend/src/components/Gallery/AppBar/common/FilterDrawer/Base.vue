@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
@@ -17,9 +18,18 @@ import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
 // Props
-withDefaults(defineProps<{ hidePlatforms?: boolean }>(), {
-  hidePlatforms: false,
-});
+withDefaults(
+  defineProps<{
+    showPlatformsFilter?: boolean;
+    showFilterBar?: boolean;
+    showSearchBar?: boolean;
+  }>(),
+  {
+    showPlatformsFilter: false,
+    showFilterBar: false,
+    showSearchBar: false,
+  },
+);
 
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
@@ -48,13 +58,14 @@ const {
   selectedLanguage,
   filterLanguages,
 } = storeToRefs(galleryFilterStore);
-const { allRoms, filteredRoms } = storeToRefs(romsStore);
+const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("filter", onFilterChange);
 
 async function onFilterChange() {
-  romsStore.setFiltered(allRoms.value, galleryFilterStore);
+  romsStore.resetPagination();
+  romsStore.fetchRoms(galleryFilterStore, false);
   emitter?.emit("updateDataTablePages", null);
 }
 
@@ -103,18 +114,7 @@ const filters = [
 
 // Functions
 function resetFilters() {
-  selectedPlatform.value = null;
-  selectedGenre.value = null;
-  selectedFranchise.value = null;
-  selectedCollection.value = null;
-  selectedCompany.value = null;
-  selectedAgeRating.value = null;
-  selectedRegion.value = null;
-  selectedLanguage.value = null;
-  selectedStatus.value = null;
-  galleryFilterStore.disableFilterUnmatched();
-  galleryFilterStore.disableFilterMatched();
-  galleryFilterStore.disableFilterFavourites();
+  galleryFilterStore.resetFilters();
   nextTick(() => emitter?.emit("filter", null));
 }
 
@@ -128,21 +128,29 @@ function setFilters() {
     ),
   ]);
   galleryFilterStore.setFilterGenres([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.genres).sort()),
+    ...new Set(
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.genres).sort(),
+    ),
   ]);
   galleryFilterStore.setFilterFranchises([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.franchises).sort()),
+    ...new Set(
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.franchises).sort(),
+    ),
   ]);
   galleryFilterStore.setFilterCompanies([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.companies).sort()),
+    ...new Set(
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.companies).sort(),
+    ),
   ]);
   galleryFilterStore.setFilterCollections([
     ...new Set(
-      romsStore.filteredRoms.flatMap((rom) => rom.meta_collections).sort(),
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.collections).sort(),
     ),
   ]);
   galleryFilterStore.setFilterAgeRatings([
-    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.age_ratings).sort()),
+    ...new Set(
+      romsStore.filteredRoms.flatMap((rom) => rom.metadatum.age_ratings).sort(),
+    ),
   ]);
   galleryFilterStore.setFilterRegions([
     ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.regions).sort()),
@@ -171,36 +179,31 @@ onMounted(async () => {
   <v-navigation-drawer
     mobile
     floating
-    :width="xs ? viewportWidth : '350'"
+    width="400"
     v-model="activeFilterDrawer"
-    @update:model-value="galleryFilterStore.switchActiveFilterDrawer()"
     :class="{
-      'mx-2 px-1': activeFilterDrawer,
+      'ml-2': activeFilterDrawer,
       'drawer-mobile': smAndDown && activeFilterDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
     <v-list>
-      <template v-if="xs">
-        <template v-if="$route.name != 'search'">
-          <v-list-item>
-            <filter-text-field />
-          </v-list-item>
-        </template>
-        <template v-if="$route.name == 'search'">
-          <v-list-item>
-            <v-row no-gutters>
-              <v-col>
-                <search-text-field />
-              </v-col>
-              <v-col cols="auto">
-                <search-btn />
-              </v-col>
-            </v-row>
-          </v-list-item>
-        </template>
+      <template v-if="showFilterBar && xs">
+        <v-list-item>
+          <filter-text-field />
+        </v-list-item>
+      </template>
+      <template v-if="showSearchBar && xs">
+        <v-list-item>
+          <v-row no-gutters>
+            <v-col>
+              <search-text-field />
+            </v-col>
+            <v-col cols="auto">
+              <search-btn />
+            </v-col>
+          </v-row>
+        </v-list-item>
       </template>
       <v-list-item>
         <filter-unmatched-btn />
@@ -208,17 +211,56 @@ onMounted(async () => {
         <filter-favourites-btn class="mt-2" />
         <filter-duplicates-btn class="mt-2" />
       </v-list-item>
-      <v-list-item v-if="!hidePlatforms">
+      <v-list-item v-if="showPlatformsFilter">
         <v-autocomplete
           v-model="selectedPlatform"
           hide-details
+          prepend-inner-icon="mdi-controller"
           clearable
           :label="t('common.platform')"
-          variant="solo-filled"
+          variant="outlined"
           density="comfortable"
-          :items="filterPlatforms.map((p) => ({ title: p.name, value: p }))"
+          class="my-2"
+          :items="filterPlatforms"
           @update:model-value="nextTick(() => emitter?.emit('filter', null))"
-        />
+        >
+          <template #item="{ props, item }">
+            <v-list-item
+              v-bind="props"
+              class="py-4"
+              :title="item.raw.name ?? ''"
+              :subtitle="item.raw.fs_slug"
+            >
+              <template #prepend>
+                <platform-icon
+                  :key="item.raw.slug"
+                  :size="35"
+                  :slug="item.raw.slug"
+                  :name="item.raw.name"
+                  :fs-slug="item.raw.fs_slug"
+                />
+              </template>
+              <template #append>
+                <v-chip class="ml-2" size="x-small" label>
+                  {{ item.raw.rom_count }}
+                </v-chip>
+              </template>
+            </v-list-item>
+          </template>
+          <template #chip="{ item }">
+            <v-chip>
+              <platform-icon
+                :key="item.raw.slug"
+                :slug="item.raw.slug"
+                :name="item.raw.name"
+                :fs-slug="item.raw.fs_slug"
+                :size="20"
+                class="mr-2"
+              />
+              {{ item.raw.name }}
+            </v-chip>
+          </template>
+        </v-autocomplete>
       </v-list-item>
       <v-list-item v-for="filter in filters">
         <v-autocomplete
@@ -240,12 +282,3 @@ onMounted(async () => {
     </v-list>
   </v-navigation-drawer>
 </template>
-<style scoped>
-.drawer-desktop {
-  top: 56px !important;
-}
-.drawer-mobile {
-  top: 110px !important;
-  width: calc(100% - 16px) !important;
-}
-</style>

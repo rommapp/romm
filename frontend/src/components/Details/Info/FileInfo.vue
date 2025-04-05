@@ -144,7 +144,7 @@ watch(
         </v-col>
       </v-row>
       <v-row
-        v-if="rom.sibling_roms.length > 0"
+        v-if="rom.siblings.length > 0"
         class="align-center my-3"
         no-gutters
       >

@@ -39,9 +39,7 @@ class Firmware(BaseModel):
     md5_hash: Mapped[str] = mapped_column(String(length=100))
     sha1_hash: Mapped[str] = mapped_column(String(length=100))
 
-    platform: Mapped[Platform] = relationship(
-        lazy="immediate", back_populates="firmware"
-    )
+    platform: Mapped[Platform] = relationship(lazy="joined", back_populates="firmware")
 
     @property
     def platform_slug(self) -> str:

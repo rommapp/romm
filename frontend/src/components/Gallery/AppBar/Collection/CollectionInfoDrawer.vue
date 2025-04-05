@@ -136,14 +136,12 @@ async function updateCollection() {
     width="500"
     v-model="activeCollectionInfoDrawer"
     :class="{
-      'mx-2 px-1': activeCollectionInfoDrawer,
+      'ml-2': activeCollectionInfoDrawer,
       'drawer-mobile': smAndDown && activeCollectionInfoDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
-    <v-row no-gutters class="justify-center align-center pa-4">
+    <v-row no-gutters class="justify-center align-center pa-2">
       <v-col style="max-width: 240px" cols="12">
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
@@ -191,7 +189,7 @@ async function updateCollection() {
             :src="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
-              <v-btn-group divided density="compact">
+              <v-btn-group rounded="0" divided density="compact">
                 <v-btn
                   title="Search for cover in SteamGridDB"
                   :disabled="
@@ -214,7 +212,7 @@ async function updateCollection() {
                   class="translucent-dark"
                   @click="triggerFileInput"
                 >
-                  <v-icon size="large">mdi-upload</v-icon>
+                  <v-icon size="large">mdi-cloud-upload-outline</v-icon>
                   <v-file-input
                     id="file-input"
                     v-model="updatedCollection.artwork"
@@ -364,12 +362,5 @@ async function updateCollection() {
   top: 0.3rem;
   right: 0.3rem;
   z-index: 1;
-}
-.drawer-desktop {
-  top: 56px !important;
-}
-.drawer-mobile {
-  top: 110px !important;
-  width: calc(100% - 16px) !important;
 }
 </style>
