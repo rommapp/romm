@@ -14,7 +14,7 @@ import { isNull } from "lodash";
 // Props
 const { t } = useI18n();
 const navigationStore = storeNavigation();
-const { smAndDown } = useDisplay();
+const { smAndDown, mdAndUp } = useDisplay();
 const collectionsStore = storeCollections();
 const { filteredCollections, filteredVirtualCollections, searchText } =
   storeToRefs(collectionsStore);
@@ -44,8 +44,8 @@ function clear() {
     width="500"
     v-model="activeCollectionsDrawer"
     :class="{
-      'my-2': mdAndUp || (smAndDown && activePlatformsDrawer),
-      'ml-2': (mdAndUp && activePlatformsDrawer) || smAndDown,
+      'my-2': mdAndUp || (smAndDown && activeCollectionsDrawer),
+      'ml-2': (mdAndUp && activeCollectionsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
       'drawer-desktop': !smAndDown,
     }"
