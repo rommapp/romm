@@ -190,10 +190,6 @@ watch(
               >
                 <additional-content :rom="currentRom" />
               </v-window-item>
-              <!-- TODO: user screenshots -->
-              <!-- <v-window-item v-if="rom.user_screenshots.lenght > 0" value="screenshots">
-                <screenshots :rom="rom" />
-              </v-window-item> -->
               <v-window-item
                 v-if="
                   smAndDown &&
@@ -210,8 +206,15 @@ watch(
         </v-row>
       </v-col>
 
-      <v-col cols="auto" v-if="lgAndUp">
-        <v-container :width="270" class="pa-0">
+      <v-col
+        cols="auto"
+        v-if="
+          lgAndUp &&
+          (currentRom.igdb_metadata?.expansions?.length ||
+            currentRom.igdb_metadata?.dlcs?.length)
+        "
+      >
+        <v-container width="270px" class="pa-0">
           <additional-content class="mt-2" :rom="currentRom" />
         </v-container>
       </v-col>
@@ -224,7 +227,10 @@ watch(
 <style scoped>
 .title-desktop {
   margin-top: -190px;
+  top: 290px;
+  left: 350px;
 }
+
 #artwork-container {
   margin-top: -230px;
 }

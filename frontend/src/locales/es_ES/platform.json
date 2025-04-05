@@ -1,13 +1,13 @@
 {
   "search-platform": "Buscar plataforma",
   "upload-roms": "Subir Roms",
-  "filesystem-folder-name": "Nombre de carpeta",
   "category": "Categoría",
   "generation": "Generación",
   "family": "Familia",
   "settings": "Configuración",
   "cover-style": "Estilo de carátula",
   "old-squared-cases": "Caja cuadrada clásica",
+  "old-horizontal-cases": "Caja horizontal clásica",
   "danger-zone": "Zona de peligro",
   "delete-platform": "Eliminar platforma",
   "removing-platform-1": "Eliminando",
@@ -27,5 +27,7 @@
   "reset-filters": "Restablecer filtros",
   "active-multi-select": "Activar selección múltiple",
   "change-view": "Cambiar vista",
-  "no-firmware-found": "No se encontraron firmwares"
+  "no-firmware-found": "No se encontraron firmwares",
+  "region": "Región",
+  "language": "Idioma"
 }

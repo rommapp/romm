@@ -23,7 +23,7 @@ type EventType = "change" | "error";
 type EventsListener = (changes: Change[]) => void;
 type ErrorsListener = (error: Error) => void;
 
-interface DiffMonitor {
+export interface DiffMonitor {
   start: () => void;
   stop: () => void;
   getChanges: () => Change[];
@@ -34,10 +34,15 @@ interface DiffMonitor {
   off: (event: EventType, listener: EventsListener | ErrorsListener) => void;
 }
 
-export default async function createIndexedDBDiffMonitor(
-  dbName: string,
-  intervalMs: number = 1000,
-): Promise<DiffMonitor> {
+export default async function createIndexedDBDiffMonitor({
+  dbName,
+  storeName,
+  intervalMs = 1000,
+}: {
+  dbName: string;
+  storeName?: string;
+  intervalMs?: number;
+}): Promise<DiffMonitor> {
   let lastSnapshot: DBSnapshot | null = null;
   let changes: Change[] = [];
   let intervalId: number | null = null;
@@ -87,16 +92,24 @@ export default async function createIndexedDBDiffMonitor(
         };
 
         try {
-          for (const storeName of Array.from(db.objectStoreNames)) {
-            const tx = db.transaction(storeName, "readonly");
-            const store = tx.objectStore(storeName);
-            snapshot.stores[storeName] = await getAllFromStore(store);
+          for (const sn of Array.from(db.objectStoreNames)) {
+            const tx = db.transaction(sn, "readonly");
+            const store = tx.objectStore(sn);
+            snapshot.stores[sn] = await getAllFromStore(store);
           }
 
           db.close();
           resolve(snapshot);
         } catch (error) {
           reject(error);
+        }
+      };
+      request.onupgradeneeded = () => {
+        if (!storeName) return;
+
+        const db = request.result;
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName);
         }
       };
     });

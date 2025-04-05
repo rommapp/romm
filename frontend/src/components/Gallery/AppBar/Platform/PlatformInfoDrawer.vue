@@ -12,11 +12,13 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import { identity } from "lodash";
 
 // Props
 const { t } = useI18n();
@@ -28,7 +30,6 @@ const platformsStore = storePlatforms();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const { currentPlatform } = storeToRefs(romsStore);
-const { allPlatforms } = storeToRefs(platformsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
@@ -49,15 +50,31 @@ const aspectRatioOptions = computed(() => [
     size: 1 / 1,
     source: t("platform.old-squared-cases"),
   },
+  {
+    name: "16 / 11",
+    size: 16 / 11,
+    source: t("platform.old-horizontal-cases"),
+  },
 ]);
-const platformInfoFields = [
-  { key: "name", label: t("common.name") },
-  { key: "slug", label: "Slug" },
-  { key: "fs_slug", label: t("platform.filesystem-folder-name") },
-  { key: "category", label: t("platform.category") },
-  { key: "generation", label: t("platform.generation") },
-  { key: "family_name", label: t("platform.family") },
+
+const PLATFORM_INFO_FIELDS: {
+  key: keyof Platform;
+  label: string;
+  format: (value: any) => string;
+}[] = [
+  { key: "name", label: t("common.name"), format: identity },
+  { key: "slug", label: t("common.slug"), format: identity },
+  { key: "fs_slug", label: t("settings.folder-name"), format: identity },
+  { key: "category", label: t("platform.category"), format: identity },
+  { key: "generation", label: t("platform.generation"), format: identity },
+  { key: "family_name", label: t("platform.family"), format: identity },
+  {
+    key: "fs_size_bytes",
+    label: t("common.size-on-disk"),
+    format: (fs: number) => formatBytes(fs, 2),
+  },
 ];
+
 const updating = ref(false);
 const updatedPlatform = ref({ ...currentPlatform.value });
 const isEditable = ref(false);
@@ -329,22 +346,13 @@ watch(
           </v-col>
         </v-row>
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
-          <v-card-text class="pa-4">
-            <template
-              v-for="(field, index) in platformInfoFields"
-              :key="field.key"
-            >
-              <div :class="{ 'mt-4': index !== 0 }">
-                <v-chip size="small" class="mr-2 px-0" label>
-                  <v-chip label>{{ field.label }}</v-chip
-                  ><span class="px-2">{{
-                    currentPlatform[
-                      field.key as keyof typeof currentPlatform
-                    ]?.toString()
-                      ? currentPlatform[
-                          field.key as keyof typeof currentPlatform
-                        ]
-                      : "N/A"
+          <v-card-text class="pa-4 d-flex flex-wrap ga-2">
+            <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
+              <div>
+                <v-chip size="small" class="px-0" label>
+                  <v-chip label>{{ field.label }}</v-chip>
+                  <span class="px-2">{{
+                    field.format(currentPlatform[field.key]) || "N/A"
                   }}</span>
                 </v-chip>
               </div>
@@ -379,7 +387,11 @@ watch(
             no-gutters
             class="text-center justify-center align-center pa-2"
           >
-            <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
+            <v-col
+              cols="6"
+              class="pa-2"
+              v-for="aspectRatio in aspectRatioOptions"
+            >
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
                   :color="isSelected ? 'primary' : 'romm-gray'"

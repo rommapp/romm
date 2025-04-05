@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
@@ -50,3 +51,9 @@ class Platform(BaseModel):
 
     def __repr__(self) -> str:
         return self.name
+
+    @cached_property
+    def fs_size_bytes(self) -> int:
+        from handler.database import db_stats_handler
+
+        return db_stats_handler.get_platform_filesize(self.id)
