@@ -60,6 +60,10 @@ function onFullScreenChange() {
   localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
+async function onlyQuit() {
+  window.history.back();
+}
+
 onMounted(async () => {
   const romResponse = await romApi.getRom({
     romId: parseInt(route.params.rom as string),
@@ -80,7 +84,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <v-row v-if="rom" class="align-center justify-center scroll" no-gutters>
+  <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
     <v-col
       v-if="gameRunning"
       cols="12"
@@ -134,6 +138,7 @@ onMounted(async () => {
               cols="12"
               :sm="gameRunning ? 12 : 7"
               :xl="gameRunning ? 12 : 9"
+              :class="gameRunning ? 'mt-2' : 'ml-2'"
             >
               <v-btn
                 color="primary"
@@ -147,42 +152,46 @@ onMounted(async () => {
               </v-btn>
             </v-col>
           </v-row>
+          <v-row v-if="!gameRunning" class="align-center" no-gutters>
+            <v-btn
+              class="mt-4"
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-arrow-left"
+              @click="
+                $router.push({
+                  name: ROUTES.ROM,
+                  params: { rom: rom?.id },
+                })
+              "
+              >{{ t("play.back-to-game-details") }}
+            </v-btn>
+            <v-btn
+              class="mt-4"
+              block
+              variant="outlined"
+              size="large"
+              prepend-icon="mdi-arrow-left"
+              @click="
+                $router.push({
+                  name: ROUTES.PLATFORM,
+                  params: { platform: rom?.platform_id },
+                })
+              "
+              >{{ t("play.back-to-gallery") }}
+            </v-btn>
+          </v-row>
           <v-btn
+            v-if="gameRunning"
             class="mt-4"
             block
             variant="outlined"
             size="large"
-            prepend-icon="mdi-refresh"
-            @click="$router.go(0)"
-            >{{ t("play.reset-session") }}
-          </v-btn>
-          <v-btn
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-arrow-left"
-            @click="
-              $router.push({
-                name: ROUTES.ROM,
-                params: { rom: rom?.id },
-              })
-            "
-            >{{ t("play.back-to-game-details") }}
-          </v-btn>
-          <v-btn
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-arrow-left"
-            @click="
-              $router.push({
-                name: ROUTES.PLATFORM,
-                params: { platform: rom?.platform_id },
-              })
-            "
-            >{{ t("play.back-to-gallery") }}
+            prepend-icon="mdi-exit-to-app"
+            @click="onlyQuit"
+          >
+            {{ t("play.quit") }}
           </v-btn>
         </v-col>
       </v-row>
@@ -196,6 +205,7 @@ onMounted(async () => {
 }
 
 #game {
+  height: 100%;
   --splash-screen-background: none;
 }
 

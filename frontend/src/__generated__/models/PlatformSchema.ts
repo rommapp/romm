@@ -25,6 +25,7 @@ export type PlatformSchema = {
     aspect_ratio?: string;
     created_at: string;
     updated_at: string;
+    fs_size_bytes: number;
     readonly display_name: string;
 };
 

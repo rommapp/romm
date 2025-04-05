@@ -33,5 +33,6 @@
   "library-management": "Gestion de la bibliothèque",
   "administration": "Administration",
   "logout": "Se déconnecter",
-  "name": "Nom"
+  "name": "Nom",
+  "slug": "Slug"
 }

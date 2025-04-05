@@ -1,52 +1,66 @@
-import type { StateSchema, UploadedStatesResponse } from "@/__generated__";
 import api from "@/services/api/index";
 import type { DetailedRom } from "@/stores/roms";
+import type { StateSchema } from "@/__generated__";
 
 export const stateApi = api;
 
 async function uploadStates({
   rom,
-  states,
+  statesToUpload,
   emulator,
 }: {
   rom: DetailedRom;
-  states: File[];
+  statesToUpload: {
+    stateFile: File;
+    screenshotFile?: File;
+  }[];
   emulator?: string;
-}): Promise<{ data: UploadedStatesResponse }> {
-  const formData = new FormData();
-  states.forEach((state) => formData.append("states", state));
+}): Promise<PromiseSettledResult<StateSchema>[]> {
+  const promises = statesToUpload.map(({ stateFile, screenshotFile }) => {
+    const formData = new FormData();
+    formData.append("stateFile", stateFile);
+    if (screenshotFile) {
+      formData.append("screenshotFile", screenshotFile);
+    }
 
-  return api.post("/states", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-    params: { rom_id: rom.id, emulator },
+    return new Promise<StateSchema>((resolve, reject) => {
+      api
+        .post("/states", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          params: { rom_id: rom.id, emulator },
+        })
+        .then(({ data }) => {
+          resolve(data);
+        })
+        .catch(reject);
+    });
   });
+
+  return Promise.allSettled(promises);
 }
 
 async function updateState({
   state,
-  file,
+  stateFile,
 }: {
   state: StateSchema;
-  file: File;
+  stateFile: File;
 }): Promise<{ data: StateSchema }> {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append("stateFile", stateFile);
 
   return api.put(`/states/${state.id}`, formData);
 }
 
 async function deleteStates({
   states,
-  deleteFromFs,
 }: {
   states: StateSchema[];
-  deleteFromFs: number[];
-}) {
+}): Promise<{ data: number[] }> {
   return api.post("/states/delete", {
     states: states.map((s) => s.id),
-    delete_from_fs: deleteFromFs,
   });
 }
 

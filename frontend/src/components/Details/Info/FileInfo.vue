@@ -46,47 +46,6 @@ watch(
 <template>
   <v-row no-gutters>
     <v-col>
-      <v-row
-        v-if="rom.sibling_roms.length > 0"
-        class="align-center my-3"
-        no-gutters
-      >
-        <v-col cols="3" xl="2" class="mr-2">
-          <span>{{ t("rom.version") }}</span>
-        </v-col>
-        <v-col>
-          <v-row class="align-center" no-gutters>
-            <version-switcher :rom="rom" />
-            <v-tooltip
-              v-if="auth.scopes.includes('roms.user.write')"
-              location="top"
-              class="tooltip"
-              transition="fade-transition"
-              :text="t('rom.set-as-default')"
-              open-delay="300"
-            >
-              <template #activator="{ props }">
-                <v-btn
-                  v-bind="props"
-                  variant="flat"
-                  rounded="0"
-                  size="small"
-                  @click="toggleMainSibling"
-                  ><v-icon
-                    :class="romUser.is_main_sibling ? '' : 'mr-1'"
-                    :color="romUser.is_main_sibling ? 'primary' : ''"
-                    >{{
-                      romUser.is_main_sibling
-                        ? "mdi-checkbox-outline"
-                        : "mdi-checkbox-blank-outline"
-                    }}</v-icon
-                  >{{ romUser.is_main_sibling ? "" : t("rom.default") }}</v-btn
-                >
-              </template>
-            </v-tooltip>
-          </v-row>
-        </v-col>
-      </v-row>
       <v-row v-if="!rom.multi" class="align-center my-3" no-gutters>
         <v-col cols="3" xl="2" class="mr-2">
           <span>{{ t("rom.file") }}</span>
@@ -182,6 +141,49 @@ watch(
           >
             {{ tag }}
           </v-chip>
+        </v-col>
+      </v-row>
+      <v-row
+        v-if="rom.sibling_roms.length > 0"
+        class="align-center my-3"
+        no-gutters
+      >
+        <v-col cols="3" xl="2" class="mr-2">
+          <span>{{ t("rom.switch-version") }}</span>
+        </v-col>
+        <v-col>
+          <v-row class="align-center" no-gutters>
+            <version-switcher :rom="rom" />
+            <v-tooltip
+              v-if="auth.scopes.includes('roms.user.write')"
+              location="top"
+              class="tooltip"
+              transition="fade-transition"
+              :text="t('rom.set-as-default')"
+              open-delay="300"
+            >
+              <template #activator="{ props }">
+                <v-btn
+                  rounded="1"
+                  v-bind="props"
+                  variant="flat"
+                  size="medium"
+                  class="ml-2 text-grey-lighten-2"
+                  style="padding: 10px 14px"
+                  @click="toggleMainSibling"
+                  ><v-icon
+                    :class="romUser.is_main_sibling ? '' : 'mr-1'"
+                    :color="romUser.is_main_sibling ? 'primary' : ''"
+                    >{{
+                      romUser.is_main_sibling
+                        ? "mdi-checkbox-outline"
+                        : "mdi-checkbox-blank-outline"
+                    }}</v-icon
+                  >{{ romUser.is_main_sibling ? "" : t("rom.default") }}</v-btn
+                >
+              </template>
+            </v-tooltip>
+          </v-row>
         </v-col>
       </v-row>
     </v-col>

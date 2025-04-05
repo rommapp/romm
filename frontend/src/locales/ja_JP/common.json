@@ -1,10 +1,10 @@
 {
   "platform": "プラットフォーム",
-  "platforms": "プラットフォームs",
+  "platforms": "プラットフォーム",
   "platforms-n": "{n} プラットフォーム | {n} プラットフォームs",
   "firmware": "ファームウェア",
   "core": "コア",
-  "games-n": "{n} げーム | {n} ゲーム",
+  "games-n": "{n} ゲーム | {n} ゲーム",
   "collection": "コレクション",
   "collections": "コレクション",
   "virtual-collection": "自動生成コレクション",
@@ -32,5 +32,6 @@
   "library-management": "ライブラリ管理",
   "administration": "管理者メニュー",
   "logout": "ログアウト",
-  "name": "名前"
+  "name": "名前",
+  "slug": "スラッグ"
 }

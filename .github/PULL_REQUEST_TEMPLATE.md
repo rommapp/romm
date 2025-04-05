@@ -1,12 +1,10 @@
 <!-- trunk-ignore-all(markdownlint/MD041) -->
 <!-- trunk-ignore-all(markdownlint/MD033) -->
 
-#### Description
-
+**Description**
 <sup>Explain the changes or enhancements you are proposing with this pull request.</sup>
 
-#### Checklist
-
+**Checklist**
 <sup>Please check all that apply.</sup>
 
 - [ ] I've tested the changes locally

@@ -87,6 +87,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "rom_count": 0,
             "created_at": now,
             "updated_at": now,
+            "fs_size_bytes": 0,
         }
 
         if platform["name"] in db_platforms_map:

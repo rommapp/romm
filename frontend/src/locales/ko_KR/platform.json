@@ -1,13 +1,13 @@
 {
   "search-platform": "플랫폼 검색",
   "upload-roms": "롬 업로드",
-  "filesystem-folder-name": "저장소 폴더 이름",
   "category": "분류",
   "generation": "세대",
   "family": "계열",
   "settings": "설정",
   "cover-style": "커버 스타일",
   "old-squared-cases": "옛날 정사각 케이스",
+  "old-horizontal-cases": "옛날 가로형 케이스",
   "danger-zone": "위험 구역",
   "delete-platform": "플랫폼 지우기",
   "removing-platform-1": "플랫폼",
@@ -19,7 +19,6 @@
   "show-favourites": "즐겨찾기",
   "show-duplicates": "중복",
   "genre": "장르",
-  "genres": "장르",
   "franchise": "프랜차이즈",
   "collection": "모음집",
   "company": "개발사",
@@ -28,5 +27,7 @@
   "reset-filters": "필터 초기화",
   "active-multi-select": "다중선택 활성화",
   "change-view": "배열 방식 변경",
-  "no-firmware-found": "펌웨어 없음"
+  "no-firmware-found": "펌웨어 없음",
+  "region": "지역",
+  "language": "언어"
 }
