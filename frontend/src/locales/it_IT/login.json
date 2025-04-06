@@ -1,7 +1,7 @@
 {
-  "username": "Nome utente",
-  "password": "Password",
   "login": "Login",
   "login-oidc": "Login con {oidc}",
-  "or": "o"
+  "or": "o",
+  "password": "Password",
+  "username": "Nome utente"
 }

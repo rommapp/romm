@@ -1,16 +1,16 @@
 {
-  "search-collection": "Cerca collezione",
   "add-collection": "Aggiungi collezione",
-  "edit-collection": "Modifica collezione",
-  "name": "Nome",
-  "description": "Descrizione",
-  "owner": "Proprietario",
-  "public": "Pubblica",
-  "public-desc": "Pubblica (visibile a tutti)",
-  "private": "Privata",
-  "private-desc": "Privata (visibile solo a me)",
   "danger-zone": "Zona pericolosa",
   "delete-collection": "Elimina collezione",
+  "description": "Descrizione",
+  "edit-collection": "Modifica collezione",
+  "name": "Nome",
+  "owner": "Proprietario",
+  "private": "Privata",
+  "private-desc": "Privata (visibile solo a me)",
+  "public": "Pubblica",
+  "public-desc": "Pubblica (visibile a tutti)",
   "removing-collection-1": "Stai eliminando la collezione",
-  "removing-collection-2": "da RomM. Confermi?"
+  "removing-collection-2": "da RomM. Confermi?",
+  "search-collection": "Cerca collezione"
 }
