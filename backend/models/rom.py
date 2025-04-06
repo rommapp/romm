@@ -225,12 +225,10 @@ class Rom(BaseModel):
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
-        screenshots = [s.download_path for s in self.screenshots]
         if self.path_screenshots:
-            screenshots += [
-                f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
-            ]
-        return screenshots
+            return [f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots]
+
+        return []
 
     @cached_property
     def multi(self) -> bool:
@@ -287,6 +285,13 @@ class Rom(BaseModel):
     @property
     def is_fully_identified(self) -> bool:
         return bool(self.igdb_id) and bool(self.moby_id) and bool(self.ss_id)
+
+    def has_m3u_file(self) -> bool:
+        """
+        Check if the ROM has an M3U file associated with it.
+        This is used for multi-disc games.
+        """
+        return any(file.file_extension.lower() == "m3u" for file in self.files)
 
     def __repr__(self) -> str:
         return self.fs_name
