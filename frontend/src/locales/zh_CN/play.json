@@ -1,7 +1,8 @@
 {
   "full-screen": "全屏",
   "play": "游玩",
-  "reset-session": "重置会话",
+  "quit": "退出",
+  "save-and-quit": "保存并退出",
   "back-to-game-details": "返回游戏详情",
   "back-to-gallery": "返回游戏库",
   "clear-cache": "清除 EmulatorJS 缓存",

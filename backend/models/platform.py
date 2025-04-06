@@ -53,7 +53,7 @@ class Platform(BaseModel):
         return self.name
 
     @cached_property
-    def filesystem_size_bytes(self) -> int:
+    def fs_size_bytes(self) -> int:
         from handler.database import db_stats_handler
 
         return db_stats_handler.get_platform_filesize(self.id)
