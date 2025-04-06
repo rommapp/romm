@@ -1,17 +1,18 @@
 import glob
 import json
 import os
+import sys
+
+locales_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Base directory with English files (reference)
-en_dir = "en_US"
-# Parent directory containing all language folders
-parent_dir = "."
+en_dir = os.path.join(locales_dir, "en_US")
 
 # Get all language directories (excluding the English one)
 lang_dirs = [
-    d
-    for d in os.listdir(parent_dir)
-    if os.path.isdir(os.path.join(parent_dir, d)) and d != en_dir
+    os.path.join(locales_dir, d)
+    for d in os.listdir(locales_dir)
+    if os.path.isdir(os.path.join(locales_dir, d)) and d != en_dir
 ]
 
 # Get all JSON files in English directory
@@ -20,8 +21,10 @@ en_filenames = [os.path.basename(f) for f in en_files]
 
 print(f"Comparing {len(lang_dirs)} language directories against {en_dir}...")
 
+has_errors = False
+
 for lang_dir in lang_dirs:
-    print(f"\nChecking {lang_dir}:")
+    print(f"\nChecking {os.path.basename(lang_dir)}...")
 
     # Check for missing files
     lang_files = glob.glob(os.path.join(lang_dir, "*.json"))
@@ -49,3 +52,10 @@ for lang_dir in lang_dirs:
 
         if missing_keys:
             print(f"  In {filename}, missing keys: {', '.join(missing_keys)}")
+            has_errors = True
+
+if has_errors:
+    print("\n❌ Translation check failed!")
+    sys.exit(1)
+else:
+    print("\n✅ All translations are complete!")
