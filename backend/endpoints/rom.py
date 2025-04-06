@@ -361,15 +361,18 @@ async def get_rom_content(
                         log.error(f"File {file_path} not found!")
                         raise
 
-                # Add M3U file
-                m3u_encoded_content = "\n".join(
-                    [f.file_name_for_download(rom, hidden_folder) for f in files]
-                ).encode()
-                m3u_filename = f"{rom.fs_name}.m3u"
-                m3u_info = ZipInfo(filename=m3u_filename, date_time=now.timetuple()[:6])
-                m3u_info.external_attr = S_IFREG | 0o600
-                m3u_info.compress_type = ZIP_STORED
-                zip_file.writestr(m3u_info, m3u_encoded_content)
+                # Add M3U file if not already present
+                if not rom.has_m3u_file():
+                    m3u_encoded_content = "\n".join(
+                        [f.file_name_for_download(rom, hidden_folder) for f in files]
+                    ).encode()
+                    m3u_filename = f"{rom.fs_name}.m3u"
+                    m3u_info = ZipInfo(
+                        filename=m3u_filename, date_time=now.timetuple()[:6]
+                    )
+                    m3u_info.external_attr = S_IFREG | 0o600
+                    m3u_info.compress_type = ZIP_STORED
+                    zip_file.writestr(m3u_info, m3u_encoded_content)
 
             # Get the completed ZIP file bytes
             zip_buffer.seek(0)
@@ -402,19 +405,21 @@ async def get_rom_content(
 
     content_lines = [await create_zip_content(f, "/library-zip") for f in files]
 
-    m3u_encoded_content = "\n".join(
-        [f.file_name_for_download(rom, hidden_folder) for f in files]
-    ).encode()
-    m3u_base64_content = b64encode(m3u_encoded_content).decode()
-    m3u_line = ZipContentLine(
-        crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
-        size_bytes=len(m3u_encoded_content),
-        encoded_location=f"/decode?value={m3u_base64_content}",
-        filename=f"{file_name}.m3u",
-    )
+    if not rom.has_m3u_file():
+        m3u_encoded_content = "\n".join(
+            [f.file_name_for_download(rom, hidden_folder) for f in files]
+        ).encode()
+        m3u_base64_content = b64encode(m3u_encoded_content).decode()
+        m3u_line = ZipContentLine(
+            crc32=crc32_to_hex(binascii.crc32(m3u_encoded_content)),
+            size_bytes=len(m3u_encoded_content),
+            encoded_location=f"/decode?value={m3u_base64_content}",
+            filename=f"{file_name}.m3u",
+        )
+        content_lines.append(m3u_line)
 
     return ZipResponse(
-        content_lines=content_lines + [m3u_line],
+        content_lines=content_lines,
         filename=f"{quote(file_name)}.zip",
     )
 
