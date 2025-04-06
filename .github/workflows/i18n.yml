@@ -19,7 +19,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "poetry"
 
       - name: Run localization check
-        run: poetry run python frontend/src/locales/check_i18n_locales.py
+        run: python frontend/src/locales/check_i18n_locales.py
