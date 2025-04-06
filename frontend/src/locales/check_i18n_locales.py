@@ -12,7 +12,7 @@ en_dir = os.path.join(locales_dir, "en_US")
 lang_dirs = [
     os.path.join(locales_dir, d)
     for d in os.listdir(locales_dir)
-    if os.path.isdir(os.path.join(locales_dir, d)) and d != en_dir
+    if os.path.isdir(os.path.join(locales_dir, d)) and d != "en_US"
 ]
 
 # Get all JSON files in English directory
