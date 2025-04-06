@@ -25,6 +25,7 @@
   "genres": "Generi",
   "hidden": "Nascosto",
   "info": "Info",
+  "languages": "Lingue",
   "manual": "Manuale utente",
   "manual-match": "Associazione manuale",
   "my-notes": "Mie note",
@@ -36,6 +37,7 @@
   "public-notes": "Note pubbliche",
   "rating": "Valutazione",
   "refresh-metadata": "Aggiorna metadati",
+  "regions": "Regioni",
   "related-content": "Contenuti correlati",
   "remove-from-collection": "Rimuovi dalla collezione",
   "remove-from-fav": "Rimuovi dai preferiti",
@@ -53,6 +55,7 @@
   "size": "Dimenzioni",
   "status": "Stato",
   "summary": "Riassunto",
+  "switch-version": "Cambia versione",
   "tags": "Tag",
   "unmatch-rom": "Rimuovi associazione rom",
   "version": "Versione"

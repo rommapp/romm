@@ -8,5 +8,7 @@
   "full-screen": "全屏",
   "play": "游玩",
   "quit": "退出",
-  "save-and-quit": "保存并退出"
+  "save-and-quit": "保存并退出",
+  "select-save": "选择存档",
+  "select-state": "选择状态"
 }
