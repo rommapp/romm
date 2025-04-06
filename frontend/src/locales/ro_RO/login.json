@@ -1,7 +1,7 @@
 {
-  "username": "Nume utilizator",
-  "password": "Parolă",
   "login": "Autentificare",
   "login-oidc": "Autentificare cu {oidc}",
-  "or": "sau"
+  "or": "sau",
+  "password": "Parolă",
+  "username": "Nume utilizator"
 }
