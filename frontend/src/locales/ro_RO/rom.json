@@ -25,6 +25,7 @@
   "genres": "Genuri",
   "hidden": "Ascuns",
   "info": "Informații",
+  "languages": "Limbi",
   "manual": "Manual utilizator",
   "manual-match": "Potrivire manuală",
   "my-notes": "Notițele mele",
@@ -36,6 +37,7 @@
   "public-notes": "Notițe publice",
   "rating": "Evaluare",
   "refresh-metadata": "Actualizează metadatele",
+  "regions": "Regiuni",
   "related-content": "Conținut similar",
   "remove-from-collection": "Elimină din colecție",
   "remove-from-fav": "Elimină din favorite",
@@ -53,6 +55,7 @@
   "size": "Dimensiune",
   "status": "Stare",
   "summary": "Rezumat",
+  "switch-version": "Schimbă versiunea",
   "tags": "Etichete",
   "unmatch-rom": "Dissociază ROM-ul",
   "version": "Versiune"

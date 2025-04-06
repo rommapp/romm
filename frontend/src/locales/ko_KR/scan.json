@@ -3,6 +3,8 @@
   "api-key-missing": "API 키가 없거나 올바르지 않습니다",
   "complete-rescan": "모두 재스캔",
   "complete-rescan-desc": "모든 플랫폼과 파일 재스캔 (가장 느림)",
+  "hashes": "해시",
+  "hashes-desc": "해시로만 스캔",
   "manage-library": "라이브러리 관리",
   "metadata-sources": "메타데이터 DB",
   "new-platforms": "새 플랫폼",
