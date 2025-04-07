@@ -16,7 +16,6 @@ defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const theme = useTheme();
 const show = ref(false);
-const zoom = ref(false);
 const carousel = ref(0);
 const router = useRouter();
 const filters = [
