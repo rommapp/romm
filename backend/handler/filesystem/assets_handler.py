@@ -54,13 +54,13 @@ class FSAssetsHandler(FSHandler):
     def build_saves_file_path(
         self, user: User, platform_fs_slug: str, emulator: str | None = None
     ):
-        return self._build_asset_file_path(user, "saves", platform_fs_slug, emulator)
+        return self._build_asset_file_path(user, "saves", platform_fs_slug)
 
     # /users/557365723a31/states/n64/mupen64plus
     def build_states_file_path(
         self, user: User, platform_fs_slug: str, emulator: str | None = None
     ):
-        return self._build_asset_file_path(user, "states", platform_fs_slug, emulator)
+        return self._build_asset_file_path(user, "saves", platform_fs_slug)
 
     # /users/557365723a31/screenshots/n64
     def build_screenshots_file_path(self, user: User, platform_fs_slug: str):

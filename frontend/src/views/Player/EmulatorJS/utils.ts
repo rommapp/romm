@@ -6,12 +6,12 @@ import { type StateSchema } from "@/__generated__";
 
 function buildStateName(rom: DetailedRom): string {
   const romName = rom.fs_name_no_ext.trim();
-  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
+  return romName;
 }
 
 function buildSaveName(rom: DetailedRom): string {
   const romName = rom.fs_name_no_ext.trim();
-  return `${romName} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
+  return romName;
 }
 
 export async function saveState({
