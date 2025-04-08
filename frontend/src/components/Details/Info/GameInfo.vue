@@ -16,7 +16,6 @@ defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const theme = useTheme();
 const show = ref(false);
-const zoom = ref(false);
 const carousel = ref(0);
 const router = useRouter();
 const filters = [
@@ -184,66 +183,53 @@ function onFilterClick(filter: FilterType, value: string) {
                 />
               </template>
             </v-carousel>
-            <r-dialog v-model="show">
-              <v-btn
-                @click="show = false"
-                icon
-                variant="flat"
-                size="large"
-                class="position-absolute right-0"
-              >
-                <v-icon class="text-white text-shadow" size="25">
-                  mdi-close
-                </v-icon>
-              </v-btn>
-              <v-carousel
-                v-model="carousel"
-                hide-delimiter-background
-                delimiter-icon="mdi-square"
-                show-arrows="hover"
-                hide-delimiters
-                :height="zoom ? '100%' : xs ? '500' : '600'"
-                style="overflow: scroll"
-              >
-                <template #prev="{ props }">
-                  <v-btn
-                    @click="props.onClick"
-                    icon="mdi-chevron-left"
-                    class="translucent-dark"
-                  />
-                </template>
-                <v-carousel-item
-                  v-if="rom.youtube_video_id"
-                  :key="rom.youtube_video_id"
-                  content-class="d-flex justify-center align-center"
+            <r-dialog v-model="show" :width="'95vw'">
+              <template #content>
+                <v-carousel
+                  v-model="carousel"
+                  hide-delimiter-background
+                  delimiter-icon="mdi-square"
+                  show-arrows="hover"
+                  hide-delimiters
+                  class="dialog-carousel"
                 >
-                  <iframe
-                    height="100%"
-                    width="100%"
-                    :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
-                    title="YouTube video player"
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerpolicy="strict-origin-when-cross-origin"
-                    allowfullscreen
-                  ></iframe>
-                </v-carousel-item>
-                <v-carousel-item
-                  v-for="screenshot_url in rom.merged_screenshots"
-                  :key="screenshot_url"
-                  :src="screenshot_url"
-                  @click="zoom = !zoom"
-                  class="dialog-screenshot"
-                  :class="{ zoomed: zoom }"
-                />
-                <template #next="{ props }">
-                  <v-btn
-                    icon="mdi-chevron-right"
-                    class="translucent-dark"
-                    @click="props.onClick"
+                  <template #prev="{ props }">
+                    <v-btn
+                      @click="props.onClick"
+                      icon="mdi-chevron-left"
+                      class="translucent-dark"
+                    />
+                  </template>
+                  <v-carousel-item
+                    v-if="rom.youtube_video_id"
+                    :key="rom.youtube_video_id"
+                    content-class="d-flex justify-center align-center"
+                  >
+                    <iframe
+                      height="100%"
+                      width="100%"
+                      :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
+                      title="YouTube video player"
+                      frameborder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerpolicy="strict-origin-when-cross-origin"
+                      allowfullscreen
+                    ></iframe>
+                  </v-carousel-item>
+                  <v-carousel-item
+                    v-for="screenshot_url in rom.merged_screenshots"
+                    :key="screenshot_url"
+                    :src="screenshot_url"
                   />
-                </template>
-              </v-carousel>
+                  <template #next="{ props }">
+                    <v-btn
+                      icon="mdi-chevron-right"
+                      class="translucent-dark"
+                      @click="props.onClick"
+                    />
+                  </template>
+                </v-carousel>
+              </template>
             </r-dialog>
           </v-col>
         </v-row>
@@ -253,11 +239,7 @@ function onFilterClick(filter: FilterType, value: string) {
 </template>
 
 <style scoped>
-.dialog-screenshot {
-  cursor: zoom-in;
-
-  &.zoomed {
-    cursor: zoom-out;
-  }
+.dialog-carousel {
+  height: calc(100vh - 110px) !important;
 }
 </style>
