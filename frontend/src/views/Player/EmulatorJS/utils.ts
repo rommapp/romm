@@ -30,7 +30,7 @@ export async function saveState({
       emulator: window.EJS_core,
       statesToUpload: [
         {
-          stateFile: new File([stateFile], `${filename}.state`, {
+          stateFile: new File([stateFile], `${filename}.state.auto`, {
             type: "application/octet-stream",
           }),
           screenshotFile: screenshotFile
