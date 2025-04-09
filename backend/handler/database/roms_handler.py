@@ -14,6 +14,7 @@ from sqlalchemy import (
     SmallInteger,
     and_,
     case,
+    cast,
     delete,
     func,
     literal,
@@ -327,7 +328,7 @@ class DBRomsHandler(DBBaseHandler):
 
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
             is_main_sibling_order = (
-                func.ifnull(RomUser.is_main_sibling, 0).desc()
+                func.coalesce(cast(RomUser.is_main_sibling, Integer), 0).desc()
                 if user_id
                 else literal(1)
             )

@@ -14,9 +14,15 @@ import { inject, onBeforeUnmount } from "vue";
 withDefaults(
   defineProps<{
     block?: boolean;
+    height?: string;
+    rounded?: boolean;
+    withTag?: boolean;
   }>(),
   {
     block: false,
+    height: "",
+    rounded: false,
+    withTag: false,
   },
 );
 const navigationStore = storeNavigation();
@@ -109,23 +115,52 @@ onBeforeUnmount(() => {
 <template>
   <v-btn
     v-if="auth.scopes.includes('platforms.write')"
+    icon
     :block="block"
     variant="flat"
-    rounded="0"
-    icon
     color="background"
-    class="rounded my-1"
+    :height="height"
+    :class="{ rounded: rounded }"
+    class="py-4 bg-background custom-btn"
     @click="navigationStore.goScan"
   >
-    <v-progress-circular
-      v-if="scanning"
-      color="primary"
-      :width="2"
-      :size="20"
-      indeterminate
-    />
-    <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''"
-      >mdi-magnify-scan</v-icon
-    >
+    <div class="icon-container">
+      <v-progress-circular
+        v-if="scanning"
+        color="primary"
+        :width="2"
+        :size="20"
+        indeterminate
+      />
+      <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''"
+        >mdi-magnify-scan</v-icon
+      >
+      <v-expand-transition>
+        <span
+          v-if="withTag"
+          class="text-caption"
+          :class="{ 'text-primary': $route.name == 'scan' }"
+          >Scan</span
+        >
+      </v-expand-transition>
+    </div>
   </v-btn>
 </template>
+
+<style scoped>
+.custom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.icon-container span {
+  text-align: center;
+}
+</style>
