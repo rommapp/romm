@@ -16,6 +16,7 @@ def str_to_bool(value: str) -> bool:
 DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
 DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
 DEV_PORT: Final = int(os.environ.get("DEV_PORT", "5000"))
+DEV_SQL_ECHO: Final = str_to_bool(os.environ.get("DEV_SQL_ECHO", "false"))
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")

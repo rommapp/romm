@@ -8,6 +8,7 @@ import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeAuth from "@/stores/auth";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   formatBytes,
@@ -19,7 +20,7 @@ import {
 import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useRouter } from "vue-router";
 
 // Props
@@ -37,11 +38,13 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
-const { filteredRoms, selectedRoms } = storeToRefs(romsStore);
+const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
+  storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const auth = storeAuth();
+const galleryFilterStore = storeGalleryFilter();
 
 const HEADERS = [
   {
@@ -53,7 +56,7 @@ const HEADERS = [
   {
     title: "Size",
     align: "start",
-    sortable: true,
+    sortable: false,
     key: "fs_size_bytes",
   },
   {
@@ -133,12 +136,26 @@ function updateSelectedRom(rom: SimpleRom) {
     romsStore.addToSelection(rom);
   }
 }
+
+type SortBy = { key: keyof SimpleRom; order: "asc" | "desc" }[];
+
+function updateOptions({ sortBy }: { sortBy: SortBy }) {
+  if (!sortBy[0]) return;
+  const { key, order } = sortBy[0];
+
+  romsStore.resetPagination();
+  romsStore.setOrderBy(key);
+  romsStore.setOrderDir(order);
+  romsStore.fetchRoms(galleryFilterStore, false);
+}
 </script>
 
 <template>
-  <v-data-table-virtual
+  <v-data-table-server
+    @update:options="updateOptions"
     @click:row="rowClick"
-    :item-value="(item: SimpleRom) => item"
+    :items-per-page="72"
+    :items-length="fetchTotalRoms"
     :items="filteredRoms"
     :headers="HEADERS"
     v-model="selectedRomIDs"
@@ -146,9 +163,17 @@ function updateSelectedRom(rom: SimpleRom) {
     fixed-header
     fixed-footer
     hide-default-footer
+    :loading="fetchingRoms"
+    :disable-sort="fetchingRoms"
     hover
     class="rounded"
   >
+    <template #loading>
+      <v-skeleton-loader
+        class="mx-4"
+        :type="filteredRoms.map(() => 'table-row').slice(0, 72)"
+      />
+    </template>
     <template #header.data-table-select>
       <v-checkbox-btn
         :indeterminate="
@@ -192,11 +217,11 @@ function updateSelectedRom(rom: SimpleRom) {
         </v-row>
         <template #append>
           <v-chip
-            v-if="item.sibling_roms.length > 0 && showSiblings"
+            v-if="item.siblings.length > 0 && showSiblings"
             class="translucent-dark ml-4"
             size="x-small"
           >
-            <span class="text-caption">+{{ item.sibling_roms.length }}</span>
+            <span class="text-caption">+{{ item.siblings.length }}</span>
           </v-chip>
         </template>
       </v-list-item>
@@ -215,20 +240,23 @@ function updateSelectedRom(rom: SimpleRom) {
       <span v-else>-</span>
     </template>
     <template #item.first_release_date="{ item }">
-      <span v-if="item.first_release_date" class="text-no-wrap">{{
-        new Date(item.first_release_date).toLocaleDateString("en-US", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+      <span v-if="item.metadatum.first_release_date" class="text-no-wrap">{{
+        new Date(item.metadatum.first_release_date).toLocaleDateString(
+          "en-US",
+          {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          },
+        )
       }}</span>
       <span v-else>-</span>
     </template>
     <template #item.average_rating="{ item }">
-      <span v-if="item.average_rating" class="text-no-wrap">{{
+      <span v-if="item.metadatum.average_rating" class="text-no-wrap">{{
         Intl.NumberFormat("en-US", {
           maximumSignificantDigits: 3,
-        }).format(item.average_rating)
+        }).format(item.metadatum.average_rating)
       }}</span>
       <span v-else>-</span>
     </template>
@@ -262,11 +290,11 @@ function updateSelectedRom(rom: SimpleRom) {
         >
           {{ regionToEmoji(region) }}
         </span>
-        <spa class="reglang-super">
+        <span class="reglang-super">
           {{
             item.regions.length > 3 ? `&nbsp;+${item.regions.length - 3}` : ""
           }}
-        </spa>
+        </span>
       </div>
       <span v-else>-</span>
     </template>
@@ -322,7 +350,7 @@ function updateSelectedRom(rom: SimpleRom) {
         </v-menu>
       </v-btn-group>
     </template>
-  </v-data-table-virtual>
+  </v-data-table-server>
 </template>
 
 <style scoped>

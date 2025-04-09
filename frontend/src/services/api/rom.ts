@@ -2,15 +2,15 @@ import type {
   MessageResponse,
   SearchRomSchema,
   RomUserSchema,
-  RomSchema,
 } from "@/__generated__";
 import api from "@/services/api/index";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
-import { getDownloadPath } from "@/utils";
+import { getDownloadPath, getStatusKeyForText } from "@/utils";
 import type { AxiosProgressEvent } from "axios";
 import storeHeartbeat from "@/stores/heartbeat";
+import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 
 export const romApi = api;
 
@@ -20,7 +20,7 @@ async function uploadRoms({
 }: {
   platformId: number;
   filesToUpload: File[];
-}): Promise<PromiseSettledResult<RomSchema>[]> {
+}): Promise<PromiseSettledResult<null>[]> {
   const heartbeat = storeHeartbeat();
 
   if (!socket.connected) socket.connect();
@@ -31,7 +31,7 @@ async function uploadRoms({
     formData.append(file.name, file);
 
     uploadStore.start(file.name);
-    return new Promise<RomSchema>((resolve, reject) => {
+    return new Promise<null>((resolve, reject) => {
       api
         .post("/roms", formData, {
           headers: {
@@ -45,8 +45,8 @@ async function uploadRoms({
             uploadStore.update(file.name, progressEvent);
           },
         })
-        .then(({ data }) => {
-          resolve(data);
+        .then(() => {
+          resolve(null);
         })
         .catch((error) => {
           uploadStore.fail(file.name, error.response?.data?.detail);
@@ -58,41 +58,87 @@ async function uploadRoms({
   return Promise.allSettled(promises);
 }
 
+export interface GetRomsParams {
+  platformId?: number | null;
+  collectionId?: number | null;
+  virtualCollectionId?: string | null;
+  searchTerm?: string | null;
+  limit?: number;
+  offset?: number;
+  orderBy?: string | null;
+  orderDir?: string | null;
+  filterUnmatched?: boolean;
+  filterMatched?: boolean;
+  filterFavourites?: boolean;
+  filterDuplicates?: boolean;
+  groupByMetaId?: boolean;
+  selectedGenre?: string | null;
+  selectedFranchise?: string | null;
+  selectedCollection?: string | null;
+  selectedCompany?: string | null;
+  selectedAgeRating?: string | null;
+  selectedStatus?: string | null;
+  selectedRegion?: string | null;
+  selectedLanguage?: string | null;
+}
+
 async function getRoms({
   platformId = null,
   collectionId = null,
   virtualCollectionId = null,
   searchTerm = null,
+  limit = 72,
+  offset = 0,
   orderBy = "name",
   orderDir = "asc",
-}: {
-  platformId?: number | null;
-  collectionId?: number | null;
-  virtualCollectionId?: string | null;
-  searchTerm?: string | null;
-  orderBy?: string | null;
-  orderDir?: string | null;
-}): Promise<{ data: SimpleRom[] }> {
+  filterUnmatched = false,
+  filterMatched = false,
+  filterFavourites = false,
+  filterDuplicates = false,
+  groupByMetaId = false,
+  selectedGenre = null,
+  selectedFranchise = null,
+  selectedCollection = null,
+  selectedCompany = null,
+  selectedAgeRating = null,
+  selectedStatus = null,
+  selectedRegion = null,
+  selectedLanguage = null,
+}: GetRomsParams): Promise<{ data: GetRomsResponse }> {
   return api.get(`/roms`, {
     params: {
       platform_id: platformId,
       collection_id: collectionId,
       virtual_collection_id: virtualCollectionId,
       search_term: searchTerm,
+      limit: limit,
+      offset: offset,
       order_by: orderBy,
       order_dir: orderDir,
-      limit: 2500,
+      unmatched_only: filterUnmatched,
+      matched_only: filterMatched,
+      favourites_only: filterFavourites,
+      duplicates_only: filterDuplicates,
+      group_by_meta_id: groupByMetaId,
+      selected_genre: selectedGenre,
+      selected_franchise: selectedFranchise,
+      selected_collection: selectedCollection,
+      selected_company: selectedCompany,
+      selected_age_rating: selectedAgeRating,
+      selected_status: getStatusKeyForText(selectedStatus),
+      selected_region: selectedRegion,
+      selected_language: selectedLanguage,
     },
   });
 }
 
-async function getRecentRoms(): Promise<{ data: SimpleRom[] }> {
+async function getRecentRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
     params: { order_by: "id", order_dir: "desc", limit: 15 },
   });
 }
 
-async function getRecentPlayedRoms(): Promise<{ data: SimpleRom[] }> {
+async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
     params: { order_by: "last_played", order_dir: "desc", limit: 15 },
   });

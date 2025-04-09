@@ -27,7 +27,7 @@ function updateVersion() {
     max-width="fit-content"
     hide-details
     :items="
-      [rom, ...rom.sibling_roms].map((i) => ({
+      [rom, ...rom.siblings].map((i) => ({
         title: i.fs_name_no_ext,
         value: i.id,
       }))

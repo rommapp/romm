@@ -9,6 +9,7 @@ import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { MdPreview } from "md-editor-v3";
+import { get } from "lodash";
 
 // Props
 const { t } = useI18n();
@@ -19,12 +20,20 @@ const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
 const filters = [
-  { value: "regions", name: t("rom.regions") },
-  { value: "languages", name: t("rom.languages") },
-  { value: "genres", name: t("rom.genres") },
-  { value: "franchises", name: t("rom.franchises") },
-  { value: "meta_collections", name: t("rom.collections") },
-  { value: "companies", name: t("rom.companies") },
+  { key: "regions", path: "regions", name: t("rom.regions") },
+  { key: "languages", path: "languages", name: t("rom.languages") },
+  { key: "genres", path: "metadatum.genres", name: t("rom.genres") },
+  {
+    key: "franchises",
+    path: "metadatum.franchises",
+    name: t("rom.franchises"),
+  },
+  {
+    key: "collections",
+    path: "metadatum.collections",
+    name: t("rom.collections"),
+  },
+  { key: "companies", path: "metadatum.companies", name: t("rom.companies") },
 ] as const;
 
 // Functions
@@ -70,7 +79,7 @@ function onFilterClick(filter: FilterType, value: string) {
       </v-row>
       <template v-for="filter in filters" :key="filter">
         <v-row
-          v-if="rom[filter.value].length > 0"
+          v-if="get(rom, filter.path).length > 0"
           class="align-center my-3"
           no-gutters
         >
@@ -79,9 +88,9 @@ function onFilterClick(filter: FilterType, value: string) {
           </v-col>
           <v-col>
             <v-chip
-              v-for="value in rom[filter.value]"
+              v-for="value in get(rom, filter.path)"
               :key="value"
-              @click="onFilterClick(filter.value, value)"
+              @click="onFilterClick(filter.key, value)"
               size="small"
               variant="outlined"
               class="my-1 mr-2"
@@ -120,6 +129,7 @@ function onFilterClick(filter: FilterType, value: string) {
         <v-row no-gutters class="mt-4">
           <v-col class="text-caption">
             <MdPreview
+              class="px-6"
               :model-value="rom.summary ?? ''"
               :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
               preview-theme="vuepress"
