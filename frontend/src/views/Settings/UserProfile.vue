@@ -162,14 +162,14 @@ onUnmounted(() => {
           required
           hide-details
         >
-          <template #selection="{ props, item }">
-            <v-list-item v-bind="props" class="pa-0">
+          <template #selection="{ item }">
+            <v-list-item class="pa-0">
               <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
               {{ item.title }}
             </v-list-item>
           </template>
-          <template #item="{ props, item }">
-            <v-list-item v-bind="props" :title="item.title">
+          <template #item="{ item }">
+            <v-list-item :title="item.title">
               <template #prepend>
                 <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
               </template>

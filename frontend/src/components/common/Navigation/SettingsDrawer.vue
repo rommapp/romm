@@ -77,9 +77,9 @@ async function logout() {
       </v-list-img>
       <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
         <template #subtitle>
-          <v-list-item-subtitle>
-            {{ user?.role }}
-            <v-icon size="x-small">{{ getRoleIcon(user?.role) }}</v-icon>
+          <v-list-item-subtitle v-if="user?.role">
+            {{ user.role }}
+            <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
           </v-list-item-subtitle>
         </template>
       </v-list-item>
