@@ -19,7 +19,7 @@ import { useDisplay } from "vuetify";
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
-const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
+const { scrolledToTop } = storeToRefs(galleryViewStore);
 const { selectedRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const fabMenu = ref(false);
@@ -142,14 +142,15 @@ function onDownload() {
 
 <template>
   <div
-    class="text-right pa-2 sticky-bottom"
+    id="multi-select-overlay"
+    class="text-right sticky-bottom"
     :class="{
       'bottom-0': !smAndDown,
       'bottom-50': smAndDown,
     }"
   >
     <v-speed-dial
-      location="left center"
+      location="left bottom"
       transition="fade-transition"
       v-model="fabMenu"
     >
@@ -157,7 +158,7 @@ function onDownload() {
         <v-fab-transition>
           <v-btn
             v-show="selectedRoms.length > 0"
-            class="rounded"
+            class="rounded border-selected"
             color="primary"
             v-bind="props"
             elevation="8"
@@ -170,57 +171,48 @@ function onDownload() {
       </template>
 
       <v-btn
-        title="Delete roms"
+        title="Unselect all"
         key="1"
-        v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
         elevation="8"
-        icon
+        icon="mdi-select"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
-      >
-        <v-icon color="romm-red"> mdi-delete </v-icon>
-      </v-btn>
-      <v-btn
-        title="Refresh metadata"
-        key="2"
-        v-if="auth.scopes.includes('roms.write')"
-        color="toplayer"
-        elevation="8"
-        icon="mdi-magnify-scan"
-        class="rounded"
-        :size="35"
-        rounded="0"
-        @click="onScan"
+        @click.stop="resetSelection"
       />
       <v-btn
-        title="Download roms"
+        title="Select all"
+        key="2"
+        color="toplayer"
+        elevation="8"
+        icon="mdi-select-all"
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click.stop="selectAllRoms"
+      />
+      <v-btn
+        title="Add to favourites"
         key="3"
         color="toplayer"
         elevation="8"
-        icon="mdi-download"
+        icon="mdi-star"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="onDownload"
+        @click="addToFavourites"
       />
       <v-btn
-        title="Remove from collection"
+        title="Remove from favourites"
         key="4"
         color="toplayer"
         elevation="8"
-        icon="mdi-bookmark-remove-outline"
+        icon="mdi-star-remove-outline"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="
-          emitter?.emit(
-            'showRemoveFromCollectionDialog',
-            romsStore.selectedRoms,
-          )
-        "
+        @click="removeFromFavourites"
       />
       <v-btn
         title="Add to collection"
@@ -236,55 +228,75 @@ function onDownload() {
         "
       />
       <v-btn
-        title="Remove from favourites"
+        title="Remove from collection"
         key="6"
         color="toplayer"
         elevation="8"
-        icon="mdi-star-remove-outline"
+        icon="mdi-bookmark-remove-outline"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="removeFromFavourites"
+        @click="
+          emitter?.emit(
+            'showRemoveFromCollectionDialog',
+            romsStore.selectedRoms,
+          )
+        "
       />
       <v-btn
-        title="Add to favourites"
+        title="Download roms"
         key="7"
         color="toplayer"
         elevation="8"
-        icon="mdi-star"
+        icon="mdi-download"
         class="rounded"
         :size="35"
         rounded="0"
-        @click="addToFavourites"
+        @click="onDownload"
       />
       <v-btn
-        title="Select all"
+        title="Refresh metadata"
         key="8"
+        v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
         elevation="8"
-        icon="mdi-select-all"
+        icon="mdi-magnify-scan"
         class="rounded"
         :size="35"
         rounded="0"
-        @click.stop="selectAllRoms"
+        @click="onScan"
       />
       <v-btn
-        title="Unselect all"
+        title="Delete roms"
         key="9"
+        v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
         elevation="8"
-        icon="mdi-select"
+        icon
         class="rounded"
         :size="35"
         rounded="0"
-        @click.stop="resetSelection"
-      />
+        @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
+      >
+        <v-icon color="romm-red"> mdi-delete </v-icon>
+      </v-btn>
     </v-speed-dial>
+  </div>
 
+  <div
+    class="text-right sticky-bottom"
+    :class="{
+      'bottom-0': !smAndDown,
+      'bottom-50': smAndDown,
+    }"
+    :style="{
+      'padding-bottom': selectedRoms.length > 0 ? '62px' : '10px',
+    }"
+  >
     <v-scroll-y-reverse-transition>
       <v-btn
         icon
-        v-show="!scrolledToTop && currentView != 2"
+        v-show="!scrolledToTop"
         class="border-selected rounded ml-2"
         color="background"
         elevation="8"
@@ -304,6 +316,8 @@ function onDownload() {
   z-index: 9999;
   pointer-events: none;
   padding-right: 10px !important;
+}
+#multi-select-overlay {
   padding-bottom: 10px !important;
 }
 .sticky-bottom * {
