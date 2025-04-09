@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
-import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 
 // Props
-const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const heartbeatStore = storeHeartbeat();
 const navigationStore = storeNavigation();

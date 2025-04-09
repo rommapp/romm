@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import storeRoms from "@/stores/roms";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storeGalleryView from "@/stores/galleryView";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -8,10 +9,14 @@ import { inject, watch } from "vue";
 
 const romsStore = storeRoms();
 const galleryFilterStore = storeGalleryFilter();
+const galleryViewStore = storeGalleryView();
+const { selectedRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const { characterIndex, selectedCharacter, fetchingRoms } =
   storeToRefs(romsStore);
+
+const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 
 async function fetchRoms() {
   if (fetchingRoms.value) return;
@@ -62,6 +67,12 @@ watch(
     rounded
     height="100%"
     class="position-fixed bg-surface mt-4 char-index-toolbar"
+    :style="{
+      'max-height':
+        (!scrolledToTop && currentView != 2) || selectedRoms.length > 0
+          ? 'calc(100vh - 125px)'
+          : 'calc(100vh - 74px)',
+    }"
   >
     <v-tabs
       v-model="selectedCharacter"
@@ -87,7 +98,6 @@ watch(
   right: 8px;
   transform: translateY(0px);
   height: fit-content;
-  max-height: calc(100vh - 74px);
   width: 44px;
   overflow-y: scroll;
   scrollbar-width: none;
