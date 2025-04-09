@@ -78,3 +78,11 @@ body {
 .bottom-50 {
   bottom: 50px !important;
 }
+.max-h-50 {
+  height: fit-content !important;
+  max-height: 50dvh !important;
+}
+.max-h-70 {
+  height: fit-content !important;
+  max-height: 70dvh !important;
+}
