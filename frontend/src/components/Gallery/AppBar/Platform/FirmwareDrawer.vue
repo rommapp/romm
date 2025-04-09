@@ -3,7 +3,6 @@ import type { FirmwareSchema } from "@/__generated__";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
 import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
 import storeAuth from "@/stores/auth";
-import storeNavigation from "@/stores/navigation";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -16,14 +15,12 @@ import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
-const { xs, mdAndUp, smAndDown } = useDisplay();
+const { xs, mdAndUp } = useDisplay();
 const auth = storeAuth();
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 const galleryViewStore = storeGalleryView();
 const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
-const navigationStore = storeNavigation();
-const { mainBarCollapsed } = storeToRefs(navigationStore);
 const { calculatedWidth } = calculateMainLayoutWidth();
 const selectedFirmware = ref<FirmwareSchema[]>([]);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -61,9 +58,9 @@ function deleteSelectedFirmware() {
     location="bottom"
     v-model="activeFirmwareDrawer"
     :class="{
-      'my-2 px-1': activeFirmwareDrawer,
+      'my-2 px-1 max-h-50': activeFirmwareDrawer,
     }"
-    class="bg-surface border-0 rounded mx-2 px-1 unset-height"
+    class="bg-surface border-0 rounded mx-2 px-1"
     :style="{
       width: calculatedWidth,
     }"
