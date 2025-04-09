@@ -52,8 +52,8 @@ onMounted(async () => {
   fetchingContinuePlaying.value = true;
   romApi
     .getRecentRoms()
-    .then(({ data: recentData }) => {
-      romsStore.setRecentRoms(recentData);
+    .then(({ data: { items } }) => {
+      romsStore.setRecentRoms(items);
     })
     .catch((error) => {
       console.error(error);
@@ -61,11 +61,12 @@ onMounted(async () => {
     .finally(() => {
       fetchingRecentAdded.value = false;
     });
+
   romApi
     .getRecentPlayedRoms()
-    .then(({ data: recentPlayedData }) => {
+    .then(({ data: { items } }) => {
       romsStore.setContinuePlayedRoms(
-        recentPlayedData.filter((rom) => rom.rom_user.last_played),
+        items.filter((rom) => rom.rom_user.last_played),
       );
     })
     .catch((error) => {
@@ -80,23 +81,19 @@ onMounted(async () => {
 <template>
   <stats />
   <recent-skeleton-loader
-    v-if="showRecentRoms && fetchingRecentAdded"
+    v-if="showRecentRoms && fetchingRecentAdded && recentRoms.length === 0"
     :title="t('home.recently-added')"
   />
-  <recent-added
-    v-if="recentRoms.length > 0 && showRecentRoms && !fetchingRecentAdded"
-  />
+  <recent-added v-if="recentRoms.length > 0 && showRecentRoms" />
   <recent-skeleton-loader
-    v-if="showContinuePlaying && fetchingContinuePlaying"
+    v-if="
+      showContinuePlaying &&
+      fetchingContinuePlaying &&
+      recentPlayedRoms.length === 0
+    "
     :title="t('home.continue-playing')"
   />
-  <continue-playing
-    v-if="
-      recentPlayedRoms.length > 0 &&
-      showContinuePlaying &&
-      !fetchingContinuePlaying
-    "
-  />
+  <continue-playing v-if="recentPlayedRoms.length > 0 && showContinuePlaying" />
   <platforms v-if="filledPlatforms.length > 0 && showPlatforms" />
   <collections v-if="allCollections.length > 0 && showCollections" />
   <virtual-collections

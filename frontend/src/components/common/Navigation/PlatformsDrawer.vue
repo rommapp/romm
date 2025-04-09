@@ -11,11 +11,11 @@ const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { smAndDown, mdAndUp } = useDisplay();
 const platformsStore = storePlatforms();
-const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
+const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 
 function clear() {
-  searchText.value = "";
+  filterText.value = "";
 }
 </script>
 <template>
@@ -38,7 +38,7 @@ function clear() {
   >
     <template #prepend>
       <v-text-field
-        v-model="searchText"
+        v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
         hide-details

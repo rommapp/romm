@@ -7,11 +7,10 @@ const defaultGalleryState = {
   defaultAspectRatioScreenshot: 16 / 9,
   activeFirmwareDrawer: false,
   scrolledToTop: false,
-  scroll: 0,
 };
 
 export default defineStore("galleryView", {
-  state: () => defaultGalleryState,
+  state: () => ({ ...defaultGalleryState }),
 
   actions: {
     setView(view: number) {
@@ -29,7 +28,7 @@ export default defineStore("galleryView", {
       }
     },
     reset() {
-      Object.assign(this, defaultGalleryState);
+      Object.assign(this, { ...defaultGalleryState });
     },
   },
 });

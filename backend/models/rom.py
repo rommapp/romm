@@ -19,7 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from utils.database import CustomJSON, safe_float, safe_int
+from utils.database import CustomJSON
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -56,7 +56,7 @@ class RomFile(BaseModel):
         Enum(RomFileCategory), default=None
     )
 
-    rom: Mapped[Rom] = relationship(lazy="joined")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
 
     @cached_property
     def full_path(self) -> str:
@@ -85,6 +85,25 @@ class RomFile(BaseModel):
         return self.full_path.replace(
             f"{rom.full_path}/", ".hidden/" if hidden_folder else ""
         )
+
+
+class RomMetadata(BaseModel):
+    __tablename__ = "roms_metadata"
+
+    rom_id: Mapped[int] = mapped_column(
+        ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    genres: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
+    average_rating: Mapped[float | None] = mapped_column(default=None)
+
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
 
 
 class Rom(BaseModel):
@@ -151,22 +170,28 @@ class Rom(BaseModel):
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
-    platform: Mapped[Platform] = relationship(lazy="immediate")
+    platform: Mapped[Platform] = relationship(lazy="immediate", back_populates="roms")
     sibling_roms: Mapped[list[Rom]] = relationship(
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
+        lazy="select",
     )
-    files: Mapped[list[RomFile]] = relationship(lazy="immediate", back_populates="rom")
-    saves: Mapped[list[Save]] = relationship(back_populates="rom")
-    states: Mapped[list[State]] = relationship(back_populates="rom")
-    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
-    rom_users: Mapped[list[RomUser]] = relationship(back_populates="rom")
-
+    files: Mapped[list[RomFile]] = relationship(lazy="select", back_populates="rom")
+    saves: Mapped[list[Save]] = relationship(lazy="select", back_populates="rom")
+    states: Mapped[list[State]] = relationship(lazy="select", back_populates="rom")
+    screenshots: Mapped[list[Screenshot]] = relationship(
+        lazy="select", back_populates="rom"
+    )
+    rom_users: Mapped[list[RomUser]] = relationship(lazy="select", back_populates="rom")
+    metadatum: Mapped[RomMetadata] = relationship(
+        lazy="select", back_populates="rom", uselist=False
+    )
     collections: Mapped[list[Collection]] = relationship(
         "Collection",
         secondary="collections_roms",
         collection_class=set,
+        lazy="select",
         back_populates="roms",
     )
 
@@ -233,7 +258,7 @@ class Rom(BaseModel):
             else ""
         )
 
-    # Metadata fields
+    # # Metadata fields
     @property
     def youtube_video_id(self) -> str:
         if self.igdb_metadata:
@@ -248,82 +273,6 @@ class Rom(BaseModel):
             or (self.ss_metadata or {}).get("alternative_names", None)
             or []
         )
-
-    @property
-    def first_release_date(self) -> int | None:
-        if self.igdb_metadata:
-            return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
-        elif self.ss_metadata:
-            return safe_int(self.ss_metadata.get("first_release_date") or 0) * 1000
-
-        return None
-
-    @property
-    def average_rating(self) -> float | None:
-        igdb_rating = (
-            safe_float(self.igdb_metadata.get("total_rating") or 0)
-            if self.igdb_metadata
-            else 0.0
-        )
-        moby_rating = (
-            safe_float(self.moby_metadata.get("moby_score") or 0)
-            if self.moby_metadata
-            else 0.0
-        )
-        ss_rating = (
-            safe_float(self.ss_metadata.get("ss_score") or 0)
-            if self.ss_metadata
-            else 0.0
-        )
-
-        ratings = [r for r in [igdb_rating, moby_rating * 10, ss_rating] if r != 0.0]
-
-        return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
-
-    @property
-    def genres(self) -> list[str]:
-        return (
-            (self.igdb_metadata or {}).get("genres", None)
-            or (self.moby_metadata or {}).get("genres", None)
-            or (self.ss_metadata or {}).get("genres", None)
-            or []
-        )
-
-    @property
-    def franchises(self) -> list[str]:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("franchises", [])
-        elif self.ss_metadata:
-            return self.ss_metadata.get("franchises", [])
-        return []
-
-    @property
-    def meta_collections(self) -> list[str]:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("collections", [])
-        return []
-
-    @property
-    def companies(self) -> list[str]:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("companies", [])
-        elif self.ss_metadata:
-            return self.ss_metadata.get("companies", [])
-        return []
-
-    @property
-    def game_modes(self) -> list[str]:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("game_modes", [])
-        elif self.ss_metadata:
-            return self.ss_metadata.get("game_modes", [])
-        return []
-
-    @property
-    def age_ratings(self) -> list[str]:
-        if self.igdb_metadata:
-            return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
-        return []
 
     @property
     def is_unidentified(self) -> bool:
