@@ -154,6 +154,7 @@ onBeforeUnmount(() => {
             variant="text"
             icon="mdi-search-web"
             block
+            rounded="0"
             :disabled="searching"
           />
         </v-col>

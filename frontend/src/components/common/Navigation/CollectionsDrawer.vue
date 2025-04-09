@@ -14,7 +14,7 @@ import { isNull } from "lodash";
 // Props
 const { t } = useI18n();
 const navigationStore = storeNavigation();
-const { smAndDown, mdAndUp } = useDisplay();
+const { mdAndUp, smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 const { filteredCollections, filteredVirtualCollections, filterText } =
   storeToRefs(collectionsStore);
@@ -70,8 +70,7 @@ onBeforeUnmount(() => {
   <v-navigation-drawer
     id="collections-drawer"
     mobile
-    rounded
-    :location="smAndDown ? 'top' : 'left'"
+    :location="smAndDown ? 'bottom' : 'left'"
     @update:model-value="clear"
     width="500"
     v-model="activeCollectionsDrawer"
@@ -79,10 +78,11 @@ onBeforeUnmount(() => {
       'my-2': mdAndUp || (smAndDown && activeCollectionsDrawer),
       'ml-2': (mdAndUp && activeCollectionsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
+      'unset-height': mdAndUp,
+      'max-h-70': smAndDown && activeCollectionsDrawer,
     }"
     class="bg-surface pa-1"
-    :style="mdAndUp ? 'height: unset' : ''"
+    rounded
     :border="0"
   >
     <template #prepend>
@@ -138,8 +138,3 @@ onBeforeUnmount(() => {
 
   <create-collection-dialog />
 </template>
-<style scoped>
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>
