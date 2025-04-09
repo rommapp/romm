@@ -8,7 +8,7 @@ defineProps<{
 }>();
 const { t } = useI18n();
 const romsStore = storeRoms();
-const { allRoms, fetchingRoms, fetchTotalRoms, fetchLimit, fetchOffset } =
+const { fetchingRoms, fetchTotalRoms, fetchLimit, fetchOffset } =
   storeToRefs(romsStore);
 </script>
 
@@ -31,13 +31,7 @@ const { allRoms, fetchingRoms, fetchTotalRoms, fetchLimit, fetchOffset } =
         </v-btn>
       </template>
       <template v-else>
-        <v-alert
-          dense
-          outlined
-          color="surface"
-          class="mx-auto text-gray px-6 py-4"
-          max-width="fit-content"
-        >
+        <v-alert dense outlined color="surface" class="mx-auto text-gray pa-4">
           {{ t("gallery.all-loaded") }}
         </v-alert>
       </template>
