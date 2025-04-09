@@ -6,7 +6,7 @@ import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import Skeleton from "@/components/Gallery/Skeleton.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
-import GameDataTable from "@/components/common/Game/Table.vue";
+import GameTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
@@ -264,9 +264,9 @@ onBeforeUnmount(() => {
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row class="h-100 mr-13" v-if="currentView == 2" no-gutters>
+        <v-row class="mr-13" v-if="currentView == 2" no-gutters>
           <v-col class="pt-4 pb-2">
-            <game-data-table class="h-100 mx-2" />
+            <game-table class="mx-2" />
           </v-col>
         </v-row>
 
