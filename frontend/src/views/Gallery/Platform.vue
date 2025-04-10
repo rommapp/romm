@@ -265,7 +265,7 @@ onBeforeUnmount(() => {
 
         <!-- Gallery list view -->
         <v-row class="mr-13" v-if="currentView == 2" no-gutters>
-          <v-col class="mt-4">
+          <v-col class="my-4">
             <game-table class="mx-2" />
           </v-col>
         </v-row>
