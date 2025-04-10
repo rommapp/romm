@@ -7,7 +7,7 @@ import Skeleton from "@/components/Gallery/Skeleton.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameDataTable from "@/components/common/Game/Table.vue";
 import romApi from "@/services/api/rom";
-import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -41,7 +41,6 @@ const noPlatformError = ref(false);
 const router = useRouter();
 let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("filter", onFilterChange);
 
 // Functions
 async function fetchRoms() {
@@ -78,49 +77,6 @@ async function fetchRoms() {
       scrim: false,
     });
   }
-}
-
-function setFilters() {
-  galleryFilterStore.setFilterGenres([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCompanies([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterCollections([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.meta_collections.map((collection) => collection))
-        .sort(),
-    ),
-  ]);
-  galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
-        .sort(),
-    ),
-  ]);
-}
-
-async function onFilterChange() {
-  romsStore.setFiltered(allRoms.value, galleryFilterStore);
-  emitter?.emit("updateDataTablePages", null);
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -192,7 +148,6 @@ function onScroll() {
         itemsShown.value < filteredRoms.value.length
       ) {
         itemsShown.value = itemsShown.value + itemsPerBatch.value;
-        setFilters();
         galleryViewStore.scroll = scrollHeight;
       }
     }, 100);
@@ -208,15 +163,6 @@ function resetGallery() {
   noPlatformError.value = false;
   itemsShown.value = itemsPerBatch.value;
 }
-
-const filterToSetFilter: Record<FilterType, Function> = {
-  genres: galleryFilterStore.setSelectedFilterGenre,
-  franchises: galleryFilterStore.setSelectedFilterFranchise,
-  meta_collections: galleryFilterStore.setSelectedFilterCollection,
-  companies: galleryFilterStore.setSelectedFilterCompany,
-  age_ratings: galleryFilterStore.setSelectedFilterAgeRating,
-  status: galleryFilterStore.setSelectedFilterStatus,
-};
 
 onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
@@ -240,16 +186,6 @@ onMounted(async () => {
             romsStore.setCurrentPlatform(platform);
             resetGallery();
             await fetchRoms();
-            setFilters();
-          }
-
-          // Check for query params to set filters
-          if (route.query.filter && route.query.value) {
-            const filter = route.query.filter as FilterType;
-            const value = route.query.value as string;
-            filterToSetFilter[filter](value);
-            onFilterChange(); // Update the UI
-            router.replace({ query: {} }); // Clear query params
           }
 
           window.addEventListener("wheel", onScroll);
@@ -288,7 +224,6 @@ onBeforeRouteUpdate(async (to, from) => {
         ) {
           romsStore.setCurrentPlatform(platform);
           await fetchRoms();
-          setFilters();
         } else {
           noPlatformError.value = true;
         }
@@ -356,7 +291,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!gettingRoms && galleryFilterStore.isFiltered()" />
+        <empty-game v-if="!gettingRoms" />
       </template>
     </template>
   </template>

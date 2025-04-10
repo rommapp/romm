@@ -57,7 +57,7 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int | None,
         collection_id: int | None,
         virtual_collection_id: str | None,
-        search_term: str,
+        search_term: str | None,
         session: Session,
     ):
         if platform_id:
@@ -82,7 +82,7 @@ class DBRomsHandler(DBBaseHandler):
             if v_collection:
                 data = data.filter(Rom.id.in_(v_collection.rom_ids))
 
-        if search_term:
+        if search_term is not None:
             data = data.filter(
                 or_(
                     Rom.fs_name.ilike(f"%{search_term}%"),
@@ -126,7 +126,7 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
-        search_term: str = "",
+        search_term: str | None = None,
         order_by: str = "name",
         order_dir: str = "asc",
         limit: int | None = None,
@@ -265,9 +265,7 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
-        search_term: str = "",
-        order_by: str = "name",
-        order_dir: str = "asc",
+        search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
         query: Query = None,
@@ -332,10 +330,6 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def add_rom_file(self, rom_file: RomFile, session: Session = None) -> RomFile:
         return session.merge(rom_file)
-
-    @begin_session
-    def get_rom_files(self, rom_id: int, session: Session = None) -> Sequence[RomFile]:
-        return session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
 
     @begin_session
     def get_rom_file_by_id(self, id: int, session: Session = None) -> RomFile | None:

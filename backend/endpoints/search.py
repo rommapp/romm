@@ -3,6 +3,7 @@ import asyncio
 import emoji
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
+from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
@@ -161,6 +162,11 @@ async def search_cover(
             detail="No SteamGridDB enabled",
         )
 
-    covers = await meta_sgdb_handler.get_details(search_term=search_term)
+    try:
+        covers = await meta_sgdb_handler.get_details(search_term=search_term)
+    except SGDBInvalidAPIKeyException as err:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=str("Invalid SGDB API key")
+        ) from err
 
     return [SearchCoverSchema.model_validate(cover) for cover in covers]

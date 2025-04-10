@@ -6,7 +6,6 @@ import storeNavigation from "@/stores/navigation";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount } from "vue";
@@ -23,7 +22,6 @@ withDefaults(
 const navigationStore = storeNavigation();
 const auth = storeAuth();
 const galleryFilter = storeGalleryFilter();
-const isFiltered = normalizeString(galleryFilter.filterText).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 const scanningStore = storeScanning();
 const { scanningPlatforms, scanning } = storeToRefs(scanningStore);
@@ -57,10 +55,7 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   romsStore.addToRecent(rom);
   if (romsStore.currentPlatform?.id === rom.platform_id) {
     romsStore.add([rom]);
-    romsStore.setFiltered(
-      isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
-      galleryFilter,
-    );
+    romsStore.setFiltered(romsStore.allRoms, galleryFilter);
   }
 
   let scannedPlatform = scanningPlatforms.value.find(

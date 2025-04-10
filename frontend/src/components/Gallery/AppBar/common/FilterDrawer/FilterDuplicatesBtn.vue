@@ -21,15 +21,14 @@ function setDuplicates() {
   <v-btn
     block
     variant="tonal"
-    :color="filterDuplicates ? 'primary' : 'romm-gray'"
+    :color="filterDuplicates ? 'primary' : ''"
     @click="setDuplicates()"
   >
-    <v-icon :color="filterDuplicates ? 'primary' : 'romm-white'"
+    <v-icon :color="filterDuplicates ? 'primary' : ''"
       >mdi-content-duplicate</v-icon
     ><span
       class="ml-2"
       :class="{
-        'text-romm-white': !filterDuplicates,
         'text-primary': filterDuplicates,
       }"
       >{{ t("platform.show-duplicates") }}</span

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import pydash
@@ -55,10 +56,16 @@ class Platform(BaseModel):
     def __repr__(self) -> str:
         return self.name
 
-    @property
+    @cached_property
     def igdb_slug(self) -> str | None:
         return pydash.get(SLUG_TO_IGDB_PLATFORM, f"{self.slug}.igdb_slug", None)
 
-    @property
+    @cached_property
     def moby_slug(self) -> str | None:
         return pydash.get(SLUG_TO_MOBY_PLATFORM, f"{self.slug}.moby_slug", None)
+
+    @cached_property
+    def fs_size_bytes(self) -> int:
+        from handler.database import db_stats_handler
+
+        return db_stats_handler.get_platform_filesize(self.id)

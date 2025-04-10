@@ -11,7 +11,7 @@ from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.rom import Rom, RomFileCategory, RomUserStatus
-from pydantic import computed_field
+from pydantic import computed_field, field_validator
 
 from .base import BaseModel
 
@@ -205,6 +205,38 @@ class RomSchema(BaseModel):
     def from_orm_with_request(cls, db_rom: Rom, _request: Request) -> RomSchema:
         return cls.model_validate(db_rom)
 
+    @field_validator("alternative_names")
+    def sort_alternative_names(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("genres")
+    def sort_genres(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("franchises")
+    def sort_franchises(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("meta_collections")
+    def sort_meta_collections(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("companies")
+    def sort_companies(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("game_modes")
+    def sort_game_modes(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("age_ratings")
+    def sort_age_ratings(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("files")
+    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
+        return sorted(v, key=lambda x: x.file_name)
+
 
 class SimpleRomSchema(RomSchema):
     sibling_roms: list[RomSchema]
@@ -220,6 +252,10 @@ class SimpleRomSchema(RomSchema):
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
         return cls.model_validate(db_rom)
+
+    @field_validator("sibling_roms")
+    def sort_sibling_roms(cls, v: list[RomSchema]) -> list[RomSchema]:
+        return sorted(v, key=lambda x: x.sort_comparator)
 
 
 class DetailedRomSchema(RomSchema):
@@ -254,6 +290,22 @@ class DetailedRomSchema(RomSchema):
         )
 
         return cls.model_validate(db_rom)
+
+    @field_validator("sibling_roms")
+    def sort_sibling_roms(cls, v: list[RomSchema]) -> list[RomSchema]:
+        return sorted(v, key=lambda x: x.sort_comparator)
+
+    @field_validator("user_saves")
+    def sort_user_saves(cls, v: list[SaveSchema]) -> list[SaveSchema]:
+        return sorted(v, key=lambda x: x.updated_at, reverse=True)
+
+    @field_validator("user_states")
+    def sort_user_states(cls, v: list[StateSchema]) -> list[StateSchema]:
+        return sorted(v, key=lambda x: x.updated_at, reverse=True)
+
+    @field_validator("user_screenshots")
+    def sort_user_screenshots(cls, v: list[ScreenshotSchema]) -> list[ScreenshotSchema]:
+        return sorted(v, key=lambda x: x.created_at, reverse=True)
 
 
 class UserNotesSchema(TypedDict):

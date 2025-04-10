@@ -14,6 +14,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeRoms from "@/stores/roms";
+import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -43,6 +44,7 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const { currentRom, gettingRoms } = storeToRefs(romsStore);
 
 // Functions
@@ -72,6 +74,11 @@ onBeforeMount(async () => {
     await fetchDetails();
   } else {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+  }
+
+  if (currentRom.value) {
+    const currentPlatform = platformsStore.get(currentRom.value.platform_id);
+    if (currentPlatform) romsStore.setCurrentPlatform(currentPlatform);
   }
 
   const downloadStore = storeDownload();
@@ -183,10 +190,6 @@ watch(
               >
                 <additional-content :rom="currentRom" />
               </v-window-item>
-              <!-- TODO: user screenshots -->
-              <!-- <v-window-item v-if="rom.user_screenshots.lenght > 0" value="screenshots">
-                <screenshots :rom="rom" />
-              </v-window-item> -->
               <v-window-item
                 v-if="
                   smAndDown &&
@@ -203,8 +206,15 @@ watch(
         </v-row>
       </v-col>
 
-      <v-col cols="auto" v-if="lgAndUp">
-        <v-container :width="270" class="pa-0">
+      <v-col
+        cols="auto"
+        v-if="
+          lgAndUp &&
+          (currentRom.igdb_metadata?.expansions?.length ||
+            currentRom.igdb_metadata?.dlcs?.length)
+        "
+      >
+        <v-container width="270px" class="pa-0">
           <additional-content class="mt-2" :rom="currentRom" />
         </v-container>
       </v-col>
@@ -217,7 +227,10 @@ watch(
 <style scoped>
 .title-desktop {
   margin-top: -190px;
+  top: 290px;
+  left: 350px;
 }
+
 #artwork-container {
   margin-top: -230px;
 }

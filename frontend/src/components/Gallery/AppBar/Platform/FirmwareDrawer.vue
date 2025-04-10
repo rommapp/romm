@@ -185,7 +185,7 @@ function deleteSelectedFirmware() {
 </template>
 <style scoped>
 .drawer-desktop {
-  width: calc(100% - 76px) !important;
+  width: calc(100% - 91px) !important;
 }
 .drawer-mobile {
   width: calc(100% - 16px) !important;

@@ -138,7 +138,7 @@ async function loginOIDC() {
             <template v-if="oidcProvider" #prepend>
               <v-icon size="20">
                 <v-img
-                  :src="`/assets/dashboard-icons/${oidcProvider.toLowerCase()}.png`"
+                  :src="`/assets/dashboard-icons/${oidcProvider.toLowerCase().replace(/ /g, '-')}.png`"
                 >
                   <template #error>
                     <v-icon size="20">mdi-key</v-icon>

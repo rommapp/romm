@@ -51,8 +51,8 @@ const missingCoverImage = computed(() =>
 );
 
 // Functions
-function triggerFileInput() {
-  const fileInput = document.getElementById("file-input");
+function triggerFileInput(id: string) {
+  const fileInput = document.getElementById(id);
   fileInput?.click();
 }
 
@@ -280,7 +280,7 @@ function closeDialog() {
                   }}</v-icon></span
                 >
                 <v-btn
-                  @click="triggerFileInput"
+                  @click="triggerFileInput('manual-file-input')"
                   class="bg-toplayer ml-3"
                   icon="mdi-upload"
                   rounded="0"
@@ -288,7 +288,7 @@ function closeDialog() {
                 >
                   <v-icon size="large">mdi-upload</v-icon>
                   <v-file-input
-                    id="file-input"
+                    id="manual-file-input"
                     v-model="manualFiles"
                     accept="application/pdf"
                     hide-details
@@ -317,7 +317,11 @@ function closeDialog() {
             no-gutters
           >
             <v-col style="max-width: 240px">
-              <game-card :rom="rom" :src="imagePreviewUrl">
+              <game-card
+                :rom="rom"
+                :src="imagePreviewUrl"
+                disableViewTransition
+              >
                 <template #append-inner-right>
                   <v-btn-group divided density="compact" rounded="0">
                     <v-btn
@@ -338,11 +342,11 @@ function closeDialog() {
                     <v-btn
                       size="small"
                       class="translucent-dark"
-                      @click="triggerFileInput"
+                      @click="triggerFileInput('cover-file-input')"
                     >
                       <v-icon size="large">mdi-pencil</v-icon>
                       <v-file-input
-                        id="file-input"
+                        id="cover-file-input"
                         v-model="rom.artwork"
                         accept="image/*"
                         hide-details

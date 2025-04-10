@@ -97,6 +97,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "aspect_ratio": DEFAULT_COVER_ASPECT_RATIO,
             "created_at": now,
             "updated_at": now,
+            "fs_size_bytes": 0,
         }
 
         if db_platform:

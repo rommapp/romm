@@ -24,7 +24,6 @@ withDefaults(defineProps<{ hidePlatforms?: boolean }>(), {
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const viewportWidth = ref(window.innerWidth);
-const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
@@ -44,9 +43,20 @@ const {
   filterStatuses,
   selectedPlatform,
   filterPlatforms,
+  selectedRegion,
+  filterRegions,
+  selectedLanguage,
+  filterLanguages,
 } = storeToRefs(galleryFilterStore);
-const { filteredRoms } = storeToRefs(romsStore);
+const { allRoms, filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("filter", onFilterChange);
+
+async function onFilterChange() {
+  romsStore.setFiltered(allRoms.value, galleryFilterStore);
+  emitter?.emit("updateDataTablePages", null);
+}
 
 const filters = [
   {
@@ -75,6 +85,16 @@ const filters = [
     items: filterAgeRatings,
   },
   {
+    label: t("platform.region"),
+    selected: selectedRegion,
+    items: filterRegions,
+  },
+  {
+    label: t("platform.language"),
+    selected: selectedLanguage,
+    items: filterLanguages,
+  },
+  {
     label: t("platform.status"),
     selected: selectedStatus,
     items: filterStatuses,
@@ -89,6 +109,8 @@ function resetFilters() {
   selectedCollection.value = null;
   selectedCompany.value = null;
   selectedAgeRating.value = null;
+  selectedRegion.value = null;
+  selectedLanguage.value = null;
   selectedStatus.value = null;
   galleryFilterStore.disableFilterUnmatched();
   galleryFilterStore.disableFilterMatched();
@@ -96,7 +118,7 @@ function resetFilters() {
   nextTick(() => emitter?.emit("filter", null));
 }
 
-function setFilter() {
+function setFilters() {
   galleryFilterStore.setFilterPlatforms([
     ...new Set(
       romsStore.filteredRoms
@@ -106,52 +128,40 @@ function setFilter() {
     ),
   ]);
   galleryFilterStore.setFilterGenres([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.genres.map((genre) => genre))
-        .sort(),
-    ),
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.genres).sort()),
   ]);
   galleryFilterStore.setFilterFranchises([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.franchises.map((franchise) => franchise))
-        .sort(),
-    ),
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.franchises).sort()),
   ]);
   galleryFilterStore.setFilterCompanies([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.companies.map((company) => company))
-        .sort(),
-    ),
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.companies).sort()),
   ]);
   galleryFilterStore.setFilterCollections([
     ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.meta_collections.map((collection) => collection))
-        .sort(),
+      romsStore.filteredRoms.flatMap((rom) => rom.meta_collections).sort(),
     ),
   ]);
   galleryFilterStore.setFilterAgeRatings([
-    ...new Set(
-      romsStore.filteredRoms
-        .flatMap((rom) => rom.age_ratings.map((ageRating) => ageRating))
-        .sort(),
-    ),
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.age_ratings).sort()),
+  ]);
+  galleryFilterStore.setFilterRegions([
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.regions).sort()),
+  ]);
+  galleryFilterStore.setFilterLanguages([
+    ...new Set(romsStore.filteredRoms.flatMap((rom) => rom.languages).sort()),
   ]);
 }
 
 onMounted(async () => {
   watch(
     () => filteredRoms.value,
-    async () => setFilter(),
+    async () => setFilters(),
     { immediate: true }, // Ensure watcher is triggered immediately
   );
 
   watch(
     () => allPlatforms.value,
-    async () => setFilter(),
+    async () => setFilters(),
     { immediate: true }, // Ensure watcher is triggered immediately
   );
 });
