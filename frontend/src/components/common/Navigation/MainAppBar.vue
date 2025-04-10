@@ -13,7 +13,6 @@ import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import navigationStore from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
-import { ref } from "vue";
 
 // Props
 const { smAndDown } = useDisplay();
@@ -68,7 +67,7 @@ function collapse() {
     permanent
     rail
     :rail-width="mainBarCollapsed ? 60 : 100"
-    class="bg-background pa-1"
+    class="bg-background px-2 py-1"
     :border="0"
   >
     <template #prepend>
@@ -94,11 +93,11 @@ function collapse() {
         }}</v-icon></v-btn
       >
     </v-row>
-    <search-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
-    <platforms-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
-    <collections-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
-    <scan-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
-    <upload-btn :withTag="!mainBarCollapsed" rounded class="mt-3" block />
+    <search-btn :withTag="!mainBarCollapsed" rounded class="mt-4" block />
+    <platforms-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
+    <collections-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
+    <scan-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
+    <upload-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
       <v-row no-gutters class="my-2 justify-center">

@@ -79,7 +79,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <r-section icon="mdi-account" title="Users">
+  <r-section icon="mdi-account" title="Users" class="ma-2">
     <template #content>
       <v-text-field
         v-model="userSearch"

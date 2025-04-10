@@ -368,6 +368,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mx-2"
     >
       <template #content>
         <v-chip
@@ -431,7 +432,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
-      class="mt-4"
+      class="mt-2 mx-2"
     >
       <template #content>
         <div class="text-center">
