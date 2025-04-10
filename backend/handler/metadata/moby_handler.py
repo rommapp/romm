@@ -183,9 +183,13 @@ class MobyGamesHandler(MetadataHandler):
         if not slug:
             return MobyGamesPlatform(moby_id=None, slug="")
 
-        slug = UniversalPlatformSlug(slug)
-        platform = SLUG_TO_MOBY_PLATFORM.get(slug, None)
+        try:
+            slug = UniversalPlatformSlug(slug)
+        except ValueError:
+            log.info(f"Unknown slug: {slug}")
+            return MobyGamesPlatform(moby_id=None, slug="")
 
+        platform = SLUG_TO_MOBY_PLATFORM.get(slug, None)
         if not platform:
             return MobyGamesPlatform(moby_id=None, slug=slug.value)
 

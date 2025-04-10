@@ -421,9 +421,13 @@ class IGDBHandler(MetadataHandler):
         if not slug:
             return IGDBPlatform(igdb_id=None, slug="")
 
-        slug = UniversalPlatformSlug(slug)
-        platform = SLUG_TO_IGDB_PLATFORM.get(slug, None)
+        try:
+            slug = UniversalPlatformSlug(slug)
+        except ValueError:
+            log.info(f"Unknown slug: {slug}")
+            return IGDBPlatform(igdb_id=None, slug="")
 
+        platform = SLUG_TO_IGDB_PLATFORM.get(slug, None)
         if platform:
             igdb_platform = IGDBPlatform(
                 igdb_id=platform["id"],

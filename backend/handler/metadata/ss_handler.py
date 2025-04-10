@@ -336,9 +336,13 @@ class SSHandler(MetadataHandler):
         if not slug:
             return SSPlatform(ss_id=None, slug=slug)
 
-        slug = UniversalPlatformSlug(slug)
-        platform = SLUG_TO_SS_PLATFORM.get(slug, None)
+        try:
+            slug = UniversalPlatformSlug(slug)
+        except ValueError:
+            log.info(f"Unknown slug: {slug}")
+            return SSPlatform(ss_id=None, slug=slug)
 
+        platform = SLUG_TO_SS_PLATFORM.get(slug, None)
         if not platform:
             return SSPlatform(ss_id=None, slug=slug.value)
 
@@ -427,13 +431,15 @@ class SSHandler(MetadataHandler):
                 if res:
                     break
 
-        if not res or not res.get("id", None):
+        if not res:
             return fallback_rom
 
-        ss_id: int = int(res.get("id", None))
+        res_id = res.get("id")
+        if not res_id:
+            return fallback_rom
 
         rom = {
-            "ss_id": ss_id,
+            "ss_id": int(res_id),
             "name": pydash.chain(res.get("noms", []))
             .filter({"region": "ss"})
             .map("text")

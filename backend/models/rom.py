@@ -287,14 +287,14 @@ class Rom(BaseModel):
 
     @property
     def is_fully_identified(self) -> bool:
-        is_igdb_identified = (
-            bool(self.igdb_id) or self.platform_slug not in IGDB_PLATFORM_SLUGS
+        is_igdb_identified = bool(self.igdb_id) or (
+            self.platform_slug not in IGDB_PLATFORM_SLUGS
         )
-        is_moby_identified = (
-            bool(self.moby_id) or self.platform_slug not in MOBY_PLATFORM_SLUGS
+        is_moby_identified = bool(self.moby_id) or (
+            self.platform_slug not in MOBY_PLATFORM_SLUGS
         )
-        is_ss_identified = (
-            bool(self.ss_id) or self.platform_slug not in SS_PLATFORM_SLUGS
+        is_ss_identified = bool(self.ss_id) or (
+            self.platform_slug not in SS_PLATFORM_SLUGS
         )
 
         return is_igdb_identified and is_moby_identified and is_ss_identified

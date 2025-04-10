@@ -45,8 +45,9 @@ def upgrade() -> None:
     for old_slug, new_slug in OLD_SLUGS_TO_NEW_MAP.items():
         connection.execute(
             text(
-                f"UPDATE platforms SET slug = '{new_slug}', temp_old_slug = '{old_slug}' WHERE slug = '{old_slug}'"  # trunk-ignore(bandit/B608)
-            )
+                "UPDATE platforms SET slug = :new_slug, temp_old_slug = :old_slug WHERE slug = :old_slug"
+            ),
+            {"new_slug": new_slug, "old_slug": old_slug},
         )
 
 
