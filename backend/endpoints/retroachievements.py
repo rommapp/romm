@@ -3,7 +3,7 @@ from decorators.auth import protected_route
 from endpoints.responses.retroachievements import RetroAchievementsGameSchema
 from exceptions.endpoint_exceptions import RomNotFoundInRetroAchievementsException
 from fastapi import Request
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.metadata import meta_ra_handler
 from utils.router import APIRouter
 

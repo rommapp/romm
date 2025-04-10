@@ -10,14 +10,14 @@ from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_igdb_handler,
     meta_moby_handler,
-    meta_ss_handler,
     meta_ra_handler,
+    meta_ss_handler,
 )
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
-from handler.metadata.ss_handler import SSPlatform, SSRom
 from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
-from logger.formatter import BLUE, RED
+from handler.metadata.ss_handler import SSPlatform, SSRom
+from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save, Screenshot, State
