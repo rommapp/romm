@@ -1,8 +1,8 @@
 """add retro achievements data
 
-Revision ID: 0028_add_retro_achievements
-Revises: 0027_platforms_data
-Create Date: 2024-08-31 18:48:49.772416
+Revision ID: 0038_add_retro_achievements
+Revises: 0037_virtual_rom_columns
+Create Date: 2025-04-11 00:59:30.772416
 
 """
 
@@ -11,8 +11,8 @@ from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "0028_add_retro_achievements"
-down_revision = "0027_platforms_data"
+revision = "0038_add_retro_achievements"
+down_revision = "0037_virtual_rom_columns"
 branch_labels = None
 depends_on = None
 
