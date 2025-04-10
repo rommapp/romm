@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import storeGalleryFilter, { type FilterType } from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onMounted, watch } from "vue";
+import { inject, nextTick, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { debounce } from "lodash";
 
 // Props
 const { xs } = useDisplay();
@@ -39,7 +39,7 @@ async function fetchRoms() {
     });
 }
 
-async function refetchRoms() {
+const refetchRoms = debounce(async () => {
   if (searchTerm.value === null) return;
 
   // Auto hide android keyboard
@@ -64,6 +64,10 @@ async function refetchRoms() {
     .finally(() => {
       galleryFilterStore.activeFilterDrawer = false;
     });
+}, 500);
+
+function clearInput() {
+  searchTerm.value = null;
 }
 
 const filterToSetFilter: Record<FilterType, Function> = {
@@ -119,11 +123,13 @@ watch(
     :density="xs ? 'comfortable' : 'default'"
     clearable
     autofocus
-    @keyup.enter="refetchRoms"
+    hide-details
+    rounded="0"
+    :label="t('common.search')"
     v-model="searchTerm"
     :disabled="fetchingRoms"
-    :label="t('common.search')"
-    hide-details
-    class="bg-toplayer"
+    @keyup.enter="refetchRoms"
+    @click:clear="clearInput"
+    @update:model-value="nextTick(refetchRoms)"
   />
 </template>
