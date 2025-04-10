@@ -337,6 +337,7 @@ async function updateCollection() {
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mx-2"
     >
       <template #content>
         <div class="text-center">

@@ -205,7 +205,11 @@ const toggleStatus = (value: boolean) => {
 };
 </script>
 <template>
-  <r-section icon="mdi-palette-swatch-outline" :title="t('settings.interface')">
+  <r-section
+    icon="mdi-palette-swatch-outline"
+    :title="t('settings.interface')"
+    class="ma-2"
+  >
     <template #content>
       <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">{{
         t("settings.home")

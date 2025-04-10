@@ -169,12 +169,6 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     density="compact"
     class="rounded bg-background"
   >
-    <template #loading>
-      <v-skeleton-loader
-        class="mx-4"
-        :type="filteredRoms.map(() => 'table-row').slice(0, 72)"
-      />
-    </template>
     <template #header.data-table-select>
       <v-checkbox-btn
         :indeterminate="

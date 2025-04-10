@@ -37,8 +37,8 @@ function toggleGridRecentRoms() {
       <v-row
         :class="{
           'flex-nowrap overflow-x-auto': !gridRecentRoms,
-          'py-2': true,
         }"
+        class="pa-1"
         no-gutters
       >
         <v-col

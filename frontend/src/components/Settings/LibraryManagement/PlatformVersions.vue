@@ -25,6 +25,7 @@ const editable = ref(false);
   <r-section
     icon="mdi-gamepad-variant"
     :title="t('settings.platforms-versions')"
+    class="ma-2"
   >
     <template #toolbar-append>
       <v-btn
