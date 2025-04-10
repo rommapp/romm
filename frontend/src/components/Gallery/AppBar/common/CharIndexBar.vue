@@ -5,8 +5,11 @@ import storeGalleryView from "@/stores/galleryView";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, watch } from "vue";
+import { inject, watch, computed } from "vue";
+import { useDisplay } from "vuetify";
 
+// Props
+const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const galleryFilterStore = storeGalleryFilter();
 const galleryViewStore = storeGalleryView();
@@ -16,7 +19,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const { characterIndex, selectedCharacter, fetchingRoms } =
   storeToRefs(romsStore);
 
-const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
+const { scrolledToTop } = storeToRefs(galleryViewStore);
 
 async function fetchRoms() {
   if (fetchingRoms.value) return;
@@ -48,6 +51,26 @@ async function fetchRoms() {
     });
 }
 
+const calculatedHeight = computed(() => {
+  if (smAndDown.value) {
+    if (!scrolledToTop.value && selectedRoms.value.length > 0) {
+      return "calc(100dvh - 276px)";
+    } else if (!scrolledToTop.value || selectedRoms.value.length > 0) {
+      return "calc(100dvh - 225px)";
+    } else {
+      return "calc(100dvh - 174px)";
+    }
+  } else {
+    if (!scrolledToTop.value && selectedRoms.value.length > 0) {
+      return "calc(100dvh - 176px)";
+    } else if (!scrolledToTop.value || selectedRoms.value.length > 0) {
+      return "calc(100dvh - 125px)";
+    } else {
+      return "calc(100dvh - 74px)";
+    }
+  }
+});
+
 watch(
   selectedCharacter,
   () => {
@@ -68,10 +91,7 @@ watch(
     height="100%"
     class="position-fixed bg-surface mt-4 char-index-toolbar"
     :style="{
-      'max-height':
-        (!scrolledToTop && currentView != 2) || selectedRoms.length > 0
-          ? 'calc(100vh - 125px)'
-          : 'calc(100vh - 74px)',
+      'max-height': calculatedHeight,
     }"
   >
     <v-tabs

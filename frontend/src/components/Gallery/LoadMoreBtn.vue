@@ -15,23 +15,27 @@ const { fetchingRoms, fetchTotalRoms, fetchLimit, fetchOffset } =
 <template>
   <v-row
     v-if="fetchTotalRoms > fetchLimit"
-    class="mx-1 py-3 justify-center"
+    class="mt-1 mb-3 justify-center"
     no-gutters
   >
-    <v-col cols="2" class="text-center">
+    <v-col cols="6" md="4" lg="2" class="text-center">
       <template v-if="fetchTotalRoms > fetchOffset">
         <v-btn
           @click="fetchRoms"
           :loading="fetchingRoms"
           :disabled="fetchingRoms"
-          size="large"
           variant="flat"
         >
           {{ t("gallery.load-more") }}
         </v-btn>
       </template>
       <template v-else>
-        <v-alert dense outlined color="surface" class="mx-auto text-gray pa-4">
+        <v-alert
+          dense
+          outlined
+          color="surface"
+          class="text-caption text-gray pa-2"
+        >
           {{ t("gallery.all-loaded") }}
         </v-alert>
       </template>
