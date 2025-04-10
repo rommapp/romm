@@ -120,7 +120,7 @@ watch(
 
 <template>
   <v-text-field
-    :density="xs ? 'comfortable' : 'default'"
+    density="default"
     clearable
     autofocus
     hide-details
