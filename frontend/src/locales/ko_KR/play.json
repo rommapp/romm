@@ -1,0 +1,14 @@
+{
+  "back-to-gallery": "갤러리로 가기",
+  "back-to-game-details": "게임 설명으로 가기",
+  "clear-cache": "EmulatorJS 캐시 지우기",
+  "clear-cache-description": "서버에 저장된 세이브 및 상태에는 영향을 주지 않습니다.",
+  "clear-cache-title": "EmulatorJS 캐시를 지우시겠습니까?",
+  "clear-cache-warning": "이로 인해 브라우저에 저장된 모든 세이브 및 상태가 제거됩니다.",
+  "full-screen": "전체 화면",
+  "play": "실행",
+  "quit": "종료",
+  "save-and-quit": "저장하고 종료",
+  "select-save": "세이브 선택",
+  "select-state": "상태 선택"
+}

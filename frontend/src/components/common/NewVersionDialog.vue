@@ -5,9 +5,8 @@ import { onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 // Props
-const { mdAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
-const { VERSION } = heartbeat.value;
+const { VERSION } = heartbeat.value.SYSTEM;
 const GITHUB_VERSION = ref(VERSION);
 const latestVersionDismissed = ref(VERSION === "development");
 
@@ -16,14 +15,23 @@ function dismissVersionBanner() {
   latestVersionDismissed.value = true;
 }
 onMounted(async () => {
-  const response = await fetch(
-    "https://api.github.com/repos/rommapp/romm/releases/latest",
-  );
-  const json = await response.json();
-  GITHUB_VERSION.value = json.tag_name;
-  latestVersionDismissed.value =
-    !semver.valid(VERSION) ||
-    json.tag_name === localStorage.getItem("dismissedVersion");
+  try {
+    const response = await fetch(
+      "https://api.github.com/repos/rommapp/romm/releases/latest",
+    );
+    const json = await response.json();
+    GITHUB_VERSION.value = json.tag_name;
+    const publishedAt = new Date(json.published_at);
+    latestVersionDismissed.value =
+      // Hide if the version is not valid
+      !semver.valid(VERSION) ||
+      // Hide if the version is the same as the dismissed version
+      json.tag_name === localStorage.getItem("dismissedVersion") ||
+      // Hide if the version is less than 2 hours old
+      publishedAt.getTime() + 2 * 60 * 60 * 1000 > Date.now();
+  } catch (error) {
+    console.error("Failed to fetch latest version from Github", error);
+  }
 });
 </script>
 
@@ -36,13 +44,12 @@ onMounted(async () => {
           semver.gt(GITHUB_VERSION, VERSION) &&
           !latestVersionDismissed
         "
-        class="pa-1 border-romm-accent-1 mx-auto"
-        rounded="0"
+        class="pa-1 border-selected mx-auto"
         max-width="250"
       >
         <v-card-text class="text-center py-2 px-4">
           <span class="text-white text-shadow">New version available</span>
-          <span class="text-romm-accent-1 ml-1">v{{ GITHUB_VERSION }}</span>
+          <span class="text-primary ml-1">v{{ GITHUB_VERSION }}</span>
           <v-row class="mt-1" no-gutters>
             <v-col>
               <span class="pointer text-grey" @click="dismissVersionBanner"
@@ -67,7 +74,7 @@ onMounted(async () => {
   bottom: 0;
   left: 0;
   width: 100%;
-  z-index: 1000;
+  z-index: 9999;
   pointer-events: none;
 }
 .sticky-bottom * {

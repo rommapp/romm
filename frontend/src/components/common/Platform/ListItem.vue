@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 
 // Props
@@ -10,17 +11,18 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
 
 <template>
   <v-list-item
-    :key="platform.slug"
-    :to="{ name: 'platform', params: { platform: platform.id } }"
+    :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
     :value="platform.slug"
-    class="py-0"
+    rounded
+    density="compact"
+    class="my-1 py-2"
   >
     <template #prepend>
       <platform-icon
-        :key="platform.slug"
         :slug="platform.slug"
         :name="platform.name"
-        :size="50"
+        :fs-slug="platform.fs_slug"
+        :size="40"
       >
         <v-tooltip
           location="bottom"
@@ -30,7 +32,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
           open-delay="500"
           ><template #activator="{ props }">
             <div
-              v-if="!platform.igdb_id && !platform.moby_id"
+              v-if="!platform.igdb_id && !platform.moby_id && !platform.ss_id"
               v-bind="props"
               class="not-found-icon"
             >
@@ -42,7 +44,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
     </template>
     <v-row no-gutters
       ><v-col
-        ><span class="text-body-1">{{ platform.name }}</span></v-col
+        ><span class="text-body-1">{{ platform.display_name }}</span></v-col
       ></v-row
     >
     <v-row no-gutters>

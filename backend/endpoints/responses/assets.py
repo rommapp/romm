@@ -1,7 +1,6 @@
 from datetime import datetime
-from typing import TypedDict
 
-from pydantic import BaseModel
+from .base import BaseModel
 
 
 class BaseAsset(BaseModel):
@@ -27,27 +26,11 @@ class ScreenshotSchema(BaseAsset):
     pass
 
 
-class UploadedScreenshotsResponse(TypedDict):
-    uploaded: int
-    screenshots: list[ScreenshotSchema]
-    merged_screenshots: list[str]
-
-
 class SaveSchema(BaseAsset):
     emulator: str | None
     screenshot: ScreenshotSchema | None
 
 
-class UploadedSavesResponse(TypedDict):
-    uploaded: int
-    saves: list[SaveSchema]
-
-
 class StateSchema(BaseAsset):
     emulator: str | None
     screenshot: ScreenshotSchema | None
-
-
-class UploadedStatesResponse(TypedDict):
-    uploaded: int
-    states: list[StateSchema]

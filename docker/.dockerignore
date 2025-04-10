@@ -12,3 +12,12 @@ __pycache__/
 
 **/.env
 .env
+
+**/romm_test
+romm_test/
+
+**/romm_mock
+romm_mock/
+
+**/.pytest_cache
+.pytest_cache/

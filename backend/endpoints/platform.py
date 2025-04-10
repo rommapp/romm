@@ -6,19 +6,21 @@ from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
 from fastapi import Request
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
 from handler.scan_handler import scan_platform
 from logger.logger import log
-from models.platform import Platform
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/platforms",
+    tags=["platforms"],
+)
 
 
-@protected_route(router.post, "/platforms", [Scope.PLATFORMS_WRITE])
+@protected_route(router.post, "", [Scope.PLATFORMS_WRITE])
 async def add_platforms(request: Request) -> PlatformSchema:
     """Create platform endpoint
 
@@ -36,10 +38,12 @@ async def add_platforms(request: Request) -> PlatformSchema:
     except PlatformAlreadyExistsException:
         log.info(f"Detected platform: {fs_slug}")
     scanned_platform = await scan_platform(fs_slug, [fs_slug])
-    return db_platform_handler.add_platform(scanned_platform)
+    return PlatformSchema.model_validate(
+        db_platform_handler.add_platform(scanned_platform)
+    )
 
 
-@protected_route(router.get, "/platforms", [Scope.PLATFORMS_READ])
+@protected_route(router.get, "", [Scope.PLATFORMS_READ])
 def get_platforms(request: Request) -> list[PlatformSchema]:
     """Get platforms endpoint
 
@@ -51,10 +55,12 @@ def get_platforms(request: Request) -> list[PlatformSchema]:
         list[PlatformSchema]: List of platforms
     """
 
-    return db_platform_handler.get_platforms()
+    return [
+        PlatformSchema.model_validate(p) for p in db_platform_handler.get_platforms()
+    ]
 
 
-@protected_route(router.get, "/platforms/supported", [Scope.PLATFORMS_READ])
+@protected_route(router.get, "/supported", [Scope.PLATFORMS_READ])
 def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     """Get list of supported platforms endpoint
 
@@ -66,7 +72,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     """
 
     supported_platforms = []
-    db_platforms: list[Platform] = db_platform_handler.get_platforms()
+    db_platforms = db_platform_handler.get_platforms()
     db_platforms_map = {p.name: p.id for p in db_platforms}
 
     for platform in IGDB_PLATFORM_LIST:
@@ -81,6 +87,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "rom_count": 0,
             "created_at": now,
             "updated_at": now,
+            "fs_size_bytes": 0,
         }
 
         if platform["name"] in db_platforms_map:
@@ -91,7 +98,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     return supported_platforms
 
 
-@protected_route(router.get, "/platforms/{id}", [Scope.PLATFORMS_READ])
+@protected_route(router.get, "/{id}", [Scope.PLATFORMS_READ])
 def get_platform(request: Request, id: int) -> PlatformSchema:
     """Get platforms endpoint
 
@@ -108,11 +115,11 @@ def get_platform(request: Request, id: int) -> PlatformSchema:
     if not platform:
         raise PlatformNotFoundInDatabaseException(id)
 
-    return platform
+    return PlatformSchema.model_validate(platform)
 
 
-@protected_route(router.put, "/platforms/{id}", [Scope.PLATFORMS_WRITE])
-async def update_platform(request: Request, id: int) -> MessageResponse:
+@protected_route(router.put, "/{id}", [Scope.PLATFORMS_WRITE])
+async def update_platform(request: Request, id: int) -> PlatformSchema:
     """Update platform endpoint
 
     Args:
@@ -129,12 +136,13 @@ async def update_platform(request: Request, id: int) -> MessageResponse:
         raise PlatformNotFoundInDatabaseException(id)
 
     platform_db.aspect_ratio = data.get("aspect_ratio", platform_db.aspect_ratio)
-    db_platform_handler.add_platform(platform_db)
+    platform_db.custom_name = data.get("custom_name", platform_db.custom_name)
+    platform_db = db_platform_handler.add_platform(platform_db)
 
-    return {"msg": "Platform updated successfully"}
+    return PlatformSchema.model_validate(platform_db)
 
 
-@protected_route(router.delete, "/platforms/{id}", [Scope.PLATFORMS_WRITE])
+@protected_route(router.delete, "/{id}", [Scope.PLATFORMS_WRITE])
 async def delete_platforms(request: Request, id: int) -> MessageResponse:
     """Delete platforms endpoint
 

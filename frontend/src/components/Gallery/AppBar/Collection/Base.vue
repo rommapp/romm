@@ -1,52 +1,42 @@
 <script setup lang="ts">
-import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
+import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import CollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/CollectionInfoDrawer.vue";
-import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
-import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
-import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
-import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
-import { storeToRefs } from "pinia";
+import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import storeNavigation from "@/stores/navigation";
-import { useDisplay } from "vuetify";
+import storeRoms from "@/stores/roms";
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
 
 // Props
-const { xs } = useDisplay();
 const navigationStore = storeNavigation();
-const { activeCollectionInfoDrawer } = storeToRefs(navigationStore);
+const romsStore = storeRoms();
+const { currentCollection } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-app-bar
-    id="gallery-app-bar"
-    elevation="0"
-    density="compact"
-    mode="shift"
-    app
-    fixed
-    top
-  >
+  <base-gallery-app-bar show-platforms-filter show-filter-bar>
     <template #prepend>
-      <v-btn
-        :color="activeCollectionInfoDrawer ? 'romm-accent-1' : ''"
-        rounded="0"
-        @click="navigationStore.swtichActiveCollectionInfoDrawer"
-        icon="mdi-information"
-      ></v-btn>
-      <filter-btn />
+      <r-avatar
+        v-if="currentCollection"
+        @click="navigationStore.switchActiveCollectionInfoDrawer"
+        class="collection-icon cursor-pointer"
+        :size="45"
+        :collection="currentCollection"
+      />
     </template>
-    <filter-text-field v-if="!xs" />
-    <template #append>
-      <selecting-btn />
-      <gallery-view-btn />
-    </template>
-  </v-app-bar>
+  </base-gallery-app-bar>
 
   <collection-info-drawer />
-  <filter-drawer />
 </template>
 
 <style scoped>
-#gallery-app-bar {
-  z-index: 999 !important;
+.collection-icon {
+  transition:
+    filter 0.15s ease-in-out,
+    transform 0.15s ease-in-out;
+}
+.collection-icon:hover,
+.collection-icon.active {
+  transform: scale(1.1);
 }
 </style>

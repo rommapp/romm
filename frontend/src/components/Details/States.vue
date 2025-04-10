@@ -1,53 +1,23 @@
 <script setup lang="ts">
 import type { StateSchema } from "@/__generated__";
-import DeleteAssetDialog from "@/components/common/Game/Dialog/Asset/DeleteAssets.vue";
-import UploadStatesDialog from "@/components/common/Game/Dialog/Asset/UploadStates.vue";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import type { Emitter } from "mitt";
-import { inject, onMounted, ref, watch } from "vue";
-import { useDisplay } from "vuetify";
+import { inject, ref } from "vue";
+import storeAuth from "@/stores/auth";
+import { storeToRefs } from "pinia";
+import { getEmptyCoverImage } from "@/utils/covers";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
-const { xs, mdAndUp } = useDisplay();
+const auth = storeAuth();
+const { scopes } = storeToRefs(auth);
 const props = defineProps<{ rom: DetailedRom }>();
 const selectedStates = ref<StateSchema[]>([]);
+const lastSelectedIndex = ref<number>(-1);
 const emitter = inject<Emitter<Events>>("emitter");
-// emitter?.on("romUpdated", (romUpdated) => {});
-const HEADERS = [
-  {
-    title: "Name",
-    align: "start",
-    sortable: true,
-    key: "file_name",
-  },
-  {
-    title: "Core",
-    align: "start",
-    sortable: true,
-    key: "emulator",
-  },
-  {
-    title: "Updated",
-    align: "start",
-    sortable: true,
-    key: "updated_at",
-  },
-  {
-    title: "Size",
-    align: "start",
-    sortable: true,
-    key: "file_size_bytes",
-  },
-  { title: "", align: "end", key: "actions", sortable: false },
-] as const;
-const page = ref(1);
-const itemsPerPage = ref(10);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
 // Functions
 async function downloasStates() {
@@ -61,149 +31,159 @@ async function downloasStates() {
   selectedStates.value = [];
 }
 
-function updateDataTablePages() {
-  if (props.rom.user_states) {
-    pageCount.value = Math.ceil(
-      props.rom.user_states.length / itemsPerPage.value,
+function onCardClick(state: StateSchema, event: MouseEvent) {
+  const stateIndex = props.rom.user_states.indexOf(state);
+
+  if (event.shiftKey && lastSelectedIndex.value !== null) {
+    const [startIndex, endIndex] = [lastSelectedIndex.value, stateIndex].sort(
+      (a, b) => a - b,
     );
+    const rangeStates = props.rom.user_states.slice(startIndex, endIndex + 1);
+
+    const isDeselecting = selectedStates.value.includes(state);
+
+    if (isDeselecting) {
+      selectedStates.value = selectedStates.value.filter(
+        (s) => !rangeStates.includes(s),
+      );
+    } else {
+      const statesToAdd = rangeStates.filter(
+        (s) => !selectedStates.value.includes(s),
+      );
+      selectedStates.value = [...selectedStates.value, ...statesToAdd];
+    }
+  } else {
+    const isSelected = selectedStates.value.includes(state);
+
+    if (isSelected) {
+      selectedStates.value = selectedStates.value.filter(
+        (s) => s.id !== state.id,
+      );
+    } else {
+      selectedStates.value = [...selectedStates.value, state];
+    }
   }
+
+  lastSelectedIndex.value = stateIndex;
 }
-
-watch(itemsPerPage, async () => {
-  updateDataTablePages();
-});
-
-onMounted(() => {
-  updateDataTablePages();
-});
 </script>
 
 <template>
-  <v-data-table
-    :items="rom.user_states"
-    :width="mdAndUp ? '60vw' : '95vw'"
-    :items-per-page="itemsPerPage"
-    :items-per-page-options="PER_PAGE_OPTIONS"
-    :headers="HEADERS"
-    class="bg-secondary"
-    return-object
-    v-model="selectedStates"
-    v-model:page="page"
-    show-select
-  >
-    <template #header.actions>
-      <v-btn-group divided density="compact">
-        <v-btn
-          class="bg-secondary"
-          size="small"
-          @click="emitter?.emit('addStatesDialog', rom)"
-        >
-          <v-icon>mdi-upload</v-icon>
-        </v-btn>
-        <v-btn
-          class="bg-secondary"
-          :disabled="!selectedStates.length"
-          :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
-          size="small"
-          @click="downloasStates"
-        >
-          <v-icon>mdi-download</v-icon>
-        </v-btn>
-        <v-btn
-          class="bg-secondary"
-          :class="{
-            'text-romm-red': selectedStates.length,
-          }"
-          :disabled="!selectedStates.length"
-          :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
-          @click="
-            emitter?.emit('showDeleteStatesDialog', {
-              rom: props.rom,
-              states: selectedStates,
-            })
-          "
-          size="small"
-        >
-          <v-icon>mdi-delete</v-icon>
-        </v-btn>
-      </v-btn-group>
-    </template>
-    <template #item.file_name="{ item }">
-      <td class="name-row">
-        <span>{{ item.file_name }}</span>
-      </td>
-    </template>
-    <template #item.emulator="{ item }">
-      <v-chip size="x-small" color="orange" label>{{ item.emulator }}</v-chip>
-    </template>
-    <template #item.updated_at="{ item }">
-      <v-chip size="x-small" label>
-        {{ formatTimestamp(item.updated_at) }}
-      </v-chip>
-    </template>
-    <template #item.file_size_bytes="{ item }">
-      <v-chip size="x-small" label
-        >{{ formatBytes(item.file_size_bytes) }}
-      </v-chip>
-    </template>
-    <template #no-data
-      ><span>{{ t("rom.no-states-found") }}</span></template
+  <div>
+    <v-btn-group divided density="default">
+      <v-btn
+        v-if="scopes.includes('assets.write')"
+        drawer
+        size="small"
+        @click="emitter?.emit('addStatesDialog', rom)"
+      >
+        <v-icon>mdi-cloud-upload-outline</v-icon>
+      </v-btn>
+      <v-btn
+        drawer
+        :disabled="!selectedStates.length"
+        :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
+        size="small"
+        @click="downloasStates"
+      >
+        <v-icon>mdi-download</v-icon>
+      </v-btn>
+      <v-btn
+        v-if="scopes.includes('assets.write')"
+        drawer
+        :class="{
+          'text-romm-red': selectedStates.length,
+        }"
+        :disabled="!selectedStates.length"
+        :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
+        @click="
+          emitter?.emit('showDeleteStatesDialog', {
+            rom: props.rom,
+            states: selectedStates,
+          })
+        "
+        size="small"
+      >
+        <v-icon>mdi-delete</v-icon>
+      </v-btn>
+    </v-btn-group>
+  </div>
+  <div class="d-flex ga-4 flex-md-wrap mt-6 px-2">
+    <v-hover
+      v-if="rom.user_states.length > 0"
+      v-for="state in rom.user_states"
+      v-slot="{ isHovering, props }"
     >
-    <template #item.actions="{ item }">
-      <v-btn-group divided density="compact">
-        <v-btn
-          class="bg-secondary"
-          :href="item.download_path"
-          download
-          size="small"
+      <v-card
+        v-bind="props"
+        class="bg-toplayer transform-scale"
+        :class="{
+          'on-hover': isHovering,
+          'border-selected': selectedStates.some((s) => s.id === state.id),
+        }"
+        :elevation="isHovering ? 20 : 3"
+        width="250px"
+        @click="(e) => onCardClick(state, e)"
+      >
+        <v-card-text
+          class="d-flex flex-column justify-end h-100"
+          style="padding: 1.5rem"
         >
-          <v-icon> mdi-download </v-icon>
-        </v-btn>
-        <v-btn
-          class="bg-secondary"
-          size="small"
-          @click="
-            emitter?.emit('showDeleteStatesDialog', {
-              rom: props.rom,
-              states: [item],
-            })
-          "
-        >
-          <v-icon class="text-romm-red">mdi-delete</v-icon>
-        </v-btn>
-      </v-btn-group>
-    </template>
-    <template #bottom>
-      <v-divider />
-      <v-row no-gutters class="pa-1 align-center justify-center">
-        <v-col cols="8" sm="9" md="10" class="px-3">
-          <v-pagination
-            :show-first-last-page="!xs"
-            v-model="page"
-            rounded="0"
-            active-color="romm-accent-1"
-            :length="pageCount"
-          />
-        </v-col>
-        <v-col>
-          <v-select
-            v-model="itemsPerPage"
-            class="pa-2"
-            label="Files per page"
-            density="compact"
-            variant="outlined"
-            :items="PER_PAGE_OPTIONS"
-            hide-details
-          />
-        </v-col>
-      </v-row>
-    </template>
-  </v-data-table>
-  <upload-states-dialog />
-  <delete-asset-dialog />
+          <v-row class="position-relative">
+            <v-img
+              cover
+              height="100%"
+              min-height="75px"
+              :src="
+                state.screenshot?.download_path ??
+                getEmptyCoverImage(state.file_name)
+              "
+            />
+            <v-btn-group
+              v-if="isHovering"
+              class="position-absolute"
+              density="compact"
+              style="bottom: 4px; right: 4px"
+            >
+              <v-btn drawer :href="state.download_path" download size="small">
+                <v-icon>mdi-download</v-icon>
+              </v-btn>
+              <v-btn
+                v-if="scopes.includes('assets.write')"
+                drawer
+                size="small"
+                @click="
+                  emitter?.emit('showDeleteStatesDialog', {
+                    rom: props.rom,
+                    states: [state],
+                  })
+                "
+              >
+                <v-icon class="text-romm-red">mdi-delete</v-icon>
+              </v-btn>
+            </v-btn-group>
+          </v-row>
+          <v-row class="mt-6 flex-grow-0">{{ state.file_name }}</v-row>
+          <v-row
+            class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
+            style="min-height: 20px"
+          >
+            <v-chip v-if="state.emulator" size="x-small" color="orange" label>
+              {{ state.emulator }}
+            </v-chip>
+            <v-chip size="x-small" label>
+              {{ formatBytes(state.file_size_bytes) }}
+            </v-chip>
+            <v-chip size="x-small" label>
+              Updated: {{ formatTimestamp(state.updated_at) }}
+            </v-chip>
+          </v-row>
+        </v-card-text>
+      </v-card>
+    </v-hover>
+    <v-col v-else class="text-center mt-2">
+      <v-icon size="large">mdi-help-rhombus-outline</v-icon>
+      <p class="text-h6 mt-2">{{ t("rom.no-states-found") }}</p>
+    </v-col>
+  </div>
 </template>
-<style scoped>
-.name-row {
-  min-width: 300px;
-}
-</style>

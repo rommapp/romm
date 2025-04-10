@@ -90,7 +90,7 @@ system:
     msx2: msx2
     msx2+: msx2
     n64: n64
-    n64dd: nintendo-64dd
+    n64dd: 64dd
     naomi: arcade
     naomi2: arcade
     nds: nds
@@ -110,6 +110,7 @@ system:
     prboom: doom
     ps2: ps2
     ps3: ps3
+    ps4: ps4--1
     psp: psp
     psvita: psvita
     psx: ps
@@ -119,7 +120,7 @@ system:
     saturn: saturn
     scummvm: scummvm
     scv: epoch-super-cassette-vision
-    sega32x: sega-32x
+    sega32x: sega32
     segacd: segacd
     sg1000: sg1000
     sgb: gbc

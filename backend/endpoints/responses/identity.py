@@ -1,12 +1,14 @@
 from datetime import datetime
 
 from models.user import Role
-from pydantic import BaseModel
+
+from .base import BaseModel
 
 
 class UserSchema(BaseModel):
     id: int
     username: str
+    email: str | None
     enabled: bool
     role: Role
     oauth_scopes: list[str]

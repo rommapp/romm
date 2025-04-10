@@ -92,7 +92,7 @@ function closeDialog() {
         <v-col cols="10">
           <v-icon icon="mdi-controller" class="ml-5" />
           <v-icon icon="mdi-menu-right" class="ml-1 text-romm-gray" />
-          <v-icon icon="mdi-controller" class="ml-1 text-romm-accent-1" />
+          <v-icon icon="mdi-controller" class="ml-1 text-primary" />
         </v-col>
       </v-row>
     </template>
@@ -100,7 +100,7 @@ function closeDialog() {
       <v-row class="py-2 px-4 align-center" no-gutters>
         <v-col cols="6">
           <v-select
-            :items="heartbeat.value.FS_PLATFORMS"
+            :items="heartbeat.value.FILESYSTEM.FS_PLATFORMS"
             v-model="fsSlugToCreate"
             :label="t('settings.folder-name')"
             variant="outlined"
@@ -115,11 +115,11 @@ function closeDialog() {
         <v-col cols="6">
           <v-autocomplete
             v-model="selectedPlatform"
-            class="text-romm-accent-1"
+            class="text-primary"
             :label="t('settings.romm-platform')"
             :items="supportedPlatforms"
-            color="romm-accent-1"
-            base-color="romm-accent-1"
+            color="primary"
+            base-color="primary"
             variant="outlined"
             required
             return-object
@@ -138,6 +138,7 @@ function closeDialog() {
                     :size="35"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
+                    :fs-slug="item.raw.fs_slug"
                   />
                 </template>
               </v-list-item>
@@ -150,6 +151,7 @@ function closeDialog() {
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
+                    :fs-slug="item.raw.fs_slug"
                   />
                 </template>
               </v-list-item>
@@ -161,11 +163,11 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            class="bg-terciary text-romm-green"
+            class="bg-toplayer text-romm-green"
             :disabled="fsSlugToCreate == '' || selectedPlatform?.slug == ''"
             :variant="
               fsSlugToCreate == '' || selectedPlatform?.slug == ''

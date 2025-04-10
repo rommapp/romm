@@ -5,7 +5,7 @@ import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
-import { defaultAvatarPath } from "@/utils";
+import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
@@ -95,7 +95,6 @@ function closeDialog() {
             <v-col>
               <v-text-field
                 v-model="user.username"
-                rounded="0"
                 variant="outlined"
                 :label="t('settings.username')"
                 required
@@ -108,7 +107,6 @@ function closeDialog() {
             <v-col>
               <v-text-field
                 v-model="user.password"
-                rounded="0"
                 variant="outlined"
                 :label="t('settings.password')"
                 required
@@ -119,15 +117,40 @@ function closeDialog() {
           </v-row>
           <v-row class="pa-2" no-gutters>
             <v-col>
+              <v-text-field
+                v-model="user.email"
+                variant="outlined"
+                label="email"
+                required
+                hide-details
+                clearable
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
               <v-select
                 v-model="user.role"
-                rounded="0"
                 variant="outlined"
                 :items="['viewer', 'editor', 'admin']"
                 :label="t('settings.role')"
                 required
                 hide-details
-              />
+              >
+                <template #selection="{ item }">
+                  <v-list-item class="pa-0">
+                    <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+                    {{ item.title }}
+                  </v-list-item>
+                </template>
+                <template #item="{ item }">
+                  <v-list-item :title="item.title">
+                    <template #prepend>
+                      <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
+                    </template>
+                  </v-list-item>
+                </template>
+              </v-select>
             </v-col>
           </v-row>
         </v-col>
@@ -173,13 +196,13 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
             :variant="!user.username ? 'plain' : 'flat'"
             :disabled="!user.username"
-            class="text-romm-green bg-terciary"
+            class="text-romm-green bg-toplayer"
             @click="editUser"
           >
             {{ t("common.apply") }}

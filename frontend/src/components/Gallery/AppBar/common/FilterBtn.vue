@@ -24,7 +24,13 @@ const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
         rounded="0"
         v-bind="props"
         icon="mdi-filter-variant"
-        :color="activeFilterDrawer ? 'romm-accent-1' : ''"
+        :color="
+          activeFilterDrawer
+            ? 'primary'
+            : galleryFilterStore.isFiltered()
+              ? 'secondary'
+              : ''
+        "
         @click="galleryFilterStore.switchActiveFilterDrawer()" /></template
   ></v-tooltip>
 </template>

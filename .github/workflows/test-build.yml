@@ -1,0 +1,64 @@
+name: Build Experimental Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      # trunk-ignore(checkov/CKV_GHA_7)
+      branch:
+        description: "Git branch to build"
+        required: true
+
+permissions:
+  id-token: write
+  contents: write
+  packages: write
+  actions: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      packages: write
+    steps:
+      - name: Run only once per workflow
+        run: echo "Triggered by ${{ github.event_name }}"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            name=rommapp/romm-testing
+          tags: |
+            type=raw,value=${{ github.event.inputs.branch }}
+
+      - name: Build full image
+        id: build-full
+        uses: docker/build-push-action@v6
+        with:
+          file: docker/Dockerfile
+          context: .
+          push: true
+          platforms: linux/arm64,linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          target: full-image

@@ -21,6 +21,10 @@ class FSAssetsHandler(FSHandler):
             shutil.rmtree(os.path.join(ASSETS_BASE_PATH, file_path, file_name))
 
     def write_file(self, file: UploadFile, path: str) -> None:
+        if not file.filename:
+            log.error("No file name provided")
+            return
+
         Path(os.path.join(ASSETS_BASE_PATH, path)).mkdir(parents=True, exist_ok=True)
         log.info(f" - Uploading {file.filename}")
         file_location = os.path.join(ASSETS_BASE_PATH, path, file.filename)

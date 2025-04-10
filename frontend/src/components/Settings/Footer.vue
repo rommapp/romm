@@ -1,52 +1,80 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
-import { useI18n } from "vue-i18n";
+import storeNavigation from "@/stores/navigation";
+import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
 
 // Props
-const { t } = useI18n();
+const { smAndDown } = useDisplay();
 const heartbeatStore = storeHeartbeat();
+const navigationStore = storeNavigation();
+const { mainBarCollapsed } = storeToRefs(navigationStore);
+// Computed property for dynamic width
+const computedWidth = computed(() => {
+  return smAndDown.value
+    ? "100% !important"
+    : mainBarCollapsed.value
+      ? "calc(100% - 60px) !important"
+      : "calc(100% - 100px) !important";
+});
 </script>
 <template>
-  <v-bottom-navigation
-    :elevation="0"
-    height="36"
-    class="bg-terciary text-caption"
+  <div
+    class="position-fixed"
+    :class="{
+      'bottom-0': !smAndDown,
+      'bottom-50': smAndDown,
+    }"
+    :style="{ width: computedWidth }"
   >
-    <v-row class="align-center justify-center" no-gutters>
-      <span class="text-romm-accent-1">RomM</span>
-      <span class="ml-1">{{ heartbeatStore.value.VERSION }}</span>
-      <v-icon>mdi-circle-small</v-icon><v-icon>mdi-github</v-icon>
-      <v-hover v-slot="{ isHovering, props }">
-        <span class="ml-1"
-          ><a
-            :class="{
-              'text-romm-accent-1': isHovering,
-              'text-white': !isHovering,
-            }"
+    <v-card class="bg-toplayer ma-2 pa-2">
+      <v-row class="align-center justify-center" no-gutters>
+        <v-hover v-slot="{ isHovering, props }">
+          <a
+            :href="`https://github.com/rommapp/romm/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-decoration-none text-primary"
             v-bind="props"
-            style="text-decoration: none"
+            :class="{
+              'text-secondary': isHovering,
+            }"
+          >
+            <!-- <code class="px-2 py-1 text-primary"> -->
+            {{ heartbeatStore.value.SYSTEM.VERSION }}
+            <!-- </code> -->
+          </a>
+        </v-hover>
+        <v-icon>mdi-circle-small</v-icon>
+        <v-hover v-slot="{ isHovering, props }">
+          <a
             href="https://github.com/rommapp/romm"
             target="_blank"
-            >Github</a
-          ></span
-        >
-      </v-hover>
-      <v-icon>mdi-circle-small</v-icon>
-      <v-hover v-slot="{ isHovering, props }">
-        <span class="ml-1"
-          ><a
-            :class="{
-              'text-romm-accent-1': isHovering,
-              'text-white': !isHovering,
-            }"
+            rel="noopener noreferrer"
+            class="text-decoration-none text-primary"
             v-bind="props"
-            style="text-decoration: none"
+            :class="{
+              'text-secondary': isHovering,
+            }"
+            >Github</a
+          >
+        </v-hover>
+        <v-icon>mdi-circle-small</v-icon>
+        <v-hover v-slot="{ isHovering, props }">
+          <a
             href="https://discord.com/invite/P5HtHnhUDH"
             target="_blank"
-            >{{ t("settings.join-discord") }}</a
-          ></span
-        >
-      </v-hover>
-    </v-row>
-  </v-bottom-navigation>
+            rel="noopener noreferrer"
+            class="text-decoration-none text-primary"
+            v-bind="props"
+            :class="{
+              'text-secondary': isHovering,
+            }"
+            >Discord</a
+          >
+        </v-hover>
+      </v-row>
+    </v-card>
+  </div>
 </template>

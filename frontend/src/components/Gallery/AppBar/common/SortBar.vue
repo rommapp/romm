@@ -53,7 +53,7 @@ function sort() {}
     <v-divider
       :thickness="2"
       class="mx-2 mt-1 border-opacity-25"
-      color="romm-accent-1"
+      color="primary"
     />
   </div>
 </template>

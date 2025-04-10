@@ -30,12 +30,12 @@ watch(files, (newList) => {
     absolute
     :location="xs ? 'bottom' : 'bottom right'"
     class="mb-4 mr-4"
-    color="tooltip"
+    color="toplayer"
   >
-    <v-list>
+    <v-list class="bg-toplayer pa-0">
       <v-list-item
         v-for="file in files"
-        class="py-2 px-4"
+        class="py-2 px-4 bg-toplayer"
         :disabled="file.finished && !file.failed"
       >
         <template v-if="file.failed">
@@ -43,7 +43,7 @@ watch(files, (newList) => {
             {{ file.filename }}
             <v-icon :icon="`mdi-close`" :color="`red`" class="mx-2" />
           </v-list-item-title>
-          <v-list-item-subtitle class="text-red mt-1">
+          <v-list-item-subtitle v-if="file.failureReason" class="text-red mt-1">
             {{ file.failureReason }}
           </v-list-item-subtitle>
         </template>
@@ -52,7 +52,7 @@ watch(files, (newList) => {
             {{ file.filename }}
             <v-icon
               :icon="file.finished ? 'mdi-check' : 'mdi-loading mdi-spin'"
-              :color="file.finished ? 'green' : 'romm-accent-1'"
+              :color="file.finished ? 'green' : 'primary'"
               class="mx-2"
             />
           </v-list-item-title>
@@ -60,7 +60,7 @@ watch(files, (newList) => {
             <v-progress-linear
               v-model="file.progress"
               height="4"
-              color="romm-accent-1"
+              color="primary"
               class="mt-1"
             />
             <div class="upload-speeds d-flex justify-space-between mt-1">
@@ -82,12 +82,12 @@ watch(files, (newList) => {
         </template>
       </v-list-item>
     </v-list>
-    <div class="text-center">
+    <div class="bg-surface text-center">
       <v-btn
         size="small"
-        variant="tonal"
         class="my-2"
-        color="romm-accent-1"
+        color="primary"
+        variant="text"
         :disabled="!files.some((f) => f.finished || f.failed)"
         @click="clearFinished"
       >

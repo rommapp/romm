@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import type { IGDBRelatedGame } from "@/__generated__";
 import storeGalleryView from "@/stores/galleryView";
-import { useTheme } from "vuetify";
+import { getMissingCoverImage } from "@/utils/covers";
+import { computed } from "vue";
 
 // Props
 const props = defineProps<{
   game: IGDBRelatedGame;
 }>();
-const theme = useTheme();
 const galleryViewStore = storeGalleryView();
+
+const missingCoverImage = computed(() => getMissingCoverImage(props.game.name));
 </script>
 
 <template>
@@ -24,24 +26,24 @@ const galleryViewStore = storeGalleryView();
       >
       <v-img
         v-bind="props"
-        :src="
-          game.cover_url ||
-          `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`
-        "
+        :src="game.cover_url || missingCoverImage"
         :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
         cover
         lazy
-        ><v-chip
+      >
+        <v-chip
           class="px-2 position-absolute chip-type text-white translucent-dark"
           density="compact"
-          rounded="0"
           label
         >
           <span>
             {{ game.type }}
           </span>
-        </v-chip></v-img
-      >
+        </v-chip>
+        <template #error>
+          <v-img :src="missingCoverImage" />
+        </template>
+      </v-img>
     </v-card>
   </a>
 </template>

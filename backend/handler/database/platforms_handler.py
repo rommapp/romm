@@ -1,50 +1,63 @@
+import functools
+from typing import Sequence
+
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
-from sqlalchemy import Select, delete, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import delete, or_, select
+from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 
 
+def with_firmware(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        kwargs["query"] = select(Platform).options(
+            selectinload(Platform.firmware),
+        )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 class DBPlatformsHandler(DBBaseHandler):
     @begin_session
+    @with_firmware
     def add_platform(
         self,
         platform: Platform,
-        session: Session,
+        query: Query = None,
+        session: Session = None,
     ) -> Platform:
         platform = session.merge(platform)
         session.flush()
 
-        new_platform = session.scalar(
-            select(Platform).filter_by(id=platform.id).limit(1)
-        )
-        if not new_platform:
-            raise ValueError("Could not find newlyewly created platform")
-
-        return new_platform
+        return session.scalar(query.filter_by(id=platform.id).limit(1))
 
     @begin_session
-    def get_platform(self, id: int, *, session: Session) -> Platform | None:
-        return session.scalar(select(Platform).filter_by(id=id).limit(1))
-
-    @begin_session
-    def get_platforms(self, *, session: Session) -> Select[tuple[Platform]]:
-        return (
-            session.scalars(select(Platform).order_by(Platform.name.asc()))  # type: ignore[attr-defined]
-            .unique()
-            .all()
-        )
-
-    @begin_session
-    def get_platform_by_fs_slug(
-        self, fs_slug: str, session: Session
+    @with_firmware
+    def get_platform(
+        self, id: int, query: Query = None, session: Session = None
     ) -> Platform | None:
-        return session.scalar(select(Platform).filter_by(fs_slug=fs_slug).limit(1))
+        return session.scalar(query.filter_by(id=id).limit(1))
 
     @begin_session
-    def delete_platform(self, id: int, session: Session) -> None:
+    @with_firmware
+    def get_platforms(
+        self, query: Query = None, session: Session = None
+    ) -> Sequence[Platform]:
+        return session.scalars(query.order_by(Platform.name.asc())).unique().all()
+
+    @begin_session
+    @with_firmware
+    def get_platform_by_fs_slug(
+        self, fs_slug: str, query: Query = None, session: Session = None
+    ) -> Platform | None:
+        return session.scalar(query.filter_by(fs_slug=fs_slug).limit(1))
+
+    @begin_session
+    def delete_platform(self, id: int, session: Session = None) -> None:
         # Remove all roms from that platforms first
         session.execute(
             delete(Rom)
@@ -60,14 +73,20 @@ class DBPlatformsHandler(DBBaseHandler):
 
     @begin_session
     def purge_platforms(
-        self, fs_platforms: list[str], session: Session
-    ) -> Select[tuple[Platform]]:
+        self,
+        fs_platforms_to_keep: list[str],
+        query: Query = None,
+        session: Session = None,
+    ) -> Sequence[Platform]:
         purged_platforms = (
             session.scalars(
                 select(Platform)
                 .order_by(Platform.name.asc())
                 .where(
-                    or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None))
+                    or_(
+                        Platform.fs_slug.not_in(fs_platforms_to_keep),
+                        Platform.slug.is_(None),
+                    )
                 )
             )  # type: ignore[attr-defined]
             .unique()
@@ -75,7 +94,7 @@ class DBPlatformsHandler(DBBaseHandler):
         )
         session.execute(
             delete(Platform)
-            .where(or_(Platform.fs_slug.not_in(fs_platforms), Platform.slug.is_(None)))  # type: ignore[attr-defined]
+            .where(or_(Platform.fs_slug.not_in(fs_platforms_to_keep), Platform.slug.is_(None)))  # type: ignore[attr-defined]
             .execution_options(synchronize_session="fetch")
         )
         return purged_platforms

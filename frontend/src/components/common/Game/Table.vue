@@ -1,12 +1,15 @@
 <script setup lang="ts">
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import romApi from "@/services/api/rom";
+import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeHeartbeat from "@/stores/heartbeat";
-import type { Events } from "@/types/emitter";
+import storeAuth from "@/stores/auth";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   formatBytes,
   isEJSEmulationSupported,
@@ -14,29 +17,35 @@ import {
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
-import type { Emitter } from "mitt";
-import { inject, onMounted, ref, watch, computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
+import { useRouter } from "vue-router";
 
 // Props
-const { xs } = useDisplay();
-const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("updateDataTablePages", updateDataTablePages);
+withDefaults(
+  defineProps<{
+    showPlatformIcon?: boolean;
+  }>(),
+  {
+    showPlatformIcon: false,
+  },
+);
 const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
 const router = useRouter();
-const route = useRoute();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
+const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
+  storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
-const page = ref(parseInt(window.location.hash.slice(1)) || 1);
-const storedRomsPerPage = parseInt(localStorage.getItem("romsPerPage") ?? "");
-const itemsPerPage = ref(isNaN(storedRomsPerPage) ? 25 : storedRomsPerPage);
-const pageCount = ref(0);
-const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
+const auth = storeAuth();
+const galleryFilterStore = storeGalleryFilter();
+
 const HEADERS = [
   {
     title: "Title",
@@ -45,63 +54,79 @@ const HEADERS = [
     key: "name",
   },
   {
-    title: "",
-    align: "start",
-    sortable: false,
-    key: "is_fav",
-  },
-  {
     title: "Size",
     align: "start",
-    sortable: true,
-    key: "file_size_bytes",
+    sortable: false,
+    key: "fs_size_bytes",
   },
   {
-    title: "Reg",
+    title: "Added",
     align: "start",
     sortable: true,
-    key: "regions",
+    key: "created_at",
   },
   {
-    title: "Lang",
+    title: "Released",
     align: "start",
     sortable: true,
+    key: "first_release_date",
+  },
+  {
+    title: "Rating",
+    align: "start",
+    sortable: true,
+    key: "average_rating",
+  },
+  {
+    title: "Languages",
+    align: "start",
+    sortable: false,
     key: "languages",
   },
   {
-    title: "Rev",
+    title: "Regions",
     align: "start",
-    sortable: true,
-    key: "revision",
+    sortable: false,
+    key: "regions",
   },
-  { title: "", align: "end", key: "actions", sortable: false },
+  {
+    title: "",
+    align: "center",
+    key: "actions",
+    sortable: false,
+  },
 ] as const;
 
-const selectedRomIDs = computed(() =>
-  romsStore.selectedRoms.map((rom) => rom.id),
-);
+const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
 // Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
-  router.push({ name: "rom", params: { rom: row.item.id } });
+  router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
+  romsStore.resetSelection();
 }
 
-function updateDataTablePages() {
-  pageCount.value = Math.ceil(
-    romsStore.filteredRoms.length / itemsPerPage.value,
-  );
-}
-
-function updateUrlHash() {
-  window.location.hash = String(page.value);
+function getTruePlatformSlug(platformSlug: string) {
+  return platformSlug in config.value.PLATFORMS_VERSIONS
+    ? config.value.PLATFORMS_VERSIONS[platformSlug]
+    : platformSlug;
 }
 
 function checkIfEJSEmulationSupported(platformSlug: string) {
-  return isEJSEmulationSupported(platformSlug, heartbeatStore.value);
+  const slug = getTruePlatformSlug(platformSlug);
+  return isEJSEmulationSupported(slug, heartbeatStore.value);
 }
 
 function checkIfRuffleEmulationSupported(platformSlug: string) {
-  return isRuffleEmulationSupported(platformSlug, heartbeatStore.value);
+  const slug = getTruePlatformSlug(platformSlug);
+  return isRuffleEmulationSupported(slug, heartbeatStore.value);
+}
+
+function updateSelectAll() {
+  if (selectedRoms.value.length === filteredRoms.value.length) {
+    romsStore.resetSelection();
+  } else {
+    romsStore.setSelection(filteredRoms.value);
+  }
 }
 
 function updateSelectedRom(rom: SimpleRom) {
@@ -112,97 +137,165 @@ function updateSelectedRom(rom: SimpleRom) {
   }
 }
 
-watch(itemsPerPage, async () => {
-  localStorage.setItem("romsPerPage", itemsPerPage.value.toString());
-  updateDataTablePages();
-});
+type SortBy = { key: keyof SimpleRom; order: "asc" | "desc" }[];
 
-// Watch route to avoid race condition
-watch(route, () => {
-  page.value = parseInt(window.location.hash.slice(1)) || 1;
-});
+function updateOptions({ sortBy }: { sortBy: SortBy }) {
+  if (!sortBy[0]) return;
+  const { key, order } = sortBy[0];
 
-onMounted(() => {
-  updateDataTablePages();
-});
+  romsStore.resetPagination();
+  romsStore.setOrderBy(key);
+  romsStore.setOrderDir(order);
+  romsStore.fetchRoms(galleryFilterStore, false);
+}
 </script>
 
 <template>
-  <v-data-table
+  <v-data-table-server
+    @update:options="updateOptions"
     @click:row="rowClick"
-    :items-per-page="itemsPerPage"
-    :items-per-page-options="PER_PAGE_OPTIONS"
-    :item-value="(item) => item.id"
-    :items="romsStore.filteredRoms"
+    :items-per-page="72"
+    :items-length="fetchTotalRoms"
+    :items="filteredRoms"
     :headers="HEADERS"
     v-model="selectedRomIDs"
-    v-model:page="page"
     show-select
     fixed-header
     fixed-footer
     hide-default-footer
+    :loading="fetchingRoms"
+    :disable-sort="fetchingRoms"
     hover
+    density="compact"
+    class="rounded bg-background"
   >
+    <template #header.data-table-select>
+      <v-checkbox-btn
+        :indeterminate="
+          selectedRomIDs.length > 0 &&
+          selectedRomIDs.length < filteredRoms.length
+        "
+        :model-value="selectedRomIDs.length === filteredRoms.length"
+        @click.stop
+        @click="updateSelectAll"
+      />
+    </template>
     <template #item.data-table-select="{ item }">
       <v-checkbox-btn
-        :value="item.id"
+        :model-value="selectedRomIDs.includes(item.id)"
         @click.stop
         @click="updateSelectedRom(item)"
       />
     </template>
     <template #item.name="{ item }">
-      <td class="name-row">
-        <v-list-item class="px-0">
-          <template #prepend>
-            <r-avatar-rom :rom="item" />
-          </template>
-          <v-row no-gutters>
-            <v-col>{{ item.name }}</v-col></v-row
+      <v-list-item :min-width="400" class="px-0 py-2">
+        <template #prepend>
+          <platform-icon
+            v-if="showPlatformIcon"
+            class="mr-4"
+            :size="30"
+            :slug="item.platform_slug"
+          />
+          <r-avatar-rom :rom="item" />
+        </template>
+        <v-row no-gutters>
+          <v-col>{{ item.name }}</v-col>
+        </v-row>
+        <v-row no-gutters>
+          <v-col class="text-primary">
+            {{ item.fs_name }}
+          </v-col>
+        </v-row>
+        <template #append>
+          <v-chip
+            v-if="item.siblings.length > 0 && showSiblings"
+            class="translucent-dark ml-4"
+            size="x-small"
           >
-          <v-row no-gutters
-            ><v-col class="text-romm-accent-1">{{
-              item.file_name
-            }}</v-col></v-row
-          >
-          <template #append>
-            <v-chip
-              v-if="
-                item.sibling_roms &&
-                item.sibling_roms.length > 0 &&
-                showSiblings
-              "
-              class="translucent-dark ml-2"
-              size="x-small"
-            >
-              <span class="text-caption">+{{ item.sibling_roms.length }}</span>
-            </v-chip>
-          </template>
-        </v-list-item>
-      </td>
+            <span class="text-caption">+{{ item.siblings.length }}</span>
+          </v-chip>
+        </template>
+      </v-list-item>
     </template>
-    <template #item.is_fav="{ item }">
-      <fav-btn :rom="item" />
+    <template #item.fs_size_bytes="{ item }">
+      <span class="text-no-wrap">{{ formatBytes(item.fs_size_bytes) }}</span>
     </template>
-    <template #item.file_size_bytes="{ item }">
-      <v-chip size="x-small" label>{{
-        formatBytes(item.file_size_bytes)
-      }}</v-chip>
+    <template #item.created_at="{ item }">
+      <span v-if="item.created_at" class="text-no-wrap">{{
+        new Date(item.created_at).toLocaleDateString("en-US", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+      }}</span>
+      <span v-else>-</span>
     </template>
-    <template #item.regions="{ item }">
-      <span class="px-1" v-for="region in item.regions">
-        {{ regionToEmoji(region) }}
-      </span>
+    <template #item.first_release_date="{ item }">
+      <span v-if="item.metadatum.first_release_date" class="text-no-wrap">{{
+        new Date(item.metadatum.first_release_date).toLocaleDateString(
+          "en-US",
+          {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          },
+        )
+      }}</span>
+      <span v-else>-</span>
+    </template>
+    <template #item.average_rating="{ item }">
+      <span v-if="item.metadatum.average_rating" class="text-no-wrap">{{
+        Intl.NumberFormat("en-US", {
+          maximumSignificantDigits: 3,
+        }).format(item.metadatum.average_rating)
+      }}</span>
+      <span v-else>-</span>
     </template>
     <template #item.languages="{ item }">
-      <span class="px-1" v-for="language in item.languages">
-        {{ languageToEmoji(language) }}
-      </span>
+      <div class="text-no-wrap" v-if="item.languages.length > 0">
+        <span
+          class="emoji"
+          v-for="language in item.languages.slice(0, 3)"
+          :title="`Languages: ${item.languages.join(', ')}`"
+          :class="{ 'emoji-collection': item.regions.length > 3 }"
+        >
+          {{ languageToEmoji(language) }}
+        </span>
+        <span class="reglang-super">
+          {{
+            item.languages.length > 3
+              ? `&nbsp;+${item.languages.length - 3}`
+              : ""
+          }}
+        </span>
+      </div>
+      <span v-else>-</span>
+    </template>
+    <template #item.regions="{ item }">
+      <div class="text-no-wrap" v-if="item.regions.length > 0">
+        <span
+          class="emoji"
+          v-for="region in item.regions.slice(0, 3)"
+          :title="`Regions: ${item.regions.join(', ')}`"
+          :class="{ 'emoji-collection': item.regions.length > 3 }"
+        >
+          {{ regionToEmoji(region) }}
+        </span>
+        <span class="reglang-super">
+          {{
+            item.regions.length > 3 ? `&nbsp;+${item.regions.length - 3}` : ""
+          }}
+        </span>
+      </div>
+      <span v-else>-</span>
     </template>
     <template #item.actions="{ item }">
-      <v-btn-group divided density="compact">
+      <v-btn-group density="compact">
+        <fav-btn :rom="item" />
         <v-btn
           :disabled="downloadStore.value.includes(item.id)"
           download
+          variant="text"
           size="small"
           @click.stop="romApi.downloadRom({ rom: item })"
         >
@@ -210,10 +303,11 @@ onMounted(() => {
         </v-btn>
         <v-btn
           v-if="checkIfEJSEmulationSupported(item.platform_slug)"
+          variant="text"
           size="small"
           @click.stop="
             $router.push({
-              name: 'emulatorjs',
+              name: ROUTES.EMULATORJS,
               params: { rom: item?.id },
             })
           "
@@ -222,19 +316,27 @@ onMounted(() => {
         </v-btn>
         <v-btn
           v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
+          variant="text"
           size="small"
           @click.stop="
             $router.push({
-              name: 'ruffle',
+              name: ROUTES.RUFFLE,
               params: { rom: item?.id },
             })
           "
         >
           <v-icon>mdi-play</v-icon>
         </v-btn>
-        <v-menu location="bottom">
+        <v-menu
+          v-if="
+            auth.scopes.includes('roms.write') ||
+            auth.scopes.includes('roms.user.write') ||
+            auth.scopes.includes('collections.write')
+          "
+          location="bottom"
+        >
           <template #activator="{ props }">
-            <v-btn v-bind="props" size="small">
+            <v-btn v-bind="props" variant="text" size="small">
               <v-icon>mdi-dots-vertical</v-icon>
             </v-btn>
           </template>
@@ -242,39 +344,16 @@ onMounted(() => {
         </v-menu>
       </v-btn-group>
     </template>
-
-    <template #bottom>
-      <v-divider />
-      <div>
-        <v-row no-gutters class="pa-1 align-center justify-center">
-          <v-col cols="8" sm="9" md="10" class="px-3">
-            <v-pagination
-              :show-first-last-page="!xs"
-              v-model="page"
-              @update:model-value="updateUrlHash"
-              rounded="0"
-              active-color="romm-accent-1"
-              :length="pageCount"
-            />
-          </v-col>
-          <v-col>
-            <v-select
-              v-model="itemsPerPage"
-              class="pa-2"
-              label="Roms per page"
-              density="compact"
-              variant="outlined"
-              :items="PER_PAGE_OPTIONS"
-              hide-details
-            />
-          </v-col>
-        </v-row>
-      </div>
-    </template>
-  </v-data-table>
+  </v-data-table-server>
 </template>
+
 <style scoped>
-.name-row {
-  min-width: 350px;
+.reglang-super {
+  vertical-align: super;
+  font-size: 75%;
+  opacity: 75%;
+}
+.v-data-table {
+  width: calc(100% - 16px) !important;
 }
 </style>

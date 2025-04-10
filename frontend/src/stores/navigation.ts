@@ -1,13 +1,20 @@
 import { defineStore } from "pinia";
+import { ROUTES } from "@/plugins/router";
+import { isNull } from "lodash";
+
+const defaultNavigationState = {
+  activePlatformsDrawer: false,
+  activeCollectionsDrawer: false,
+  activeSettingsDrawer: false,
+  activePlatformInfoDrawer: false,
+  activeCollectionInfoDrawer: false,
+  mainBarCollapsed: isNull(localStorage.getItem("settings.mainBarCollapsed"))
+    ? false
+    : localStorage.getItem("settings.mainBarCollapsed") === "true",
+};
 
 export default defineStore("navigation", {
-  state: () => ({
-    activePlatformsDrawer: false,
-    activeCollectionsDrawer: false,
-    activeSettingsDrawer: false,
-    activePlatformInfoDrawer: false,
-    activeCollectionInfoDrawer: false,
-  }),
+  state: () => ({ ...defaultNavigationState }),
 
   actions: {
     switchActivePlatformsDrawer() {
@@ -26,24 +33,24 @@ export default defineStore("navigation", {
       this.resetDrawersExcept("activePlatformInfoDrawer");
       this.activePlatformInfoDrawer = !this.activePlatformInfoDrawer;
     },
-    swtichActiveCollectionInfoDrawer() {
+    switchActiveCollectionInfoDrawer() {
       this.resetDrawersExcept("activeCollectionInfoDrawer");
       this.activeCollectionInfoDrawer = !this.activeCollectionInfoDrawer;
     },
     goHome() {
-      this.resetDrawers();
-      this.$router.push({ name: "home" });
+      this.reset();
+      this.$router.push({ name: ROUTES.HOME });
     },
     goScan() {
-      this.resetDrawers();
-      this.$router.push({ name: "scan" });
+      this.reset();
+      this.$router.push({ name: ROUTES.SCAN });
     },
-    resetDrawers() {
-      this.activePlatformsDrawer = false;
-      this.activeCollectionsDrawer = false;
-      this.activeSettingsDrawer = false;
-      this.activePlatformInfoDrawer = false;
-      this.activeCollectionInfoDrawer = false;
+    goSearch() {
+      this.reset();
+      this.$router.push({ name: ROUTES.SEARCH });
+    },
+    reset() {
+      Object.assign(this, { ...defaultNavigationState });
     },
     resetDrawersExcept(drawer: string) {
       this.activePlatformsDrawer =

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { type SimpleRom } from "@/stores/roms.js";
+import { type SimpleRom } from "@/stores/roms";
 import {
   languageToEmoji,
   regionToEmoji,
@@ -62,10 +62,10 @@ const playingStatus = computed(() => {
     {{ getEmojiForStatus(playingStatus) }}
   </v-chip>
   <v-chip
-    v-if="rom.sibling_roms && rom.sibling_roms.length > 0 && showSiblings"
+    v-if="rom.siblings.length > 0 && showSiblings"
     class="translucent-dark mr-1 mt-1"
     density="compact"
   >
-    +{{ rom.sibling_roms.length }}
+    +{{ rom.siblings.length }}
   </v-chip>
 </template>

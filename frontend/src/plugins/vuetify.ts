@@ -34,17 +34,6 @@ const instance = createVuetify({
       light,
     },
   },
-  // defaults: {
-  //   VBtn: {
-  //     variant: "outlined",
-  //   },
-  //   VSelect: {
-  //     variant: "outlined"
-  //   },
-  //   VAutocomplete: {
-  //     variant: "outlined"
-  //   }
-  // },
 });
 
 export default instance;

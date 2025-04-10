@@ -9,27 +9,36 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const navigationStore = storeNavigation();
-const { smAndDown } = useDisplay();
+const { mdAndUp, smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
-const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
+const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 
 function clear() {
-  searchText.value = "";
+  filterText.value = "";
 }
 </script>
 <template>
   <v-navigation-drawer
-    :location="smAndDown ? 'top' : 'left'"
     mobile
+    :location="smAndDown ? 'bottom' : 'left'"
     @update:model-value="clear"
     width="500"
     v-model="activePlatformsDrawer"
-    class="bg-terciary"
+    :class="{
+      'my-2': mdAndUp || (smAndDown && activePlatformsDrawer),
+      'ml-2': (mdAndUp && activePlatformsDrawer) || smAndDown,
+      'drawer-mobile': smAndDown,
+      'unset-height': mdAndUp,
+      'max-h-70': smAndDown && activePlatformsDrawer,
+    }"
+    class="bg-surface pa-1"
+    rounded
+    :border="0"
   >
     <template #prepend>
       <v-text-field
-        v-model="searchText"
+        v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
         hide-details
@@ -38,15 +47,14 @@ function clear() {
         single-line
         :label="t('platform.search-platform')"
         variant="solo-filled"
-        rounded="0"
+        density="compact"
       ></v-text-field>
     </template>
-    <v-list lines="two" rounded="0" class="pa-0">
+    <v-list lines="two" class="py-1 px-0">
       <platform-list-item
         v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :platform="platform"
-        class="py-4"
       />
     </v-list>
   </v-navigation-drawer>
