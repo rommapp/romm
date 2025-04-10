@@ -121,6 +121,45 @@ class RomFileSchema(BaseModel):
         from_attributes = True
 
 
+class RomMetadataSchema(BaseModel):
+    rom_id: int
+    genres: list[str]
+    franchises: list[str]
+    collections: list[str]
+    companies: list[str]
+    game_modes: list[str]
+    age_ratings: list[str]
+    first_release_date: int | None
+    average_rating: float | None
+
+    class Config:
+        from_attributes = True
+
+    @field_validator("genres")
+    def sort_genres(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("franchises")
+    def sort_franchises(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("collections")
+    def sort_collections(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("companies")
+    def sort_companies(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("game_modes")
+    def sort_game_modes(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("age_ratings")
+    def sort_age_ratings(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+
 class RomSchema(BaseModel):
     id: int
     igdb_id: int | None
@@ -147,16 +186,9 @@ class RomSchema(BaseModel):
     summary: str | None
 
     # Metadata fields
-    first_release_date: int | None
-    youtube_video_id: str | None
-    average_rating: float | None
     alternative_names: list[str]
-    genres: list[str]
-    franchises: list[str]
-    meta_collections: list[str]
-    companies: list[str]
-    game_modes: list[str]
-    age_ratings: list[str]
+    youtube_video_id: str | None
+    metadatum: RomMetadataSchema
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
     ss_metadata: RomSSMetadata | None
@@ -189,6 +221,25 @@ class RomSchema(BaseModel):
     class Config:
         from_attributes = True
 
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, _request: Request) -> RomSchema:
+        return cls.model_validate(db_rom)
+
+    @field_validator("alternative_names")
+    def sort_alternative_names(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("files")
+    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
+        return sorted(v, key=lambda x: x.file_name)
+
+
+class SiblingRomSchema(BaseModel):
+    id: int
+    name: str | None
+    fs_name_no_tags: str
+    fs_name_no_ext: str
+
     @computed_field  # type: ignore
     @property
     def sort_comparator(self) -> str:
@@ -201,66 +252,40 @@ class RomSchema(BaseModel):
             .lower()
         )
 
-    @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, _request: Request) -> RomSchema:
-        return cls.model_validate(db_rom)
-
-    @field_validator("alternative_names")
-    def sort_alternative_names(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("genres")
-    def sort_genres(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("franchises")
-    def sort_franchises(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("meta_collections")
-    def sort_meta_collections(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("companies")
-    def sort_companies(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("game_modes")
-    def sort_game_modes(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("age_ratings")
-    def sort_age_ratings(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("files")
-    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
-        return sorted(v, key=lambda x: x.file_name)
-
 
 class SimpleRomSchema(RomSchema):
-    sibling_roms: list[RomSchema]
+    siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         user_id = request.user.id
         db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
+        db_rom.siblings = [  # type: ignore
+            SiblingRomSchema(
+                id=s.id,
+                name=s.name,
+                fs_name_no_tags=s.fs_name_no_tags,
+                fs_name_no_ext=s.fs_name_no_ext,
+            )
+            for s in db_rom.sibling_roms
+        ]
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
+        db_rom.siblings = []  # type: ignore
         return cls.model_validate(db_rom)
 
-    @field_validator("sibling_roms")
-    def sort_sibling_roms(cls, v: list[RomSchema]) -> list[RomSchema]:
+    @field_validator("siblings")
+    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
         return sorted(v, key=lambda x: x.sort_comparator)
 
 
 class DetailedRomSchema(RomSchema):
     merged_screenshots: list[str]
-    sibling_roms: list[RomSchema]
+    siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
@@ -288,11 +313,20 @@ class DetailedRomSchema(RomSchema):
         db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
             user_id, db_rom.collections
         )
+        db_rom.siblings = [  # type: ignore
+            SiblingRomSchema(
+                id=s.id,
+                name=s.name,
+                fs_name_no_tags=s.fs_name_no_tags,
+                fs_name_no_ext=s.fs_name_no_ext,
+            )
+            for s in db_rom.sibling_roms
+        ]
 
         return cls.model_validate(db_rom)
 
-    @field_validator("sibling_roms")
-    def sort_sibling_roms(cls, v: list[RomSchema]) -> list[RomSchema]:
+    @field_validator("siblings")
+    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
         return sorted(v, key=lambda x: x.sort_comparator)
 
     @field_validator("user_saves")

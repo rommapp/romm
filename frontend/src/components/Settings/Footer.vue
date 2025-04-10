@@ -1,15 +1,33 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
-import { useI18n } from "vue-i18n";
+import storeNavigation from "@/stores/navigation";
 import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
 
 // Props
-const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const heartbeatStore = storeHeartbeat();
+const navigationStore = storeNavigation();
+const { mainBarCollapsed } = storeToRefs(navigationStore);
+// Computed property for dynamic width
+const computedWidth = computed(() => {
+  return smAndDown.value
+    ? "100% !important"
+    : mainBarCollapsed.value
+      ? "calc(100% - 60px) !important"
+      : "calc(100% - 100px) !important";
+});
 </script>
 <template>
-  <div :class="{ desktop: !smAndDown }" class="sticky-bottom">
+  <div
+    class="position-fixed"
+    :class="{
+      'bottom-0': !smAndDown,
+      'bottom-50': smAndDown,
+    }"
+    :style="{ width: computedWidth }"
+  >
     <v-card class="bg-toplayer ma-2 pa-2">
       <v-row class="align-center justify-center" no-gutters>
         <v-hover v-slot="{ isHovering, props }">
@@ -17,15 +35,15 @@ const heartbeatStore = storeHeartbeat();
             :href="`https://github.com/rommapp/romm/releases/tag/${heartbeatStore.value.SYSTEM.VERSION}`"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-decoration-none text-body-2"
+            class="text-decoration-none text-primary"
             v-bind="props"
             :class="{
               'text-secondary': isHovering,
             }"
           >
-            <code class="px-2 py-1 rounded-sm bg-surface text-primary">
-              {{ heartbeatStore.value.SYSTEM.VERSION }}
-            </code>
+            <!-- <code class="px-2 py-1 text-primary"> -->
+            {{ heartbeatStore.value.SYSTEM.VERSION }}
+            <!-- </code> -->
           </a>
         </v-hover>
         <v-icon>mdi-circle-small</v-icon>
@@ -60,16 +78,3 @@ const heartbeatStore = storeHeartbeat();
     </v-card>
   </div>
 </template>
-<style scoped>
-.sticky-bottom {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  z-index: 1000;
-  width: 100%;
-}
-.desktop {
-  margin-left: 60px !important;
-  width: calc(100% - 60px) !important;
-}
-</style>

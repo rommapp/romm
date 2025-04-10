@@ -45,11 +45,11 @@ const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
-const { currentRom, gettingRoms } = storeToRefs(romsStore);
+const { currentRom, fetchingRoms } = storeToRefs(romsStore);
 
 // Functions
 async function fetchDetails() {
-  gettingRoms.value = true;
+  fetchingRoms.value = true;
   await romApi
     .getRom({ romId: parseInt(route.params.rom as string) })
     .then(({ data }) => {
@@ -61,7 +61,7 @@ async function fetchDetails() {
     })
     .finally(() => {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      gettingRoms.value = false;
+      fetchingRoms.value = false;
     });
 }
 
@@ -78,7 +78,9 @@ onBeforeMount(async () => {
 
   if (currentRom.value) {
     const currentPlatform = platformsStore.get(currentRom.value.platform_id);
-    if (currentPlatform) romsStore.setCurrentPlatform(currentPlatform);
+    if (currentPlatform && currentPlatform != romsStore.currentPlatform) {
+      romsStore.setCurrentPlatform(currentPlatform);
+    }
   }
 
   const downloadStore = storeDownload();
@@ -99,10 +101,14 @@ watch(
 </script>
 
 <template>
-  <template v-if="currentRom && !gettingRoms">
+  <template v-if="currentRom && !fetchingRoms">
     <background-header />
 
-    <v-row class="px-5" no-gutters :class="{ 'justify-center': smAndDown }">
+    <v-row
+      class="px-5 mb-6"
+      no-gutters
+      :class="{ 'justify-center': smAndDown }"
+    >
       <v-col cols="auto">
         <v-container :width="270" id="artwork-container" class="pa-0">
           <game-card :key="currentRom.updated_at" :rom="currentRom" />
@@ -111,11 +117,8 @@ watch(
         </v-container>
       </v-col>
 
-      <v-col>
-        <div
-          class="pl-4"
-          :class="{ 'position-absolute title-desktop': mdAndUp }"
-        >
+      <v-col md="7">
+        <div :class="{ 'position-absolute title-desktop pl-4': mdAndUp }">
           <title-info :rom="currentRom" />
         </div>
         <v-row
@@ -227,8 +230,6 @@ watch(
 <style scoped>
 .title-desktop {
   margin-top: -190px;
-  top: 290px;
-  left: 350px;
 }
 
 #artwork-container {

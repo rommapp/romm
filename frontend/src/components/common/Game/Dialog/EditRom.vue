@@ -282,11 +282,11 @@ function closeDialog() {
                 <v-btn
                   @click="triggerFileInput('manual-file-input')"
                   class="bg-toplayer ml-3"
-                  icon="mdi-upload"
+                  icon="mdi-cloud-upload-outline"
                   rounded="0"
                   size="small"
                 >
-                  <v-icon size="large">mdi-upload</v-icon>
+                  <v-icon size="large">mdi-cloud-upload-outline</v-icon>
                   <v-file-input
                     id="manual-file-input"
                     v-model="manualFiles"

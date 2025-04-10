@@ -5,7 +5,7 @@ import { refetchCSRFToken } from "@/services/api/index";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
-import { defaultAvatarPath } from "@/utils";
+import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs, getActivePinia, type StateTree } from "pinia";
@@ -22,7 +22,7 @@ const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const { activeSettingsDrawer } = storeToRefs(navigationStore);
-const { smAndDown } = useDisplay();
+const { smAndDown, mdAndUp } = useDisplay();
 
 // Functions
 async function logout() {
@@ -54,12 +54,11 @@ async function logout() {
     width="450"
     v-model="activeSettingsDrawer"
     :class="{
-      'mx-2': smAndDown || activeSettingsDrawer,
-      'my-2': !smAndDown || activeSettingsDrawer,
+      'my-2': mdAndUp || (smAndDown && activeSettingsDrawer),
+      'ml-2': (mdAndUp && activeSettingsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
     }"
-    class="bg-surface pa-1"
-    style="height: unset"
+    class="bg-surface pa-1 unset-height"
     rounded
     :border="0"
   >
@@ -76,18 +75,20 @@ async function logout() {
         >
         </v-img>
       </v-list-img>
-      <v-list-item
-        :title="user?.username"
-        :subtitle="user?.role"
-        class="mb-1 text-shadow text-white"
-      >
+      <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
+        <template #subtitle>
+          <v-list-item-subtitle v-if="user?.role">
+            {{ user.role }}
+            <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
+          </v-list-item-subtitle>
+        </template>
       </v-list-item>
     </v-list>
     <v-list class="py-1 px-0">
       <v-list-item
         v-if="scopes.includes('me.write')"
         rounded
-        @click="emitter?.emit('showEditUserDialog', user as UserSchema)"
+        :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
         append-icon="mdi-account"
         >{{ t("common.profile") }}</v-list-item
       >
@@ -126,8 +127,3 @@ async function logout() {
     </template>
   </v-navigation-drawer>
 </template>
-<style scoped>
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>

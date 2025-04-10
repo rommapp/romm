@@ -13,8 +13,10 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
 
 // Props
+const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
@@ -58,7 +60,7 @@ async function onScan() {
 }
 
 function selectAllRoms() {
-  romsStore.setSelection(romsStore.filteredRoms);
+  romsStore.setSelection(romsStore.allRoms);
 }
 
 function resetSelection() {
@@ -139,31 +141,29 @@ function onDownload() {
 </script>
 
 <template>
-  <div class="text-right pa-2 sticky-bottom">
-    <v-scroll-y-reverse-transition>
-      <v-btn
-        icon
-        v-show="!scrolledToTop && currentView != 2"
-        class="border-selected"
-        color="background"
-        elevation="8"
-        size="large"
-        @click="scrollToTop()"
-        ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
-      >
-    </v-scroll-y-reverse-transition>
-
-    <v-speed-dial v-model="fabMenu" transition="slide-y-transition">
-      <template #activator="{ props: menuProps }">
+  <div
+    class="text-right pa-2 sticky-bottom"
+    :class="{
+      'bottom-0': !smAndDown,
+      'bottom-50': smAndDown,
+    }"
+  >
+    <v-speed-dial
+      location="left center"
+      transition="fade-transition"
+      v-model="fabMenu"
+    >
+      <template #activator="{ props }">
         <v-fab-transition>
           <v-btn
             v-show="selectedRoms.length > 0"
-            class="ml-2"
+            class="rounded"
             color="primary"
-            v-bind="menuProps"
+            v-bind="props"
             elevation="8"
             icon
-            size="large"
+            :size="40"
+            rounded="0"
             >{{ selectedRoms.length }}</v-btn
           >
         </v-fab-transition>
@@ -176,7 +176,9 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
       >
         <v-icon color="romm-red"> mdi-delete </v-icon>
@@ -188,7 +190,9 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon="mdi-magnify-scan"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click="onScan"
       />
       <v-btn
@@ -197,7 +201,9 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon="mdi-download"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click="onDownload"
       />
       <v-btn
@@ -206,7 +212,9 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon="mdi-bookmark-remove-outline"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click="
           emitter?.emit(
             'showRemoveFromCollectionDialog',
@@ -220,7 +228,9 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon="mdi-bookmark-plus"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click="
           emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
         "
@@ -231,7 +241,9 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon="mdi-star-remove-outline"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click="removeFromFavourites"
       />
       <v-btn
@@ -240,7 +252,9 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon="mdi-star"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click="addToFavourites"
       />
       <v-btn
@@ -249,7 +263,9 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon="mdi-select-all"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click.stop="selectAllRoms"
       />
       <v-btn
@@ -258,20 +274,37 @@ function onDownload() {
         color="toplayer"
         elevation="8"
         icon="mdi-select"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click.stop="resetSelection"
       />
     </v-speed-dial>
+
+    <v-scroll-y-reverse-transition>
+      <v-btn
+        icon
+        v-show="!scrolledToTop && currentView != 2"
+        class="border-selected rounded ml-2"
+        color="background"
+        elevation="8"
+        :size="40"
+        rounded="0"
+        @click="scrollToTop()"
+        ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
+      >
+    </v-scroll-y-reverse-transition>
   </div>
 </template>
 <style scoped>
 .sticky-bottom {
   position: fixed;
-  bottom: 0;
   left: 0;
   width: 100%;
-  z-index: 1000;
+  z-index: 9999;
   pointer-events: none;
+  padding-right: 10px !important;
+  padding-bottom: 10px !important;
 }
 .sticky-bottom * {
   pointer-events: auto; /* Re-enables pointer events for all child elements */

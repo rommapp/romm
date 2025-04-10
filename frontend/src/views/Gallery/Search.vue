@@ -5,42 +5,44 @@ import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import Skeleton from "@/components/Gallery/Skeleton.vue";
-import GameDataTable from "@/components/common/Game/Table.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
+import GameTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
 // Props
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
-const { searchText } = storeToRefs(galleryFilterStore);
+const { searchTerm } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
 const router = useRouter();
-const initialSearch = ref(false);
 const {
-  allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
   currentCollection,
-  itemsPerBatch,
-  gettingRoms,
+  fetchingRoms,
+  initialSearch,
+  fetchTotalRoms,
 } = storeToRefs(romsStore);
+const emitter = inject<Emitter<Events>>("emitter");
 
-const itemsShown = ref(itemsPerBatch.value);
 let timeout: ReturnType<typeof setTimeout>;
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
     emitData.event.shiftKey ||
-    romsStore.selecting ||
+    romsStore.selectingRoms ||
     romsStore.selectedRoms.length > 0
   ) {
     emitData.event.preventDefault();
@@ -90,63 +92,67 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
+function fetchRoms() {
+  romsStore
+    .fetchRoms(galleryFilterStore)
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch roms: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    })
+    .finally(() => {
+      galleryFilterStore.activeFilterDrawer = false;
+    });
+}
+
 function onScroll() {
-  if (currentView.value != 2) {
-    window.setTimeout(async () => {
-      const { scrollTop, scrollHeight, clientHeight } =
-        document.documentElement;
-      scrolledToTop.value = scrollTop === 0;
-      const totalScrollableHeight = scrollHeight - clientHeight;
-      const ninetyPercentPoint = totalScrollableHeight * 0.9;
-      if (
-        scrollTop >= ninetyPercentPoint &&
-        itemsShown.value < filteredRoms.value.length
-      ) {
-        itemsShown.value = itemsShown.value + itemsPerBatch.value;
-        galleryViewStore.scroll = scrollHeight;
-      }
-    }, 100);
-    clearTimeout(timeout);
-  }
+  clearTimeout(timeout);
+
+  window.setTimeout(async () => {
+    scrolledToTop.value = window.scrollY === 0;
+    if (
+      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      fetchTotalRoms.value > filteredRoms.value.length
+    ) {
+      await fetchRoms();
+    }
+  }, 100);
 }
 
 function resetGallery() {
   romsStore.reset();
-  galleryFilterStore.reset();
+  galleryFilterStore.resetFilters();
   galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
-  itemsShown.value = itemsPerBatch.value;
 }
 
 onMounted(async () => {
   currentPlatform.value = null;
   currentCollection.value = null;
   resetGallery();
-  window.addEventListener("wheel", onScroll);
   window.addEventListener("scroll", onScroll);
-  window.addEventListener("touchmove", onScroll);
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
-  window.removeEventListener("touchmove", onScroll);
-  searchText.value = "";
+  searchTerm.value = "";
 });
 </script>
 
 <template>
   <gallery-app-bar-search />
-  <template v-if="gettingRoms">
+  <template v-if="fetchingRoms && filteredRoms.length === 0">
     <skeleton />
   </template>
   <template v-else>
     <template v-if="filteredRoms.length > 0">
-      <v-row v-show="currentView != 2" class="mx-1 mt-3" no-gutters>
+      <v-row v-if="currentView != 2" class="mx-1 mt-3 mr-14" no-gutters>
         <!-- Gallery cards view -->
-        <!-- v-show instead of v-if to avoid recalculate on view change -->
         <v-col
-          v-for="rom in filteredRoms.slice(0, itemsShown)"
+          v-for="rom in filteredRoms"
           :key="rom.id"
           class="pa-1 align-self-end"
           :cols="views[currentView]['size-cols']"
@@ -177,15 +183,17 @@ onBeforeUnmount(() => {
       </v-row>
 
       <!-- Gallery list view -->
-      <v-row class="h-100" v-show="currentView == 2" no-gutters>
-        <v-col class="h-100 pt-4 pb-2">
-          <game-data-table class="h-100 mx-2" />
+      <v-row class="mr-13" v-else="currentView == 2" no-gutters>
+        <v-col class="pt-4 pb-2">
+          <game-table show-platform-icon class="mx-2" />
         </v-col>
       </v-row>
+
+      <load-more-btn :fetchRoms="fetchRoms" />
       <fab-overlay />
     </template>
     <template v-else>
-      <empty-game v-if="!gettingRoms && initialSearch" />
+      <empty-game v-if="!fetchingRoms && initialSearch" />
       <empty-search v-else-if="!initialSearch" />
     </template>
   </template>
