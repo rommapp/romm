@@ -39,8 +39,8 @@ function toggleGridContinuePlaying() {
       <v-row
         :class="{
           'flex-nowrap overflow-x-auto': !gridContinuePlayingRoms,
-          'py-2': true,
         }"
+        class="pa-1"
         no-gutters
       >
         <v-col

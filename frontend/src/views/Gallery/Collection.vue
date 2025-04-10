@@ -280,7 +280,7 @@ onBeforeUnmount(() => {
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
-        <v-row v-if="currentView != 2" class="mx-1 mt-4 mr-14" no-gutters>
+        <v-row v-if="currentView != 2" class="mx-1 mt-3 mr-14" no-gutters>
           <!-- Gallery cards view -->
           <!-- v-show instead of v-if to avoid recalculate on view change -->
           <v-col
@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
 
         <!-- Gallery list view -->
         <v-row class="mr-13" v-if="currentView == 2" no-gutters>
-          <v-col class="pt-4 pb-2">
+          <v-col class="my-4">
             <game-table show-platform-icon class="mx-2" />
           </v-col>
         </v-row>

@@ -8,10 +8,10 @@ defineProps<{ title: string }>();
 <template>
   <r-section icon="mdi-shimmer" :title="title">
     <template #content>
-      <v-row class="flex-nowrap overflow-x-auto" no-gutters>
+      <v-row class="flex-nowrap overflow-x-auto pa-1" no-gutters>
         <v-col
           v-for="_ in 15"
-          class="pa-1 align-self-end"
+          class="align-self-end pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"

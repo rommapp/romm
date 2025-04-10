@@ -23,7 +23,7 @@ onBeforeMount(() => {
 });
 </script>
 <template>
-  <v-card class="ma-2">
+  <v-card>
     <v-card-text class="pa-1">
       <v-row no-gutters class="flex-nowrap overflow-x-auto text-center">
         <v-col>

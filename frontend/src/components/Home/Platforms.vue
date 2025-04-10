@@ -35,7 +35,10 @@ function toggleGridPlatforms() {
     </template>
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': !gridPlatforms, 'py-1': true }"
+        :class="{
+          'flex-nowrap overflow-x-auto': !gridPlatforms,
+        }"
+        class="pa-1"
         no-gutters
       >
         <v-col
