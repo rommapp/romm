@@ -89,7 +89,7 @@ watch(
     density="compact"
     rounded
     height="100%"
-    class="position-fixed bg-surface mt-5 char-index-toolbar"
+    class="position-fixed bg-surface mt-4 char-index-toolbar"
     :style="{
       'max-height': calculatedHeight,
     }"

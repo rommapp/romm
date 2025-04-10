@@ -7,7 +7,7 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 </script>
 <template>
-  <r-section icon="mdi-translate" :title="t('settings.language')">
+  <r-section icon="mdi-translate" :title="t('settings.language')" class="ma-2">
     <template #content>
       <language-selector />
     </template>

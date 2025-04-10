@@ -39,8 +39,10 @@ onBeforeUnmount(() => {
   >
     <template #content>
       <v-row
-        class="py-2"
-        :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
+        :class="{
+          'flex-nowrap overflow-x-auto': !gridCollections,
+        }"
+        class="pa-1"
         no-gutters
       >
         <v-col

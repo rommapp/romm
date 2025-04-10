@@ -22,7 +22,11 @@ const editable = ref(false);
 </script>
 
 <template>
-  <r-section icon="mdi-controller" :title="t('settings.platforms-bindings')">
+  <r-section
+    icon="mdi-controller"
+    :title="t('settings.platforms-bindings')"
+    class="ma-2"
+  >
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"

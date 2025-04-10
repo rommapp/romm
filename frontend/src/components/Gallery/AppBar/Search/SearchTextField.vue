@@ -42,10 +42,6 @@ async function fetchRoms() {
 const refetchRoms = debounce(async () => {
   if (searchTerm.value === null) return;
 
-  // Auto hide android keyboard
-  const inputElement = document.getElementById("search-text-field");
-  inputElement?.blur();
-
   // Update URL with search term
   router.replace({ query: { search: searchTerm.value } });
 
@@ -120,14 +116,13 @@ watch(
 
 <template>
   <v-text-field
-    :density="xs ? 'comfortable' : 'default'"
+    density="default"
     clearable
     autofocus
     hide-details
     rounded="0"
     :label="t('common.search')"
     v-model="searchTerm"
-    :disabled="fetchingRoms"
     @keyup.enter="refetchRoms"
     @click:clear="clearInput"
     @update:model-value="nextTick(refetchRoms)"
