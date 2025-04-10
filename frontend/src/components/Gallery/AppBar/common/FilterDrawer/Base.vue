@@ -5,15 +5,13 @@ import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/Fi
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
-import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
-import SearchBtn from "@/components/Gallery/AppBar/Search/SearchBtn.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick, onMounted, ref, watch } from "vue";
+import { inject, nextTick, onMounted, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
@@ -22,18 +20,15 @@ withDefaults(
   defineProps<{
     showPlatformsFilter?: boolean;
     showFilterBar?: boolean;
-    showSearchBar?: boolean;
   }>(),
   {
     showPlatformsFilter: false,
     showFilterBar: false,
-    showSearchBar: false,
   },
 );
 
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
-const viewportWidth = ref(window.innerWidth);
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
@@ -193,18 +188,6 @@ onMounted(async () => {
           <filter-text-field />
         </v-list-item>
       </template>
-      <template v-if="showSearchBar && xs">
-        <v-list-item>
-          <v-row no-gutters>
-            <v-col>
-              <search-text-field />
-            </v-col>
-            <v-col cols="auto">
-              <search-btn />
-            </v-col>
-          </v-row>
-        </v-list-item>
-      </template>
       <v-list-item>
         <filter-unmatched-btn />
         <filter-matched-btn class="mt-2" />
@@ -220,7 +203,6 @@ onMounted(async () => {
           :label="t('common.platform')"
           variant="outlined"
           density="comfortable"
-          class="my-2"
           :items="filterPlatforms"
           @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         >

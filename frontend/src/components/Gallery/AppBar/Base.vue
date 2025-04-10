@@ -39,10 +39,9 @@ const { calculatedWidth } = calculateMainLayoutWidth();
       <filter-btn />
     </template>
     <filter-text-field v-if="!xs && showFilterBar" />
-    <search-text-field v-if="!xs && showSearchBar" />
+    <search-text-field v-if="showSearchBar" />
     <slot name="content" />
     <template #append>
-      <search-btn v-if="!xs && showSearchBar" />
       <slot name="append" />
       <selecting-btn />
       <gallery-view-btn />
@@ -52,7 +51,6 @@ const { calculatedWidth } = calculateMainLayoutWidth();
   <filter-drawer
     :show-platforms-filter="showPlatformsFilter"
     :show-filter-bar="showFilterBar"
-    :show-search-bar="showSearchBar"
   />
   <char-index-bar />
 </template>
