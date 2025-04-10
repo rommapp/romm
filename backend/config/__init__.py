@@ -16,7 +16,7 @@ def str_to_bool(value: str) -> bool:
 DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
 DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
 DEV_PORT: Final = int(os.environ.get("DEV_PORT", "5000"))
-GUNICORN_WORKERS: Final = int(os.environ.get("GUNICORN_WORKERS", 2))
+DEV_SQL_ECHO: Final = str_to_bool(os.environ.get("DEV_SQL_ECHO", "false"))
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
@@ -25,12 +25,13 @@ RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
-# MARIADB
+# DATABASE
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
 DB_PORT: Final = int(os.environ.get("DB_PORT", 3306))
 DB_USER: Final = os.environ.get("DB_USER")
 DB_PASSWD: Final = os.environ.get("DB_PASSWD")
 DB_NAME: Final = os.environ.get("DB_NAME", "romm")
+ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # REDIS
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "127.0.0.1")
@@ -51,23 +52,24 @@ REDIS_URL: Final = yarl.URL.build(
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
     "IGDB_CLIENT_ID", os.environ.get("CLIENT_ID", "")
-)
+).strip()
 IGDB_CLIENT_SECRET: Final = os.environ.get(
     "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
-)
+).strip()
+
+# SCREENSCRAPER
+SCREENSCRAPER_USER: Final = os.environ.get("SCREENSCRAPER_USER", "")
+SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
 
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
+STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
 
 # RETROACHIEVEMENTS
 RETROACHIEVEMENTS_USERNAME: Final = os.environ.get("RETROACHIEVEMENTS_USERNAME", "")
 RETROACHIEVEMENTS_API_KEY: Final = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
 
 # MOBYGAMES
-MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
-
-# DB DRIVERS
-ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
+MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
 
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
@@ -79,6 +81,16 @@ DISABLE_CSRF_PROTECTION = str_to_bool(
 DISABLE_DOWNLOAD_ENDPOINT_AUTH = str_to_bool(
     os.environ.get("DISABLE_DOWNLOAD_ENDPOINT_AUTH", "false")
 )
+DISABLE_USERPASS_LOGIN = str_to_bool(os.environ.get("DISABLE_USERPASS_LOGIN", "false"))
+
+# OIDC
+OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))
+OIDC_PROVIDER: Final = os.environ.get("OIDC_PROVIDER", "")
+OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "").strip()
+OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "").strip()
+OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
+OIDC_SERVER_APPLICATION_URL: Final = os.environ.get("OIDC_SERVER_APPLICATION_URL", "")
+OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
 
 # SCANS
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
@@ -111,11 +123,15 @@ DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
 
 # FRONTEND
 UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
+KIOSK_MODE = str_to_bool(os.environ.get("KIOSK_MODE", "false"))
 
 # LOGGING
-LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO")
+LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO").upper()
 FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
 NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
+
+# SENTRY
+SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)
 
 # TESTING
 IS_PYTEST_RUN: Final = bool(os.environ.get("PYTEST_VERSION", False))

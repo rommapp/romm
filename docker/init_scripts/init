@@ -19,12 +19,14 @@ debug_log() {
 	fi
 }
 
-# print debug log output if enabled
 info_log() {
 	echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 }
 
-# print error log output if enabled
+warn_log() {
+	echo "WARNING:  [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+}
+
 error_log() {
 	echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 	exit 1
@@ -45,6 +47,13 @@ start_bin_gunicorn() {
 
 	# commands to start our main application and store its PID to check for crashes
 	info_log "starting gunicorn"
+
+	# TODO: Remove support for GUNICORN_WORKERS in future version.
+	if [[ -n ${GUNICORN_WORKERS-} ]]; then
+		warn_log "GUNICORN_WORKERS variable is deprecated, use WEB_CONCURRENCY instead"
+		: "${WEB_CONCURRENCY:=${GUNICORN_WORKERS}}"
+	fi
+
 	gunicorn \
 		--access-logfile - \
 		--error-logfile - \
@@ -53,7 +62,7 @@ start_bin_gunicorn() {
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
-		--workers "${GUNICORN_WORKERS:=2}" \
+		--workers "${WEB_CONCURRENCY:-2}" \
 		main:app &
 }
 
@@ -115,19 +124,43 @@ watchdog_process_pid() {
 	fi
 }
 
+stop_process_pid() {
+	PROCESS=$1
+	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
+		PID=$(cat "/tmp/${PROCESS}.pid") || true
+		if [[ -d "/proc/${PID}" ]]; then
+			info_log "stopping ${PROCESS}"
+			kill "${PID}" || true
+			# wait for process exit
+			while [[ -e "/proc/${PID}" ]]; do sleep 0.1; done
+		fi
+	fi
+}
+
+shutdown() {
+	# shutdown in reverse order
+	stop_process_pid scheduler
+	stop_process_pid worker
+	stop_process_pid watcher
+	stop_process_pid nginx
+	stop_process_pid gunicorn
+	stop_process_pid valkey-server
+}
+
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
 info_log "Starting up, please wait..."
 
+# setup trap handler
+exited=0
+trap 'exited=1 && shutdown' SIGINT SIGTERM EXIT
+
 # clear any leftover PID files
 rm /tmp/*.pid -f
 
 # function definition done, lets start our main loop
-while true; do
-	# check for died processes every 5 seconds
-	sleep 5
-
+while ! ((exited)); do
 	# Start Valkey server if we dont have a corresponding PID file
 	# and REDIS_HOST is not set (which would mean we're using an external Redis/Valkey)
 	if [[ -z ${REDIS_HOST:=""} ]]; then
@@ -138,7 +171,7 @@ while true; do
 	# but only if it was not successful since the last full docker container start
 	if [[ ${ALEMBIC_SUCCESS:="false"} == "false" ]]; then
 		if alembic upgrade head; then
-			debug_log "database schema migrations suceeded"
+			debug_log "database schema migrations succeeded"
 			ALEMBIC_SUCCESS="true"
 		else
 			error_log "Something went horribly wrong with our database"
@@ -165,4 +198,7 @@ while true; do
 	watchdog_process_pid python worker
 	# Start scheduler if we dont have a corresponding PID file
 	watchdog_process_pid python scheduler
+
+	# check for died processes every 5 seconds
+	sleep 5
 done

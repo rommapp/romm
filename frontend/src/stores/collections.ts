@@ -1,36 +1,45 @@
-import type { CollectionSchema } from "@/__generated__";
+import type {
+  CollectionSchema,
+  VirtualCollectionSchema,
+} from "@/__generated__";
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
+export type VirtualCollection = VirtualCollectionSchema;
 
 export default defineStore("collections", {
-  state: () => {
-    return {
-      allCollections: [] as Collection[],
-      favCollection: {} as Collection | undefined,
-      searchText: "" as string,
-    };
-  },
+  state: () => ({
+    allCollections: [] as Collection[],
+    virtualCollections: [] as VirtualCollection[],
+    favCollection: {} as Collection | undefined,
+    filterText: "" as string,
+  }),
   getters: {
-    filteredCollections: ({ allCollections, searchText }) =>
+    filteredCollections: ({ allCollections, filterText }) =>
       allCollections.filter((p) =>
-        p.name.toLowerCase().includes(searchText.toLowerCase()),
+        p.name.toLowerCase().includes(filterText.toLowerCase()),
+      ),
+    filteredVirtualCollections: ({ virtualCollections, filterText }) =>
+      virtualCollections.filter((p) =>
+        p.name.toLowerCase().includes(filterText.toLowerCase()),
       ),
   },
   actions: {
     _reorder() {
-      this.allCollections = this.allCollections.sort((a, b) => {
+      this.allCollections = uniqBy(this.allCollections, "id").sort((a, b) => {
         return a.name.localeCompare(b.name);
       });
-      this.allCollections = uniqBy(this.allCollections, "id");
     },
     setFavCollection(favCollection: Collection | undefined) {
       this.favCollection = favCollection;
     },
     set(collections: Collection[]) {
       this.allCollections = collections;
+    },
+    setVirtual(collections: VirtualCollection[]) {
+      this.virtualCollections = collections;
     },
     add(collection: Collection) {
       this.allCollections.push(collection);
@@ -56,7 +65,13 @@ export default defineStore("collections", {
       return this.allCollections.find((p) => p.id === collectionId);
     },
     isFav(rom: SimpleRom) {
-      return this.favCollection?.roms?.includes(rom.id);
+      return this.favCollection?.rom_ids?.includes(rom.id);
+    },
+    reset() {
+      this.allCollections = [];
+      this.virtualCollections = [];
+      this.favCollection = undefined;
+      this.filterText = "";
     },
   },
 });

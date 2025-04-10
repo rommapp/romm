@@ -29,15 +29,15 @@ async function deleteUser() {
     .then(() => {
       if (user.value) usersStore.remove(user.value.id);
       emitter?.emit("snackbarShow", {
-        msg: `User ${user.value} successfully removed!`,
-        icon: "mdi-close-circle",
-        color: "red",
+        msg: `User ${user.value.username} successfully removed!`,
+        icon: "mdi-check",
+        color: "romm-green",
         timeout: 4000,
       });
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to delete user: ${
+        msg: `Unable to delete user ${user.value.username}: ${
           response?.data?.detail || response?.statusText || message
         }`,
         icon: "mdi-close-circle",
@@ -72,15 +72,15 @@ function closeDialog() {
             "
           >
           </v-img> </v-avatar
-        ><span class="text-romm-accent-1 ml-1">{{ user.username }}</span
+        ><span class="text-primary ml-1">{{ user.username }}</span
         ><span class="ml-1">user. Do you confirm?</span>
       </v-row></template
     >
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="bg-terciary text-romm-red" @click="deleteUser()">
+          <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-toplayer text-romm-red" @click="deleteUser()">
             Confirm
           </v-btn>
         </v-btn-group>

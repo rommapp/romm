@@ -1,61 +1,41 @@
 <script setup lang="ts">
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import saveApi, { saveApi as api } from "@/services/api/save";
-import screenshotApi from "@/services/api/screenshot";
-import stateApi from "@/services/api/state";
-import type { DetailedRom } from "@/stores/roms";
-import { getSupportedEJSCores } from "@/utils";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { saveApi as api } from "@/services/api/save";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
+import {
+  areThreadsRequiredForEJSCore,
+  getSupportedEJSCores,
+  getControlSchemeForPlatform,
+  getDownloadPath,
+} from "@/utils";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { useTheme } from "vuetify";
+import {
+  saveSave,
+  saveState,
+  loadEmulatorJSSave,
+  loadEmulatorJSState,
+  createQuickLoadButton,
+  createSaveQuitButton,
+} from "./utils";
+import type { Emitter } from "mitt";
+import type { Events } from "@/types/emitter";
 
+const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
+
+const romsStore = storeRoms();
 const props = defineProps<{
   rom: DetailedRom;
   save: SaveSchema | null;
   state: StateSchema | null;
   bios: FirmwareSchema | null;
   core: string | null;
+  disc: number | null;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
-const stateRef = ref<StateSchema | null>(props.state);
-
-onBeforeUnmount(() => {
-  window.location.reload();
-});
-
-onMounted(() => {
-  if (props.save) {
-    localStorage.setItem(
-      `player:${props.rom.id}:save_id`,
-      props.save.id.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${props.rom.id}:save_id`);
-  }
-
-  if (props.state) {
-    localStorage.setItem(
-      `player:${props.rom.id}:state_id`,
-      props.state.id.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${props.rom.id}:state_id`);
-  }
-
-  if (props.bios) {
-    localStorage.setItem(
-      `player:${props.rom.platform_slug}:bios_id`,
-      props.bios.id.toString(),
-    );
-  } else {
-    localStorage.removeItem(`player:${props.rom.platform_slug}:bios_id`);
-  }
-
-  if (props.core) {
-    localStorage.setItem(`player:${props.rom.platform_slug}:core`, props.core);
-  } else {
-    localStorage.removeItem(`player:${props.rom.platform_slug}:core`);
-  }
-});
+const theme = useTheme();
+const emitter = inject<Emitter<Events>>("emitter");
 
 // Declare global variables for EmulatorJS
 declare global {
@@ -69,20 +49,31 @@ declare global {
     EJS_gameID: number;
     EJS_gameName: string;
     EJS_backgroundImage: string;
+    EJS_backgroundColor: string;
     EJS_gameUrl: string;
     EJS_loadStateURL: string | null;
     EJS_cheats: string;
+    EJS_gameParentUrl: string;
     EJS_gamePatchUrl: string;
     EJS_netplayServer: string;
     EJS_alignStartButton: "top" | "center" | "bottom";
     EJS_startOnLoaded: boolean;
     EJS_fullscreenOnLoaded: boolean;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    EJS_emulator: any;
+    EJS_threads: boolean;
+    EJS_controlScheme: string | null;
+    EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    EJS_Buttons: Record<string, boolean>;
+    EJS_VirtualGamepadSettings: {};
     EJS_onGameStart: () => void;
-    EJS_onSaveState: (args: { screenshot: File; state: File }) => void;
+    EJS_onSaveState: (args: {
+      screenshot: Uint8Array;
+      state: Uint8Array;
+    }) => void;
     EJS_onLoadState: () => void;
-    EJS_onSaveSave: (args: { screenshot: File; save: File }) => void;
+    EJS_onSaveSave: (args: {
+      screenshot: Uint8Array;
+      save: Uint8Array;
+    }) => void;
     EJS_onLoadSave: () => void;
   }
 }
@@ -90,335 +81,256 @@ declare global {
 const supportedCores = getSupportedEJSCores(romRef.value.platform_slug);
 window.EJS_core =
   supportedCores.find((core) => core === props.core) ?? supportedCores[0];
+window.EJS_controlScheme = getControlSchemeForPlatform(
+  romRef.value.platform_slug,
+);
+window.EJS_threads = areThreadsRequiredForEJSCore(window.EJS_core);
 window.EJS_gameID = romRef.value.id;
-window.EJS_gameUrl = `/api/roms/${romRef.value.id}/content/${romRef.value.file_name}`;
+window.EJS_gameUrl = getDownloadPath({
+  rom: romRef.value,
+  fileIDs: props.disc ? [props.disc] : [],
+});
 window.EJS_biosUrl = props.bios
   ? `/api/firmware/${props.bios.id}/content/${props.bios.file_name}`
   : "";
 window.EJS_player = "#game";
-window.EJS_pathtodata = "/assets/emulatorjs/";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = "/assets/emulatorjs/loading_black.png";
+window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
+window.EJS_backgroundColor = theme.current.value.colors.background;
+// Force saving saves and states to the browser
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
   rewindEnabled: "enabled",
 };
-if (romRef.value.name) window.EJS_gameName = romRef.value.name;
+// Set a valid game name
+window.EJS_gameName = romRef.value.fs_name_no_tags
+  .replace(INVALID_CHARS_REGEX, "")
+  .trim();
 
-function buildStateName(): string {
-  const states = romRef.value.user_states?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
-  let stateName = `${romName}.state.auto`;
-  if (!states.includes(stateName)) return stateName;
-
-  let i = 1;
-  stateName = `${romName}.state1`;
-  while (states.includes(stateName)) {
-    i++;
-    stateName = `${romName}.state${i}`;
+onMounted(() => {
+  if (props.bios) {
+    localStorage.setItem(
+      `player:${romRef.value.platform_slug}:bios_id`,
+      props.bios.id.toString(),
+    );
+  } else {
+    localStorage.removeItem(`player:${romRef.value.platform_slug}:bios_id`);
   }
 
-  return stateName;
+  if (props.core) {
+    localStorage.setItem(
+      `player:${romRef.value.platform_slug}:core`,
+      props.core,
+    );
+  } else {
+    localStorage.removeItem(`player:${romRef.value.platform_slug}:core`);
+  }
+
+  if (props.disc) {
+    localStorage.setItem(
+      `player:${romRef.value.id}:disc`,
+      props.disc.toString(),
+    );
+  } else {
+    localStorage.removeItem(`player:${romRef.value.id}:disc`);
+  }
+
+  emitter?.on("saveSelected", loadSave);
+  emitter?.on("stateSelected", loadState);
+});
+
+onBeforeUnmount(async () => {
+  emitter?.off("saveSelected", loadSave);
+  emitter?.off("stateSelected", loadState);
+  window.EJS_emulator?.callEvent("exit");
+});
+
+function displayMessage(
+  message: string,
+  {
+    duration,
+    className = "msg-info",
+    icon = "",
+  }: {
+    duration: number;
+    className?: "msg-info" | "msg-error" | "msg-success";
+    icon?: string;
+  },
+) {
+  window.EJS_emulator.displayMessage(message, duration);
+  const element = document.querySelector("#game .ejs_message");
+  if (element) {
+    element.classList.add(className, icon);
+    setTimeout(() => {
+      element.classList.remove(className, icon);
+    }, duration);
+  }
 }
 
-function buildSaveName(): string {
-  const saves = romRef.value.user_saves?.map((s) => s.file_name) ?? [];
-  const romName = romRef.value.file_name_no_ext.trim();
-  let saveName = `${romName}.srm`;
-  if (!saves.includes(saveName)) return saveName;
+// Saves management
+async function loadSave(save: SaveSchema) {
+  saveRef.value = save;
 
-  let i = 2;
-  saveName = `${romName} (${i}).srm`;
-  while (saves.includes(saveName)) {
-    i++;
-    saveName = `${romName} (${i}).srm`;
-  }
-
-  return saveName;
-}
-
-async function fetchState(): Promise<Uint8Array> {
-  if (stateRef.value) {
-    const { data } = await api.get(
-      stateRef.value.download_path.replace("/api", ""),
-      { responseType: "arraybuffer" },
-    );
-    if (data) {
-      window.EJS_emulator.displayMessage("LOADED FROM ROMM");
-      return new Uint8Array(data);
-    }
-  }
-
-  if (window.EJS_emulator.saveInBrowserSupported()) {
-    const data = await window.EJS_emulator.storage.states.get(
-      window.EJS_emulator.getBaseFileName() + ".state",
-    );
-    if (data) {
-      window.EJS_emulator.displayMessage("LOADED FROM BROWSER");
-      return data;
-    }
+  const { data } = await api.get(save.download_path.replace("/api", ""), {
+    responseType: "arraybuffer",
+  });
+  if (data) {
+    loadEmulatorJSSave(new Uint8Array(data));
+    displayMessage("Save loaded from server", {
+      duration: 3000,
+      icon: "mdi-cloud-upload-outline",
+    });
+    return;
   }
 
   const file = await window.EJS_emulator.selectFile();
-  return new Uint8Array(await file.arrayBuffer());
-}
-
-function downloadFallback(data: BlobPart, name: string) {
-  const url = window.URL.createObjectURL(
-    new Blob([data], { type: "application/octet-stream" }),
-  );
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  window.URL.revokeObjectURL(url);
-}
-
-window.EJS_onLoadState = async function () {
-  const state = await fetchState();
-  window.EJS_emulator.gameManager.loadState(state);
-};
-
-window.EJS_onSaveState = function ({
-  state,
-  screenshot,
-}: {
-  screenshot: BlobPart;
-  state: BlobPart;
-}) {
-  if (window.EJS_emulator.saveInBrowserSupported()) {
-    window.EJS_emulator.storage.states.put(
-      window.EJS_emulator.getBaseFileName() + ".state",
-      state,
-    );
-  }
-  if (stateRef.value) {
-    stateApi
-      .updateState({
-        state: stateRef.value,
-        file: new File([state], stateRef.value.file_name, {
-          type: "application/octet-stream",
-        }),
-      })
-      .then(({ data }) => {
-        stateRef.value = data;
-        window.EJS_emulator.displayMessage("SAVED TO ROMM");
-
-        if (stateRef.value.screenshot) {
-          screenshotApi
-            .updateScreenshot({
-              screenshot: stateRef.value.screenshot,
-              file: new File(
-                [screenshot],
-                stateRef.value.screenshot.file_name,
-                {
-                  type: "application/octet-stream",
-                },
-              ),
-            })
-            .then(({ data }) => {
-              if (stateRef.value) stateRef.value.screenshot = data;
-            })
-            .catch((e) => console.log(e));
-        } else {
-          screenshotApi
-            .uploadScreenshots({
-              rom: romRef.value,
-              screenshots: [
-                new File([screenshot], `${buildStateName()}.png`, {
-                  type: "application/octet-stream",
-                }),
-              ],
-            })
-            .then(({ data }) => {
-              if (stateRef.value)
-                stateRef.value.screenshot = data.screenshots[0];
-              romRef.value.user_screenshots = data.screenshots;
-              romRef.value.merged_screenshots = data.merged_screenshots;
-            })
-            .catch((e) => console.log(e));
-        }
-      })
-      .catch(() => {
-        if (window.EJS_emulator.saveInBrowserSupported()) {
-          window.EJS_emulator.displayMessage("SAVED TO BROWSER");
-        } else {
-          downloadFallback(state, stateRef.value?.file_name ?? "state");
-        }
-      });
-  } else if (romRef.value) {
-    stateApi
-      .uploadStates({
-        rom: romRef.value,
-        emulator: window.EJS_core,
-        states: [
-          new File([state], buildStateName(), {
-            type: "application/octet-stream",
-          }),
-        ],
-      })
-      .then(({ data }) => {
-        const allStates = data.states.sort(
-          (a: StateSchema, b: StateSchema) => a.id - b.id,
-        );
-        if (romRef.value) romRef.value.user_states = allStates;
-        stateRef.value = allStates.pop() ?? null;
-        window.EJS_emulator.displayMessage("SAVED TO ROMM");
-
-        screenshotApi
-          .uploadScreenshots({
-            rom: romRef.value,
-            screenshots: [
-              new File([screenshot], `${buildStateName()}.png`, {
-                type: "application/octet-stream",
-              }),
-            ],
-          })
-          .then(({ data }) => {
-            romRef.value.user_screenshots = data.screenshots;
-            romRef.value.merged_screenshots = data.merged_screenshots;
-          })
-          .catch((e) => console.log(e));
-      })
-      .catch(() => {
-        if (window.EJS_emulator.saveInBrowserSupported()) {
-          window.EJS_emulator.displayMessage("SAVED TO BROWSER");
-        } else {
-          downloadFallback(state, buildStateName());
-        }
-      });
-  }
-};
-
-async function fetchSave(): Promise<Uint8Array> {
-  if (saveRef.value) {
-    const { data } = await api.get(
-      saveRef.value.download_path.replace("/api", ""),
-      { responseType: "arraybuffer" },
-    );
-    if (data) return new Uint8Array(data);
-  }
-
-  const file = await window.EJS_emulator.selectFile();
-  return new Uint8Array(await file.arrayBuffer());
+  loadEmulatorJSSave(new Uint8Array(await file.arrayBuffer()));
 }
 
 window.EJS_onLoadSave = async function () {
-  const sav = await fetchSave();
-  const FS = window.EJS_emulator.gameManager.FS;
-  const path = window.EJS_emulator.gameManager.getSaveFilePath();
-  const paths = path.split("/");
-  let cp = "";
-  for (let i = 0; i < paths.length - 1; i++) {
-    if (paths[i] === "") continue;
-    cp += "/" + paths[i];
-    if (!FS.analyzePath(cp).exists) FS.mkdir(cp);
-  }
-  if (FS.analyzePath(path).exists) FS.unlink(path);
-  FS.writeFile(path, sav);
-  window.EJS_emulator.gameManager.loadSaveFiles();
+  window.EJS_emulator.pause();
+  window.EJS_emulator.toggleFullscreen(false);
+  emitter?.emit("selectSaveDialog", romRef.value);
 };
 
-window.EJS_onSaveSave = function ({
-  save,
-  screenshot,
-}: {
-  save: BlobPart;
-  screenshot: BlobPart;
+window.EJS_onSaveSave = async function ({
+  save: saveFile,
+  screenshot: screenshotFile,
 }) {
-  if (saveRef.value) {
-    saveApi
-      .updateSave({
-        save: saveRef.value,
-        file: new File([save], saveRef.value.file_name, {
-          type: "application/octet-stream",
-        }),
-      })
-      .then(({ data }) => {
-        saveRef.value = data;
+  const save = await saveSave({
+    rom: romRef.value,
+    save: saveRef.value,
+    saveFile,
+    screenshotFile,
+  });
 
-        if (saveRef.value.screenshot) {
-          screenshotApi
-            .updateScreenshot({
-              screenshot: saveRef.value.screenshot,
-              file: new File([screenshot], saveRef.value.screenshot.file_name, {
-                type: "application/octet-stream",
-              }),
-            })
-            .then(({ data }) => {
-              if (saveRef.value) saveRef.value.screenshot = data;
-            })
-            .catch((e) => console.log(e));
-        } else {
-          screenshotApi
-            .uploadScreenshots({
-              rom: romRef.value,
-              screenshots: [
-                new File([screenshot], `${buildSaveName()}.png`, {
-                  type: "application/octet-stream",
-                }),
-              ],
-            })
-            .then(({ data }) => {
-              if (saveRef.value) saveRef.value.screenshot = data.screenshots[0];
-              romRef.value.user_screenshots = data.screenshots;
-              romRef.value.merged_screenshots = data.merged_screenshots;
-            })
-            .catch((e) => console.log(e));
-        }
-      })
-      .catch(() => {
-        downloadFallback(save, saveRef.value?.file_name ?? "save");
-      });
-  } else if (romRef.value) {
-    saveApi
-      .uploadSaves({
-        rom: romRef.value,
-        emulator: window.EJS_core,
-        saves: [
-          new File([save], buildSaveName(), {
-            type: "application/octet-stream",
-          }),
-        ],
-      })
-      .then(({ data }) => {
-        const allSaves = data.saves.sort(
-          (a: SaveSchema, b: SaveSchema) => a.id - b.id,
-        );
-        if (romRef.value) romRef.value.user_saves = allSaves;
-        saveRef.value = allSaves.pop() ?? null;
+  romsStore.update(romRef.value);
 
-        screenshotApi
-          .uploadScreenshots({
-            rom: romRef.value,
-            screenshots: [
-              new File([screenshot], `${buildSaveName()}.png`, {
-                type: "application/octet-stream",
-              }),
-            ],
-          })
-          .then(({ data }) => {
-            romRef.value.user_screenshots = data.screenshots;
-            romRef.value.merged_screenshots = data.merged_screenshots;
-          })
-          .catch((e) => console.log(e));
-      })
-      .catch(() => {
-        downloadFallback(save, buildSaveName());
-      });
+  if (save) {
+    displayMessage("Save synced with server", {
+      duration: 4000,
+      icon: "mdi-cloud-sync",
+    });
+  } else {
+    displayMessage("Error syncing save with server", {
+      duration: 4000,
+      className: "msg-error",
+      icon: "mdi-sync-alert",
+    });
+  }
+};
+
+// States management
+async function loadState(state: StateSchema) {
+  const { data } = await api.get(state.download_path.replace("/api", ""), {
+    responseType: "arraybuffer",
+  });
+  if (data) {
+    loadEmulatorJSState(new Uint8Array(data));
+    displayMessage("State loaded from server", {
+      duration: 3000,
+      icon: "mdi-cloud-upload-outline",
+    });
+    return;
+  }
+
+  const file = await window.EJS_emulator.selectFile();
+  loadEmulatorJSState(new Uint8Array(await file.arrayBuffer()));
+}
+
+window.EJS_onLoadState = async function () {
+  window.EJS_emulator.pause();
+  window.EJS_emulator.toggleFullscreen(false);
+  emitter?.emit("selectStateDialog", romRef.value);
+};
+
+window.EJS_onSaveState = async function ({
+  state: stateFile,
+  screenshot: screenshotFile,
+}) {
+  const state = await saveState({
+    rom: romRef.value,
+    stateFile,
+    screenshotFile,
+  });
+  window.EJS_emulator.storage.states.put(
+    window.EJS_emulator.getBaseFileName() + ".state",
+    stateFile,
+  );
+
+  romsStore.update(romRef.value);
+
+  if (state) {
+    displayMessage("State synced with server", {
+      duration: 4000,
+      icon: "mdi-cloud-sync",
+    });
+  } else {
+    displayMessage("Error syncing state with server", {
+      duration: 4000,
+      className: "msg-error",
+      icon: "mdi-sync-alert",
+    });
   }
 };
 
 window.EJS_onGameStart = async () => {
-  saveRef.value = props.save;
-  stateRef.value = props.state;
+  setTimeout(async () => {
+    if (props.save) await loadSave(props.save);
+    if (props.state) await loadState(props.state);
 
-  setTimeout(() => {
-    if (stateRef.value) window.EJS_onLoadState();
-    if (saveRef.value) window.EJS_onLoadSave();
+    window.EJS_emulator.settings = {
+      ...window.EJS_emulator.settings,
+      "save-state-location": "browser",
+    };
   }, 10);
+
+  const quickLoad = createQuickLoadButton();
+  quickLoad.addEventListener("click", () => {
+    if (
+      window.EJS_emulator.settings["save-state-location"] === "browser" &&
+      window.EJS_emulator.saveInBrowserSupported()
+    ) {
+      window.EJS_emulator.storage.states
+        .get(window.EJS_emulator.getBaseFileName() + ".state")
+        .then((e: Uint8Array) => {
+          window.EJS_emulator.gameManager.loadState(e);
+          displayMessage("Quick load from server", {
+            duration: 3000,
+            icon: "mdi-flash",
+          });
+        });
+    }
+  });
+
+  const saveAndQuit = createSaveQuitButton();
+  saveAndQuit.addEventListener("click", async () => {
+    if (!romRef.value || !window.EJS_emulator) return window.history.back();
+
+    const stateFile = window.EJS_emulator.gameManager.getState();
+    const saveFile = window.EJS_emulator.gameManager.getSaveFile();
+    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
+
+    // Force a save of the current state
+    await saveState({
+      rom: romRef.value,
+      stateFile,
+      screenshotFile,
+    });
+
+    // Force a save of the save file
+    await saveSave({
+      rom: romRef.value,
+      save: saveRef.value,
+      saveFile,
+      screenshotFile,
+    });
+
+    romsStore.update(romRef.value);
+    window.history.back();
+  });
 };
 </script>
 
@@ -428,7 +340,7 @@ window.EJS_onGameStart = async () => {
 
 <style scoped>
 #game {
-  max-height: 100dvh;
+  height: 100%;
 }
 </style>
 
@@ -436,13 +348,50 @@ window.EJS_onGameStart = async () => {
 #game .ejs_cheat_code {
   background-color: white;
 }
+
+#game .ejs_settings_transition {
+  height: fit-content;
+}
+
+#game .ejs_game_background {
+  background-size: 40%;
+}
+
+/* Hide the exit button */
+#game .ejs_menu_bar .ejs_menu_button:nth-child(-1) {
+  display: none;
+}
+
+#game .ejs_message {
+  visibility: hidden;
+  margin: 1rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  color: white;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  filter: opacity(0.85) drop-shadow(0 0 0.5rem rgba(0, 0, 0, 0.5));
+}
+
+#game .ejs_message::before {
+  margin-right: 8px;
+  font-size: 20px !important;
+  font: normal normal normal 24px / 1 "Material Design Icons";
+}
+
+#game .ejs_message.msg-info {
+  visibility: visible;
+  background-color: rgba(var(--v-theme-romm-blue));
+}
+
+#game .ejs_message.msg-error {
+  visibility: visible;
+  background-color: rgba(var(--v-theme-romm-red));
+}
+
+#game .ejs_message.msg-success {
+  visibility: visible;
+  background-color: rgba(var(--v-theme-romm-green));
+}
 </style>
-
-<!-- Other config options: https://emulatorjs.org/docs/Options.html -->
-
-<!-- window.EJS_biosUrl; -->
-<!-- window.EJS_VirtualGamepadSettings; -->
-<!-- window.EJS_cheats; -->
-<!-- window.EJS_gamePatchUrl; -->
-<!-- window.EJS_gameParentUrl; -->
-<!-- window.EJS_netplayServer; -->

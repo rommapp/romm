@@ -1,11 +1,8 @@
 const commonColors = {
-  "romm-accent-1": "#a452fe",
-  "romm-accent-2": "#c400f7",
-  "romm-accent-3": "#3808a4",
-
-  "romm-red": "#da3633",
+  "romm-red": "#DA3633",
   "romm-green": "#3FB950",
-  "romm-white": "#fefdfe",
+  "romm-blue": "#0070F3",
+  "romm-white": "#FEFDFE",
   "romm-gray": "#5D5D5D",
   "romm-black": "#000000",
 };
@@ -13,15 +10,16 @@ const commonColors = {
 export const dark = {
   dark: true,
   colors: {
-    primary: "#161b22",
-    secondary: "#0d1117",
-    terciary: "#202832",
-    background: "#0d1117",
-
-    surface: "#161b22",
-    tooltip: "#202832",
-    chip: "#161b22",
-
+    primary: "#8B74E8",
+    secondary: "#9E8CD6",
+    accent: "#E1A38D",
+    background: "#0D1117",
+    surface: "#161B22",
+    toplayer: "#1C2330",
+    "primary-lighten": "#A18FFF",
+    "primary-darken": "#6043C8",
+    "secondary-lighten": "#EBE7FA",
+    "secondary-darken": "#7A6BB4",
     ...commonColors,
   },
 };
@@ -29,15 +27,16 @@ export const dark = {
 export const light = {
   dark: false,
   colors: {
-    primary: "#ECEFF4",
-    secondary: "#ECEFF4",
-    terciary: "#ECEFF4",
-    background: "#ECEFF4",
-
-    surface: "#ECEFF4",
-    tooltip: "#ECEFF4",
-    chip: "#ECEFF4",
-
+    primary: "#371f69",
+    secondary: "#553E98",
+    accent: "#E1A38D",
+    surface: "#FFFFFF",
+    background: "#F2F4F8",
+    toplayer: "#E4E9F0",
+    "primary-lighten": "#7850E6",
+    "primary-darken": "#452788",
+    "secondary-lighten": "#F0EBFA",
+    "secondary-darken": "#9B8BD0",
     ...commonColors,
   },
 };

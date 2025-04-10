@@ -1,16 +1,15 @@
-/* generated using openapi-typescript-codegen -- do no edit */
+/* generated using openapi-typescript-codegen -- do not edit */
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-
 import type { RomUserStatus } from './RomUserStatus';
-
 export type RomUserSchema = {
     id: number;
     user_id: number;
     rom_id: number;
     created_at: string;
     updated_at: string;
+    last_played: (string | null);
     note_raw_markdown: string;
     note_is_public: boolean;
     is_main_sibling: boolean;

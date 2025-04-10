@@ -202,13 +202,17 @@ class MetadataHandler:
             - "client_id"
             - "client_secret"
             - "api_key"
+            - "ssid"
+            - "sspassword"
+            - "devid"
+            - "devpassword"
         """
         return {
             key: (
-                f"Bearer {values[key].split(' ')[1][:3]}***{values[key].split(' ')[1][-3:]}"
+                f"Bearer {values[key].split(' ')[1][:2]}***{values[key].split(' ')[1][-2:]}"
                 if key == "Authorization" and values[key].startswith("Bearer ")
                 else (
-                    f"{values[key][:3]}***{values[key][-3:]}"
+                    f"{values[key][:2]}***{values[key][-2:]}"
                     if key
                     in {
                         "Client-ID",
@@ -216,6 +220,10 @@ class MetadataHandler:
                         "client_id",
                         "client_secret",
                         "api_key",
+                        "ssid",
+                        "sspassword",
+                        "devid",
+                        "devpassword",
                     }
                     # Leave other keys unchanged
                     else values[key]

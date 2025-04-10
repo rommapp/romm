@@ -1,15 +1,64 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
+import storeNavigation from "@/stores/navigation";
 
-const emitter = inject<Emitter<Events>>("emitter");
+// Props
+withDefaults(
+  defineProps<{
+    block?: boolean;
+    height?: string;
+    rounded?: boolean;
+    withTag?: boolean;
+  }>(),
+  {
+    block: false,
+    height: "",
+    rounded: false,
+    withTag: false,
+  },
+);
+const navigationStore = storeNavigation();
 </script>
 <template>
   <v-btn
-    icon="mdi-magnify"
+    icon
+    :block="block"
     variant="flat"
-    rounded="0"
-    @click="emitter?.emit('showSearchRomDialog', null)"
-  />
+    color="background"
+    :height="height"
+    :class="{ rounded: rounded }"
+    class="py-4 bg-background custom-btn"
+    @click="navigationStore.goSearch"
+  >
+    <div class="icon-container">
+      <v-icon :color="$route.name == 'search' ? 'primary' : ''"
+        >mdi-magnify</v-icon
+      >
+      <v-expand-transition>
+        <span
+          v-if="withTag"
+          class="text-caption"
+          :class="{ 'text-primary': $route.name == 'search' }"
+          >Search</span
+        >
+      </v-expand-transition>
+    </div>
+  </v-btn>
 </template>
+
+<style scoped>
+.custom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.icon-container span {
+  text-align: center;
+}
+</style>

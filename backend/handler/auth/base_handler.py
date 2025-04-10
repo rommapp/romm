@@ -1,70 +1,18 @@
-import enum
+import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Final
+from typing import Any
 
-from config import ROMM_AUTH_SECRET_KEY
-from exceptions.auth_exceptions import OAuthCredentialsException
+from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY
+from decorators.auth import oauth
+from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
+from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
 from logger.logger import log
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
-
-ALGORITHM: Final = "HS256"
-DEFAULT_OAUTH_TOKEN_EXPIRY: Final = timedelta(minutes=15)
-
-
-class Scope(enum.StrEnum):
-    ME_READ = "me.read"
-    ME_WRITE = "me.write"
-    ROMS_READ = "roms.read"
-    ROMS_WRITE = "roms.write"
-    ROMS_USER_READ = "roms.user.read"
-    ROMS_USER_WRITE = "roms.user.write"
-    PLATFORMS_READ = "platforms.read"
-    PLATFORMS_WRITE = "platforms.write"
-    ASSETS_READ = "assets.read"
-    ASSETS_WRITE = "assets.write"
-    FIRMWARE_READ = "firmware.read"
-    FIRMWARE_WRITE = "firmware.write"
-    COLLECTIONS_READ = "collections.read"
-    COLLECTIONS_WRITE = "collections.write"
-    USERS_READ = "users.read"
-    USERS_WRITE = "users.write"
-    TASKS_RUN = "tasks.run"
-
-
-DEFAULT_SCOPES_MAP: Final = {
-    Scope.ME_READ: "View your profile",
-    Scope.ME_WRITE: "Modify your profile",
-    Scope.ROMS_READ: "View ROMs",
-    Scope.PLATFORMS_READ: "View platforms",
-    Scope.ASSETS_READ: "View assets",
-    Scope.ASSETS_WRITE: "Modify assets",
-    Scope.FIRMWARE_READ: "View firmware",
-    Scope.ROMS_USER_READ: "View user-rom properties",
-    Scope.ROMS_USER_WRITE: "Modify user-rom properties",
-    Scope.COLLECTIONS_READ: "View collections",
-    Scope.COLLECTIONS_WRITE: "Modify collections",
-}
-
-WRITE_SCOPES_MAP: Final = {
-    Scope.ROMS_WRITE: "Modify ROMs",
-    Scope.PLATFORMS_WRITE: "Modify platforms",
-    Scope.FIRMWARE_WRITE: "Modify firmware",
-}
-
-FULL_SCOPES_MAP: Final = {
-    Scope.USERS_READ: "View users",
-    Scope.USERS_WRITE: "Modify users",
-    Scope.TASKS_RUN: "Run tasks",
-}
-
-DEFAULT_SCOPES: Final = list(DEFAULT_SCOPES_MAP.keys())
-WRITE_SCOPES: Final = DEFAULT_SCOPES + list(WRITE_SCOPES_MAP.keys())
-FULL_SCOPES: Final = WRITE_SCOPES + list(FULL_SCOPES_MAP.keys())
 
 
 class AuthHandler:
@@ -100,27 +48,18 @@ class AuthHandler:
         if not username:
             return None
 
-        try:
-            # Key exists therefore user is probably authenticated
-            user = db_user_handler.get_user_by_username(username)
-            if user is None or not user.enabled:
-                conn.session.clear()
-                log.error(
-                    "User '%s' %s",
-                    username,
-                    "not found" if user is None else "not enabled",
-                )
-                return None
-
-            return user
-        except Exception:
+        # Key exists therefore user is probably authenticated
+        user = db_user_handler.get_user_by_username(username)
+        if user is None or not user.enabled:
             conn.session.clear()
             log.error(
                 "User '%s' %s",
                 username,
-                "not found" if user is None else "is not enabled",
+                "not found" if user is None else "not enabled",
             )
             return None
+
+        return user
 
 
 class OAuthHandler:
@@ -148,7 +87,7 @@ class OAuthHandler:
 
         issuer = payload.claims.get("iss")
         if not issuer or issuer != "romm:oauth":
-            return None
+            return None, None
 
         username = payload.claims.get("sub")
         if username is None:
@@ -159,8 +98,68 @@ class OAuthHandler:
             raise OAuthCredentialsException
 
         if not user.enabled:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
-            )
+            raise UserDisabledException
 
         return user, payload.claims
+
+
+class OpenIDHandler:
+    async def get_current_active_user_from_openid_token(self, token: Any):
+        from handler.database import db_user_handler
+        from models.user import Role, User
+
+        if not OIDC_ENABLED:
+            return None, None
+
+        userinfo = token.get("userinfo")
+        if userinfo is None:
+            log.error("Userinfo is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Userinfo is missing from token.",
+            )
+
+        email = userinfo.get("email")
+        if email is None:
+            log.error("Email is missing from token.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is missing from token.",
+            )
+
+        metadata = await oauth.openid.load_server_metadata()
+        claims_supported = metadata.get("claims_supported")
+        is_email_verified = userinfo.get("email_verified", None)
+
+        # Fail if email is explicitly unverified, or `email_verified` is a supported claim and
+        # email is not explicitly verified.
+        if is_email_verified is False or (
+            claims_supported
+            and "email_verified" in claims_supported
+            and is_email_verified is not True
+        ):
+            log.error("Email is not verified.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is not verified.",
+            )
+
+        preferred_username = userinfo.get("preferred_username")
+
+        user = db_user_handler.get_user_by_email(email)
+        if user is None:
+            log.info("User with email '%s' not found, creating new user", email)
+            user = User(
+                username=preferred_username,
+                hashed_password=str(uuid.uuid4()),
+                email=email,
+                enabled=True,
+                role=Role.VIEWER,
+            )
+            db_user_handler.add_user(user)
+
+        if not user.enabled:
+            raise UserDisabledException
+
+        log.info("User successfully authenticated: %s", email)
+        return user, userinfo

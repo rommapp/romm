@@ -1,4 +1,6 @@
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
+from typing import Sequence
+
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, FRONTEND_RESOURCES_PATH
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
     WEBRCADE_SLUG_TO_TYPE_MAP,
@@ -12,15 +14,17 @@ from endpoints.responses.feeds import (
     WebrcadeFeedSchema,
 )
 from fastapi import Request
-from handler.auth.base_handler import Scope
+from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
-from handler.metadata.base_hander import SWITCH_TITLEDB_REGEX
+from handler.metadata.base_hander import SWITCH_PRODUCT_ID_REGEX, SWITCH_TITLEDB_REGEX
 from models.rom import Rom
 from starlette.datastructures import URLPath
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    tags=["feeds"],
+)
 
 
 @protected_route(
@@ -47,7 +51,8 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             continue
 
         category_items = []
-        for rom in db_rom_handler.get_roms(platform_id=p.id):
+        roms = db_rom_handler.get_roms_scalar(platform_id=p.id)
+        for rom in roms:
             category_item = WebrcadeFeedItemSchema(
                 title=rom.name or "",
                 description=rom.summary or "",
@@ -57,7 +62,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
                         request.url_for(
                             "get_rom_content",
                             id=rom.id,
-                            file_name=rom.file_name,
+                            file_name=rom.fs_name,
                         )
                     ),
                 ),
@@ -65,13 +70,13 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             if rom.path_cover_s:
                 category_item["thumbnail"] = str(
                     URLPath(
-                        f"/assets/romm/resources/{rom.path_cover_s}"
+                        f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_s}"
                     ).make_absolute_url(request.base_url)
                 )
             if rom.path_cover_l:
                 category_item["background"] = str(
                     URLPath(
-                        f"/assets/romm/resources/{rom.path_cover_l}"
+                        f"{FRONTEND_RESOURCES_PATH}/{rom.path_cover_l}"
                     ).make_absolute_url(request.base_url)
                 )
             category_items.append(category_item)
@@ -130,15 +135,37 @@ async def tinfoil_index_feed(
             error="Nintendo Switch platform not found",
         )
 
-    roms: list[Rom] = db_rom_handler.get_roms(platform_id=switch.id)
-
-    async def extract_titledb(roms: list[Rom]) -> dict[str, TinfoilFeedTitleDBSchema]:
+    async def extract_titledb(
+        roms: Sequence[Rom],
+    ) -> dict[str, TinfoilFeedTitleDBSchema]:
         titledb = {}
         for rom in roms:
-            match = SWITCH_TITLEDB_REGEX.search(rom.file_name)
-            if match:
+            tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
+            pid_match = SWITCH_PRODUCT_ID_REGEX.search(rom.fs_name)
+            if tdb_match:
                 _search_term, index_entry = (
-                    await meta_igdb_handler._switch_titledb_format(match, rom.file_name)
+                    await meta_igdb_handler._switch_titledb_format(
+                        tdb_match, rom.fs_name
+                    )
+                )
+                if index_entry:
+                    titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
+                        id=str(index_entry["nsuId"]),
+                        name=index_entry["name"],
+                        description=index_entry["description"],
+                        size=index_entry["size"],
+                        version=index_entry["version"] or 0,
+                        region=index_entry["region"] or "US",
+                        releaseDate=index_entry["releaseDate"] or 19700101,
+                        rating=index_entry["rating"] or 0,
+                        publisher=index_entry["publisher"] or "",
+                        rank=0,
+                    )
+            elif pid_match:
+                _search_term, index_entry = (
+                    await meta_igdb_handler._switch_productid_format(
+                        pid_match, rom.fs_name
+                    )
                 )
                 if index_entry:
                     titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
@@ -156,17 +183,23 @@ async def tinfoil_index_feed(
 
         return titledb
 
+    roms = db_rom_handler.get_roms_scalar(platform_id=switch.id)
+
     return TinfoilFeedSchema(
         files=[
             TinfoilFeedFileSchema(
                 url=str(
                     request.url_for(
-                        "get_rom_content", id=rom.id, file_name=rom.file_name
+                        "get_romfile_content",
+                        id=rom_file.id,
+                        file_name=rom_file.file_name,
                     )
                 ),
-                size=rom.file_size_bytes,
+                size=rom_file.file_size_bytes,
             )
             for rom in roms
+            for rom_file in rom.files
+            if rom_file.file_extension in ["xci", "nsp", "nsz", "xcz", "nro"]
         ],
         directories=[],
         success="RomM Switch Library",

@@ -5,23 +5,44 @@ import storePlatforms from "@/stores/platforms";
 import { isNull } from "lodash";
 import { views } from "@/utils";
 import { useI18n } from "vue-i18n";
+import { storeToRefs } from "pinia";
+import { ref } from "vue";
 
 // Props
 const { t } = useI18n();
-const platforms = storePlatforms();
-const gridPlatforms = isNull(localStorage.getItem("settings.gridPlatforms"))
-  ? true
-  : localStorage.getItem("settings.gridPlatforms") === "true";
+const platformsStore = storePlatforms();
+const { filledPlatforms } = storeToRefs(platformsStore);
+const storedPlatforms = localStorage.getItem("settings.gridPlatforms");
+const gridPlatforms = ref(
+  isNull(storedPlatforms) ? false : storedPlatforms === "true",
+);
+function toggleGridPlatforms() {
+  gridPlatforms.value = !gridPlatforms.value;
+  localStorage.setItem(
+    "settings.gridPlatforms",
+    gridPlatforms.value.toString(),
+  );
+}
 </script>
 <template>
   <r-section icon="mdi-controller" :title="t('common.platforms')">
+    <template #toolbar-append>
+      <v-btn icon rounded="0" @click="toggleGridPlatforms"
+        ><v-icon>{{
+          gridPlatforms ? "mdi-view-comfy" : "mdi-view-column"
+        }}</v-icon>
+      </v-btn>
+    </template>
     <template #content>
       <v-row
-        :class="{ 'flex-nowrap overflow-x-auto': !gridPlatforms }"
+        :class="{
+          'flex-nowrap overflow-x-auto': !gridPlatforms,
+        }"
+        class="pa-1"
         no-gutters
       >
         <v-col
-          v-for="platform in platforms.filledPlatforms"
+          v-for="platform in filledPlatforms"
           :key="platform.slug"
           class="pa-1"
           :cols="views[0]['size-cols']"

@@ -7,11 +7,14 @@ import storeCollections, { type Collection } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import storeRoms from "@/stores/roms";
+import storeScanning from "@/stores/scanning";
+import socket from "@/services/socket";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
+import romApi from "@/services/api/rom";
 
 // Props
 const { t } = useI18n();
@@ -22,6 +25,7 @@ const auth = storeAuth();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
 const { favCollection } = storeToRefs(collectionsStore);
+const scanningStore = storeScanning();
 
 async function switchFromFavourites() {
   if (!favCollection.value) {
@@ -50,10 +54,10 @@ async function switchFromFavourites() {
       });
   }
   if (!collectionsStore.isFav(props.rom)) {
-    favCollection.value?.roms.push(props.rom.id);
+    favCollection.value?.rom_ids.push(props.rom.id);
   } else {
     if (favCollection.value) {
-      favCollection.value.roms = favCollection.value.roms.filter(
+      favCollection.value.rom_ids = favCollection.value.rom_ids.filter(
         (id) => id !== props.rom.id,
       );
       if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
@@ -72,6 +76,8 @@ async function switchFromFavourites() {
         color: "green",
         timeout: 2000,
       });
+      favCollection.value = data;
+      collectionsStore.update(data);
     })
     .catch((error) => {
       console.log(error);
@@ -86,13 +92,58 @@ async function switchFromFavourites() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     });
 }
+
+async function resetLastPlayed() {
+  await romApi
+    .updateUserRomProps({
+      romId: props.rom.id,
+      data: {},
+      removeLastPlayed: true,
+    })
+    .then(() => {
+      emitter?.emit("snackbarShow", {
+        msg: `${props.rom.name} removed from Continue Playing`,
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 2000,
+      });
+
+      romsStore.removeFromContinuePlaying(props.rom);
+    })
+    .catch((error) => {
+      console.log(error);
+      emitter?.emit("snackbarShow", {
+        msg: error.response.data.detail,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+      return;
+    });
+}
+
+async function onScan() {
+  scanningStore.set(true);
+  emitter?.emit("snackbarShow", {
+    msg: `Refreshing ${props.rom.name} metadata...`,
+    icon: "mdi-loading mdi-spin",
+    color: "primary",
+  });
+
+  if (!socket.connected) socket.connect();
+  socket.emit("scan", {
+    platforms: [props.rom.platform_id],
+    roms_ids: [props.rom.id],
+    type: "quick", // Quick scan so we can filter by selected roms
+    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+  });
+}
 </script>
 
 <template>
-  <v-list rounded="0" class="pa-0">
+  <v-list class="pa-0">
     <template v-if="auth.scopes.includes('roms.write')">
       <v-list-item
-        :disabled="!heartbeat.value.ANY_SOURCE_ENABLED"
+        :disabled="!heartbeat.value.METADATA_SOURCES.ANY_SOURCE_ENABLED"
         class="py-4 pr-5"
         @click="emitter?.emit('showMatchRomDialog', rom)"
       >
@@ -103,7 +154,7 @@ async function switchFromFavourites() {
         </v-list-item-title>
         <v-list-item-subtitle>
           {{
-            !heartbeat.value.ANY_SOURCE_ENABLED
+            !heartbeat.value.METADATA_SOURCES.ANY_SOURCE_ENABLED
               ? t("rom.no-metadata-source")
               : ""
           }}
@@ -117,8 +168,25 @@ async function switchFromFavourites() {
           <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit-rom") }}
         </v-list-item-title>
       </v-list-item>
+      <v-list-item class="py-4 pr-5" @click="onScan()">
+        <v-list-item-title class="d-flex">
+          <v-icon icon="mdi-magnify-scan" class="mr-2" />{{
+            t("rom.refresh-metadata")
+          }}
+        </v-list-item-title>
+      </v-list-item>
       <v-divider />
     </template>
+    <v-list-item
+      v-if="auth.scopes.includes('roms.user.write') && rom.rom_user.last_played"
+      class="py-4 pr-5"
+      @click="resetLastPlayed"
+    >
+      <v-list-item-title class="d-flex">
+        <v-icon icon="mdi-play-protected-content" class="mr-2" />
+        {{ t("rom.remove-from-playing") }}
+      </v-list-item-title>
+    </v-list-item>
     <v-list-item
       v-if="auth.scopes.includes('collections.write')"
       class="py-4 pr-5"
@@ -126,7 +194,9 @@ async function switchFromFavourites() {
     >
       <v-list-item-title class="d-flex">
         <v-icon
-          :icon="collectionsStore.isFav(rom) ? 'mdi-star-outline' : 'mdi-star'"
+          :icon="
+            collectionsStore.isFav(rom) ? 'mdi-star-remove-outline' : 'mdi-star'
+          "
           class="mr-2"
         />{{
           collectionsStore.isFav(rom)
@@ -141,8 +211,19 @@ async function switchFromFavourites() {
       @click="emitter?.emit('showAddToCollectionDialog', [{ ...rom }])"
     >
       <v-list-item-title class="d-flex">
-        <v-icon icon="mdi-bookmark-plus-outline" class="mr-2" />{{
+        <v-icon icon="mdi-bookmark-plus" class="mr-2" />{{
           t("rom.add-to-collection")
+        }}
+      </v-list-item-title>
+    </v-list-item>
+    <v-list-item
+      v-if="auth.scopes.includes('collections.write')"
+      class="py-4 pr-5"
+      @click="emitter?.emit('showRemoveFromCollectionDialog', [{ ...rom }])"
+    >
+      <v-list-item-title class="d-flex">
+        <v-icon icon="mdi-bookmark-remove-outline" class="mr-2" />{{
+          t("rom.remove-from-collection")
         }}
       </v-list-item-title>
     </v-list-item>

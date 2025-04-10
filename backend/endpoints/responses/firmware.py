@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TypedDict
 
-from pydantic import BaseModel
+from .base import BaseModel
 
 
 class FirmwareSchema(BaseModel):

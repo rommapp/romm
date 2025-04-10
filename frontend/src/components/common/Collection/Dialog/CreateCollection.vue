@@ -8,17 +8,17 @@ import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay, useTheme } from "vuetify";
+import { computed, inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { getMissingCoverImage } from "@/utils/covers";
 
 // Props
 const { t } = useI18n();
-const theme = useTheme();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const heartbeat = storeHeartbeat();
-const collection = ref<UpdatedCollection>({} as UpdatedCollection);
+const collection = ref<UpdatedCollection>({ name: "" } as UpdatedCollection);
 const collectionsStore = storeCollections();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -32,6 +32,10 @@ emitter?.on("updateUrlCover", (url_cover) => {
   collection.value.url_cover = url_cover;
   setArtwork(url_cover);
 });
+
+const missingCoverImage = computed(() =>
+  getMissingCoverImage(collection.value.name),
+);
 
 function triggerFileInput() {
   const fileInput = document.getElementById("file-input");
@@ -58,7 +62,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_missing_cover.png`;
+  imagePreviewUrl.value = missingCoverImage.value;
   removeCover.value = true;
 }
 
@@ -150,9 +154,10 @@ function closeDialog() {
                 :with-link="false"
                 :collection="collection"
                 :src="imagePreviewUrl"
+                title-on-hover
               >
                 <template #append-inner>
-                  <v-btn-group rounded="0" divided density="compact">
+                  <v-btn-group divided density="compact">
                     <v-btn
                       :disabled="
                         !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
@@ -202,12 +207,12 @@ function closeDialog() {
     </template>
     <template #append>
       <v-row class="justify-center mt-4 mb-2" no-gutters>
-        <v-btn-group divided density="compact">
-          <v-btn class="bg-terciary" @click="closeDialog">
+        <v-btn-group divided density="compact" rounded="0">
+          <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            class="bg-terciary text-romm-green"
+            class="bg-toplayer text-romm-green"
             :disabled="!collection.name"
             :variant="!collection.name ? 'plain' : 'flat'"
             @click="createCollection"

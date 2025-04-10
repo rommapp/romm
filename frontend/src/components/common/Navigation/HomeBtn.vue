@@ -1,26 +1,13 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ROUTES } from "@/plugins/router";
+import { useDisplay } from "vuetify";
 import RIsotipo from "@/components/common/RIsotipo.vue";
-import storeNavigation from "@/stores/navigation";
 
-const homeUrl = ref(`${location.protocol}//${location.host}`);
-const navigationStore = storeNavigation();
+// Props
+const { smAndDown } = useDisplay();
 </script>
 <template>
-  <r-isotipo
-    :to="homeUrl"
-    @click="navigationStore.goHome"
-    class="cursor-pointer"
-    :size="40"
-  />
+  <router-link :to="{ name: ROUTES.HOME }" class="cursor-pointer">
+    <r-isotipo :size="smAndDown ? 35 : 40" />
+  </router-link>
 </template>
-
-<style scoped>
-.v-avatar {
-  transition: filter 0.15s ease-in-out;
-}
-.v-avatar:hover,
-.v-avatar.active {
-  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-romm-accent-1)));
-}
-</style>

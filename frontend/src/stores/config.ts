@@ -10,21 +10,21 @@ type ExclusionTypes =
   | "EXCLUDED_MULTI_PARTS_EXT"
   | "EXCLUDED_MULTI_PARTS_FILES";
 
+const defaultConfig = {
+  EXCLUDED_PLATFORMS: [],
+  EXCLUDED_SINGLE_EXT: [],
+  EXCLUDED_SINGLE_FILES: [],
+  EXCLUDED_MULTI_FILES: [],
+  EXCLUDED_MULTI_PARTS_EXT: [],
+  EXCLUDED_MULTI_PARTS_FILES: [],
+  PLATFORMS_BINDING: {},
+  PLATFORMS_VERSIONS: {},
+} as ConfigResponse;
+
 export default defineStore("config", {
-  state: () => {
-    return {
-      config: {
-        EXCLUDED_PLATFORMS: [] as string[],
-        EXCLUDED_SINGLE_EXT: [] as string[],
-        EXCLUDED_SINGLE_FILES: [] as string[],
-        EXCLUDED_MULTI_FILES: [] as string[],
-        EXCLUDED_MULTI_PARTS_EXT: [] as string[],
-        EXCLUDED_MULTI_PARTS_FILES: [] as string[],
-        PLATFORMS_BINDING: {} as Record<string, string>,
-        PLATFORMS_VERSIONS: {} as Record<string, string>,
-      } as ConfigResponse,
-    };
-  },
+  state: () => ({
+    config: { ...defaultConfig },
+  }),
 
   actions: {
     set(data: ConfigResponse) {
@@ -58,5 +58,6 @@ export default defineStore("config", {
     isExclusionType(type: string): type is ExclusionTypes {
       return Object.keys(this.config).includes(type);
     },
+    reset() {},
   },
 });

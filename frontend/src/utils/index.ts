@@ -1,7 +1,11 @@
 import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
-import type { RomUserStatus } from "@/__generated__";
+import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import { computed } from "vue";
+import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import storeNavigation from "@/stores/navigation";
 
 /**
  * Views configuration object.
@@ -48,9 +52,28 @@ export const views: Record<
 };
 
 /**
+ * Get icon associated to role.
+ *
+ * @param role The role as string.
+ * @returns The mdi icon string.
+ */
+export function getRoleIcon(role: string) {
+  switch (role) {
+    case "admin":
+      return "mdi-shield-crown-outline";
+    case "editor":
+      return "mdi-file-edit-outline";
+    case "viewer":
+      return "mdi-book-open-variant-outline";
+    default:
+      return "mdi-account";
+  }
+}
+
+/**
  * Default path for user avatars.
  */
-export const defaultAvatarPath = "/assets/default/user.png";
+export const defaultAvatarPath = "/assets/default/user.svg";
 
 /**
  * Normalize a string by converting it to lowercase and removing diacritics.
@@ -86,20 +109,30 @@ export function convertCronExperssion(expression: string) {
  * @param files Optional array of file names to include in the download.
  * @returns The download link.
  */
-export function getDownloadLink({
+export function getDownloadPath({
   rom,
-  files = [],
+  fileIDs = [],
 }: {
   rom: SimpleRom;
-  files?: string[];
+  fileIDs?: number[];
 }) {
   const queryParams = new URLSearchParams();
-  if (files.length) {
-    files.forEach((file) => queryParams.append("files", file));
+  if (fileIDs.length > 0) {
+    queryParams.append("file_ids", fileIDs.join(","));
   }
-  return `/api/roms/${rom.id}/content/${
-    rom.file_name
-  }?${queryParams.toString()}`;
+  return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
+}
+
+export function getDownloadLink({
+  rom,
+  fileIDs = [],
+}: {
+  rom: SimpleRom;
+  fileIDs?: number[];
+}) {
+  return `${window.location.origin}${encodeURI(
+    getDownloadPath({ rom, fileIDs }),
+  )}`;
 }
 
 /**
@@ -313,6 +346,8 @@ const _EJS_CORES_MAP = {
     "fbalpha2012_cps1",
     "fbalpha2012_cps2",
   ],
+  neogeoaes: ["fbneo"],
+  neogeomvs: ["fbneo"],
   atari2600: ["stella2014"],
   "atari-2600-plus": ["stella2014"],
   atari5200: ["a5200"],
@@ -334,7 +369,7 @@ const _EJS_CORES_MAP = {
   fds: ["fceumm", "nestopia"],
   "game-televisison": ["fceumm"],
   "new-style-nes": ["fceumm"],
-  n64: ["mupen64plus_next", "parallel-n64"],
+  n64: ["mupen64plus_next", "parallel_n64"],
   "ique-player": ["mupen64plus_next"],
   nds: ["melonds", "desmume2015"],
   "nintendo-ds-lite": ["melonds", "desmume2015"],
@@ -348,9 +383,10 @@ const _EJS_CORES_MAP = {
   "game-boy-micro": ["mgba"],
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
-  ps: ["pcsx_rearmed", "mednafen_psx"],
+  ps: ["pcsx_rearmed", "mednafen_psx_hw"],
+  psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
-  // sega32: ["picodrive"], // Broken: https://github.com/EmulatorJS/EmulatorJS/issues/579
+  sega32: ["picodrive"],
   gamegear: ["genesis_plus_gx"],
   sms: ["genesis_plus_gx"],
   "sega-mark-iii": ["genesis_plus_gx"],
@@ -387,9 +423,28 @@ export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
  * @param platformSlug The platform slug.
  * @returns An array of supported cores.
  */
-export function getSupportedEJSCores(platformSlug: string) {
-  return _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+export function getSupportedEJSCores(platformSlug: string): string[] {
+  const cores =
+    _EJS_CORES_MAP[platformSlug.toLowerCase() as EJSPlatformSlug] || [];
+  const threadsSupported = isEJSThreadsSupported();
+  return cores.filter(
+    (core) => !areThreadsRequiredForEJSCore(core) || threadsSupported,
+  );
 }
+
+/**
+ * Check if a given EJS core requires threads enabled.
+ *
+ * @param core The core name.
+ * @returns True if threads are required, false otherwise.
+ */
+export function areThreadsRequiredForEJSCore(core: string): boolean {
+  return ["ppsspp"].includes(core);
+}
+
+const canvas = document.createElement("canvas");
+const gl =
+  canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
 
 /**
  * Check if EJS emulation is supported for a given platform.
@@ -403,9 +458,57 @@ export function isEJSEmulationSupported(
   heartbeat: Heartbeat,
 ) {
   return (
-    platformSlug.toLowerCase() in _EJS_CORES_MAP &&
-    !heartbeat.EMULATION.DISABLE_EMULATOR_JS
+    !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
+    getSupportedEJSCores(platformSlug).length > 0 &&
+    gl instanceof WebGLRenderingContext
   );
+}
+
+/**
+ * Check if EJS threads are supported.
+ *
+ * EmulatorJS threads are supported if SharedArrayBuffer is available.
+ * Reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer
+ *
+ * @returns True if supported, false otherwise.
+ */
+export function isEJSThreadsSupported(): boolean {
+  return typeof SharedArrayBuffer !== "undefined";
+}
+
+// This is a workaround to set the control scheme for Sega systems using the same cores
+const _EJS_CONTROL_SCHEMES = {
+  segacd: "segaCD",
+  sega32: "sega32x",
+  gamegear: "segaGG",
+  sms: "segaMS",
+  "sega-mark-iii": "segaMS",
+  "sega-master-system-ii": "segaMS",
+  "master-system-super-compact": "segaMS",
+  "master-system-girl": "segaMS",
+  "genesis-slash-megadrive": "segaMD",
+  "sega-mega-drive-2-slash-genesis": "segaMD",
+  "sega-mega-jet": "segaMD",
+  "mega-pc": "segaMD",
+  "tera-drive": "segaMD",
+  "sega-nomad": "segaMD",
+  saturn: "segaSaturn",
+};
+
+type EJSControlSlug = keyof typeof _EJS_CONTROL_SCHEMES;
+
+/**
+ * Get the control scheme for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @returns The control scheme.
+ */
+export function getControlSchemeForPlatform(
+  platformSlug: string,
+): string | null {
+  return platformSlug in _EJS_CONTROL_SCHEMES
+    ? _EJS_CONTROL_SCHEMES[platformSlug as EJSControlSlug]
+    : null;
 }
 
 /**
@@ -426,22 +529,6 @@ export function isRuffleEmulationSupported(
 }
 
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
-
-/**
- * Array of difficulty emojis.
- */
-export const difficultyEmojis = [
-  "😴",
-  "🥱",
-  "😐",
-  "😄",
-  "🤔",
-  "🤯",
-  "😓",
-  "😡",
-  "🤬",
-  "😵",
-];
 
 /**
  * Map of ROM statuses to their corresponding emoji and text.
@@ -501,6 +588,46 @@ export function getTextForStatus(status: PlayingStatus) {
  * @param text The text to convert.
  * @returns The corresponding status key.
  */
-export function getStatusKeyForText(text: string) {
+export function getStatusKeyForText(text: string | null) {
+  if (!text) return null;
   return inverseRomStatusMap[text];
+}
+
+export function is3DSCIAFile(rom: SimpleRom): boolean {
+  return rom.fs_extension.toLowerCase() == "cia";
+}
+
+export function get3DSCIAFiles(rom: SimpleRom): RomFileSchema[] {
+  return rom.files.filter((file) =>
+    file.file_name.toLowerCase().endsWith(".cia"),
+  );
+}
+
+/**
+ * Check if a ROM is a valid 3DS game
+ * @param rom The ROM object.
+ * @returns True if the ROM is a valid 3DS game, false otherwise.
+ */
+export function is3DSCIARom(rom: SimpleRom): boolean {
+  if (rom.platform_slug !== "3ds") return false;
+
+  const hasValidExtension = is3DSCIAFile(rom);
+  const hasValidFile = get3DSCIAFiles(rom).length > 0;
+
+  return hasValidExtension || hasValidFile;
+}
+
+export function calculateMainLayoutWidth() {
+  const { smAndDown } = useDisplay();
+  const navigationStore = storeNavigation();
+  const { mainBarCollapsed } = storeToRefs(navigationStore);
+  const calculatedWidth = computed(() => {
+    return smAndDown.value
+      ? "calc(100% - 16px) !important"
+      : mainBarCollapsed.value
+        ? "calc(100% - 76px) !important"
+        : "calc(100% - 116px) !important";
+  });
+
+  return { calculatedWidth };
 }

@@ -7,22 +7,26 @@ import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
+import type { Platform } from "@/stores/platforms";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
+import { identity } from "lodash";
 
 // Props
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
-const { xs } = useDisplay();
-const viewportWidth = ref(window.innerWidth);
+const { smAndDown } = useDisplay();
 const heartbeat = storeHeartbeat();
 const romsStore = storeRoms();
+const platformsStore = storePlatforms();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const { currentPlatform } = storeToRefs(romsStore);
@@ -46,34 +50,77 @@ const aspectRatioOptions = computed(() => [
     size: 1 / 1,
     source: t("platform.old-squared-cases"),
   },
+  {
+    name: "16 / 11",
+    size: 16 / 11,
+    source: t("platform.old-horizontal-cases"),
+  },
 ]);
 
-const platformInfoFields = [
-  { key: "slug", label: "Slug" },
-  { key: "fs_slug", label: t("platform.filesystem-folder-name") },
-  { key: "category", label: t("platform.category") },
-  { key: "generation", label: t("platform.generation") },
-  { key: "family_name", label: t("platform.family") },
+const PLATFORM_INFO_FIELDS: {
+  key: keyof Platform;
+  label: string;
+  format: (value: any) => string;
+}[] = [
+  { key: "name", label: t("common.name"), format: identity },
+  { key: "slug", label: t("common.slug"), format: identity },
+  { key: "fs_slug", label: t("settings.folder-name"), format: identity },
+  { key: "category", label: t("platform.category"), format: identity },
+  { key: "generation", label: t("platform.generation"), format: identity },
+  { key: "family_name", label: t("platform.family"), format: identity },
+  {
+    key: "fs_size_bytes",
+    label: t("common.size-on-disk"),
+    format: (fs: number) => formatBytes(fs, 2),
+  },
 ];
 
-watch(
-  () => currentPlatform.value?.aspect_ratio,
-  (aspectRatio) => {
-    if (aspectRatio) {
-      // Find the index of the aspect ratio option that matches the current aspect ratio
-      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
-        (option) => option.name == aspectRatio,
-      );
-      // If a matching aspect ratio option is found, update the selectedAspectRatio
-      if (defaultAspectRatio !== -1) {
-        selectedAspectRatio.value = defaultAspectRatio;
-      }
-    }
-  },
-  { immediate: true }, // Execute the callback immediately with the current value
-);
+const updating = ref(false);
+const updatedPlatform = ref({ ...currentPlatform.value });
+const isEditable = ref(false);
 
 // Functions
+function showEditable() {
+  updatedPlatform.value = { ...currentPlatform.value };
+  isEditable.value = true;
+}
+
+function closeEditable() {
+  updatedPlatform.value = { ...currentPlatform.value };
+  isEditable.value = false;
+}
+
+async function updatePlatform() {
+  if (!updatedPlatform.value) return;
+  updating.value = true;
+  isEditable.value = false;
+  updatedPlatform.value.custom_name = updatedPlatform.value.display_name;
+  await platformApi
+    .updatePlatform({
+      platform: updatedPlatform.value as Platform,
+    })
+    .then(({ data: platform }) => {
+      emitter?.emit("snackbarShow", {
+        msg: "Platform updated successfully",
+        icon: "mdi-check-bold",
+        color: "green",
+      });
+      currentPlatform.value = platform;
+      platformsStore.update(platform);
+    })
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Failed to update platform: ${
+          error.response?.data?.msg || error.message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+      });
+    });
+  updatedPlatform.value = { ...currentPlatform.value };
+  updating.value = false;
+}
+
 async function scan() {
   scanningStore.set(true);
 
@@ -98,7 +145,7 @@ async function setAspectRatio() {
       })
       .then(({ data }) => {
         emitter?.emit("snackbarShow", {
-          msg: data.msg,
+          msg: "Platform updated successfully",
           icon: "mdi-check-bold",
           color: "green",
         });
@@ -117,22 +164,77 @@ async function setAspectRatio() {
       });
   }
 }
+
+watch(
+  () => currentPlatform.value?.aspect_ratio,
+  (aspectRatio) => {
+    if (aspectRatio) {
+      // Find the index of the aspect ratio option that matches the current aspect ratio
+      const defaultAspectRatio = aspectRatioOptions.value.findIndex(
+        (option) => option.name == aspectRatio,
+      );
+      // If a matching aspect ratio option is found, update the selectedAspectRatio
+      if (defaultAspectRatio !== -1) {
+        selectedAspectRatio.value = defaultAspectRatio;
+      }
+    }
+  },
+  { immediate: true }, // Execute the callback immediately with the current value
+);
 </script>
 
 <template>
   <v-navigation-drawer
-    v-model="activePlatformInfoDrawer"
-    floating
-    mobile
-    :width="xs ? viewportWidth : '500'"
     v-if="currentPlatform"
+    mobile
+    floating
+    width="500"
+    v-model="activePlatformInfoDrawer"
+    :class="{
+      'ml-2': activePlatformInfoDrawer,
+      'drawer-mobile': smAndDown && activePlatformInfoDrawer,
+    }"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
-    <v-row no-gutters class="justify-center align-center pa-4">
+    <v-row no-gutters class="justify-center align-center pa-2">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
+          <div class="position-absolute append-top-right">
+            <template v-if="auth.scopes.includes('platforms.write')">
+              <v-btn
+                v-if="!isEditable"
+                :loading="updating"
+                class="bg-toplayer"
+                @click="showEditable"
+                size="small"
+              >
+                <template #loader>
+                  <v-progress-circular
+                    color="primary"
+                    :width="2"
+                    :size="20"
+                    indeterminate
+                  />
+                </template>
+                <v-icon>mdi-pencil</v-icon></v-btn
+              >
+              <template v-else>
+                <v-btn @click="closeEditable" size="small" class="bg-toplayer"
+                  ><v-icon color="romm-red">mdi-close</v-icon></v-btn
+                >
+                <v-btn
+                  @click="updatePlatform()"
+                  size="small"
+                  class="bg-toplayer ml-1"
+                  ><v-icon color="romm-green">mdi-check</v-icon></v-btn
+                >
+              </template>
+            </template>
+          </div>
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
+            :fs-slug="currentPlatform.fs_slug"
             class="platform-icon"
             :size="160"
           />
@@ -141,15 +243,28 @@ async function setAspectRatio() {
           class="text-center mt-2"
           v-if="auth.scopes.includes('platforms.write')"
         >
-          <p class="text-h5 font-weight-bold pl-0">
-            <span>{{ currentPlatform.name }}</span>
-          </p>
+          <div v-if="!isEditable" class="text-h5 font-weight-bold pl-0">
+            <span>{{ currentPlatform.display_name }}</span>
+          </div>
+          <div v-else>
+            <v-text-field
+              variant="outlined"
+              class="text-white"
+              hide-details
+              density="compact"
+              v-model="updatedPlatform.display_name"
+              :readonly="!isEditable"
+              @keyup.enter="updatePlatform()"
+            />
+          </div>
           <div class="mt-6">
             <v-btn
-              class="bg-terciary"
+              class="bg-toplayer my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
-              <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
+              <v-icon class="text-romm-green mr-2"
+                >mdi-cloud-upload-outline</v-icon
+              >
               {{ t("platform.upload-roms") }}
             </v-btn>
             <v-btn
@@ -157,17 +272,17 @@ async function setAspectRatio() {
               rounded="4"
               :loading="scanning"
               @click="scan"
-              class="ml-2 bg-terciary"
+              class="ml-2 my-1 bg-toplayer"
             >
               <template #prepend>
-                <v-icon :color="scanning ? '' : 'romm-accent-1'"
+                <v-icon :color="scanning ? '' : 'primary'"
                   >mdi-magnify-scan</v-icon
                 >
               </template>
               {{ t("scan.scan") }}
               <template #loader>
                 <v-progress-circular
-                  color="romm-accent-1"
+                  color="primary"
                   :width="2"
                   :size="20"
                   indeterminate
@@ -176,51 +291,70 @@ async function setAspectRatio() {
             </v-btn>
           </div>
         </div>
-        <div class="mt-4 text-center">
-          <a
-            v-if="currentPlatform.igdb_id"
-            style="text-decoration: none; color: inherit"
-            :href="currentPlatform.url ? currentPlatform.url : ''"
-            target="_blank"
-          >
-            <v-chip size="x-small" @click.stop>
-              <span>IGDB</span>
-              <v-divider class="mx-2 border-opacity-25" vertical />
-              <span>ID: {{ currentPlatform.igdb_id }}</span>
-            </v-chip>
-          </a>
-          <v-chip
-            size="x-small"
-            class="ml-1"
-            @click.stop
-            :class="{ 'ml-1': currentPlatform.igdb_id }"
-            v-if="currentPlatform.moby_id"
-          >
-            <span>Mobygames</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>ID: {{ currentPlatform.moby_id }}</span>
-          </v-chip>
-        </div>
-        <v-card class="mt-4 bg-terciary fill-width" elevation="0">
-          <v-card-text class="pa-4">
-            <template
-              v-for="(field, index) in platformInfoFields"
-              :key="field.key"
+        <v-row
+          v-if="
+            currentPlatform.igdb_id ||
+            currentPlatform.moby_id ||
+            currentPlatform.ss_id
+          "
+          class="text-white text-shadow mt-2 text-center"
+          no-gutters
+        >
+          <v-col cols="12">
+            <a
+              v-if="currentPlatform.igdb_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.igdb.com/platforms/${currentPlatform.slug}`"
+              target="_blank"
             >
-              <div
-                v-if="
-                  currentPlatform[field.key as keyof typeof currentPlatform]
-                "
-                :class="{ 'mt-4': index !== 0 }"
-              >
-                <p class="text-subtitle-1 text-decoration-underline">
-                  {{ field.label }}
-                </p>
-                <p class="text-subtitle-2">
-                  {{
-                    currentPlatform[field.key as keyof typeof currentPlatform]
-                  }}
-                </p>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/igdb.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.igdb_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.moby_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              :class="{ 'ml-1': currentPlatform.igdb_id }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/moby.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.moby_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.ss_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
+              target="_blank"
+              :class="{
+                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
+              }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/ss.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.ss_id }}</span>
+              </v-chip>
+            </a>
+          </v-col>
+        </v-row>
+        <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
+          <v-card-text class="pa-4 d-flex flex-wrap ga-2">
+            <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
+              <div>
+                <v-chip size="small" class="px-0" label>
+                  <v-chip label>{{ field.label }}</v-chip>
+                  <span class="px-2">{{
+                    field.format(currentPlatform[field.key]) || "N/A"
+                  }}</span>
+                </v-chip>
               </div>
             </template>
           </v-card-text>
@@ -232,12 +366,15 @@ async function setAspectRatio() {
       icon="mdi-cog"
       :title="t('platform.settings')"
       elevation="0"
+      titleDivider
+      bgColor="bg-toplayer"
+      class="mx-2"
     >
       <template #content>
         <v-chip
           label
           variant="text"
-          class="ml-2"
+          class="ml-2 mt-2"
           prepend-icon="mdi-aspect-ratio"
           >{{ t("platform.cover-style") }}</v-chip
         >
@@ -251,10 +388,14 @@ async function setAspectRatio() {
             no-gutters
             class="text-center justify-center align-center pa-2"
           >
-            <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
+            <v-col
+              cols="6"
+              class="pa-2"
+              v-for="aspectRatio in aspectRatioOptions"
+            >
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
-                  :color="isSelected ? 'romm-accent-1' : 'romm-gray'"
+                  :color="isSelected ? 'primary' : 'romm-gray'"
                   variant="outlined"
                   @click="toggle"
                 >
@@ -264,7 +405,7 @@ async function setAspectRatio() {
                     <v-img
                       :aspect-ratio="aspectRatio.size"
                       cover
-                      src="/assets/login_bg.png"
+                      src="/assets/default/cover/empty.svg"
                       :class="{ greyscale: !isSelected }"
                       class="d-flex align-center justify-center"
                     >
@@ -289,11 +430,14 @@ async function setAspectRatio() {
       icon-color="red"
       :title="t('platform.danger-zone')"
       elevation="0"
+      titleDivider
+      bgColor="bg-toplayer"
+      class="mt-2 mx-2"
     >
       <template #content>
         <div class="text-center">
           <v-btn
-            class="text-romm-red bg-terciary ma-2"
+            class="text-romm-red bg-toplayer ma-2"
             variant="flat"
             @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"
           >
@@ -308,10 +452,12 @@ async function setAspectRatio() {
   <delete-platform-dialog />
 </template>
 <style scoped>
-.platform-icon {
-  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-romm-accent-1)));
+.append-top-right {
+  top: 0.3rem;
+  right: 0.3rem;
+  z-index: 1;
 }
-.greyscale {
-  filter: grayscale(100%);
+.platform-icon {
+  filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
 }
 </style>

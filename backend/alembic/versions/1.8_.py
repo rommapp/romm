@@ -8,6 +8,7 @@ Create Date: 2023-04-17 12:03:19.163501
 
 import sqlalchemy as sa
 from alembic import op
+from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
 revision = "1.8"
@@ -78,9 +79,9 @@ def upgrade() -> None:
             sa.Column("has_cover", sa.Boolean(), nullable=True),
             sa.Column("region", sa.String(length=20), nullable=True),
             sa.Column("revision", sa.String(length=20), nullable=True),
-            sa.Column("tags", sa.JSON(), nullable=True),
+            sa.Column("tags", CustomJSON(), nullable=True),
             sa.Column("multi", sa.Boolean(), nullable=True),
-            sa.Column("files", sa.JSON(), nullable=True),
+            sa.Column("files", CustomJSON(), nullable=True),
             sa.Column("url_cover", sa.Text(), nullable=True),
             sa.PrimaryKeyConstraint("id"),
         )

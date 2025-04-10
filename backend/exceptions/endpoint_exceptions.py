@@ -66,5 +66,15 @@ class RomNotFoundInRetroAchievementsException(Exception):
         log.critical(self.message)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=self.message)
 
+
+class SGDBInvalidAPIKeyException(Exception):
+    def __init__(self):
+        self.message = "Invalid SGDB API key"
+        super().__init__(self.message)
+        log.critical(self.message)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=self.message
+        )
+
     def __repr__(self) -> str:
         return self.message

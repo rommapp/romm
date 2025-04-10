@@ -3,17 +3,19 @@ import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import { defaultAvatarPath } from "@/utils";
 import { storeToRefs } from "pinia";
+import { useDisplay } from "vuetify";
 
 // Props
 const navigationStore = storeNavigation();
 const auth = storeAuth();
 const { user } = storeToRefs(auth);
+const { smAndDown } = useDisplay();
 </script>
 <template>
   <v-avatar
     @click="navigationStore.switchActiveSettingsDrawer"
     class="pointer"
-    :size="40"
+    :size="smAndDown ? 35 : 40"
     :class="{ active: navigationStore.activeSettingsDrawer }"
   >
     <v-img
@@ -31,6 +33,6 @@ const { user } = storeToRefs(auth);
 }
 .v-avatar:hover,
 .v-avatar.active {
-  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-romm-accent-1)));
+  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-primary)));
 }
 </style>

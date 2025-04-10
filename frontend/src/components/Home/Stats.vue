@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import api from "@/services/api/index";
+import { formatBytes } from "@/utils";
 import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
@@ -22,8 +23,7 @@ onBeforeMount(() => {
 });
 </script>
 <template>
-  <v-divider />
-  <v-card rounded="0">
+  <v-card>
     <v-card-text class="pa-1">
       <v-row no-gutters class="flex-nowrap overflow-x-auto text-center">
         <v-col>
@@ -74,6 +74,16 @@ onBeforeMount(() => {
             label
           >
             {{ t("common.screenshots-n", stats.SCREENSHOTS) }}
+          </v-chip>
+        </v-col>
+        <v-col>
+          <v-chip
+            class="text-overline"
+            prepend-icon="mdi-harddisk"
+            variant="text"
+            label
+          >
+            {{ t("common.size-on-disk") }}: {{ formatBytes(stats.FILESIZE, 1) }}
           </v-chip>
         </v-col>
       </v-row>

@@ -17,9 +17,11 @@ services:
       - DB_PASSWD= # Should match MARIADB_PASSWORD in mariadb
       - ROMM_AUTH_SECRET_KEY= # Generate a key with `openssl rand -hex 32`
       - IGDB_CLIENT_ID= # Generate an ID and SECRET in IGDB
-      - IGDB_CLIENT_SECRET= # https://api-docs.igdb.com/#account-creation
-      - MOBYGAMES_API_KEY= # https://www.mobygames.com/info/api/
-      - STEAMGRIDDB_API_KEY= # https://github.com/rommapp/romm/wiki/Generate-API-Keys#steamgriddb
+      - IGDB_CLIENT_SECRET= # https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#igdb
+      - MOBYGAMES_API_KEY= # https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#mobygames
+      - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#steamgriddb
+      - SCREENSCRAPER_USER= # Use your ScreenScraper username and password
+      - SCREENSCRAPER_PASSWORD= # https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#screenscraper
       - RETROACHIEVEMENTS_API_KEY= # https://api-docs.retroachievements.org/#api-access
       - RETROACHIEVEMENTS_USERNAME= # https://api-docs.retroachievements.org/#api-access
     volumes:

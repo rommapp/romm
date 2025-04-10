@@ -13,7 +13,7 @@ import { useDisplay } from "vuetify";
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const searching = ref(false);
-const searchTerm = ref("");
+const searchText = ref("");
 const coverType = ref("all");
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
@@ -24,11 +24,11 @@ const coverAspectRatio = ref(
   parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
 );
 emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
-  searchTerm.value = term;
+  searchText.value = term;
   show.value = true;
   // TODO: set default aspect ratio to 2/3
   if (aspectRatio) coverAspectRatio.value = aspectRatio;
-  if (searchTerm.value) searchCovers();
+  if (searchText.value) searchCovers();
 });
 
 // Functions
@@ -43,7 +43,7 @@ async function searchCovers() {
     searching.value = true;
     await sgdbApi
       .searchCover({
-        searchTerm: searchTerm.value,
+        searchTerm: searchText.value,
       })
       .then((response) => {
         covers.value = response.data;
@@ -101,7 +101,7 @@ function closeDialog() {
   show.value = false;
   covers.value = [];
   filteredCovers.value = [];
-  searchTerm.value = "";
+  searchText.value = "";
 }
 
 onBeforeUnmount(() => {
@@ -127,9 +127,9 @@ onBeforeUnmount(() => {
           <v-text-field
             id="search-text-field"
             @keyup.enter="searchCovers()"
-            @click:clear="searchTerm = ''"
-            class="bg-terciary"
-            v-model="searchTerm"
+            @click:clear="searchText = ''"
+            class="bg-toplayer"
+            v-model="searchText"
             :disabled="searching"
             label="Search"
             hide-details
@@ -150,11 +150,11 @@ onBeforeUnmount(() => {
           <v-btn
             type="submit"
             @click="searchCovers()"
-            class="bg-terciary"
-            rounded="0"
+            class="bg-toplayer"
             variant="text"
             icon="mdi-search-web"
             block
+            rounded="0"
             :disabled="searching"
           />
         </v-col>
@@ -165,11 +165,10 @@ onBeforeUnmount(() => {
         :model-value="panels"
         multiple
         flat
-        rounded="0"
         variant="accordion"
       >
         <v-expansion-panel v-for="game in filteredCovers" :key="game.name">
-          <v-expansion-panel-title class="bg-terciary">
+          <v-expansion-panel-title class="bg-toplayer">
             <v-row no-gutters class="justify-center">
               <v-list-item class="pa-0">{{ game.name }}</v-list-item>
             </v-row>
@@ -209,7 +208,7 @@ onBeforeUnmount(() => {
                         <v-progress-circular
                           :width="2"
                           :size="40"
-                          color="romm-accent-1"
+                          color="primary"
                           indeterminate
                         />
                       </div>

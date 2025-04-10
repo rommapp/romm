@@ -7,6 +7,7 @@ class UserForm:
         self,
         username: str | None = None,
         password: str | None = None,
+        email: str | None = None,
         role: str | None = None,
         enabled: bool | None = None,
         avatar: UploadFile | None = None,
@@ -15,6 +16,7 @@ class UserForm:
     ):
         self.username = username
         self.password = password
+        self.email = email
         self.role = role
         self.enabled = enabled
         self.avatar = avatar

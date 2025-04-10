@@ -15,14 +15,12 @@ export type SnackbarStatus = {
 export type Events = {
   showDeletePlatformDialog: Platform;
   showCreateCollectionDialog: null;
-  showEditCollectionDialog: Collection;
   showAddToCollectionDialog: SimpleRom[];
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;
   showMatchRomDialog: SimpleRom;
   showSearchCoverDialog: { term: string; aspectRatio: number | null };
   updateUrlCover: string;
-  showSearchRomDialog: null;
   showEditRomDialog: SimpleRom;
   showCopyDownloadLinkDialog: string;
   showDeleteRomDialog: SimpleRom[];
@@ -77,5 +75,9 @@ export type Events = {
   firmwareDrawerShow: null;
   updateDataTablePages: null;
   sortBarShow: null;
-  romUpdated: DetailedRom;
+  showQRCodeDialog: SimpleRom;
+  selectSaveDialog: DetailedRom;
+  selectStateDialog: DetailedRom;
+  saveSelected: SaveSchema;
+  stateSelected: StateSchema;
 };
