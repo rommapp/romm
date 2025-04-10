@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/RDialog.vue";
+import RetroAchievements from "@/components/Settings/UserInterface/RetroAchievements.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
@@ -178,6 +178,7 @@ onUnmounted(() => {
         </v-select>
       </v-col>
     </v-row>
+    <retro-achievements />
     <v-row no-gutters class="mt-4 text-center">
       <v-col cols="8" md="6" class="mx-auto">
         <v-btn
