@@ -9,9 +9,13 @@ from fastapi import Request
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
-from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
+from handler.metadata.base_hander import UniversalPlatformSlug
+from handler.metadata.igdb_handler import SLUG_TO_IGDB_PLATFORM
+from handler.metadata.moby_handler import SLUG_TO_MOBY_PLATFORM
+from handler.metadata.ss_handler import SLUG_TO_SS_PLATFORM
 from handler.scan_handler import scan_platform
 from logger.logger import log
+from models.platform import DEFAULT_COVER_ASPECT_RATIO, Platform
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -73,27 +77,66 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
 
     supported_platforms = []
     db_platforms = db_platform_handler.get_platforms()
-    db_platforms_map = {p.name: p.id for p in db_platforms}
+    db_platforms_map = {p.slug: p for p in db_platforms}
 
-    for platform in IGDB_PLATFORM_LIST:
+    for slug in UniversalPlatformSlug:
         now = datetime.now(timezone.utc)
-        sup_plat = {
+
+        db_platform = db_platforms_map.get(slug, None)
+        igdb_platform = SLUG_TO_IGDB_PLATFORM.get(slug, None)
+        moby_platform = SLUG_TO_MOBY_PLATFORM.get(slug, None)
+        ss_platform = SLUG_TO_SS_PLATFORM.get(slug, None)
+
+        common_propeties = {
             "id": -1,
-            "name": platform["name"],
-            "fs_slug": platform["slug"],
-            "slug": platform["slug"],
-            "logo_path": "",
+            "name": slug.capitalize(),
+            "fs_slug": slug,
+            "slug": slug,
             "roms": [],
             "rom_count": 0,
+            "aspect_ratio": DEFAULT_COVER_ASPECT_RATIO,
             "created_at": now,
             "updated_at": now,
             "fs_size_bytes": 0,
         }
 
-        if platform["name"] in db_platforms_map:
-            sup_plat["id"] = db_platforms_map[platform["name"]]
+        if db_platform:
+            supported_platforms.append(
+                PlatformSchema.model_validate(db_platform).model_dump()
+            )
+            continue
 
-        supported_platforms.append(PlatformSchema.model_validate(sup_plat).model_dump())
+        if ss_platform:
+            common_propeties.update(
+                {
+                    "name": ss_platform["name"],
+                    "ss_id": ss_platform["id"],
+                }
+            )
+
+        if moby_platform:
+            common_propeties.update(
+                {
+                    "name": moby_platform["name"],
+                    "moby_id": moby_platform["id"],
+                }
+            )
+
+        if igdb_platform:
+            common_propeties.update(
+                {
+                    "name": igdb_platform["name"],
+                    "igdb_id": igdb_platform["id"],
+                    "category": igdb_platform["category"],
+                    "generation": igdb_platform["generation"],
+                    "family_name": igdb_platform["family_name"],
+                    "family_slug": igdb_platform["family_slug"],
+                    "url_logo": igdb_platform["url_logo"],
+                }
+            )
+
+        platform = Platform(**common_propeties)
+        supported_platforms.append(PlatformSchema.model_validate(platform).model_dump())
 
     return supported_platforms
 

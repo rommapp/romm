@@ -3,6 +3,9 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING
 
+import pydash
+from handler.metadata.igdb_handler import SLUG_TO_IGDB_PLATFORM
+from handler.metadata.moby_handler import SLUG_TO_MOBY_PLATFORM
 from models.base import BaseModel
 from models.rom import Rom
 from sqlalchemy import String, func, select
@@ -31,9 +34,7 @@ class Platform(BaseModel):
     generation: Mapped[int | None]
     family_name: Mapped[str | None] = mapped_column(String(length=1000), default="")
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
-    url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
-    logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
     roms: Mapped[list[Rom]] = relationship(lazy="select", back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(
@@ -44,6 +45,9 @@ class Platform(BaseModel):
         String(length=10), server_default=DEFAULT_COVER_ASPECT_RATIO
     )
 
+    # Temp column to store the old slug from the migration
+    temp_old_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
+
     # This runs a subquery to get the count of roms for the platform
     rom_count = column_property(
         select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
@@ -51,6 +55,14 @@ class Platform(BaseModel):
 
     def __repr__(self) -> str:
         return self.name
+
+    @cached_property
+    def igdb_slug(self) -> str | None:
+        return pydash.get(SLUG_TO_IGDB_PLATFORM, f"{self.slug}.igdb_slug", None)
+
+    @cached_property
+    def moby_slug(self) -> str | None:
+        return pydash.get(SLUG_TO_MOBY_PLATFORM, f"{self.slug}.moby_slug", None)
 
     @cached_property
     def fs_size_bytes(self) -> int:
