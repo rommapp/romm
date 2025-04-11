@@ -8,13 +8,11 @@ import type { Emitter } from "mitt";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import { inject, ref, onMounted, onUnmounted } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
-const { lgAndUp } = useDisplay();
 const auth = storeAuth();
 const { user } = storeToRefs(auth);
 const userToEdit = ref<UserItem | null>(null);
@@ -81,7 +79,7 @@ onUnmounted(() => {
 </script>
 <template>
   <template v-if="userToEdit">
-    <v-row no-gutters class="flex-column align-center mt-10">
+    <v-row no-gutters class="flex-column align-center mt-4">
       <v-hover v-slot="{ isHovering, props }">
         <v-avatar size="150" v-bind="props">
           <v-img
@@ -178,7 +176,6 @@ onUnmounted(() => {
         </v-select>
       </v-col>
     </v-row>
-    <retro-achievements />
     <v-row no-gutters class="mt-4 text-center">
       <v-col cols="8" md="6" class="mx-auto">
         <v-btn
@@ -191,5 +188,6 @@ onUnmounted(() => {
         </v-btn>
       </v-col>
     </v-row>
+    <retro-achievements class="ma-4" />
   </template>
 </template>
