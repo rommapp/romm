@@ -43,6 +43,17 @@ class MetadataSource:
     RA = "ra"
 
 
+async def fetch_ra_info(
+    platform: Platform,
+    hash: str,
+) -> RAGameRom:
+
+    return await meta_ra_handler.get_rom(
+        hash=hash,
+        platform_ra_id=platform.ra_id,
+    )
+
+
 async def _get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
@@ -133,7 +144,7 @@ async def scan_platform(
 
     ra_platform = (
         meta_ra_handler.get_platform(platform_attrs["slug"])
-        if "retro_achievements" in metadata_sources
+        if MetadataSource.RA in metadata_sources
         else RAGamesPlatform(ra_id=None, slug=platform_attrs["slug"])
     )
 
@@ -330,24 +341,6 @@ async def scan_rom(
 
         return MobyGamesRom(moby_id=None)
 
-    async def fetch_ra_info():
-        if (
-            MetadataSource.RA in metadata_sources
-            and platform.ra_id
-            and (
-                not rom
-                or scan_type == ScanType.COMPLETE
-                or (scan_type == ScanType.PARTIAL and not rom.ra_id)
-                or (scan_type == ScanType.UNIDENTIFIED and not rom.ra_id)
-            )
-        ):
-            return await meta_ra_handler.get_rom(
-                rom_attrs["md5_hash"],
-                platform_ra_id=platform.ra_id,
-            )
-
-        return RAGameRom(ra_id=None)
-
     async def fetch_ss_rom():
         if (
             MetadataSource.SS in metadata_sources
@@ -366,10 +359,8 @@ async def scan_rom(
         return SSRom(ss_id=None)
 
     # Run both metadata fetches concurrently
-    igdb_handler_rom, moby_handler_rom, ss_handler_rom, ra_handler_info = (
-        await asyncio.gather(
-            fetch_igdb_rom(), fetch_moby_rom(), fetch_ss_rom(), fetch_ra_info()
-        )
+    igdb_handler_rom, moby_handler_rom, ss_handler_rom = await asyncio.gather(
+        fetch_igdb_rom(), fetch_moby_rom(), fetch_ss_rom()
     )
 
     if rom:
@@ -380,8 +371,6 @@ async def scan_rom(
             rom_attrs.update({**ss_handler_rom})
         if igdb_handler_rom.get("igdb_id"):
             rom_attrs.update({**igdb_handler_rom})
-        if ra_handler_info.get("ra_id"):
-            rom_attrs.update({**ra_handler_info})
     else:
         # Reversed to prioritize IGDB
         rom_attrs.update({**moby_handler_rom, **ss_handler_rom, **igdb_handler_rom})

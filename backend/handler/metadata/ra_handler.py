@@ -27,15 +27,21 @@ class RAGameRom(TypedDict):
     ra_id: int | None
 
 
-class RetroAchievementsHandler(MetadataHandler):
+class RAHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.platform_url = "https://retroachievements.org/API/API_GetGameList.php"
-        self.games_url = "https://api.mobygames.com/v1/games"
+        self.BASE_URL = "https://retroachievements.org/API"
+        self.search_endpoint = f"{self.BASE_URL}/API_GetGameList.php"
 
     async def _request(self, url: str, timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
         authorized_url = yarl.URL(url)
         try:
+            # TODO: mask api key
+            log.debug(
+                "API request: URL=%s, Timeout=%s",
+                url,
+                timeout,
+            )
             res = await httpx_client.get(str(authorized_url), timeout=timeout)
             res.raise_for_status()
             return res.json()
@@ -60,6 +66,11 @@ class RetroAchievementsHandler(MetadataHandler):
             pass
 
         try:
+            log.debug(
+                "API request: URL=%s, Timeout=%s",
+                url,
+                timeout,
+            )
             res = await httpx_client.get(url, timeout=timeout)
             res.raise_for_status()
         except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
@@ -76,12 +87,12 @@ class RetroAchievementsHandler(MetadataHandler):
 
         return res.json()
 
-    async def _search_rom(self, md5_hash: str, platform_ra_id: int) -> dict | None:
+    async def _search_rom(self, hash: str, platform_ra_id: int) -> dict | None:
 
         if not platform_ra_id:
             return None
 
-        url = yarl.URL(self.platform_url).with_query(
+        url = yarl.URL(self.search_endpoint).with_query(
             i=[platform_ra_id],
             h=["1"],
             f=["1"],
@@ -91,7 +102,8 @@ class RetroAchievementsHandler(MetadataHandler):
 
         roms = await self._request(str(url))
         for rom in roms:
-            if md5_hash in rom["Hashes"]:
+            # 3d45c1ee9abd5738df46d2bdda8b57dc hardcoded hash for pokemon red from no-intro
+            if hash in rom["Hashes"]:
                 return rom
 
         return None
@@ -108,13 +120,12 @@ class RetroAchievementsHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, md5_hash: str, platform_ra_id: int) -> RAGameRom:
-
+    async def get_rom(self, hash: str, platform_ra_id: int) -> RAGameRom:
         if not platform_ra_id:
             return RAGameRom(ra_id=None)
 
         fallback_rom = RAGameRom(ra_id=None)
-        res = await self._search_rom(md5_hash, platform_ra_id)
+        res = await self._search_rom(hash, platform_ra_id)
 
         if not res:
             return fallback_rom
