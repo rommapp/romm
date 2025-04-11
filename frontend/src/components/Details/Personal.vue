@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import RetroAchievements from "@/components/Details/RetroAchievements.vue";
+import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
@@ -66,15 +68,16 @@ watch(
 </script>
 
 <template>
-  <v-card class="mb-2">
-    <v-card-title class="bg-toplayer">
-      <v-list-item class="pl-2 pr-0">
-        <span class="text-h6">{{ t("rom.status") }}</span>
-      </v-list-item>
-    </v-card-title>
-    <v-card-text class="px-8 py-4">
+  <r-section
+    icon="mdi-list-status"
+    :title="t('rom.status')"
+    elevation="0"
+    titleDivider
+    bgColor="bg-surface"
+  >
+    <template #content>
       <v-row
-        class="align-center"
+        class="align-center px-8 py-4"
         :class="{ 'text-center': smAndDown }"
         no-gutters
       >
@@ -125,10 +128,10 @@ watch(
             :class="{ 'mt-4': smAndDown }"
             no-gutters
           >
-            <v-col cols="12" md="2">
+            <v-col cols="12" md="4">
               <v-label>{{ t("rom.rating") }}</v-label>
             </v-col>
-            <v-col cols="12" md="10">
+            <v-col cols="12" md="8">
               <v-rating
                 :class="{ 'ml-2': mdAndUp }"
                 hover
@@ -146,10 +149,10 @@ watch(
             </v-col>
           </v-row>
           <v-row class="d-flex align-center mt-4" no-gutters>
-            <v-col cols="12" md="2">
+            <v-col cols="12" md="4">
               <v-label>{{ t("rom.difficulty") }}</v-label>
             </v-col>
-            <v-col cols="12" md="10">
+            <v-col cols="12" md="8">
               <v-rating
                 :class="{ 'ml-2': mdAndUp }"
                 hover
@@ -169,10 +172,10 @@ watch(
             </v-col>
           </v-row>
           <v-row class="d-flex align-center mt-4" no-gutters>
-            <v-col cols="12" md="2">
+            <v-col cols="12" md="4">
               <v-label>{{ t("rom.completion") }} %</v-label>
             </v-col>
-            <v-col cols="12" md="10">
+            <v-col cols="12" md="8">
               <v-slider
                 :class="{ 'ml-4': mdAndUp }"
                 :disabled="!scopes.includes('roms.user.write')"
@@ -220,58 +223,74 @@ watch(
           </div>
         </v-col>
       </v-row>
-    </v-card-text>
-  </v-card>
+    </template>
+  </r-section>
 
-  <v-card>
-    <v-card-title class="bg-toplayer">
-      <v-list-item class="pl-2 pr-0">
-        <span class="text-h6">{{ t("rom.my-notes") }}</span>
-        <template #append>
-          <v-btn-group divided density="compact">
-            <v-tooltip
-              location="top"
-              class="tooltip"
-              transition="fade-transition"
-              :text="romUser.note_is_public ? 'Make private' : 'Make public'"
-              open-delay="500"
-              ><template #activator="{ props: tooltipProps }">
-                <v-btn
-                  :disabled="!scopes.includes('roms.user.write')"
-                  @click="romUser.note_is_public = !romUser.note_is_public"
-                  v-bind="tooltipProps"
-                  class="bg-toplayer"
-                >
-                  <v-icon size="large">
-                    {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
-                  </v-icon>
-                </v-btn>
-              </template></v-tooltip
+  <r-section
+    v-if="rom.ra_id && auth.user?.ra_username && auth.user?.ra_api_key"
+    icon="mdi-trophy"
+    title="Retroachievements"
+    elevation="0"
+    titleDivider
+    bgColor="bg-surface"
+    class="mt-2"
+  >
+    <template #content>
+      <retro-achievements :rom="rom" />
+    </template>
+  </r-section>
+
+  <r-section
+    icon="mdi-notebook-edit"
+    :title="t('rom.my-notes')"
+    elevation="0"
+    titleDivider
+    bgColor="bg-surface"
+    class="mt-2"
+  >
+    <template #toolbar-append>
+      <v-btn-group divided density="compact" class="mr-1">
+        <v-tooltip
+          location="top"
+          class="tooltip"
+          transition="fade-transition"
+          :text="romUser.note_is_public ? 'Make private' : 'Make public'"
+          open-delay="500"
+          ><template #activator="{ props: tooltipProps }">
+            <v-btn
+              :disabled="!scopes.includes('roms.user.write')"
+              @click="romUser.note_is_public = !romUser.note_is_public"
+              v-bind="tooltipProps"
+              class="bg-toplayer"
             >
-            <v-tooltip
-              location="top"
-              class="tooltip"
-              transition="fade-transition"
-              text="Edit note"
-              open-delay="500"
-              ><template #activator="{ props: tooltipProps }">
-                <v-btn
-                  :disabled="!scopes.includes('roms.user.write')"
-                  @click="editNote"
-                  v-bind="tooltipProps"
-                  class="bg-toplayer"
-                >
-                  <v-icon size="large">
-                    {{ editingNote ? "mdi-check" : "mdi-pencil" }}
-                  </v-icon>
-                </v-btn>
-              </template></v-tooltip
+              <v-icon size="large">
+                {{ romUser.note_is_public ? "mdi-eye" : "mdi-eye-off" }}
+              </v-icon>
+            </v-btn>
+          </template></v-tooltip
+        >
+        <v-tooltip
+          location="top"
+          class="tooltip"
+          transition="fade-transition"
+          text="Edit note"
+          open-delay="500"
+          ><template #activator="{ props: tooltipProps }">
+            <v-btn
+              :disabled="!scopes.includes('roms.user.write')"
+              @click="editNote"
+              v-bind="tooltipProps"
+              class="bg-toplayer"
             >
-          </v-btn-group>
-        </template>
-      </v-list-item>
-    </v-card-title>
-    <v-card-text class="pa-2">
+              <v-icon size="large">
+                {{ editingNote ? "mdi-check" : "mdi-pencil" }}
+              </v-icon>
+            </v-btn>
+          </template></v-tooltip
+        >
+      </v-btn-group>
+    </template>
+    <template #content>
       <MdEditor
         v-if="editingNote"
         :disabled="!scopes.includes('roms.user.write')"
@@ -288,24 +307,27 @@ watch(
         :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
         preview-theme="vuepress"
         code-theme="github"
+        class="px-8"
       />
-    </v-card-text>
-  </v-card>
+    </template>
+  </r-section>
 
-  <v-card v-if="publicNotes && publicNotes.length > 0" class="mt-2">
-    <v-card-title class="bg-toplayer">
-      <v-list-item class="pl-2 pr-0">
-        <span class="text-h6">{{ t("rom.public-notes") }}</span>
-      </v-list-item>
-    </v-card-title>
-
-    <v-divider />
-
-    <v-card-text class="pa-0">
+  <r-section
+    icon="mdi-notebook-multiple"
+    :title="t('rom.public-notes')"
+    elevation="0"
+    titleDivider
+    bgColor="bg-surface"
+    class="mt-2"
+  >
+    <template #content>
       <v-expansion-panels multiple flat variant="accordion">
-        <v-expansion-panel v-for="note in publicNotes">
+        <v-expansion-panel v-for="note in publicNotes" rounded="0">
           <v-expansion-panel-title class="bg-toplayer">
-            <span class="text-body-1">{{ note.username }}</span>
+            <span class="text-body-1"
+              ><v-icon class="mr-2">mdi-account</v-icon
+              >{{ note.username }}</span
+            >
           </v-expansion-panel-title>
           <v-expansion-panel-text class="bg-surface">
             <MdPreview
@@ -313,12 +335,13 @@ watch(
               :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
               preview-theme="vuepress"
               code-theme="github"
+              class="px-8"
             />
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
-    </v-card-text>
-  </v-card>
+    </template>
+  </r-section>
 </template>
 
 <style>

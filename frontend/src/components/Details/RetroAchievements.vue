@@ -13,7 +13,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const props = defineProps<{ rom: DetailedRom }>();
 const retroAchievementsInfo = ref<RetroAchievementsGameSchema>();
 
-async function fetchDetails() {
+async function fetchRADetails() {
   await retroAchievementsApi
     .getGameInfo({ id: props.rom.ra_id as number })
     .then(({ data }) => {
@@ -29,7 +29,7 @@ async function fetchDetails() {
 
 onBeforeMount(async () => {
   emitter?.emit("showLoadingDialog", { loading: true, scrim: false });
-  await fetchDetails();
+  await fetchRADetails();
 });
 </script>
 <template>

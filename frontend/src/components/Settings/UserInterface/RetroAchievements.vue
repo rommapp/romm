@@ -11,6 +11,7 @@ const valid = ref(false);
 const auth = storeAuth();
 const apiKey = ref(auth.user?.ra_api_key);
 const username = ref(auth.user?.ra_username);
+const visibleAPIKey = ref(false);
 
 watch(
   auth,
@@ -58,7 +59,7 @@ function editUser() {
 </script>
 
 <template>
-  <r-section icon="mdi-palette-swatch-outline" title="RetroAchievements">
+  <r-section icon="mdi-trophy" title="RetroAchievements">
     <template #content>
       <p class="ma-4">
         Using your
@@ -75,28 +76,35 @@ function editUser() {
       </p>
       <v-form v-model="valid" @submit.prevent="editUser" class="pa-1">
         <v-row no-gutters>
-          <v-col md="4">
+          <v-col md="4" class="ma-2">
             <v-text-field
               v-model="username"
               :counter="10"
               :rules="rules"
               label="Username"
+              variant="outlined"
               hide-details
               required
+              prepend-inner-icon="mdi-account"
             />
           </v-col>
 
-          <v-col md="4">
+          <v-col md="4" class="ma-2">
             <v-text-field
               v-model="apiKey"
               :rules="rules"
-              label="Web Api Key"
+              label="API Key"
+              variant="outlined"
               hide-details
               required
+              :type="visibleAPIKey ? 'text' : 'password'"
+              prepend-inner-icon="mdi-key"
+              :append-inner-icon="visibleAPIKey ? 'mdi-eye-off' : 'mdi-eye'"
+              @click:append-inner="visibleAPIKey = !visibleAPIKey"
             />
           </v-col>
-          <v-col class="d-flex">
-            <v-btn type="submit" block height="100%">Submit</v-btn>
+          <v-col class="ma-2">
+            <v-btn type="submit" block class="h-100">Submit</v-btn>
           </v-col>
         </v-row>
       </v-form>

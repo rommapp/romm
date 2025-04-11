@@ -26,7 +26,7 @@ import storeAuth from "@/stores/auth";
 import { useI18n } from "vue-i18n";
 // Dynamic import for PDFViewer
 const PdfViewer = defineAsyncComponent(
-  () => import("@/components/Details/PDFViewer.vue")
+  () => import("@/components/Details/PDFViewer.vue"),
 );
 
 // Props
@@ -99,7 +99,7 @@ watch(
     if (currentRom.value?.id !== romId) {
       await fetchDetails();
     }
-  }
+  },
 );
 </script>
 
@@ -120,7 +120,17 @@ watch(
         </v-container>
       </v-col>
 
-      <v-col md="7">
+      <v-col
+        :md="
+          !(
+            lgAndUp &&
+            (currentRom.igdb_metadata?.expansions?.length ||
+              currentRom.igdb_metadata?.dlcs?.length)
+          )
+            ? 8
+            : 7
+        "
+      >
         <div :class="{ 'position-absolute title-desktop pl-4': mdAndUp }">
           <title-info :rom="currentRom" />
         </div>
@@ -142,17 +152,17 @@ watch(
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
-            <v-tab
+            <!-- <v-tab
               v-if="
                 currentRom.ra_id &&
                 auth.user?.ra_username &&
-                auth.user.ra_api_key
+                auth.user?.ra_api_key
               "
               value="retro_achievements"
               rounded="0"
             >
               Retro Achievements
-            </v-tab>
+            </v-tab> -->
             <v-tab
               v-if="
                 mdAndDown &&
@@ -196,9 +206,6 @@ watch(
               </v-window-item>
               <v-window-item value="personal">
                 <personal :rom="currentRom" />
-              </v-window-item>
-              <v-window-item v-if="currentRom.ra_id" value="retro_achievements">
-                <retro-achievements :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
