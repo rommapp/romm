@@ -87,25 +87,21 @@ export default {
         try {
           const iframeWindow = this.$refs.dosFrame.contentWindow;
 
-          if (
-            iframeWindow &&
-            iframeWindow.myApp &&
-            iframeWindow.myApp.loadRom &&
-            iframeWindow.myApp.load_file
-          ) {
-            const response = await fetch(this.romUrl);
-            const url = URL.parse(this.romUrl);
-            const blob = await response.blob();
+          if (iframeWindow && iframeWindow.myApp) {
+            let event = {};
+            if (this.romUrl) {
+              const response = await fetch(this.romUrl);
+              const url = URL.parse(this.romUrl);
+              const blob = await response.blob();
 
-            const filename = url.pathname.split("/").pop();
-            const file = new File([blob], filename, { type: blob.type });
+              const filename = url.pathname.split("/").pop();
+              const file = new File([blob], filename, { type: blob.type });
 
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
+              const dataTransfer = new DataTransfer();
+              dataTransfer.items.add(file);
 
-            var event = {};
-            event.dataTransfer = dataTransfer;
-
+              event.dataTransfer = dataTransfer;
+            }
             this.waitForModuleInit()
               .then(() => {
                 this.moduleReady = true;
