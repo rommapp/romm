@@ -96,6 +96,13 @@ RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION
     unzip -o "${RUFFLE_FILE}" -d /ruffle && \
     rm -f "${RUFFLE_FILE}";
 
+ARG DOSWASMX_VERSION="v0.0.1"
+ARG DOSWASMX_FILE="DosWasmX-.zip"
+RUN wget "https://github.com/ICTylor/DosWasmX/releases/download/${DOSWASMX_VERSION}/${DOSWASMX_FILE}" && \
+    unzip -o "${DOSWASMX_FILE}" -d /dosbox && \
+    rm -f "${DOSWASMX_FILE}";
+
+
 FROM alpine:${ALPINE_VERSION} AS nginx-build
 
 RUN apk add --no-cache \
@@ -192,6 +199,7 @@ FROM slim-image AS full-image
 ARG WEBSERVER_FOLDER=/var/www/html
 COPY --from=emulator-stage /emulatorjs ${WEBSERVER_FOLDER}/assets/emulatorjs
 COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
+COPY --from=emulator-stage /dosbox ${WEBSERVER_FOLDER}/assets/dosbox
 
 
 FROM slim-image AS dev-slim

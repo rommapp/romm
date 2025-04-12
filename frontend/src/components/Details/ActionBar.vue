@@ -13,6 +13,7 @@ import {
   is3DSCIARom,
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
+  isDosBoxEmulationSupported,
 } from "@/utils";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
@@ -41,6 +42,10 @@ const ejsEmulationSupported = computed(() => {
 
 const ruffleEmulationSupported = computed(() => {
   return isRuffleEmulationSupported(platformSlug.value, heartbeatStore.value);
+});
+
+const dosboxEmulationSupported = computed(() => {
+  return isDosBoxEmulationSupported(platformSlug.value, heartbeatStore.value);
 });
 
 const is3DSRom = computed(() => {
@@ -117,6 +122,18 @@ async function copyDownloadLink(rom: DetailedRom) {
         @click="
           $router.push({
             name: 'ruffle',
+            params: { rom: rom?.id },
+          })
+        "
+      >
+        <v-icon :icon="playInfoIcon" />
+      </v-btn>
+      <v-btn
+        v-if="dosboxEmulationSupported"
+        class="flex-grow-1"
+        @click="
+          $router.push({
+            name: 'dosbox',
             params: { rom: rom?.id },
           })
         "

@@ -23,6 +23,7 @@ export const ROUTES = {
   ROM: "rom",
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
+  DOSBOX: "dosbox",
   SCAN: "scan",
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
@@ -110,6 +111,11 @@ const routes = [
         path: "rom/:rom/ruffle",
         name: ROUTES.RUFFLE,
         component: () => import("@/views/Player/RuffleRS/Base.vue"),
+      },
+      {
+        path: "rom/:rom/dosbox",
+        name: ROUTES.DOSBOX,
+        component: () => import("@/views/Player/DosBox/Base.vue"),
       },
       {
         path: "scan",

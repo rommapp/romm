@@ -10,6 +10,7 @@ import type { Events } from "@/types/emitter";
 import {
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
+  isDosBoxEmulationSupported,
   is3DSCIARom,
 } from "@/utils";
 import { ROUTES } from "@/plugins/router";
@@ -40,6 +41,10 @@ const ruffleEmulationSupported = computed(() => {
   return isRuffleEmulationSupported(platformSlug.value, heartbeatStore.value);
 });
 
+const dosboxEmulationSupported = computed(() => {
+  return isDosBoxEmulationSupported(platformSlug.value, heartbeatStore.value);
+});
+
 const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
@@ -59,7 +64,11 @@ const is3DSRom = computed(() => {
       />
     </v-col>
     <v-col
-      v-if="ejsEmulationSupported || ruffleEmulationSupported"
+      v-if="
+        ejsEmulationSupported ||
+        ruffleEmulationSupported ||
+        dosboxEmulationSupported
+      "
       class="d-flex"
     >
       <v-btn
@@ -85,6 +94,21 @@ const is3DSRom = computed(() => {
         @click="
           $router.push({
             name: ROUTES.RUFFLE,
+            params: { rom: rom?.id },
+          })
+        "
+        icon="mdi-play"
+        variant="text"
+        rounded="0"
+      />
+      <v-btn
+        v-if="dosboxEmulationSupported"
+        @click.prevent
+        class="action-bar-btn-small flex-grow-1"
+        size="x-small"
+        @click="
+          $router.push({
+            name: ROUTES.DOSBOX,
             params: { rom: rom?.id },
           })
         "

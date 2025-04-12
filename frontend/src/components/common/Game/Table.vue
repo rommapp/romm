@@ -11,6 +11,7 @@ import storeAuth from "@/stores/auth";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   formatBytes,
+  isDosBoxEmulationSupported,
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
   languageToEmoji,
@@ -116,6 +117,11 @@ function checkIfEJSEmulationSupported(platformSlug: string) {
 function checkIfRuffleEmulationSupported(platformSlug: string) {
   const slug = getTruePlatformSlug(platformSlug);
   return isRuffleEmulationSupported(slug, heartbeatStore.value);
+}
+
+function checkIfDosBoxEmulationSupported(platformSlug: string) {
+  const slug = getTruePlatformSlug(platformSlug);
+  return isDosBoxEmulationSupported(slug, heartbeatStore.value);
 }
 
 function updateSelectAll() {
@@ -299,6 +305,18 @@ function updateSelectedRom(rom: SimpleRom) {
           @click.stop="
             $router.push({
               name: ROUTES.RUFFLE,
+              params: { rom: item?.id },
+            })
+          "
+        >
+          <v-icon>mdi-play</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="checkIfDosBoxEmulationSupported(item.platform_slug)"
+          size="small"
+          @click.stop="
+            $router.push({
+              name: ROUTES.DOSBOX,
               params: { rom: item?.id },
             })
           "

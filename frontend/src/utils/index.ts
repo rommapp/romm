@@ -503,6 +503,23 @@ export function isRuffleEmulationSupported(
   );
 }
 
+/**
+ * Check if DosBox emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @returns True if supported, false otherwise.
+ */
+export function isDosBoxEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+) {
+  return (
+    ["dos"].includes(platformSlug.toLowerCase()) &&
+    !heartbeat.EMULATION.DISABLE_DOSBOX
+  );
+}
+
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 /**
