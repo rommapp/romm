@@ -242,7 +242,7 @@ onBeforeUnmount(async () => {
             "
           />
           <v-select
-            v-if="firmwareOptions.length > 1"
+            v-if="firmwareOptions.length > 0"
             v-model="biosRef"
             class="my-1"
             hide-details
