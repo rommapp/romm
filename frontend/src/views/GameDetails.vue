@@ -6,9 +6,7 @@ import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
-import RetroAchievements from "@/components/Details/RetroAchievements.vue";
-import Saves from "@/components/Details/Saves.vue";
-import States from "@/components/Details/States.vue";
+import GameData from "@/components/Details/GameData.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
@@ -22,7 +20,6 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import storeAuth from "@/stores/auth";
 import { useI18n } from "vue-i18n";
 // Dynamic import for PDFViewer
 const PdfViewer = defineAsyncComponent(
@@ -35,8 +32,7 @@ const route = useRoute();
 const tab = ref<
   | "details"
   | "manual"
-  | "saves"
-  | "states"
+  | "gamedata"
   | "personal"
   | "additionalcontent"
   | "screenshots"
@@ -46,7 +42,6 @@ const { smAndDown, mdAndDown, mdAndUp, lgAndUp } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
-const auth = storeAuth();
 const platformsStore = storePlatforms();
 const { currentRom, fetchingRoms } = storeToRefs(romsStore);
 
@@ -147,22 +142,10 @@ watch(
             <v-tab value="manual" v-if="currentRom.has_manual">
               {{ t("rom.manual") }}
             </v-tab>
-            <v-tab value="saves"> {{ t("common.saves") }} </v-tab>
-            <v-tab value="states"> {{ t("common.states") }} </v-tab>
+            <v-tab value="gamedata">Game data</v-tab>
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
-            <!-- <v-tab
-              v-if="
-                currentRom.ra_id &&
-                auth.user?.ra_username &&
-                auth.user?.ra_api_key
-              "
-              value="retro_achievements"
-              rounded="0"
-            >
-              Retro Achievements
-            </v-tab> -->
             <v-tab
               v-if="
                 mdAndDown &&
@@ -198,11 +181,8 @@ watch(
               <v-window-item value="manual">
                 <pdf-viewer v-if="currentRom.has_manual" :rom="currentRom" />
               </v-window-item>
-              <v-window-item value="saves">
-                <saves :rom="currentRom" />
-              </v-window-item>
-              <v-window-item value="states">
-                <states :rom="currentRom" />
+              <v-window-item value="gamedata">
+                <game-data :rom="currentRom" />
               </v-window-item>
               <v-window-item value="personal">
                 <personal :rom="currentRom" />

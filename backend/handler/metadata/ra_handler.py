@@ -1,10 +1,19 @@
 import asyncio
 import http
+import json
+import os
+import time
 from typing import Final, NotRequired, TypedDict
 
 import httpx
 import yarl
-from config import RETROACHIEVEMENTS_API_KEY, RETROACHIEVEMENTS_USERNAME
+from anyio import open_file
+from config import (
+    REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
+    RESOURCES_RETROACHIEVEMENTS_BASE_PATH,
+    RETROACHIEVEMENTS_API_KEY,
+    RETROACHIEVEMENTS_USERNAME,
+)
 from fastapi import HTTPException, status
 from logger.logger import log
 from utils.context import ctx_httpx_client
@@ -23,26 +32,62 @@ class RAGamesPlatform(TypedDict):
     name: NotRequired[str]
 
 
+class RAGameRomAchievement(TypedDict):
+    ra_id: int | None
+    title: str | None
+    description: str | None
+    points: int | None
+    num_awarded: int | None
+    num_awarded_hardcore: int | None
+    badge_id: str | None
+    display_order: int | None
+    type: str | None
+
+
+class RAMetadata(TypedDict):
+    achievements: list[RAGameRomAchievement]
+
+
 class RAGameRom(TypedDict):
     ra_id: int | None
+    ra_metadata: NotRequired[RAMetadata]
 
 
 class RAHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = "https://retroachievements.org/API"
         self.search_endpoint = f"{self.BASE_URL}/API_GetGameList.php"
+        self.game_details_endpoint = f"{self.BASE_URL}/API_GetGameExtended.php"
+        self.CACHE_FILE_JSON_NAME_SUFFIX = "roms_result.json"
 
-    async def _request(self, url: str, timeout: int = 120) -> dict:
+    def _create_resources_path(self) -> None:
+        os.makedirs(RESOURCES_RETROACHIEVEMENTS_BASE_PATH, exist_ok=True)
+
+    def _exists_cache_file(self, platform_ra_id: int) -> bool:
+        file_path = f"{RESOURCES_RETROACHIEVEMENTS_BASE_PATH}/{platform_ra_id}_{self.CACHE_FILE_JSON_NAME_SUFFIX}"
+        return os.path.exists(file_path)
+
+    def _days_since_last_cache_file_update(self, platform_ra_id: int) -> int:
+        file_path = f"{RESOURCES_RETROACHIEVEMENTS_BASE_PATH}/{platform_ra_id}_{self.CACHE_FILE_JSON_NAME_SUFFIX}"
+        return (
+            0
+            if not os.path.exists(file_path)
+            else int((time.time() - os.path.getmtime(file_path)) / (24 * 3600))
+        )
+
+    async def _request(self, url: str, request_timeout: int = 120) -> dict:
         httpx_client = ctx_httpx_client.get()
         authorized_url = yarl.URL(url)
+        masked_url = authorized_url.with_query(
+            self._mask_sensitive_values(dict(authorized_url.query))
+        )
+        log.debug(
+            "API request: URL=%s, Timeout=%s",
+            masked_url,
+            request_timeout,
+        )
         try:
-            # TODO: mask api key
-            log.debug(
-                "API request: URL=%s, Timeout=%s",
-                url,
-                timeout,
-            )
-            res = await httpx_client.get(str(authorized_url), timeout=timeout)
+            res = await httpx_client.get(str(authorized_url), timeout=request_timeout)
             res.raise_for_status()
             return res.json()
         except httpx.NetworkError as exc:
@@ -69,9 +114,9 @@ class RAHandler(MetadataHandler):
             log.debug(
                 "API request: URL=%s, Timeout=%s",
                 url,
-                timeout,
+                request_timeout,
             )
-            res = await httpx_client.get(url, timeout=timeout)
+            res = await httpx_client.get(url, timeout=request_timeout)
             res.raise_for_status()
         except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
             if (
@@ -92,21 +137,52 @@ class RAHandler(MetadataHandler):
         if not platform_ra_id:
             return None
 
+        self._create_resources_path()
+
         url = yarl.URL(self.search_endpoint).with_query(
             i=[platform_ra_id],
-            h=["1"],
-            f=["1"],
+            f=["1"],  # If 1, only return games that have achievements. Defaults to 0.
+            h=["1"],  # If 1, also return supported hashes for games. Defaults to 0.
             z=[RETROACHIEVEMENTS_USERNAME],
             y=[RETROACHIEVEMENTS_API_KEY],
         )
 
-        roms = await self._request(str(url))
+        # Fetch all hashes for specific platform
+        if (
+            REFRESH_RETROACHIEVEMENTS_CACHE_DAYS
+            <= self._days_since_last_cache_file_update(platform_ra_id)
+            or not self._exists_cache_file(platform_ra_id)
+        ):
+            # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
+            roms = await self._request(str(url))
+            async with await open_file(
+                f"{RESOURCES_RETROACHIEVEMENTS_BASE_PATH}/{platform_ra_id}_{self.CACHE_FILE_JSON_NAME_SUFFIX}",
+                "w",
+                encoding="utf-8",
+            ) as json_file:
+                await json_file.write(json.dumps(roms, indent=4))
+        else:
+            # Read the roms result from the JSON file
+            async with await open_file(
+                f"{RESOURCES_RETROACHIEVEMENTS_BASE_PATH}/{platform_ra_id}_{self.CACHE_FILE_JSON_NAME_SUFFIX}",
+                "r",
+                encoding="utf-8",
+            ) as json_file:
+                roms = json.loads(await json_file.read())
+
         for rom in roms:
-            # 3d45c1ee9abd5738df46d2bdda8b57dc hardcoded hash for pokemon red from no-intro
             if hash in rom["Hashes"]:
                 return rom
 
         return None
+
+    async def _get_rom_details(self, ra_id: int) -> dict:
+        url = yarl.URL(self.game_details_endpoint).with_query(
+            i=[ra_id],
+            y=[RETROACHIEVEMENTS_API_KEY],
+        )
+        details = await self._request(str(url))
+        return details
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         platform = SLUG_TO_RA_ID.get(slug.lower(), None)
@@ -124,17 +200,38 @@ class RAHandler(MetadataHandler):
         if not platform_ra_id:
             return RAGameRom(ra_id=None)
 
-        fallback_rom = RAGameRom(ra_id=None)
-        res = await self._search_rom(hash, platform_ra_id)
+        rom = await self._search_rom(hash, platform_ra_id)
 
-        if not res:
-            return fallback_rom
+        if not rom:
+            return RAGameRom(ra_id=None)
 
-        return RAGameRom(
-            {
-                "ra_id": res["ID"],
-            }
-        )  # type: ignore[misc]
+        try:
+            rom_details = await self._get_rom_details(rom["ID"])
+            return RAGameRom(
+                {
+                    "ra_id": rom["ID"],
+                    "ra_metadata": {
+                        "achievements": [
+                            RAGameRomAchievement(
+                                ra_id=achievement.get("ID", None),
+                                title=achievement.get("Title", ""),
+                                description=achievement.get("Description", ""),
+                                points=achievement.get("Points", None),
+                                num_awarded=achievement.get("NumAwarded", None),
+                                num_awarded_hardcore=achievement.get(
+                                    "NumAwardedHardcore", None
+                                ),
+                                badge_id=achievement.get("BadgeName", ""),
+                                display_order=achievement.get("DisplayOrder", None),
+                                type=achievement.get("type", ""),
+                            )
+                            for achievement in rom_details["Achievements"].values()
+                        ]
+                    },
+                }
+            )
+        except KeyError:
+            return RAGameRom(ra_id=None)
 
 
 class SlugToRAId(TypedDict):

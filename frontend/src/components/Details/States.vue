@@ -108,7 +108,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
       </v-btn>
     </v-btn-group>
   </div>
-  <div class="d-flex ga-4 flex-md-wrap mt-6 px-2">
+  <div class="d-flex ga-4 flex-md-wrap my-6 px-2">
     <v-hover
       v-if="rom.user_states.length > 0"
       v-for="state in rom.user_states"
@@ -139,29 +139,31 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
                 getEmptyCoverImage(state.file_name)
               "
             />
-            <v-btn-group
-              v-if="isHovering"
-              class="position-absolute"
-              density="compact"
-              style="bottom: 4px; right: 4px"
-            >
-              <v-btn drawer :href="state.download_path" download size="small">
-                <v-icon>mdi-download</v-icon>
-              </v-btn>
-              <v-btn
-                v-if="scopes.includes('assets.write')"
-                drawer
-                size="small"
-                @click="
-                  emitter?.emit('showDeleteStatesDialog', {
-                    rom: props.rom,
-                    states: [state],
-                  })
-                "
+            <v-slide-x-transition>
+              <v-btn-group
+                v-if="isHovering"
+                class="position-absolute"
+                density="compact"
+                style="bottom: 4px; right: 4px"
               >
-                <v-icon class="text-romm-red">mdi-delete</v-icon>
-              </v-btn>
-            </v-btn-group>
+                <v-btn drawer :href="state.download_path" download size="small">
+                  <v-icon>mdi-download</v-icon>
+                </v-btn>
+                <v-btn
+                  v-if="scopes.includes('assets.write')"
+                  drawer
+                  size="small"
+                  @click="
+                    emitter?.emit('showDeleteStatesDialog', {
+                      rom: props.rom,
+                      states: [state],
+                    })
+                  "
+                >
+                  <v-icon class="text-romm-red">mdi-delete</v-icon>
+                </v-btn>
+              </v-btn-group>
+            </v-slide-x-transition>
           </v-row>
           <v-row class="mt-6 flex-grow-0">{{ state.file_name }}</v-row>
           <v-row

@@ -491,12 +491,12 @@ async def _identify_rom(
         # Skip hashing games for platforms that don't have a hash database
         if platform.slug not in NON_HASHABLE_PLATFORMS:
             md5_hash = _set_rom_hashes(_added_rom.id)
-            log.debug(f"Hashes for {platform.name} - {fs_rom['fs_name']}: {md5_hash}")
             ra_handler_rom = await fetch_ra_info(
                 platform=platform,
                 hash=md5_hash,
             )
             _added_rom.ra_id = ra_handler_rom.get("ra_id", "")
+            _added_rom.ra_metadata = ra_handler_rom.get("ra_metadata", {})
             # Uncomment this to run scan in a background process
             # low_prio_queue.enqueue(
             #     _set_rom_hashes,
