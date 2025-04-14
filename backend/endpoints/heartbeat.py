@@ -43,11 +43,12 @@ def heartbeat() -> HeartbeatResponse:
         },
         "METADATA_SOURCES": {
             "ANY_SOURCE_ENABLED": IGDB_API_ENABLED
+            or SS_API_ENABLED
             or MOBY_API_ENABLED
-            or SS_API_ENABLED,
+            or RETROACHIEVEMENTS_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
-            "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
+            "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
             "RETROACHIEVEMENTS_ENABLED": RETROACHIEVEMENTS_API_ENABLED,
         },

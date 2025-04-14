@@ -41,7 +41,7 @@ function editUser() {
     })
     .then(() => {
       emitter?.emit("snackbarShow", {
-        msg: `Updated RetroAchievements settings. Please Rescan`,
+        msg: `Updated RetroAchievements settings`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 5000,
@@ -49,7 +49,7 @@ function editUser() {
     })
     .catch(() => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to update your  RetroAchievements settings.`,
+        msg: `Unable to update your RetroAchievements settings.`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 5000,

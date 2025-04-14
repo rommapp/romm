@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { SaveSchema } from "@/__generated__";
+import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import storeAuth from "@/stores/auth";
-import { storeToRefs } from "pinia";
 import { getEmptyCoverImage } from "@/utils/covers";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 // Props
@@ -106,7 +106,7 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
       </v-btn>
     </v-btn-group>
   </div>
-  <div class="d-flex ga-4 flex-md-wrap mt-6 px-2">
+  <div class="d-flex flex-md-wrap my-6 px-2">
     <v-hover
       v-if="rom.user_saves.length > 0"
       v-for="save in rom.user_saves"
@@ -137,29 +137,31 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
                 getEmptyCoverImage(save.file_name)
               "
             />
-            <v-btn-group
-              v-if="isHovering"
-              class="position-absolute"
-              density="compact"
-              style="bottom: 4px; right: 4px"
-            >
-              <v-btn drawer :href="save.download_path" download size="small">
-                <v-icon>mdi-download</v-icon>
-              </v-btn>
-              <v-btn
-                v-if="scopes.includes('assets.write')"
-                drawer
-                size="small"
-                @click="
-                  emitter?.emit('showDeleteSavesDialog', {
-                    rom: props.rom,
-                    saves: [save],
-                  })
-                "
+            <v-slide-x-transition>
+              <v-btn-group
+                v-if="isHovering"
+                class="position-absolute"
+                density="compact"
+                style="bottom: 4px; right: 4px"
               >
-                <v-icon class="text-romm-red">mdi-delete</v-icon>
-              </v-btn>
-            </v-btn-group>
+                <v-btn drawer :href="save.download_path" download size="small">
+                  <v-icon>mdi-download</v-icon>
+                </v-btn>
+                <v-btn
+                  v-if="scopes.includes('assets.write')"
+                  drawer
+                  size="small"
+                  @click="
+                    emitter?.emit('showDeleteSavesDialog', {
+                      rom: props.rom,
+                      saves: [save],
+                    })
+                  "
+                >
+                  <v-icon class="text-romm-red">mdi-delete</v-icon>
+                </v-btn>
+              </v-btn-group>
+            </v-slide-x-transition>
           </v-row>
           <v-row class="mt-6 flex-grow-0">{{ save.file_name }}</v-row>
           <v-row

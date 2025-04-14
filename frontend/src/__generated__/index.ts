@@ -29,6 +29,8 @@ export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
 export type { OIDCDict } from './models/OIDCDict';
 export type { PlatformSchema } from './models/PlatformSchema';
+export type { RAGameRomAchievement } from './models/RAGameRomAchievement';
+export type { RAMetadata } from './models/RAMetadata';
 export type { RetroAchievementsGameSchema } from './models/RetroAchievementsGameSchema';
 export type { Role } from './models/Role';
 export type { RomFileCategory } from './models/RomFileCategory';

@@ -9,6 +9,7 @@ from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
+from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.rom import Rom, RomFileCategory, RomUserStatus
 from pydantic import computed_field, field_validator
@@ -30,6 +31,11 @@ RomMobyMetadata = TypedDict(  # type: ignore[misc]
 RomSSMetadata = TypedDict(  # type: ignore[misc]
     "RomSSMetadata",
     dict((k, NotRequired[v]) for k, v in get_type_hints(SSMetadata).items()),
+    total=False,
+)
+RomRAMetadata = TypedDict(  # type: ignore[misc]
+    "RAMetadata",
+    dict((k, NotRequired[v]) for k, v in get_type_hints(RAMetadata).items()),
     total=False,
 )
 
@@ -193,6 +199,7 @@ class RomSchema(BaseModel):
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
     ss_metadata: RomSSMetadata | None
+    ra_metadata: RomRAMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None

@@ -8,7 +8,7 @@ Create Date: 2025-04-11 00:59:30.772416
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import mysql
+from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
 revision = "0038_add_retro_achievements"
@@ -19,7 +19,7 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("ra_metadata", mysql.JSON(), nullable=True))
+        batch_op.add_column(sa.Column("ra_metadata", CustomJSON(), nullable=True))
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("ra_id", sa.Integer(), nullable=True))
@@ -34,6 +34,7 @@ def upgrade() -> None:
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("ra_id", sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column("ra_metadata", CustomJSON(), nullable=True))
 
 
 def downgrade() -> None:
@@ -49,3 +50,4 @@ def downgrade() -> None:
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_column("ra_id")
+        batch_op.drop_column("ra_metadata")

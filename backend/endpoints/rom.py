@@ -505,6 +505,7 @@ async def update_rom(
                 "sgdb_id": None,
                 "moby_id": None,
                 "ss_id": None,
+                "ra_id": None,
                 "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
@@ -517,6 +518,7 @@ async def update_rom(
                 "igdb_metadata": {},
                 "moby_metadata": {},
                 "ss_metadata": {},
+                "ra_metadata": {},
                 "revision": "",
             },
         )
