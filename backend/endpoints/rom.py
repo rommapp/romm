@@ -27,10 +27,10 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import HTTPException, Request, UploadFile, status
+from fastapi import HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
-from fastapi_pagination.limit_offset import LimitOffsetPage
+from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
@@ -120,8 +120,15 @@ async def add_rom(request: Request):
     return Response(status_code=status.HTTP_201_CREATED)
 
 
+class CustomLimitOffsetParams(LimitOffsetParams):
+    # Temporarily increase the limit until we can implement pagination on all apps
+    limit: int = Query(50, ge=1, le=10_000, description="Page size limit")
+    offset: int = Query(0, ge=0, description="Page offset")
+
+
 class CustomLimitOffsetPage(LimitOffsetPage[T]):
     char_index: dict[str, int]
+    __params_type__ = CustomLimitOffsetParams
 
 
 @protected_route(router.get, "", [Scope.ROMS_READ])
