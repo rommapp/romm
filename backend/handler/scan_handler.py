@@ -45,12 +45,14 @@ class MetadataSource:
 
 async def fetch_ra_info(
     platform: Platform,
+    rom_id: int,
     hash: str,
 ) -> RAGameRom:
 
     return await meta_ra_handler.get_rom(
+        platform=platform,
+        rom_id=rom_id,
         hash=hash,
-        platform_ra_id=platform.ra_id,
     )
 
 

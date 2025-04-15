@@ -493,6 +493,7 @@ async def _identify_rom(
             md5_hash = _set_rom_hashes(_added_rom.id)
             ra_handler_rom = await fetch_ra_info(
                 platform=platform,
+                rom_id=_added_rom.id,
                 hash=md5_hash,
             )
             _added_rom.ra_id = ra_handler_rom.get("ra_id", "")

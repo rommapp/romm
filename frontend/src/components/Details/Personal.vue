@@ -327,7 +327,7 @@ watch(
                 :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                 preview-theme="vuepress"
                 code-theme="github"
-                class="px-8"
+                class="pa-4"
               />
             </template>
           </r-section>
@@ -352,7 +352,7 @@ watch(
                       :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                       preview-theme="vuepress"
                       code-theme="github"
-                      class="px-8"
+                      class="pa-4"
                     />
                   </v-expansion-panel-text>
                 </v-expansion-panel>
