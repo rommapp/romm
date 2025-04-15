@@ -10,12 +10,13 @@ import yarl
 from anyio import open_file
 from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
-    RESOURCES_RETROACHIEVEMENTS_BASE_PATH,
+    RESOURCES_BASE_PATH,
     RETROACHIEVEMENTS_API_KEY,
     RETROACHIEVEMENTS_USERNAME,
 )
 from fastapi import HTTPException, status
 from logger.logger import log
+from models.platform import Platform
 from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
@@ -58,17 +59,20 @@ class RAHandler(MetadataHandler):
         self.BASE_URL = "https://retroachievements.org/API"
         self.search_endpoint = f"{self.BASE_URL}/API_GetGameList.php"
         self.game_details_endpoint = f"{self.BASE_URL}/API_GetGameExtended.php"
-        self.CACHE_FILE_JSON_NAME_SUFFIX = "roms_result.json"
+        self.CACHE_FILE_JSON_NAME_SUFFIX = "hashes.json"
 
-    def _create_resources_path(self) -> None:
-        os.makedirs(RESOURCES_RETROACHIEVEMENTS_BASE_PATH, exist_ok=True)
+    def _create_resources_path(self, platform_id: int, rom_id: int) -> None:
+        os.makedirs(
+            f"{RESOURCES_BASE_PATH}/roms/{platform_id}/{rom_id}/retroachievements",
+            exist_ok=True,
+        )
 
-    def _exists_cache_file(self, platform_ra_id: int) -> bool:
-        file_path = f"{RESOURCES_RETROACHIEVEMENTS_BASE_PATH}/{platform_ra_id}_{self.CACHE_FILE_JSON_NAME_SUFFIX}"
+    def _exists_cache_file(self, platform_id: int, rom_id: int) -> bool:
+        file_path = f"{RESOURCES_BASE_PATH}/roms/{platform_id}/{rom_id}/retroachievements/{self.CACHE_FILE_JSON_NAME_SUFFIX}"
         return os.path.exists(file_path)
 
-    def _days_since_last_cache_file_update(self, platform_ra_id: int) -> int:
-        file_path = f"{RESOURCES_RETROACHIEVEMENTS_BASE_PATH}/{platform_ra_id}_{self.CACHE_FILE_JSON_NAME_SUFFIX}"
+    def _days_since_last_cache_file_update(self, platform_id: int, rom_id: int) -> int:
+        file_path = f"{RESOURCES_BASE_PATH}/roms/{platform_id}/{rom_id}/retroachievements/{self.CACHE_FILE_JSON_NAME_SUFFIX}"
         return (
             0
             if not os.path.exists(file_path)
@@ -132,15 +136,17 @@ class RAHandler(MetadataHandler):
 
         return res.json()
 
-    async def _search_rom(self, hash: str, platform_ra_id: int) -> dict | None:
+    async def _search_rom(
+        self, platform: Platform, rom_id: int, hash: str
+    ) -> dict | None:
 
-        if not platform_ra_id:
+        if not platform.ra_id:
             return None
 
-        self._create_resources_path()
+        self._create_resources_path(platform.id, rom_id)
 
         url = yarl.URL(self.search_endpoint).with_query(
-            i=[platform_ra_id],
+            i=[platform.ra_id],
             f=["1"],  # If 1, only return games that have achievements. Defaults to 0.
             h=["1"],  # If 1, also return supported hashes for games. Defaults to 0.
             z=[RETROACHIEVEMENTS_USERNAME],
@@ -150,13 +156,13 @@ class RAHandler(MetadataHandler):
         # Fetch all hashes for specific platform
         if (
             REFRESH_RETROACHIEVEMENTS_CACHE_DAYS
-            <= self._days_since_last_cache_file_update(platform_ra_id)
-            or not self._exists_cache_file(platform_ra_id)
+            <= self._days_since_last_cache_file_update(platform.id, rom_id)
+            or not self._exists_cache_file(platform.id, rom_id)
         ):
             # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
             roms = await self._request(str(url))
             async with await open_file(
-                f"{RESOURCES_RETROACHIEVEMENTS_BASE_PATH}/{platform_ra_id}_{self.CACHE_FILE_JSON_NAME_SUFFIX}",
+                f"{RESOURCES_BASE_PATH}/roms/{platform.id}/{rom_id}/retroachievements/{self.CACHE_FILE_JSON_NAME_SUFFIX}",
                 "w",
                 encoding="utf-8",
             ) as json_file:
@@ -164,7 +170,7 @@ class RAHandler(MetadataHandler):
         else:
             # Read the roms result from the JSON file
             async with await open_file(
-                f"{RESOURCES_RETROACHIEVEMENTS_BASE_PATH}/{platform_ra_id}_{self.CACHE_FILE_JSON_NAME_SUFFIX}",
+                f"{RESOURCES_BASE_PATH}/roms/{platform.id}/{rom_id}/retroachievements/{self.CACHE_FILE_JSON_NAME_SUFFIX}",
                 "r",
                 encoding="utf-8",
             ) as json_file:
@@ -196,11 +202,11 @@ class RAHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, hash: str, platform_ra_id: int) -> RAGameRom:
-        if not platform_ra_id:
+    async def get_rom(self, platform: Platform, rom_id: int, hash: str) -> RAGameRom:
+        if not platform.ra_id:
             return RAGameRom(ra_id=None)
 
-        rom = await self._search_rom(hash, platform_ra_id)
+        rom = await self._search_rom(platform, rom_id, hash)
 
         if not rom:
             return RAGameRom(ra_id=None)
