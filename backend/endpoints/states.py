@@ -10,6 +10,7 @@ from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot, scan_state
 from logger.logger import log
 from utils.router import APIRouter
+from endpoints.asset_utils import refresh_assets
 
 router = APIRouter(
     prefix="/states",
@@ -208,3 +209,26 @@ async def delete_states(request: Request) -> list[int]:
                 log.error(error)
 
     return state_ids
+
+
+@protected_route(router.post, "/refresh", [Scope.ASSETS_WRITE])
+async def refresh_states(request: Request, rom_id: int) -> dict:
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"ROM with ID {rom_id} not found")
+
+    # match any state file for this ROM: "MyGame.state", "MyGame.state.auto", etc.
+    patterns = [f"{rom.fs_name_no_ext}.state*"]
+
+    return refresh_assets(
+        user=request.user,
+        rom=rom,
+        build_path_func=fs_asset_handler.build_states_file_path,
+        get_db_entries=db_state_handler.get_states,
+        scan_fn=scan_state,
+        add_fn=db_state_handler.add_state,
+        delete_fn=db_state_handler.delete_state,
+        patterns=patterns,
+        emulator=None,
+    )

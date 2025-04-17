@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-
 from decorators.auth import protected_route
 from endpoints.responses.assets import SaveSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
@@ -10,6 +9,9 @@ from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save, scan_screenshot
 from logger.logger import log
 from utils.router import APIRouter
+from pathlib import Path
+from config import ASSETS_BASE_PATH
+from endpoints.asset_utils import refresh_assets
 
 router = APIRouter(
     prefix="/saves",
@@ -208,3 +210,26 @@ async def delete_saves(request: Request) -> list[int]:
                 log.error(error)
 
     return save_ids
+
+
+@protected_route(router.post, "/refresh", [Scope.ASSETS_WRITE])
+async def refresh_saves(request: Request, rom_id: int) -> dict:
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"ROM with ID {rom_id} not found")
+
+    # only match files named exactly {rom.name}.srm or .sav (if you want both)
+    patterns = [f"{rom.fs_name_no_ext}.srm", f"{rom.name}.sav"]
+
+    return refresh_assets(
+        user=request.user,
+        rom=rom,
+        build_path_func=fs_asset_handler.build_saves_file_path,
+        get_db_entries=db_save_handler.get_saves,
+        scan_fn=scan_save,
+        add_fn=db_save_handler.add_save,
+        delete_fn=db_save_handler.delete_save,
+        patterns=patterns,
+        emulator=None,
+    )
