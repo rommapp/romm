@@ -2,17 +2,20 @@ from fastapi import HTTPException, status
 from pathlib import Path
 from config import ASSETS_BASE_PATH
 from logger.logger import log
+from fnmatch import fnmatch
+from typing import Callable
 
 def refresh_assets(
     user,
     rom,
-    build_path_func,
-    get_db_entries,
-    scan_fn,
-    add_fn,
-    delete_fn,
+    build_path_func: Callable,
+    get_db_entries: Callable,
+    scan_fn: Callable,
+    add_fn: Callable,
+    delete_fn: Callable,
     patterns: list[str],
     emulator: str | None = None,
+    exclude_patterns: list[str] | None = None,
 ) -> dict:
     """
     Generic filesystem <-> DB sync:
@@ -39,12 +42,17 @@ def refresh_assets(
             detail=f"Assets folder missing: {p}"
         )
 
-    # collect all matching files
+    # collect all matching files, then filter out exclude_patterns
+    exclude_patterns = exclude_patterns or []
     fs_names = set()
     for pat in patterns:
-        matched = [f.name for f in p.glob(pat) if f.is_file()]
-        log.info(f"pattern '{pat}' matched files: {matched}")
-        fs_names.update(matched)
+        raw = [f.name for f in p.glob(pat) if f.is_file()]
+        filtered = [
+            name for name in raw
+            if not any(fnmatch(name, excl) for excl in exclude_patterns)
+        ]
+        log.info(f"pattern '{pat}' → {raw}  after exclude {exclude_patterns} → {filtered}")
+        fs_names |= set(filtered)
     log.info(f"all filesystem names: {fs_names}")
 
     # pull DB entries

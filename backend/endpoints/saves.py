@@ -232,4 +232,5 @@ async def refresh_saves(request: Request, rom_id: int) -> dict:
         delete_fn=db_save_handler.delete_save,
         patterns=patterns,
         emulator=None,
+        exclude_patterns=["*.png"],
     )

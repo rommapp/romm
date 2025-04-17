@@ -231,4 +231,5 @@ async def refresh_states(request: Request, rom_id: int) -> dict:
         delete_fn=db_state_handler.delete_state,
         patterns=patterns,
         emulator=None,
+        exclude_patterns=["*.png"],
     )
