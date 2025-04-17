@@ -1,7 +1,6 @@
 from fastapi import HTTPException, status
 from pathlib import Path
 from config import ASSETS_BASE_PATH
-from logger.logger import log
 from fnmatch import fnmatch
 from typing import Callable
 
@@ -32,11 +31,7 @@ def refresh_assets(
     rel = build_path_func(**kwargs)
     p = Path(ASSETS_BASE_PATH) / rel
 
-    log.info(f"→ refreshing assets in {p.resolve()}")
-    log.info(f"→ using patterns: {patterns}")
-
     if not p.exists():
-        log.error(f"folder missing: {p}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Assets folder missing: {p}"
@@ -51,21 +46,16 @@ def refresh_assets(
             name for name in raw
             if not any(fnmatch(name, excl) for excl in exclude_patterns)
         ]
-        log.info(f"pattern '{pat}' → {raw}  after exclude {exclude_patterns} → {filtered}")
         fs_names |= set(filtered)
-    log.info(f"all filesystem names: {fs_names}")
 
     # pull DB entries
     entries = get_db_entries(user_id=user.id, rom_id=rom.id)
     db_names = {e.file_name for e in entries}
-    log.info(f"database has entries: {db_names}")
 
     db_map = {e.file_name: e for e in entries}
 
     to_add = fs_names - db_map.keys()
-    log.info(f"files to ADD: {to_add}")
     to_rm  = db_map.keys() - fs_names
-    log.info(f"files to REMOVE: {to_rm}")
 
     for fn in to_add:
         m = scan_fn(
@@ -78,11 +68,9 @@ def refresh_assets(
         m.user_id = user.id
         m.emulator = emulator
         add_fn(m)
-        log.info(f"added {fn}")
 
     for fn in to_rm:
         e = db_map[fn]
         delete_fn(e.id)
-        log.info(f"removed {fn}")
 
     return {"added": list(to_add), "removed": list(to_rm)}

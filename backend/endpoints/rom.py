@@ -47,6 +47,8 @@ from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
+from endpoints.saves import refresh_saves
+from endpoints.states import refresh_states
 
 router = APIRouter(
     prefix="/roms",
@@ -184,7 +186,7 @@ def get_roms(
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
 )
-def get_rom(request: Request, id: int) -> DetailedRomSchema:
+async def get_rom(request: Request, id: int) -> DetailedRomSchema:
     """Get rom endpoint
 
     Args:
@@ -195,8 +197,11 @@ def get_rom(request: Request, id: int) -> DetailedRomSchema:
         DetailedRomSchema: Rom stored in the database
     """
 
-    rom = db_rom_handler.get_rom(id)
+    # refresh filesystem <> DB for saves & states
+    await refresh_saves(request, rom_id=id)
+    await refresh_states(request, rom_id=id)
 
+    rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
