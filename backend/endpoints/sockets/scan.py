@@ -46,31 +46,29 @@ from utils.context import initialize_context
 STOP_SCAN_FLAG: Final = "scan:stop"
 NON_HASHABLE_PLATFORMS = frozenset(
     (
-        "amazon-alexa",
-        "amazon-fire-tv",
+        "amazonalexa",
+        "amazonfiretv",
         "android",
-        "gear-vr",
+        "gearvr",
         "ios",
         "ipad",
         "linux",
         "mac",
-        "meta-quest-2",
-        "meta-quest-3",
-        "oculus-go",
-        "oculus-quest",
-        "oculus-rift",
+        "metaquest2",
+        "metaquest3",
+        "oculusgo",
+        "oculusquest",
+        "oculusrift",
         "pc",
         "ps3",
         "ps4",
-        "ps4--1",
         "ps5",
         "psvr",
         "psvr2",
-        "series-x",
+        "seriesx",
         "switch",
         "wiiu",
         "win",
-        "xbox-360",
         "xbox360",
         "xboxone",
     )
@@ -117,7 +115,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) 
         metadata_sources (list[str], optional): List of metadata sources to be used
     """
 
-    # This logic is tricky so only touch it if you know what you're doing"""
+    # This logic is tricky so only touch it if you know what you're doing
     return bool(
         (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
         or (scan_type == ScanType.COMPLETE)
@@ -188,9 +186,9 @@ async def scan_platforms(
         else:
             log.info(f"Found {len(platform_list)} platforms in the file system")
 
-        for platform_slug in platform_list:
+        for platform_fs_slug in platform_list:
             scan_stats += await _identify_platform(
-                platform_slug=platform_slug,
+                platform_fs_slug=platform_fs_slug,
                 scan_type=scan_type,
                 fs_platforms=fs_platforms,
                 roms_ids=roms_ids,
@@ -222,7 +220,7 @@ async def scan_platforms(
 
 
 async def _identify_platform(
-    platform_slug: str,
+    platform_fs_slug: str,
     scan_type: ScanType,
     fs_platforms: list[str],
     roms_ids: list[str],
@@ -235,18 +233,35 @@ async def _identify_platform(
 
     scan_stats = ScanStats()
 
-    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    platform = db_platform_handler.get_platform_by_fs_slug(platform_fs_slug)
     if platform and scan_type == ScanType.NEW_PLATFORMS:
         return scan_stats
 
     scanned_platform = await scan_platform(
-        platform_slug, fs_platforms, metadata_sources=metadata_sources
+        platform_fs_slug, fs_platforms, metadata_sources=metadata_sources
     )
+
     if platform:
+        # Keep the existing properties if they exist on the platform
         scanned_platform.id = platform.id
-        # Keep the existing ids if they exist on the platform
         scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
         scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
+        scanned_platform.ss_id = scanned_platform.ss_id or platform.ss_id
+
+        # Change this code only if you know what you're doing
+        # Only update the slug if we have a metadata match
+        if (
+            scanned_platform.igdb_id
+            or scanned_platform.moby_id
+            or scanned_platform.ss_id
+        ):
+            pass
+        # Or if the slug is different from the filesystem slug
+        elif scanned_platform.slug != scanned_platform.fs_slug:
+            pass
+        # Otherwise keep the existing slug
+        else:
+            scanned_platform.slug = platform.slug
 
     scan_stats.scanned_platforms += 1
     scan_stats.added_platforms += 1 if not platform else 0
