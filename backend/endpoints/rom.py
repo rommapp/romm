@@ -49,6 +49,7 @@ from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 from endpoints.saves import refresh_saves
 from endpoints.states import refresh_states
+from utils.xml_generator import generate_gamelist
 
 router = APIRouter(
     prefix="/roms",
@@ -649,6 +650,10 @@ async def update_rom(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
+    else:
+        # Update the gamelist.xml for the platform
+        generate_gamelist(rom.platform.fs_slug)
+        
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 

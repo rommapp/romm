@@ -42,6 +42,7 @@ from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
 from utils.context import initialize_context
+from utils.xml_generator import generate_gamelist
 
 STOP_SCAN_FLAG: Final = "scan:stop"
 NON_HASHABLE_PLATFORMS = frozenset(
@@ -321,6 +322,7 @@ async def _identify_platform(
     # Only purge entries if there are some file remaining in the library
     # This protects against accidental deletion of entries when
     # the folder structure is not correct or the drive is not mounted
+    purged_roms = []
     if len(fs_roms) > 0:
         purged_roms = db_rom_handler.purge_roms(
             platform.id, [rom["fs_name"] for rom in fs_roms]
@@ -329,6 +331,10 @@ async def _identify_platform(
             log.info("Purging roms not found in the filesystem:")
             for r in purged_roms:
                 log.info(f" - {r.fs_name}")
+
+    # Regenerate gamelist.xml if we added or purged any roms
+    if scan_stats.added_roms > 0 or len(purged_roms) > 0:
+        generate_gamelist(platform_slug)
 
     # Same protection for firmware
     if len(fs_firmware) > 0:

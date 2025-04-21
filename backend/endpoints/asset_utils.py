@@ -32,10 +32,7 @@ def refresh_assets(
     p = Path(ASSETS_BASE_PATH) / rel
 
     if not p.exists():
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Assets folder missing: {p}"
-        )
+        return {"added": [], "removed": []}
 
     # collect all matching files, then filter out exclude_patterns
     exclude_patterns = exclude_patterns or []
