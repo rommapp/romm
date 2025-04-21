@@ -44,10 +44,13 @@ def get_normalized_rating(rom) -> str:
     # 1) IGDB aggregated or total rating (out of 100)
     igdb = rom.igdb_metadata or {}
     igdb_rating = igdb.get("total_rating") or igdb.get("aggregated_rating")
-    if igdb_rating is not None and igdb_rating > 0.0:
+    raw = 0.0
+
+    if igdb_rating is not None:
         raw = float(igdb_rating) / 100.0
-    else:
-        # 2) screenscraper score (out of 10)
+
+    # 2) Screenscraper score (out of 10)
+    if raw == 0.0:
         ss_meta = getattr(rom, "ss_metadata", {}) or {}
         ss_score = ss_meta.get("ss_score")
         raw = float(ss_score) / 10.0 if ss_score else 0.0
