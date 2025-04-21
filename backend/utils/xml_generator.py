@@ -10,12 +10,13 @@ from handler.database import db_platform_handler, db_rom_handler
 from handler.filesystem import fs_rom_handler
 from logger.logger import log
 
-
 REGION_TO_ALPHA2 = {
     "europe": "eu",
     "world": None,
     "unlicensed": None,
 }
+
+PREFERRED_IMAGE_GLOBS = ["*.cue", "*.gdi", "*.ccd", "*.iso"]
 
 
 def fetch_platform(platform_fs_slug: str):
@@ -114,7 +115,7 @@ def convert_language_name_to_alpha2(language):
         return language
 
 
-def build_game_list_element(roms, platform_id: int) -> ET.Element:
+def build_game_list_element(roms, platform_id: int, roms_dir: Path) -> ET.Element:
     """Create the root <gameList> element and populate it with <game> children."""
 
     name_counts = Counter(rom.name for rom in roms if rom.name)
@@ -124,8 +125,25 @@ def build_game_list_element(roms, platform_id: int) -> ET.Element:
     for rom in sorted(roms, key=lambda r: r.fs_name.lower()):
         game_el = ET.SubElement(root, "game")
 
-        # path
-        ET.SubElement(game_el, "path").text = f"./{rom.fs_name}"
+        # determine path: look for preferred IMAGE globs, else pick first file
+        candidate = roms_dir / rom.fs_name
+        if candidate.is_dir():
+            game_path = None
+            for pat in PREFERRED_IMAGE_GLOBS:
+                img = next(candidate.glob(pat), None)
+                if img and img.is_file():
+                    game_path = f"./{rom.fs_name}/{img.name}"
+                    break
+            if not game_path:
+                files = sorted(
+                    (f for f in candidate.iterdir() if f.is_file()),
+                    key=lambda x: x.stat().st_size,
+                )
+                game_path = f"./{rom.fs_name}/{files[0].name}" if files else f"./{rom.fs_name}"
+        else:
+            game_path = f"./{rom.fs_name}"
+
+        ET.SubElement(game_el, "path").text = game_path
 
         # name and description
         name = rom.name or rom.fs_name_no_ext
@@ -203,7 +221,7 @@ def generate_gamelist(platform_fs_slug: str) -> None:
     if not roms_dir:
         return
 
-    root = build_game_list_element(roms, platform.id)
+    root = build_game_list_element(roms, platform.id, roms_dir)
     out_file = roms_dir / "gamelist.xml"
     pretty_write(root, out_file)
     log.info(f"Generated gamelist.xml for platform '{platform_fs_slug}' at {out_file}")
