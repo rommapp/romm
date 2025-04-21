@@ -79,6 +79,16 @@ def format_generic_list(items, key: str = None) -> str:
     return ", ".join(values)
 
 
+def format_region_and_language_list(items, key: str = None) -> str:
+    """Format list of strings or dicts using an optional dict key."""
+    values = []
+    for it in items:
+        val = it.get(key) if isinstance(it, dict) and key else it
+        if val:
+            values.append(val)
+    return ",".join(values)
+
+
 def convert_region_name_to_alpha2(region):
     """
     Convert a region name or country name to its ISO 3166-1 alpha-2 code.
@@ -154,14 +164,10 @@ def build_game_list_element(roms, platform_id: int) -> ET.Element:
         players.text = "2+" if "Multiplayer" in modes else "1" if "Single player" in modes else ""
 
         region = ET.SubElement(game_el, "region")
-        region.text = ",".join(
-            convert_region_name_to_alpha2(r) for r in regions or [] if r
-        )
+        region.text = format_region_and_language_list(convert_region_name_to_alpha2(r) for r in regions or [])
 
         lang = ET.SubElement(game_el, "lang")
-        lang.text = ",".join(
-            convert_language_name_to_alpha2(l) for l in rom.languages or [] if l
-        )
+        lang.text = format_region_and_language_list(convert_language_name_to_alpha2(l) for l in rom.languages or [])
 
         # rating element
         rating_el = ET.SubElement(game_el, "rating")
