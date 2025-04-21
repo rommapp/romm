@@ -155,12 +155,12 @@ def build_game_list_element(roms, platform_id: int) -> ET.Element:
 
         region = ET.SubElement(game_el, "region")
         region.text = ",".join(
-            convert_region_name_to_alpha2(r) for r in regions or []
+            convert_region_name_to_alpha2(r) for r in regions or [] if r
         )
 
         lang = ET.SubElement(game_el, "lang")
         lang.text = ",".join(
-            convert_language_name_to_alpha2(l) for l in rom.languages or []
+            convert_language_name_to_alpha2(l) for l in rom.languages or [] if l
         )
 
         # rating element
