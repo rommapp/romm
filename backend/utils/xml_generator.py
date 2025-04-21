@@ -43,9 +43,9 @@ def get_normalized_rating(rom) -> str:
     """
     # 1) IGDB aggregated or total rating (out of 100)
     igdb = rom.igdb_metadata or {}
-    agg = igdb.get("total_rating") or igdb.get("aggregated_rating")
-    if agg is not None:
-        raw = float(agg) / 100.0
+    igdb_rating = igdb.get("total_rating") or igdb.get("aggregated_rating")
+    if igdb_rating is not None and igdb_rating > 0.0:
+        raw = float(igdb_rating) / 100.0
     else:
         # 2) screenscraper score (out of 10)
         ss_meta = getattr(rom, "ss_metadata", {}) or {}
