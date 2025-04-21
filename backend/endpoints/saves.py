@@ -229,6 +229,7 @@ async def refresh_saves(request: Request, rom_id: int) -> dict:
         get_db_entries=db_save_handler.get_saves,
         scan_fn=scan_save,
         add_fn=db_save_handler.add_save,
+        update_fn=db_save_handler.update_save,
         delete_fn=db_save_handler.delete_save,
         patterns=patterns,
         emulator=None,

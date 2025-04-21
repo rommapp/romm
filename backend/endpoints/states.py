@@ -228,6 +228,7 @@ async def refresh_states(request: Request, rom_id: int) -> dict:
         get_db_entries=db_state_handler.get_states,
         scan_fn=scan_state,
         add_fn=db_state_handler.add_state,
+        update_fn=db_state_handler.update_state,
         delete_fn=db_state_handler.delete_state,
         patterns=patterns,
         emulator=None,
