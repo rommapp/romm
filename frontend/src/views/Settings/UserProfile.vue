@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import RetroAchievements from "@/components/Settings/UserInterface/RetroAchievements.vue";
+import RetroAchievements from "@/components/Settings/UserProfile/RetroAchievements.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";

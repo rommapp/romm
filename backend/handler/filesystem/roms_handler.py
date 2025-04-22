@@ -72,6 +72,7 @@ class FileHash(TypedDict):
     crc_hash: str
     md5_hash: str
     sha1_hash: str
+    ra_hash: str
 
 
 def is_compressed_file(file_path: str) -> bool:
@@ -378,6 +379,11 @@ class FSRomsHandler(FSHandler):
                         if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                         else ""
                     ),
+                    ra_hash=(
+                        md5_h.hexdigest()
+                        if md5_h.digest() != DEFAULT_MD5_H_DIGEST
+                        else ""
+                    ),
                 )
             )
 
@@ -394,6 +400,9 @@ class FSRomsHandler(FSHandler):
                     rom_sha1_h.hexdigest()
                     if rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                     else ""
+                ),
+                ra_hash=(
+                    md5_h.hexdigest() if md5_h.digest() != DEFAULT_MD5_H_DIGEST else ""
                 ),
             ),
             hashed_files,

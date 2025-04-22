@@ -9,14 +9,12 @@ import { watch } from "vue";
 
 const valid = ref(false);
 const auth = storeAuth();
-const apiKey = ref(auth.user?.ra_api_key);
 const username = ref(auth.user?.ra_username);
 const visibleAPIKey = ref(false);
 
 watch(
   auth,
   (newAuth) => {
-    apiKey.value = newAuth.user?.ra_api_key;
     username.value = newAuth.user?.ra_username;
   },
   { deep: true },
@@ -30,13 +28,38 @@ const rules = [
     return "Field is required.";
   },
 ];
-function editUser() {
+
+// Functions
+function refreshRetroAchievements() {
+  if (!auth.user) return;
+
+  userApi
+    .refreshRetroAchievements({
+      id: auth.user.id,
+    })
+    .then(() => {
+      emitter?.emit("snackbarShow", {
+        msg: `RetroAchievements profile synced`,
+        icon: "mdi-check-bold",
+        color: "green",
+        timeout: 5000,
+      });
+    })
+    .catch(() => {
+      emitter?.emit("snackbarShow", {
+        msg: `Unable to sync your RetroAchievements profile.`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 5000,
+      });
+    });
+}
+function submitRACredentials() {
   if (!auth.user) return;
 
   userApi
     .updateUser({
       id: auth.user.id,
-      ra_api_key: apiKey.value as string,
       ra_username: username.value as string,
     })
     .then(() => {
@@ -55,6 +78,9 @@ function editUser() {
         timeout: 5000,
       });
     });
+
+  // Refresh the RetroAchievements data
+  refreshRetroAchievements();
 }
 </script>
 
@@ -74,7 +100,11 @@ function editUser() {
         >
         you can keep track of your latest achievements
       </p>
-      <v-form v-model="valid" @submit.prevent="editUser" class="pa-1">
+      <v-form
+        v-model="valid"
+        @submit.prevent="submitRACredentials"
+        class="pa-1"
+      >
         <v-row no-gutters>
           <v-col md="4" class="ma-2">
             <v-text-field
@@ -88,23 +118,17 @@ function editUser() {
               prepend-inner-icon="mdi-account"
             />
           </v-col>
-
-          <v-col md="4" class="ma-2">
-            <v-text-field
-              v-model="apiKey"
-              :rules="rules"
-              label="API Key"
-              variant="outlined"
-              hide-details
-              required
-              :type="visibleAPIKey ? 'text' : 'password'"
-              prepend-inner-icon="mdi-key"
-              :append-inner-icon="visibleAPIKey ? 'mdi-eye-off' : 'mdi-eye'"
-              @click:append-inner="visibleAPIKey = !visibleAPIKey"
-            />
-          </v-col>
           <v-col class="ma-2">
             <v-btn type="submit" block class="h-100">Submit</v-btn>
+          </v-col>
+          <v-col v-if="auth.user?.ra_username" class="ma-2">
+            <v-btn
+              prepend-icon="mdi-sync"
+              @click="refreshRetroAchievements"
+              block
+              class="h-100"
+              >Sync</v-btn
+            >
           </v-col>
         </v-row>
       </v-form>

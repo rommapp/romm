@@ -23,7 +23,6 @@ from endpoints import (
     heartbeat,
     platform,
     raw,
-    retroachievements,
     rom,
     saves,
     screenshots,
@@ -114,7 +113,6 @@ app.include_router(feeds.router, prefix="/api")
 app.include_router(configs.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(raw.router, prefix="/api")
-app.include_router(retroachievements.router, prefix="/api")
 app.include_router(screenshots.router, prefix="/api")
 app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")

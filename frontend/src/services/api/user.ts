@@ -58,7 +58,6 @@ async function updateUser({
         enabled: attrs.enabled,
         role: attrs.role,
         ra_username: attrs.ra_username,
-        ra_api_key: attrs.ra_api_key,
       },
     },
   );
@@ -68,6 +67,14 @@ async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
   return api.delete(`/users/${user.id}`);
 }
 
+async function refreshRetroAchievements({
+  id,
+}: {
+  id: number;
+}): Promise<{ data: MessageResponse }> {
+  return api.post(`/users/${id}/ra/refresh`);
+}
+
 export default {
   createUser,
   fetchUsers,
@@ -75,4 +82,5 @@ export default {
   fetchCurrentUser,
   updateUser,
   deleteUser,
+  refreshRetroAchievements,
 };

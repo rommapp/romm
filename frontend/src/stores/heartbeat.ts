@@ -33,7 +33,7 @@ const defaultHeartbeat: Heartbeat = {
     IGDB_API_ENABLED: false,
     SS_API_ENABLED: false,
     MOBY_API_ENABLED: false,
-    RETROACHIEVEMENTS_ENABLED: false,
+    RA_ENABLED: false,
     STEAMGRIDDB_ENABLED: false,
   },
   FILESYSTEM: {
@@ -82,7 +82,7 @@ export default defineStore("heartbeat", {
         {
           name: "RetroAchievements",
           value: "ra",
-          disabled: !this.value.METADATA_SOURCES?.RETROACHIEVEMENTS_ENABLED,
+          disabled: !this.value.METADATA_SOURCES?.RA_ENABLED,
         },
       ]).value.filter((s) => !s.disabled);
     },

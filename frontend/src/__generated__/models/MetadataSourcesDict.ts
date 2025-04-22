@@ -8,6 +8,6 @@ export type MetadataSourcesDict = {
     MOBY_API_ENABLED: boolean;
     SS_API_ENABLED: boolean;
     STEAMGRIDDB_ENABLED: boolean;
-    RETROACHIEVEMENTS_ENABLED: boolean;
+    RA_ENABLED: boolean;
 };
 

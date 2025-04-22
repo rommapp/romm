@@ -1,5 +1,6 @@
 import logging
 import os
+from pprint import pformat
 
 from colorama import Fore, Style, init
 from config import FORCE_COLOR, NO_COLOR
@@ -60,6 +61,9 @@ class Formatter(logging.Formatter):
             else f" {Fore.BLUE}[RomM]{Fore.LIGHTMAGENTA_EX}[%(module)s]"
         )
         msg = f"{Style.RESET_ALL}%(message)s"
+
+        message = pformat(record.msg) if hasattr(record, "pprint") else "%(message)s"
+        msg = f"{Style.RESET_ALL}{message}"
         date = f"{Fore.CYAN}[%(asctime)s] "
         formats = {
             logging.DEBUG: f"{Fore.LIGHTMAGENTA_EX}{level}{dots}{identifier}{date}{msg}",

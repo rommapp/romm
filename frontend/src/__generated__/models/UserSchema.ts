@@ -13,7 +13,6 @@ export type UserSchema = {
     avatar_path: string;
     last_login: (string | null);
     last_active: (string | null);
-    ra_api_key?: (string | null);
     ra_username?: (string | null);
     created_at: string;
     updated_at: string;

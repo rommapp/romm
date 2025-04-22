@@ -22,7 +22,7 @@ from utils.context import ctx_httpx_client
 from .base_hander import MetadataHandler
 
 # Used to display the Mobygames API status in the frontend
-RETROACHIEVEMENTS_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY) and bool(
+RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY) and bool(
     RETROACHIEVEMENTS_USERNAME
 )
 
@@ -41,6 +41,10 @@ class RAGameRomAchievement(TypedDict):
     num_awarded: int | None
     num_awarded_hardcore: int | None
     badge_id: str | None
+    badge_url_lock: str | None
+    badge_path_lock: str | None
+    badge_url: str | None
+    badge_path: str | None
     display_order: int | None
     type: str | None
 
@@ -54,25 +58,66 @@ class RAGameRom(TypedDict):
     ra_metadata: NotRequired[RAMetadata]
 
 
+class RAUserGameProgression(TypedDict):
+    rom_ra_id: int | None
+    max_possible: int | None
+    num_awarded: int | None
+    num_awarded_hardcore: int | None
+    ids_awarded: list[int]
+
+
+class RAUserProgression(TypedDict):
+    count: int
+    total: int
+    results: list[RAUserGameProgression]
+
+
 class RAHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = "https://retroachievements.org/API"
         self.search_endpoint = f"{self.BASE_URL}/API_GetGameList.php"
         self.game_details_endpoint = f"{self.BASE_URL}/API_GetGameExtended.php"
-        self.CACHE_FILE_JSON_NAME_SUFFIX = "hashes.json"
+        self.user_complete_progression_endpoint = (
+            f"{self.BASE_URL}/API_GetUserCompletionProgress.php"
+        )
+        self.user_game_progression_endpoint = (
+            f"{self.BASE_URL}/API_GetGameInfoAndUserProgress.php"
+        )
+        self.HASHES_FILE_NAME = "ra_hashes.json"
+
+    def _get_rom_base_path(self, platform_id: int, rom_id: int) -> str:
+        return os.path.join(
+            "roms",
+            str(platform_id),
+            str(rom_id),
+            "retroachievements",
+        )
+
+    def _get_hashes_file_path(self, platform_id: int) -> str:
+        return os.path.join(
+            RESOURCES_BASE_PATH,
+            "roms",
+            str(platform_id),
+            self.HASHES_FILE_NAME,
+        )
+
+    def _get_badges_path(self, platform_id: int, rom_id: int) -> str:
+        return os.path.join(self._get_rom_base_path(platform_id, rom_id), "badges")
 
     def _create_resources_path(self, platform_id: int, rom_id: int) -> None:
         os.makedirs(
-            f"{RESOURCES_BASE_PATH}/roms/{platform_id}/{rom_id}/retroachievements",
+            os.path.join(
+                RESOURCES_BASE_PATH,
+                self._get_rom_base_path(platform_id, rom_id),
+            ),
             exist_ok=True,
         )
 
-    def _exists_cache_file(self, platform_id: int, rom_id: int) -> bool:
-        file_path = f"{RESOURCES_BASE_PATH}/roms/{platform_id}/{rom_id}/retroachievements/{self.CACHE_FILE_JSON_NAME_SUFFIX}"
-        return os.path.exists(file_path)
+    def _exists_cache_file(self, platform_id: int) -> bool:
+        return os.path.exists(self._get_hashes_file_path(platform_id))
 
-    def _days_since_last_cache_file_update(self, platform_id: int, rom_id: int) -> int:
-        file_path = f"{RESOURCES_BASE_PATH}/roms/{platform_id}/{rom_id}/retroachievements/{self.CACHE_FILE_JSON_NAME_SUFFIX}"
+    def _days_since_last_cache_file_update(self, platform_id: int) -> int:
+        file_path = self._get_hashes_file_path(platform_id)
         return (
             0
             if not os.path.exists(file_path)
@@ -149,20 +194,19 @@ class RAHandler(MetadataHandler):
             i=[platform.ra_id],
             f=["1"],  # If 1, only return games that have achievements. Defaults to 0.
             h=["1"],  # If 1, also return supported hashes for games. Defaults to 0.
-            z=[RETROACHIEVEMENTS_USERNAME],
             y=[RETROACHIEVEMENTS_API_KEY],
         )
 
         # Fetch all hashes for specific platform
         if (
             REFRESH_RETROACHIEVEMENTS_CACHE_DAYS
-            <= self._days_since_last_cache_file_update(platform.id, rom_id)
-            or not self._exists_cache_file(platform.id, rom_id)
+            <= self._days_since_last_cache_file_update(platform.id)
+            or not self._exists_cache_file(platform.id)
         ):
             # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
             roms = await self._request(str(url))
             async with await open_file(
-                f"{RESOURCES_BASE_PATH}/roms/{platform.id}/{rom_id}/retroachievements/{self.CACHE_FILE_JSON_NAME_SUFFIX}",
+                self._get_hashes_file_path(platform.id),
                 "w",
                 encoding="utf-8",
             ) as json_file:
@@ -170,7 +214,7 @@ class RAHandler(MetadataHandler):
         else:
             # Read the roms result from the JSON file
             async with await open_file(
-                f"{RESOURCES_BASE_PATH}/roms/{platform.id}/{rom_id}/retroachievements/{self.CACHE_FILE_JSON_NAME_SUFFIX}",
+                self._get_hashes_file_path(platform.id),
                 "r",
                 encoding="utf-8",
             ) as json_file:
@@ -203,7 +247,7 @@ class RAHandler(MetadataHandler):
         )
 
     async def get_rom(self, platform: Platform, rom_id: int, hash: str) -> RAGameRom:
-        if not platform.ra_id:
+        if not platform.ra_id or not hash:
             return RAGameRom(ra_id=None)
 
         rom = await self._search_rom(platform, rom_id, hash)
@@ -214,30 +258,67 @@ class RAHandler(MetadataHandler):
         try:
             rom_details = await self._get_rom_details(rom["ID"])
             return RAGameRom(
-                {
-                    "ra_id": rom["ID"],
-                    "ra_metadata": {
-                        "achievements": [
-                            RAGameRomAchievement(
-                                ra_id=achievement.get("ID", None),
-                                title=achievement.get("Title", ""),
-                                description=achievement.get("Description", ""),
-                                points=achievement.get("Points", None),
-                                num_awarded=achievement.get("NumAwarded", None),
-                                num_awarded_hardcore=achievement.get(
-                                    "NumAwardedHardcore", None
-                                ),
-                                badge_id=achievement.get("BadgeName", ""),
-                                display_order=achievement.get("DisplayOrder", None),
-                                type=achievement.get("type", ""),
-                            )
-                            for achievement in rom_details["Achievements"].values()
-                        ]
-                    },
-                }
+                ra_id=rom["ID"],
+                ra_metadata=RAMetadata(
+                    achievements=[
+                        RAGameRomAchievement(
+                            ra_id=achievement.get("ID", None),
+                            title=achievement.get("Title", ""),
+                            description=achievement.get("Description", ""),
+                            points=achievement.get("Points", None),
+                            num_awarded=achievement.get("NumAwarded", None),
+                            num_awarded_hardcore=achievement.get(
+                                "NumAwardedHardcore", None
+                            ),
+                            badge_id=achievement.get("BadgeName", ""),
+                            badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{self._get_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{self._get_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}.png",
+                            display_order=achievement.get("DisplayOrder", None),
+                            type=achievement.get("type", ""),
+                        )
+                        for achievement in rom_details.get("Achievements", {}).values()
+                    ]
+                ),
             )
         except KeyError:
             return RAGameRom(ra_id=None)
+
+    async def get_user_progression(self, username: str) -> RAUserProgression:
+        url = yarl.URL(self.user_complete_progression_endpoint).with_query(
+            u=[username], y=[RETROACHIEVEMENTS_API_KEY], c=[500]
+        )
+        user_complete_progression = await self._request(str(url))
+        games_with_progression = user_complete_progression.get("Results", [])
+        for game in games_with_progression:
+            if game.get("GameID", None):
+                url = yarl.URL(self.user_game_progression_endpoint).with_query(
+                    g=[game["GameID"]],
+                    u=[username],
+                    y=[RETROACHIEVEMENTS_API_KEY],
+                )
+                result = await self._request(str(url))
+                log.debug(result["Title"])
+                for achievement in result.get("Achievements", {}).values():
+                    if "DateEarned" in achievement.keys():
+                        log.debug(
+                            f"Achievement: {achievement['BadgeName']} earned on {achievement['DateEarned']}"
+                        )
+        return RAUserProgression(
+            count=user_complete_progression.get("Count", 0),
+            total=user_complete_progression.get("Total", 0),
+            results=[
+                RAUserGameProgression(
+                    rom_ra_id=rom.get("GameID", None),
+                    max_possible=rom.get("MaxPossible", None),
+                    num_awarded=rom.get("NumAwarded", None),
+                    num_awarded_hardcore=rom.get("NumAwardedHardcore", None),
+                    ids_awarded=[],
+                )
+                for rom in user_complete_progression.get("Results", [])
+            ],
+        )
 
 
 class SlugToRAId(TypedDict):
@@ -246,21 +327,21 @@ class SlugToRAId(TypedDict):
 
 
 SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
-    # "3do": {"id": 43, "name": "3DO"},
+    "3do": {"id": 43, "name": "3DO"},
     "cpc": {"id": 37, "name": "Amstrad CPC"},
     "acpc": {"id": 37, "name": "Amstrad CPC"},
     "apple2": {"id": 38, "name": "Apple II"},
     "appleii": {"id": 38, "name": "Apple II"},
-    # "arcade": {"id": 27, "name": "Arcade"},
+    "arcade": {"id": 27, "name": "Arcade"},
     "arcadia-2001": {"id": 73, "name": "Arcadia 2001"},
-    # "arduboy": {"id": 71, "name": "Arduboy"},
+    "arduboy": {"id": 71, "name": "Arduboy"},
     "atari-2600": {"id": 25, "name": "Atari 2600"},
     "atari2600": {"id": 25, "name": "Atari 2600"},  # IGDB
     "atari-7800": {"id": 51, "name": "Atari 7800"},
     "atari7800": {"id": 51, "name": "Atari 7800"},  # IGDB
-    # "atari-jaguar-cd": {"id": 77, "name": "Atari Jaguar CD"},
+    "atari-jaguar-cd": {"id": 77, "name": "Atari Jaguar CD"},
     "colecovision": {"id": 44, "name": "ColecoVision"},
-    # "dreamcast": {"id": 40, "name": "Dreamcast"},
+    "dreamcast": {"id": 40, "name": "Dreamcast"},
     "dc": {"id": 40, "name": "Dreamcast"},  # IGDB
     "gameboy": {"id": 4, "name": "Game Boy"},
     "gb": {"id": 4, "name": "Game Boy"},  # IGDB
@@ -270,8 +351,8 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "gbc": {"id": 6, "name": "Game Boy Color"},  # IGDB
     "game-gear": {"id": 15, "name": "Game Gear"},
     "gamegear": {"id": 15, "name": "Game Gear"},  # IGDB
-    # "gamecube": {"id": 16, "name": "GameCube"},
-    # "ngc": {"id": 14, "name": "GameCube"},  # IGDB
+    "gamecube": {"id": 16, "name": "GameCube"},
+    "ngc": {"id": 14, "name": "GameCube"},  # IGDB
     "genesis": {"id": 1, "name": "Genesis/Mega Drive"},
     "genesis-slash-megadrive": {"id": 16, "name": "Genesis/Mega Drive"},
     "intellivision": {"id": 45, "name": "Intellivision"},
@@ -279,35 +360,35 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "lynx": {"id": 13, "name": "Lynx"},
     "msx": {"id": 29, "name": "MSX"},
     "mega-duck-slash-cougar-boy": {"id": 69, "name": "Mega Duck/Cougar Boy"},
-    # "nes": {"id": 7, "name": "NES"},
-    # "famicom": {"id": 7, "name": "NES"},
-    # "neo-geo-cd": {"id": 56, "name": "Neo Geo CD"},
+    "nes": {"id": 7, "name": "NES"},
+    "famicom": {"id": 7, "name": "NES"},
+    "neo-geo-cd": {"id": 56, "name": "Neo Geo CD"},
     "neo-geo-pocket": {"id": 14, "name": "Neo Geo Pocket"},
     "neo-geo-pocket-color": {"id": 14, "name": "Neo Geo Pocket Color"},
     "n64": {"id": 2, "name": "Nintendo 64"},
-    # "nintendo-ds": {"id": 18, "name": "Nintendo DS"},
-    # "nds": {"id": 18, "name": "Nintendo DS"},  # IGDB
+    "nintendo-ds": {"id": 18, "name": "Nintendo DS"},
+    "nds": {"id": 18, "name": "Nintendo DS"},  # IGDB
     "nintendo-dsi": {"id": 78, "name": "Nintendo DSi"},
     "odyssey-2": {"id": 23, "name": "Odyssey 2"},
     "pc-8000": {"id": 47, "name": "PC-8000"},
     "pc-8800-series": {"id": 47, "name": "PC-8800 Series"},  # IGDB
     "pc-fx": {"id": 49, "name": "PC-FX"},
-    # "psp": {"id": 41, "name": "PSP"},
-    # "playstation": {"id": 12, "name": "PlayStation"},
-    # "ps": {"id": 12, "name": "PlayStation"},  # IGDB
-    # "ps2": {"id": 21, "name": "PlayStation 2"},
+    "psp": {"id": 41, "name": "PSP"},
+    "playstation": {"id": 12, "name": "PlayStation"},
+    "ps": {"id": 12, "name": "PlayStation"},  # IGDB
+    "ps2": {"id": 21, "name": "PlayStation 2"},
     "pokemon-mini": {"id": 24, "name": "Pokémon Mini"},
-    # "saturn": {"id": 39, "name": "Sega Saturn"},
+    "saturn": {"id": 39, "name": "Sega Saturn"},
     "sega-32x": {"id": 10, "name": "SEGA 32X"},
     "sega32": {"id": 10, "name": "SEGA 32X"},  # IGDB
-    # "sega-cd": {"id": 9, "name": "SEGA CD"},
-    # "segacd": {"id": 9, "name": "SEGA CD"},  # IGDB
+    "sega-cd": {"id": 9, "name": "SEGA CD"},
+    "segacd": {"id": 9, "name": "SEGA CD"},  # IGDB
     "sega-master-system": {"id": 11, "name": "SEGA Master System"},
     "sms": {"id": 11, "name": "SEGA Master System"},  # IGDB
     "sg-1000": {"id": 33, "name": "SG-1000"},
     "snes": {"id": 3, "name": "SNES"},
-    # "turbografx-cd": {"id": 76, "name": "TurboGrafx CD"},
-    # "turbografx-16-slash-pc-engine-cd": {"id": 76, "name": "TurboGrafx CD"},
+    "turbografx-cd": {"id": 76, "name": "TurboGrafx CD"},
+    "turbografx-16-slash-pc-engine-cd": {"id": 76, "name": "TurboGrafx CD"},
     "turbo-grafx": {"id": 8, "name": "TurboGrafx-16"},
     "turbografx16--1": {"id": 8, "name": "TurboGrafx-16"},  # IGDB
     "vectrex": {"id": 26, "name": "Vectrex"},
