@@ -12,6 +12,7 @@ from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
+from handler.metadata import meta_ra_handler
 from logger.logger import log
 from models.user import Role, User
 from utils.router import APIRouter
@@ -195,9 +196,6 @@ async def update_user(
     if form_data.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username  # type: ignore[assignment]
 
-    if form_data.ra_api_key:
-        cleaned_data["ra_api_key"] = form_data.ra_api_key  # type: ignore[assignment]
-
     if form_data.avatar is not None:
         user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
         file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
@@ -263,3 +261,17 @@ def delete_user(request: Request, id: int) -> MessageResponse:
     db_user_handler.delete_user(id)
 
     return {"msg": "User successfully deleted"}
+
+
+@protected_route(router.post, "/{id}/ra/refresh", [Scope.ME_WRITE])
+async def refresh_retro_achievements(request: Request, id: int) -> MessageResponse:
+    user = db_user_handler.get_user(id)
+    user_progression = await meta_ra_handler.get_user_progression(user.ra_username)
+    db_user_handler.update_user(
+        id,
+        {
+            "ra_progression": user_progression,
+        },
+    )
+
+    return {"msg": "RetroAchievements successfully refreshed"}

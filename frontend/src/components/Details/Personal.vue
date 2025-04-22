@@ -84,7 +84,7 @@ watch(
           >Status</v-tab
         >
         <v-tab
-          v-if="rom.ra_id && auth.user?.ra_username && auth.user?.ra_api_key"
+          v-if="rom.ra_id && auth.user?.ra_username"
           prepend-icon="mdi-trophy"
           class="rounded text-caption"
           value="ra"
@@ -319,7 +319,6 @@ watch(
                 language="en-US"
                 :preview="false"
                 :no-upload-img="true"
-                class="editor-preview"
               />
               <MdPreview
                 v-else
@@ -327,7 +326,7 @@ watch(
                 :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                 preview-theme="vuepress"
                 code-theme="github"
-                class="pa-4"
+                class="py-4 px-6"
               />
             </template>
           </r-section>
@@ -352,7 +351,7 @@ watch(
                       :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                       preview-theme="vuepress"
                       code-theme="github"
-                      class="pa-4"
+                      class="py-4 px-6"
                     />
                   </v-expansion-panel-text>
                 </v-expansion-panel>
@@ -370,7 +369,7 @@ watch(
   --md-bk-color: #161b22 !important;
 }
 .md-editor,
-.md-editor-preview {
+.md-preview {
   word-break: break-word !important;
   line-height: 1.25 !important;
 }

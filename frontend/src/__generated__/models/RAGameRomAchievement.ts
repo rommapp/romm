@@ -10,6 +10,8 @@ export type RAGameRomAchievement = {
     num_awarded: (number | null);
     num_awarded_hardcore: (number | null);
     badge_id: (string | null);
+    badge_url_lock: (string | null);
+    badge_path_lock: (string | null);
     display_order: (number | null);
     type: (string | null);
 };

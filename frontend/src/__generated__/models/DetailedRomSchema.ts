@@ -43,7 +43,6 @@ export type DetailedRomSchema = {
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     ss_metadata: (RomSSMetadata | null);
-    ra_metadata: (RAMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
@@ -63,6 +62,7 @@ export type DetailedRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
+    merged_ra_metadata: (RAMetadata | null);
     merged_screenshots: Array<string>;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;

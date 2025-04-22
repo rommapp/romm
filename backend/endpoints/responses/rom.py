@@ -34,7 +34,7 @@ RomSSMetadata = TypedDict(  # type: ignore[misc]
     total=False,
 )
 RomRAMetadata = TypedDict(  # type: ignore[misc]
-    "RAMetadata",
+    "RomRAMetadata",
     dict((k, NotRequired[v]) for k, v in get_type_hints(RAMetadata).items()),
     total=False,
 )
@@ -199,7 +199,6 @@ class RomSchema(BaseModel):
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
     ss_metadata: RomSSMetadata | None
-    ra_metadata: RomRAMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None
@@ -292,6 +291,7 @@ class SimpleRomSchema(RomSchema):
 
 
 class DetailedRomSchema(RomSchema):
+    merged_ra_metadata: RomRAMetadata | None
     merged_screenshots: list[str]
     siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema

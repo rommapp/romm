@@ -399,6 +399,7 @@ def _set_rom_hashes(rom_id: int) -> str:
                 "crc_hash": "",
                 "md5_hash": "",
                 "sha1_hash": "",
+                "ra_hash": "",
             },
         )
         return ""
@@ -409,6 +410,7 @@ def _set_rom_hashes(rom_id: int) -> str:
                 "crc_hash": rom_hash["crc_hash"],
                 "md5_hash": rom_hash["md5_hash"],
                 "sha1_hash": rom_hash["sha1_hash"],
+                # "ra_hash": rom_hash["ra_hash"],
             },
         )
         for file_hash in rom_file_hashes:
@@ -418,10 +420,10 @@ def _set_rom_hashes(rom_id: int) -> str:
                     "crc_hash": file_hash["crc_hash"],
                     "md5_hash": file_hash["md5_hash"],
                     "sha1_hash": file_hash["sha1_hash"],
+                    # "ra_hash": rom_hash["ra_hash"],
                 },
             )
-        # TODO: return hash type depending on system
-        return rom_hash["md5_hash"]
+        return rom_hash["ra_hash"]
 
 
 async def _identify_rom(
@@ -490,14 +492,26 @@ async def _identify_rom(
     ):
         # Skip hashing games for platforms that don't have a hash database
         if platform.slug not in NON_HASHABLE_PLATFORMS:
-            md5_hash = _set_rom_hashes(_added_rom.id)
+            ra_hash = _set_rom_hashes(_added_rom.id)
             ra_handler_rom = await fetch_ra_info(
                 platform=platform,
                 rom_id=_added_rom.id,
-                hash=md5_hash,
+                hash=ra_hash,
             )
             _added_rom.ra_id = ra_handler_rom.get("ra_id", "")
             _added_rom.ra_metadata = ra_handler_rom.get("ra_metadata", {})
+            for a in _added_rom.ra_metadata.get("achievements", {}):
+                # Store both normal and locked version
+                badge_url_lock = a.get("badge_url_lock", None)
+                badge_path_lock = a.get("badge_path_lock", None)
+                if badge_url_lock and badge_path_lock:
+                    await fs_resource_handler.store_badge(
+                        badge_url_lock, badge_path_lock
+                    )
+                badge_url = a.get("badge_url", None)
+                badge_path = a.get("badge_path", None)
+                if badge_url and badge_path:
+                    await fs_resource_handler.store_badge(badge_url, badge_path)
             # Uncomment this to run scan in a background process
             # low_prio_queue.enqueue(
             #     _set_rom_hashes,

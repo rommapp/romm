@@ -46,7 +46,7 @@ const metadataOptions = computed(() => [
     name: "RetroAchievements",
     value: "ra",
     logo_path: "/assets/scrappers/ra.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.RETROACHIEVEMENTS_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_ENABLED,
   },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
@@ -65,7 +65,7 @@ watch(
       .map((p, index) => (p.roms.length > 0 ? index : -1))
       .filter((index) => index !== -1);
   },
-  { deep: true }
+  { deep: true },
 );
 
 const scanOptions = [
@@ -111,9 +111,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
-    apis: [
-      ...metadataSources.value.map((s) => s.value),
-    ],
+    apis: [...metadataSources.value.map((s) => s.value)],
   });
 }
 
@@ -221,7 +219,7 @@ async function stopScan() {
             <v-avatar class="mr-2" size="15" rounded="1">
               <v-img :src="item.raw.logo_path" />
             </v-avatar>
-            {{ item.raw.name }}
+            {{ item.raw.value }}
           </v-chip>
         </template>
       </v-select>

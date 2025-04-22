@@ -27,7 +27,7 @@ class MetadataSourcesDict(TypedDict):
     MOBY_API_ENABLED: bool
     SS_API_ENABLED: bool
     STEAMGRIDDB_ENABLED: bool
-    RETROACHIEVEMENTS_ENABLED: bool
+    RA_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):

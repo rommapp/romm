@@ -12,7 +12,6 @@ class UserForm:
         enabled: bool | None = None,
         avatar: UploadFile | None = None,
         ra_username: str | None = None,
-        ra_api_key: str | None = None,
     ):
         self.username = username
         self.password = password
@@ -21,7 +20,6 @@ class UserForm:
         self.enabled = enabled
         self.avatar = avatar
         self.ra_username = ra_username
-        self.ra_api_key = ra_api_key
 
 
 class OAuth2RequestForm:
