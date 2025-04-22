@@ -214,7 +214,7 @@ def upgrade():
                                 WHEN JSON_CONTAINS_PATH(ss_metadata, 'one', '$.ss_score') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.ss_score')) NOT IN ('null', 'None', '') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.ss_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
-                                THEN CAST(JSON_EXTRACT(ss_metadata, '$.ss_score') AS DECIMAL(10,2))
+                                THEN CAST(JSON_EXTRACT(ss_metadata, '$.ss_score') AS DECIMAL(10,2)) * 10
                                 ELSE NULL
                             END AS ss_rating
                         FROM roms
