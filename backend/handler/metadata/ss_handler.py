@@ -811,7 +811,7 @@ SLUG_TO_SS_ID: dict[str, SlugToSSId] = {
     "videopac-g7400": {"id": 104, "name": "Videopac G7000"},
     "virtual-boy": {"id": 11, "name": "Virtual Boy"},
     "virtualboy": {"id": 11, "name": "Virtual Boy"},
-    "wii": {"id": 18, "name": "Wii"},
+    "wii": {"id": 16, "name": "Wii"},
     "wii-u": {"id": 18, "name": "Wii U"},
     "wiiu": {"id": 18, "name": "Wii U"},
     "windows": {"id": 3, "name": "Windows"},
