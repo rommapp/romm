@@ -422,35 +422,51 @@ class SSHandler(MetadataHandler):
                 if res:
                     break
 
-        if not res or not res.get("id", None):
+        if not res:
             return fallback_rom
 
-        ss_id: int = int(res.get("id", None))
+        res_ss_id = res.get("id", None)
+        if not res_ss_id:
+            return fallback_rom
 
-        rom = {
-            "ss_id": ss_id,
-            "name": pydash.chain(res.get("noms", []))
+        ss_id: int = int(res_ss_id)
+
+        res_name = (
+            pydash.chain(res.get("noms", []))
             .filter({"region": "ss"})
             .map("text")
             .head()
-            .value(),
-            "slug": pydash.chain(res.get("noms", []))
+            .value()
+        )
+        res_slug = (
+            pydash.chain(res.get("noms", []))
             .filter({"region": "ss"})
             .map("text")
             .head()
-            .value(),
-            "summary": pydash.chain(res.get("synopsis", []))
+            .value()
+        )
+        res_summary = (
+            pydash.chain(res.get("synopsis", []))
             .filter({"langue": "en"})
             .map("text")
             .head()
-            .value(),
-            "url_cover": pydash.chain(res.get("medias", []))
+            .value()
+        )
+        res_url_cover = (
+            pydash.chain(res.get("medias", []))
             .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
             .map("url")
             .head()
             .value()
-            or "",
-            "url_manual": pydash.chain(res.get("medias", []))
+            or pydash.chain(res.get("medias", []))
+            .filter({"region": "ss", "type": "box-2D", "parent": "jeu"})
+            .map("url")
+            .head()
+            .value()
+            or ""
+        )
+        res_url_manual = (
+            pydash.chain(res.get("medias", []))
             .filter(
                 {"region": "us", "type": "manuel", "parent": "jeu", "format": "pdf"}
             )
@@ -464,7 +480,16 @@ class SSHandler(MetadataHandler):
             .map("url")
             .head()
             .value()
-            or "",
+            or ""
+        )
+
+        rom = {
+            "ss_id": ss_id,
+            "name": res_name,
+            "slug": res_slug,
+            "summary": res_summary,
+            "url_cover": res_url_cover,
+            "url_manual": res_url_manual,
             "url_screenshots": [],
             "ss_metadata": extract_metadata_from_ss_rom(res),
         }
@@ -481,30 +506,42 @@ class SSHandler(MetadataHandler):
         if not res:
             return SSRom(ss_id=None)
 
-        rom = {
-            "ss_id": res.get("id"),
-            "name": pydash.chain(res.get("noms", []))
+        res_name = (
+            pydash.chain(res.get("noms", []))
             .filter({"region": "ss"})
             .map("text")
             .head()
-            .value(),
-            "slug": pydash.chain(res.get("noms", []))
+            .value()
+        )
+        res_slug = (
+            pydash.chain(res.get("noms", []))
             .filter({"region": "ss"})
             .map("text")
             .head()
-            .value(),
-            "summary": pydash.chain(res.get("synopsis", []))
+            .value()
+        )
+        res_summary = (
+            pydash.chain(res.get("synopsis", []))
             .filter({"langue": "en"})
             .map("text")
             .head()
-            .value(),
-            "url_cover": pydash.chain(res.get("medias", []))
+            .value()
+        )
+        res_url_cover = (
+            pydash.chain(res.get("medias", []))
             .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
             .map("url")
             .head()
             .value()
-            or "",
-            "url_manual": pydash.chain(res.get("medias", []))
+            or pydash.chain(res.get("medias", []))
+            .filter({"region": "ss", "type": "box-2D", "parent": "jeu"})
+            .map("url")
+            .head()
+            .value()
+            or ""
+        )
+        res_url_manual = (
+            pydash.chain(res.get("medias", []))
             .filter(
                 {"region": "us", "type": "manuel", "parent": "jeu", "format": "pdf"}
             )
@@ -518,7 +555,16 @@ class SSHandler(MetadataHandler):
             .map("url")
             .head()
             .value()
-            or "",
+            or ""
+        )
+
+        rom = {
+            "ss_id": res.get("id"),
+            "name": res_name,
+            "slug": res_slug,
+            "summary": res_summary,
+            "url_cover": res_url_cover,
+            "url_manual": res_url_manual,
             "url_screenshots": [],
             "ss_metadata": extract_metadata_from_ss_rom(res),
         }
@@ -581,6 +627,11 @@ class SSHandler(MetadataHandler):
             return (
                 pydash.chain(rom.get("medias", []))
                 .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
+                .map("url")
+                .head()
+                .value()
+                or pydash.chain(rom.get("medias", []))
+                .filter({"region": "ss", "type": "box-2D", "parent": "jeu"})
                 .map("url")
                 .head()
                 .value()
