@@ -63,7 +63,7 @@ class RAUserGameProgression(TypedDict):
     max_possible: int | None
     num_awarded: int | None
     num_awarded_hardcore: int | None
-    ids_awarded: list[int]
+    earned_achievements: list[dict]
 
 
 class RAUserProgression(TypedDict):
@@ -290,20 +290,23 @@ class RAHandler(MetadataHandler):
             u=[username], y=[RETROACHIEVEMENTS_API_KEY], c=[500]
         )
         user_complete_progression = await self._request(str(url))
-        games_with_progression = user_complete_progression.get("Results", [])
-        for game in games_with_progression:
-            if game.get("GameID", None):
+        roms_with_progression = user_complete_progression.get("Results", [])
+        for rom in roms_with_progression:
+            rom["EarnedAchievements"] = []
+            if rom.get("GameID", None):
                 url = yarl.URL(self.user_game_progression_endpoint).with_query(
-                    g=[game["GameID"]],
+                    g=[rom["GameID"]],
                     u=[username],
                     y=[RETROACHIEVEMENTS_API_KEY],
                 )
                 result = await self._request(str(url))
-                log.debug(result["Title"])
                 for achievement in result.get("Achievements", {}).values():
                     if "DateEarned" in achievement.keys():
-                        log.debug(
-                            f"Achievement: {achievement['BadgeName']} earned on {achievement['DateEarned']}"
+                        rom["EarnedAchievements"].append(
+                            {
+                                "BadgeName": achievement.get("BadgeName"),
+                                "Date": achievement["DateEarned"],
+                            }
                         )
         return RAUserProgression(
             count=user_complete_progression.get("Count", 0),
@@ -314,9 +317,9 @@ class RAHandler(MetadataHandler):
                     max_possible=rom.get("MaxPossible", None),
                     num_awarded=rom.get("NumAwarded", None),
                     num_awarded_hardcore=rom.get("NumAwardedHardcore", None),
-                    ids_awarded=[],
+                    earned_achievements=rom.get("EarnedAchievements", []),
                 )
-                for rom in user_complete_progression.get("Results", [])
+                for rom in roms_with_progression
             ],
         )
 
