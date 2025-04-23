@@ -171,16 +171,19 @@ watch(
                   class="ml-2 text-grey-lighten-2"
                   style="padding: 10px 14px"
                   @click="toggleMainSibling"
-                  ><v-icon
+                >
+                  <v-icon
                     :class="romUser.is_main_sibling ? '' : 'mr-1'"
                     :color="romUser.is_main_sibling ? 'primary' : ''"
-                    >{{
+                  >
+                    {{
                       romUser.is_main_sibling
                         ? "mdi-checkbox-outline"
                         : "mdi-checkbox-blank-outline"
-                    }}</v-icon
-                  >{{ romUser.is_main_sibling ? "" : t("rom.default") }}</v-btn
-                >
+                    }}
+                  </v-icon>
+                  {{ romUser.is_main_sibling ? "" : t("rom.default") }}
+                </v-btn>
               </template>
             </v-tooltip>
           </v-row>
