@@ -37,7 +37,7 @@ const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
 const emitter = inject<Emitter<Events>>("emitter");
 const showSelectSource = ref(false);
-const renameAsSource = ref(false);
+const renameFromSource = ref(false);
 const selectedMatchRom = ref<SearchRomSchema>();
 const selectedCover = ref<MatchedSource>();
 const sources = ref<MatchedSource[]>([]);
@@ -182,7 +182,7 @@ function confirm() {
 }
 
 function toggleRenameAsSource() {
-  renameAsSource.value = !renameAsSource.value;
+  renameFromSource.value = !renameFromSource.value;
 }
 
 function backToMatched() {
@@ -190,7 +190,7 @@ function backToMatched() {
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
   sources.value = [];
-  renameAsSource.value = false;
+  renameFromSource.value = false;
 }
 
 async function updateRom(
@@ -206,7 +206,7 @@ async function updateRom(
   rom.value = {
     ...rom.value,
     fs_name:
-      renameAsSource.value && selectedMatchRom.value
+      renameFromSource.value && selectedMatchRom.value
         ? `${selectedMatchRom.value.name}.${rom.value.fs_extension}`
         : rom.value.fs_name,
     igdb_id: selectedRom.igdb_id || null,
@@ -260,7 +260,7 @@ function closeDialog() {
   showSelectSource.value = false;
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
-  renameAsSource.value = false;
+  renameFromSource.value = false;
 }
 
 onBeforeUnmount(() => {
@@ -508,11 +508,11 @@ onBeforeUnmount(() => {
               <v-col>
                 <v-chip
                   @click="toggleRenameAsSource"
-                  :variant="renameAsSource ? 'flat' : 'outlined'"
-                  :color="renameAsSource ? 'primary' : ''"
+                  :variant="renameFromSource ? 'flat' : 'outlined'"
+                  :color="renameFromSource ? 'primary' : ''"
                   :disabled="selectedCover == undefined"
                   ><v-icon class="mr-1">{{
-                    selectedCover && renameAsSource
+                    selectedCover && renameFromSource
                       ? "mdi-checkbox-outline"
                       : "mdi-checkbox-blank-outline"
                   }}</v-icon
@@ -520,7 +520,7 @@ onBeforeUnmount(() => {
                     t("rom.rename-file-part1", { source: selectedCover?.name })
                   }}</v-chip
                 >
-                <v-list-item v-if="rom && renameAsSource" class="mt-2">
+                <v-list-item v-if="rom && renameFromSource" class="mt-2">
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
                   <span>{{ t("rom.rename-file-part3") }}</span
