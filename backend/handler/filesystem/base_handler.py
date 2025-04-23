@@ -105,10 +105,9 @@ class FSHandler:
         match = EXTENSION_REGEX.search(file_name)
         return match.group(1) if match else ""
 
-    def _exclude_files(self, files, filetype) -> list[str]:
-        cnfg = cm.get_config()
-        excluded_extensions = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_EXT")
-        excluded_names = getattr(cnfg, f"EXCLUDED_{filetype.upper()}_FILES")
+    def _exclude_single_files(self, files) -> list[str]:
+        excluded_extensions = cm.get_config().EXCLUDED_SINGLE_EXT
+        excluded_names = cm.get_config().EXCLUDED_SINGLE_FILES
         excluded_files: list = []
 
         for file_name in files:
