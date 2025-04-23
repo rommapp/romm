@@ -205,9 +205,10 @@ async function updateRom(
   // Set the properties from the selected rom
   rom.value = {
     ...rom.value,
-    fs_name: renameAsSource.value
-      ? `${selectedMatchRom.value.name}.${rom.value.fs_extension}`
-      : rom.value.fs_name,
+    fs_name:
+      renameAsSource.value && selectedMatchRom.value
+        ? `${selectedMatchRom.value.name}.${rom.value.fs_extension}`
+        : rom.value.fs_name,
     igdb_id: selectedRom.igdb_id || null,
     moby_id: selectedRom.moby_id || null,
     ss_id: selectedRom.ss_id || null,
@@ -502,7 +503,7 @@ onBeforeUnmount(() => {
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12">
+          <v-col cols="12" v-if="selectedMatchRom">
             <v-row class="mt-4 text-center" no-gutters>
               <v-col>
                 <v-chip
