@@ -289,11 +289,7 @@ class FSRomsHandler(FSHandler):
                     self._build_rom_file(f_path.relative_to(LIBRARY_BASE_PATH), file)
                 )
         else:
-            # Check if file is excluded
-            if rom not in excluded_file_names and not any(
-                rom.endswith(ext) for ext in excluded_file_exts
-            ):
-                rom_files.append(self._build_rom_file(Path(roms_path), rom))
+            rom_files.append(self._build_rom_file(Path(roms_path), rom))
 
         return rom_files
 
@@ -437,7 +433,7 @@ class FSRomsHandler(FSHandler):
 
         fs_roms: list[dict] = [
             {"multi": False, "fs_name": rom}
-            for rom in self._exclude_files(fs_single_roms, "single")
+            for rom in self._exclude_single_files(fs_single_roms)
         ] + [
             {"multi": True, "fs_name": rom}
             for rom in self._exclude_multi_roms(fs_multi_roms)
