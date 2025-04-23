@@ -39,7 +39,7 @@ def test_get_roms():
     assert roms[1]["multi"]
 
 
-def test_exclude_single_files():
+def testexclude_single_files():
     from config.config_manager import ConfigManager
 
     empty_config_file = os.path.join(
@@ -52,7 +52,7 @@ def test_exclude_single_files():
 
     cm.add_exclusion("EXCLUDED_SINGLE_FILES", "Super Mario 64 (J) (Rev A) [Part 1].z64")
 
-    filtered_files = fs_rom_handler._exclude_single_files(
+    filtered_files = fs_rom_handler.exclude_single_files(
         files=[
             "Super Mario 64 (J) (Rev A) [Part 1].z64",
             "Super Mario 64 (J) (Rev A) [Part 2].z64",
@@ -63,7 +63,7 @@ def test_exclude_single_files():
 
     cm.add_exclusion("EXCLUDED_SINGLE_EXT", "z64")
 
-    filtered_files = fs_rom_handler._exclude_single_files(
+    filtered_files = fs_rom_handler.exclude_single_files(
         files=[
             "Super Mario 64 (J) (Rev A) [Part 1].z64",
             "Super Mario 64 (J) (Rev A) [Part 2].z64",
@@ -74,7 +74,7 @@ def test_exclude_single_files():
 
     cm.add_exclusion("EXCLUDED_SINGLE_FILES", "*.z64")
 
-    filtered_files = fs_rom_handler._exclude_single_files(
+    filtered_files = fs_rom_handler.exclude_single_files(
         files=[
             "Super Mario 64 (J) (Rev A) [Part 1].z64",
             "Super Mario 64 (J) (Rev A) [Part 2].z64",
@@ -85,7 +85,7 @@ def test_exclude_single_files():
 
     cm.add_exclusion("EXCLUDED_SINGLE_FILES", "_.*")
 
-    filtered_files = fs_rom_handler._exclude_single_files(
+    filtered_files = fs_rom_handler.exclude_single_files(
         files=[
             "Links Awakening.nsp",
             "_.Links Awakening.nsp",
