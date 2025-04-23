@@ -273,14 +273,27 @@ class FSRomsHandler(FSHandler):
         abs_fs_path = f"{LIBRARY_BASE_PATH}/{roms_path}"  # Absolute path to roms
         rom_files: list[RomFile] = []
 
+        excluded_file_names = cm.get_config().EXCLUDED_MULTI_PARTS_FILES
+        excluded_file_exts = cm.get_config().EXCLUDED_MULTI_PARTS_EXT
+
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{abs_fs_path}/{rom}"):
             for f_path, file in iter_files(f"{abs_fs_path}/{rom}", recursive=True):
+                # Check if file is excluded
+                if file in excluded_file_names:
+                    continue
+                if any(file.endswith(ext) for ext in excluded_file_exts):
+                    continue
+
                 rom_files.append(
                     self._build_rom_file(f_path.relative_to(LIBRARY_BASE_PATH), file)
                 )
         else:
-            rom_files.append(self._build_rom_file(Path(roms_path), rom))
+            # Check if file is excluded
+            if rom not in excluded_file_names and not any(
+                rom.endswith(ext) for ext in excluded_file_exts
+            ):
+                rom_files.append(self._build_rom_file(Path(roms_path), rom))
 
         return rom_files
 
