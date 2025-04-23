@@ -9,8 +9,10 @@ import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
@@ -115,7 +117,7 @@ async function finishWizard() {
                     <v-form @submit.prevent>
                       <v-text-field
                         v-model="defaultAdminUser.username"
-                        label="Username *"
+                        :label="`${t('settings.username')} *`"
                         type="text"
                         required
                         autocomplete="on"
@@ -124,7 +126,7 @@ async function finishWizard() {
                       />
                       <v-text-field
                         v-model="defaultAdminUser.email"
-                        label="Email"
+                        :label="`${t('settings.email')} *`"
                         type="text"
                         required
                         autocomplete="on"
@@ -133,7 +135,7 @@ async function finishWizard() {
                       />
                       <v-text-field
                         v-model="defaultAdminUser.password"
-                        label="Password *"
+                        :label="`${t('settings.password')} *`"
                         :type="visiblePassword ? 'text' : 'password'"
                         required
                         autocomplete="on"
