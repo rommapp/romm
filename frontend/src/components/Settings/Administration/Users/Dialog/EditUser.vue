@@ -120,7 +120,7 @@ function closeDialog() {
               <v-text-field
                 v-model="user.email"
                 variant="outlined"
-                label="email"
+                :label="t('settings.email')"
                 required
                 hide-details
                 clearable
