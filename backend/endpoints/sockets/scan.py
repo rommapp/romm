@@ -486,6 +486,7 @@ async def _identify_rom(
     # Calculating hashes is expensive, so we only do it if necessary
     if (
         not rom
+        or not rom.ra_id
         or scan_type == ScanType.COMPLETE
         or scan_type == ScanType.HASHES
         or MetadataSource.RA in metadata_sources
