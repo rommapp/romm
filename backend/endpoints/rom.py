@@ -476,7 +476,6 @@ async def get_rom_content(
 async def update_rom(
     request: Request,
     id: int,
-    rename_as_source: bool = False,
     remove_cover: bool = False,
     artwork: UploadFile | None = None,
     unmatch_metadata: bool = False,
@@ -486,12 +485,11 @@ async def update_rom(
     Args:
         request (Request): Fastapi Request object
         id (Rom): Rom internal id
-        rename_as_source (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
         artwork (UploadFile, optional): Custom artwork to set as cover. Defaults to File(None).
         unmatch_metadata: Remove the metadata matches for this game. Defaults to False.
 
     Raises:
-        HTTPException: If a rom already have that name when enabling the rename_as_source flag
+        HTTPException: Rom not found in database
 
     Returns:
         DetailedRomSchema: Rom stored in the database
@@ -651,33 +649,22 @@ async def update_rom(
 
     # Rename the file/folder if the name has changed
     should_update_fs = new_fs_name != rom.fs_name
-    try:
-        if rename_as_source:
-            new_fs_name = rom.fs_name.replace(
-                rom.fs_name_no_tags or rom.fs_name_no_ext,
-                rom.name or rom.fs_name,
-            )
+    if should_update_fs:
+        try:
             new_fs_name = sanitize_filename(new_fs_name)
             fs_rom_handler.rename_fs_rom(
                 old_name=rom.fs_name,
                 new_name=new_fs_name,
                 fs_path=rom.fs_path,
             )
-        elif should_update_fs:
-            new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_fs_rom(
-                old_name=rom.fs_name,
-                new_name=new_fs_name,
-                fs_path=rom.fs_path,
-            )
-    except RomAlreadyExistsException as exc:
-        log.error(exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
-        ) from exc
+        except RomAlreadyExistsException as exc:
+            log.error(exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
+            ) from exc
 
     # Update the rom files with the new fs_name
-    if rename_as_source or should_update_fs:
+    if should_update_fs:
         for file in rom.files:
             db_rom_handler.update_rom_file(
                 file.id,
