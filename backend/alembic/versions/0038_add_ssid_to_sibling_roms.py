@@ -61,6 +61,8 @@ def downgrade() -> None:
         "IS NOT DISTINCT FROM" if is_postgresql(connection) else "<=>"
     )
 
+    connection.execute(sa.text("DROP VIEW IF EXISTS sibling_roms;"))
+
     connection.execute(
         sa.text(
             f"""
