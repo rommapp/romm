@@ -205,6 +205,9 @@ async function updateRom(
   // Set the properties from the selected rom
   rom.value = {
     ...rom.value,
+    fs_name: renameAsSource.value
+      ? `${selectedMatchRom.value.name}.${rom.value.fs_extension}`
+      : rom.value.fs_name,
     igdb_id: selectedRom.igdb_id || null,
     moby_id: selectedRom.moby_id || null,
     ss_id: selectedRom.ss_id || null,
@@ -225,7 +228,7 @@ async function updateRom(
   }
 
   await romApi
-    .updateRom({ rom: rom.value, renameAsSource: renameAsSource.value })
+    .updateRom({ rom: rom.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -516,17 +519,15 @@ onBeforeUnmount(() => {
                     t("rom.rename-file-part1", { source: selectedCover?.name })
                   }}</v-chip
                 >
-                <v-list-item v-if="renameAsSource" class="mt-2">
+                <v-list-item v-if="rom && renameAsSource" class="mt-2">
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
                   <span>{{ t("rom.rename-file-part3") }}</span
-                  ><span class="text-primary ml-1"
-                    >{{ rom?.fs_name_no_tags }}.{{ rom?.fs_extension }}</span
-                  >
+                  ><span class="text-primary ml-1">{{ rom.fs_name }}</span>
                   <br />
                   <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
                   ><span class="text-secondary"
-                    >{{ selectedMatchRom?.name }}.{{ rom?.fs_extension }}</span
+                    >{{ selectedMatchRom.name }}.{{ rom.fs_extension }}</span
                   >
                   <br />
                   <span class="text-caption font-italic font-weight-bold"
