@@ -87,7 +87,6 @@ const noMetadataMatch = computed(() => {
 async function handleRomUpdate(
   options: {
     rom: UpdateRom;
-    renameAsSource?: boolean;
     removeCover?: boolean;
     unmatch?: boolean;
   },
