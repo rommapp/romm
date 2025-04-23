@@ -5,9 +5,11 @@ import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
 // Props
+const { t } = useI18n();
 const user = ref({
   username: "",
   password: "",
@@ -60,7 +62,7 @@ function closeDialog() {
               <v-text-field
                 v-model="user.username"
                 variant="outlined"
-                label="username"
+                :label="t('settings.username')"
                 required
                 hide-details
                 clearable
@@ -72,7 +74,7 @@ function closeDialog() {
               <v-text-field
                 v-model="user.password"
                 variant="outlined"
-                label="Password"
+                :label="t('settings.password')"
                 required
                 hide-details
                 clearable
@@ -84,7 +86,7 @@ function closeDialog() {
               <v-text-field
                 v-model="user.email"
                 variant="outlined"
-                label="email"
+                :label="t('settings.email')"
                 required
                 hide-details
                 clearable
@@ -97,7 +99,7 @@ function closeDialog() {
                 v-model="user.role"
                 variant="outlined"
                 :items="['viewer', 'editor', 'admin']"
-                label="Role"
+                :label="t('settings.role')"
                 required
                 hide-details
               />
@@ -109,14 +111,16 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
             :disabled="!user.username || !user.password"
             :variant="!user.username || !user.password ? 'plain' : 'flat'"
             class="text-romm-green bg-toplayer"
             @click="createUser()"
           >
-            Create
+            {{ t("common.create") }}
           </v-btn>
         </v-btn-group>
       </v-row>
