@@ -3,9 +3,11 @@ import type { DetailedRom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
 import { ref, onMounted } from "vue";
 import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchievement";
+import { useI18n } from "vue-i18n";
 
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
+const { t } = useI18n();
 const auth = storeAuth();
 const targetRom = ref();
 const earnedAchievements = ref<{ id: string; date: string }[]>([]);
@@ -56,33 +58,31 @@ onMounted(() => {
 });
 </script>
 <template>
-  <v-list-item>
+  <v-list-item class="pa-0 mt-2">
     <template #prepend>
-      <span
-        v-if="targetRom && rom.merged_ra_metadata?.achievements"
-        class="mr-4"
-        >{{ targetRom.earned_achievements.length }} /
-        {{ rom.merged_ra_metadata?.achievements.length }}</span
+      <v-chip v-if="rom.merged_ra_metadata?.achievements" label rounded="0"
+        ><v-icon class="mr-2">mdi-trophy</v-icon
+        >{{ targetRom?.earned_achievements.length ?? 0 }} /
+        {{ rom.merged_ra_metadata?.achievements.length }}</v-chip
       >
     </template>
     <v-progress-linear
       color="accent"
       :model-value="achievemehtsPercentage"
-      class="my-4"
-      height="20"
-      rounded
+      height="32"
       ><p>{{ Math.ceil(achievemehtsPercentage) }}%</p></v-progress-linear
     >
   </v-list-item>
   <v-chip
+    label
     :color="showEarned ? 'primary' : 'gray'"
     @click="toggleShowEarned"
-    class="my-2"
+    class="mt-4"
     ><template #prepend
       ><v-icon class="mr-2">{{
         showEarned ? "mdi-checkbox-outline" : "mdi-checkbox-blank-outline"
       }}</v-icon></template
-    >Show earned only</v-chip
+    >{{ t("rom.show-earned-only") }}</v-chip
   >
   <v-list v-if="rom.merged_ra_metadata?.achievements" class="bg-background">
     <v-list-item
@@ -92,6 +92,9 @@ onMounted(() => {
       class="mb-2 py-4 rounded bg-toplayer"
       :class="{
         earned: earnedAchievements.some(
+          (earned) => earned.id === (achievement.badge_id ?? ''),
+        ),
+        locked: !earnedAchievements.some(
           (earned) => earned.id === (achievement.badge_id ?? ''),
         ),
         hidden:
@@ -139,6 +142,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.locked {
+  border-left: solid rgba(var(--v-theme-toplayer)) 4px;
+}
 .earned {
   border-left: solid rgba(var(--v-theme-primary)) 4px;
 }
