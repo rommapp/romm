@@ -52,7 +52,6 @@ class MobyMetadata(TypedDict):
 
 class MobyGamesRom(TypedDict):
     moby_id: int | None
-    slug: NotRequired[str]
     name: NotRequired[str]
     summary: NotRequired[str]
     url_cover: NotRequired[str]
@@ -280,7 +279,6 @@ class MobyGamesHandler(MetadataHandler):
         rom = {
             "moby_id": res["game_id"],
             "name": res["title"],
-            "slug": res["moby_url"].split("/")[-1],
             "summary": res.get("description", ""),
             "url_cover": pydash.get(res, "sample_cover.image", ""),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
@@ -303,7 +301,6 @@ class MobyGamesHandler(MetadataHandler):
         rom = {
             "moby_id": res["game_id"],
             "name": res["title"],
-            "slug": res["moby_url"].split("/")[-1],
             "summary": res.get("description", None),
             "url_cover": pydash.get(res, "sample_cover.image", None),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
@@ -341,7 +338,6 @@ class MobyGamesHandler(MetadataHandler):
                     for k, v in {
                         "moby_id": rom["game_id"],
                         "name": rom["title"],
-                        "slug": rom["moby_url"].split("/")[-1],
                         "summary": rom.get("description", ""),
                         "url_cover": pydash.get(rom, "sample_cover.image", ""),
                         "url_screenshots": [
