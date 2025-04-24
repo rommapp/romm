@@ -212,13 +212,13 @@ async function updateRom(
     igdb_id: selectedRom.igdb_id || null,
     moby_id: selectedRom.moby_id || null,
     ss_id: selectedRom.ss_id || null,
-    name: selectedRom.name,
-    slug: selectedRom.slug,
-    summary: selectedRom.summary,
+    name: selectedRom.name || null,
+    slug: selectedRom.slug || null,
+    summary: selectedRom.summary || null,
     url_cover:
       urlCover ||
-      selectedRom.ss_url_cover ||
       selectedRom.igdb_url_cover ||
+      selectedRom.ss_url_cover ||
       selectedRom.moby_url_cover ||
       null,
   };
