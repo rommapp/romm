@@ -17,7 +17,7 @@ const { mdAndDown } = useDisplay();
         v-model="tab"
         :direction="mdAndDown ? 'horizontal' : 'vertical'"
         :align-tabs="mdAndDown ? 'center' : 'start'"
-        slider-color="primary"
+        slider-color="secondary"
       >
         <v-tab
           prepend-icon="mdi-content-save"

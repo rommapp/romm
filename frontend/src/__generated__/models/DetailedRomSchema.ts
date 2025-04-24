@@ -3,11 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { CollectionSchema } from './CollectionSchema';
-import type { RAMetadata } from './RAMetadata';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
+import type { RomRAMetadata } from './RomRAMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
 import type { SaveSchema } from './SaveSchema';
@@ -62,7 +62,7 @@ export type DetailedRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
-    merged_ra_metadata: (RAMetadata | null);
+    merged_ra_metadata: (RomRAMetadata | null);
     merged_screenshots: Array<string>;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
