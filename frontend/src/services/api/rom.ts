@@ -192,12 +192,10 @@ export type UpdateRom = SimpleRom & {
 
 async function updateRom({
   rom,
-  renameAsSource = false,
   removeCover = false,
   unmatch = false,
 }: {
   rom: UpdateRom;
-  renameAsSource?: boolean;
   removeCover?: boolean;
   unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
@@ -213,7 +211,6 @@ async function updateRom({
 
   return api.put(`/roms/${rom.id}`, formData, {
     params: {
-      rename_as_source: renameAsSource,
       remove_cover: removeCover,
       unmatch_metadata: unmatch,
     },

@@ -212,7 +212,6 @@ Here are a few projects maintained by members of our community. Please note that
 - [romm-comm][romm-comm-discord-bot]: Discord Bot by @idio-sync
 - [DeckRommSync][deck-romm-sync]: SteamOS downloader and sync by @PeriBluGaming
 - CasaOS app via the [BigBear App Store][big-bear-casaos]
-- [Helm Chart to deploy on Kubernetes][kubernetes-helm-chart] by @psych0d0g
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
@@ -283,7 +282,6 @@ Here are a few projects that we think you might like:
 [screenscraper-api]: https://www.screenscraper.fr/membreinscription.php
 [mobygames-api]: https://www.mobygames.com/info/api/
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
-[kubernetes-helm-chart]: https://artifacthub.io/packages/helm/crystalnet/romm
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
 [playnite-app]: https://github.com/rommapp/playnite-plugin
