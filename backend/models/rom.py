@@ -260,10 +260,10 @@ class Rom(BaseModel):
 
     # # Metadata fields
     @property
-    def youtube_video_id(self) -> str:
+    def youtube_video_id(self) -> str | None:
         if self.igdb_metadata:
-            return self.igdb_metadata.get("youtube_video_id", "")
-        return ""
+            return self.igdb_metadata.get("youtube_video_id", None)
+        return None
 
     @property
     def alternative_names(self) -> list[str]:
