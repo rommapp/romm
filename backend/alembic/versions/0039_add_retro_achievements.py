@@ -1,7 +1,7 @@
 """add retro achievements data
 
-Revision ID: 0038_add_retro_achievements
-Revises: 0037_virtual_rom_columns
+Revision ID: 0039_add_retro_achievements
+Revises: 0038_add_ssid_to_sibling_roms
 Create Date: 2025-04-11 00:59:30.772416
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0038_add_retro_achievements"
-down_revision = "0037_virtual_rom_columns"
+revision = "0039_add_retro_achievements"
+down_revision = "0038_add_ssid_to_sibling_roms"
 branch_labels = None
 depends_on = None
 
