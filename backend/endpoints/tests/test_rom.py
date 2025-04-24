@@ -49,7 +49,6 @@ def test_update_rom(rename_fs_rom_mock, get_rom_by_id_mock, client, access_token
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
-        params={"rename_as_source": True},
         data={
             "igdb_id": "236663",
             "name": "Metroid Prime Remastered",

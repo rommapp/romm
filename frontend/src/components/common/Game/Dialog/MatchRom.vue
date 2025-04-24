@@ -37,7 +37,7 @@ const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
 const emitter = inject<Emitter<Events>>("emitter");
 const showSelectSource = ref(false);
-const renameAsSource = ref(false);
+const renameFromSource = ref(false);
 const selectedMatchRom = ref<SearchRomSchema>();
 const selectedCover = ref<MatchedSource>();
 const sources = ref<MatchedSource[]>([]);
@@ -182,7 +182,7 @@ function confirm() {
 }
 
 function toggleRenameAsSource() {
-  renameAsSource.value = !renameAsSource.value;
+  renameFromSource.value = !renameFromSource.value;
 }
 
 function backToMatched() {
@@ -190,7 +190,7 @@ function backToMatched() {
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
   sources.value = [];
-  renameAsSource.value = false;
+  renameFromSource.value = false;
 }
 
 async function updateRom(
@@ -205,16 +205,20 @@ async function updateRom(
   // Set the properties from the selected rom
   rom.value = {
     ...rom.value,
+    fs_name:
+      renameFromSource.value && selectedMatchRom.value
+        ? `${selectedMatchRom.value.name}.${rom.value.fs_extension}`
+        : rom.value.fs_name,
     igdb_id: selectedRom.igdb_id || null,
     moby_id: selectedRom.moby_id || null,
     ss_id: selectedRom.ss_id || null,
-    name: selectedRom.name,
-    slug: selectedRom.slug,
-    summary: selectedRom.summary,
+    name: selectedRom.name || null,
+    slug: selectedRom.slug || null,
+    summary: selectedRom.summary || null,
     url_cover:
       urlCover ||
-      selectedRom.ss_url_cover ||
       selectedRom.igdb_url_cover ||
+      selectedRom.ss_url_cover ||
       selectedRom.moby_url_cover ||
       null,
   };
@@ -225,7 +229,7 @@ async function updateRom(
   }
 
   await romApi
-    .updateRom({ rom: rom.value, renameAsSource: renameAsSource.value })
+    .updateRom({ rom: rom.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -256,7 +260,7 @@ function closeDialog() {
   showSelectSource.value = false;
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
-  renameAsSource.value = false;
+  renameFromSource.value = false;
 }
 
 onBeforeUnmount(() => {
@@ -499,16 +503,16 @@ onBeforeUnmount(() => {
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12">
+          <v-col cols="12" v-if="selectedMatchRom">
             <v-row class="mt-4 text-center" no-gutters>
               <v-col>
                 <v-chip
                   @click="toggleRenameAsSource"
-                  :variant="renameAsSource ? 'flat' : 'outlined'"
-                  :color="renameAsSource ? 'primary' : ''"
+                  :variant="renameFromSource ? 'flat' : 'outlined'"
+                  :color="renameFromSource ? 'primary' : ''"
                   :disabled="selectedCover == undefined"
                   ><v-icon class="mr-1">{{
-                    selectedCover && renameAsSource
+                    selectedCover && renameFromSource
                       ? "mdi-checkbox-outline"
                       : "mdi-checkbox-blank-outline"
                   }}</v-icon
@@ -516,17 +520,15 @@ onBeforeUnmount(() => {
                     t("rom.rename-file-part1", { source: selectedCover?.name })
                   }}</v-chip
                 >
-                <v-list-item v-if="renameAsSource" class="mt-2">
+                <v-list-item v-if="rom && renameFromSource" class="mt-2">
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
                   <span>{{ t("rom.rename-file-part3") }}</span
-                  ><span class="text-primary ml-1"
-                    >{{ rom?.fs_name_no_tags }}.{{ rom?.fs_extension }}</span
-                  >
+                  ><span class="text-primary ml-1">{{ rom.fs_name }}</span>
                   <br />
                   <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
                   ><span class="text-secondary"
-                    >{{ selectedMatchRom?.name }}.{{ rom?.fs_extension }}</span
+                    >{{ selectedMatchRom.name }}.{{ rom.fs_extension }}</span
                   >
                   <br />
                   <span class="text-caption font-italic font-weight-bold"

@@ -1,5 +1,6 @@
 import binascii
 import bz2
+import fnmatch
 import hashlib
 import os
 import re
@@ -274,11 +275,27 @@ class FSRomsHandler(FSHandler):
         abs_fs_path = f"{LIBRARY_BASE_PATH}/{roms_path}"  # Absolute path to roms
         rom_files: list[RomFile] = []
 
+        excluded_file_names = cm.get_config().EXCLUDED_MULTI_PARTS_FILES
+        excluded_file_exts = cm.get_config().EXCLUDED_MULTI_PARTS_EXT
+
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{abs_fs_path}/{rom}"):
-            for f_path, file in iter_files(f"{abs_fs_path}/{rom}", recursive=True):
+            for f_path, file_name in iter_files(f"{abs_fs_path}/{rom}", recursive=True):
+                # Check if file is excluded
+                ext = self.parse_file_extension(file_name)
+                if not ext or ext in excluded_file_exts:
+                    continue
+
+                if any(
+                    file_name == exc_name or fnmatch.fnmatch(file_name, exc_name)
+                    for exc_name in excluded_file_names
+                ):
+                    continue
+
                 rom_files.append(
-                    self._build_rom_file(f_path.relative_to(LIBRARY_BASE_PATH), file)
+                    self._build_rom_file(
+                        f_path.relative_to(LIBRARY_BASE_PATH), file_name
+                    )
                 )
         else:
             rom_files.append(self._build_rom_file(Path(roms_path), rom))
@@ -433,7 +450,7 @@ class FSRomsHandler(FSHandler):
 
         fs_roms: list[dict] = [
             {"multi": False, "fs_name": rom}
-            for rom in self._exclude_files(fs_single_roms, "single")
+            for rom in self.exclude_single_files(fs_single_roms)
         ] + [
             {"multi": True, "fs_name": rom}
             for rom in self._exclude_multi_roms(fs_multi_roms)
