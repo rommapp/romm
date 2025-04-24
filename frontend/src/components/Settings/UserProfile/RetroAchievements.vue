@@ -6,25 +6,18 @@ import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import userApi from "@/services/api/user";
 import { watch } from "vue";
+import { useI18n } from "vue-i18n";
 
+// Props
+const { t } = useI18n();
 const valid = ref(false);
 const auth = storeAuth();
 const username = ref(auth.user?.ra_username);
-const visibleAPIKey = ref(false);
-
-watch(
-  auth,
-  (newAuth) => {
-    username.value = newAuth.user?.ra_username;
-  },
-  { deep: true },
-);
-
+const syncing = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const rules = [
   (value: string) => {
     if (value) return true;
-
     return "Field is required.";
   },
 ];
@@ -32,6 +25,8 @@ const rules = [
 // Functions
 function refreshRetroAchievements() {
   if (!auth.user) return;
+
+  syncing.value = true;
 
   userApi
     .refreshRetroAchievements({
@@ -52,6 +47,9 @@ function refreshRetroAchievements() {
         color: "red",
         timeout: 5000,
       });
+    })
+    .finally(() => {
+      syncing.value = false;
     });
 }
 function submitRACredentials() {
@@ -82,55 +80,50 @@ function submitRACredentials() {
   // Refresh the RetroAchievements data
   refreshRetroAchievements();
 }
+watch(
+  auth,
+  (newAuth) => {
+    username.value = newAuth.user?.ra_username;
+  },
+  { deep: true },
+);
 </script>
 
 <template>
   <r-section icon="mdi-trophy" title="RetroAchievements">
     <template #content>
-      <p class="ma-4">
-        Using your
-        <a href="https://retroachievements.org/" target="_blank"
-          >RetroAchievements</a
+      <v-form v-model="valid" @submit.prevent="submitRACredentials">
+        <v-text-field
+          v-model="username"
+          :counter="10"
+          :rules="rules"
+          label="Username"
+          variant="outlined"
+          hide-details
+          required
+          prepend-inner-icon="mdi-account"
+          class="ma-4"
+        />
+        <v-btn type="submit" class="ml-4 text-romm-green bg-toplayer">{{
+          t("common.apply")
+        }}</v-btn>
+        <v-btn
+          prepend-icon="mdi-sync"
+          :disabled="syncing"
+          :loading="syncing"
+          class="ml-4 text-accent bg-toplayer"
+          @click="refreshRetroAchievements"
         >
-        username and
-        <a
-          href="https://api-docs.retroachievements.org/getting-started.html#get-your-web-api-key"
-          target="_blank"
-          >API key</a
-        >
-        you can keep track of your latest achievements
-      </p>
-      <v-form
-        v-model="valid"
-        @submit.prevent="submitRACredentials"
-        class="pa-1"
-      >
-        <v-row no-gutters>
-          <v-col md="4" class="ma-2">
-            <v-text-field
-              v-model="username"
-              :counter="10"
-              :rules="rules"
-              label="Username"
-              variant="outlined"
-              hide-details
-              required
-              prepend-inner-icon="mdi-account"
+          <template #loader>
+            <v-progress-circular
+              color="accent"
+              :width="2"
+              :size="20"
+              indeterminate
             />
-          </v-col>
-          <v-col class="ma-2">
-            <v-btn type="submit" block class="h-100">Submit</v-btn>
-          </v-col>
-          <v-col v-if="auth.user?.ra_username" class="ma-2">
-            <v-btn
-              prepend-icon="mdi-sync"
-              @click="refreshRetroAchievements"
-              block
-              class="h-100"
-              >Sync</v-btn
-            >
-          </v-col>
-        </v-row>
+          </template>
+          {{ t("common.sync") }}
+        </v-btn>
       </v-form>
     </template>
   </r-section>
