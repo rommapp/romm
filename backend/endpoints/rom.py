@@ -543,7 +543,7 @@ async def update_rom(
         and int(cleaned_data.get("moby_id", "")) != rom.moby_id
     ):
         moby_rom = await meta_moby_handler.get_rom_by_id(
-            int(cleaned_data.get("ss_id", ""))
+            int(cleaned_data.get("moby_id", ""))
         )
         cleaned_data.update(moby_rom)
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
