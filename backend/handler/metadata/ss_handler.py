@@ -129,7 +129,6 @@ class SSMetadata(TypedDict):
 
 class SSRom(TypedDict):
     ss_id: int | None
-    slug: NotRequired[str]
     name: NotRequired[str]
     summary: NotRequired[str]
     url_cover: NotRequired[str]
@@ -438,13 +437,6 @@ class SSHandler(MetadataHandler):
             .head()
             .value()
         )
-        res_slug = (
-            pydash.chain(res.get("noms", []))
-            .filter({"region": "ss"})
-            .map("text")
-            .head()
-            .value()
-        )
         res_summary = (
             pydash.chain(res.get("synopsis", []))
             .filter({"langue": "en"})
@@ -486,7 +478,6 @@ class SSHandler(MetadataHandler):
         rom = {
             "ss_id": ss_id,
             "name": res_name,
-            "slug": res_slug,
             "summary": res_summary,
             "url_cover": res_url_cover,
             "url_manual": res_url_manual,
@@ -507,13 +498,6 @@ class SSHandler(MetadataHandler):
             return SSRom(ss_id=None)
 
         res_name = (
-            pydash.chain(res.get("noms", []))
-            .filter({"region": "ss"})
-            .map("text")
-            .head()
-            .value()
-        )
-        res_slug = (
             pydash.chain(res.get("noms", []))
             .filter({"region": "ss"})
             .map("text")
@@ -561,7 +545,6 @@ class SSHandler(MetadataHandler):
         rom = {
             "ss_id": res.get("id"),
             "name": res_name,
-            "slug": res_slug,
             "summary": res_summary,
             "url_cover": res_url_cover,
             "url_manual": res_url_manual,
@@ -579,7 +562,7 @@ class SSHandler(MetadataHandler):
         return rom if rom.get("ss_id", "") else None
 
     async def get_matched_roms_by_name(
-        self, search_term: str, platform_ss_id: int
+        self, search_term: str, platform_ss_id: int | None
     ) -> list[SSRom]:
         if not SS_API_ENABLED:
             return []
@@ -597,15 +580,6 @@ class SSHandler(MetadataHandler):
         matched_roms = [] if len(roms) == 1 and not roms[0] else roms
 
         def _get_name(rom: dict) -> str | None:
-            return (
-                pydash.chain(rom.get("noms", []))
-                .filter({"region": "ss"})
-                .map("text")
-                .head()
-                .value()
-            )
-
-        def _get_slug(rom: dict) -> str | None:
             return (
                 pydash.chain(rom.get("noms", []))
                 .filter({"region": "ss"})
@@ -683,7 +657,6 @@ class SSHandler(MetadataHandler):
                     for k, v in {
                         "ss_id": rom.get("id"),
                         "name": _get_name(rom),
-                        "slug": _get_slug(rom),
                         "summary": _get_summary(rom),
                         "url_cover": _get_url_cover(rom),
                         "url_manual": _get_url_manual(rom),
