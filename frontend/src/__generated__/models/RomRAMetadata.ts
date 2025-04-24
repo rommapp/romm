@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RAGameRomAchievement } from './RAGameRomAchievement';
-export type RAMetadata = {
+export type RomRAMetadata = {
     achievements?: Array<RAGameRomAchievement>;
 };
 
