@@ -32,7 +32,10 @@ async def add_state(
     log.info(f"Uploading state of {rom.name}")
 
     states_path = fs_asset_handler.build_states_file_path(
-        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
+        emulator=emulator,
     )
 
     if "stateFile" not in data:
@@ -55,6 +58,7 @@ async def add_state(
         file_name=stateFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
         emulator=emulator,
     )
     db_state = db_state_handler.get_state_by_filename(
