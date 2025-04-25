@@ -18,7 +18,7 @@ const { mdAndDown } = useDisplay();
         :direction="mdAndDown ? 'horizontal' : 'vertical'"
         :align-tabs="mdAndDown ? 'center' : 'start'"
         slider-color="secondary"
-        class="mr-4"
+        class="mr-4 mt-2"
         selected-class="bg-toplayer"
       >
         <v-tab
