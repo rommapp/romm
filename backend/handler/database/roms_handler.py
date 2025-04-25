@@ -7,11 +7,10 @@ from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
-    BigInteger,
     Integer,
-    Numeric,
     Row,
-    SmallInteger,
+    String,
+    Text,
     and_,
     case,
     cast,
@@ -423,9 +422,7 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = Rom.name
 
         # Ignore case when the order attribute is a number
-        if not isinstance(
-            order_attr.type, (Integer, BigInteger, SmallInteger, Numeric)
-        ):
+        if isinstance(order_attr.type, (String, Text)):
             # Remove any leading articles
             order_attr = func.trim(
                 func.lower(order_attr).regexp_replace(r"^(the|a|an)\s+", "", "i")
