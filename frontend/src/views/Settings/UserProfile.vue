@@ -80,7 +80,7 @@ onUnmounted(() => {
 </script>
 <template>
   <template v-if="userToEdit">
-    <v-row class="mx-8 mt-4" no-gutters>
+    <v-row class="ma-4" no-gutters>
       <v-col>
         <v-list-item>
           <template #prepend>
