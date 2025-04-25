@@ -12,12 +12,14 @@ const { mdAndDown } = useDisplay();
 </script>
 <template>
   <v-row no-gutters>
-    <v-col cols="12" lg="auto">
+    <v-col cols="12" lg="2">
       <v-tabs
         v-model="tab"
         :direction="mdAndDown ? 'horizontal' : 'vertical'"
         :align-tabs="mdAndDown ? 'center' : 'start'"
         slider-color="secondary"
+        class="mr-4"
+        selected-class="bg-toplayer"
       >
         <v-tab
           prepend-icon="mdi-content-save"
@@ -33,7 +35,6 @@ const { mdAndDown } = useDisplay();
         >
       </v-tabs>
     </v-col>
-    <v-divider v-if="!mdAndDown" class="mx-4" vertical />
     <v-col>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="saves">

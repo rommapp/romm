@@ -136,6 +136,7 @@ watch(
           <v-tabs
             v-model="tab"
             slider-color="primary"
+            show-arrows
             :class="{ 'mt-4': smAndDown }"
           >
             <v-tab value="details"> {{ t("rom.details") }} </v-tab>

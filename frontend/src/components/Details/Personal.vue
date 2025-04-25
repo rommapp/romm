@@ -76,6 +76,8 @@ watch(
         :direction="mdAndDown ? 'horizontal' : 'vertical'"
         :align-tabs="mdAndDown ? 'center' : 'start'"
         slider-color="secondary"
+        class="mr-4"
+        selected-class="bg-toplayer"
       >
         <v-tab
           prepend-icon="mdi-list-status"
@@ -98,7 +100,6 @@ watch(
         >
       </v-tabs>
     </v-col>
-    <v-divider v-if="!mdAndDown" class="mx-4" vertical />
     <v-col>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="status">
