@@ -23,12 +23,12 @@ const rules = [
 ];
 
 // Functions
-function refreshRetroAchievements() {
+async function refreshRetroAchievements() {
   if (!auth.user) return;
 
   syncing.value = true;
 
-  userApi
+  await userApi
     .refreshRetroAchievements({
       id: auth.user.id,
     })
@@ -52,10 +52,10 @@ function refreshRetroAchievements() {
       syncing.value = false;
     });
 }
-function submitRACredentials() {
+async function submitRACredentials() {
   if (!auth.user) return;
 
-  userApi
+  await userApi
     .updateUser({
       id: auth.user.id,
       ra_username: username.value as string,
@@ -67,6 +67,8 @@ function submitRACredentials() {
         color: "green",
         timeout: 5000,
       });
+      // Refresh the RetroAchievements data
+      refreshRetroAchievements();
     })
     .catch(() => {
       emitter?.emit("snackbarShow", {
@@ -76,9 +78,6 @@ function submitRACredentials() {
         timeout: 5000,
       });
     });
-
-  // Refresh the RetroAchievements data
-  refreshRetroAchievements();
 }
 watch(
   auth,
@@ -104,9 +103,13 @@ watch(
           prepend-inner-icon="mdi-account"
           class="ma-4"
         />
-        <v-btn type="submit" class="ml-4 text-romm-green bg-toplayer">{{
-          t("common.apply")
-        }}</v-btn>
+        <v-btn
+          :disabled="syncing"
+          :variant="syncing ? 'plain' : 'flat'"
+          type="submit"
+          class="ml-4 text-romm-green bg-toplayer"
+          >{{ t("common.apply") }}</v-btn
+        >
         <v-btn
           prepend-icon="mdi-sync"
           :disabled="syncing"
