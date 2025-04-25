@@ -32,8 +32,13 @@ async def add_save(
     log.info(f"Uploading save of {rom.name}")
 
     saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
+        emulator=emulator,
     )
+
+    log.debug(f"Saving to {saves_path}")
 
     if "saveFile" not in data:
         log.error("No save file provided")
@@ -55,6 +60,7 @@ async def add_save(
         file_name=saveFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
         emulator=emulator,
     )
     db_save = db_save_handler.get_save_by_filename(
