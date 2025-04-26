@@ -98,7 +98,7 @@ class IGDBRom(TypedDict):
 def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
     return IGDBMetadata(
         {
-            "youtube_video_id": str(pydash.get(rom, "videos[0].video_id", None)),
+            "youtube_video_id": pydash.get(rom, "videos[0].video_id", None),
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": rom.get("first_release_date", None),

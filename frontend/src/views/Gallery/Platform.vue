@@ -3,10 +3,10 @@ import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import GameDataTable from "@/components/common/Game/Table.vue";
-import romApi from "@/services/api/rom";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
+import GameTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
@@ -33,57 +33,51 @@ const {
   selectedRoms,
   currentPlatform,
   currentCollection,
-  itemsPerBatch,
-  gettingRoms,
+  fetchingRoms,
+  fetchTotalRoms,
 } = storeToRefs(romsStore);
-const itemsShown = ref(itemsPerBatch.value);
 const noPlatformError = ref(false);
 const router = useRouter();
-let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
+let timeout: ReturnType<typeof setTimeout>;
 
 // Functions
 async function fetchRoms() {
-  if (gettingRoms.value) return;
+  if (fetchingRoms.value) return;
 
-  gettingRoms.value = true;
   emitter?.emit("showLoadingDialog", {
-    loading: gettingRoms.value,
+    loading: true,
     scrim: false,
   });
 
-  try {
-    const { data } = await romApi.getRoms({
-      platformId: romsStore.currentPlatform?.id,
+  romsStore
+    .fetchRoms(galleryFilterStore)
+    .then(() => {
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
+    })
+    .catch((error) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+      noPlatformError.value = true;
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
     });
-
-    romsStore.set(data);
-    romsStore.setFiltered(data, galleryFilterStore);
-  } catch (error) {
-    emitter?.emit("snackbarShow", {
-      msg: `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
-      icon: "mdi-close-circle",
-      color: "red",
-      timeout: 4000,
-    });
-    console.error(
-      `Couldn't fetch roms for platform ID ${currentPlatform.value?.id}: ${error}`,
-    );
-    noPlatformError.value = true;
-  } finally {
-    gettingRoms.value = false;
-    emitter?.emit("showLoadingDialog", {
-      loading: gettingRoms.value,
-      scrim: false,
-    });
-  }
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
   let index = filteredRoms.value.indexOf(emitData.rom);
   if (
     emitData.event.shiftKey ||
-    romsStore.selecting ||
+    romsStore.selectingRoms ||
     romsStore.selectedRoms.length > 0
   ) {
     emitData.event.preventDefault();
@@ -134,34 +128,25 @@ function onGameTouchEnd() {
 }
 
 function onScroll() {
-  if (galleryViewStore.currentView != 2) {
-    clearTimeout(timeout);
+  clearTimeout(timeout);
 
-    window.setTimeout(async () => {
-      const { scrollTop, scrollHeight, clientHeight } =
-        document.documentElement;
-      scrolledToTop.value = scrollTop === 0;
-      const totalScrollableHeight = scrollHeight - clientHeight;
-      const ninetyPercentPoint = totalScrollableHeight * 0.9;
-      if (
-        scrollTop >= ninetyPercentPoint &&
-        itemsShown.value < filteredRoms.value.length
-      ) {
-        itemsShown.value = itemsShown.value + itemsPerBatch.value;
-        galleryViewStore.scroll = scrollHeight;
-      }
-    }, 100);
-    clearTimeout(timeout);
-  }
+  window.setTimeout(async () => {
+    scrolledToTop.value = window.scrollY === 0;
+    if (
+      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      fetchTotalRoms.value > allRoms.value.length
+    ) {
+      await fetchRoms();
+    }
+  }, 100);
 }
 
 function resetGallery() {
   romsStore.reset();
-  galleryFilterStore.reset();
+  galleryFilterStore.resetFilters();
   galleryFilterStore.activeFilterDrawer = false;
   scrolledToTop.value = true;
   noPlatformError.value = false;
-  itemsShown.value = itemsPerBatch.value;
 }
 
 onMounted(async () => {
@@ -183,14 +168,12 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             platform
           ) {
-            romsStore.setCurrentPlatform(platform);
             resetGallery();
+            romsStore.setCurrentPlatform(platform);
             await fetchRoms();
           }
 
-          window.addEventListener("wheel", onScroll);
           window.addEventListener("scroll", onScroll);
-          window.addEventListener("touchmove", onScroll);
         } else {
           noPlatformError.value = true;
         }
@@ -234,24 +217,22 @@ onBeforeRouteUpdate(async (to, from) => {
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("wheel", onScroll);
   window.removeEventListener("scroll", onScroll);
-  window.removeEventListener("touchmove", onScroll);
 });
 </script>
 
 <template>
   <template v-if="!noPlatformError">
     <gallery-app-bar />
-    <template v-if="gettingRoms">
+    <template v-if="fetchingRoms && filteredRoms.length === 0">
       <skeleton />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
-        <v-row v-if="currentView != 2" class="pb-2 mx-1 mt-3" no-gutters>
+        <v-row v-if="currentView != 2" class="mx-1 mt-3 mr-14" no-gutters>
           <!-- Gallery cards view -->
           <v-col
-            v-for="rom in filteredRoms.slice(0, itemsShown)"
+            v-for="rom in filteredRoms"
             :key="rom.id"
             class="pa-1 align-self-end"
             :cols="views[currentView]['size-cols']"
@@ -283,15 +264,17 @@ onBeforeUnmount(() => {
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row class="h-100" v-if="currentView == 2" no-gutters>
-          <v-col class="h-100 pt-4 pb-2">
-            <game-data-table class="h-100 mx-2" />
+        <v-row class="mr-13" v-if="currentView == 2" no-gutters>
+          <v-col class="my-4">
+            <game-table class="mx-2" />
           </v-col>
         </v-row>
+
+        <load-more-btn :fetchRoms="fetchRoms" />
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!gettingRoms" />
+        <empty-game v-if="!fetchingRoms" />
       </template>
     </template>
   </template>

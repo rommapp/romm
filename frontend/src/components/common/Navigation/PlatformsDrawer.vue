@@ -9,20 +9,19 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const navigationStore = storeNavigation();
-const { smAndDown, mdAndUp } = useDisplay();
+const { mdAndUp, smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
-const { filteredPlatforms, searchText } = storeToRefs(platformsStore);
+const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 
 function clear() {
-  searchText.value = "";
+  filterText.value = "";
 }
 </script>
 <template>
   <v-navigation-drawer
     mobile
-    rounded
-    :location="smAndDown ? 'top' : 'left'"
+    :location="smAndDown ? 'bottom' : 'left'"
     @update:model-value="clear"
     width="500"
     v-model="activePlatformsDrawer"
@@ -30,15 +29,16 @@ function clear() {
       'my-2': mdAndUp || (smAndDown && activePlatformsDrawer),
       'ml-2': (mdAndUp && activePlatformsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
+      'unset-height': mdAndUp,
+      'max-h-70': smAndDown && activePlatformsDrawer,
     }"
     class="bg-surface pa-1"
-    :style="mdAndUp ? 'height: unset' : ''"
+    rounded
     :border="0"
   >
     <template #prepend>
       <v-text-field
-        v-model="searchText"
+        v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
         hide-details
@@ -59,8 +59,3 @@ function clear() {
     </v-list>
   </v-navigation-drawer>
 </template>
-<style scoped>
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>

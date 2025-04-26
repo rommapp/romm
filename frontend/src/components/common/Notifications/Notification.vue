@@ -38,7 +38,7 @@ function closeDialog() {
     <template #text>
       <v-row class="d-flex align-center px-2">
         <v-icon :icon="snackbarStatus.icon" class="mx-2" />
-        <span class="text-subtitle-1 font-weight-bold">
+        <span class="text-subtitle-1 font-weight-regular">
           {{ snackbarStatus.msg }}
         </span>
       </v-row>

@@ -17,11 +17,13 @@ import CacheDialog from "./CacheDialog.vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import { getEmptyCoverImage } from "@/utils/covers";
+import { useDisplay } from "vuetify";
 
 const EMULATORJS_VERSION = "4.2.1";
 
 // Props
 const { t } = useI18n();
+const { smAndDown } = useDisplay();
 const route = useRoute();
 const auth = storeAuth();
 const romsStore = storeRoms();
@@ -240,7 +242,7 @@ onBeforeUnmount(async () => {
             "
           />
           <v-select
-            v-if="firmwareOptions.length > 1"
+            v-if="firmwareOptions.length > 0"
             v-model="biosRef"
             class="my-1"
             hide-details
@@ -255,7 +257,7 @@ onBeforeUnmount(async () => {
             "
           />
           <v-row class="mt-2">
-            <v-col cols="6">
+            <v-col :cols="smAndDown ? 12 : 6">
               <v-card v-if="stateRef" class="bg-toplayer transform-scale">
                 <v-card-text class="d-flex flex-row justify-end h-100">
                   <v-col class="pa-0">
@@ -318,7 +320,7 @@ onBeforeUnmount(async () => {
                 </v-col>
               </v-row>
             </v-col>
-            <v-col cols="6">
+            <v-col :cols="smAndDown ? 12 : 6">
               <v-card v-if="saveRef" class="bg-toplayer transform-scale">
                 <v-card-text class="d-flex flex-row justify-end h-100">
                   <v-col class="pa-0">
@@ -404,8 +406,8 @@ onBeforeUnmount(async () => {
               >
             </v-col>
             <v-col
-              :cols="gameRunning ? 12 : 8"
-              :class="gameRunning ? 'mt-2' : 'ml-4'"
+              :cols="gameRunning || smAndDown ? 12 : 8"
+              :class="gameRunning || smAndDown ? 'mt-2' : 'ml-4'"
             >
               <v-btn
                 color="primary"

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
 from stat import S_IFREG
-from typing import Any
+from typing import Any, TypeVar
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -22,22 +22,24 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFileSchema,
-    RomSchema,
     RomUserSchema,
     SimpleRomSchema,
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import HTTPException, Request, UploadFile, status
+from fastapi import HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import Response
+from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
+from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
 from logger.formatter import highlight as hl
 from logger.logger import log
-from models.rom import Rom, RomFile, RomUser
+from models.rom import RomFile
 from PIL import Image
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
@@ -47,6 +49,8 @@ from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
+
+T = TypeVar("T")
 
 router = APIRouter(
     prefix="/roms",
@@ -116,6 +120,17 @@ async def add_rom(request: Request):
     return Response(status_code=status.HTTP_201_CREATED)
 
 
+class CustomLimitOffsetParams(LimitOffsetParams):
+    # Temporarily increase the limit until we can implement pagination on all apps
+    limit: int = Query(50, ge=1, le=10_000, description="Page size limit")
+    offset: int = Query(0, ge=0, description="Page offset")
+
+
+class CustomLimitOffsetPage(LimitOffsetPage[T]):
+    char_index: dict[str, int]
+    __params_type__ = CustomLimitOffsetParams
+
+
 @protected_route(router.get, "", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
@@ -123,60 +138,93 @@ def get_roms(
     collection_id: int | None = None,
     virtual_collection_id: str | None = None,
     search_term: str | None = None,
-    limit: int | None = None,
-    offset: int | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
-    with_extra: bool = True,
-) -> list[SimpleRomSchema | RomSchema]:
+    unmatched_only: bool = False,
+    matched_only: bool = False,
+    favourites_only: bool = False,
+    duplicates_only: bool = False,
+    group_by_meta_id: bool = False,
+    selected_genre: str | None = None,
+    selected_franchise: str | None = None,
+    selected_collection: str | None = None,
+    selected_company: str | None = None,
+    selected_age_rating: str | None = None,
+    selected_status: str | None = None,
+    selected_region: str | None = None,
+    selected_language: str | None = None,
+) -> CustomLimitOffsetPage[SimpleRomSchema]:
     """Get roms endpoint
 
     Args:
-        request (Request): Fastapi Request object
-        platform_id (int, optional): Platform ID to filter ROMs
-        collection_id (int, optional): Collection ID to filter ROMs
-        virtual_collection_id (str, optional): Virtual Collection ID to filter ROMs
-        search_term (str, optional): Search term to filter ROMs
-        limit (int, optional): Limit the number of ROMs returned
-        offset (int, optional): Offset for pagination
-        order_by (str, optional): Field to order ROMs by
-        order_dir (str, optional): Direction to order ROMs (asc or desc)
-        last_played (bool, optional): Flag to filter ROMs by last played
+        request: Fastapi Request object
+        platform_id (int, optional): Platform internal id. Defaults to None.
+        collection_id (int, optional): Collection internal id. Defaults to None.
+        virtual_collection_id (str, optional): Virtual collection internal id. Defaults to None.
+        search_term (str, optional): Search term to filter roms. Defaults to None.
+        order_by (str, optional): Field to order by. Defaults to "name".
+        order_dir (str, optional): Order direction. Defaults to "asc".
+        unmatched_only (bool, optional): Filter only unmatched roms. Defaults to False.
+        matched_only (bool, optional): Filter only matched roms. Defaults to False.
+        favourites_only (bool, optional): Filter only favourite roms. Defaults to False.
+        duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False.
+        group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf ID. Defaults to False.
+        selected_genre (str, optional): Filter by genre. Defaults to None.
+        selected_franchise (str, optional): Filter by franchise. Defaults to None.
+        selected_collection (str, optional): Filter by collection. Defaults to None.
+        selected_company (str, optional): Filter by company. Defaults to None.
+        selected_age_rating (str, optional): Filter by age rating. Defaults to None.
+        selected_status (str, optional): Filter by status. Defaults to None.
+        selected_region (str, optional): Filter by region tag. Defaults to None.
+        selected_language (str, optional): Filter by language tag. Defaults to None.
 
     Returns:
-        list[DetailedRomSchema]: List of ROMs stored in the database
+        list[RomSchema | SimpleRomSchema]: List of ROMs stored in the database
     """
 
-    if hasattr(Rom, order_by):
-        roms = db_rom_handler.get_roms(
-            platform_id=platform_id,
-            collection_id=collection_id,
-            virtual_collection_id=virtual_collection_id,
-            search_term=search_term,
-            order_by=order_by.lower(),
-            order_dir=order_dir.lower(),
-            limit=limit,
-            offset=offset,
-        )
-    elif hasattr(RomUser, order_by):
-        roms = db_rom_handler.get_roms_user(
-            user_id=request.user.id,
-            platform_id=platform_id,
-            collection_id=collection_id,
-            virtual_collection_id=virtual_collection_id,
-            search_term=search_term,
-            limit=limit,
-            offset=offset,
-        )
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid order_by field",
-        )
+    # Get the base roms query
+    query = db_rom_handler.get_roms_query(
+        user_id=request.user.id,
+        order_by=order_by.lower(),
+        order_dir=order_dir.lower(),
+    )
 
-    SelectedSchema = SimpleRomSchema if with_extra else RomSchema
-    roms = [SelectedSchema.from_orm_with_request(rom, request) for rom in roms]
-    return [rom for rom in roms if rom]
+    # Filter down the query
+    query = db_rom_handler.filter_roms(
+        query=query,
+        user_id=request.user.id,
+        platform_id=platform_id,
+        collection_id=collection_id,
+        virtual_collection_id=virtual_collection_id,
+        search_term=search_term,
+        unmatched_only=unmatched_only,
+        matched_only=matched_only,
+        favourites_only=favourites_only,
+        duplicates_only=duplicates_only,
+        selected_genre=selected_genre,
+        selected_franchise=selected_franchise,
+        selected_collection=selected_collection,
+        selected_company=selected_company,
+        selected_age_rating=selected_age_rating,
+        selected_status=selected_status,
+        selected_region=selected_region,
+        selected_language=selected_language,
+        group_by_meta_id=group_by_meta_id,
+    )
+
+    # Get the char index for the roms
+    char_index = db_rom_handler.get_char_index(query=query)
+    char_index_dict = {char: index for (char, index) in char_index}
+
+    with sync_session.begin() as session:
+        return paginate(
+            session,
+            query,
+            transformer=lambda items: [
+                SimpleRomSchema.from_orm_with_request(i, request) for i in items
+            ],
+            additional_data={"char_index": char_index_dict},
+        )
 
 
 @protected_route(
@@ -428,7 +476,6 @@ async def get_rom_content(
 async def update_rom(
     request: Request,
     id: int,
-    rename_as_source: bool = False,
     remove_cover: bool = False,
     artwork: UploadFile | None = None,
     unmatch_metadata: bool = False,
@@ -438,12 +485,11 @@ async def update_rom(
     Args:
         request (Request): Fastapi Request object
         id (Rom): Rom internal id
-        rename_as_source (bool, optional): Flag to rename rom file as matched IGDB game. Defaults to False.
         artwork (UploadFile, optional): Custom artwork to set as cover. Defaults to File(None).
         unmatch_metadata: Remove the metadata matches for this game. Defaults to False.
 
     Raises:
-        HTTPException: If a rom already have that name when enabling the rename_as_source flag
+        HTTPException: Rom not found in database
 
     Returns:
         DetailedRomSchema: Rom stored in the database
@@ -492,9 +538,13 @@ async def update_rom(
         "ss_id": data.get("ss_id", rom.ss_id),
     }
 
-    moby_id = cleaned_data["moby_id"]
-    if moby_id and int(moby_id) != rom.moby_id:
-        moby_rom = await meta_moby_handler.get_rom_by_id(int(moby_id))
+    if (
+        cleaned_data.get("moby_id", "")
+        and int(cleaned_data.get("moby_id", "")) != rom.moby_id
+    ):
+        moby_rom = await meta_moby_handler.get_rom_by_id(
+            int(cleaned_data.get("moby_id", ""))
+        )
         cleaned_data.update(moby_rom)
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
@@ -603,33 +653,22 @@ async def update_rom(
 
     # Rename the file/folder if the name has changed
     should_update_fs = new_fs_name != rom.fs_name
-    try:
-        if rename_as_source:
-            new_fs_name = rom.fs_name.replace(
-                rom.fs_name_no_tags or rom.fs_name_no_ext,
-                rom.name or rom.fs_name,
-            )
+    if should_update_fs:
+        try:
             new_fs_name = sanitize_filename(new_fs_name)
             fs_rom_handler.rename_fs_rom(
                 old_name=rom.fs_name,
                 new_name=new_fs_name,
                 fs_path=rom.fs_path,
             )
-        elif should_update_fs:
-            new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_fs_rom(
-                old_name=rom.fs_name,
-                new_name=new_fs_name,
-                fs_path=rom.fs_path,
-            )
-    except RomAlreadyExistsException as exc:
-        log.error(exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
-        ) from exc
+        except RomAlreadyExistsException as exc:
+            log.error(exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc
+            ) from exc
 
     # Update the rom files with the new fs_name
-    if rename_as_source or should_update_fs:
+    if should_update_fs:
         for file in rom.files:
             db_rom_handler.update_rom_file(
                 file.id,

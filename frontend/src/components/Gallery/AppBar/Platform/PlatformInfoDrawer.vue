@@ -191,14 +191,12 @@ watch(
     width="500"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'mx-2 px-1': activePlatformInfoDrawer,
+      'ml-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
-    <v-row no-gutters class="justify-center align-center pa-4">
+    <v-row no-gutters class="justify-center align-center pa-2">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
@@ -264,7 +262,9 @@ watch(
               class="bg-toplayer my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
-              <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
+              <v-icon class="text-romm-green mr-2"
+                >mdi-cloud-upload-outline</v-icon
+              >
               {{ t("platform.upload-roms") }}
             </v-btn>
             <v-btn
@@ -368,6 +368,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mx-2"
     >
       <template #content>
         <v-chip
@@ -431,6 +432,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mt-2 mx-2"
     >
       <template #content>
         <div class="text-center">
@@ -457,15 +459,5 @@ watch(
 }
 .platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
-}
-.greyscale {
-  filter: grayscale(100%);
-}
-.drawer-desktop {
-  top: 56px !important;
-}
-.drawer-mobile {
-  top: 110px !important;
-  width: calc(100% - 16px) !important;
 }
 </style>

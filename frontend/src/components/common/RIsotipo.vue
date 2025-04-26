@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import type { RouteLocationRaw } from "vue-router";
 
-withDefaults(defineProps<{ size?: number; to?: RouteLocationRaw }>(), {
+withDefaults(defineProps<{ size?: number }>(), {
   size: 40,
 });
 
@@ -29,17 +28,17 @@ const randomLogo = ref<string>(getRandomLogo());
 </script>
 
 <template>
-  <v-btn
-    :to="to"
-    icon
-    variant="flat"
-    color="background"
-    class="rounded-50"
-    :height="size"
-    :width="size"
-  >
-    <v-avatar :size="size">
-      <img :src="`/assets/logos/${randomLogo}`" alt="Romm Logo" :width="size" />
-    </v-avatar>
-  </v-btn>
+  <v-avatar :size="size">
+    <img :src="`/assets/logos/${randomLogo}`" alt="Romm Logo" :width="size" />
+  </v-avatar>
 </template>
+
+<style scoped>
+.v-avatar {
+  transition: filter 0.15s ease-in-out;
+}
+.v-avatar:hover,
+.v-avatar.active {
+  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-primary)));
+}
+</style>
