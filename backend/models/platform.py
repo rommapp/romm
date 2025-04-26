@@ -35,9 +35,9 @@ class Platform(BaseModel):
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
     logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
-    roms: Mapped[list[Rom]] = relationship(back_populates="platform")
+    roms: Mapped[list[Rom]] = relationship(lazy="select", back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(
-        lazy="selectin", back_populates="platform"
+        lazy="select", back_populates="platform"
     )
 
     aspect_ratio: Mapped[str] = mapped_column(

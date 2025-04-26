@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -194,7 +195,10 @@ async def update_user(
 
     if form_data.avatar is not None:
         user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
-        file_location = f"{user_avatar_path}/{form_data.avatar.filename}"
+        # Extract the file extension from the uploaded file
+        file_extension = os.path.splitext(form_data.avatar.filename)[1]
+        # Set the file name to "avatar" with the original extension
+        file_location = f"{user_avatar_path}/avatar{file_extension}"
         cleaned_data["avatar_path"] = file_location
         Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(
             parents=True, exist_ok=True

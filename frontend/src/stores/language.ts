@@ -20,14 +20,14 @@ const defaultLanguageState = {
 };
 
 export default defineStore("language", {
-  state: () => defaultLanguageState,
+  state: () => ({ ...defaultLanguageState }),
 
   actions: {
     setLanguage(lang: { value: string; name: string }) {
       this.selectedLanguage = lang;
     },
     reset() {
-      Object.assign(this, defaultLanguageState);
+      Object.assign(this, { ...defaultLanguageState });
     },
   },
 });

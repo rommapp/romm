@@ -6,7 +6,8 @@ import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
-import { defaultAvatarPath, formatTimestamp } from "@/utils";
+import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
@@ -78,7 +79,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <r-section icon="mdi-account" title="Users">
+  <r-section icon="mdi-account" title="Users" class="ma-2">
     <template #content>
       <v-text-field
         v-model="userSearch"
@@ -120,6 +121,17 @@ onMounted(() => {
               "
             />
           </v-avatar>
+        </template>
+        <template #item.username="{ item }">
+          <v-list-item class="pa-0" min-width="120px">
+            {{ item.username }}
+          </v-list-item>
+        </template>
+        <template #item.role="{ item }">
+          <v-list-item class="pa-0" min-width="100px">
+            <v-icon class="mr-2">{{ getRoleIcon(item.role) }}</v-icon>
+            {{ item.role }}
+          </v-list-item>
         </template>
         <template #item.last_active="{ item }">
           {{ formatTimestamp(item.last_active) }}
