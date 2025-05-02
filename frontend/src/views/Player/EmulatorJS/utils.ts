@@ -72,6 +72,12 @@ export async function saveSave({
         saveFile: new File([saveFile], save.file_name, {
           type: "application/octet-stream",
         }),
+        screenshotFile:
+          screenshotFile && save.screenshot
+            ? new File([screenshotFile], save.screenshot.file_name, {
+                type: "application/octet-stream",
+              })
+            : undefined,
       });
 
       // Update the save in the rom object
