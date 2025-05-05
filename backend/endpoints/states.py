@@ -155,6 +155,37 @@ async def update_state(request: Request, id: int) -> StateSchema:
             db_state.id, {"file_size_bytes": stateFile.size}
         )
 
+    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
+    if screenshotFile and screenshotFile.filename:
+        screenshots_path = fs_asset_handler.build_screenshots_file_path(
+            user=request.user, platform_fs_slug=db_state.rom.platform_slug
+        )
+
+        fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+
+        # Scan or update screenshot
+        scanned_screenshot = scan_screenshot(
+            file_name=screenshotFile.filename,
+            user=request.user,
+            platform_fs_slug=db_state.rom.platform_slug,
+        )
+        db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
+            rom_id=db_state.rom.id,
+            user_id=request.user.id,
+            file_name=screenshotFile.filename,
+        )
+        if db_screenshot:
+            db_screenshot = db_screenshot_handler.update_screenshot(
+                db_screenshot.id,
+                {"file_size_bytes": scanned_screenshot.file_size_bytes},
+            )
+        else:
+            scanned_screenshot.rom_id = db_state.rom.id
+            scanned_screenshot.user_id = request.user.id
+            db_screenshot = db_screenshot_handler.add_screenshot(
+                screenshot=scanned_screenshot
+            )
+
     # Set the last played time for the current user
     rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
     if not rom_user:
