@@ -52,9 +52,7 @@ async function updateSave({
 }): Promise<{ data: SaveSchema }> {
   const formData = new FormData();
   formData.append("saveFile", saveFile);
-  if (screenshotFile) {
-    formData.append("screenshotFile", screenshotFile);
-  }
+  if (screenshotFile) formData.append("screenshotFile", screenshotFile);
 
   return api.put(`/saves/${save.id}`, formData);
 }

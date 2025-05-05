@@ -95,9 +95,7 @@ async def add_save(
         else:
             scanned_screenshot.rom_id = rom.id
             scanned_screenshot.user_id = request.user.id
-            db_screenshot_handler.add_screenshot(
-                screenshot=scanned_screenshot
-            )
+            db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
 
     # Set the last played time for the current user
     rom_user = db_rom_handler.get_rom_user(rom_id=rom.id, user_id=request.user.id)
@@ -154,7 +152,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         db_save = db_save_handler.update_save(
             db_save.id, {"file_size_bytes": saveFile.size}
         )
-        
+
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
@@ -170,7 +168,9 @@ async def update_save(request: Request, id: int) -> SaveSchema:
             platform_fs_slug=db_save.rom.platform_slug,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
-            rom_id=db_save.rom.id, user_id=request.user.id, file_name=screenshotFile.filename
+            rom_id=db_save.rom.id,
+            user_id=request.user.id,
+            file_name=screenshotFile.filename,
         )
         if db_screenshot:
             db_screenshot = db_screenshot_handler.update_screenshot(
@@ -180,10 +180,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
         else:
             scanned_screenshot.rom_id = db_save.rom.id
             scanned_screenshot.user_id = request.user.id
-            db_screenshot_handler.add_screenshot(
-                screenshot=scanned_screenshot
-            )
-
+            db_screenshot_handler.add_screenshot(screenshot=scanned_screenshot)
 
     # Set the last played time for the current user
     rom_user = db_rom_handler.get_rom_user(db_save.rom_id, request.user.id)
