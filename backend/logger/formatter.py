@@ -1,5 +1,4 @@
 import logging
-import os
 
 from colorama import Fore, Style, init
 from config import FORCE_COLOR, NO_COLOR
@@ -26,9 +25,8 @@ def should_strip_ansi() -> bool:
         return False
     if NO_COLOR:
         return True
-
-    # For other environments, strip colors if not a TTY
-    return not os.isatty(1)
+    # Default: do not strip (Docker will handle colors)
+    return False
 
 
 # Initialize Colorama once, considering different environments

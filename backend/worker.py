@@ -14,8 +14,9 @@ sentry_sdk.init(
     release=f"romm@{get_version()}",
 )
 
+# TODO: setup custom logger for background workers
 # Set up custom logging for Worker logging
-logging.basicConfig(format=common_log_format, datefmt=common_date_format)
+# logging.basicConfig(format=common_log_format, datefmt=common_date_format)
 
 if __name__ == "__main__":
     # Start the worker

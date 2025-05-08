@@ -19,7 +19,6 @@ REDIS_HOST="${REDIS_HOST:=""}"
 # (since backend is almost 100% async this won't block anything)
 DEFAULT_WEB_CONCURRENCY=1
 
-# TODO: disable colors for non-TTY terminal
 # logger colors
 RED='\033[0;31m'
 LIGHTMAGENTA='\033[0;95m'
