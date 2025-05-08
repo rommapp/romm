@@ -17,29 +17,29 @@ INIT_DEBUG="${INIT_DEBUG:="false"}"
 # print debug log output if enabled
 debug_log() {
 	if [[ ${INIT_DEBUG} == "true" ]]; then
-		echo "DEBUG:    [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+		echo "DEBUG:    [RomM][init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 	fi
 }
 
 info_log() {
-	echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+	echo "INFO:     [RomM][init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 }
 
 warn_log() {
-	echo "WARNING:  [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+	echo "WARNING:  [RomM][init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 }
 
 error_log() {
-	echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+	echo "ERROR:    [RomM][init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 	exit 1
 }
 
 wait_for_gunicorn_socket() {
-	info_log "waiting for gunicorn socket file..."
+	info_debug "Waiting for gunicorn socket file..."
 	while [[ ! -S /tmp/gunicorn.sock ]]; do
 		sleep 1
 	done
-	info_log "gunicorn socket file found"
+	info_debug "Gunicorn socket file found"
 }
 
 # function that runs or main process and creates a corresponding PID file,
@@ -48,7 +48,7 @@ start_bin_gunicorn() {
 	rm /tmp/gunicorn.sock -f
 
 	# commands to start our main application and store its PID to check for crashes
-	info_log "starting gunicorn"
+	info_log "Starting backend"
 
 	# TODO: Remove support for GUNICORN_WORKERS in future version.
 	if [[ -n ${GUNICORN_WORKERS-} ]]; then
@@ -72,7 +72,7 @@ start_bin_gunicorn() {
 start_bin_nginx() {
 	wait_for_gunicorn_socket
 
-	info_log "starting nginx"
+	info_log "Starting internal nginx"
 	if [[ ${EUID} -ne 0 ]]; then
 		nginx
 	else
@@ -82,7 +82,7 @@ start_bin_nginx() {
 }
 
 start_bin_valkey-server() {
-	info_log "starting valkey-server"
+	info_log "Starting internal valkey-server"
 	# Check if /usr/local/etc/valkey/valkey.conf exists and use it if so
 	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
 		valkey-server /usr/local/etc/valkey/valkey.conf &
@@ -96,7 +96,7 @@ start_bin_valkey-server() {
 # function that runs our independent python scripts and creates corresponding PID files,
 start_python() {
 	SCRIPT="${1}"
-	info_log "starting ${SCRIPT}.py"
+	info_log "Starting ${SCRIPT}"
 	python3 "${SCRIPT}.py" &
 	WATCHER_PID=$!
 	echo "${WATCHER_PID}" >"/tmp/${SCRIPT}.pid"
@@ -131,7 +131,7 @@ stop_process_pid() {
 	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
 		PID=$(cat "/tmp/${PROCESS}.pid") || true
 		if [[ -d "/proc/${PID}" ]]; then
-			info_log "stopping ${PROCESS}"
+			info_log "Stopping ${PROCESS}"
 			kill "${PID}" || true
 			# wait for process exit
 			while [[ -e "/proc/${PID}" ]]; do sleep 0.1; done
@@ -152,8 +152,6 @@ shutdown() {
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
-info_log "Starting up, please wait..."
-
 # setup trap handler
 exited=0
 trap 'exited=1 && shutdown' SIGINT SIGTERM EXIT
@@ -167,42 +165,44 @@ while ! ((exited)); do
 	# and REDIS_HOST is not set (which would mean we're using an external Redis/Valkey)
 	if [[ -z ${REDIS_HOST:=""} ]]; then
 		watchdog_process_pid bin valkey-server
+	else
+		warn_log "REDIS_HOST is set, not starting internal valkey-server"
 	fi
 
 	# Run needed database migrations on startup,
 	# but only if it was not successful since the last full docker container start
 	if [[ ${ALEMBIC_SUCCESS:="false"} == "false" ]]; then
 		if alembic upgrade head; then
-			debug_log "database schema migrations succeeded"
+			info_log "Database schema migrations succeeded"
 			ALEMBIC_SUCCESS="true"
 		else
-			error_log "Something went horribly wrong with our database"
+			error_log "Something went horribly wrong when running the database migrations"
 		fi
 	else
-		debug_log "database schema already upgraded during current container lifecycle"
+		debug_log "Database schema already upgraded during current container lifecycle"
 	fi
 
-	# Start gunicorn if we dont have a corresponding PID file
+	# start backend if we dont have a corresponding PID file
 	watchdog_process_pid bin gunicorn
 
-	# Start nginx if we dont have a corresponding PID file
+	# start nginx if we dont have a corresponding PID file
 	watchdog_process_pid bin nginx
 
-	# Start background worker processes
-	debug_log "Starting worker"
-	# Start worker if we dont have a corresponding PID file
+	# start worker if we dont have a corresponding PID file
+	info_log "Starting worker"
 	watchdog_process_pid python worker
 
-	# only start the scheduler.py if enabled
+	# only start the scheduler if enabled
 	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" ]]; then
-		debug_log "Starting scheduler"
-		# Start scheduler if we dont have a corresponding PID file
+		# start scheduler if we dont have a corresponding PID file
+		info_log "Starting scheduler"
 		watchdog_process_pid python scheduler
 	fi
 
-	# only start the watcher.py if enabled
+	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
-		# Start watcher if we dont have a corresponding PID file
+		# start watcher if we dont have a corresponding PID file
+		info_log "Starting watcher"
 		watchdog_process_pid python watcher
 	fi
 
