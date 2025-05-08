@@ -14,6 +14,9 @@ ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB
 # (this env var is currently undocumented and usually just needed for development purposes)
 INIT_DEBUG="${INIT_DEBUG:="false"}"
 
+# Set DEFAULT_WEB_CONCURRENCY to 1 if not set by docker env to reduce resource usage
+DEFAULT_WEB_CONCURRENCY=1
+
 # print debug log output if enabled
 debug_log() {
 	if [[ ${INIT_DEBUG} == "true" ]]; then
@@ -64,7 +67,7 @@ start_bin_gunicorn() {
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
-		--workers "${WEB_CONCURRENCY:-2}" \
+		--workers "${WEB_CONCURRENCY:-${DEFAULT_WEB_CONCURRENCY:-1}}" \
 		main:app &
 }
 
