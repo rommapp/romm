@@ -28,10 +28,9 @@ def __get_sync_cache() -> Redis:
 
         return FakeRedis(version=7)
 
-    log.info(f"Connecting to sync redis in {sys.argv[0]}...")
     # A separate client that auto-decodes responses is needed
     client = Redis.from_url(str(REDIS_URL), decode_responses=True)
-    log.info(f"Redis sync connection established in {sys.argv[0]}!")
+    log.debug(f"Sync redis/valkey connection established in {sys.argv[0]}")
     return client
 
 
@@ -42,10 +41,9 @@ def __get_async_cache() -> AsyncRedis:
 
         return FakeAsyncRedis(version=7)
 
-    log.info(f"Connecting to async redis in {sys.argv[0]}...")
     # A separate client that auto-decodes responses is needed
     client = AsyncRedis.from_url(str(REDIS_URL), decode_responses=True)
-    log.info(f"Redis async connection established in {sys.argv[0]}!")
+    log.debug(f"Async redis/valkey connection established in {sys.argv[0]}")
     return client
 
 
