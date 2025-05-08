@@ -1,3 +1,4 @@
+import os
 import sys
 from enum import Enum
 
@@ -30,7 +31,9 @@ def __get_sync_cache() -> Redis:
 
     # A separate client that auto-decodes responses is needed
     client = Redis.from_url(str(REDIS_URL), decode_responses=True)
-    log.debug(f"Sync redis/valkey connection established in {sys.argv[0]}")
+    log.debug(
+        f"Sync redis/valkey connection established in {os.path.splitext(os.path.basename(sys.argv[0]))[0]}"
+    )
     return client
 
 
@@ -43,7 +46,9 @@ def __get_async_cache() -> AsyncRedis:
 
     # A separate client that auto-decodes responses is needed
     client = AsyncRedis.from_url(str(REDIS_URL), decode_responses=True)
-    log.debug(f"Async redis/valkey connection established in {sys.argv[0]}")
+    log.debug(
+        f"Async redis/valkey connection established in {os.path.splitext(os.path.basename(sys.argv[0]))[0]}"
+    )
     return client
 
 

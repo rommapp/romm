@@ -68,7 +68,7 @@ async def scan_platform(
         Platform object
     """
 
-    log.info(f"· {hl(fs_slug)}")
+    log.info(f"· Found {hl(fs_slug)} folder")
 
     if metadata_sources is None:
         metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
@@ -138,7 +138,7 @@ async def scan_platform(
     else:
         log.warning(
             emoji.emojize(
-                f" Platform {platform_attrs['slug']} not identified :cross_mark:"
+                f"  Platform {platform_attrs['slug']} not identified :cross_mark:"
             )
         )
 

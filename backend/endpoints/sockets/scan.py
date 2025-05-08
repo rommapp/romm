@@ -181,7 +181,7 @@ async def scan_platforms(
         if len(platform_list) == 0:
             log.warning(
                 emoji.emojize(
-                    f"{hl(':warning:', color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
+                    f"{hl(':warning:', color=LIGHTYELLOW)}  No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
                 Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
                 )
             )
@@ -208,7 +208,7 @@ async def scan_platforms(
                 for p in purged_platforms:
                     log.info(f" - {p.slug}")
 
-        log.info(emoji.emojize(":check_mark: Scan completed "))
+        log.info(emoji.emojize("  :check_mark:  Scan completed "))
         await sm.emit("scan:done", scan_stats.__dict__)
     except ScanStoppedException:
         await stop_scan()
@@ -273,7 +273,7 @@ async def _identify_platform(
     if len(fs_firmware) == 0:
         log.warning(
             emoji.emojize(
-                f"  {hl(':warning:', color=LIGHTYELLOW)} No firmware found, skipping firmware scan for this platform"
+                f"  {hl(':warning:', color=LIGHTYELLOW)}  No firmware found, skipping firmware scan for this platform"
             )
         )
     else:
@@ -295,7 +295,7 @@ async def _identify_platform(
     if len(fs_roms) == 0:
         log.warning(
             emoji.emojize(
-                f"  {hl(':warning:', color=LIGHTYELLOW)} No roms found, verify that the folder structure is correct"
+                f"  {hl(':warning:', color=LIGHTYELLOW)}  No roms found, verify that the folder structure is correct"
             )
         )
     else:
@@ -539,7 +539,7 @@ async def scan_handler(_sid: str, options: dict):
         options (dict): Socket options
     """
 
-    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
+    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning"))
 
     platform_ids = options.get("platforms", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
