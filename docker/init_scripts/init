@@ -49,6 +49,8 @@ error_log() {
 	exit 1
 }
 
+# TODO: check on database disconnection
+
 wait_for_gunicorn_socket() {
 	debug_log "Waiting for gunicorn socket file..."
 	local retries=60
