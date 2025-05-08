@@ -6,7 +6,9 @@ set -o pipefail          # treat errors in pipes as fatal
 shopt -s inherit_errexit # inherit errexit
 
 # make it possible to disable the inotify watcher process
-ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="true"}"
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false"}"
+ENABLE_SCHEDULED_RESCAN="${ENABLE_SCHEDULED_RESCAN:="false"}"
+ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:="false"}"
 
 # Set INIT_DEBUG to false if not set by docker env
 # (this env var is currently undocumented and usually just needed for development purposes)
@@ -186,18 +188,23 @@ while ! ((exited)); do
 	# Start nginx if we dont have a corresponding PID file
 	watchdog_process_pid bin nginx
 
-	# only start the watcher.py if we actually want to use the rescan on fs change feature
+	# Start background worker processes
+	debug_log "Starting worker"
+	# Start worker if we dont have a corresponding PID file
+	watchdog_process_pid python worker
+
+	# only start the scheduler.py if enabled
+	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" ]]; then
+		debug_log "Starting scheduler"
+		# Start scheduler if we dont have a corresponding PID file
+		watchdog_process_pid python scheduler
+	fi
+
+	# only start the watcher.py if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
 		# Start watcher if we dont have a corresponding PID file
 		watchdog_process_pid python watcher
 	fi
-
-	# Start background worker processes
-	debug_log "Starting worker and scheduler"
-	# Start worker if we dont have a corresponding PID file
-	watchdog_process_pid python worker
-	# Start scheduler if we dont have a corresponding PID file
-	watchdog_process_pid python scheduler
 
 	# check for died processes every 5 seconds
 	sleep 5
