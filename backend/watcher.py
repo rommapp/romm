@@ -1,4 +1,3 @@
-import logging
 import os
 from datetime import timedelta
 
@@ -13,7 +12,6 @@ from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
 from handler.database import db_platform_handler
 from handler.scan_handler import ScanType
-from logger.formatter import BLUE, CYAN, GREEN, LIGHTMAGENTA, RESET, RESET_ALL
 from logger.logger import log
 from rq.job import Job
 from tasks.tasks import tasks_scheduler
@@ -23,7 +21,7 @@ from watchdog.observers import Observer
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
-    release="romm@" + get_version(),
+    release=f"romm@{get_version()}",
 )
 
 path = (
@@ -31,10 +29,6 @@ path = (
     if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH)
     else LIBRARY_BASE_PATH
 )
-
-# Set up custom logging
-log_format = f"{GREEN}INFO{RESET}:\t  {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]{CYAN}[%(asctime)s] {RESET_ALL}%(message)s"
-logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S")
 
 
 class EventHandler(FileSystemEventHandler):
