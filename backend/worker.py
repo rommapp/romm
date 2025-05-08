@@ -3,7 +3,7 @@ import logging
 import sentry_sdk
 from config import SENTRY_DSN
 from handler.redis_handler import redis_client
-from logger.formatter import BLUE, CYAN, GREEN, LIGHTMAGENTA, RESET, RESET_ALL
+from logger.formatter import common_date_format, common_log_format
 from rq import Queue, Worker
 from utils import get_version
 
@@ -14,9 +14,8 @@ sentry_sdk.init(
     release=f"romm@{get_version()}",
 )
 
-# Set up custom logging
-log_format = f"{GREEN}INFO{RESET}:\t  {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]{CYAN}[%(asctime)s] {RESET_ALL}%(message)s"
-logging.basicConfig(format=log_format, datefmt="%Y-%m-%d %H:%M:%S")
+# Set up custom logging for Worker logging
+logging.basicConfig(format=common_log_format, datefmt=common_date_format)
 
 if __name__ == "__main__":
     # Start the worker

@@ -15,6 +15,9 @@ LIGHTMAGENTA = Fore.LIGHTMAGENTA_EX
 RESET = Fore.RESET
 RESET_ALL = Style.RESET_ALL
 
+common_log_format = f"{GREEN}INFO{RESET}:\t  {BLUE}[RomM]{LIGHTMAGENTA}[worker]{CYAN}[%(asctime)s] {RESET_ALL}%(message)s"
+common_date_format = "%Y-%m-%d %H:%M:%S"
+
 
 def should_strip_ansi() -> bool:
     """Determine if ANSI escape codes should be stripped."""
@@ -74,7 +77,7 @@ class Formatter(logging.Formatter):
             logging.CRITICAL: f"{RED}{level}{dots}{identifier_critical}{date}{msg}",
         }
         log_fmt = formats.get(record.levelno)
-        formatter = logging.Formatter(fmt=log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
+        formatter = logging.Formatter(fmt=log_fmt, datefmt=common_date_format)
         return formatter.format(record)
 
 
