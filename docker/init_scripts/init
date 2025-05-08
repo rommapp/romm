@@ -10,11 +10,15 @@ ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false
 ENABLE_SCHEDULED_RESCAN="${ENABLE_SCHEDULED_RESCAN:="false"}"
 ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:="false"}"
 
+# if REDIS_HOST is set, we assume that an external redis is used
+REDIS_HOST="${REDIS_HOST:=""}"
+
 # Set INIT_DEBUG to false if not set by docker env
 # (this env var is currently undocumented and usually just needed for development purposes)
 INIT_DEBUG="${INIT_DEBUG:="false"}"
 
 # Set DEFAULT_WEB_CONCURRENCY to 1 if not set by docker env to reduce resource usage
+# (since backend is almost 100% async this won't block anything)
 DEFAULT_WEB_CONCURRENCY=1
 
 # print debug log output if enabled
@@ -84,6 +88,7 @@ start_bin_nginx() {
 	fi
 }
 
+# Commands to start valkey-server (handling PID creation internally)
 start_bin_valkey-server() {
 	info_log "Starting internal valkey-server"
 	# Check if /usr/local/etc/valkey/valkey.conf exists and use it if so
@@ -121,6 +126,7 @@ watchdog_process_pid() {
 			fi
 		fi
 	else
+		# start process if we dont have a corresponding PID file
 		if [[ ${TYPE} == "bin" ]]; then
 			start_bin_"${PROCESS}"
 		elif [[ ${TYPE} == "python" ]]; then
@@ -155,6 +161,15 @@ shutdown() {
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
 
+# Run needed database migrations once at startup
+info_log "Running database migrations"
+if alembic upgrade head >>/tmp/alembic.log 2>&1; then
+	info_log "Database migrations succeeded"
+else
+	cat /tmp/alembic.log
+	error_log "Failed to run database migrations"
+fi
+
 # setup trap handler
 exited=0
 trap 'exited=1 && shutdown' SIGINT SIGTERM EXIT
@@ -166,46 +181,25 @@ rm /tmp/*.pid -f
 while ! ((exited)); do
 	# Start Valkey server if we dont have a corresponding PID file
 	# and REDIS_HOST is not set (which would mean we're using an external Redis/Valkey)
-	if [[ -z ${REDIS_HOST:=""} ]]; then
+	if [[ -z ${REDIS_HOST} ]]; then
 		watchdog_process_pid bin valkey-server
 	else
 		warn_log "REDIS_HOST is set, not starting internal valkey-server"
 	fi
 
-	# Run needed database migrations on startup,
-	# but only if it was not successful since the last full docker container start
-	if [[ ${ALEMBIC_SUCCESS:="false"} == "false" ]]; then
-		if alembic upgrade head; then
-			info_log "Database schema migrations succeeded"
-			ALEMBIC_SUCCESS="true"
-		else
-			error_log "Something went horribly wrong when running the database migrations"
-		fi
-	else
-		debug_log "Database schema already upgraded during current container lifecycle"
-	fi
-
-	# start backend if we dont have a corresponding PID file
-	watchdog_process_pid bin gunicorn
-
-	# start nginx if we dont have a corresponding PID file
 	watchdog_process_pid bin nginx
 
-	# start worker if we dont have a corresponding PID file
-	info_log "Starting worker"
+	watchdog_process_pid bin gunicorn
+
 	watchdog_process_pid python worker
 
 	# only start the scheduler if enabled
 	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" ]]; then
-		# start scheduler if we dont have a corresponding PID file
-		info_log "Starting scheduler"
 		watchdog_process_pid python scheduler
 	fi
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
-		# start watcher if we dont have a corresponding PID file
-		info_log "Starting watcher"
 		watchdog_process_pid python watcher
 	fi
 
