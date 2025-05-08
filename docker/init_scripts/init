@@ -93,18 +93,19 @@ start_bin_gunicorn() {
 start_bin_nginx() {
 	wait_for_gunicorn_socket
 
-	info_log "Starting internal nginx"
+	info_log "Starting nginx"
 	if [[ ${EUID} -ne 0 ]]; then
 		nginx
 	else
 		# if container runs as root, drop permissions
 		nginx -g 'user romm;'
 	fi
+	info_log "🚀 RomM is now available at http://[::1]:8080"
 }
 
 # Commands to start valkey-server (handling PID creation internally)
 start_bin_valkey-server() {
-	info_log "Starting internal valkey-server"
+	info_log "Starting internal valkey"
 
 	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
 		if [[ ${LOGLEVEL} == "debug" ]]; then
@@ -128,7 +129,7 @@ start_bin_valkey-server() {
 	local max_retries=120
 	local retry=0
 
-	debug_log "Waiting for internal valkey-server to be ready..."
+	debug_log "Waiting for internal valkey to be ready..."
 
 	# Temporarily disable errexit for this part of the script
 	set +o errexit
@@ -136,7 +137,7 @@ start_bin_valkey-server() {
 	while ((retry < max_retries)); do
 		# Attempt to check if valkey TCP port is open
 		if (echo >/dev/tcp/"${host}"/"${port}") 2>/dev/null; then
-			debug_log "Internal valkey-server is ready and accepting connections"
+			debug_log "Internal valkey is ready and accepting connections"
 			set -o errexit # Re-enable errexit after success
 			return 0
 		fi
@@ -145,7 +146,7 @@ start_bin_valkey-server() {
 		((retry++))
 	done
 
-	error_log "Internal valkey-server did not become ready after $((max_retries * 500))ms"
+	error_log "Internal valkey did not become ready after $((max_retries * 500))ms"
 }
 
 # function that runs our independent python scripts and creates corresponding PID files,
@@ -232,8 +233,6 @@ fi
 while ! ((exited)); do
 	watchdog_process_pid bin gunicorn
 
-	watchdog_process_pid bin nginx
-
 	watchdog_process_pid python worker
 
 	# only start the scheduler if enabled
@@ -245,6 +244,8 @@ while ! ((exited)); do
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
 		watchdog_process_pid python watcher
 	fi
+
+	watchdog_process_pid bin nginx
 
 	# check for died processes every 5 seconds
 	sleep 5
