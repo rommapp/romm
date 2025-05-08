@@ -19,32 +19,23 @@ REDIS_HOST="${REDIS_HOST:=""}"
 # (since backend is almost 100% async this won't block anything)
 DEFAULT_WEB_CONCURRENCY=1
 
-# logger colors
-RED='\033[0;31m'
-LIGHTMAGENTA='\033[0;95m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-RESET='\033[0;00m'
-
 # print debug log output if enabled
 debug_log() {
 	if [[ ${LOGLEVEL} == "debug" ]]; then
-		echo -e "${LIGHTMAGENTA}DEBUG:    ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
+		echo "DEBUG:    [RomM][init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 	fi
 }
 
 info_log() {
-	echo -e "${GREEN}INFO:     ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
+	echo "INFO:     [RomM][init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 }
 
 warn_log() {
-	echo -e "${YELLOW}WARNING:  ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
+	echo "WARNING:  [RomM][init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 }
 
 error_log() {
-	echo -e "${RED}ERROR:    ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
+	echo "ERROR:    [RomM][init][$(date +"%Y-%m-%d %T")]" "${@}" || true
 	exit 1
 }
 
