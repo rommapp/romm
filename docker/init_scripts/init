@@ -38,11 +38,11 @@ error_log() {
 }
 
 wait_for_gunicorn_socket() {
-	info_debug "Waiting for gunicorn socket file..."
+	debug_log "Waiting for gunicorn socket file..."
 	while [[ ! -S /tmp/gunicorn.sock ]]; do
 		sleep 1
 	done
-	info_debug "Gunicorn socket file found"
+	debug_log "Gunicorn socket file found"
 }
 
 # function that runs or main process and creates a corresponding PID file,
