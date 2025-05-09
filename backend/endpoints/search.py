@@ -18,6 +18,8 @@ from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from handler.metadata.ss_handler import SS_API_ENABLED, SSRom
 from handler.scan_handler import _get_main_platform_igdb_id
+from logger.formatter import BLUE, CYAN
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -68,8 +70,12 @@ async def search_rom(
     )
     matched_roms: list = []
 
-    log.info(f"Searching by {search_by.lower()}: {search_term}")
-    log.info(emoji.emojize(f":video_game: {rom.platform_slug}: {rom.fs_name}"))
+    log.info(f"Searching by {hl(search_by.lower(), color=CYAN)}:")
+    log.info(
+        emoji.emojize(
+            f":video_game: {hl(rom.platform_display_name, color=BLUE)} [{rom.platform_fs_slug}]: {hl(search_term)}[{rom.fs_name}]"
+        )
+    )
 
     igdb_matched_roms: list[IGDBRom] = []
     moby_matched_roms: list[MobyGamesRom] = []

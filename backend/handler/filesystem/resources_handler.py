@@ -3,6 +3,8 @@ import shutil
 import httpx
 from anyio import Path, open_file
 from config import RESOURCES_BASE_PATH
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
@@ -126,7 +128,7 @@ class FSResourcesHandler(FSHandler):
             shutil.rmtree(cover_path)
         except FileNotFoundError:
             log.warning(
-                f"Couldn't remove cover from '{entity.name or entity.id}' since '{cover_path}' doesn't exists."
+                f"Couldn't remove cover from '{hl(entity.name or entity.id, color=BLUE)}' since '{cover_path}' doesn't exists."
             )
 
         return {"path_cover_s": "", "path_cover_l": ""}
