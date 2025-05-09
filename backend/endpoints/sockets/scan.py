@@ -33,7 +33,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from handler.socket_handler import socket_handler
-from logger.formatter import LIGHTYELLOW, RED
+from logger.formatter import BLUE, LIGHTYELLOW, RED
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.platform import Platform
@@ -186,7 +186,9 @@ async def scan_platforms(
                 )
             )
         else:
-            log.info(f"Found {hl(len(platform_list))} platforms in the file system")
+            log.info(
+                f"Found {hl(str(len(platform_list)))} platforms in the file system"
+            )
 
         for platform_slug in platform_list:
             scan_stats += await _identify_platform(
@@ -273,11 +275,11 @@ async def _identify_platform(
     if len(fs_firmware) == 0:
         log.warning(
             emoji.emojize(
-                f"  {hl(':warning:', color=LIGHTYELLOW)}  No firmware found, skipping firmware scan for this platform"
+                f"{hl(':warning:', color=LIGHTYELLOW)}  No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
             )
         )
     else:
-        log.info(f"  {hl(len(fs_firmware))} firmware files found")
+        log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
 
     for fs_fw in fs_firmware:
         scan_stats += await _identify_firmware(
@@ -295,11 +297,11 @@ async def _identify_platform(
     if len(fs_roms) == 0:
         log.warning(
             emoji.emojize(
-                f"  {hl(':warning:', color=LIGHTYELLOW)}  No roms found, verify that the folder structure is correct"
+                f"{hl(':warning:', color=LIGHTYELLOW)}  No roms found, verify that the folder structure is correct"
             )
         )
     else:
-        log.info(f"  {hl(len(fs_roms))} roms found in the file system")
+        log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
     for fs_roms_batch in batched(fs_roms, 200):
         rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(

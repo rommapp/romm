@@ -86,7 +86,9 @@ async def add_rom(request: Request):
 
     platform_fs_slug = db_platform.fs_slug
     roms_path = fs_rom_handler.build_upload_fs_path(platform_fs_slug)
-    log.info(f"Uploading file to {hl(platform_fs_slug)}")
+    log.info(
+        f"Uploading file to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}[{hl(platform_fs_slug)}]"
+    )
 
     file_location = Path(f"{roms_path}/{filename}")
     parser = StreamingFormDataParser(headers=request.headers)

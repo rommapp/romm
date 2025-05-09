@@ -48,8 +48,6 @@ error_log() {
 	exit 1
 }
 
-# TODO: check on database disconnection
-
 wait_for_gunicorn_socket() {
 	debug_log "Waiting for gunicorn socket file..."
 	local retries=60
@@ -80,8 +78,8 @@ start_bin_gunicorn() {
 	fi
 
 	gunicorn \
-		--error-logfile /tmp/gunicorn_access.log \
-		--error-logfile /tmp/gunicorn_error.log \
+		--error-logfile - \
+		--error-logfile - \
 		--worker-class uvicorn.workers.UvicornWorker \
 		--bind=0.0.0.0:5000 \
 		--bind=unix:/tmp/gunicorn.sock \
