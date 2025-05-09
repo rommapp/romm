@@ -210,7 +210,7 @@ async def scan_platforms(
                 for p in purged_platforms:
                     log.warning(f" - {p.slug}")
 
-        log.info(emoji.emojize("  :check_mark:  Scan completed "))
+        log.info(emoji.emojize(":check_mark:  Scan completed "))
         await sm.emit("scan:done", scan_stats.__dict__)
     except ScanStoppedException:
         await stop_scan()

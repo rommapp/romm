@@ -20,6 +20,8 @@ from models.platform import Platform
 from models.rom import Rom
 from models.user import User
 
+LOGGER_MODULE_NAME = {"module_name": "scan"}
+
 
 class ScanType(Enum):
     NEW_PLATFORMS = "new_platforms"
@@ -81,7 +83,8 @@ async def scan_platform(
     # Sometimes users change the name of the folder, so we try to match it with the config
     if fs_slug not in fs_platforms:
         log.warning(
-            f"{hl(fs_slug)} not found in file system, trying to match via config"
+            f"{hl(fs_slug)} not found in file system, trying to match via config",
+            extra=LOGGER_MODULE_NAME,
         )
         if fs_slug in swapped_platform_bindings.keys():
             platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
@@ -131,13 +134,15 @@ async def scan_platform(
         log.info(
             emoji.emojize(
                 f"Folder {hl(platform_attrs['fs_slug'])}[{hl(fs_slug)}] identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
-            )
+            ),
+            extra={"module_name": "scan"},
         )
     else:
         log.warning(
             emoji.emojize(
                 f"Platform {hl(platform_attrs['slug'])} not identified :cross_mark:"
-            )
+            ),
+            extra=LOGGER_MODULE_NAME,
         )
 
     return Platform(**platform_attrs)
@@ -338,18 +343,23 @@ async def scan_rom(
         and not ss_handler_rom.get("ss_id")
     ):
         log.warning(
-            emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:")
+            emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),
+            extra=LOGGER_MODULE_NAME,
         )
         return Rom(**rom_attrs)
 
     log.info(
         emoji.emojize(
             f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} :alien_monster:"
-        )
+        ),
+        extra=LOGGER_MODULE_NAME,
     )
     if fs_rom.get("multi", False):
         for file in fs_rom["files"]:
-            log.info(f"\t · {hl(file.file_name, color=LIGHTYELLOW)}")
+            log.info(
+                f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
+                extra=LOGGER_MODULE_NAME,
+            )
 
     return Rom(**rom_attrs)
 

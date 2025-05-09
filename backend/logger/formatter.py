@@ -14,6 +14,7 @@ LIGHTMAGENTA = Fore.LIGHTMAGENTA_EX
 RESET = Fore.RESET
 RESET_ALL = Style.RESET_ALL
 
+# TODO: use this for internal worker logs
 common_log_format = f"{GREEN}INFO{RESET}:\t  {BLUE}[RomM]{LIGHTMAGENTA}[worker]{CYAN}[%(asctime)s] {RESET_ALL}%(message)s"
 common_date_format = "%Y-%m-%d %H:%M:%S"
 
@@ -51,17 +52,17 @@ class Formatter(logging.Formatter):
         level = "%(levelname)s"
         dots = f"{RESET}:"
         identifier = (
-            f"\t  {BLUE}[RomM]{LIGHTMAGENTA}[{record.module.lower()}]"
+            f"\t  {BLUE}[RomM]{LIGHTMAGENTA}[{record.module_name.lower()}]"
             if hasattr(record, "module_name")
             else f"\t  {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]"
         )
         identifier_warning = (
-            f"  {BLUE}[RomM]{LIGHTMAGENTA}[{record.module.lower()}]"
+            f"  {BLUE}[RomM]{LIGHTMAGENTA}[{record.module_name.lower()}]"
             if hasattr(record, "module_name")
             else f"  {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]"
         )
         identifier_critical = (
-            f" {BLUE}[RomM]{LIGHTMAGENTA}[{record.module.lower()}]"
+            f" {BLUE}[RomM]{LIGHTMAGENTA}[{record.module_name.lower()}]"
             if hasattr(record, "module_name")
             else f" {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]"
         )
