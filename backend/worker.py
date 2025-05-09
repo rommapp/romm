@@ -1,9 +1,7 @@
-import logging
-
 import sentry_sdk
 from config import SENTRY_DSN
 from handler.redis_handler import redis_client
-from logger.logger import log, unify_logger
+from logger.logger import unify_logger
 from rq import Queue, Worker
 from utils import get_version
 
