@@ -26,7 +26,6 @@ class FSAssetsHandler(FSHandler):
             return
 
         Path(os.path.join(ASSETS_BASE_PATH, path)).mkdir(parents=True, exist_ok=True)
-        log.info(f" - Uploading {file.filename}")
         file_location = os.path.join(ASSETS_BASE_PATH, path, file.filename)
 
         with open(file_location, "wb") as f:

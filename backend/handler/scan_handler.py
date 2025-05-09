@@ -17,7 +17,7 @@ from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
 from handler.metadata.ss_handler import SSPlatform, SSRom
-from logger.formatter import BLUE
+from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save, Screenshot, State
@@ -25,6 +25,8 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+
+LOGGER_MODULE_NAME = {"module_name": "scan"}
 
 
 class ScanType(Enum):
@@ -88,8 +90,6 @@ async def scan_platform(
         Platform object
     """
 
-    log.info(f"· {hl(fs_slug)}")
-
     if metadata_sources is None:
         metadata_sources = [
             MetadataSource.IGDB,
@@ -108,7 +108,8 @@ async def scan_platform(
     # Sometimes users change the name of the folder, so we try to match it with the config
     if fs_slug not in fs_platforms:
         log.warning(
-            f"  {fs_slug} not found in file system, trying to match via config..."
+            f"{hl(fs_slug)} not found in file system, trying to match via config",
+            extra=LOGGER_MODULE_NAME,
         )
         if fs_slug in swapped_platform_bindings.keys():
             platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
@@ -162,14 +163,16 @@ async def scan_platform(
     ):
         log.info(
             emoji.emojize(
-                f"  Identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
-            )
+                f"Folder {hl(platform_attrs['fs_slug'])}[{hl(fs_slug)}] identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
+            ),
+            extra={"module_name": "scan"},
         )
     else:
         log.warning(
             emoji.emojize(
-                f" Platform {platform_attrs['slug']} not identified :cross_mark:"
-            )
+                f"Platform {hl(platform_attrs['slug'])} not identified :cross_mark:"
+            ),
+            extra=LOGGER_MODULE_NAME,
         )
 
     return Platform(**platform_attrs)
@@ -181,8 +184,6 @@ def scan_firmware(
     firmware: Firmware | None = None,
 ) -> Firmware:
     firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
-
-    log.info(f"\t · {file_name}")
 
     # Set default properties
     firmware_attrs = {
@@ -236,12 +237,6 @@ async def scan_rom(
         ]
 
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
-
-    log.info(f"\t · {hl(fs_rom['fs_name'])}")
-
-    if fs_rom.get("multi", False):
-        for file in fs_rom["files"]:
-            log.info(f"\t\t · {file.file_name}")
 
     # Set default properties
     rom_attrs = {
@@ -384,20 +379,28 @@ async def scan_rom(
         and not ss_handler_rom.get("ss_id")
     ):
         log.warning(
-            emoji.emojize(
-                f"\t   Rom {rom_attrs['fs_name']} not identified :cross_mark:"
-            )
+            emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),
+            extra=LOGGER_MODULE_NAME,
         )
         return Rom(**rom_attrs)
 
-    log.info(emoji.emojize(f"\t   Identified as {rom_attrs['name']} :alien_monster:"))
+    log.info(
+        emoji.emojize(
+            f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} :alien_monster:"
+        ),
+        extra=LOGGER_MODULE_NAME,
+    )
+    if fs_rom.get("multi", False):
+        for file in fs_rom["files"]:
+            log.info(
+                f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
+                extra=LOGGER_MODULE_NAME,
+            )
 
     return Rom(**rom_attrs)
 
 
 def _scan_asset(file_name: str, path: str):
-    log.info(f"\t\t · {file_name}")
-
     file_size = fs_asset_handler.get_asset_size(file_name=file_name, asset_path=path)
 
     return {
