@@ -1,11 +1,10 @@
 import logging
 import sys
-from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
 from config.config_manager import ConfigManager
-from logger.logger import log
+from logger.logger import unify_logger
 from models.assets import Save, Screenshot, State  # noqa
 from models.base import BaseModel
 from models.collection import VirtualCollection
@@ -19,16 +18,7 @@ from sqlalchemy import create_engine
 # access to the values within the .ini file in use.
 config = context.config
 
-# logger formatting
-alembic_logger = logging.getLogger("alembic")
-alembic_logger.setLevel(log.level)
-
-if not alembic_logger.hasHandlers():
-    for handler in log.handlers:
-        alembic_logger.addHandler(handler)
-else:
-    for handler in alembic_logger.handlers:
-        handler.setFormatter(log.handlers[0].formatter)
+unify_logger("alembic")
 
 # add your model's MetaData object here
 # for 'autogenerate' support
