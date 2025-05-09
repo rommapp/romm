@@ -28,8 +28,20 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 RESET='\033[0;00m'
 
-# print debug log output if enabled
+print_banner() {
+	info_log "               _____                 __  __ "
+	info_log '              |  __ \               |  \/  |'
+	info_log '              | |__) |___  _ __ ___ | \  / |'
+	info_log "              |  _  // _ \\| '_ \` _ \\| |\\/| |"
+	info_log '              | | \ \ (_) | | | | | | |  | |'
+	info_log '              |_|  \_\___/|_| |_| |_|_|  |_|'
+	info_log ""
+	info_log "The beautiful, powerful, self-hosted Rom Manager and player"
+	info_log ""
+}
+
 debug_log() {
+	# print debug log output if enabled
 	if [[ ${LOGLEVEL} == "debug" ]]; then
 		echo -e "${LIGHTMAGENTA}DEBUG:    ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
 	fi
@@ -205,14 +217,7 @@ shutdown() {
 	stop_process_pid valkey-server
 }
 
-# ASCII art banner
-info_log " _____                 __  __ "
-info_log '|  __ \               |  \/  |'
-info_log '| |__) |___  _ __ ___ | \  / |'
-info_log "|  _  // _ \\| '_ \` _ \\| |\\/| |"
-info_log '| | \ \ (_) | | | | | | |  | |'
-info_log '|_|  \_\___/|_| |_| |_|_|  |_|'
-info_log "                               "
+print_banner
 
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
