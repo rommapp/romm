@@ -8,6 +8,7 @@ from handler.auth.constants import Scope
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
+from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
@@ -44,8 +45,6 @@ def add_firmware(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    log.info(f"Uploading firmware to {hl(db_platform.fs_slug)}")
-
     uploaded_firmware = []
     firmware_path = fs_firmware_handler.build_upload_file_path(db_platform.fs_slug)
 
@@ -53,6 +52,10 @@ def add_firmware(
         if not file.filename:
             log.warning("Empty filename, skipping")
             continue
+
+        log.info(
+            f"Uploading firmware {hl(file.filename)} to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}"
+        )
 
         fs_firmware_handler.write_file(file=file, path=firmware_path)
 

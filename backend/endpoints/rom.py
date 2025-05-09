@@ -651,7 +651,7 @@ async def update_rom(
         cleaned_data.update({"path_manual": path_manual})
 
     log.debug(
-        f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(id)}] with data {cleaned_data}"
+        f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
     )
 
     db_rom_handler.update_rom(id, cleaned_data)

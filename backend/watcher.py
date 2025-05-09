@@ -72,7 +72,7 @@ class EventHandler(FileSystemEventHandler):
                         return
 
         time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
-        rescan_in_msg = f"rescanning in {hl(RESCAN_ON_FILESYSTEM_CHANGE_DELAY, color=CYAN)} minutes."
+        rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
 
         # Any change to a platform directory should trigger a full rescan
         if event.is_directory and event_src.count("/") == 1:
