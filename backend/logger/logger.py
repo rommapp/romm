@@ -5,7 +5,7 @@ from config import LOGLEVEL
 from logger.formatter import Formatter
 
 # Set up logger
-log = logging.getLogger("romm")
+log = logging.getLogger()
 log.setLevel(LOGLEVEL)
 
 # Define stdout handler
