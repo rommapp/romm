@@ -78,14 +78,15 @@ start_bin_gunicorn() {
 	fi
 
 	gunicorn \
-		--error-logfile - \
-		--error-logfile - \
-		--worker-class uvicorn.workers.UvicornWorker \
 		--bind=0.0.0.0:5000 \
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
+		--worker-class uvicorn.workers.UvicornWorker \
 		--workers "${WEB_CONCURRENCY:-${DEFAULT_WEB_CONCURRENCY:-1}}" \
+		--error-logfile - \
+		--error-logfile - \
+		--log-config /etc/gunicorn/logging.conf \
 		main:app &
 }
 
@@ -100,7 +101,7 @@ start_bin_nginx() {
 		# if container runs as root, drop permissions
 		nginx -g 'user romm;'
 	fi
-	info_log "🚀 RomM is now available at http://[::1]:8080"
+	info_log "🚀 RomM is now available at http://0.0.0.0:8080"
 }
 
 # Commands to start valkey-server (handling PID creation internally)
