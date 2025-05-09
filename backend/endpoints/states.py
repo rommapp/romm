@@ -8,6 +8,8 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot, scan_state
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -29,7 +31,7 @@ async def add_state(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading state of {rom.name}")
+    log.info(f"Uploading state of {hl(rom.name, color=BLUE)}")
 
     states_path = fs_asset_handler.build_states_file_path(
         user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
@@ -216,7 +218,7 @@ async def delete_states(request: Request) -> list[int]:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         db_state_handler.delete_state(state_id)
-        log.info(f"Deleting {state.file_name} from filesystem")
+        log.info(f"Deleting {hl(state.file_name)} from filesystem")
 
         try:
             fs_asset_handler.remove_file(

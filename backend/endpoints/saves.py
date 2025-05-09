@@ -8,6 +8,8 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_save_handler, db_screenshot_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_save, scan_screenshot
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -29,7 +31,7 @@ async def add_save(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading save of {rom.name}")
+    log.info(f"Uploading save of {hl(rom.name, color=BLUE)}")
 
     saves_path = fs_asset_handler.build_saves_file_path(
         user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
@@ -213,7 +215,7 @@ async def delete_saves(request: Request) -> list[int]:
 
         db_save_handler.delete_save(save_id)
 
-        log.info(f"Deleting {save.file_name} from filesystem")
+        log.info(f"Deleting {hl(save.file_name)} from filesystem")
         try:
             fs_asset_handler.remove_file(
                 file_name=save.file_name, file_path=save.file_path

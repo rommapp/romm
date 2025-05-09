@@ -68,7 +68,7 @@ async def scan_platform(
         Platform object
     """
 
-    log.info(f"· Found {hl(fs_slug)} folder")
+    log.info(f"· Found {hl(fs_slug, color=BLUE)} folder")
 
     if metadata_sources is None:
         metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
@@ -83,7 +83,7 @@ async def scan_platform(
     # Sometimes users change the name of the folder, so we try to match it with the config
     if fs_slug not in fs_platforms:
         log.warning(
-            f"  {fs_slug} not found in file system, trying to match via config..."
+            f"  {hl(fs_slug)} not found in file system, trying to match via config..."
         )
         if fs_slug in swapped_platform_bindings.keys():
             platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
@@ -138,7 +138,7 @@ async def scan_platform(
     else:
         log.warning(
             emoji.emojize(
-                f"  Platform {platform_attrs['slug']} not identified :cross_mark:"
+                f"  Platform {hl(platform_attrs['slug'])} not identified :cross_mark:"
             )
         )
 
@@ -152,7 +152,7 @@ def scan_firmware(
 ) -> Firmware:
     firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
 
-    log.info(f"\t · {file_name}")
+    log.info(f"\t · {hl(file_name)}")
 
     # Set default properties
     firmware_attrs = {
@@ -349,18 +349,22 @@ async def scan_rom(
     ):
         log.warning(
             emoji.emojize(
-                f"\t   Rom {rom_attrs['fs_name']} not identified :cross_mark:"
+                f"\t   Rom {hl(rom_attrs['fs_name'])} not identified :cross_mark:"
             )
         )
         return Rom(**rom_attrs)
 
-    log.info(emoji.emojize(f"\t   Identified as {rom_attrs['name']} :alien_monster:"))
+    log.info(
+        emoji.emojize(
+            f"\t   Identified as {hl(rom_attrs['name'], color=BLUE)} :alien_monster:"
+        )
+    )
 
     return Rom(**rom_attrs)
 
 
 def _scan_asset(file_name: str, path: str):
-    log.info(f"\t\t · {file_name}")
+    log.info(f"\t\t · {hl(file_name)}")
 
     file_size = fs_asset_handler.get_asset_size(file_name=file_name, asset_path=path)
 

@@ -8,6 +8,7 @@ from handler.auth.constants import Scope
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -43,7 +44,7 @@ def add_firmware(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    log.info(f"Uploading firmware to {db_platform.fs_slug}")
+    log.info(f"Uploading firmware to {hl(db_platform.fs_slug)}")
 
     uploaded_firmware = []
     firmware_path = fs_firmware_handler.build_upload_file_path(db_platform.fs_slug)
@@ -217,21 +218,21 @@ async def delete_firmware(
     for id in firmare_ids:
         firmware = db_firmware_handler.get_firmware(id)
         if not firmware:
-            error = f"Firmware with ID {id} not found"
+            error = f"Firmware with ID {hl(id)} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-        log.info(f"Deleting {firmware.file_name} from database")
+        log.info(f"Deleting {hl(firmware.file_name)} from database")
         db_firmware_handler.delete_firmware(id)
 
         if id in delete_from_fs:
-            log.info(f"Deleting {firmware.file_name} from filesystem")
+            log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
             try:
                 fs_firmware_handler.remove_file(
                     file_name=firmware.file_name, file_path=firmware.file_path
                 )
             except FileNotFoundError as exc:
-                error = f"Firmware file {firmware.file_name} not found for platform {firmware.platform_slug}"
+                error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
                 log.error(error)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=error
