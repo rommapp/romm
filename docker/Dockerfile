@@ -146,8 +146,8 @@ COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
 RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
-    ln -s /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
-    ln -s /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
+    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
+    ln -sf /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
 
 COPY ./backend /backend
 
@@ -156,6 +156,7 @@ COPY ./docker/init_scripts/* /
 COPY ./docker/nginx/js/ /etc/nginx/js/
 COPY ./docker/nginx/templates/ /etc/nginx/templates/
 COPY ./docker/nginx/default.conf /etc/nginx/nginx.conf
+COPY ./docker/gunicorn/logging.conf /etc/gunicorn/logging.conf
 
 # User permissions
 # - Create default user `romm` (1000) and group `romm` (1000).

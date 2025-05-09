@@ -10,6 +10,8 @@ from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
+from logger.formatter import CYAN
+from logger.formatter import highlight as hl
 from logger.logger import log
 from passlib.context import CryptContext
 from starlette.requests import HTTPConnection
@@ -54,7 +56,7 @@ class AuthHandler:
             conn.session.clear()
             log.error(
                 "User '%s' %s",
-                username,
+                hl(username, color=CYAN),
                 "not found" if user is None else "not enabled",
             )
             return None
@@ -148,7 +150,10 @@ class OpenIDHandler:
 
         user = db_user_handler.get_user_by_email(email)
         if user is None:
-            log.info("User with email '%s' not found, creating new user", email)
+            log.info(
+                "User with email '%s' not found, creating new user",
+                hl(email, color=CYAN),
+            )
             user = User(
                 username=preferred_username,
                 hashed_password=str(uuid.uuid4()),
@@ -161,5 +166,5 @@ class OpenIDHandler:
         if not user.enabled:
             raise UserDisabledException
 
-        log.info("User successfully authenticated: %s", email)
+        log.info("User successfully authenticated: %s", hl(email, color=CYAN))
         return user, userinfo

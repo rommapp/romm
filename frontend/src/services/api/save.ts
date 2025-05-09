@@ -44,12 +44,15 @@ async function uploadSaves({
 async function updateSave({
   save,
   saveFile,
+  screenshotFile,
 }: {
   save: SaveSchema;
   saveFile: File;
+  screenshotFile?: File;
 }): Promise<{ data: SaveSchema }> {
   const formData = new FormData();
   formData.append("saveFile", saveFile);
+  if (screenshotFile) formData.append("screenshotFile", screenshotFile);
 
   return api.put(`/saves/${save.id}`, formData);
 }
