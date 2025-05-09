@@ -2,6 +2,7 @@ import asyncio
 import re
 from pathlib import Path
 
+from logger.formatter import highlight as hl
 from logger.logger import log
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"^[0-9a-f]{32}$")
@@ -95,7 +96,7 @@ class RAHasherService:
             )
 
         args = (str(platform_id), str(file_path))
-        log.debug("Executing RAHasher with args: %s", args)
+        log.debug("Executing RAHasher with args: %s", hl(args))
 
         proc = await asyncio.create_subprocess_exec(
             "RAHasher",
