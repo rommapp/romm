@@ -1,9 +1,6 @@
-import logging
-
 import sentry_sdk
 from config import SENTRY_DSN
 from handler.redis_handler import redis_client
-from logger.formatter import common_date_format, common_log_format
 from rq import Queue, Worker
 from utils import get_version
 

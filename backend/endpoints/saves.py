@@ -27,16 +27,6 @@ async def add_save(
 ) -> SaveSchema:
     data = await request.form()
 
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-
-    log.info(f"Uploading save of {hl(rom.name, color=BLUE)}")
-
-    saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
-    )
-
     if "saveFile" not in data:
         log.error("No save file provided")
         raise HTTPException(
@@ -44,11 +34,22 @@ async def add_save(
         )
 
     saveFile: UploadFile = data["saveFile"]  # type: ignore
+
     if not saveFile.filename:
         log.error("Save file has no filename")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Save file has no filename"
         )
+
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
+    log.info(f"Uploading save {hl(saveFile.filename)} for {hl(rom.name, color=BLUE)}")
+
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
+    )
 
     fs_asset_handler.write_file(file=saveFile, path=saves_path)
 
@@ -215,7 +216,9 @@ async def delete_saves(request: Request) -> list[int]:
 
         db_save_handler.delete_save(save_id)
 
-        log.info(f"Deleting {hl(save.file_name)} from filesystem")
+        log.info(
+            f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
+        )
         try:
             fs_asset_handler.remove_file(
                 file_name=save.file_name, file_path=save.file_path

@@ -27,16 +27,6 @@ async def add_state(
 ) -> StateSchema:
     data = await request.form()
 
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        raise RomNotFoundInDatabaseException(rom_id)
-
-    log.info(f"Uploading state of {hl(rom.name, color=BLUE)}")
-
-    states_path = fs_asset_handler.build_states_file_path(
-        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
-    )
-
     if "stateFile" not in data:
         log.error("No state file provided")
         raise HTTPException(
@@ -44,11 +34,22 @@ async def add_state(
         )
 
     stateFile: UploadFile = data["stateFile"]  # type: ignore
+
     if not stateFile.filename:
         log.error("State file has no filename")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="State file has no filename"
         )
+
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
+    log.info(f"Uploading state {hl(stateFile.filename)} for {hl(rom.name, color=BLUE)}")
+
+    states_path = fs_asset_handler.build_states_file_path(
+        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
+    )
 
     fs_asset_handler.write_file(file=stateFile, path=states_path)
 
@@ -218,7 +219,9 @@ async def delete_states(request: Request) -> list[int]:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         db_state_handler.delete_state(state_id)
-        log.info(f"Deleting {hl(state.file_name)} from filesystem")
+        log.info(
+            f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"
+        )
 
         try:
             fs_asset_handler.remove_file(

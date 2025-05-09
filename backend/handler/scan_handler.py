@@ -150,8 +150,6 @@ def scan_firmware(
 ) -> Firmware:
     firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
 
-    log.info(f"\t · {hl(file_name)}")
-
     # Set default properties
     firmware_attrs = {
         "id": firmware.id if firmware else None,
@@ -357,8 +355,6 @@ async def scan_rom(
 
 
 def _scan_asset(file_name: str, path: str):
-    log.info(f"\t · {hl(file_name)}")
-
     file_size = fs_asset_handler.get_asset_size(file_name=file_name, asset_path=path)
 
     return {

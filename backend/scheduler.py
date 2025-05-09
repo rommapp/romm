@@ -4,7 +4,6 @@ from config import (
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     SENTRY_DSN,
 )
-from logger.formatter import highlight as hl
 from logger.logger import log
 from tasks.scan_library import scan_library_task
 from tasks.tasks import tasks_scheduler
