@@ -18,6 +18,7 @@ from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
+from handler.metadata.ra_handler import SLUG_TO_RA_ID
 from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
     Bad7zFile,
@@ -416,9 +417,11 @@ class FSRomsHandler(FSHandler):
                 ),
                 ra_hash=(
                     await RAHasherService().calculate_hash(
-                        rom.platform.slug,
+                        SLUG_TO_RA_ID[rom.platform.slug]["id"],
                         f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}",
                     )
+                    if rom.platform.slug in SLUG_TO_RA_ID.keys()
+                    else ""
                 ),
             ),
             hashed_files,

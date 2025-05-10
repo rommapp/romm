@@ -163,7 +163,7 @@ async def scan_platform(
     ):
         log.info(
             emoji.emojize(
-                f"Folder {hl(platform_attrs['fs_slug'])}[{hl(fs_slug)}] identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
+                f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
             ),
             extra={"module_name": "scan"},
         )

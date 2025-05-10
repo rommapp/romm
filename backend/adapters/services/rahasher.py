@@ -86,13 +86,7 @@ class RAHasherError(Exception): ...
 class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
-    async def calculate_hash(self, platform_slug: str, file_path: str) -> str:
-        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID.get(platform_slug)
-        if not platform_id:
-            raise RAHasherError(
-                f"Platform not supported by RetroAchievements. {platform_slug=}"
-            )
-
+    async def calculate_hash(self, platform_id: int, file_path: str) -> str:
         args = (str(platform_id), file_path)
         log.debug("Executing RAHasher with args: %s", args)
 
