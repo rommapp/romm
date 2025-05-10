@@ -34,5 +34,6 @@
   "upload": "Téléverser",
   "user-interface": "Interface utilisateur",
   "virtual-collection": "Collection autogénérée",
-  "virtual-collections": "Collections autogénérées"
+  "virtual-collections": "Collections autogénérées",
+  "sync": "Synchroniser"
 }

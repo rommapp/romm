@@ -33,5 +33,6 @@
   "upload": "上传",
   "user-interface": "用户界面",
   "virtual-collection": "自动生成的收藏",
-  "virtual-collections": "自动生成的收藏"
+  "virtual-collections": "自动生成的收藏",
+  "sync": "同步"
 }

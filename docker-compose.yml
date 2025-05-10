@@ -1,9 +1,9 @@
 # Please see the full example under examples/docker-compose.example.yml
 
 services:
-  romm-mariadb-dev:
+  romm-db-dev:
     image: mariadb:11.3.2
-    container_name: romm-mariadb-dev
+    container_name: romm-db-dev
     restart: unless-stopped
     env_file:
       - .env
@@ -13,7 +13,7 @@ services:
       - MARIADB_USER=$DB_USER
       - MARIADB_PASSWORD=$DB_PASSWD
     volumes:
-      - maria-db:/var/lib/mysql
+      - romm-db-dev:/var/lib/mysql
     ports:
       - $DB_PORT:3306
 
@@ -89,7 +89,7 @@ services:
       - romm-valkey-dev
 
 volumes:
-  maria-db:
+  romm-db-dev:
   postgres-db:
   authentik-media:
   authentik-templates:

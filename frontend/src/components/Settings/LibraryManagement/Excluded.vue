@@ -55,7 +55,7 @@ const editable = ref(false);
   <r-section
     icon="mdi-cancel"
     :title="t('settings.excluded')"
-    class="pb-1 ma-2"
+    class="mx-2 mt-4 mb-2"
   >
     <template #toolbar-append>
       <v-btn

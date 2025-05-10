@@ -38,7 +38,7 @@ async function updateUser({
   id,
   avatar,
   ...attrs
-}: UserSchema & {
+}: Partial<UserSchema> & {
   avatar?: File;
   password?: string;
 }): Promise<{ data: UserSchema }> {
@@ -57,6 +57,7 @@ async function updateUser({
         email: attrs.email,
         enabled: attrs.enabled,
         role: attrs.role,
+        ra_username: attrs.ra_username,
       },
     },
   );
@@ -66,6 +67,14 @@ async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
   return api.delete(`/users/${user.id}`);
 }
 
+async function refreshRetroAchievements({
+  id,
+}: {
+  id: number;
+}): Promise<{ data: MessageResponse }> {
+  return api.post(`/users/${id}/ra/refresh`);
+}
+
 export default {
   createUser,
   fetchUsers,
@@ -73,4 +82,5 @@ export default {
   fetchCurrentUser,
   updateUser,
   deleteUser,
+  refreshRetroAchievements,
 };

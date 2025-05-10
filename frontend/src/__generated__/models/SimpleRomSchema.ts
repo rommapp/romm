@@ -15,6 +15,7 @@ export type SimpleRomSchema = {
     sgdb_id: (number | null);
     moby_id: (number | null);
     ss_id: (number | null);
+    ra_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;

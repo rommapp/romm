@@ -14,9 +14,11 @@ from typing import Any, Final, Literal, TypedDict
 import magic
 import py7zr
 import zipfile_deflate64  # trunk-ignore(ruff/F401): Patches zipfile to support deflate64 compression
+from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
+from handler.metadata.ra_handler import SLUG_TO_RA_ID
 from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
     Bad7zFile,
@@ -73,6 +75,7 @@ class FileHash(TypedDict):
     crc_hash: str
     md5_hash: str
     sha1_hash: str
+    ra_hash: str
 
 
 def is_compressed_file(file_path: str) -> bool:
@@ -368,7 +371,7 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
-    def get_rom_hashes(self, rom: Rom) -> tuple[FileHash, list[FileHash]]:
+    async def get_rom_hashes(self, rom: Rom) -> tuple[FileHash, list[FileHash]]:
         rom_crc_c = 0
         rom_md5_h = hashlib.md5(usedforsecurity=False)
         rom_sha1_h = hashlib.sha1(usedforsecurity=False)
@@ -395,9 +398,9 @@ class FSRomsHandler(FSHandler):
                         if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                         else ""
                     ),
+                    ra_hash="",
                 )
             )
-
         return (
             FileHash(
                 id=rom.id,
@@ -410,6 +413,14 @@ class FSRomsHandler(FSHandler):
                 sha1_hash=(
                     rom_sha1_h.hexdigest()
                     if rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                    else ""
+                ),
+                ra_hash=(
+                    await RAHasherService().calculate_hash(
+                        SLUG_TO_RA_ID[rom.platform.slug]["id"],
+                        f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}",
+                    )
+                    if rom.platform.slug in SLUG_TO_RA_ID.keys()
                     else ""
                 ),
             ),

@@ -17,6 +17,8 @@ from handler.auth.constants import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
 from PIL import Image
@@ -284,12 +286,14 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    log.info(f"Deleting {collection.name} from database")
+    log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
 
     try:
         rmtree(f"{RESOURCES_BASE_PATH}/{collection.fs_resources_path}")
     except FileNotFoundError:
-        log.error(f"Couldn't find resources to delete for {collection.name}")
+        log.error(
+            f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"
+        )
 
     return {"msg": f"{collection.name} deleted successfully!"}

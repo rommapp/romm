@@ -90,7 +90,6 @@ class FSFirmwareHandler(FSHandler):
             return
 
         Path(path).mkdir(parents=True, exist_ok=True)
-        log.info(f" - Uploading {file.filename}")
         file_location = os.path.join(path, file.filename)
 
         with open(file_location, "wb") as f:

@@ -92,7 +92,7 @@ onMounted(() => {
         class="bg-surface mt-2"
       />
       <v-data-table-virtual
-        height="350"
+        :style="{ 'max-height': '40dvh' }"
         :search="userSearch"
         :headers="HEADERS"
         :items="allUsers"

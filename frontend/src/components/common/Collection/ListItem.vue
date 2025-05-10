@@ -23,7 +23,6 @@ withDefaults(
 
 <template>
   <v-list-item
-    :key="collection.id"
     v-bind="{
       ...(withLink && collection
         ? {

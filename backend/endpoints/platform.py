@@ -11,6 +11,8 @@ from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
 from handler.scan_handler import scan_platform
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -36,7 +38,7 @@ async def add_platforms(request: Request) -> PlatformSchema:
     try:
         fs_platform_handler.add_platforms(fs_slug=fs_slug)
     except PlatformAlreadyExistsException:
-        log.info(f"Detected platform: {fs_slug}")
+        log.info(f"Detected platform: {hl(fs_slug)}")
     scanned_platform = await scan_platform(fs_slug, [fs_slug])
     return PlatformSchema.model_validate(
         db_platform_handler.add_platform(scanned_platform)
@@ -164,7 +166,9 @@ async def delete_platforms(request: Request, id: int) -> MessageResponse:
     if not platform:
         raise PlatformNotFoundInDatabaseException(id)
 
-    log.info(f"Deleting {platform.name} [{platform.fs_slug}] from database")
+    log.info(
+        f"Deleting {hl(platform.name,  color=BLUE)} [{hl(platform.fs_slug)}] from database"
+    )
     db_platform_handler.delete_platform(id)
 
     return {"msg": f"{platform.name} - [{platform.fs_slug}] deleted successfully!"}
