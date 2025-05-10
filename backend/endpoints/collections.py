@@ -296,4 +296,4 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
             f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"
         )
 
-    return {"msg": f"{hl(collection.name)} deleted successfully!"}
+    return {"msg": f"{collection.name} deleted successfully!"}

@@ -376,20 +376,20 @@ async def _identify_firmware(
     return scan_stats
 
 
-def _set_rom_hashes(rom_id: int) -> str:
+async def _set_rom_hashes(rom_id: int) -> str:
     """Set the hashes for the given rom
 
     Args:
         rom_id (int): Rom id
     Returns:
-        md5_hash (str): MD5 hash of the rom
+        ra_hash (str): Calculated retroachievements hash
     """
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
         return ""
 
     try:
-        rom_hash, rom_file_hashes = fs_rom_handler.get_rom_hashes(rom)
+        rom_hash, rom_file_hashes = await fs_rom_handler.get_rom_hashes(rom)
     except zlib.error as e:
         # Set empty hashes if calculating them fails for corrupted files
         log.error(
@@ -412,7 +412,7 @@ def _set_rom_hashes(rom_id: int) -> str:
                 "crc_hash": rom_hash["crc_hash"],
                 "md5_hash": rom_hash["md5_hash"],
                 "sha1_hash": rom_hash["sha1_hash"],
-                # "ra_hash": rom_hash["ra_hash"],
+                "ra_hash": rom_hash["ra_hash"],
             },
         )
         for file_hash in rom_file_hashes:
@@ -422,7 +422,7 @@ def _set_rom_hashes(rom_id: int) -> str:
                     "crc_hash": file_hash["crc_hash"],
                     "md5_hash": file_hash["md5_hash"],
                     "sha1_hash": file_hash["sha1_hash"],
-                    # "ra_hash": rom_hash["ra_hash"],
+                    "ra_hash": rom_hash["ra_hash"],
                 },
             )
         return rom_hash["ra_hash"]
@@ -495,7 +495,7 @@ async def _identify_rom(
     ):
         # Skip hashing games for platforms that don't have a hash database
         if platform.slug not in NON_HASHABLE_PLATFORMS:
-            ra_hash = _set_rom_hashes(_added_rom.id)
+            ra_hash = await _set_rom_hashes(_added_rom.id)
             ra_handler_rom = await fetch_ra_info(
                 platform=platform,
                 rom_id=_added_rom.id,

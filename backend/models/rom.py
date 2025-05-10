@@ -52,6 +52,7 @@ class RomFile(BaseModel):
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    ra_hash: Mapped[str | None] = mapped_column(String(100))
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )
@@ -171,6 +172,7 @@ class Rom(BaseModel):
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
+    ra_hash: Mapped[str | None] = mapped_column(String(length=100))
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
