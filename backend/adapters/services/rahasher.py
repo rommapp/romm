@@ -1,6 +1,9 @@
 import asyncio
 import re
 
+from handler.metadata.ra_handler import RA_ID_TO_SLUG
+from logger.formatter import LIGHTMAGENTA
+from logger.formatter import highlight as hl
 from logger.logger import log
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"^[0-9a-f]{32}$")
@@ -87,9 +90,10 @@ class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
     async def calculate_hash(self, platform_id: int, file_path: str) -> str:
+        log.debug(
+            f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"
+        )
         args = (str(platform_id), file_path)
-        log.debug("Executing RAHasher with args: %s", args)
-
         proc = await asyncio.create_subprocess_exec(
             "RAHasher",
             *args,
