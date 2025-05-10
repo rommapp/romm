@@ -53,6 +53,7 @@ const editable = ref(false);
             :editable="authStore.scopes.includes('platforms.write') && editable"
             :slug="slug"
             :fs-slug="fsSlug"
+            class="mx-1 mt-2"
             @click-edit="
               emitter?.emit('showCreatePlatformBindingDialog', {
                 fsSlug: fsSlug,

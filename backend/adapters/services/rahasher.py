@@ -1,6 +1,5 @@
 import asyncio
 import re
-from pathlib import Path
 
 from logger.logger import log
 
@@ -87,14 +86,14 @@ class RAHasherError(Exception): ...
 class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
-    async def calculate_hash(self, platform_slug: str, file_path: Path) -> str:
+    async def calculate_hash(self, platform_slug: str, file_path: str) -> str:
         platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID.get(platform_slug)
         if not platform_id:
             raise RAHasherError(
                 f"Platform not supported by RetroAchievements. {platform_slug=}"
             )
 
-        args = (str(platform_id), str(file_path))
+        args = (str(platform_id), file_path)
         log.debug("Executing RAHasher with args: %s", args)
 
         proc = await asyncio.create_subprocess_exec(

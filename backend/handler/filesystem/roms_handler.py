@@ -14,6 +14,7 @@ from typing import Any, Final, Literal, TypedDict
 import magic
 import py7zr
 import zipfile_deflate64  # trunk-ignore(ruff/F401): Patches zipfile to support deflate64 compression
+from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
@@ -369,7 +370,7 @@ class FSRomsHandler(FSHandler):
                 rom_sha1_h,
             )
 
-    def get_rom_hashes(self, rom: Rom) -> tuple[FileHash, list[FileHash]]:
+    async def get_rom_hashes(self, rom: Rom) -> tuple[FileHash, list[FileHash]]:
         rom_crc_c = 0
         rom_md5_h = hashlib.md5(usedforsecurity=False)
         rom_sha1_h = hashlib.sha1(usedforsecurity=False)
@@ -396,14 +397,9 @@ class FSRomsHandler(FSHandler):
                         if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
                         else ""
                     ),
-                    ra_hash=(
-                        md5_h.hexdigest()
-                        if md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                        else ""
-                    ),
+                    ra_hash="",
                 )
             )
-
         return (
             FileHash(
                 id=rom.id,
@@ -419,7 +415,10 @@ class FSRomsHandler(FSHandler):
                     else ""
                 ),
                 ra_hash=(
-                    md5_h.hexdigest() if md5_h.digest() != DEFAULT_MD5_H_DIGEST else ""
+                    await RAHasherService().calculate_hash(
+                        rom.platform.slug,
+                        f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}",
+                    )
                 ),
             ),
             hashed_files,
