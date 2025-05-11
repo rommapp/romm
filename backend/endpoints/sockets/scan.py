@@ -33,7 +33,7 @@ from handler.scan_handler import (
     scan_rom,
 )
 from handler.socket_handler import socket_handler
-from logger.formatter import LIGHTYELLOW, RED
+from logger.formatter import BLUE, LIGHTYELLOW, RED
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.platform import Platform
@@ -181,12 +181,14 @@ async def scan_platforms(
         if len(platform_list) == 0:
             log.warning(
                 emoji.emojize(
-                    f"{hl(':warning:', color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
+                    f"{hl(':warning:', color=LIGHTYELLOW)}  No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
                 Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
                 )
             )
         else:
-            log.info(f"Found {len(platform_list)} platforms in the file system")
+            log.info(
+                f"Found {hl(str(len(platform_list)))} platforms in the file system"
+            )
 
         for platform_slug in platform_list:
             scan_stats += await _identify_platform(
@@ -204,11 +206,11 @@ async def scan_platforms(
         if len(fs_platforms) > 0:
             purged_platforms = db_platform_handler.purge_platforms(fs_platforms)
             if len(purged_platforms) > 0:
-                log.info("Purging platforms not found in the filesystem:")
+                log.warning("Purging platforms not found in the filesystem:")
                 for p in purged_platforms:
-                    log.info(f" - {p.slug}")
+                    log.warning(f" - {p.slug}")
 
-        log.info(emoji.emojize(":check_mark: Scan completed "))
+        log.info(emoji.emojize(":check_mark:  Scan completed "))
         await sm.emit("scan:done", scan_stats.__dict__)
     except ScanStoppedException:
         await stop_scan()
@@ -273,11 +275,11 @@ async def _identify_platform(
     if len(fs_firmware) == 0:
         log.warning(
             emoji.emojize(
-                f"  {hl(':warning:', color=LIGHTYELLOW)} No firmware found, skipping firmware scan for this platform"
+                f"{hl(':warning:', color=LIGHTYELLOW)}  No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
             )
         )
     else:
-        log.info(f"  {len(fs_firmware)} firmware files found")
+        log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
 
     for fs_fw in fs_firmware:
         scan_stats += await _identify_firmware(
@@ -295,11 +297,11 @@ async def _identify_platform(
     if len(fs_roms) == 0:
         log.warning(
             emoji.emojize(
-                f"  {hl(':warning:', color=LIGHTYELLOW)} No roms found, verify that the folder structure is correct"
+                f"{hl(':warning:', color=LIGHTYELLOW)}  No roms found, verify that the folder structure is correct"
             )
         )
     else:
-        log.info(f"  {len(fs_roms)} roms found in the file system")
+        log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
     for fs_roms_batch in batched(fs_roms, 200):
         rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(
@@ -326,9 +328,9 @@ async def _identify_platform(
             platform.id, [rom["fs_name"] for rom in fs_roms]
         )
         if len(purged_roms) > 0:
-            log.info("Purging roms not found in the filesystem:")
+            log.warning("Purging roms not found in the filesystem:")
             for r in purged_roms:
-                log.info(f" - {r.fs_name}")
+                log.warning(f" - {r.fs_name}")
 
     # Same protection for firmware
     if len(fs_firmware) > 0:
@@ -336,9 +338,9 @@ async def _identify_platform(
             platform.id, [fw for fw in fs_firmware]
         )
         if len(purged_firmware) > 0:
-            log.info("Purging firmware not found in the filesystem:")
+            log.warning("Purging firmware not found in the filesystem:")
             for f in purged_firmware:
-                log.info(f" - {f}")
+                log.warning(f" - {f}")
 
     return scan_stats
 
@@ -383,7 +385,7 @@ def _set_rom_hashes(rom_id: int):
     except zlib.error as e:
         # Set empty hashes if calculating them fails for corrupted files
         log.error(
-            f"Hashes of {rom.fs_name} couldn't be calculated: {hl(str(e), color=RED)}"
+            f"Hashes of {hl(rom.fs_name)} couldn't be calculated: {hl(str(e), color=RED)}"
         )
         db_rom_handler.update_rom(
             rom_id,
@@ -539,7 +541,7 @@ async def scan_handler(_sid: str, options: dict):
         options (dict): Socket options
     """
 
-    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning "))
+    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning"))
 
     platform_ids = options.get("platforms", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
