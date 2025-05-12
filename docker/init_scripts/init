@@ -36,7 +36,7 @@ print_banner() {
 	info_log '              | | \ \ (_) | | | | | | |  | |'
 	info_log '              |_|  \_\___/|_| |_| |_|_|  |_|'
 	info_log ""
-	info_log "The beautiful, powerful, self-hosted Rom Manager and player"
+	info_log "The beautiful, powerful, self-hosted Rom manager and player"
 	info_log ""
 }
 
