@@ -193,7 +193,7 @@ async function loginOIDC() {
               </template>
             </v-btn>
           </template>
-          <div class="my-6 text-right">
+          <div v-if="!loginDisabled" class="my-6 text-right">
             <a
               class="text-blue text-caption"
               href="#"
@@ -207,7 +207,7 @@ async function loginOIDC() {
     </v-expand-transition>
     <v-expand-transition>
       <v-row
-        v-if="forgotMode"
+        v-if="forgotMode && !loginDisabled"
         class="text-white justify-center mt-2"
         no-gutters
       >
