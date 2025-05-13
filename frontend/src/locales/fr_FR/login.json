@@ -3,5 +3,11 @@
   "login-oidc": "Se connecter avec {oidc}",
   "or": "ou",
   "password": "Mot de passe",
-  "username": "Nom d'utilisateur"
+  "username": "Nom d'utilisateur",
+  "forgot-password": "Mot de passe oublié ?",
+  "send-reset-link": "Envoyer le lien de réinitialisation",
+  "reset-sent": "Lien de réinitialisation envoyé. Contactez votre administrateur.",
+  "confirm-password": "Confirmer le mot de passe",
+  "reset-password": "Réinitialiser le mot de passe",
+  "back-to-login": "Retour à la connexion"
 }
