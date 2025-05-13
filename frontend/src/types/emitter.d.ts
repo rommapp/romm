@@ -50,7 +50,7 @@ export type Events = {
     title: string;
   };
   showCreateUserDialog: null;
-  showCreateInviteLinkDialog: string;
+  showCreateInviteLinkDialog: void;
   showEditUserDialog: User;
   showDeleteUserDialog: User;
   showDeleteSavesDialog: {
