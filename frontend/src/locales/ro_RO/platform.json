@@ -30,6 +30,7 @@
   "show-firmwares": "Afișează firmware/BIOS",
   "show-matched": "Jocuri identificate",
   "show-unmatched": "Jocuri neidentificate",
+  "show-playables": "Afișează jocuri jucabile",
   "status": "Stare",
   "upload-roms": "Încărcare ROM-uri"
 }
