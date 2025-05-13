@@ -22,6 +22,7 @@ class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.reset_passwd_token_expires_in_minutes = 10
+        self.invite_link_token_expires_in_minutes = 10
 
     def verify_password(self, plain_password, hashed_password):
         return self.pwd_context.verify(plain_password, hashed_password)
@@ -151,6 +152,34 @@ class AuthHandler:
         db_user_handler.update_user(
             user.id, {"hashed_password": self.get_password_hash(new_password)}
         )
+
+    def generate_invite_link_token(self, user: Any) -> str:
+        now = datetime.now(timezone.utc)
+
+        jti = str(uuid.uuid4())
+
+        to_encode = {
+            "sub": user.username,
+            "type": TokenPurpose.INVITE,
+            "iat": int(now.timestamp()),
+            "exp": int(
+                (
+                    now + timedelta(minutes=self.invite_link_token_expires_in_minutes)
+                ).timestamp()
+            ),
+            "jti": jti,
+        }
+        token = jwt.encode(
+            {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+        )
+        invite_link = f"{ROMM_BASE_URL}/invite-link?token={token}"
+        log.info(
+            f"Invite user link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
+        )
+        redis_client.setex(
+            f"invite-jti:{jti}", self.invite_link_token_expires_in_minutes * 60, "valid"
+        )
+        return token
 
 
 class OAuthHandler:

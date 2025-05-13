@@ -7,12 +7,13 @@ import storeAuth from "@/stores/auth";
 import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const userSearch = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
@@ -72,6 +73,31 @@ function disableUser(user: User) {
   });
 }
 
+function createInviteLink() {
+  userApi
+    .createInviteLink()
+    .then(({ data }) => {
+      emitter?.emit("snackbarShow", {
+        msg: "Invite link created",
+        icon: "mdi-check-circle",
+        color: "green",
+        timeout: 5000,
+      });
+      emitter?.emit("showCreateInviteLinkDialog", data.link);
+      console.log(data);
+    })
+    .catch(({ response, message }) => {
+      emitter?.emit("snackbarShow", {
+        msg: `Unable to create invite link: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 5000,
+      });
+    });
+}
+
 onMounted(() => {
   userApi
     .fetchUsers()
@@ -114,7 +140,15 @@ onMounted(() => {
             class="text-primary"
             @click="emitter?.emit('showCreateUserDialog', null)"
           >
-            Add
+            {{ t("common.add") }}
+          </v-btn>
+          <v-btn
+            prepend-icon="mdi-share"
+            variant="outlined"
+            class="text-primary ml-2"
+            @click="createInviteLink"
+          >
+            {{ t("settings.invite-link") }}
           </v-btn>
         </template>
         <template #item.avatar_path="{ item }">

@@ -7,7 +7,7 @@ from config import ASSETS_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
-from endpoints.responses.identity import UserSchema
+from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from fastapi import Depends, HTTPException, Request, status
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
@@ -80,6 +80,35 @@ def add_user(
     )
 
     return UserSchema.model_validate(db_user_handler.add_user(user))
+
+
+@protected_route(
+    router.get,
+    "/invite-link",
+    [],
+    status_code=status.HTTP_201_CREATED,
+)
+def invite_link(request: Request) -> InviteLinkSchema:
+    """Create an invite link for a user.
+
+    Args:
+        request (Request): FastAPI Request object
+
+    Returns:
+        InviteLinkSchema: Invite link
+    """
+
+    if (
+        Scope.USERS_WRITE not in request.auth.scopes
+        and len(db_user_handler.get_admin_users()) > 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+    token = auth_handler.generate_invite_link_token(request.user)
+    return InviteLinkSchema.model_validate({"token": token})
 
 
 @protected_route(router.get, "", [Scope.USERS_READ])
