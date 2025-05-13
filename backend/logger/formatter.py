@@ -1,4 +1,5 @@
 import logging
+from pprint import pformat
 
 from colorama import Fore, Style, init
 from config import FORCE_COLOR, NO_COLOR
@@ -13,10 +14,6 @@ CYAN = Fore.CYAN
 LIGHTMAGENTA = Fore.LIGHTMAGENTA_EX
 RESET = Fore.RESET
 RESET_ALL = Style.RESET_ALL
-
-# TODO: use this for internal worker logs
-common_log_format = f"{GREEN}INFO{RESET}:\t  {BLUE}[RomM]{LIGHTMAGENTA}[worker]{CYAN}[%(asctime)s] {RESET_ALL}%(message)s"
-common_date_format = "%Y-%m-%d %H:%M:%S"
 
 
 def should_strip_ansi() -> bool:
@@ -67,6 +64,9 @@ class Formatter(logging.Formatter):
             else f" {BLUE}[RomM]{LIGHTMAGENTA}[%(module)s]"
         )
         msg = f"{RESET_ALL}%(message)s"
+
+        message = pformat(record.msg) if hasattr(record, "pprint") else "%(message)s"
+        msg = f"{RESET_ALL}{message}"
         date = f"{CYAN}[%(asctime)s] "
         formats = {
             logging.DEBUG: f"{LIGHTMAGENTA}{level}{dots}{identifier}{date}{msg}",
@@ -76,7 +76,7 @@ class Formatter(logging.Formatter):
             logging.CRITICAL: f"{RED}{level}{dots}{identifier_critical}{date}{msg}",
         }
         log_fmt = formats.get(record.levelno)
-        formatter = logging.Formatter(fmt=log_fmt, datefmt=common_date_format)
+        formatter = logging.Formatter(fmt=log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
         return formatter.format(record)
 
 
