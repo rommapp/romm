@@ -4,8 +4,10 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const fullInviteLink = ref("");
@@ -28,8 +30,8 @@ function closeDialog() {
     :width="lgAndUp ? '60vw' : '95vw'"
   >
     <template #content>
-      <v-row class="justify-center text-center pa-2 mb-3" no-gutters>
-        <v-list-item class="bg-toplayer">{{ fullInviteLink }}</v-list-item>
+      <v-row class="justify-center text-center pa-2" no-gutters>
+        <v-list-item>{{ fullInviteLink }}</v-list-item>
       </v-row>
     </template>
   </r-dialog>

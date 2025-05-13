@@ -69,16 +69,18 @@ const runAllTasks = async () => {
 <template>
   <r-section icon="mdi-pulse" title="Tasks" class="ma-2">
     <template #toolbar-append>
-      <v-btn
-        :disabled="runningTasks.value"
-        :loading="runningTasks.value"
-        prepend-icon="mdi-play"
-        variant="outlined"
-        class="text-primary"
-        @click="runAllTasks"
-      >
-        Run All
-      </v-btn>
+      <v-btn-group class="mr-3" divided density="compact">
+        <v-btn
+          :disabled="runningTasks.value"
+          :loading="runningTasks.value"
+          prepend-icon="mdi-play"
+          variant="outlined"
+          class="text-primary"
+          @click="runAllTasks"
+        >
+          Run All
+        </v-btn>
+      </v-btn-group>
     </template>
     <template #content>
       <v-row no-gutters class="align-center">
