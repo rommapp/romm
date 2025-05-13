@@ -7,7 +7,8 @@
   "forgot-password": "Passwort vergessen?",
   "send-reset-link": "Link zum Zurücksetzen senden",
   "reset-sent": "Link zum Zurücksetzen wurde gesendet. Kontaktieren Sie Ihren Administrator.",
-  "confirm-password": "Passwort bestätigen",
+  "new-password": "Neues Passwort",
+  "confirm-new-password": "Neues Passwort bestätigen",
   "reset-password": "Passwort zurücksetzen",
   "back-to-login": "Zurück zum Login"
 }

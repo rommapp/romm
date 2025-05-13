@@ -7,7 +7,8 @@
   "forgot-password": "Ai uitat parola?",
   "send-reset-link": "Trimite link de resetare",
   "reset-sent": "Linkul de resetare a fost trimis. Contactează administratorul.",
-  "confirm-password": "Confirmă parola",
+  "new-password": "Parolă nouă",
+  "confirm-new-password": "Confirmă parola nouă",
   "reset-password": "Resetează parola",
   "back-to-login": "Înapoi la autentificare"
 }
