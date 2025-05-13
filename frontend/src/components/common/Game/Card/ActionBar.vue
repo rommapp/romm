@@ -14,11 +14,12 @@ import {
 } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
+const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -42,6 +43,16 @@ const ruffleEmulationSupported = computed(() => {
 
 const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
+});
+
+const menuOpen = ref(false);
+
+watch(menuOpen, (val) => {
+  if (val) {
+    emit("menu-open");
+  } else {
+    emit("menu-close");
+  }
 });
 </script>
 
@@ -112,7 +123,7 @@ const is3DSRom = computed(() => {
       "
       class="d-flex"
     >
-      <v-menu location="bottom">
+      <v-menu location="bottom" v-model="menuOpen">
         <template #activator="{ props }">
           <v-btn
             @click.prevent
