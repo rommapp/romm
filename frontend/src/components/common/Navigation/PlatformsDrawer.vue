@@ -5,6 +5,7 @@ import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { ref, watch } from "vue";
 
 // Props
 const { t } = useI18n();
@@ -14,8 +15,31 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 
+// Functions
 function clear() {
   filterText.value = "";
+}
+
+// Ref to store the element that triggered the drawer
+const triggerElement = ref<HTMLElement | null>(null);
+// Watch for changes in the navigation drawer state
+const textFieldRef = ref();
+watch(activePlatformsDrawer, (isOpen) => {
+  if (isOpen) {
+    // Store the currently focused element before opening the drawer
+    triggerElement.value = document.activeElement as HTMLElement;
+    // Focus the text field when the drawer is opened
+    textFieldRef.value?.focus();
+  }
+});
+
+// Close the drawer when the Esc key is pressed
+function handleDrawerCloseOnEsc(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    activePlatformsDrawer.value = false;
+    // Focus the element that triggered the drawer
+    triggerElement.value?.focus();
+  }
 }
 </script>
 <template>
@@ -35,9 +59,12 @@ function clear() {
     class="bg-surface pa-1"
     rounded
     :border="0"
+    @keydown="handleDrawerCloseOnEsc"
   >
     <template #prepend>
       <v-text-field
+        ref="textFieldRef"
+        aria-label="Search platform"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
@@ -55,6 +82,9 @@ function clear() {
         v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :platform="platform"
+        tabindex="0"
+        role="listitem"
+        :aria-label="`${platform.name}`"
       />
     </v-list>
   </v-navigation-drawer>
