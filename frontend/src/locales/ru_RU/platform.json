@@ -28,6 +28,7 @@
   "show-firmwares": "Показать прошивки/BIOS",
   "show-matched": "Показать соответствующие",
   "show-unmatched": "Показать несоответствующие",
+  "show-playables": "Показать доступные",
   "status": "Статус",
   "upload-roms": "Загрузить ромы"
 }
