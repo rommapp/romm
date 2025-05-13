@@ -6,7 +6,7 @@ import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { isNull } from "lodash";
@@ -35,6 +35,19 @@ async function addCollection() {
 function clear() {
   filterText.value = "";
 }
+
+// Ref to store the element that triggered the drawer
+const triggerElement = ref<HTMLElement | null>(null);
+// Watch for changes in the navigation drawer state
+const textFieldRef = ref();
+watch(activeCollectionsDrawer, (isOpen) => {
+  if (isOpen) {
+    // Store the currently focused element before opening the drawer
+    triggerElement.value = document.activeElement as HTMLElement;
+    // Focus the text field when the drawer is opened
+    textFieldRef.value?.focus();
+  }
+});
 
 function onScroll() {
   const collectionsDrawer = document.querySelector(
@@ -65,6 +78,15 @@ onBeforeUnmount(() => {
   );
   collectionsDrawer?.removeEventListener("scroll", onScroll);
 });
+
+// Close the drawer when the Esc key is pressed
+function handleDrawerCloseOnEsc(event: KeyboardEvent) {
+  if (event.key === "Escape") {
+    activeCollectionsDrawer.value = false;
+    // Focus the element that triggered the drawer
+    triggerElement.value?.focus();
+  }
+}
 </script>
 <template>
   <v-navigation-drawer
@@ -84,9 +106,13 @@ onBeforeUnmount(() => {
     class="bg-surface pa-1"
     rounded
     :border="0"
+    @keydown="handleDrawerCloseOnEsc"
   >
     <template #prepend>
       <v-text-field
+        ref="textFieldRef"
+        tabindex="1"
+        aria-label="Search collection"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
@@ -104,14 +130,21 @@ onBeforeUnmount(() => {
         v-for="collection in filteredCollections"
         :collection="collection"
         with-link
+        tabindex="3"
+        role="listitem"
+        :aria-label="`${collection.name}`"
       />
       <template
         v-if="showVirtualCollections && filteredVirtualCollections.length > 0"
       >
         <v-divider class="my-4 mx-4" />
-        <v-list-subheader class="uppercase">{{
-          t("common.virtual-collections").toUpperCase()
-        }}</v-list-subheader>
+        <v-list-subheader
+          tabindex="3"
+          role="listitem"
+          :aria-label="t('common.virtual-collections')"
+          class="uppercase"
+          >{{ t("common.virtual-collections").toUpperCase() }}</v-list-subheader
+        >
         <collection-list-item
           v-for="collection in filteredVirtualCollections.slice(
             0,
@@ -119,12 +152,16 @@ onBeforeUnmount(() => {
           )"
           :collection="collection"
           with-link
+          tabindex="3"
+          role="listitem"
+          :aria-label="`${collection.name}`"
         />
       </template>
     </v-list>
     <template #append>
       <v-btn
         @click="addCollection()"
+        tabindex="2"
         variant="tonal"
         color="primary"
         prepend-icon="mdi-plus"

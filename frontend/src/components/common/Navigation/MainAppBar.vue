@@ -72,13 +72,14 @@ function collapse() {
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">
-        <home-btn />
+        <home-btn aria-label="Home" />
       </v-row>
     </template>
 
     <v-row no-gutters class="justify-center mt-10">
       <v-divider class="mx-2" />
       <v-btn
+        aria-label="Collapse main navbar"
         @click="collapse"
         id="collapseBtn"
         size="small"
