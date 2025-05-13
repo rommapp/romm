@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CreateUserDialog from "@/components/Settings/Administration/Users/Dialog/CreateUser.vue";
+import InviteLinkDialog from "@/components/Settings/Administration/Users/Dialog/InviteLink.vue";
 import DeleteUserDialog from "@/components/Settings/Administration/Users/Dialog/DeleteUser.vue";
 import RSection from "@/components/common/RSection.vue";
 import userApi from "@/services/api/user";
@@ -83,8 +84,7 @@ function createInviteLink() {
         color: "green",
         timeout: 5000,
       });
-      emitter?.emit("showCreateInviteLinkDialog", data.link);
-      console.log(data);
+      emitter?.emit("showCreateInviteLinkDialog", data.token);
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
@@ -208,5 +208,6 @@ onMounted(() => {
   </r-section>
 
   <create-user-dialog />
+  <invite-link-dialog />
   <delete-user-dialog />
 </template>

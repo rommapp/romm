@@ -3,6 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type InviteLinkSchema = {
-    link: string;
+    token: string;
 };
 
