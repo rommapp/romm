@@ -12,7 +12,6 @@ from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
     RESOURCES_BASE_PATH,
     RETROACHIEVEMENTS_API_KEY,
-    RETROACHIEVEMENTS_USERNAME,
 )
 from fastapi import HTTPException, status
 from logger.logger import log
@@ -21,10 +20,8 @@ from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
 
-# Used to display the Mobygames API status in the frontend
-RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY) and bool(
-    RETROACHIEVEMENTS_USERNAME
-)
+# Used to display the Retroachievements API status in the frontend
+RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY)
 
 
 class RAGamesPlatform(TypedDict):

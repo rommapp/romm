@@ -5,6 +5,7 @@ from typing import List, Sequence, Tuple
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
+from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
     Integer,
@@ -25,6 +26,80 @@ from sqlalchemy import (
 from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
+
+EJS_SUPPORTED_PLATFORMS = [
+    "3do",
+    "amiga",
+    "amiga-cd32",
+    "arcade",
+    "neogeoaes",
+    "neogeomvs",
+    "atari2600",
+    "atari-2600-plus",
+    "atari5200",
+    "atari7800",
+    "c-plus-4",
+    "c64",
+    "cpet",
+    "commodore-64c",
+    "c128",
+    "commmodore-128",
+    "colecovision",
+    "jaguar",
+    "lynx",
+    "atari-lynx-mkii",
+    "neo-geo-pocket",
+    "neo-geo-pocket-color",
+    "nes",
+    "famicom",
+    "fds",
+    "game-televisison",
+    "new-style-nes",
+    "n64",
+    "ique-player",
+    "nds",
+    "nintendo-ds-lite",
+    "nintendo-dsi",
+    "nintendo-dsi-xl",
+    "gb",
+    "game-boy-pocket",
+    "game-boy-light",
+    "gba",
+    "game-boy-adavance-sp",
+    "game-boy-micro",
+    "gbc",
+    "pc-fx",
+    "ps",
+    "psp",
+    "segacd",
+    "sega32",
+    "gamegear",
+    "sms",
+    "sega-mark-iii",
+    "sega-game-box-9",
+    "sega-master-system-ii",
+    "master-system-super-compact",
+    "master-system-girl",
+    "genesis-slash-megadrive",
+    "sega-mega-drive-2-slash-genesis",
+    "sega-mega-jet",
+    "mega-pc",
+    "tera-drive",
+    "sega-nomad",
+    "saturn",
+    "snes",
+    "sfam",
+    "super-nintendo-original-european-version",
+    "super-famicom-shvc-001",
+    "super-famicom-jr-model-shvc-101",
+    "new-style-super-nes-model-sns-101",
+    "turbografx16--1",
+    "vic-20",
+    "virtualboy",
+    "wonderswan",
+    "swancrystal",
+    "wonderswan-color",
+]
 
 
 def with_details(func):
@@ -143,6 +218,11 @@ class DBRomsHandler(DBBaseHandler):
 
     def filter_by_duplicates_only(self, query: Query):
         return query.filter(Rom.sibling_roms.any())
+
+    def filter_by_playables_only(self, query: Query):
+        return query.join(Rom.platform).filter(
+            Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
+        )
 
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
@@ -270,6 +350,7 @@ class DBRomsHandler(DBBaseHandler):
         matched_only: bool = False,
         favourites_only: bool = False,
         duplicates_only: bool = False,
+        playables_only: bool = False,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -307,6 +388,9 @@ class DBRomsHandler(DBBaseHandler):
 
         if duplicates_only:
             query = self.filter_by_duplicates_only(query)
+
+        if playables_only:
+            query = self.filter_by_playables_only(query)
 
         if group_by_meta_id:
 

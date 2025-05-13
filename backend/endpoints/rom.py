@@ -147,6 +147,7 @@ def get_roms(
     matched_only: bool = False,
     favourites_only: bool = False,
     duplicates_only: bool = False,
+    playables_only: bool = False,
     group_by_meta_id: bool = False,
     selected_genre: str | None = None,
     selected_franchise: str | None = None,
@@ -171,6 +172,7 @@ def get_roms(
         matched_only (bool, optional): Filter only matched roms. Defaults to False.
         favourites_only (bool, optional): Filter only favourite roms. Defaults to False.
         duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False.
+        playables_only (bool, optional): Filter only playable roms by emulatorjs. Defaults to False.
         group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf ID. Defaults to False.
         selected_genre (str, optional): Filter by genre. Defaults to None.
         selected_franchise (str, optional): Filter by franchise. Defaults to None.
@@ -204,6 +206,7 @@ def get_roms(
         matched_only=matched_only,
         favourites_only=favourites_only,
         duplicates_only=duplicates_only,
+        playables_only=playables_only,
         selected_genre=selected_genre,
         selected_franchise=selected_franchise,
         selected_collection=selected_collection,
