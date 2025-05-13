@@ -20,7 +20,7 @@ dependencies = [
   "colorama ~= 0.4",
   "emoji == 2.10.1",
   "fastapi == 0.115.6",
-  "gunicorn == 22.0.0",
+  "gunicorn == 23.0.0",
   "httpx ~= 0.27",
   "itsdangerous ~= 2.1",
   "joserfc ~= 0.9",

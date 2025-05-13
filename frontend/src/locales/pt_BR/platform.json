@@ -28,6 +28,7 @@
   "show-firmwares": "Mostrar firmwares/BIOS",
   "show-matched": "Mostrar correspondentes",
   "show-unmatched": "Mostrar não correspondentes",
+  "show-playables": "Mostrar jogáveis",
   "status": "Status",
   "upload-roms": "Carregar ROMs"
 }

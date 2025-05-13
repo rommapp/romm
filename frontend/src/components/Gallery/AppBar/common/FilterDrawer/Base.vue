@@ -4,6 +4,7 @@ import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/
 import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
+import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
@@ -18,10 +19,12 @@ import { useI18n } from "vue-i18n";
 // Props
 withDefaults(
   defineProps<{
+    showPlayablesFilter?: boolean;
     showPlatformsFilter?: boolean;
     showFilterBar?: boolean;
   }>(),
   {
+    showPlayablesFilter: true,
     showPlatformsFilter: false,
     showFilterBar: false,
   },
@@ -193,6 +196,7 @@ onMounted(async () => {
         <filter-matched-btn class="mt-2" />
         <filter-favourites-btn class="mt-2" />
         <filter-duplicates-btn class="mt-2" />
+        <filter-playables-btn v-if="showPlayablesFilter" class="mt-2" />
       </v-list-item>
       <v-list-item v-if="showPlatformsFilter">
         <v-autocomplete
