@@ -9,6 +9,7 @@ from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
 from handler.metadata.moby_handler import MobyMetadata
+from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
 from models.rom import Rom, RomFileCategory, RomUserStatus
 from pydantic import computed_field, field_validator
@@ -30,6 +31,11 @@ RomMobyMetadata = TypedDict(  # type: ignore[misc]
 RomSSMetadata = TypedDict(  # type: ignore[misc]
     "RomSSMetadata",
     dict((k, NotRequired[v]) for k, v in get_type_hints(SSMetadata).items()),
+    total=False,
+)
+RomRAMetadata = TypedDict(  # type: ignore[misc]
+    "RomRAMetadata",
+    dict((k, NotRequired[v]) for k, v in get_type_hints(RAMetadata).items()),
     total=False,
 )
 
@@ -166,6 +172,7 @@ class RomSchema(BaseModel):
     sgdb_id: int | None
     moby_id: int | None
     ss_id: int | None
+    ra_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -284,6 +291,7 @@ class SimpleRomSchema(RomSchema):
 
 
 class DetailedRomSchema(RomSchema):
+    merged_ra_metadata: RomRAMetadata | None
     merged_screenshots: list[str]
     siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema

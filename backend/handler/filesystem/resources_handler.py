@@ -46,6 +46,22 @@ class FSResourcesHandler(FSHandler):
         small_img = cover.resize(small_size)
         small_img.save(save_path)
 
+    async def store_badge(self, url: str, file_path: str) -> None:
+        httpx_client = ctx_httpx_client.get()
+        try:
+            async with httpx_client.stream("GET", url, timeout=120) as response:
+                if response.status_code == 200:
+                    await Path(f"{RESOURCES_BASE_PATH}/{file_path}").parent.mkdir(
+                        parents=True, exist_ok=True
+                    )
+                    async with await Path(f"{RESOURCES_BASE_PATH}/{file_path}").open(
+                        "wb"
+                    ) as f:
+                        async for chunk in response.aiter_raw():
+                            await f.write(chunk)
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
@@ -70,7 +86,6 @@ class FSResourcesHandler(FSHandler):
                             await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
-            return None
 
         if size == CoverSize.SMALL:
             with Image.open(cover_file) as img:

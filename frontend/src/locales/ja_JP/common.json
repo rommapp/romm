@@ -33,5 +33,6 @@
   "upload": "アップロード",
   "user-interface": "ユーザーインターフェイス",
   "virtual-collection": "自動生成コレクション",
-  "virtual-collections": "自動生成コレクション"
+  "virtual-collections": "自動生成コレクション",
+  "sync": "同期"
 }

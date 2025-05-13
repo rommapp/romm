@@ -28,6 +28,7 @@ from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
+    fetch_ra_info,
     scan_firmware,
     scan_platform,
     scan_rom,
@@ -153,7 +154,12 @@ async def scan_platforms(
         roms_ids = []
 
     if not metadata_sources:
-        metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
+        metadata_sources = [
+            MetadataSource.IGDB,
+            MetadataSource.MOBY,
+            MetadataSource.SS,
+            MetadataSource.RA,
+        ]
 
     sm = _get_socket_manager()
 
@@ -370,18 +376,20 @@ async def _identify_firmware(
     return scan_stats
 
 
-def _set_rom_hashes(rom_id: int):
+async def _set_rom_hashes(rom_id: int) -> str:
     """Set the hashes for the given rom
 
     Args:
         rom_id (int): Rom id
+    Returns:
+        ra_hash (str): Calculated retroachievements hash
     """
     rom = db_rom_handler.get_rom(rom_id)
     if not rom:
-        return
+        return ""
 
     try:
-        rom_hash, rom_file_hashes = fs_rom_handler.get_rom_hashes(rom)
+        rom_hash, rom_file_hashes = await fs_rom_handler.get_rom_hashes(rom)
     except zlib.error as e:
         # Set empty hashes if calculating them fails for corrupted files
         log.error(
@@ -393,8 +401,10 @@ def _set_rom_hashes(rom_id: int):
                 "crc_hash": "",
                 "md5_hash": "",
                 "sha1_hash": "",
+                "ra_hash": "",
             },
         )
+        return ""
     else:
         db_rom_handler.update_rom(
             rom_id,
@@ -402,6 +412,7 @@ def _set_rom_hashes(rom_id: int):
                 "crc_hash": rom_hash["crc_hash"],
                 "md5_hash": rom_hash["md5_hash"],
                 "sha1_hash": rom_hash["sha1_hash"],
+                "ra_hash": rom_hash["ra_hash"],
             },
         )
         for file_hash in rom_file_hashes:
@@ -411,8 +422,10 @@ def _set_rom_hashes(rom_id: int):
                     "crc_hash": file_hash["crc_hash"],
                     "md5_hash": file_hash["md5_hash"],
                     "sha1_hash": file_hash["sha1_hash"],
+                    "ra_hash": rom_hash["ra_hash"],
                 },
             )
+        return rom_hash["ra_hash"]
 
 
 async def _identify_rom(
@@ -448,7 +461,9 @@ async def _identify_rom(
 
     scan_stats.scanned_roms += 1
     scan_stats.added_roms += 1 if not rom else 0
-    scan_stats.metadata_roms += 1 if scanned_rom.igdb_id or scanned_rom.moby_id else 0
+    scan_stats.metadata_roms += (
+        1 if scanned_rom.igdb_id or scanned_rom.moby_id or scanned_rom.ss_id else 0
+    )
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
@@ -471,17 +486,42 @@ async def _identify_rom(
         db_rom_handler.add_rom_file(new_rom_file)
 
     # Calculating hashes is expensive, so we only do it if necessary
-    if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
+    if (
+        not rom
+        or not rom.ra_id
+        or scan_type == ScanType.COMPLETE
+        or scan_type == ScanType.HASHES
+        or MetadataSource.RA in metadata_sources
+    ):
         # Skip hashing games for platforms that don't have a hash database
         if platform.slug not in NON_HASHABLE_PLATFORMS:
-            _set_rom_hashes(_added_rom.id)
-
-            # Uncomment this to run scan in a background process
-            # low_prio_queue.enqueue(
-            #     _set_rom_hashes,
-            #     _added_rom.id,
-            #     job_timeout=60 * 15,  # Timeout (15 minutes)
-            # )
+            ra_hash = await _set_rom_hashes(_added_rom.id)
+            if ra_hash:
+                ra_handler_rom = await fetch_ra_info(
+                    platform=platform,
+                    rom_id=_added_rom.id,
+                    hash=ra_hash,
+                )
+                _added_rom.ra_id = ra_handler_rom.get("ra_id", "")
+                _added_rom.ra_metadata = ra_handler_rom.get("ra_metadata", {})
+                for a in _added_rom.ra_metadata.get("achievements", {}):
+                    # Store both normal and locked version
+                    badge_url_lock = a.get("badge_url_lock", None)
+                    badge_path_lock = a.get("badge_path_lock", None)
+                    if badge_url_lock and badge_path_lock:
+                        await fs_resource_handler.store_badge(
+                            badge_url_lock, badge_path_lock
+                        )
+                    badge_url = a.get("badge_url", None)
+                    badge_path = a.get("badge_path", None)
+                    if badge_url and badge_path:
+                        await fs_resource_handler.store_badge(badge_url, badge_path)
+                # Uncomment this to run scan in a background process
+                # low_prio_queue.enqueue(
+                #     _set_rom_hashes,
+                #     _added_rom.id,
+                #     job_timeout=60 * 15,  # Timeout (15 minutes)
+                # )
 
     # Return early if we're only scanning for hashes
     if scan_type == ScanType.HASHES:
