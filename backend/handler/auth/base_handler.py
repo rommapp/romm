@@ -2,11 +2,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY
+from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY, ROMM_BASE_URL
 from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
-from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY
+from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
@@ -20,6 +20,7 @@ from starlette.requests import HTTPConnection
 class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        self.reset_passwd_token_expires_in_minutes = 10
 
     def verify_password(self, plain_password, hashed_password):
         return self.pwd_context.verify(plain_password, hashed_password)
@@ -62,6 +63,77 @@ class AuthHandler:
             return None
 
         return user
+
+    def generate_password_reset_token(self, user: Any) -> None:
+        now = datetime.now(timezone.utc)
+
+        to_encode = {
+            "sub": user.username,
+            "email": user.email,
+            "type": TokenPurpose.RESET,
+            "iat": int(now.timestamp()),
+            "exp": int(
+                (
+                    now + timedelta(minutes=self.reset_passwd_token_expires_in_minutes)
+                ).timestamp()
+            ),
+            "jti": str(uuid.uuid4()),
+        }
+        token = jwt.encode(
+            {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+        )
+        log.info(
+            f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
+        )
+
+    def verify_password_reset_token(self, token: str) -> Any:
+        """Verify the password reset token.
+
+        Args:
+            token (str): The token to verify.
+
+        Raises:
+            HTTPException: If the token is invalid or expired.
+            HTTPException: If the token is missing or malformed.
+            HTTPException: If the user is not found.
+            HTTPException: If the token is not for password reset.
+        """
+        from handler.database import db_user_handler
+
+        try:
+            payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
+        except (BadSignatureError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="Invalid token") from exc
+
+        if payload.claims.get("type") != TokenPurpose.RESET:
+            raise HTTPException(status_code=400, detail="Invalid token purpose")
+
+        username = payload.claims.get("sub")
+        if not username:
+            raise HTTPException(status_code=400, detail="Invalid token payload")
+
+        user = db_user_handler.get_user_by_username(username)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        now = datetime.now(timezone.utc).timestamp()
+        if now > payload.claims.get("exp"):
+            raise HTTPException(status_code=400, detail="Token has expired")
+
+        return user
+
+    def set_user_new_password(self, user: Any, new_password: str) -> None:
+        """
+        Set the new password for the user.
+        Args:
+            user (Any): The user object.
+            new_password (str): The new password to set.
+        """
+        from handler.database import db_user_handler
+
+        db_user_handler.update_user(
+            user.id, {"hashed_password": self.get_password_hash(new_password)}
+        )
 
 
 class OAuthHandler:

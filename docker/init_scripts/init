@@ -113,7 +113,7 @@ start_bin_nginx() {
 		# if container runs as root, drop permissions
 		nginx -g 'user romm;'
 	fi
-	info_log "🚀 RomM is now available at http://0.0.0.0:8080"
+	info_log "🚀 RomM is now available at ${ROMM_BASE_URL}:8080"
 }
 
 # Commands to start valkey-server (handling PID creation internally)
