@@ -13,7 +13,7 @@ const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
 </script>
 <template>
-  <base-gallery-app-bar :show-platforms-filter="false" show-filter-bar>
+  <base-gallery-app-bar :show-playables-filter="false" show-filter-bar>
     <template #prepend>
       <platform-icon
         v-if="currentPlatform"
