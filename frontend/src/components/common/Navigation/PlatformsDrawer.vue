@@ -65,6 +65,7 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
       <v-text-field
         ref="textFieldRef"
         aria-label="Search platform"
+        :tabindex="activePlatformsDrawer ? 0 : -1"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
@@ -77,14 +78,14 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
         density="compact"
       ></v-text-field>
     </template>
-    <v-list lines="two" class="py-1 px-0">
+    <v-list tabindex="-1" lines="two" class="py-1 px-0">
       <platform-list-item
         v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :platform="platform"
-        tabindex="0"
+        :tabindex="activePlatformsDrawer ? 0 : -1"
         role="listitem"
-        :aria-label="`${platform.name}`"
+        :aria-label="`${platform.display_name} with ${platform.rom_count} games`"
       />
     </v-list>
   </v-navigation-drawer>
