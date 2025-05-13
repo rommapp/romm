@@ -189,9 +189,10 @@ watch(
     mobile
     floating
     width="500"
+    location="right"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'ml-2': activePlatformInfoDrawer,
+      'mr-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
     }"
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"

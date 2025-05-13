@@ -42,9 +42,9 @@ const { calculatedWidth } = calculateMainLayoutWidth();
     <search-text-field v-if="showSearchBar" />
     <slot name="content" />
     <template #append>
-      <slot name="append" />
       <selecting-btn />
       <gallery-view-btn />
+      <slot name="append" />
     </template>
   </v-app-bar>
 

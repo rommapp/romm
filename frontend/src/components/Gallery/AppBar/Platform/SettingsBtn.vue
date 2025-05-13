@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import storeGalleryView from "@/stores/galleryView";
+import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
-const galleryViewStore = storeGalleryView();
-const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
+const navigationStore = storeNavigation();
+const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 </script>
 
 <template>
@@ -19,13 +19,12 @@ const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
   >
     <template #activator="{ props }">
       <v-btn
-        class="ml-0"
         variant="text"
         rounded="0"
         v-bind="props"
-        icon="mdi-memory"
-        :color="activeFirmwareDrawer ? 'primary' : ''"
-        @click="galleryViewStore.switchActiveFirmwareDrawer()"
+        icon="mdi-cog"
+        :color="activePlatformInfoDrawer ? 'primary' : ''"
+        @click="navigationStore.switchActivePlatformInfoDrawer()"
       />
     </template>
   </v-tooltip>
