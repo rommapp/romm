@@ -31,3 +31,7 @@ class UserSchema(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class InviteLinkSchema(BaseModel):
+    token: str

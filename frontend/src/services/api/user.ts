@@ -1,4 +1,8 @@
-import type { MessageResponse, UserSchema } from "@/__generated__";
+import type {
+  MessageResponse,
+  UserSchema,
+  InviteLinkSchema,
+} from "@/__generated__";
 import api from "@/services/api/index";
 import type { User } from "@/stores/users";
 
@@ -20,6 +24,10 @@ async function createUser({
     {},
     { params: { username, password, email, role } },
   );
+}
+
+async function createInviteLink(): Promise<{ data: InviteLinkSchema }> {
+  return api.get("/users/invite-link", {});
 }
 
 async function fetchUsers(): Promise<{ data: UserSchema[] }> {
@@ -77,6 +85,7 @@ async function refreshRetroAchievements({
 
 export default {
   createUser,
+  createInviteLink,
   fetchUsers,
   fetchUser,
   fetchCurrentUser,

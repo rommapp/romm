@@ -62,4 +62,5 @@ FULL_SCOPES: Final = EDIT_SCOPES + list(FULL_SCOPES_MAP.keys())
 
 
 class TokenPurpose(enum.StrEnum):
+    INVITE = "invite"
     RESET = "reset"
