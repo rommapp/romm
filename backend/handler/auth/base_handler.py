@@ -172,9 +172,9 @@ class AuthHandler:
         token = jwt.encode(
             {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
         )
-        invite_link = f"{ROMM_BASE_URL}/invite-link?token={token}"
+        invite_link = f"{ROMM_BASE_URL}/register?token={token}"
         log.info(
-            f"Invite user link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
+            f"Invite link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
         )
         redis_client.setex(
             f"invite-jti:{jti}", self.invite_link_token_expires_in_minutes * 60, "valid"
