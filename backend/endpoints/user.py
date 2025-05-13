@@ -122,17 +122,17 @@ def invite_link(request: Request, role: str) -> InviteLinkSchema:
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def add_user_with_invite(
-    username: str = Body(...),
-    password: str = Body(...),
-    email: str = Body(...),
-    token: str = Body(...),
+    username: str = Body(..., embed=True),
+    email: str = Body(..., embed=True),
+    password: str = Body(..., embed=True),
+    token: str = Body(..., embed=True),
 ) -> UserSchema:
     """Create user endpoint with invite link
 
     Args:
         username (str): User username
-        password (str): User password
         email (str): User email
+        password (str): User password
         token (str): Invite link token
 
     Returns:
