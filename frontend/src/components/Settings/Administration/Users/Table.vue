@@ -134,22 +134,24 @@ onMounted(() => {
         hide-default-footer
       >
         <template #header.actions>
-          <v-btn
-            prepend-icon="mdi-plus"
-            variant="outlined"
-            class="text-primary"
-            @click="emitter?.emit('showCreateUserDialog', null)"
-          >
-            {{ t("common.add") }}
-          </v-btn>
-          <v-btn
-            prepend-icon="mdi-share"
-            variant="outlined"
-            class="text-primary ml-2"
-            @click="createInviteLink"
-          >
-            {{ t("settings.invite-link") }}
-          </v-btn>
+          <v-btn-group divided density="compact">
+            <v-btn
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-primary"
+              @click="emitter?.emit('showCreateUserDialog', null)"
+            >
+              {{ t("common.add") }}
+            </v-btn>
+            <v-btn
+              prepend-icon="mdi-share"
+              variant="outlined"
+              class="text-primary"
+              @click="createInviteLink"
+            >
+              {{ t("settings.invite-link") }}
+            </v-btn>
+          </v-btn-group>
         </template>
         <template #item.avatar_path="{ item }">
           <v-avatar>
