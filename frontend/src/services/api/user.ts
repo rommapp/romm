@@ -26,8 +26,12 @@ async function createUser({
   );
 }
 
-async function createInviteLink(): Promise<{ data: InviteLinkSchema }> {
-  return api.get("/users/invite-link", {});
+async function createInviteLink({
+  role,
+}: {
+  role: string;
+}): Promise<{ data: InviteLinkSchema }> {
+  return api.post("/users/invite-link", {}, { params: { role } });
 }
 
 async function fetchUsers(): Promise<{ data: UserSchema[] }> {

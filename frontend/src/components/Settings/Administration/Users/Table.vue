@@ -74,30 +74,6 @@ function disableUser(user: User) {
   });
 }
 
-function createInviteLink() {
-  userApi
-    .createInviteLink()
-    .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: "Invite link created",
-        icon: "mdi-check-circle",
-        color: "green",
-        timeout: 5000,
-      });
-      emitter?.emit("showCreateInviteLinkDialog", data.token);
-    })
-    .catch(({ response, message }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `Unable to create invite link: ${
-          response?.data?.detail || response?.statusText || message
-        }`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 5000,
-      });
-    });
-}
-
 onMounted(() => {
   userApi
     .fetchUsers()
@@ -147,7 +123,7 @@ onMounted(() => {
               prepend-icon="mdi-share"
               variant="outlined"
               class="text-primary"
-              @click="createInviteLink"
+              @click="emitter?.emit('showCreateInviteLinkDialog')"
             >
               {{ t("settings.invite-link") }}
             </v-btn>

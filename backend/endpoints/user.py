@@ -8,7 +8,7 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Body, Depends, HTTPException, Request, status
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
@@ -83,16 +83,17 @@ def add_user(
 
 
 @protected_route(
-    router.get,
+    router.post,
     "/invite-link",
     [],
     status_code=status.HTTP_201_CREATED,
 )
-def invite_link(request: Request) -> InviteLinkSchema:
+def invite_link(request: Request, role: str) -> InviteLinkSchema:
     """Create an invite link for a user.
 
     Args:
         request (Request): FastAPI Request object
+        role (str): The role of the user
 
     Returns:
         InviteLinkSchema: Invite link
@@ -107,8 +108,67 @@ def invite_link(request: Request) -> InviteLinkSchema:
             detail="Forbidden",
         )
 
-    token = auth_handler.generate_invite_link_token(request.user)
+    if role not in [r.value for r in Role]:
+        msg = f"Role {role} is not valid"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+    token = auth_handler.generate_invite_link_token(request.user, role=role)
     return InviteLinkSchema.model_validate({"token": token})
+
+
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+def add_user_with_invite(
+    username: str = Body(...),
+    password: str = Body(...),
+    email: str = Body(...),
+    token: str = Body(...),
+) -> UserSchema:
+    """Create user endpoint with invite link
+
+    Args:
+        username (str): User username
+        password (str): User password
+        email (str): User email
+        token (str): Invite link token
+
+    Returns:
+        UserSchema: Newly created user
+    """
+
+    jti, role = auth_handler.verify_invite_link_token(token)
+
+    if db_user_handler.get_user_by_username(username):
+        msg = f"Username {username} already exists"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+    if email and db_user_handler.get_user_by_email(email):
+        msg = f"User with email {email} already exists"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+    user = User(
+        username=username.lower(),
+        hashed_password=auth_handler.get_password_hash(password),
+        email=email.lower() or None,
+        role=Role[role.upper()],
+    )
+
+    created_user = db_user_handler.add_user(user)
+
+    auth_handler.invalidate_invite_link_token(jti)
+
+    return UserSchema.model_validate(created_user)
 
 
 @protected_route(router.get, "", [Scope.USERS_READ])
