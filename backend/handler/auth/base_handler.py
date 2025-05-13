@@ -7,6 +7,7 @@ from decorators.auth import oauth
 from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
 from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
+from handler.redis_handler import redis_client
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
@@ -67,6 +68,8 @@ class AuthHandler:
     def generate_password_reset_token(self, user: Any) -> None:
         now = datetime.now(timezone.utc)
 
+        jti = str(uuid.uuid4())
+
         to_encode = {
             "sub": user.username,
             "email": user.email,
@@ -77,13 +80,16 @@ class AuthHandler:
                     now + timedelta(minutes=self.reset_passwd_token_expires_in_minutes)
                 ).timestamp()
             ),
-            "jti": str(uuid.uuid4()),
+            "jti": jti,
         }
         token = jwt.encode(
             {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
         )
         log.info(
             f"Reset password link requested for {hl(user.username, color=CYAN)}. Reset link: {hl(f'{ROMM_BASE_URL}/reset-password?token={token}')}"
+        )
+        redis_client.setex(
+            f"reset-jti:{jti}", self.reset_passwd_token_expires_in_minutes * 60, "valid"
         )
 
     def verify_password_reset_token(self, token: str) -> Any:
@@ -109,8 +115,19 @@ class AuthHandler:
             raise HTTPException(status_code=400, detail="Invalid token purpose")
 
         username = payload.claims.get("sub")
-        if not username:
+        jti = payload.claims.get("jti")
+        if not username or not jti:
             raise HTTPException(status_code=400, detail="Invalid token payload")
+
+        # Check JTI in Redis
+        redis_jti_key = f"reset-jti:{jti}"
+        if not redis_client.exists(redis_jti_key):
+            raise HTTPException(
+                status_code=400, detail="This token has already been used or is invalid"
+            )
+
+        # Delete it to enforce one-time use
+        redis_client.delete(redis_jti_key)
 
         user = db_user_handler.get_user_by_username(username)
         if not user:
