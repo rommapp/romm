@@ -105,14 +105,14 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
     }"
     class="bg-surface pa-1"
     rounded
-    :border="0"
+    :border="1"
     @keydown="handleDrawerCloseOnEsc"
   >
     <template #prepend>
       <v-text-field
         ref="textFieldRef"
-        tabindex="1"
         aria-label="Search collection"
+        :tabindex="activeCollectionsDrawer ? 0 : -1"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
@@ -125,12 +125,12 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
         density="compact"
       ></v-text-field>
     </template>
-    <v-list lines="two" class="py-1 px-0">
+    <v-list tabindex="-1" lines="two" class="py-1 px-0">
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"
         with-link
-        tabindex="3"
+        :tabindex="activeCollectionsDrawer ? 0 : -1"
         role="listitem"
         :aria-label="`${collection.name}`"
       />
@@ -139,9 +139,9 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
       >
         <v-divider class="my-4 mx-4" />
         <v-list-subheader
-          tabindex="3"
           role="listitem"
           :aria-label="t('common.virtual-collections')"
+          :tabindex="activeCollectionsDrawer ? 0 : -1"
           class="uppercase"
           >{{ t("common.virtual-collections").toUpperCase() }}</v-list-subheader
         >
@@ -152,19 +152,19 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
           )"
           :collection="collection"
           with-link
-          tabindex="3"
           role="listitem"
-          :aria-label="`${collection.name}`"
+          :tabindex="activeCollectionsDrawer ? 0 : -1"
+          :aria-label="`${collection.name} with ${collection.rom_count} games`"
         />
       </template>
     </v-list>
     <template #append>
       <v-btn
         @click="addCollection()"
-        tabindex="2"
         variant="tonal"
         color="primary"
         prepend-icon="mdi-plus"
+        :tabindex="activeCollectionsDrawer ? 0 : -1"
         size="large"
         block
       >
