@@ -34,6 +34,15 @@ async function createInviteLink({
   return api.post("/users/invite-link", {}, { params: { role } });
 }
 
+async function registerUser(
+  username: string,
+  email: string,
+  password: string,
+  token: string,
+): Promise<{ data: MessageResponse }> {
+  return api.post("/users/register", { username, email, password, token });
+}
+
 async function fetchUsers(): Promise<{ data: UserSchema[] }> {
   return api.get("/users");
 }
@@ -90,6 +99,7 @@ async function refreshRetroAchievements({
 export default {
   createUser,
   createInviteLink,
+  registerUser,
   fetchUsers,
   fetchUser,
   fetchCurrentUser,
