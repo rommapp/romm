@@ -68,6 +68,11 @@ const languagesRef = ref(
 const storedStatus = localStorage.getItem("settings.showStatus");
 const statusRef = ref(isNull(storedStatus) ? true : storedStatus === "true");
 
+const storedActionBar = localStorage.getItem("settings.showActionBar");
+const actionBarRef = ref(
+  isNull(storedActionBar) ? false : storedActionBar === "true",
+);
+
 const homeOptions = computed(() => [
   {
     title: t("settings.show-recently-added"),
@@ -145,6 +150,14 @@ const galleryOptions = computed(() => [
     model: statusRef,
     modelTrigger: toggleStatus,
   },
+  {
+    title: t("settings.show-actionbar"),
+    description: t("settings.show-actionbar-desc"),
+    iconEnabled: "mdi-card",
+    iconDisabled: "mdi-card-outline",
+    model: actionBarRef,
+    modelTrigger: toggleActionBar,
+  },
 ]);
 
 // Functions to update localStorage
@@ -202,6 +215,11 @@ const toggleLanguages = (value: boolean) => {
 const toggleStatus = (value: boolean) => {
   statusRef.value = value;
   localStorage.setItem("settings.showStatus", value.toString());
+};
+
+const toggleActionBar = (value: boolean) => {
+  actionBarRef.value = value;
+  localStorage.setItem("settings.showActionBar", value.toString());
 };
 </script>
 <template>

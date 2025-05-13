@@ -11,8 +11,9 @@ import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
+import { isNull } from "lodash";
 
 // Props
 const props = withDefaults(
@@ -82,10 +83,16 @@ const fallbackCoverImage = computed(() =>
     ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
     : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );
+const activeMenu = ref(false);
+const showActionBarAlways = isNull(
+  localStorage.getItem("settings.showActionBar"),
+)
+  ? true
+  : localStorage.getItem("settings.showActionBar") === "true";
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props: hoverProps }">
+  <v-hover v-slot="{ isHovering: isOuterHovering, props: hoverProps }">
     <v-card
       :style="
         disableViewTransition ? {} : { viewTransitionName: `card-${rom.id}` }
@@ -104,11 +111,11 @@ const fallbackCoverImage = computed(() =>
       }"
       class="bg-transparent"
       :class="{
-        'on-hover': isHovering,
+        'on-hover': isOuterHovering,
         'border-selected': withBorderPrimary,
         'transform-scale': transformScale,
       }"
-      :elevation="isHovering && transformScale ? 20 : 3"
+      :elevation="isOuterHovering && transformScale ? 20 : 3"
     >
       <v-card-text class="pa-0">
         <v-progress-linear
@@ -235,6 +242,21 @@ const fallbackCoverImage = computed(() =>
                 />
               </div>
             </template>
+            <v-expand-transition>
+              <action-bar
+                v-if="
+                  showActionBar &&
+                  !showActionBarAlways &&
+                  (isOuterHovering || activeMenu) &&
+                  romsStore.isSimpleRom(rom) &&
+                  !$vuetify.display.mobile
+                "
+                class="position-absolute append-inner translucent-dark"
+                @menu-open="activeMenu = true"
+                @menu-close="activeMenu = false"
+                :rom="rom"
+              />
+            </v-expand-transition>
           </v-img>
         </v-hover>
         <v-row v-if="titleOnFooter" class="pa-1 align-center">
@@ -245,7 +267,11 @@ const fallbackCoverImage = computed(() =>
       </v-card-text>
       <slot name="footer"></slot>
       <action-bar
-        v-if="showActionBar && romsStore.isSimpleRom(rom)"
+        v-if="
+          ($vuetify.display.mobile || showActionBarAlways) &&
+          showActionBar &&
+          romsStore.isSimpleRom(rom)
+        "
         :rom="rom"
       />
     </v-card>
@@ -276,6 +302,11 @@ const fallbackCoverImage = computed(() =>
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
+}
+.append-inner {
+  bottom: 0rem;
+  left: 0rem;
+  right: 0rem;
 }
 .append-inner-left {
   bottom: 0rem;
