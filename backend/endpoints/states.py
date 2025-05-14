@@ -249,7 +249,7 @@ async def delete_states(request: Request) -> list[int]:
                 file_name=state.file_name, file_path=state.file_path
             )
         except FileNotFoundError:
-            error = f"State file {state.file_name} not found for platform {state.rom.platform_slug}"
+            error = f"State file {hl(state.file_name)} not found for platform {hl(state.rom.platform_display_name, color=BLUE)}[{hl(state.rom.platform_slug)}]"
             log.error(error)
 
         if state.screenshot:
@@ -261,7 +261,7 @@ async def delete_states(request: Request) -> list[int]:
                     file_path=state.screenshot.file_path,
                 )
             except FileNotFoundError:
-                error = f"Screenshot file {state.screenshot.file_name} not found for state {state.file_name}"
+                error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)
 
     return state_ids
