@@ -277,11 +277,10 @@ async def auth_openid(request: Request):
 
 @router.post("/forgot-password")
 def request_password_reset(username: str = Body(..., embed=True)) -> MessageResponse:
-    """Request password reset by email.
+    """ "Request a password reset link for the user.
 
     Args:
-        email (str): User's email
-
+        username (str): Username of the user requesting the reset
     Returns:
         MessageResponse: Confirmation message
     """

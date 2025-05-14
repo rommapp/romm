@@ -18,6 +18,8 @@
   "language": "Язык",
   "main-platform": "Основная платформа",
   "password": "Пароль",
+  "platforms-drawer": "Меню платформ",
+  "platforms-drawer-group-by": "Группировать по",
   "platform-version": "Версия платформы",
   "platforms-bindings": "Связи платформ",
   "platforms-versions": "Версии платформ",

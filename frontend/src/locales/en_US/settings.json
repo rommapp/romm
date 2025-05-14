@@ -18,6 +18,8 @@
   "language": "Language",
   "main-platform": "Main platform",
   "password": "Password",
+  "platforms-drawer": "Platforms menu",
+  "platforms-drawer-group-by": "Group by",
   "platform-version": "Platform version",
   "platforms-bindings": "Platforms bindings",
   "platforms-versions": "Platforms versions",
