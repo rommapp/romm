@@ -3,5 +3,11 @@
   "login-oidc": "Login with {oidc}",
   "or": "or",
   "password": "Password",
-  "username": "Username"
+  "username": "Username",
+  "forgot-password": "Forgot your password?",
+  "send-reset-link": "Send reset link",
+  "reset-sent": "Reset link sent. Contact your admin.",
+  "confirm-password": "Confirm password",
+  "reset-password": "Reset password",
+  "back-to-login": "Back to login"
 }
