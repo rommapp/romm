@@ -22,6 +22,7 @@ services:
       - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#steamgriddb
       - SCREENSCRAPER_USER= # Use your ScreenScraper username and password
       - SCREENSCRAPER_PASSWORD= # https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#screenscraper
+      - RETROACHIEVEMENTS_API_KEY= # https://api-docs.retroachievements.org/#api-access
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
       - romm_redis_data:/redis-data # Cached data for background tasks

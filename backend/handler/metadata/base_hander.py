@@ -206,6 +206,7 @@ class MetadataHandler:
             - "sspassword"
             - "devid"
             - "devpassword"
+            - "y" (RA API key)
         """
         return {
             key: (
@@ -224,6 +225,7 @@ class MetadataHandler:
                         "sspassword",
                         "devid",
                         "devpassword",
+                        "y",
                     }
                     # Leave other keys unchanged
                     else values[key]

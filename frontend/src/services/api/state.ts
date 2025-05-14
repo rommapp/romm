@@ -44,12 +44,15 @@ async function uploadStates({
 async function updateState({
   state,
   stateFile,
+  screenshotFile,
 }: {
   state: StateSchema;
   stateFile: File;
+  screenshotFile?: File;
 }): Promise<{ data: StateSchema }> {
   const formData = new FormData();
   formData.append("stateFile", stateFile);
+  if (screenshotFile) formData.append("screenshotFile", screenshotFile);
 
   return api.put(`/states/${state.id}`, formData);
 }

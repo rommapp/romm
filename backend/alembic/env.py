@@ -1,9 +1,9 @@
 import sys
-from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
 from config.config_manager import ConfigManager
+from logger.logger import unify_logger
 from models.assets import Save, Screenshot, State  # noqa
 from models.base import BaseModel
 from models.collection import VirtualCollection
@@ -17,10 +17,7 @@ from sqlalchemy import create_engine
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name, disable_existing_loggers=False)
+unify_logger("alembic")
 
 # add your model's MetaData object here
 # for 'autogenerate' support

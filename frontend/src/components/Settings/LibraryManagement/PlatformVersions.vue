@@ -25,7 +25,7 @@ const editable = ref(false);
   <r-section
     icon="mdi-gamepad-variant"
     :title="t('settings.platforms-versions')"
-    class="ma-2"
+    class="mx-2 mt-4 mb-2"
   >
     <template #toolbar-append>
       <v-btn
@@ -53,6 +53,7 @@ const editable = ref(false);
             :editable="authStore.scopes.includes('platforms.write') && editable"
             :slug="slug"
             :fs-slug="fsSlug"
+            class="mx-1 mt-2"
             @click-edit="
               emitter?.emit('showCreatePlatformVersionDialog', {
                 fsSlug: fsSlug,
