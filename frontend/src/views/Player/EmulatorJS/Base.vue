@@ -50,21 +50,34 @@ function onPlay() {
     });
   }
 
-  window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
-  window.EJS_pathtodata = "/assets/emulatorjs/data/";
-
-  const script = document.createElement("script");
-  script.src = "/assets/emulatorjs/data/loader.js";
-
-  script.onerror = () => {
-    window.EJS_pathtodata = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
-    const fallbackScript = document.createElement("script");
-    fallbackScript.src = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/loader.js`;
-    document.body.appendChild(fallbackScript);
-  };
-
-  document.body.appendChild(script);
   gameRunning.value = true;
+  window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
+
+  const LOCAL_PATH = "/assets/emulatorjs/data/";
+  const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/`;
+
+  // Try loading local loader.js via fetch to validate it's real JS
+  fetch(`${LOCAL_PATH}loader.js`)
+    .then((res) => {
+      const type = res.headers.get("content-type") || "";
+      if (!res.ok || !type.includes("javascript")) {
+        throw new Error("Invalid local loader.js");
+      }
+      window.EJS_pathtodata = LOCAL_PATH;
+      return res.text();
+    })
+    .then((jsCode) => {
+      const script = document.createElement("script");
+      script.textContent = jsCode;
+      document.body.appendChild(script);
+    })
+    .catch(() => {
+      console.warn("Local EmulatorJS failed, falling back to CDN");
+      window.EJS_pathtodata = CDN_PATH;
+      const fallbackScript = document.createElement("script");
+      fallbackScript.src = `${CDN_PATH}loader.js`;
+      document.body.appendChild(fallbackScript);
+    });
 }
 
 function onFullScreenChange() {
