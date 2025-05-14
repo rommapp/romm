@@ -282,7 +282,7 @@ const toggleStatus = (value: boolean) => {
             :items="[
               { title: 'Family (manufacturer)', value: 'family_name' },
               { title: 'Generation', value: 'generation' },
-              { title: 'Category', value: 'category' },
+              { title: 'Category (console type)', value: 'category' },
               { title: 'None', value: null },
             ]"
             :label="t('settings.platforms-drawer-group-by')"
