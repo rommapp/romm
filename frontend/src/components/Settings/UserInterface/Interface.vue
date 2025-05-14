@@ -60,7 +60,9 @@ const storedPlatformsGroupBy = localStorage.getItem(
   "settings.platformsGroupBy",
 );
 const platformsGroupByRef = ref(
-  isNull(storedPlatformsGroupBy) ? null : storedPlatformsGroupBy,
+  isNull(storedPlatformsGroupBy) || storedPlatformsGroupBy === "null"
+    ? null
+    : storedPlatformsGroupBy,
 );
 
 // Gallery
