@@ -328,7 +328,7 @@ async function stopScan() {
               v-for="platform in scanningPlatforms"
               :key="platform.id"
             >
-              <v-expansion-panel-title>
+              <v-expansion-panel-title static>
                 <v-list-item class="pa-0">
                   <template #prepend>
                     <v-avatar rounded="0" size="40">

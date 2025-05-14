@@ -12,11 +12,14 @@ from exceptions.auth_exceptions import (
     OIDCNotConfiguredException,
     UserDisabledException,
 )
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
 from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
+from logger.formatter import CYAN
+from logger.formatter import highlight as hl
+from logger.logger import log
 from utils.router import APIRouter
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
@@ -270,3 +273,48 @@ async def auth_openid(request: Request):
     )
 
     return RedirectResponse(url="/")
+
+
+@router.post("/forgot-password")
+def request_password_reset(username: str = Body(..., embed=True)) -> MessageResponse:
+    """ "Request a password reset link for the user.
+
+    Args:
+        username (str): Username of the user requesting the reset
+    Returns:
+        MessageResponse: Confirmation message
+    """
+    user = db_user_handler.get_user_by_username(username)
+
+    if user:
+        auth_handler.generate_password_reset_token(user)
+    else:
+        log.warning(
+            f"Reset password link requested for a user {hl(username, color=CYAN)}, but that username does not exist."
+        )
+
+    return {"msg": "If the username exists, a reset link has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(
+    token: str = Body(..., embed=True),
+    new_password: str = Body(..., embed=True),
+) -> MessageResponse:
+    """Reset password using the token.
+
+    Args:
+        token (str): Reset token from the URL
+        new_password (str): New user password
+
+    Returns:
+        MessageResponse: Confirmation message
+    """
+    user = auth_handler.verify_password_reset_token(token)
+
+    auth_handler.set_user_new_password(user, new_password)
+
+    log.info(
+        f"Password was successfully reset for user {hl(user.username, color=CYAN)}."
+    )
+    return {"msg": "Password has been reset successfully."}

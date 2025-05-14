@@ -33,6 +33,12 @@ const HEADERS = [
     key: "username",
   },
   {
+    title: "Email",
+    align: "start",
+    sortable: true,
+    key: "email",
+  },
+  {
     title: "Role",
     align: "start",
     sortable: true,
