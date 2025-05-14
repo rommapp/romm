@@ -40,8 +40,6 @@ async def add_save(
         emulator=emulator,
     )
 
-    log.debug(f"Saving to {saves_path}")
-
     if "saveFile" not in data:
         log.error("No save file provided")
         raise HTTPException(
@@ -95,7 +93,7 @@ async def add_save(
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=rom.platform_slug
+            user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
         fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
@@ -105,6 +103,7 @@ async def add_save(
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
+            rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
             rom_id=rom.id, user_id=request.user.id, file_name=screenshotFile.filename
@@ -178,7 +177,9 @@ async def update_save(request: Request, id: int) -> SaveSchema:
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=db_save.rom.platform_slug
+            user=request.user,
+            platform_fs_slug=db_save.rom.platform_slug,
+            rom_id=db_save.rom.id,
         )
 
         fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
@@ -188,6 +189,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,
+            rom_id=db_save.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
             rom_id=db_save.rom.id,

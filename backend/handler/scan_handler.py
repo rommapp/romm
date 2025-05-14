@@ -443,8 +443,9 @@ def scan_screenshot(
     file_name: str,
     user: User,
     platform_fs_slug: str,
+    rom_id: int,
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
-        user=user, platform_fs_slug=platform_fs_slug
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id
     )
     return Screenshot(**_scan_asset(file_name, screenshots_path))
