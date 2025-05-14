@@ -33,5 +33,6 @@
   "upload": "Subir",
   "user-interface": "Interfaz de usuario",
   "virtual-collection": "Colección autogenerada",
-  "virtual-collections": "Colecciones autogeneradas"
+  "virtual-collections": "Colecciones autogeneradas",
+  "sync": "Sincronizar"
 }

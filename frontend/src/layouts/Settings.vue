@@ -4,7 +4,7 @@ import RFooter from "@/components/Settings/Footer.vue";
 
 <template>
   <!-- # Bottom padding needed to avoid footer overlap -->
-  <div class="mb-12">
+  <div class="mb-16">
     <router-view />
   </div>
   <r-footer />

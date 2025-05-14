@@ -207,7 +207,10 @@ async function updateRom(
     ...rom.value,
     fs_name:
       renameFromSource.value && selectedMatchRom.value
-        ? `${selectedMatchRom.value.name}.${rom.value.fs_extension}`
+        ? rom.value.fs_name.replace(
+            rom.value.fs_name_no_ext,
+            selectedMatchRom.value.name,
+          )
         : rom.value.fs_name,
     igdb_id: selectedRom.igdb_id || null,
     moby_id: selectedRom.moby_id || null,
@@ -527,9 +530,12 @@ onBeforeUnmount(() => {
                   ><span class="text-primary ml-1">{{ rom.fs_name }}</span>
                   <br />
                   <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
-                  ><span class="text-secondary"
-                    >{{ selectedMatchRom.name }}.{{ rom.fs_extension }}</span
-                  >
+                  ><span class="text-secondary">{{
+                    rom.fs_name.replace(
+                      rom.fs_name_no_ext,
+                      selectedMatchRom.name,
+                    )
+                  }}</span>
                   <br />
                   <span class="text-caption font-italic font-weight-bold"
                     >*{{ t("rom.rename-file-part5") }}</span

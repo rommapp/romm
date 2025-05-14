@@ -43,6 +43,12 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/sgdb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED,
   },
+  {
+    name: "RetroAchievements",
+    value: "ra",
+    logo_path: "/assets/scrappers/ra.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_ENABLED,
+  },
 ]);
 const defaultAdminUser = ref({
   username: "",
@@ -204,6 +210,7 @@ async function finishWizard() {
             <v-btn
               class="text-white text-shadow"
               @click="!isLastStep ? next() : finishWizard()"
+              @keydown.enter="!isLastStep ? next() : finishWizard()"
             >
               {{ !isLastStep ? "Next" : "Finish" }}
             </v-btn>
