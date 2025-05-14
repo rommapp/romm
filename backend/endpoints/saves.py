@@ -63,7 +63,10 @@ async def add_save(
     log.info(f"Uploading save {hl(saveFile.filename)} for {hl(rom.name, color=BLUE)}")
 
     saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
     )
 
     fs_asset_handler.write_file(file=saveFile, path=saves_path)
