@@ -190,6 +190,15 @@ interface RoutePermissions {
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    // If savedPosition is available, it's a popstate navigation (back/forward)
+    if (savedPosition) {
+      return savedPosition;
+    } else {
+      // Otherwise, scroll to top
+      return { left: 0, top: 0 };
+    }
+  },
 });
 
 const routePermissions: RoutePermissions[] = [
@@ -255,11 +264,6 @@ router.beforeEach(async (to, _from, next) => {
     console.error("Navigation guard error:", error);
     next({ name: ROUTES.LOGIN });
   }
-});
-
-router.afterEach(() => {
-  // Scroll to top to avoid annoying behaviour on mobile
-  // window.scrollTo({ top: 0, left: 0 });
 });
 
 router.beforeResolve(async () => {
