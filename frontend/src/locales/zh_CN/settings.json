@@ -17,6 +17,8 @@
   "language": "语言",
   "main-platform": "主平台",
   "password": "密码",
+  "platforms-drawer": "平台菜单",
+  "platforms-drawer-group-by": "分组方式",
   "platform-version": "平台版本",
   "platforms-bindings": "平台绑定",
   "platforms-versions": "平台版本",
