@@ -89,7 +89,14 @@ function clear() {
           :key="group"
         >
           <v-expansion-panel-title color="toplayer" static>
-            {{ group }}
+            <!-- Specifically asked by Dan :P -->
+            {{
+              groupBy === "generation" && group !== "Other"
+                ? `Gen ${group}`
+                : groupBy === "category" && group === "Portable Console"
+                  ? "Handheld Console"
+                  : group
+            }}
           </v-expansion-panel-title>
           <v-expansion-panel-text>
             <v-list lines="two" class="py-1 px-0">
