@@ -17,6 +17,8 @@
   "language": "언어",
   "main-platform": "메인 플랫폼",
   "password": "패스워드",
+  "platforms-drawer": "플랫폼 메뉴",
+  "platforms-drawer-group-by": "그룹화",
   "platform-version": "플랫폼 버전",
   "platforms-bindings": "플랫폼 연결",
   "platforms-versions": "플랫폼 버전",
