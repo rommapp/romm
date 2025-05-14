@@ -66,10 +66,6 @@ async function deletePlatform() {
   closeDialog();
 }
 
-function toggleExcludeOnDelete() {
-  excludeOnDelete.value = !excludeOnDelete.value;
-}
-
 function closeDialog() {
   show.value = false;
   excludeOnDelete.value = false;
@@ -103,7 +99,7 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center text-center pa-2" no-gutters>
         <v-col>
-          <v-chip @click="toggleExcludeOnDelete" variant="text"
+          <v-chip @click="excludeOnDelete = !excludeOnDelete" variant="text"
             ><v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">{{
               excludeOnDelete
                 ? "mdi-checkbox-outline"

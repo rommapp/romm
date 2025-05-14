@@ -240,7 +240,8 @@ class Rom(BaseModel):
 
     @cached_property
     def multi(self) -> bool:
-        return len(self.files) > 1
+        # Temporal fix to check if multi. TODO: Improve multi game detection
+        return len(self.files) > 1 or len(self.files[0].full_path.split("/")) > 3
 
     @cached_property
     def fs_size_bytes(self) -> int:
