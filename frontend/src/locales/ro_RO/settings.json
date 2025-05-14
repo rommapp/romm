@@ -18,6 +18,8 @@
   "language": "Limbă",
   "main-platform": "Platformă principală",
   "password": "Parolă",
+  "platforms-drawer": "Meniu platforme",
+  "platforms-drawer-group-by": "Grupare după",
   "platform-version": "Versiune platformă",
   "platforms-bindings": "Asocieri platforme",
   "platforms-versions": "Versiuni platforme",
