@@ -19,6 +19,8 @@
   "language": "Lingua",
   "main-platform": "Piattaforma principale",
   "password": "Password",
+  "platforms-drawer": "Menu piattaforme",
+  "platforms-drawer-group-by": "Raggruppa per",
   "platform-version": "Versione piattaforma",
   "platforms-bindings": "Associazioni piattaforme",
   "platforms-versions": "Versioni piattaforme",
