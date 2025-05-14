@@ -10,11 +10,24 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const collections = storeCollections();
-const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
-  ? true
-  : localStorage.getItem("settings.gridCollections") === "true";
+const storedVirtualCollections = localStorage.getItem(
+  "settings.gridVirtualCollections",
+);
+const gridVirtualCollections = ref(
+  isNull(storedVirtualCollections)
+    ? false
+    : storedVirtualCollections === "true",
+);
+function toggleGridVirtualCollections() {
+  gridVirtualCollections.value = !gridVirtualCollections.value;
+  localStorage.setItem(
+    "settings.gridVirtualCollections",
+    gridVirtualCollections.value.toString(),
+  );
+}
 const visibleCollections = ref(72);
 
+// Functions
 function onScroll() {
   if (
     window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
@@ -37,10 +50,17 @@ onBeforeUnmount(() => {
     icon="mdi-bookmark-box-multiple"
     :title="t('common.virtual-collections')"
   >
+    <template #toolbar-append>
+      <v-btn icon rounded="0" @click="toggleGridVirtualCollections"
+        ><v-icon>{{
+          gridVirtualCollections ? "mdi-view-comfy" : "mdi-view-column"
+        }}</v-icon>
+      </v-btn>
+    </template>
     <template #content>
       <v-row
         :class="{
-          'flex-nowrap overflow-x-auto': !gridCollections,
+          'flex-nowrap overflow-x-auto': !gridVirtualCollections,
         }"
         class="pa-1"
         no-gutters
