@@ -9,6 +9,7 @@
   "core": "코어",
   "create": "생성",
   "edit": "수정",
+  "exclude-on-delete": "삭제 시 제외",
   "filter": "필터",
   "firmware": "펌웨어",
   "games-n": "게임 {n}개 | 게임 {n}개",
