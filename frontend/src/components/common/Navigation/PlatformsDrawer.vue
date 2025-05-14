@@ -5,7 +5,7 @@ import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 
 // Props
 const { t } = useI18n();
@@ -14,6 +14,7 @@ const { mdAndUp, smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
+const tabIndex = computed(() => (activePlatformsDrawer.value ? 0 : -1));
 
 // Functions
 function clear() {
@@ -33,13 +34,10 @@ watch(activePlatformsDrawer, (isOpen) => {
   }
 });
 
-// Close the drawer when the Esc key is pressed
-function handleDrawerCloseOnEsc(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    activePlatformsDrawer.value = false;
-    // Focus the element that triggered the drawer
-    triggerElement.value?.focus();
-  }
+function onClose() {
+  activePlatformsDrawer.value = false;
+  // Focus the element that triggered the drawer
+  triggerElement.value?.focus();
 }
 </script>
 <template>
@@ -59,13 +57,13 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
     class="bg-surface pa-1"
     rounded
     :border="0"
-    @keydown="handleDrawerCloseOnEsc"
+    @keydown.esc="onClose"
   >
     <template #prepend>
       <v-text-field
         ref="textFieldRef"
         aria-label="Search platform"
-        :tabindex="activePlatformsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
@@ -83,7 +81,7 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
         v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :platform="platform"
-        :tabindex="activePlatformsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         role="listitem"
         :aria-label="`${platform.display_name} with ${platform.rom_count} games`"
       />

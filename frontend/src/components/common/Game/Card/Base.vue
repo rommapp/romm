@@ -116,6 +116,7 @@ const showActionBarAlways = isNull(
         'transform-scale': transformScale,
       }"
       :elevation="isOuterHovering && transformScale ? 20 : 3"
+      :aria-label="`${rom.name} game card`"
     >
       <v-card-text class="pa-0">
         <v-progress-linear
@@ -201,7 +202,7 @@ const showActionBarAlways = isNull(
                   collectionsStore.isFav(rom) &&
                   showFav
                 "
-                @click.stop=""
+                tabindex="-1"
                 class="label-fav"
                 rouded="0"
                 size="small"
