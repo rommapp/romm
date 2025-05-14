@@ -88,7 +88,7 @@ def add_user(
     [],
     status_code=status.HTTP_201_CREATED,
 )
-def invite_link(request: Request, role: str) -> InviteLinkSchema:
+def create_invite_link(request: Request, role: str) -> InviteLinkSchema:
     """Create an invite link for a user.
 
     Args:
