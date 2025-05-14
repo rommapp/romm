@@ -67,6 +67,7 @@ watch(menuOpen, (val) => {
         variant="text"
         rounded="0"
         @click.prevent="romApi.downloadRom({ rom })"
+        :aria-label="`Download ${rom.name}`"
       />
     </v-col>
     <v-col
@@ -87,6 +88,7 @@ watch(menuOpen, (val) => {
         icon="mdi-play"
         variant="text"
         rounded="0"
+        :aria-label="`Play ${rom.name}`"
       />
       <v-btn
         v-if="ruffleEmulationSupported"
@@ -102,6 +104,7 @@ watch(menuOpen, (val) => {
         icon="mdi-play"
         variant="text"
         rounded="0"
+        :aria-label="`Play ${rom.name}`"
       />
     </v-col>
     <v-col v-if="is3DSRom" class="d-flex">
@@ -113,6 +116,7 @@ watch(menuOpen, (val) => {
         icon="mdi-qrcode"
         variant="text"
         rounded="0"
+        :aria-label="`Show ${rom.name} QR code`"
       />
     </v-col>
     <v-col
@@ -133,6 +137,7 @@ watch(menuOpen, (val) => {
             icon="mdi-dots-vertical"
             variant="text"
             rounded="0"
+            :aria-label="`${rom.name} admin menu`"
           />
         </template>
         <admin-menu :rom="rom" />

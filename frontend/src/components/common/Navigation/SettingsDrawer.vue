@@ -9,7 +9,7 @@ import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs, getActivePinia, type StateTree } from "pinia";
-import { inject, ref, watch } from "vue";
+import { inject, ref, watch, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
@@ -23,6 +23,7 @@ const { user, scopes } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const { activeSettingsDrawer } = storeToRefs(navigationStore);
 const { smAndDown, mdAndUp } = useDisplay();
+const tabIndex = computed(() => (activeSettingsDrawer.value ? 0 : -1));
 
 // Functions
 async function logout() {
@@ -50,23 +51,17 @@ async function logout() {
 // Ref to store the element that triggered the drawer
 const triggerElement = ref<HTMLElement | null>(null);
 // Watch for changes in the navigation drawer state
-const firstElementRef = ref();
 watch(activeSettingsDrawer, (isOpen) => {
   if (isOpen) {
     // Store the currently focused element before opening the drawer
     triggerElement.value = document.activeElement as HTMLElement;
-    // Focus the first element when the drawer is opened
-    firstElementRef.value?.focus();
   }
 });
 
-// Close the drawer when the Esc key is pressed
-function handleDrawerCloseOnEsc(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    activeSettingsDrawer.value = false;
-    // Focus the element that triggered the drawer
-    triggerElement.value?.focus();
-  }
+function onClose() {
+  activeSettingsDrawer.value = false;
+  // Focus the element that triggered the drawer
+  triggerElement.value?.focus();
 }
 </script>
 <template>
@@ -83,7 +78,7 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
     class="bg-surface pa-1 unset-height"
     rounded
     :border="0"
-    @keydown="handleDrawerCloseOnEsc"
+    @keydown.esc="onClose"
   >
     <v-list tabindex="-1" class="pa-0">
       <v-list-img>
@@ -107,49 +102,57 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
         </template>
       </v-list-item>
     </v-list>
-    <v-list class="py-1 px-0">
+    <v-list tabindex="-1" class="py-1 px-0">
       <v-list-item
         v-if="scopes.includes('me.write')"
-        ref="firstElementRef"
-        :tabindex="activeSettingsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         rounded
         :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
         append-icon="mdi-account"
+        aria-label="Profile"
+        role="listitem"
         >{{ t("common.profile") }}</v-list-item
       >
       <v-list-item
-        :tabindex="activeSettingsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         class="mt-1"
         rounded
         :to="{ name: ROUTES.USER_INTERFACE }"
         append-icon="mdi-palette"
+        aria-label="User Interface"
+        role="listitem"
         >{{ t("common.user-interface") }}</v-list-item
       >
       <v-list-item
         v-if="scopes.includes('platforms.write')"
-        :tabindex="activeSettingsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         class="mt-1"
         rounded
         append-icon="mdi-table-cog"
+        aria-label="Library management"
+        role="listitem"
         :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
-        :tabindex="activeSettingsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         class="mt-1"
         rounded
         :to="{ name: ROUTES.ADMINISTRATION }"
         append-icon="mdi-security"
+        aria-label="Administration"
+        role="listitem"
         >{{ t("common.administration") }}
       </v-list-item>
     </v-list>
     <template v-if="scopes.includes('me.write')" #append>
       <v-btn
         @click="logout"
-        :tabindex="activeSettingsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         append-icon="mdi-location-exit"
         block
+        aria-label="Logout"
         class="bg-toplayer text-romm-red"
         >{{ t("common.logout") }}</v-btn
       >

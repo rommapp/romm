@@ -14,7 +14,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
     location="bottom"
     class="tooltip"
     transition="fade-transition"
-    :text="t('platform.show-firmwares')"
+    :text="t('platform.show-platform-settings')"
     open-delay="1000"
   >
     <template #activator="{ props }">
@@ -24,6 +24,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
         v-bind="props"
         icon="mdi-cog"
         :color="activePlatformInfoDrawer ? 'primary' : ''"
+        aria-label="Platform settings"
         @click="navigationStore.switchActivePlatformInfoDrawer()"
       />
     </template>

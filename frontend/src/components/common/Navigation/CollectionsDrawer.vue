@@ -6,7 +6,7 @@ import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch, computed } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { isNull } from "lodash";
@@ -21,6 +21,7 @@ const { filteredCollections, filteredVirtualCollections, filterText } =
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const visibleVirtualCollections = ref(72);
+const tabIndex = computed(() => (activeCollectionsDrawer.value ? 0 : -1));
 
 const showVirtualCollections = isNull(
   localStorage.getItem("settings.showVirtualCollections"),
@@ -79,13 +80,10 @@ onBeforeUnmount(() => {
   collectionsDrawer?.removeEventListener("scroll", onScroll);
 });
 
-// Close the drawer when the Esc key is pressed
-function handleDrawerCloseOnEsc(event: KeyboardEvent) {
-  if (event.key === "Escape") {
-    activeCollectionsDrawer.value = false;
-    // Focus the element that triggered the drawer
-    triggerElement.value?.focus();
-  }
+function onClose() {
+  activeCollectionsDrawer.value = false;
+  // Focus the element that triggered the drawer
+  triggerElement.value?.focus();
 }
 </script>
 <template>
@@ -106,13 +104,13 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
     class="bg-surface pa-1"
     rounded
     :border="1"
-    @keydown="handleDrawerCloseOnEsc"
+    @keydown.esc="onClose"
   >
     <template #prepend>
       <v-text-field
         ref="textFieldRef"
         aria-label="Search collection"
-        :tabindex="activeCollectionsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
@@ -130,7 +128,7 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
         v-for="collection in filteredCollections"
         :collection="collection"
         with-link
-        :tabindex="activeCollectionsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         role="listitem"
         :aria-label="`${collection.name}`"
       />
@@ -141,7 +139,7 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
         <v-list-subheader
           role="listitem"
           :aria-label="t('common.virtual-collections')"
-          :tabindex="activeCollectionsDrawer ? 0 : -1"
+          :tabindex="tabIndex"
           class="uppercase"
           >{{ t("common.virtual-collections").toUpperCase() }}</v-list-subheader
         >
@@ -153,7 +151,7 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
           :collection="collection"
           with-link
           role="listitem"
-          :tabindex="activeCollectionsDrawer ? 0 : -1"
+          :tabindex="tabIndex"
           :aria-label="`${collection.name} with ${collection.rom_count} games`"
         />
       </template>
@@ -164,7 +162,7 @@ function handleDrawerCloseOnEsc(event: KeyboardEvent) {
         variant="tonal"
         color="primary"
         prepend-icon="mdi-plus"
-        :tabindex="activeCollectionsDrawer ? 0 : -1"
+        :tabindex="tabIndex"
         size="large"
         block
       >

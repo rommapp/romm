@@ -25,6 +25,7 @@ const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
         v-bind="props"
         icon="mdi-memory"
         :color="activeFirmwareDrawer ? 'primary' : ''"
+        aria-label="Firmwares"
         @click="galleryViewStore.switchActiveFirmwareDrawer()"
       />
     </template>
