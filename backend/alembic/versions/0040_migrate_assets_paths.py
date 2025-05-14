@@ -34,22 +34,23 @@ def upgrade() -> None:
         log.info(f"Processing table: {table}")
 
         # Database-specific LIKE clause
-        if is_postgresql(conn):
-            like_clause = f"file_path NOT LIKE '%%/' || rom_id::text || '/%%'"
-        else:
-            like_clause = f"file_path NOT LIKE CONCAT('%/', rom_id, '/%')"
+        like_clause = (
+            "file_path NOT LIKE '%%/' || rom_id::text || '/%%'"
+            if is_postgresql(conn)
+            else "file_path NOT LIKE CONCAT('%/', rom_id, '/%')"
+        )
 
         # Build query based on whether emulator exists
         select_cols = "id, file_path, rom_id" + (", emulator" if has_emulator else "")
         results = conn.execute(
             text(
-                f"""   # nosec B608
-            SELECT {select_cols}
-            FROM {table}
-            WHERE {like_clause}
-        """
+                f"""
+                SELECT {select_cols}
+                FROM {table}
+                WHERE {like_clause}
+            """
             )
-        ).fetchall()  # nosec B608
+        ).fetchall()
 
         for row in results:
             item_id = row.id
@@ -68,10 +69,11 @@ def upgrade() -> None:
                 log.info(f"[{table}] Skipping malformed path: {old_path}")
                 continue
 
+            # Always include rom_id in the path
+            path_parts = ["users", user_id, table, platform, str(rom_id)]
             if emulator:
-                new_path = f"users/{user_id}/{table}/{platform}/{rom_id}/{emulator}"
-            else:
-                new_path = f"users/{user_id}/{table}/{platform}/{rom_id}"
+                path_parts.append(emulator)
+            new_path = "/".join(path_parts)
 
             old_abs = os.path.join(ASSETS_BASE_PATH, *old_path.split("/"))
             new_abs = os.path.join(ASSETS_BASE_PATH, *new_path.split("/"))
@@ -91,13 +93,13 @@ def upgrade() -> None:
             conn.execute(
                 text(
                     f"""
-                UPDATE {table}
-                SET file_path = :new_path
-                WHERE id = :item_id
-            """
+                    UPDATE {table}
+                    SET file_path = :new_path
+                    WHERE id = :item_id
+                """
                 ),
                 {"new_path": new_path, "item_id": item_id},
-            )  # nosec B608
+            )
 
 
 def downgrade() -> None:
