@@ -511,14 +511,16 @@ onBeforeUnmount(() => {
               <v-col>
                 <v-chip
                   @click="toggleRenameAsSource"
-                  :variant="renameFromSource ? 'flat' : 'outlined'"
-                  :color="renameFromSource ? 'primary' : ''"
+                  variant="text"
                   :disabled="selectedCover == undefined"
-                  ><v-icon class="mr-1">{{
-                    selectedCover && renameFromSource
-                      ? "mdi-checkbox-outline"
-                      : "mdi-checkbox-blank-outline"
-                  }}</v-icon
+                  ><v-icon
+                    :color="renameFromSource ? 'primary' : ''"
+                    class="mr-1"
+                    >{{
+                      selectedCover && renameFromSource
+                        ? "mdi-checkbox-outline"
+                        : "mdi-checkbox-blank-outline"
+                    }}</v-icon
                   >{{
                     t("rom.rename-file-part1", { source: selectedCover?.name })
                   }}</v-chip
