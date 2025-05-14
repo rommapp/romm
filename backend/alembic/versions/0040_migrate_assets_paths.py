@@ -80,9 +80,19 @@ def upgrade() -> None:
 
             try:
                 os.makedirs(os.path.dirname(new_abs), exist_ok=True)
+
                 if os.path.exists(old_abs):
-                    os.rename(old_abs, new_abs)
-                    log.info(f"[{table}] Moved: {old_abs} -> {new_abs}")
+                    if table == "screenshots" and os.path.isdir(old_abs):
+                        # Move files individually to avoid moving directory into itself
+                        for filename in os.listdir(old_abs):
+                            src = os.path.join(old_abs, filename)
+                            dst = os.path.join(new_abs, filename)
+                            os.makedirs(os.path.dirname(dst), exist_ok=True)
+                            os.rename(src, dst)
+                            log.info(f"[{table}] Moved file: {src} -> {dst}")
+                    else:
+                        os.rename(old_abs, new_abs)
+                        log.info(f"[{table}] Moved: {old_abs} -> {new_abs}")
                 else:
                     log.info(f"[{table}] Old path does not exist: {old_abs}")
             except Exception as e:
