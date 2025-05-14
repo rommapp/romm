@@ -245,7 +245,7 @@ async def delete_saves(request: Request) -> list[int]:
                 file_name=save.file_name, file_path=save.file_path
             )
         except FileNotFoundError:
-            error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
+            error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
             log.error(error)
 
         if save.screenshot:
@@ -257,7 +257,7 @@ async def delete_saves(request: Request) -> list[int]:
                     file_path=save.screenshot.file_path,
                 )
             except FileNotFoundError:
-                error = f"Screenshot file {save.screenshot.file_name} not found for save {save.file_name}"
+                error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
                 log.error(error)
 
     return save_ids
