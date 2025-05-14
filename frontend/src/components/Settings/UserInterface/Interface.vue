@@ -282,9 +282,9 @@ const toggleStatus = (value: boolean) => {
           <v-select
             v-model="platformsGroupByRef"
             :items="[
-              { title: 'Family (manufacturer)', value: 'family_name' },
+              { title: 'Manufacturer', value: 'family_name' },
               { title: 'Generation', value: 'generation' },
-              { title: 'Category (console type)', value: 'category' },
+              { title: 'Type', value: 'category' },
               { title: 'None', value: null },
             ]"
             :label="t('settings.platforms-drawer-group-by')"
