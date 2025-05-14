@@ -62,7 +62,7 @@ async function resetPassword() {
         <v-form @submit.prevent="resetPassword">
           <v-text-field
             v-model="newPassword"
-            :label="t('login.password')"
+            :label="t('login.new-password')"
             :type="visibleNewPassword ? 'text' : 'password'"
             required
             :append-inner-icon="visibleNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
@@ -71,7 +71,7 @@ async function resetPassword() {
           />
           <v-text-field
             v-model="confirmPassword"
-            :label="t('login.confirm-password')"
+            :label="t('login.confirm-new-password')"
             :type="visibleConfirmNewPassword ? 'text' : 'password'"
             required
             :append-inner-icon="
