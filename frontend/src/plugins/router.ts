@@ -39,6 +39,9 @@ const routes = [
       {
         path: "",
         name: ROUTES.SETUP,
+        meta: {
+          title: "Setup Wizard",
+        },
         component: () => import("@/views/Auth/Setup.vue"),
       },
     ],
@@ -50,6 +53,9 @@ const routes = [
       {
         path: "",
         name: ROUTES.LOGIN,
+        meta: {
+          title: "Login",
+        },
         component: () => import("@/views/Auth/Login.vue"),
       },
     ],
@@ -57,16 +63,25 @@ const routes = [
   {
     path: "/",
     name: ROUTES.MAIN,
+    meta: {
+      title: "RomM",
+    },
     component: () => import("@/layouts/Main.vue"),
     children: [
       {
         path: "",
         name: ROUTES.HOME,
+        meta: {
+          title: "Home",
+        },
         component: () => import("@/views/Home.vue"),
       },
       {
         path: "search",
         name: ROUTES.SEARCH,
+        meta: {
+          title: "Search",
+        },
         component: () => import("@/views/Gallery/Search.vue"),
       },
       {
@@ -115,6 +130,9 @@ const routes = [
       {
         path: "scan",
         name: ROUTES.SCAN,
+        meta: {
+          title: "Scan",
+        },
         component: () => import("@/views/Scan.vue"),
       },
       {
@@ -124,6 +142,9 @@ const routes = [
           {
             path: "",
             name: ROUTES.USER_PROFILE,
+            meta: {
+              title: "Profile",
+            },
             component: () => import("@/views/Settings/UserProfile.vue"),
           },
         ],
@@ -135,6 +156,9 @@ const routes = [
           {
             path: "",
             name: ROUTES.USER_INTERFACE,
+            meta: {
+              title: "User Interface",
+            },
             component: () => import("@/views/Settings/UserInterface.vue"),
           },
         ],
@@ -146,6 +170,9 @@ const routes = [
           {
             path: "",
             name: ROUTES.LIBRARY_MANAGEMENT,
+            meta: {
+              title: "Library Management",
+            },
             component: () => import("@/views/Settings/LibraryManagement.vue"),
           },
         ],
@@ -157,6 +184,9 @@ const routes = [
           {
             path: "",
             name: ROUTES.ADMINISTRATION,
+            meta: {
+              title: "Administration",
+            },
             component: () => import("@/views/Settings/Administration.vue"),
           },
         ],
@@ -229,9 +259,11 @@ router.beforeEach(async (to, _from, next) => {
       return next({ name: ROUTES.NOT_FOUND });
     }
 
+    document.title = (to.meta.title as string) || "RomM";
     next();
   } catch (error) {
     console.error("Navigation guard error:", error);
+    document.title = "RomM";
     next({ name: ROUTES.LOGIN });
   }
 });
