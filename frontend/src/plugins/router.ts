@@ -15,6 +15,7 @@ import romApi from "@/services/api/rom";
 export const ROUTES = {
   SETUP: "setup",
   LOGIN: "login",
+  RESET_PASSWORD: "reset-password",
   MAIN: "main",
   HOME: "home",
   SEARCH: "search",
@@ -57,6 +58,17 @@ const routes = [
           title: "Login",
         },
         component: () => import("@/views/Auth/Login.vue"),
+      },
+    ],
+  },
+  {
+    path: "/reset-password",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: ROUTES.RESET_PASSWORD,
+        component: () => import("@/views/Auth/ResetPassword.vue"),
       },
     ],
   },
@@ -208,6 +220,15 @@ interface RoutePermissions {
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    // If savedPosition is available, it's a popstate navigation (back/forward)
+    if (savedPosition) {
+      return savedPosition;
+    } else {
+      // Otherwise, scroll to top
+      return { left: 0, top: 0 };
+    }
+  },
 });
 
 const routePermissions: RoutePermissions[] = [
@@ -218,7 +239,12 @@ const routePermissions: RoutePermissions[] = [
 
 function checkRoutePermissions(route: string, user: User | null): boolean {
   // No checks needed for login and setup pages
-  if (route === ROUTES.LOGIN || route === ROUTES.SETUP) return true;
+  if (
+    route === ROUTES.LOGIN ||
+    route === ROUTES.SETUP ||
+    route === ROUTES.RESET_PASSWORD
+  )
+    return true;
 
   // No user, no access
   if (!user) return false;
@@ -246,7 +272,11 @@ router.beforeEach(async (to, _from, next) => {
     }
 
     // Handle authentication
-    if (!user.value && currentRoute !== ROUTES.LOGIN) {
+    if (
+      !user.value &&
+      currentRoute !== ROUTES.LOGIN &&
+      currentRoute !== ROUTES.RESET_PASSWORD
+    ) {
       return next({ name: ROUTES.LOGIN });
     }
 
@@ -266,11 +296,6 @@ router.beforeEach(async (to, _from, next) => {
     document.title = "RomM";
     next({ name: ROUTES.LOGIN });
   }
-});
-
-router.afterEach(() => {
-  // Scroll to top to avoid annoying behaviour on mobile
-  window.scrollTo({ top: 0, left: 0 });
 });
 
 router.beforeResolve(async () => {

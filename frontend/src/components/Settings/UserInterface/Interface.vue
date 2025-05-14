@@ -14,10 +14,12 @@ const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 
 // Initializing refs from localStorage
+// Home
 const storedShowRecentRoms = localStorage.getItem("settings.showRecentRoms");
 const showRecentRomsRef = ref(
   isNull(storedShowRecentRoms) ? true : storedShowRecentRoms === "true",
 );
+
 const storedShowContinuePlaying = localStorage.getItem(
   "settings.showContinuePlaying",
 );
@@ -34,6 +36,8 @@ const storedShowCollections = localStorage.getItem("settings.showCollections");
 const showCollectionsRef = ref(
   isNull(storedShowCollections) ? true : storedShowCollections === "true",
 );
+
+// Virtual collections
 const storedShowVirtualCollections = localStorage.getItem(
   "settings.showVirtualCollections",
 );
@@ -51,6 +55,17 @@ const virtualCollectionTypeRef = ref(
     : storedVirtualCollectionType,
 );
 
+// Platforms drawer
+const storedPlatformsGroupBy = localStorage.getItem(
+  "settings.platformsGroupBy",
+);
+const platformsGroupByRef = ref(
+  isNull(storedPlatformsGroupBy) || storedPlatformsGroupBy === "null"
+    ? null
+    : storedPlatformsGroupBy,
+);
+
+// Gallery
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
 const groupRomsRef = ref(
   isNull(storedGroupRoms) ? true : storedGroupRoms === "true",
@@ -108,6 +123,17 @@ const homeOptions = computed(() => [
   },
 ]);
 
+const platformsDrawerOptions = computed(() => [
+  {
+    title: t("settings.group-platforms-by"),
+    description: t("settings.group-platforms-by-desc"),
+    iconEnabled: "mdi-controller",
+    iconDisabled: "mdi-controller",
+    model: platformsGroupByRef,
+    modelTrigger: setPlatformDrawerGroupBy,
+  },
+]);
+
 const galleryOptions = computed(() => [
   {
     title: t("settings.group-roms"),
@@ -123,7 +149,7 @@ const galleryOptions = computed(() => [
     iconEnabled: "mdi-account-group-outline",
     iconDisabled: "mdi-account-outline",
     model: siblingsRef,
-    disabled: !groupRomsRef.value,
+    disabled: !groupRomsRef,
     modelTrigger: toggleSiblings,
   },
   {
@@ -161,9 +187,9 @@ const galleryOptions = computed(() => [
 ]);
 
 // Functions to update localStorage
-const toggleShowRecentRoms = (value: boolean) => {
-  showRecentRomsRef.value = value;
-  localStorage.setItem("settings.showRecentRoms", value.toString());
+const setPlatformDrawerGroupBy = (value: string) => {
+  platformsGroupByRef.value = value;
+  localStorage.setItem("settings.platformsGroupBy", value);
 };
 const toggleShowContinuePlaying = (value: boolean) => {
   showContinuePlayingRef.value = value;
@@ -190,6 +216,11 @@ const setVirtualCollectionType = async (value: string) => {
     .then(({ data: virtualCollections }) => {
       collectionsStore.setVirtual(virtualCollections);
     });
+};
+
+const toggleShowRecentRoms = (value: boolean) => {
+  showRecentRomsRef.value = value;
+  localStorage.setItem("settings.showRecentRoms", value.toString());
 };
 
 const toggleGroupRoms = (value: boolean) => {
@@ -249,6 +280,37 @@ const toggleActionBar = (value: boolean) => {
             "
             v-model="option.model.value"
             @update:model-value="option.modelTrigger"
+          />
+        </v-col>
+      </v-row>
+      <v-chip
+        label
+        variant="text"
+        prepend-icon="mdi-controller"
+        class="ml-2 mt-1"
+        >{{ t("settings.platforms-drawer") }}</v-chip
+      >
+      <v-divider class="border-opacity-25 ma-1 mb-2" />
+      <v-row class="py-2 align-center" no-gutters>
+        <v-col
+          cols="12"
+          v-for="option in platformsDrawerOptions"
+          :key="option.title"
+        >
+          <v-select
+            v-model="platformsGroupByRef"
+            :items="[
+              { title: 'Manufacturer', value: 'family_name' },
+              { title: 'Generation', value: 'generation' },
+              { title: 'Type', value: 'category' },
+              { title: 'None', value: null },
+            ]"
+            :label="t('settings.platforms-drawer-group-by')"
+            class="mx-2"
+            :class="{ 'mt-4': smAndDown }"
+            variant="outlined"
+            hide-details
+            @update:model-value="setPlatformDrawerGroupBy"
           />
         </v-col>
       </v-row>
