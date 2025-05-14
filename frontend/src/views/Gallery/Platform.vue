@@ -170,6 +170,7 @@ onMounted(async () => {
           ) {
             resetGallery();
             romsStore.setCurrentPlatform(platform);
+            document.title = `${platform.display_name}`;
             await fetchRoms();
           }
 
@@ -206,6 +207,7 @@ onBeforeRouteUpdate(async (to, from) => {
           platform
         ) {
           romsStore.setCurrentPlatform(platform);
+          document.title = `${platform.display_name}`;
           await fetchRoms();
         } else {
           noPlatformError.value = true;

@@ -174,6 +174,7 @@ onMounted(async () => {
         ) {
           resetGallery();
           romsStore.setCurrentCollection(collection);
+          document.title = `${collection.name}`;
           await fetchRoms();
         }
 
@@ -202,6 +203,7 @@ onMounted(async () => {
         ) {
           resetGallery();
           romsStore.setCurrentVirtualCollection(collection);
+          document.title = `${collection.name}`;
           await fetchRoms();
         }
 
@@ -236,6 +238,7 @@ onBeforeRouteUpdate(async (to, from) => {
           collection
         ) {
           romsStore.setCurrentCollection(collection);
+          document.title = `${collection.name}`;
           await fetchRoms();
         }
       }
@@ -259,6 +262,7 @@ onBeforeRouteUpdate(async (to, from) => {
         ) {
           romsStore.setCurrentCollection(null);
           romsStore.setCurrentVirtualCollection(collection);
+          document.title = `${collection.name}`;
           await fetchRoms();
         }
       }
