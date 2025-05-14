@@ -12,6 +12,8 @@ def str_to_bool(value: str) -> bool:
     return value.lower() in ("true", "1")
 
 
+ROMM_BASE_URL = os.environ.get("ROMM_BASE_URL", "http://0.0.0.0")
+
 # GUNICORN
 DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
 DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
