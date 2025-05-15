@@ -74,7 +74,7 @@ class FSResourcesHandler(FSHandler):
             try:
                 with Image.open(cover_file) as img:
                     self.resize_cover_to_small(img, save_path=cover_file)
-            except UnidentifiedImageError as exc:                
+            except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None
 
