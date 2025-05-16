@@ -309,7 +309,7 @@ onBeforeUnmount(async () => {
               :cols="smAndDown ? 12 : 6"
             >
               <v-card v-if="selectedState" class="bg-toplayer transform-scale">
-                <v-card-title class="text-center"
+                <v-card-title class="text-center text-subtitle-1"
                   ><v-icon class="mr-2">mdi-file</v-icon>Selected
                   state</v-card-title
                 >
@@ -379,7 +379,7 @@ onBeforeUnmount(async () => {
               :cols="smAndDown ? 12 : 6"
             >
               <v-card v-if="selectedSave" class="bg-toplayer transform-scale">
-                <v-card-title class="text-center"
+                <v-card-title class="text-center text-subtitle-1"
                   ><v-icon class="mr-2">mdi-content-save</v-icon>Selected
                   save</v-card-title
                 >
