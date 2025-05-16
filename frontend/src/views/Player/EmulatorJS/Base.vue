@@ -2,12 +2,13 @@
 import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import EmptyStates from "@/components/common/EmptyStates/EmptyStates.vue";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import { formatDistanceToNow } from "date-fns";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
-import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
+import { formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
@@ -154,6 +155,10 @@ function unselectState() {
   localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
 }
 
+function formatRelativeDate(date: string | Date) {
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
+}
+
 onMounted(async () => {
   const romResponse = await romApi.getRom({
     romId: parseInt(route.params.rom as string),
@@ -297,7 +302,7 @@ onBeforeUnmount(async () => {
           <v-row class="mt-4" no-gutters>
             <!-- state selector -->
             <v-col
-              :class="gameRunning || smAndDown ? 'mt-2' : 'pr-1'"
+              :class="gameRunning || smAndDown ? 'mt-2' : 'pl-1'"
               :cols="smAndDown ? 12 : 6"
             >
               <v-row no-gutters>
@@ -305,8 +310,8 @@ onBeforeUnmount(async () => {
                   <v-btn
                     block
                     variant="outlined"
+                    prepend-icon="mdi-content-save"
                     size="large"
-                    prepend-icon="mdi-file"
                     :color="openStateSelector ? 'primary' : ''"
                     @click="switchStateSelector"
                   >
@@ -324,7 +329,7 @@ onBeforeUnmount(async () => {
                   class="bg-toplayer transform-scale"
                   :class="{ 'disabled-card': openSaveSelector }"
                 >
-                  <v-card-text class="px-2 pb-2">
+                  <v-card-text class="px-2 py-2">
                     <v-row no-gutters>
                       <v-col cols="6">
                         <v-img
@@ -337,34 +342,40 @@ onBeforeUnmount(async () => {
                         </v-img>
                       </v-col>
                       <v-col class="pl-2" cols="6">
-                        <v-row class="text-caption" no-gutters>{{
-                          selectedState.file_name
-                        }}</v-row>
+                        <v-row
+                          class="pa-1 text-caption text-primary"
+                          no-gutters
+                          >{{ selectedState.file_name }}</v-row
+                        >
                         <v-row class="ga-1" no-gutters>
-                          <v-col v-if="selectedState.emulator" cols="12">
-                            <v-chip size="x-small" color="orange" label>
-                              {{ selectedState.emulator }}
-                            </v-chip>
-                          </v-col>
                           <v-col cols="12">
-                            <v-chip size="x-small" label>
-                              {{ formatBytes(selectedState.file_size_bytes) }}
-                            </v-chip>
-                          </v-col>
-                          <v-col cols="12">
-                            <v-chip size="x-small" label>
+                            <v-list-item rounded class="pa-1 text-caption">
                               Updated:
                               {{ formatTimestamp(selectedState.updated_at) }}
+                              <span class="text-grey text-caption"
+                                >({{
+                                  formatRelativeDate(selectedState.updated_at)
+                                }})</span
+                              >
+                            </v-list-item>
+                          </v-col>
+                          <v-col
+                            v-if="selectedState.emulator"
+                            cols="12"
+                            class="mt-1"
+                          >
+                            <v-chip size="x-small" color="orange" label>
+                              {{ selectedState.emulator }}
                             </v-chip>
                           </v-col>
                         </v-row>
                       </v-col>
                     </v-row>
                     <v-row class="mt-2" no-gutters>
-                      <v-col>
+                      <v-col class="text-right">
                         <v-btn
-                          block
-                          variant="outlined"
+                          variant="tonal"
+                          size="small"
                           @click="unselectState()"
                         >
                           <v-icon class="mr-2">mdi-close-circle-outline</v-icon
@@ -406,7 +417,7 @@ onBeforeUnmount(async () => {
                   class="bg-toplayer transform-scale"
                   :class="{ 'disabled-card': openStateSelector }"
                 >
-                  <v-card-text class="px-2 pb-2">
+                  <v-card-text class="px-2 py-2">
                     <v-row no-gutters>
                       <v-col cols="6">
                         <v-img
@@ -419,32 +430,42 @@ onBeforeUnmount(async () => {
                         </v-img>
                       </v-col>
                       <v-col class="pl-2" cols="6">
-                        <v-row class="text-caption" no-gutters>{{
-                          selectedSave.file_name
-                        }}</v-row>
+                        <v-row
+                          class="pa-1 text-caption text-primary"
+                          no-gutters
+                          >{{ selectedSave.file_name }}</v-row
+                        >
                         <v-row class="ga-1" no-gutters>
-                          <v-col v-if="selectedSave.emulator" cols="12">
-                            <v-chip size="x-small" color="orange" label>
-                              {{ selectedSave.emulator }}
-                            </v-chip>
-                          </v-col>
                           <v-col cols="12">
-                            <v-chip size="x-small" label>
-                              {{ formatBytes(selectedSave.file_size_bytes) }}
-                            </v-chip>
-                          </v-col>
-                          <v-col cols="12">
-                            <v-chip size="x-small" label>
+                            <v-list-item rounded class="pa-1 text-caption">
                               Updated:
                               {{ formatTimestamp(selectedSave.updated_at) }}
+                              <span class="text-grey text-caption"
+                                >({{
+                                  formatRelativeDate(selectedSave.updated_at)
+                                }})</span
+                              >
+                            </v-list-item>
+                          </v-col>
+                          <v-col
+                            v-if="selectedSave.emulator"
+                            cols="12"
+                            class="mt-1"
+                          >
+                            <v-chip size="x-small" color="orange" label>
+                              {{ selectedSave.emulator }}
                             </v-chip>
                           </v-col>
                         </v-row>
                       </v-col>
                     </v-row>
                     <v-row class="mt-2" no-gutters>
-                      <v-col>
-                        <v-btn block variant="outlined" @click="unselectSave()">
+                      <v-col class="text-right">
+                        <v-btn
+                          variant="tonal"
+                          size="small"
+                          @click="unselectSave()"
+                        >
                           <v-icon class="mr-2">mdi-close-circle-outline</v-icon
                           >{{ t("play.deselect-save") }}
                         </v-btn>
@@ -464,7 +485,12 @@ onBeforeUnmount(async () => {
                 sm="4"
                 class="pa-1"
                 v-if="rom.user_states.length > 0"
-                v-for="state in rom.user_states"
+                v-for="state in rom.user_states.sort((a, b) => {
+                  return (
+                    new Date(b.updated_at).getTime() -
+                    new Date(a.updated_at).getTime()
+                  );
+                })"
               >
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
@@ -493,23 +519,25 @@ onBeforeUnmount(async () => {
                           </v-img>
                         </v-col>
                       </v-row>
-                      <v-row class="py-2 text-caption" no-gutters>{{
-                        state.file_name
-                      }}</v-row>
+                      <v-row
+                        class="py-2 px-1 text-caption text-primary"
+                        no-gutters
+                        >{{ state.file_name }}</v-row
+                      >
                       <v-row class="ga-1" no-gutters>
-                        <v-col v-if="state.emulator" cols="12">
+                        <v-col cols="12">
+                          <v-list-item rounded class="pa-1 text-caption">
+                            Updated: {{ formatTimestamp(state.updated_at) }}
+                            <span class="ml-1 text-grey text-caption"
+                              >({{
+                                formatRelativeDate(state.updated_at)
+                              }})</span
+                            >
+                          </v-list-item>
+                        </v-col>
+                        <v-col v-if="state.emulator" cols="12" class="mt-1">
                           <v-chip size="x-small" color="orange" label>
                             {{ state.emulator }}
-                          </v-chip>
-                        </v-col>
-                        <v-col cols="12">
-                          <v-chip size="x-small" label>
-                            {{ formatBytes(state.file_size_bytes) }}
-                          </v-chip>
-                        </v-col>
-                        <v-col cols="12">
-                          <v-chip size="x-small" label>
-                            Updated: {{ formatTimestamp(state.updated_at) }}
                           </v-chip>
                         </v-col>
                       </v-row>
@@ -531,7 +559,12 @@ onBeforeUnmount(async () => {
                 sm="4"
                 class="pa-1"
                 v-if="rom.user_saves.length > 0"
-                v-for="save in rom.user_saves"
+                v-for="save in rom.user_saves.sort((a, b) => {
+                  return (
+                    new Date(b.updated_at).getTime() -
+                    new Date(a.updated_at).getTime()
+                  );
+                })"
               >
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
@@ -560,23 +593,23 @@ onBeforeUnmount(async () => {
                           </v-img>
                         </v-col>
                       </v-row>
-                      <v-row class="py-2 text-caption" no-gutters>{{
-                        save.file_name
-                      }}</v-row>
+                      <v-row
+                        class="py-2 px-1 text-caption text-primary"
+                        no-gutters
+                        >{{ save.file_name }}</v-row
+                      >
                       <v-row class="ga-1" no-gutters>
-                        <v-col v-if="save.emulator" cols="12">
+                        <v-col cols="12">
+                          <v-list-item rounded class="pa-1 text-caption">
+                            Updated: {{ formatTimestamp(save.updated_at) }}
+                            <span class="ml-1 text-grey text-caption"
+                              >({{ formatRelativeDate(save.updated_at) }})</span
+                            >
+                          </v-list-item>
+                        </v-col>
+                        <v-col v-if="save.emulator" cols="12" class="mt-1">
                           <v-chip size="x-small" color="orange" label>
                             {{ save.emulator }}
-                          </v-chip>
-                        </v-col>
-                        <v-col cols="12">
-                          <v-chip size="x-small" label>
-                            {{ formatBytes(save.file_size_bytes) }}
-                          </v-chip>
-                        </v-col>
-                        <v-col cols="12">
-                          <v-chip size="x-small" label>
-                            Updated: {{ formatTimestamp(save.updated_at) }}
                           </v-chip>
                         </v-col>
                       </v-row>
