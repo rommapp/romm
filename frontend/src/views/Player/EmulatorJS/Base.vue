@@ -29,12 +29,13 @@ const { smAndDown } = useDisplay();
 const route = useRoute();
 const auth = storeAuth();
 const romsStore = storeRoms();
-const tab = ref<"saves" | "states">("saves");
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
 const selectedFirmware = ref<FirmwareSchema | null>(null);
 const selectedSave = ref<SaveSchema | null>(null);
+const openSaveSelector = ref(false);
 const selectedState = ref<StateSchema | null>(null);
+const openStateSelector = ref(false);
 const selectedCore = ref<string | null>(null);
 const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
@@ -118,12 +119,28 @@ async function saveAndQuit() {
   window.history.back();
 }
 
+function switchSaveSelector() {
+  openSaveSelector.value = !openSaveSelector.value;
+  openStateSelector.value = false;
+}
+
 function selectSave(save: SaveSchema) {
   selectedSave.value = save;
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
     save.id.toString(),
   );
+  openSaveSelector.value = false;
+}
+
+function unselectSave() {
+  selectedSave.value = null;
+  localStorage.removeItem(`player:${rom.value?.platform_slug}:save_id`);
+}
+
+function switchStateSelector() {
+  openStateSelector.value = !openStateSelector.value;
+  openSaveSelector.value = false;
 }
 
 function selectState(state: StateSchema) {
@@ -132,6 +149,12 @@ function selectState(state: StateSchema) {
     `player:${rom.value?.platform_slug}:state_id`,
     state.id.toString(),
   );
+  openStateSelector.value = false;
+}
+
+function unselectState() {
+  selectedState.value = null;
+  localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
 }
 
 onMounted(async () => {
@@ -175,13 +198,13 @@ onMounted(async () => {
     selectedDisc.value = parseInt(storedDisc);
   }
 
-  emitter?.on("saveSelected", selectSave);
-  emitter?.on("stateSelected", selectState);
+  // emitter?.on("saveSelected", selectSave);
+  // emitter?.on("stateSelected", selectState);
 });
 
 onBeforeUnmount(async () => {
-  emitter?.off("saveSelected", selectSave);
-  emitter?.off("stateSelected", selectState);
+  // emitter?.off("saveSelected", selectSave);
+  // emitter?.off("stateSelected", selectState);
   window.EJS_emulator?.callEvent("exit");
 });
 </script>
@@ -213,6 +236,7 @@ onBeforeUnmount(async () => {
       :md="!gameRunning ? 8 : 4"
       :xl="!gameRunning ? 6 : 2"
     >
+      <!-- Header -->
       <v-row class="px-3 mt-6" no-gutters>
         <v-col>
           <v-img
@@ -224,8 +248,10 @@ onBeforeUnmount(async () => {
           <rom-list-item :rom="rom" with-filename with-size />
         </v-col>
       </v-row>
+
       <v-row v-if="!gameRunning" class="px-3 py-3" no-gutters>
         <v-col>
+          <!-- disc selector -->
           <v-select
             v-if="rom.multi"
             v-model="selectedDisc"
@@ -242,6 +268,7 @@ onBeforeUnmount(async () => {
               }))
             "
           />
+          <!-- core selector -->
           <v-select
             v-if="supportedCores.length > 1"
             v-model="selectedCore"
@@ -257,6 +284,7 @@ onBeforeUnmount(async () => {
               }))
             "
           />
+          <!-- bios selector -->
           <v-select
             v-if="firmwareOptions.length > 0"
             v-model="selectedFirmware"
@@ -272,127 +300,142 @@ onBeforeUnmount(async () => {
               })) ?? []
             "
           />
-          <v-row class="mt-2">
-            <v-col :cols="smAndDown ? 12 : 6">
+
+          <!-- save/satate selector -->
+          <v-row class="mt-4" no-gutters>
+            <!-- state selector -->
+            <v-col
+              :class="gameRunning || smAndDown ? 'mt-2' : 'pr-1'"
+              :cols="smAndDown ? 12 : 6"
+            >
               <v-card v-if="selectedState" class="bg-toplayer transform-scale">
-                <v-card-text class="d-flex flex-row justify-end h-100">
-                  <v-col class="pa-0">
-                    <v-img
-                      cover
-                      height="100%"
-                      :src="
-                        selectedState.screenshot?.download_path ??
-                        getEmptyCoverImage(selectedState.file_name)
-                      "
-                    />
-                  </v-col>
-                  <v-col class="ml-4">
-                    <v-row class="text-h6">{{
-                      t("play.select-state").toUpperCase()
-                    }}</v-row>
-                    <v-row class="mt-4 flex-grow-0">{{
-                      selectedState.file_name
-                    }}</v-row>
-                    <v-row
-                      class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
-                      style="min-height: 20px"
-                    >
-                      <v-chip
-                        v-if="selectedState.emulator"
-                        size="x-small"
-                        color="orange"
-                        label
+                <v-card-title class="text-center"
+                  ><v-icon class="mr-2">mdi-file</v-icon>Selected
+                  state</v-card-title
+                >
+                <v-card-text class="px-2 pb-2">
+                  <v-row no-gutters>
+                    <v-col cols="6">
+                      <v-img
+                        :src="
+                          selectedState.screenshot?.download_path ??
+                          getEmptyCoverImage(selectedState.file_name)
+                        "
                       >
-                        {{ selectedState.emulator }}
-                      </v-chip>
-                      <v-chip size="x-small" label>
-                        {{ formatBytes(selectedState.file_size_bytes) }}
-                      </v-chip>
-                      <v-chip size="x-small" label>
-                        {{ formatTimestamp(selectedState.updated_at) }}
-                      </v-chip>
-                      <v-btn
-                        class="w-100 mt-4"
-                        variant="outlined"
-                        size="large"
-                        @click="selectedState = null"
-                      >
+                      </v-img>
+                    </v-col>
+                    <v-col class="pl-2" cols="6">
+                      <v-row class="text-caption" no-gutters>{{
+                        selectedState.file_name
+                      }}</v-row>
+                      <v-row class="ga-1" no-gutters>
+                        <v-col v-if="selectedState.emulator" cols="12">
+                          <v-chip size="x-small" color="orange" label>
+                            {{ selectedState.emulator }}
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-chip size="x-small" label>
+                            {{ formatBytes(selectedState.file_size_bytes) }}
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-chip size="x-small" label>
+                            Updated:
+                            {{ formatTimestamp(selectedState.updated_at) }}
+                          </v-chip>
+                        </v-col>
+                      </v-row>
+                    </v-col>
+                  </v-row>
+                  <v-row class="mt-2" no-gutters>
+                    <v-col>
+                      <v-btn block variant="outlined" @click="unselectState()">
                         <v-icon>mdi-close-circle-outline</v-icon>
                       </v-btn>
-                    </v-row>
-                  </v-col>
+                    </v-col>
+                  </v-row>
                 </v-card-text>
               </v-card>
-              <v-row v-else>
+              <v-row no-gutters v-else>
                 <v-col>
                   <v-btn
-                    class="w-100"
+                    block
                     variant="outlined"
                     size="large"
-                    @click="emitter?.emit('selectStateDialog', rom)"
+                    prepend-icon="mdi-file"
+                    :color="openStateSelector ? 'primary' : ''"
+                    @click="switchStateSelector"
                   >
                     {{ t("play.select-state") }}
                   </v-btn>
                 </v-col>
               </v-row>
             </v-col>
-            <v-col :cols="smAndDown ? 12 : 6">
+
+            <!-- save selector -->
+            <v-col
+              :class="gameRunning || smAndDown ? 'mt-2' : 'pl-1'"
+              :cols="smAndDown ? 12 : 6"
+            >
               <v-card v-if="selectedSave" class="bg-toplayer transform-scale">
-                <v-card-text class="d-flex flex-row justify-end h-100">
-                  <v-col class="pa-0">
-                    <v-img
-                      cover
-                      height="100%"
-                      :src="
-                        selectedSave.screenshot?.download_path ??
-                        getEmptyCoverImage(selectedSave.file_name)
-                      "
-                    />
-                  </v-col>
-                  <v-col class="ml-4">
-                    <v-row class="text-h6">{{
-                      t("play.select-save").toUpperCase()
-                    }}</v-row>
-                    <v-row class="mt-4 flex-grow-0">{{
-                      selectedSave.file_name
-                    }}</v-row>
-                    <v-row
-                      class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
-                      style="min-height: 20px"
-                    >
-                      <v-chip
-                        v-if="selectedSave.emulator"
-                        size="x-small"
-                        color="orange"
-                        label
+                <v-card-title class="text-center"
+                  ><v-icon class="mr-2">mdi-content-save</v-icon>Selected
+                  save</v-card-title
+                >
+                <v-card-text class="px-2 pb-2">
+                  <v-row no-gutters>
+                    <v-col cols="6">
+                      <v-img
+                        :src="
+                          selectedSave.screenshot?.download_path ??
+                          getEmptyCoverImage(selectedSave.file_name)
+                        "
                       >
-                        {{ selectedSave.emulator }}
-                      </v-chip>
-                      <v-chip size="x-small" label>
-                        {{ formatBytes(selectedSave.file_size_bytes) }}
-                      </v-chip>
-                      <v-chip size="x-small" label>
-                        {{ formatTimestamp(selectedSave.updated_at) }}
-                      </v-chip>
-                      <v-btn
-                        class="w-100 mt-4"
-                        variant="outlined"
-                        size="large"
-                        @click="selectedSave = null"
-                      >
+                      </v-img>
+                    </v-col>
+                    <v-col class="pl-2" cols="6">
+                      <v-row class="text-caption" no-gutters>{{
+                        selectedSave.file_name
+                      }}</v-row>
+                      <v-row class="ga-1" no-gutters>
+                        <v-col v-if="selectedSave.emulator" cols="12">
+                          <v-chip size="x-small" color="orange" label>
+                            {{ selectedSave.emulator }}
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-chip size="x-small" label>
+                            {{ formatBytes(selectedSave.file_size_bytes) }}
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-chip size="x-small" label>
+                            Updated:
+                            {{ formatTimestamp(selectedSave.updated_at) }}
+                          </v-chip>
+                        </v-col>
+                      </v-row>
+                    </v-col>
+                  </v-row>
+                  <v-row class="mt-2" no-gutters>
+                    <v-col>
+                      <v-btn block variant="outlined" @click="unselectSave()">
                         <v-icon>mdi-close-circle-outline</v-icon>
                       </v-btn>
-                    </v-row>
-                  </v-col>
+                    </v-col>
+                  </v-row>
                 </v-card-text>
               </v-card>
-              <v-row v-else>
+              <v-row no-gutters v-else>
                 <v-col>
                   <v-btn
-                    class="w-100"
+                    block
                     variant="outlined"
+                    prepend-icon="mdi-content-save"
                     size="large"
-                    @click="emitter?.emit('selectSaveDialog', rom)"
+                    :color="openSaveSelector ? 'primary' : ''"
+                    @click="switchSaveSelector"
                   >
                     {{ t("play.select-save") }}
                   </v-btn>
@@ -400,12 +443,132 @@ onBeforeUnmount(async () => {
               </v-row>
             </v-col>
           </v-row>
+
+          <!-- state display -->
+          <v-expand-transition>
+            <v-row v-if="openStateSelector" class="mt-2" no-gutters>
+              <v-col
+                cols="6"
+                sm="4"
+                class="pa-1"
+                v-for="state in rom.user_states"
+              >
+                <v-hover v-slot="{ isHovering, props }">
+                  <v-card
+                    v-bind="props"
+                    class="bg-toplayer transform-scale"
+                    :class="{
+                      'on-hover': isHovering,
+                      'border-selected': selectedState?.id === state.id,
+                    }"
+                    :elevation="isHovering ? 20 : 3"
+                    @click="selectState(state)"
+                  >
+                    <v-card-text class="pa-2">
+                      <v-row no-gutters>
+                        <v-col cols="12">
+                          <v-img
+                            :src="
+                              state.screenshot?.download_path ??
+                              getEmptyCoverImage(state.file_name)
+                            "
+                          >
+                          </v-img>
+                        </v-col>
+                      </v-row>
+                      <v-row class="py-2 text-caption" no-gutters>{{
+                        state.file_name
+                      }}</v-row>
+                      <v-row class="ga-1" no-gutters>
+                        <v-col v-if="state.emulator" cols="12">
+                          <v-chip size="x-small" color="orange" label>
+                            {{ state.emulator }}
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-chip size="x-small" label>
+                            {{ formatBytes(state.file_size_bytes) }}
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-chip size="x-small" label>
+                            Updated: {{ formatTimestamp(state.updated_at) }}
+                          </v-chip>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
+                </v-hover>
+              </v-col>
+            </v-row>
+          </v-expand-transition>
+
+          <!-- save display -->
+          <v-expand-transition>
+            <v-row v-if="openSaveSelector" class="mt-2" no-gutters>
+              <v-col
+                cols="6"
+                sm="4"
+                class="pa-1"
+                v-for="save in rom.user_saves"
+              >
+                <v-hover v-slot="{ isHovering, props }">
+                  <v-card
+                    v-bind="props"
+                    class="bg-toplayer transform-scale"
+                    :class="{
+                      'on-hover': isHovering,
+                      'border-selected': selectedSave?.id === save.id,
+                    }"
+                    :elevation="isHovering ? 20 : 3"
+                    @click="selectSave(save)"
+                  >
+                    <v-card-text class="pa-2">
+                      <v-row no-gutters>
+                        <v-col cols="12">
+                          <v-img
+                            :src="
+                              save.screenshot?.download_path ??
+                              getEmptyCoverImage(save.file_name)
+                            "
+                          >
+                          </v-img>
+                        </v-col>
+                      </v-row>
+                      <v-row class="py-2 text-caption" no-gutters>{{
+                        save.file_name
+                      }}</v-row>
+                      <v-row class="ga-1" no-gutters>
+                        <v-col v-if="save.emulator" cols="12">
+                          <v-chip size="x-small" color="orange" label>
+                            {{ save.emulator }}
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-chip size="x-small" label>
+                            {{ formatBytes(save.file_size_bytes) }}
+                          </v-chip>
+                        </v-col>
+                        <v-col cols="12">
+                          <v-chip size="x-small" label>
+                            Updated: {{ formatTimestamp(save.updated_at) }}
+                          </v-chip>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
+                </v-hover>
+              </v-col>
+            </v-row>
+          </v-expand-transition>
         </v-col>
       </v-row>
-      <v-row class="px-3 py-3 text-center" no-gutters>
+
+      <!-- Action buttons -->
+      <v-row class="px-3 py-2 text-center" no-gutters>
         <v-col>
           <v-row v-if="!gameRunning" class="align-center" no-gutters>
-            <v-col>
+            <v-col :class="smAndDown ? '' : 'pr-1'">
               <v-btn
                 block
                 size="large"
@@ -423,7 +586,7 @@ onBeforeUnmount(async () => {
             </v-col>
             <v-col
               :cols="gameRunning || smAndDown ? 12 : 8"
-              :class="gameRunning || smAndDown ? 'mt-2' : 'ml-4'"
+              :class="gameRunning || smAndDown ? 'mt-2' : 'pl-1'"
             >
               <v-btn
                 color="primary"
