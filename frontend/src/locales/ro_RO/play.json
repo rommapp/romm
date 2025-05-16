@@ -10,5 +10,9 @@
   "quit": "Ieși",
   "save-and-quit": "Salvează și ieși",
   "select-save": "Selectează salvare",
-  "select-state": "Selectează stare"
+  "change-save": "Schimbă salvare",
+  "deselect-save": "Deselectează salvare",
+  "select-state": "Selectează stare",
+  "change-state": "Schimbă stare",
+  "deselect-state": "Deselectează stare"
 }

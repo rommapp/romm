@@ -11,5 +11,9 @@
   "reset-session": "Reset Sessione",
   "save-and-quit": "Salva e esci",
   "select-save": "Seleziona Salvataggio",
-  "select-state": "Seleziona Stato"
+  "change-save": "Cambia Salvataggio",
+  "deselect-save": "Deseleziona Salvataggio",
+  "select-state": "Seleziona Stato",
+  "change-state": "Cambia Stato",
+  "deselect-state": "Deseleziona Stato"
 }

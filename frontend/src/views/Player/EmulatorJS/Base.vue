@@ -236,7 +236,7 @@ onBeforeUnmount(async () => {
             width="250"
             src="/assets/emulatorjs/powered_by_emulatorjs.png"
           />
-          <v-divider class="my-4 mt-8" />
+          <v-divider class="mb-4 mt-8" />
           <rom-list-item :rom="rom" with-filename with-size />
         </v-col>
       </v-row>
@@ -300,57 +300,7 @@ onBeforeUnmount(async () => {
               :class="gameRunning || smAndDown ? 'mt-2' : 'pr-1'"
               :cols="smAndDown ? 12 : 6"
             >
-              <v-card v-if="selectedState" class="bg-toplayer transform-scale">
-                <v-card-title class="text-center text-subtitle-1"
-                  ><v-icon class="mr-2">mdi-file</v-icon>Selected
-                  state</v-card-title
-                >
-                <v-card-text class="px-2 pb-2">
-                  <v-row no-gutters>
-                    <v-col cols="6">
-                      <v-img
-                        rounded
-                        :src="
-                          selectedState.screenshot?.download_path ??
-                          getEmptyCoverImage(selectedState.file_name)
-                        "
-                      >
-                      </v-img>
-                    </v-col>
-                    <v-col class="pl-2" cols="6">
-                      <v-row class="text-caption" no-gutters>{{
-                        selectedState.file_name
-                      }}</v-row>
-                      <v-row class="ga-1" no-gutters>
-                        <v-col v-if="selectedState.emulator" cols="12">
-                          <v-chip size="x-small" color="orange" label>
-                            {{ selectedState.emulator }}
-                          </v-chip>
-                        </v-col>
-                        <v-col cols="12">
-                          <v-chip size="x-small" label>
-                            {{ formatBytes(selectedState.file_size_bytes) }}
-                          </v-chip>
-                        </v-col>
-                        <v-col cols="12">
-                          <v-chip size="x-small" label>
-                            Updated:
-                            {{ formatTimestamp(selectedState.updated_at) }}
-                          </v-chip>
-                        </v-col>
-                      </v-row>
-                    </v-col>
-                  </v-row>
-                  <v-row class="mt-2" no-gutters>
-                    <v-col>
-                      <v-btn block variant="outlined" @click="unselectState()">
-                        <v-icon>mdi-close-circle-outline</v-icon>
-                      </v-btn>
-                    </v-col>
-                  </v-row>
-                </v-card-text>
-              </v-card>
-              <v-row no-gutters v-else>
+              <v-row no-gutters>
                 <v-col>
                   <v-btn
                     block
@@ -360,10 +310,71 @@ onBeforeUnmount(async () => {
                     :color="openStateSelector ? 'primary' : ''"
                     @click="switchStateSelector"
                   >
-                    {{ t("play.select-state") }}
+                    {{
+                      selectedState
+                        ? t("play.change-state")
+                        : t("play.select-state")
+                    }}
                   </v-btn>
                 </v-col>
               </v-row>
+              <v-expand-transition>
+                <v-card
+                  v-if="selectedState"
+                  class="bg-toplayer transform-scale"
+                  :class="{ 'disabled-card': openSaveSelector }"
+                >
+                  <v-card-text class="px-2 pb-2">
+                    <v-row no-gutters>
+                      <v-col cols="6">
+                        <v-img
+                          rounded
+                          :src="
+                            selectedState.screenshot?.download_path ??
+                            getEmptyCoverImage(selectedState.file_name)
+                          "
+                        >
+                        </v-img>
+                      </v-col>
+                      <v-col class="pl-2" cols="6">
+                        <v-row class="text-caption" no-gutters>{{
+                          selectedState.file_name
+                        }}</v-row>
+                        <v-row class="ga-1" no-gutters>
+                          <v-col v-if="selectedState.emulator" cols="12">
+                            <v-chip size="x-small" color="orange" label>
+                              {{ selectedState.emulator }}
+                            </v-chip>
+                          </v-col>
+                          <v-col cols="12">
+                            <v-chip size="x-small" label>
+                              {{ formatBytes(selectedState.file_size_bytes) }}
+                            </v-chip>
+                          </v-col>
+                          <v-col cols="12">
+                            <v-chip size="x-small" label>
+                              Updated:
+                              {{ formatTimestamp(selectedState.updated_at) }}
+                            </v-chip>
+                          </v-col>
+                        </v-row>
+                      </v-col>
+                    </v-row>
+                    <v-row class="mt-2" no-gutters>
+                      <v-col>
+                        <v-btn
+                          block
+                          variant="outlined"
+                          @click="unselectState()"
+                        >
+                          <v-icon class="mr-2">mdi-close-circle-outline</v-icon
+                          >{{ t("play.deselect-state") }}
+                        </v-btn>
+                      </v-col>
+                    </v-row>
+                  </v-card-text>
+                </v-card>
+              </v-expand-transition>
             </v-col>
 
             <!-- save selector -->
@@ -371,57 +382,7 @@ onBeforeUnmount(async () => {
               :class="gameRunning || smAndDown ? 'mt-2' : 'pl-1'"
               :cols="smAndDown ? 12 : 6"
             >
-              <v-card v-if="selectedSave" class="bg-toplayer transform-scale">
-                <v-card-title class="text-center text-subtitle-1"
-                  ><v-icon class="mr-2">mdi-content-save</v-icon>Selected
-                  save</v-card-title
-                >
-                <v-card-text class="px-2 pb-2">
-                  <v-row no-gutters>
-                    <v-col cols="6">
-                      <v-img
-                        rounded
-                        :src="
-                          selectedSave.screenshot?.download_path ??
-                          getEmptyCoverImage(selectedSave.file_name)
-                        "
-                      >
-                      </v-img>
-                    </v-col>
-                    <v-col class="pl-2" cols="6">
-                      <v-row class="text-caption" no-gutters>{{
-                        selectedSave.file_name
-                      }}</v-row>
-                      <v-row class="ga-1" no-gutters>
-                        <v-col v-if="selectedSave.emulator" cols="12">
-                          <v-chip size="x-small" color="orange" label>
-                            {{ selectedSave.emulator }}
-                          </v-chip>
-                        </v-col>
-                        <v-col cols="12">
-                          <v-chip size="x-small" label>
-                            {{ formatBytes(selectedSave.file_size_bytes) }}
-                          </v-chip>
-                        </v-col>
-                        <v-col cols="12">
-                          <v-chip size="x-small" label>
-                            Updated:
-                            {{ formatTimestamp(selectedSave.updated_at) }}
-                          </v-chip>
-                        </v-col>
-                      </v-row>
-                    </v-col>
-                  </v-row>
-                  <v-row class="mt-2" no-gutters>
-                    <v-col>
-                      <v-btn block variant="outlined" @click="unselectSave()">
-                        <v-icon>mdi-close-circle-outline</v-icon>
-                      </v-btn>
-                    </v-col>
-                  </v-row>
-                </v-card-text>
-              </v-card>
-              <v-row no-gutters v-else>
+              <v-row no-gutters>
                 <v-col>
                   <v-btn
                     block
@@ -431,10 +392,67 @@ onBeforeUnmount(async () => {
                     :color="openSaveSelector ? 'primary' : ''"
                     @click="switchSaveSelector"
                   >
-                    {{ t("play.select-save") }}
+                    {{
+                      selectedSave
+                        ? t("play.change-save")
+                        : t("play.select-save")
+                    }}
                   </v-btn>
                 </v-col>
               </v-row>
+              <v-expand-transition>
+                <v-card
+                  v-if="selectedSave"
+                  class="bg-toplayer transform-scale"
+                  :class="{ 'disabled-card': openStateSelector }"
+                >
+                  <v-card-text class="px-2 pb-2">
+                    <v-row no-gutters>
+                      <v-col cols="6">
+                        <v-img
+                          rounded
+                          :src="
+                            selectedSave.screenshot?.download_path ??
+                            getEmptyCoverImage(selectedSave.file_name)
+                          "
+                        >
+                        </v-img>
+                      </v-col>
+                      <v-col class="pl-2" cols="6">
+                        <v-row class="text-caption" no-gutters>{{
+                          selectedSave.file_name
+                        }}</v-row>
+                        <v-row class="ga-1" no-gutters>
+                          <v-col v-if="selectedSave.emulator" cols="12">
+                            <v-chip size="x-small" color="orange" label>
+                              {{ selectedSave.emulator }}
+                            </v-chip>
+                          </v-col>
+                          <v-col cols="12">
+                            <v-chip size="x-small" label>
+                              {{ formatBytes(selectedSave.file_size_bytes) }}
+                            </v-chip>
+                          </v-col>
+                          <v-col cols="12">
+                            <v-chip size="x-small" label>
+                              Updated:
+                              {{ formatTimestamp(selectedSave.updated_at) }}
+                            </v-chip>
+                          </v-col>
+                        </v-row>
+                      </v-col>
+                    </v-row>
+                    <v-row class="mt-2" no-gutters>
+                      <v-col>
+                        <v-btn block variant="outlined" @click="unselectSave()">
+                          <v-icon class="mr-2">mdi-close-circle-outline</v-icon
+                          >{{ t("play.deselect-save") }}
+                        </v-btn>
+                      </v-col>
+                    </v-row>
+                  </v-card-text>
+                </v-card>
+              </v-expand-transition>
             </v-col>
           </v-row>
 
@@ -445,10 +463,14 @@ onBeforeUnmount(async () => {
                 cols="6"
                 sm="4"
                 class="pa-1"
+                v-if="rom.user_states.length > 0"
                 v-for="state in rom.user_states"
               >
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
+                    :style="{
+                      zIndex: selectedState?.id === state.id ? 11 : undefined,
+                    }"
                     v-bind="props"
                     class="bg-toplayer transform-scale"
                     :class="{
@@ -495,6 +517,9 @@ onBeforeUnmount(async () => {
                   </v-card>
                 </v-hover>
               </v-col>
+              <v-col v-else class="pa-1 mt-1">
+                <empty-states />
+              </v-col>
             </v-row>
           </v-expand-transition>
 
@@ -505,10 +530,14 @@ onBeforeUnmount(async () => {
                 cols="6"
                 sm="4"
                 class="pa-1"
+                v-if="rom.user_saves.length > 0"
                 v-for="save in rom.user_saves"
               >
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
+                    :style="{
+                      zIndex: selectedSave?.id === save.id ? 11 : undefined,
+                    }"
                     v-bind="props"
                     class="bg-toplayer transform-scale"
                     :class="{
@@ -554,6 +583,9 @@ onBeforeUnmount(async () => {
                     </v-card-text>
                   </v-card>
                 </v-hover>
+              </v-col>
+              <v-col v-else class="pa-1 mt-1">
+                <empty-saves />
               </v-col>
             </v-row>
           </v-expand-transition>
@@ -664,5 +696,9 @@ onBeforeUnmount(async () => {
   #game-wrapper {
     height: calc(100vh - 55px);
   }
+}
+
+.disabled-card {
+  opacity: 0.2;
 }
 </style>
