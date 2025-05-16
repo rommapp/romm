@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
+import EmptyStates from "@/components/common/EmptyStates/EmptyStates.vue";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
@@ -13,7 +15,7 @@ import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { saveSave, saveState } from "./utils";
-import CacheDialog from "./CacheDialog.vue";
+import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import { getEmptyCoverImage } from "@/utils/covers";
@@ -27,13 +29,14 @@ const { smAndDown } = useDisplay();
 const route = useRoute();
 const auth = storeAuth();
 const romsStore = storeRoms();
+const tab = ref<"saves" | "states">("saves");
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
-const biosRef = ref<FirmwareSchema | null>(null);
-const saveRef = ref<SaveSchema | null>(null);
-const stateRef = ref<StateSchema | null>(null);
-const coreRef = ref<string | null>(null);
-const discRef = ref<number | null>(null);
+const selectedFirmware = ref<FirmwareSchema | null>(null);
+const selectedSave = ref<SaveSchema | null>(null);
+const selectedState = ref<StateSchema | null>(null);
+const selectedCore = ref<string | null>(null);
+const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
@@ -106,7 +109,7 @@ async function saveAndQuit() {
   const saveFile = window.EJS_emulator.gameManager.getSaveFile();
   await saveSave({
     rom: rom.value,
-    save: saveRef.value,
+    save: selectedSave.value,
     saveFile,
     screenshotFile,
   });
@@ -115,16 +118,16 @@ async function saveAndQuit() {
   window.history.back();
 }
 
-function saveSelected(save: SaveSchema) {
-  saveRef.value = save;
+function selectSave(save: SaveSchema) {
+  selectedSave.value = save;
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
     save.id.toString(),
   );
 }
 
-function stateSelected(state: StateSchema) {
-  stateRef.value = state;
+function selectState(state: StateSchema) {
+  selectedState.value = state;
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:state_id`,
     state.id.toString(),
@@ -145,14 +148,14 @@ onMounted(async () => {
   supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
 
   // Load stored bios, save, state, and core
-  saveRef.value = rom.value.user_saves[0] ?? null;
-  stateRef.value = rom.value.user_states[0] ?? null;
+  selectedSave.value = rom.value.user_saves[0] ?? null;
+  selectedState.value = rom.value.user_states[0] ?? null;
 
   const storedBiosID = localStorage.getItem(
     `player:${rom.value.platform_slug}:bios_id`,
   );
   if (storedBiosID) {
-    biosRef.value =
+    selectedFirmware.value =
       firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID)) ??
       null;
   }
@@ -161,24 +164,24 @@ onMounted(async () => {
     `player:${rom.value.platform_slug}:core`,
   );
   if (storedCore) {
-    coreRef.value = storedCore;
+    selectedCore.value = storedCore;
   } else {
     // Otherwise auto select first supported core
-    coreRef.value = supportedCores.value[0];
+    selectedCore.value = supportedCores.value[0];
   }
 
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
   if (storedDisc) {
-    discRef.value = parseInt(storedDisc);
+    selectedDisc.value = parseInt(storedDisc);
   }
 
-  emitter?.on("saveSelected", saveSelected);
-  emitter?.on("stateSelected", stateSelected);
+  emitter?.on("saveSelected", selectSave);
+  emitter?.on("stateSelected", selectState);
 });
 
 onBeforeUnmount(async () => {
-  emitter?.off("saveSelected", saveSelected);
-  emitter?.off("stateSelected", stateSelected);
+  emitter?.off("saveSelected", selectSave);
+  emitter?.off("stateSelected", selectState);
   window.EJS_emulator?.callEvent("exit");
 });
 </script>
@@ -196,17 +199,17 @@ onBeforeUnmount(async () => {
     >
       <player
         :rom="rom"
-        :state="stateRef"
-        :save="saveRef"
-        :bios="biosRef"
-        :core="coreRef"
-        :disc="discRef"
+        :state="selectedState"
+        :save="selectedSave"
+        :bios="selectedFirmware"
+        :core="selectedCore"
+        :disc="selectedDisc"
       />
     </v-col>
 
     <v-col
       cols="12"
-      :sm="!gameRunning ? 10 : 10"
+      sm="10"
       :md="!gameRunning ? 8 : 4"
       :xl="!gameRunning ? 6 : 2"
     >
@@ -225,7 +228,7 @@ onBeforeUnmount(async () => {
         <v-col>
           <v-select
             v-if="rom.multi"
-            v-model="discRef"
+            v-model="selectedDisc"
             class="my-1"
             hide-details
             rounded="0"
@@ -241,7 +244,7 @@ onBeforeUnmount(async () => {
           />
           <v-select
             v-if="supportedCores.length > 1"
-            v-model="coreRef"
+            v-model="selectedCore"
             class="my-1"
             hide-details
             variant="outlined"
@@ -256,7 +259,7 @@ onBeforeUnmount(async () => {
           />
           <v-select
             v-if="firmwareOptions.length > 0"
-            v-model="biosRef"
+            v-model="selectedFirmware"
             class="my-1"
             hide-details
             variant="outlined"
@@ -271,15 +274,15 @@ onBeforeUnmount(async () => {
           />
           <v-row class="mt-2">
             <v-col :cols="smAndDown ? 12 : 6">
-              <v-card v-if="stateRef" class="bg-toplayer transform-scale">
+              <v-card v-if="selectedState" class="bg-toplayer transform-scale">
                 <v-card-text class="d-flex flex-row justify-end h-100">
                   <v-col class="pa-0">
                     <v-img
                       cover
                       height="100%"
                       :src="
-                        stateRef.screenshot?.download_path ??
-                        getEmptyCoverImage(stateRef.file_name)
+                        selectedState.screenshot?.download_path ??
+                        getEmptyCoverImage(selectedState.file_name)
                       "
                     />
                   </v-col>
@@ -288,31 +291,31 @@ onBeforeUnmount(async () => {
                       t("play.select-state").toUpperCase()
                     }}</v-row>
                     <v-row class="mt-4 flex-grow-0">{{
-                      stateRef.file_name
+                      selectedState.file_name
                     }}</v-row>
                     <v-row
                       class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                       style="min-height: 20px"
                     >
                       <v-chip
-                        v-if="stateRef.emulator"
+                        v-if="selectedState.emulator"
                         size="x-small"
                         color="orange"
                         label
                       >
-                        {{ stateRef.emulator }}
+                        {{ selectedState.emulator }}
                       </v-chip>
                       <v-chip size="x-small" label>
-                        {{ formatBytes(stateRef.file_size_bytes) }}
+                        {{ formatBytes(selectedState.file_size_bytes) }}
                       </v-chip>
                       <v-chip size="x-small" label>
-                        {{ formatTimestamp(stateRef.updated_at) }}
+                        {{ formatTimestamp(selectedState.updated_at) }}
                       </v-chip>
                       <v-btn
                         class="w-100 mt-4"
                         variant="outlined"
                         size="large"
-                        @click="stateRef = null"
+                        @click="selectedState = null"
                       >
                         <v-icon>mdi-close-circle-outline</v-icon>
                       </v-btn>
@@ -334,15 +337,15 @@ onBeforeUnmount(async () => {
               </v-row>
             </v-col>
             <v-col :cols="smAndDown ? 12 : 6">
-              <v-card v-if="saveRef" class="bg-toplayer transform-scale">
+              <v-card v-if="selectedSave" class="bg-toplayer transform-scale">
                 <v-card-text class="d-flex flex-row justify-end h-100">
                   <v-col class="pa-0">
                     <v-img
                       cover
                       height="100%"
                       :src="
-                        saveRef.screenshot?.download_path ??
-                        getEmptyCoverImage(saveRef.file_name)
+                        selectedSave.screenshot?.download_path ??
+                        getEmptyCoverImage(selectedSave.file_name)
                       "
                     />
                   </v-col>
@@ -351,31 +354,31 @@ onBeforeUnmount(async () => {
                       t("play.select-save").toUpperCase()
                     }}</v-row>
                     <v-row class="mt-4 flex-grow-0">{{
-                      saveRef.file_name
+                      selectedSave.file_name
                     }}</v-row>
                     <v-row
                       class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                       style="min-height: 20px"
                     >
                       <v-chip
-                        v-if="saveRef.emulator"
+                        v-if="selectedSave.emulator"
                         size="x-small"
                         color="orange"
                         label
                       >
-                        {{ saveRef.emulator }}
+                        {{ selectedSave.emulator }}
                       </v-chip>
                       <v-chip size="x-small" label>
-                        {{ formatBytes(saveRef.file_size_bytes) }}
+                        {{ formatBytes(selectedSave.file_size_bytes) }}
                       </v-chip>
                       <v-chip size="x-small" label>
-                        {{ formatTimestamp(saveRef.updated_at) }}
+                        {{ formatTimestamp(selectedSave.updated_at) }}
                       </v-chip>
                       <v-btn
                         class="w-100 mt-4"
                         variant="outlined"
                         size="large"
-                        @click="saveRef = null"
+                        @click="selectedSave = null"
                       >
                         <v-icon>mdi-close-circle-outline</v-icon>
                       </v-btn>
