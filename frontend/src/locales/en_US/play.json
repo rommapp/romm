@@ -10,5 +10,9 @@
   "quit": "Quit",
   "save-and-quit": "Save and quit",
   "select-save": "Select save",
-  "select-state": "Select state"
+  "change-save": "Change save",
+  "deselect-save": "Deselect save",
+  "select-state": "Select state",
+  "change-state": "Change state",
+  "deselect-state": "Deselect state"
 }

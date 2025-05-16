@@ -27,6 +27,19 @@ async def add_save(
 ) -> SaveSchema:
     data = await request.form()
 
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
+    log.info(f"Uploading save of {rom.name}")
+
+    saves_path = fs_asset_handler.build_saves_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
+        emulator=emulator,
+    )
+
     if "saveFile" not in data:
         log.error("No save file provided")
         raise HTTPException(
@@ -48,7 +61,10 @@ async def add_save(
     log.info(f"Uploading save {hl(saveFile.filename)} for {hl(rom.name, color=BLUE)}")
 
     saves_path = fs_asset_handler.build_saves_file_path(
-        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
     )
 
     fs_asset_handler.write_file(file=saveFile, path=saves_path)
@@ -58,6 +74,7 @@ async def add_save(
         file_name=saveFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
         emulator=emulator,
     )
     db_save = db_save_handler.get_save_by_filename(
@@ -76,7 +93,7 @@ async def add_save(
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=rom.platform_slug
+            user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
         fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
@@ -86,6 +103,7 @@ async def add_save(
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
+            rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
             rom_id=rom.id, user_id=request.user.id, file_name=screenshotFile.filename
@@ -159,7 +177,9 @@ async def update_save(request: Request, id: int) -> SaveSchema:
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=db_save.rom.platform_slug
+            user=request.user,
+            platform_fs_slug=db_save.rom.platform_slug,
+            rom_id=db_save.rom.id,
         )
 
         fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
@@ -169,6 +189,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,
+            rom_id=db_save.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
             rom_id=db_save.rom.id,
@@ -224,7 +245,7 @@ async def delete_saves(request: Request) -> list[int]:
                 file_name=save.file_name, file_path=save.file_path
             )
         except FileNotFoundError:
-            error = f"Save file {save.file_name} not found for platform {save.rom.platform_slug}"
+            error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
             log.error(error)
 
         if save.screenshot:
@@ -236,7 +257,7 @@ async def delete_saves(request: Request) -> list[int]:
                     file_path=save.screenshot.file_path,
                 )
             except FileNotFoundError:
-                error = f"Screenshot file {save.screenshot.file_name} not found for save {save.file_name}"
+                error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
                 log.error(error)
 
     return save_ids

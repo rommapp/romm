@@ -32,7 +32,7 @@ async def add_screenshot(
     log.info(f"Uploading screenshots to {hl(rom.name, color=BLUE)}")
 
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
-        user=request.user, platform_fs_slug=rom.platform_slug
+        user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
     )
 
     if "screenshotFile" not in data:
@@ -63,6 +63,7 @@ async def add_screenshot(
         file_name=screenshotFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform_slug,
+        rom_id=rom.id,
     )
     db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
         rom_id=rom.id, user_id=current_user.id, file_name=screenshotFile.filename
