@@ -309,6 +309,7 @@ onBeforeUnmount(async () => {
                 <v-col>
                   <v-btn
                     block
+                    class="asset-selector bg-background"
                     variant="outlined"
                     prepend-icon="mdi-content-save"
                     size="large"
@@ -326,10 +327,10 @@ onBeforeUnmount(async () => {
               <v-expand-transition>
                 <v-card
                   v-if="selectedState"
-                  class="bg-toplayer transform-scale"
+                  class="bg-toplayer transform-scale selected-card mx-1"
                   :class="{ 'disabled-card': openSaveSelector }"
                 >
-                  <v-card-text class="px-2 py-2">
+                  <v-card-text class="px-2 pb-2 pt-4">
                     <v-row no-gutters>
                       <v-col cols="6">
                         <v-img
@@ -341,15 +342,15 @@ onBeforeUnmount(async () => {
                         >
                         </v-img>
                       </v-col>
-                      <v-col class="pl-2" cols="6">
+                      <v-col class="pl-2 d-flex flex-column" cols="6">
                         <v-row
-                          class="pa-1 text-caption text-primary"
+                          class="px-1 text-caption text-primary"
                           no-gutters
                           >{{ selectedState.file_name }}</v-row
                         >
-                        <v-row class="ga-1" no-gutters>
+                        <v-row no-gutters>
                           <v-col cols="12">
-                            <v-list-item rounded class="pa-1 text-caption">
+                            <v-list-item rounded class="px-1 text-caption">
                               Updated:
                               {{ formatTimestamp(selectedState.updated_at) }}
                               <span class="text-grey text-caption"
@@ -359,28 +360,23 @@ onBeforeUnmount(async () => {
                               >
                             </v-list-item>
                           </v-col>
-                          <v-col
-                            v-if="selectedState.emulator"
-                            cols="12"
-                            class="mt-1"
-                          >
+                          <v-col v-if="selectedState.emulator" cols="12">
                             <v-chip size="x-small" color="orange" label>
                               {{ selectedState.emulator }}
                             </v-chip>
                           </v-col>
                         </v-row>
-                      </v-col>
-                    </v-row>
-                    <v-row class="mt-2" no-gutters>
-                      <v-col class="text-right">
-                        <v-btn
-                          variant="tonal"
-                          size="small"
-                          @click="unselectState()"
-                        >
-                          <v-icon class="mr-2">mdi-close-circle-outline</v-icon
-                          >{{ t("play.deselect-state") }}
-                        </v-btn>
+                        <v-row no-gutters>
+                          <v-col class="text-right mt-auto pt-1">
+                            <v-btn
+                              variant="tonal"
+                              size="x-small"
+                              @click="unselectState()"
+                            >
+                              <v-icon>mdi-close-circle-outline</v-icon>
+                            </v-btn>
+                          </v-col>
+                        </v-row>
                       </v-col>
                     </v-row>
                   </v-card-text>
@@ -400,6 +396,7 @@ onBeforeUnmount(async () => {
                     variant="outlined"
                     prepend-icon="mdi-content-save"
                     size="large"
+                    class="asset-selector bg-background"
                     :color="openSaveSelector ? 'primary' : ''"
                     @click="switchSaveSelector"
                   >
@@ -414,10 +411,10 @@ onBeforeUnmount(async () => {
               <v-expand-transition>
                 <v-card
                   v-if="selectedSave"
-                  class="bg-toplayer transform-scale"
+                  class="bg-toplayer transform-scale selected-card mx-1"
                   :class="{ 'disabled-card': openStateSelector }"
                 >
-                  <v-card-text class="px-2 py-2">
+                  <v-card-text class="px-2 pb-2 pt-4">
                     <v-row no-gutters>
                       <v-col cols="6">
                         <v-img
@@ -429,15 +426,15 @@ onBeforeUnmount(async () => {
                         >
                         </v-img>
                       </v-col>
-                      <v-col class="pl-2" cols="6">
+                      <v-col class="pl-2 d-flex flex-column" cols="6">
                         <v-row
-                          class="pa-1 text-caption text-primary"
+                          class="px-1 text-caption text-primary"
                           no-gutters
                           >{{ selectedSave.file_name }}</v-row
                         >
-                        <v-row class="ga-1" no-gutters>
+                        <v-row no-gutters>
                           <v-col cols="12">
-                            <v-list-item rounded class="pa-1 text-caption">
+                            <v-list-item rounded class="px-1 text-caption">
                               Updated:
                               {{ formatTimestamp(selectedSave.updated_at) }}
                               <span class="text-grey text-caption"
@@ -447,28 +444,23 @@ onBeforeUnmount(async () => {
                               >
                             </v-list-item>
                           </v-col>
-                          <v-col
-                            v-if="selectedSave.emulator"
-                            cols="12"
-                            class="mt-1"
-                          >
+                          <v-col v-if="selectedSave.emulator" cols="12">
                             <v-chip size="x-small" color="orange" label>
                               {{ selectedSave.emulator }}
                             </v-chip>
                           </v-col>
                         </v-row>
-                      </v-col>
-                    </v-row>
-                    <v-row class="mt-2" no-gutters>
-                      <v-col class="text-right">
-                        <v-btn
-                          variant="tonal"
-                          size="small"
-                          @click="unselectSave()"
-                        >
-                          <v-icon class="mr-2">mdi-close-circle-outline</v-icon
-                          >{{ t("play.deselect-save") }}
-                        </v-btn>
+                        <v-row no-gutters>
+                          <v-col class="text-right mt-auto pt-2">
+                            <v-btn
+                              variant="tonal"
+                              size="x-small"
+                              @click="unselectSave()"
+                            >
+                              <v-icon>mdi-close-circle-outline</v-icon>
+                            </v-btn>
+                          </v-col>
+                        </v-row>
                       </v-col>
                     </v-row>
                   </v-card-text>
@@ -479,7 +471,7 @@ onBeforeUnmount(async () => {
 
           <!-- state display -->
           <v-expand-transition>
-            <v-row v-if="openStateSelector" class="mt-2" no-gutters>
+            <v-row v-if="openStateSelector" class="mt-1" no-gutters>
               <v-col
                 cols="6"
                 sm="4"
@@ -553,7 +545,7 @@ onBeforeUnmount(async () => {
 
           <!-- save display -->
           <v-expand-transition>
-            <v-row v-if="openSaveSelector" class="mt-2" no-gutters>
+            <v-row v-if="openSaveSelector" class="mt-1" no-gutters>
               <v-col
                 cols="6"
                 sm="4"
@@ -626,7 +618,7 @@ onBeforeUnmount(async () => {
       </v-row>
 
       <!-- Action buttons -->
-      <v-row class="px-3 py-2 text-center" no-gutters>
+      <v-row class="px-3 py-2 mb-6 text-center" no-gutters>
         <v-col>
           <v-row v-if="!gameRunning" class="align-center" no-gutters>
             <v-col :class="smAndDown ? '' : 'pr-1'">
@@ -733,5 +725,13 @@ onBeforeUnmount(async () => {
 
 .disabled-card {
   opacity: 0.2;
+}
+
+.selected-card {
+  margin-top: -5px;
+}
+
+.asset-selector {
+  z-index: 11;
 }
 </style>
