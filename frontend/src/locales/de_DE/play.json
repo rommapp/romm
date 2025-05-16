@@ -10,5 +10,9 @@
   "quit": "Beenden",
   "save-and-quit": "Speichern und beenden",
   "select-save": "Speicherstand auswählen",
-  "select-state": "Speicherstand auswählen"
+  "change-save": "Speicherstand ändern",
+  "deselect-save": "Speicherstand abwählen",
+  "select-state": "Speicherstand auswählen",
+  "change-state": "Speicherstand ändern",
+  "deselect-state": "Speicherstand abwählen"
 }
