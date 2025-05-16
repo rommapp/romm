@@ -126,6 +126,7 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
             <v-row no-gutters>
               <v-col cols="12">
                 <v-img
+                  rounded
                   :src="
                     save.screenshot?.download_path ??
                     getEmptyCoverImage(save.file_name)

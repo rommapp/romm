@@ -128,6 +128,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
             <v-row no-gutters>
               <v-col cols="12">
                 <v-img
+                  rounded
                   :src="
                     state.screenshot?.download_path ??
                     getEmptyCoverImage(state.file_name)

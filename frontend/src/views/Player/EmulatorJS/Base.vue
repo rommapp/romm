@@ -309,6 +309,7 @@ onBeforeUnmount(async () => {
                   <v-row no-gutters>
                     <v-col cols="6">
                       <v-img
+                        rounded
                         :src="
                           selectedState.screenshot?.download_path ??
                           getEmptyCoverImage(selectedState.file_name)
@@ -379,6 +380,7 @@ onBeforeUnmount(async () => {
                   <v-row no-gutters>
                     <v-col cols="6">
                       <v-img
+                        rounded
                         :src="
                           selectedSave.screenshot?.download_path ??
                           getEmptyCoverImage(selectedSave.file_name)
@@ -460,6 +462,7 @@ onBeforeUnmount(async () => {
                       <v-row no-gutters>
                         <v-col cols="12">
                           <v-img
+                            rounded
                             :src="
                               state.screenshot?.download_path ??
                               getEmptyCoverImage(state.file_name)
@@ -519,6 +522,7 @@ onBeforeUnmount(async () => {
                       <v-row no-gutters>
                         <v-col cols="12">
                           <v-img
+                            rounded
                             :src="
                               save.screenshot?.download_path ??
                               getEmptyCoverImage(save.file_name)
