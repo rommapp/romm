@@ -7,7 +7,7 @@ from models.platform import Platform
 
 async def test_get_rom_cover():
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        overwrite=False, entity=None, url_cover=""
+        entity=None, overwrite=False, url_cover=""
     )
 
     assert "" in path_cover_s
@@ -39,7 +39,7 @@ def test_get_roms():
     assert roms[1]["multi"]
 
 
-def test_exclude_files():
+def testexclude_single_files():
     from config.config_manager import ConfigManager
 
     empty_config_file = os.path.join(
@@ -52,50 +52,46 @@ def test_exclude_files():
 
     cm.add_exclusion("EXCLUDED_SINGLE_FILES", "Super Mario 64 (J) (Rev A) [Part 1].z64")
 
-    filtered_files = fs_rom_handler._exclude_files(
+    filtered_files = fs_rom_handler.exclude_single_files(
         files=[
             "Super Mario 64 (J) (Rev A) [Part 1].z64",
             "Super Mario 64 (J) (Rev A) [Part 2].z64",
         ],
-        filetype="single",
     )
 
     assert len(filtered_files) == 1
 
     cm.add_exclusion("EXCLUDED_SINGLE_EXT", "z64")
 
-    filtered_files = fs_rom_handler._exclude_files(
+    filtered_files = fs_rom_handler.exclude_single_files(
         files=[
             "Super Mario 64 (J) (Rev A) [Part 1].z64",
             "Super Mario 64 (J) (Rev A) [Part 2].z64",
         ],
-        filetype="single",
     )
 
     assert len(filtered_files) == 0
 
     cm.add_exclusion("EXCLUDED_SINGLE_FILES", "*.z64")
 
-    filtered_files = fs_rom_handler._exclude_files(
+    filtered_files = fs_rom_handler.exclude_single_files(
         files=[
             "Super Mario 64 (J) (Rev A) [Part 1].z64",
             "Super Mario 64 (J) (Rev A) [Part 2].z64",
         ],
-        filetype="single",
     )
 
     assert len(filtered_files) == 0
 
     cm.add_exclusion("EXCLUDED_SINGLE_FILES", "_.*")
 
-    filtered_files = fs_rom_handler._exclude_files(
+    filtered_files = fs_rom_handler.exclude_single_files(
         files=[
             "Links Awakening.nsp",
             "_.Links Awakening.nsp",
             "Kirby's Adventure.nsp",
             "_.Kirby's Adventure.nsp",
         ],
-        filetype="single",
     )
 
     assert len(filtered_files) == 2

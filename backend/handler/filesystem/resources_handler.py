@@ -3,11 +3,12 @@ import shutil
 import httpx
 from anyio import Path, open_file
 from config import RESOURCES_BASE_PATH
-from fastapi import HTTPException, status
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
-from PIL import Image, ImageFile
+from PIL import Image, ImageFile, UnidentifiedImageError
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -45,6 +46,22 @@ class FSResourcesHandler(FSHandler):
         small_img = cover.resize(small_size)
         small_img.save(save_path)
 
+    async def store_badge(self, url: str, file_path: str) -> None:
+        httpx_client = ctx_httpx_client.get()
+        try:
+            async with httpx_client.stream("GET", url, timeout=120) as response:
+                if response.status_code == 200:
+                    await Path(f"{RESOURCES_BASE_PATH}/{file_path}").parent.mkdir(
+                        parents=True, exist_ok=True
+                    )
+                    async with await Path(f"{RESOURCES_BASE_PATH}/{file_path}").open(
+                        "wb"
+                    ) as f:
+                        async for chunk in response.aiter_raw():
+                            await f.write(chunk)
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
@@ -67,17 +84,16 @@ class FSResourcesHandler(FSHandler):
                     async with await cover_file.open("wb") as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
-        except httpx.NetworkError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Unable to fetch cover at {url_cover}: {str(exc)}",
-            ) from exc
-        except httpx.ProtocolError:
-            log.warning(f"Failure writing cover {url_cover} to file (ProtocolError)")
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
 
         if size == CoverSize.SMALL:
-            with Image.open(cover_file) as img:
-                self.resize_cover_to_small(img, save_path=cover_file)
+            try:
+                with Image.open(cover_file) as img:
+                    self.resize_cover_to_small(img, save_path=cover_file)
+            except UnidentifiedImageError as exc:
+                log.error(f"Unable to identify image {cover_file}: {str(exc)}")
+                return None
 
     @staticmethod
     async def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
@@ -131,7 +147,7 @@ class FSResourcesHandler(FSHandler):
             shutil.rmtree(cover_path)
         except FileNotFoundError:
             log.warning(
-                f"Couldn't remove cover from '{entity.name or entity.id}' since '{cover_path}' doesn't exists."
+                f"Couldn't remove cover from '{hl(entity.name or entity.id, color=BLUE)}' since '{cover_path}' doesn't exists."
             )
 
         return {"path_cover_s": "", "path_cover_l": ""}
@@ -150,19 +166,21 @@ class FSResourcesHandler(FSHandler):
         return path_cover_l, path_cover_s, artwork_path
 
     @staticmethod
-    async def _store_screenshot(rom: Rom, url: str, idx: int):
+    async def _store_screenshot(rom: Rom, url_screenhot: str, idx: int):
         """Store roms resources in filesystem
 
         Args:
             rom: Rom object
-            url: url to get the screenshot
+            url_screenhot: URL to get the screenshot
         """
         screenshot_file = f"{idx}.jpg"
         screenshot_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/screenshots"
 
         httpx_client = ctx_httpx_client.get()
         try:
-            async with httpx_client.stream("GET", url, timeout=120) as response:
+            async with httpx_client.stream(
+                "GET", url_screenhot, timeout=120
+            ) as response:
                 if response.status_code == 200:
                     await Path(screenshot_path).mkdir(parents=True, exist_ok=True)
                     async with await open_file(
@@ -170,13 +188,9 @@ class FSResourcesHandler(FSHandler):
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
-        except httpx.NetworkError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Unable to fetch screenshot at {url}: {str(exc)}",
-            ) from exc
-        except httpx.ProtocolError:
-            log.warning(f"Failure writing screenshot {url} to file (ProtocolError)")
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
+            return None
 
     @staticmethod
     def _get_screenshot_path(rom: Rom, idx: str):
@@ -195,8 +209,67 @@ class FSResourcesHandler(FSHandler):
             return []
 
         path_screenshots: list[str] = []
-        for idx, url in enumerate(url_screenshots):
-            await self._store_screenshot(rom, url, idx)
+        for idx, url_screenhot in enumerate(url_screenshots):
+            await self._store_screenshot(rom, url_screenhot, idx)
             path_screenshots.append(self._get_screenshot_path(rom, str(idx)))
 
         return path_screenshots
+
+    @staticmethod
+    async def manual_exists(rom: Rom) -> bool:
+        """Check if rom manual exists in filesystem
+
+        Args:
+            rom: Rom object
+        Returns
+            True if manual exists in filesystem else False
+        """
+        async for _ in Path(
+            f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
+        ).glob(f"{rom.id}.pdf"):
+            return True
+        return False
+
+    @staticmethod
+    async def _store_manual(rom: Rom, url_manual: str):
+        manual_path = Path(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual")
+        manual_file = manual_path / Path(f"{rom.id}.pdf")
+
+        httpx_client = ctx_httpx_client.get()
+        try:
+            async with httpx_client.stream("GET", url_manual, timeout=120) as response:
+                if response.status_code == 200:
+                    await manual_path.mkdir(parents=True, exist_ok=True)
+                    async with await manual_file.open("wb") as f:
+                        async for chunk in response.aiter_raw():
+                            await f.write(chunk)
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
+            return None
+
+    @staticmethod
+    async def _get_manual_path(rom: Rom) -> str:
+        """Returns rom manual filesystem path adapted to frontend folder structure
+
+        Args:
+            rom: Rom object
+        """
+        async for matched_file in Path(
+            f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
+        ).glob(f"{rom.id}.pdf"):
+            return str(matched_file.relative_to(RESOURCES_BASE_PATH))
+        return ""
+
+    async def get_manual(
+        self, rom: Rom | None, overwrite: bool, url_manual: str | None
+    ) -> str:
+        if not rom:
+            return ""
+
+        manual_exists = await self.manual_exists(rom)
+        if url_manual and (overwrite or not manual_exists):
+            await self._store_manual(rom, url_manual)
+            manual_exists = await self.manual_exists(rom)
+        path_manual = (await self._get_manual_path(rom)) if manual_exists else ""
+
+        return path_manual

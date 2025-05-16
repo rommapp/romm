@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-withDefaults(defineProps<{ size?: number }>(), { size: 40 });
+withDefaults(defineProps<{ size?: number }>(), {
+  size: 40,
+});
 
 const logos = {
   xbox: { path: "romm_logo_xbox_one_circle.svg", weight: 0.945 },
@@ -30,3 +32,13 @@ const randomLogo = ref<string>(getRandomLogo());
     <img :src="`/assets/logos/${randomLogo}`" alt="Romm Logo" :width="size" />
   </v-avatar>
 </template>
+
+<style scoped>
+.v-avatar {
+  transition: filter 0.15s ease-in-out;
+}
+.v-avatar:hover,
+.v-avatar.active {
+  filter: drop-shadow(0px 0px 2px rgba(var(--v-theme-primary)));
+}
+</style>

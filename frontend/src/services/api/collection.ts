@@ -1,10 +1,10 @@
 import type { MessageResponse } from "@/__generated__";
 import api from "@/services/api/index";
-import type { Collection } from "@/stores/collections";
+import type { Collection, VirtualCollection } from "@/stores/collections";
 
 export type UpdatedCollection = Collection & {
   artwork?: File;
-  url_cover?: string;
+  url_cover?: string | null;
 };
 
 export const collectionApi = api;
@@ -18,7 +18,7 @@ async function createCollection({
   formData.append("name", collection.name || "");
   formData.append("description", collection.description || "");
   formData.append("url_cover", collection.url_cover || "");
-  formData.append("roms", JSON.stringify(collection.roms));
+  formData.append("rom_ids", JSON.stringify(collection.rom_ids));
   if (collection.artwork) formData.append("artwork", collection.artwork);
   return api.post(`/collections`, formData);
 }
@@ -27,10 +27,23 @@ async function getCollections(): Promise<{ data: Collection[] }> {
   return api.get("/collections");
 }
 
-async function getCollection(
-  id: number | undefined,
-): Promise<{ data: Collection }> {
+async function getVirtualCollections({
+  type = "collection",
+}: {
+  type?: string;
+  limit?: number;
+}): Promise<{ data: VirtualCollection[] }> {
+  return api.get("/collections/virtual", { params: { type } });
+}
+
+async function getCollection(id: number): Promise<{ data: Collection }> {
   return api.get(`/collections/${id}`);
+}
+
+async function getVirtualCollection(
+  id: string,
+): Promise<{ data: VirtualCollection }> {
+  return api.get(`/collections/virtual/${id}`);
 }
 
 async function updateCollection({
@@ -44,7 +57,7 @@ async function updateCollection({
   formData.append("name", collection.name || "");
   formData.append("description", collection.description || "");
   formData.append("url_cover", collection.url_cover || "");
-  formData.append("roms", JSON.stringify(collection.roms));
+  formData.append("rom_ids", JSON.stringify(collection.rom_ids));
   if (collection.artwork) formData.append("artwork", collection.artwork);
   return api.put(`/collections/${collection.id}`, formData, {
     params: { is_public: collection.is_public, remove_cover: removeCover },
@@ -62,7 +75,9 @@ async function deleteCollection({
 export default {
   createCollection,
   getCollections,
+  getVirtualCollections,
   getCollection,
+  getVirtualCollection,
   updateCollection,
   deleteCollection,
 };

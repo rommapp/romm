@@ -50,6 +50,7 @@ export type Events = {
     title: string;
   };
   showCreateUserDialog: null;
+  showCreateInviteLinkDialog: void;
   showEditUserDialog: User;
   showDeleteUserDialog: User;
   showDeleteSavesDialog: {
@@ -75,6 +76,9 @@ export type Events = {
   firmwareDrawerShow: null;
   updateDataTablePages: null;
   sortBarShow: null;
-  romUpdated: DetailedRom;
   showQRCodeDialog: SimpleRom;
+  selectSaveDialog: DetailedRom;
+  selectStateDialog: DetailedRom;
+  saveSelected: SaveSchema;
+  stateSelected: StateSchema;
 };

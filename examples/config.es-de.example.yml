@@ -78,7 +78,7 @@ system:
     neogeo: "neogeoaes" # Neo Geo
     nes: "nes" # Nintendo Entertainment System
     gc: "ngc" # GameCube
-    n64dd: "nintendo-64dd" # Nintendo 64DD
+    n64dd: "64dd" # Nintendo 64DD
     odyssey2: "odyssey-2-slash-videopac-g7000" # Odyssey 2/Videopac G7000
     oric: "oric" # Oric
     palm: "palm-os" # Palm OS

@@ -56,6 +56,7 @@ function closeDialog() {
           class="mx-2"
           :key="platformBindingSlugToDelete"
           :slug="platformBindingSlugToDelete"
+          :fs-slug="platformBindingFSSlugToDelete"
         />
         <span>[</span>
         <span class="text-primary ml-1">

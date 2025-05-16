@@ -242,7 +242,7 @@ class Franchise(IGDBEntity, total=False):
 
 
 # https://api-docs.igdb.com/#game-enums
-class GameCategory(enum.IntEnum):
+class GameType(enum.IntEnum):
     MAIN_GAME = 0
     DLC_ADDON = 1
     EXPANSION = 2
@@ -280,7 +280,7 @@ class Game(IGDBEntity, total=False):
     alternative_names: list[ExpandableField[AlternativeName]]
     artworks: list[ExpandableField[Artwork]]
     bundles: list[ExpandableField[Game]]
-    category: GameCategory
+    category: GameType
     checksum: str  # uuid
     collections: list[ExpandableField[Collection]]
     cover: ExpandableField[Cover]

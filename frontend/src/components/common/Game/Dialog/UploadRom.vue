@@ -101,7 +101,7 @@ async function uploadRoms() {
       const failedUploads = responses.filter((d) => d.status == "rejected");
 
       if (failedUploads.length == 0) {
-        uploadStore.clearAll();
+        uploadStore.reset();
       }
 
       if (successfulUploads.length == 0) {
@@ -165,7 +165,7 @@ function closeDialog() {
   <r-dialog
     @close="closeDialog"
     v-model="show"
-    icon="mdi-upload"
+    icon="mdi-cloud-upload-outline"
     :width="mdAndUp ? '50vw' : '95vw'"
     scroll-content
   >
@@ -190,10 +190,11 @@ function closeDialog() {
               >
                 <template #prepend>
                   <platform-icon
-                    :key="item.raw.slug"
                     :size="35"
-                    :slug="item.raw.slug"
+                    :key="item.raw.slug"
                     :name="item.raw.name"
+                    :slug="item.raw.slug"
+                    :fs-slug="item.raw.fs_slug"
                   />
                 </template>
               </v-list-item>
@@ -206,6 +207,7 @@ function closeDialog() {
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
+                    :fs-slug="item.raw.fs_slug"
                   />
                 </template>
               </v-list-item>
@@ -218,6 +220,7 @@ function closeDialog() {
             icon=""
             class="text-primary bg-toplayer"
             variant="text"
+            rounded="0"
             @click="triggerFileInput"
           >
             <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon

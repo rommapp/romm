@@ -5,11 +5,14 @@ import userApi from "@/services/api/user";
 import api from "@/services/api/index";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
@@ -29,10 +32,22 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
   },
   {
+    name: "ScreenScrapper",
+    value: "ss",
+    logo_path: "/assets/scrappers/ss.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
+  },
+  {
     name: "SteamgridDB",
     value: "sgdb",
     logo_path: "/assets/scrappers/sgdb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED,
+  },
+  {
+    name: "RetroAchievements",
+    value: "ra",
+    logo_path: "/assets/scrappers/ra.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_ENABLED,
   },
 ]);
 const defaultAdminUser = ref({
@@ -58,7 +73,7 @@ async function finishWizard() {
       await refetchCSRFToken();
       await api.get("/heartbeat").then(({ data: heartbeatData }) => {
         heartbeat.set(heartbeatData);
-        router.push({ name: "login" });
+        router.push({ name: ROUTES.LOGIN });
       });
     })
     .catch(({ response, message }) => {
@@ -108,7 +123,7 @@ async function finishWizard() {
                     <v-form @submit.prevent>
                       <v-text-field
                         v-model="defaultAdminUser.username"
-                        label="Username *"
+                        :label="`${t('settings.username')} *`"
                         type="text"
                         required
                         autocomplete="on"
@@ -117,7 +132,7 @@ async function finishWizard() {
                       />
                       <v-text-field
                         v-model="defaultAdminUser.email"
-                        label="Email"
+                        :label="`${t('settings.email')} *`"
                         type="text"
                         required
                         autocomplete="on"
@@ -126,7 +141,7 @@ async function finishWizard() {
                       />
                       <v-text-field
                         v-model="defaultAdminUser.password"
-                        label="Password *"
+                        :label="`${t('settings.password')} *`"
                         :type="visiblePassword ? 'text' : 'password'"
                         required
                         autocomplete="on"
@@ -195,6 +210,7 @@ async function finishWizard() {
             <v-btn
               class="text-white text-shadow"
               @click="!isLastStep ? next() : finishWizard()"
+              @keydown.enter="!isLastStep ? next() : finishWizard()"
             >
               {{ !isLastStep ? "Next" : "Finish" }}
             </v-btn>

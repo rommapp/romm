@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { Collection } from "@/stores/collections";
+import type { Collection, VirtualCollection } from "@/stores/collections";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
+import { ROUTES } from "@/plugins/router";
 
 // Props
 withDefaults(
   defineProps<{
-    collection: Collection;
+    collection: Collection | VirtualCollection;
     withTitle?: boolean;
     withDescription?: boolean;
     withRomCount?: boolean;
@@ -22,11 +23,13 @@ withDefaults(
 
 <template>
   <v-list-item
-    :key="collection.id"
     v-bind="{
       ...(withLink && collection
         ? {
-            to: { name: 'collection', params: { collection: collection.id } },
+            to: {
+              name: ROUTES.COLLECTION,
+              params: { collection: collection.id },
+            },
           }
         : {}),
     }"

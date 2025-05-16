@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import type { Platform } from "@/stores/platforms";
+import { ROUTES } from "@/plugins/router";
 import type { DetailedRom } from "@/stores/roms";
 import { languageToEmoji, regionToEmoji } from "@/utils";
 import { identity } from "lodash";
@@ -11,13 +11,13 @@ import { useDisplay } from "vuetify";
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
-  Number(props.rom.first_release_date),
+  Number(props.rom.metadatum.first_release_date),
 ).toLocaleDateString("en-US", {
   day: "2-digit",
   month: "short",
   year: "numeric",
 });
-const hasReleaseDate = Number(props.rom.first_release_date) > 0;
+const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
 </script>
 <template>
   <div>
@@ -41,13 +41,14 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     >
       <v-col>
         <v-chip
-          :to="{ name: 'platform', params: { platform: rom.platform_id } }"
+          :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
           {{ rom.platform_display_name }}
           <platform-icon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
             :name="rom.platform_name"
+            :fs-slug="rom.platform_fs_slug"
             :size="30"
             class="ml-2"
           />
@@ -55,41 +56,18 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
         <v-chip
           v-if="hasReleaseDate && !smAndDown"
           class="ml-1 font-italic"
-          size="x-small"
+          size="small"
         >
           {{ releaseDate }}
         </v-chip>
         <v-chip
-          v-if="Number(rom.first_release_date) > 0 && smAndDown"
+          v-if="Number(rom.metadatum.first_release_date) > 0 && smAndDown"
           class="font-italic ml-1"
-          size="x-small"
+          size="small"
         >
           {{ releaseDate }}
         </v-chip>
         <template v-if="!smAndDown">
-          <v-chip
-            class="ml-1"
-            v-if="rom.regions.filter(identity).length > 0"
-            size="small"
-            :title="`Regions: ${rom.regions.join(', ')}`"
-          >
-            <span v-for="region in rom.regions" :key="region" class="px-1">{{
-              regionToEmoji(region)
-            }}</span>
-          </v-chip>
-          <v-chip
-            v-if="rom.languages.filter(identity).length > 0"
-            size="small"
-            class="ml-1"
-            :title="`Languages: ${rom.languages.join(', ')}`"
-          >
-            <span
-              v-for="language in rom.languages"
-              :key="language"
-              class="px-1"
-              >{{ languageToEmoji(language) }}</span
-            >
-          </v-chip>
           <v-chip v-if="rom.revision" size="small" class="ml-1">
             Revision {{ rom.revision }}
           </v-chip>
@@ -98,39 +76,11 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     </v-row>
 
     <v-row
-      v-if="
-        smAndDown &&
-        rom.regions.filter(identity).length > 0 &&
-        rom.languages.filter(identity).length > 0 &&
-        rom.revision
-      "
+      v-if="smAndDown && rom.revision"
       class="text-white text-shadow mt-2 text-center"
       no-gutters
     >
       <v-col>
-        <v-chip
-          class="ml-1"
-          v-if="rom.regions.filter(identity).length > 0"
-          size="small"
-          :title="`Regions: ${rom.regions.join(', ')}`"
-        >
-          <span v-for="region in rom.regions" :key="region" class="px-1">{{
-            regionToEmoji(region)
-          }}</span>
-        </v-chip>
-        <v-chip
-          v-if="rom.languages.filter(identity).length > 0"
-          size="small"
-          class="ml-1"
-          :title="`Languages: ${rom.languages.join(', ')}`"
-        >
-          <span
-            v-for="language in rom.languages"
-            :key="language"
-            class="px-1"
-            >{{ languageToEmoji(language) }}</span
-          >
-        </v-chip>
         <v-chip v-if="rom.revision" size="small" class="ml-1">
           Revision {{ rom.revision }}
         </v-chip>
@@ -138,7 +88,7 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
     </v-row>
 
     <v-row
-      v-if="rom.igdb_id || rom.moby_id"
+      v-if="rom.igdb_id || rom.moby_id || rom.ss_id || rom.ra_id"
       class="text-white text-shadow mt-2"
       :class="{ 'text-center': smAndDown }"
       no-gutters
@@ -150,12 +100,31 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           :href="`https://www.igdb.com/games/${rom.slug}`"
           target="_blank"
         >
-          <v-chip size="x-small" @click.stop>
-            <span>IGDB</span>
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/igdb.png" />
+            </v-avatar>
+            <span>{{ rom.igdb_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>ID: {{ rom.igdb_id }}</span>
+            <span>{{ rom.igdb_metadata?.total_rating }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
+          </v-chip>
+        </a>
+        <a
+          v-if="rom.ss_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
+          target="_blank"
+          :class="{ 'ml-1': rom.igdb_id }"
+        >
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/ss.png" />
+            </v-avatar>
+            <span>{{ rom.ss_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>Rating: {{ rom.igdb_metadata?.total_rating }}</span>
+            <span>{{ rom.ss_metadata?.ss_score }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
         <a
@@ -163,14 +132,29 @@ const hasReleaseDate = Number(props.rom.first_release_date) > 0;
           style="text-decoration: none; color: inherit"
           :href="`https://www.mobygames.com/game/${rom.moby_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id }"
+          :class="{ 'ml-1': rom.igdb_id || rom.ss_id }"
         >
-          <v-chip size="x-small" @click.stop>
-            <span>Mobygames</span>
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/moby.png" />
+            </v-avatar>
+            <span>{{ rom.moby_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>ID: {{ rom.moby_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>Rating: {{ rom.moby_metadata?.moby_score }}</span>
+            <span>{{ rom.moby_metadata?.moby_score }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
+          </v-chip>
+        </a>
+        <a
+          v-if="rom.ra_id"
+          style="text-decoration: none; color: inherit"
+          target="_blank"
+          :class="{ 'ml-1': rom.igdb_id || rom.ss_id || rom.moby_id }"
+        >
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/ra.png" />
+            </v-avatar>
+            <span>{{ rom.ra_id }}</span>
           </v-chip>
         </a>
       </v-col>

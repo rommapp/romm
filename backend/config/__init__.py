@@ -12,11 +12,13 @@ def str_to_bool(value: str) -> bool:
     return value.lower() in ("true", "1")
 
 
+ROMM_BASE_URL = os.environ.get("ROMM_BASE_URL", "http://0.0.0.0")
+
 # GUNICORN
 DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
 DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
 DEV_PORT: Final = int(os.environ.get("DEV_PORT", "5000"))
-GUNICORN_WORKERS: Final = int(os.environ.get("GUNICORN_WORKERS", 2))
+DEV_SQL_ECHO: Final = str_to_bool(os.environ.get("DEV_SQL_ECHO", "false"))
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
@@ -52,16 +54,26 @@ REDIS_URL: Final = yarl.URL.build(
 # IGDB
 IGDB_CLIENT_ID: Final = os.environ.get(
     "IGDB_CLIENT_ID", os.environ.get("CLIENT_ID", "")
-)
+).strip()
 IGDB_CLIENT_SECRET: Final = os.environ.get(
     "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
-)
+).strip()
+
+# SCREENSCRAPER
+SCREENSCRAPER_USER: Final = os.environ.get("SCREENSCRAPER_USER", "")
+SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
 
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "")
+STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
+
+# RETROACHIEVEMENTS
+RETROACHIEVEMENTS_API_KEY: Final = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
+REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
+    os.environ.get("REFRESH_RETROACHIEVEMENTS_CACHE_DAYS", 30)
+)
 
 # MOBYGAMES
-MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "")
+MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
 
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
@@ -78,8 +90,8 @@ DISABLE_USERPASS_LOGIN = str_to_bool(os.environ.get("DISABLE_USERPASS_LOGIN", "f
 # OIDC
 OIDC_ENABLED: Final = str_to_bool(os.environ.get("OIDC_ENABLED", "false"))
 OIDC_PROVIDER: Final = os.environ.get("OIDC_PROVIDER", "")
-OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "")
-OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "")
+OIDC_CLIENT_ID: Final = os.environ.get("OIDC_CLIENT_ID", "").strip()
+OIDC_CLIENT_SECRET: Final = os.environ.get("OIDC_CLIENT_SECRET", "").strip()
 OIDC_REDIRECT_URI: Final = os.environ.get("OIDC_REDIRECT_URI", "")
 OIDC_SERVER_APPLICATION_URL: Final = os.environ.get("OIDC_SERVER_APPLICATION_URL", "")
 OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
@@ -122,6 +134,7 @@ DISABLE_RUFFLE_RS = str_to_bool(os.environ.get("DISABLE_RUFFLE_RS", "false"))
 
 # FRONTEND
 UPLOAD_TIMEOUT = int(os.environ.get("UPLOAD_TIMEOUT", 600))
+KIOSK_MODE = str_to_bool(os.environ.get("KIOSK_MODE", "false"))
 
 # LOGGING
 LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO").upper()

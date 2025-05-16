@@ -22,7 +22,11 @@ const editable = ref(false);
 </script>
 
 <template>
-  <r-section icon="mdi-controller" :title="t('settings.platforms-bindings')">
+  <r-section
+    icon="mdi-controller"
+    :title="t('settings.platforms-bindings')"
+    class="ma-2"
+  >
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
@@ -49,6 +53,7 @@ const editable = ref(false);
             :editable="authStore.scopes.includes('platforms.write') && editable"
             :slug="slug"
             :fs-slug="fsSlug"
+            class="mx-1 mt-2"
             @click-edit="
               emitter?.emit('showCreatePlatformBindingDialog', {
                 fsSlug: fsSlug,

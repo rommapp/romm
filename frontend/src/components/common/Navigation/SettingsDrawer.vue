@@ -5,9 +5,10 @@ import { refetchCSRFToken } from "@/services/api/index";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
-import { defaultAvatarPath } from "@/utils";
+import { defaultAvatarPath, getRoleIcon } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
+import { storeToRefs, getActivePinia, type StateTree } from "pinia";
 import { inject } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -21,7 +22,7 @@ const auth = storeAuth();
 const { user, scopes } = storeToRefs(auth);
 const emitter = inject<Emitter<Events>>("emitter");
 const { activeSettingsDrawer } = storeToRefs(navigationStore);
-const { smAndDown } = useDisplay();
+const { smAndDown, mdAndUp } = useDisplay();
 
 // Functions
 async function logout() {
@@ -34,9 +35,15 @@ async function logout() {
       icon: "mdi-check-bold",
       color: "green",
     });
-    navigationStore.switchActiveSettingsDrawer();
-    auth.setUser(null);
-    await router.push({ name: "login" });
+
+    // Redirect to login page
+    await router.push({ name: ROUTES.LOGIN });
+
+    // Clear all pinia stores
+    // @ts-expect-error(2339)
+    getActivePinia()?._s.forEach((store: StateTree) => {
+      store.reset?.();
+    });
   });
 }
 </script>
@@ -47,13 +54,11 @@ async function logout() {
     width="450"
     v-model="activeSettingsDrawer"
     :class="{
-      'mx-2': smAndDown || activeSettingsDrawer,
-      'my-2': !smAndDown || activeSettingsDrawer,
+      'my-2': mdAndUp || (smAndDown && activeSettingsDrawer),
+      'ml-2': (mdAndUp && activeSettingsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface pa-1"
-    style="height: unset"
+    class="bg-surface pa-1 unset-height"
     rounded
     :border="0"
   >
@@ -70,24 +75,27 @@ async function logout() {
         >
         </v-img>
       </v-list-img>
-      <v-list-item
-        :title="user?.username"
-        :subtitle="user?.role"
-        class="mb-1 text-shadow text-white"
-      >
+      <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
+        <template #subtitle>
+          <v-list-item-subtitle v-if="user?.role">
+            {{ user.role }}
+            <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
+          </v-list-item-subtitle>
+        </template>
       </v-list-item>
     </v-list>
     <v-list class="py-1 px-0">
       <v-list-item
+        v-if="scopes.includes('me.write')"
         rounded
-        @click="emitter?.emit('showEditUserDialog', auth.user as UserSchema)"
+        :to="{ name: ROUTES.USER_PROFILE, params: { user: user?.id } }"
         append-icon="mdi-account"
         >{{ t("common.profile") }}</v-list-item
       >
       <v-list-item
         class="mt-1"
         rounded
-        :to="{ name: 'userInterface' }"
+        :to="{ name: ROUTES.USER_INTERFACE }"
         append-icon="mdi-palette"
         >{{ t("common.user-interface") }}</v-list-item
       >
@@ -96,42 +104,26 @@ async function logout() {
         class="mt-1"
         rounded
         append-icon="mdi-table-cog"
-        :to="{ name: 'libraryManagement' }"
+        :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
         >{{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
         class="mt-1"
         rounded
-        :to="{ name: 'administration' }"
+        :to="{ name: ROUTES.ADMINISTRATION }"
         append-icon="mdi-security"
         >{{ t("common.administration") }}
       </v-list-item>
-      <template v-if="smAndDown">
-        <v-list-item
-          @click="logout"
-          append-icon="mdi-location-exit"
-          rounded
-          class="bg-toplayer border-sm text-romm-red border-romm-red mt-1"
-          >{{ t("common.logout") }}</v-list-item
-        >
-      </template>
     </v-list>
-    <template v-if="!smAndDown" #append>
-      <v-list class="pa-0">
-        <v-list-item
-          @click="logout"
-          append-icon="mdi-location-exit"
-          rounded
-          class="bg-toplayer border-sm text-romm-red border-romm-red"
-          >{{ t("common.logout") }}</v-list-item
-        >
-      </v-list>
+    <template v-if="scopes.includes('me.write')" #append>
+      <v-btn
+        @click="logout"
+        append-icon="mdi-location-exit"
+        block
+        class="bg-toplayer text-romm-red"
+        >{{ t("common.logout") }}</v-btn
+      >
     </template>
   </v-navigation-drawer>
 </template>
-<style scoped>
-.drawer-mobile {
-  width: calc(100% - 16px) !important;
-}
-</style>

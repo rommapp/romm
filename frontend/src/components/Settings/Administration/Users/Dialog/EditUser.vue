@@ -5,7 +5,7 @@ import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
-import { defaultAvatarPath } from "@/utils";
+import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
@@ -120,7 +120,7 @@ function closeDialog() {
               <v-text-field
                 v-model="user.email"
                 variant="outlined"
-                label="email"
+                :label="t('settings.email')"
                 required
                 hide-details
                 clearable
@@ -136,7 +136,21 @@ function closeDialog() {
                 :label="t('settings.role')"
                 required
                 hide-details
-              />
+              >
+                <template #selection="{ item }">
+                  <v-list-item class="pa-0">
+                    <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+                    {{ item.title }}
+                  </v-list-item>
+                </template>
+                <template #item="{ item }">
+                  <v-list-item :title="item.title">
+                    <template #prepend>
+                      <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
+                    </template>
+                  </v-list-item>
+                </template>
+              </v-select>
             </v-col>
           </v-row>
         </v-col>

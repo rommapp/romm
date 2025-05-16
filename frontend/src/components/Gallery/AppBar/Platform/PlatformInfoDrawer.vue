@@ -12,11 +12,13 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import { identity } from "lodash";
 
 // Props
 const { t } = useI18n();
@@ -28,7 +30,6 @@ const platformsStore = storePlatforms();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const { currentPlatform } = storeToRefs(romsStore);
-const { allPlatforms } = storeToRefs(platformsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
@@ -49,15 +50,31 @@ const aspectRatioOptions = computed(() => [
     size: 1 / 1,
     source: t("platform.old-squared-cases"),
   },
+  {
+    name: "16 / 11",
+    size: 16 / 11,
+    source: t("platform.old-horizontal-cases"),
+  },
 ]);
-const platformInfoFields = [
-  { key: "name", label: t("common.name") },
-  { key: "slug", label: "Slug" },
-  { key: "fs_slug", label: t("platform.filesystem-folder-name") },
-  { key: "category", label: t("platform.category") },
-  { key: "generation", label: t("platform.generation") },
-  { key: "family_name", label: t("platform.family") },
+
+const PLATFORM_INFO_FIELDS: {
+  key: keyof Platform;
+  label: string;
+  format: (value: any) => string;
+}[] = [
+  { key: "name", label: t("common.name"), format: identity },
+  { key: "slug", label: t("common.slug"), format: identity },
+  { key: "fs_slug", label: t("settings.folder-name"), format: identity },
+  { key: "category", label: t("platform.category"), format: identity },
+  { key: "generation", label: t("platform.generation"), format: identity },
+  { key: "family_name", label: t("platform.family"), format: identity },
+  {
+    key: "fs_size_bytes",
+    label: t("common.size-on-disk"),
+    format: (fs: number) => formatBytes(fs, 2),
+  },
 ];
+
 const updating = ref(false);
 const updatedPlatform = ref({ ...currentPlatform.value });
 const isEditable = ref(false);
@@ -69,7 +86,7 @@ function showEditable() {
 }
 
 function closeEditable() {
-  updatedPlatform.value = {};
+  updatedPlatform.value = { ...currentPlatform.value };
   isEditable.value = false;
 }
 
@@ -89,10 +106,7 @@ async function updatePlatform() {
         color: "green",
       });
       currentPlatform.value = platform;
-      const index = allPlatforms.value.findIndex((p) => p.id === platform.id);
-      if (index !== -1) {
-        allPlatforms.value[index] = platform;
-      }
+      platformsStore.update(platform);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -103,7 +117,7 @@ async function updatePlatform() {
         color: "red",
       });
     });
-  updatedPlatform.value = {};
+  updatedPlatform.value = { ...currentPlatform.value };
   updating.value = false;
 }
 
@@ -177,14 +191,12 @@ watch(
     width="500"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'mx-2 px-1': activePlatformInfoDrawer,
+      'ml-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
-    <v-row no-gutters class="justify-center align-center pa-4">
+    <v-row no-gutters class="justify-center align-center pa-2">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
@@ -222,6 +234,7 @@ watch(
           <platform-icon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
+            :fs-slug="currentPlatform.fs_slug"
             class="platform-icon"
             :size="160"
           />
@@ -249,7 +262,9 @@ watch(
               class="bg-toplayer my-1"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
-              <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
+              <v-icon class="text-romm-green mr-2"
+                >mdi-cloud-upload-outline</v-icon
+              >
               {{ t("platform.upload-roms") }}
             </v-btn>
             <v-btn
@@ -276,48 +291,86 @@ watch(
             </v-btn>
           </div>
         </div>
-        <div class="mt-4 text-center">
-          <a
-            v-if="currentPlatform.igdb_id"
-            style="text-decoration: none; color: inherit"
-            :href="currentPlatform.url ? currentPlatform.url : ''"
-            target="_blank"
-          >
-            <v-chip size="x-small" @click.stop>
-              <span>IGDB</span>
-              <v-divider class="mx-2 border-opacity-25" vertical />
-              <span>ID: {{ currentPlatform.igdb_id }}</span>
-            </v-chip>
-          </a>
-          <v-chip
-            size="x-small"
-            class="ml-1"
-            @click.stop
-            :class="{ 'ml-1': currentPlatform.igdb_id }"
-            v-if="currentPlatform.moby_id"
-          >
-            <span>Mobygames</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>ID: {{ currentPlatform.moby_id }}</span>
-          </v-chip>
-        </div>
-        <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
-          <v-card-text class="pa-4">
-            <template
-              v-for="(field, index) in platformInfoFields"
-              :key="field.key"
+        <v-row
+          v-if="
+            currentPlatform.igdb_id ||
+            currentPlatform.moby_id ||
+            currentPlatform.ss_id
+          "
+          class="text-white text-shadow mt-2 text-center"
+          no-gutters
+        >
+          <v-col cols="12">
+            <a
+              v-if="currentPlatform.igdb_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.igdb.com/platforms/${currentPlatform.slug}`"
+              target="_blank"
             >
-              <div :class="{ 'mt-4': index !== 0 }">
-                <v-chip size="small" class="mr-2 px-0" label>
-                  <v-chip label>{{ field.label }}</v-chip
-                  ><span class="px-2">{{
-                    currentPlatform[
-                      field.key as keyof typeof currentPlatform
-                    ]?.toString()
-                      ? currentPlatform[
-                          field.key as keyof typeof currentPlatform
-                        ]
-                      : "N/A"
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/igdb.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.igdb_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.ss_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
+              target="_blank"
+              :class="{
+                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
+              }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/ss.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.ss_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.moby_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              :class="{ 'ml-1': currentPlatform.igdb_id }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/moby.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.moby_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.ra_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              :class="{
+                'ml-1':
+                  currentPlatform.ra_id ||
+                  currentPlatform.ss_id ||
+                  currentPlatform.moby_id,
+              }"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="25" rounded="1">
+                  <v-img src="/assets/scrappers/ra.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.ra_id }}</span>
+              </v-chip>
+            </a>
+          </v-col>
+        </v-row>
+        <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
+          <v-card-text class="pa-4 d-flex flex-wrap ga-2">
+            <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
+              <div>
+                <v-chip size="small" class="px-0" label>
+                  <v-chip label>{{ field.label }}</v-chip>
+                  <span class="px-2">{{
+                    field.format(currentPlatform[field.key]) || "N/A"
                   }}</span>
                 </v-chip>
               </div>
@@ -333,6 +386,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mx-2"
     >
       <template #content>
         <v-chip
@@ -352,7 +406,11 @@ watch(
             no-gutters
             class="text-center justify-center align-center pa-2"
           >
-            <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
+            <v-col
+              cols="6"
+              class="pa-2"
+              v-for="aspectRatio in aspectRatioOptions"
+            >
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
                   :color="isSelected ? 'primary' : 'romm-gray'"
@@ -365,7 +423,7 @@ watch(
                     <v-img
                       :aspect-ratio="aspectRatio.size"
                       cover
-                      src="/assets/styled_bg.png"
+                      src="/assets/default/cover/empty.svg"
                       :class="{ greyscale: !isSelected }"
                       class="d-flex align-center justify-center"
                     >
@@ -392,6 +450,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mt-2 mx-2"
     >
       <template #content>
         <div class="text-center">
@@ -418,15 +477,5 @@ watch(
 }
 .platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
-}
-.greyscale {
-  filter: grayscale(100%);
-}
-.drawer-desktop {
-  top: 56px !important;
-}
-.drawer-mobile {
-  top: 110px !important;
-  width: calc(100% - 16px) !important;
 }
 </style>

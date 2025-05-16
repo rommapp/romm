@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 from handler.filesystem.roms_handler import FSRomsHandler
-from handler.metadata.igdb_handler import IGDBBaseHandler, IGDBRom
+from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
 from main import app
 
 
@@ -33,17 +33,22 @@ def test_get_all_roms(client, access_token, rom, platform):
     assert response.status_code == 200
 
     body = response.json()
-    assert len(body) == 1
-    assert body[0]["id"] == rom.id
+
+    assert body["total"] == 1
+    assert body["limit"] == 50
+    assert body["offset"] == 0
+
+    items = body["items"]
+    assert len(items) == 1
+    assert items[0]["id"] == rom.id
 
 
 @patch.object(FSRomsHandler, "rename_fs_rom")
-@patch.object(IGDBBaseHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
+@patch.object(IGDBHandler, "get_rom_by_id", return_value=IGDBRom(igdb_id=None))
 def test_update_rom(rename_fs_rom_mock, get_rom_by_id_mock, client, access_token, rom):
     response = client.put(
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
-        params={"rename_as_source": True},
         data={
             "igdb_id": "236663",
             "name": "Metroid Prime Remastered",

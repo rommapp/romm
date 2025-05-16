@@ -18,9 +18,11 @@ dependencies = [
   "authlib ~= 1.3",
   "certifi == 2024.07.04",
   "colorama ~= 0.4",
+  "defusedxml ~= 0.7.1",
   "emoji == 2.10.1",
   "fastapi == 0.115.6",
-  "gunicorn == 22.0.0",
+  "fastapi-pagination (>=0.12.34,<0.13.0)",
+  "gunicorn == 23.0.0",
   "httpx ~= 0.27",
   "itsdangerous ~= 2.1",
   "joserfc ~= 0.9",
@@ -51,7 +53,6 @@ dependencies = [
   "websockets == 12.0",
   "yarl ~= 1.14",
   "zipfile-deflate64 ~= 0.2",
-  "defusedxml ~= 0.7.1",
 ]
 
 [project.optional-dependencies]

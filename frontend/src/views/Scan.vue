@@ -1,26 +1,27 @@
 <script setup lang="ts">
-import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import storeAuth from "@/stores/auth";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
+const auth = storeAuth();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
-const panels = ref([0]);
-const panelIndex = ref(0);
+const panels = ref<number[]>([]);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
@@ -30,10 +31,22 @@ const metadataOptions = computed(() => [
     disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
   },
   {
-    name: "MobyGames",
+    name: "Mobygames",
     value: "moby",
     logo_path: "/assets/scrappers/moby.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+  },
+  {
+    name: "Screenscraper",
+    value: "ss",
+    logo_path: "/assets/scrappers/ss.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
+  },
+  {
+    name: "RetroAchievements",
+    value: "ra",
+    logo_path: "/assets/scrappers/ra.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_ENABLED,
   },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
@@ -45,10 +58,15 @@ watch(metadataOptions, (newOptions) => {
 });
 
 // Adding each new scanned platform to panelIndex to be open by default
-watch(scanningPlatforms, () => {
-  panelIndex.value += 1;
-  panels.value.push(panelIndex.value);
-});
+watch(
+  scanningPlatforms,
+  () => {
+    panels.value = scanningPlatforms.value
+      .map((p, index) => (p.roms.length > 0 ? index : -1))
+      .filter((index) => index !== -1);
+  },
+  { deep: true },
+);
 
 const scanOptions = [
   {
@@ -93,7 +111,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
-    apis: metadataSources.value.map((s) => s.value),
+    apis: [...metadataSources.value.map((s) => s.value)],
   });
 }
 
@@ -140,6 +158,7 @@ async function stopScan() {
                 :size="35"
                 :slug="item.raw.slug"
                 :name="item.raw.name"
+                :fs-slug="item.raw.fs_slug"
               />
             </template>
             <template #append>
@@ -155,6 +174,7 @@ async function stopScan() {
               :key="item.raw.slug"
               :slug="item.raw.slug"
               :name="item.raw.name"
+              :fs-slug="item.raw.fs_slug"
               :size="20"
               class="mr-2"
             />
@@ -197,13 +217,9 @@ async function stopScan() {
         <template #chip="{ item }">
           <v-chip>
             <v-avatar class="mr-2" size="15" rounded="1">
-              <v-img
-                :src="`/assets/scrappers/${item.raw.name
-                  .slice(0, 4)
-                  .toLowerCase()}.png`"
-              />
+              <v-img :src="item.raw.logo_path" />
             </v-avatar>
-            {{ item.raw.name }}
+            {{ item.raw.value }}
           </v-chip>
         </template>
       </v-select>
@@ -270,7 +286,7 @@ async function stopScan() {
       rounded="4"
       height="40"
       class="ml-2"
-      :to="{ name: 'libraryManagement' }"
+      :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
     >
       {{ t("scan.manage-library") }}
     </v-btn>
@@ -294,75 +310,85 @@ async function stopScan() {
   />
 
   <!-- Scan log -->
-  <v-card elevation="0" class="bg-surface mx-auto mt-2 mb-14" max-width="800">
-    <v-card-text class="pa-0">
-      <v-expansion-panels v-model="panels" multiple flat variant="accordion">
-        <v-expansion-panel
-          v-for="platform in scanningPlatforms"
-          :key="platform.id"
-        >
-          <v-expansion-panel-title>
-            <v-list-item class="pa-0">
-              <template #prepend>
-                <v-avatar size="40">
-                  <platform-icon
-                    :key="platform.slug"
-                    :slug="platform.slug"
-                    :name="platform.name"
-                  />
-                </v-avatar>
-              </template>
-              {{ platform.name }}
-              <template #append>
-                <v-chip class="ml-3" color="primary" size="x-small" label>{{
-                  platform.roms.length
-                }}</v-chip>
-              </template>
-            </v-list-item>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text class="bg-toplayer">
-            <rom-list-item
-              v-for="rom in platform.roms"
-              class="pa-4"
-              :rom="rom"
-              with-link
-              with-filename
+  <v-row no-gutters>
+    <v-col>
+      <v-card
+        elevation="0"
+        class="bg-surface mx-auto mt-2 mb-14"
+        max-width="800"
+      >
+        <v-card-text class="pa-0">
+          <v-expansion-panels
+            v-model="panels"
+            multiple
+            flat
+            variant="accordion"
+          >
+            <v-expansion-panel
+              v-for="platform in scanningPlatforms"
+              :key="platform.id"
             >
-              <template #append-body>
-                <v-chip
-                  v-if="!rom.igdb_id && !rom.moby_id"
-                  color="red"
-                  size="x-small"
-                  label
-                  >Not identified<v-icon class="ml-1">mdi-close</v-icon></v-chip
+              <v-expansion-panel-title static>
+                <v-list-item class="pa-0">
+                  <template #prepend>
+                    <v-avatar rounded="0" size="40">
+                      <platform-icon
+                        :key="platform.slug"
+                        :slug="platform.slug"
+                        :name="platform.name"
+                      />
+                    </v-avatar>
+                  </template>
+                  {{ platform.name }}
+                  <template #append>
+                    <v-chip class="ml-3" color="primary" size="x-small" label>{{
+                      platform.roms.length
+                    }}</v-chip>
+                  </template>
+                </v-list-item>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text class="bg-toplayer">
+                <rom-list-item
+                  v-for="rom in platform.roms"
+                  class="pa-4"
+                  :rom="rom"
+                  with-link
+                  with-filename
                 >
-              </template>
-            </rom-list-item>
-            <v-list-item
-              v-if="platform.roms.length == 0"
-              class="text-center my-2"
-            >
-              {{ t("scan.no-new-roms") }}
-            </v-list-item>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
-    </v-card-text>
-  </v-card>
+                  <template #append-body>
+                    <v-chip
+                      v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
+                      color="red"
+                      size="x-small"
+                      label
+                      >Not identified<v-icon class="ml-1"
+                        >mdi-close</v-icon
+                      ></v-chip
+                    >
+                  </template>
+                </rom-list-item>
+                <v-list-item
+                  v-if="platform.roms.length == 0"
+                  class="text-center my-2"
+                >
+                  {{ t("scan.no-new-roms") }}
+                </v-list-item>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </v-card-text>
+      </v-card>
+    </v-col>
+  </v-row>
 
   <!-- Scan stats -->
   <div
+    v-if="scanningPlatforms.length > 0"
     class="text-caption position-fixed d-flex w-100 m-1 justify-center"
     style="bottom: 0.5rem"
   >
     <v-chip variant="outlined" color="toplayer" class="px-2 py-5 bg-background">
-      <v-chip
-        v-if="scanningPlatforms.length > 0"
-        color="primary"
-        text-color="white"
-        size="small"
-        class="mr-1 my-1"
-      >
+      <v-chip color="primary" text-color="white" size="small" class="mr-1 my-1">
         <v-icon left>mdi-controller</v-icon>
         <span v-if="xs" class="ml-2">{{
           t("scan.platforms-scanned-n", scanningPlatforms.length)

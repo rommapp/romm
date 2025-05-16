@@ -53,7 +53,12 @@ function closeDialog() {
     <template #content>
       <v-row class="justify-center pa-2 align-center" no-gutters>
         <span class="mr-1">Deleting platform binding</span>
-        <platform-icon class="mx-2" :key="slugToDelete" :slug="slugToDelete" />
+        <platform-icon
+          class="mx-2"
+          :key="slugToDelete"
+          :slug="slugToDelete"
+          :fs-slug="fsSlugToDelete"
+        />
         <span>[</span>
         <span class="text-primary ml-1"> {{ fsSlugToDelete }}</span>
         <span class="mx-1">:</span>

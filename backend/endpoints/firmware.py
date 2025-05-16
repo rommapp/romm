@@ -8,13 +8,18 @@ from handler.auth.constants import Scope
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/firmware",
+    tags=["firmware"],
+)
 
 
-@protected_route(router.post, "/firmware", [Scope.FIRMWARE_WRITE])
+@protected_route(router.post, "", [Scope.FIRMWARE_WRITE])
 def add_firmware(
     request: Request,
     platform_id: int,
@@ -40,8 +45,6 @@ def add_firmware(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    log.info(f"Uploading firmware to {db_platform.fs_slug}")
-
     uploaded_firmware = []
     firmware_path = fs_firmware_handler.build_upload_file_path(db_platform.fs_slug)
 
@@ -49,6 +52,10 @@ def add_firmware(
         if not file.filename:
             log.warning("Empty filename, skipping")
             continue
+
+        log.info(
+            f"Uploading firmware {hl(file.filename)} to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}"
+        )
 
         fs_firmware_handler.write_file(file=file, path=firmware_path)
 
@@ -81,7 +88,7 @@ def add_firmware(
     }
 
 
-@protected_route(router.get, "/firmware", [Scope.FIRMWARE_READ])
+@protected_route(router.get, "", [Scope.FIRMWARE_READ])
 def get_platform_firmware(
     request: Request,
     platform_id: int | None = None,
@@ -102,7 +109,7 @@ def get_platform_firmware(
 
 @protected_route(
     router.get,
-    "/firmware/{id}",
+    "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
 )
 def get_firmware(request: Request, id: int) -> FirmwareSchema:
@@ -126,7 +133,7 @@ def get_firmware(request: Request, id: int) -> FirmwareSchema:
 
 @protected_route(
     router.head,
-    "/firmware/{id}/content/{file_name}",
+    "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
 )
 def head_firmware_content(request: Request, id: int, file_name: str):
@@ -160,7 +167,7 @@ def head_firmware_content(request: Request, id: int, file_name: str):
 
 @protected_route(
     router.get,
-    "/firmware/{id}/content/{file_name}",
+    "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.FIRMWARE_READ],
 )
 def get_firmware_content(
@@ -190,7 +197,7 @@ def get_firmware_content(
     return FileResponse(path=firmware_path, filename=firmware.file_name)
 
 
-@protected_route(router.post, "/firmware/delete", [Scope.FIRMWARE_WRITE])
+@protected_route(router.post, "/delete", [Scope.FIRMWARE_WRITE])
 async def delete_firmware(
     request: Request,
 ) -> MessageResponse:
@@ -214,21 +221,21 @@ async def delete_firmware(
     for id in firmare_ids:
         firmware = db_firmware_handler.get_firmware(id)
         if not firmware:
-            error = f"Firmware with ID {id} not found"
+            error = f"Firmware with ID {hl(id)} not found"
             log.error(error)
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-        log.info(f"Deleting {firmware.file_name} from database")
+        log.info(f"Deleting {hl(firmware.file_name)} from database")
         db_firmware_handler.delete_firmware(id)
 
         if id in delete_from_fs:
-            log.info(f"Deleting {firmware.file_name} from filesystem")
+            log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
             try:
                 fs_firmware_handler.remove_file(
                     file_name=firmware.file_name, file_path=firmware.file_path
                 )
             except FileNotFoundError as exc:
-                error = f"Firmware file {firmware.file_name} not found for platform {firmware.platform_slug}"
+                error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
                 log.error(error)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=error

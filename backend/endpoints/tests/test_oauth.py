@@ -2,7 +2,7 @@ import pytest
 from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi.exceptions import HTTPException
 from fastapi.testclient import TestClient
-from handler.auth.constants import WRITE_SCOPES
+from handler.auth.constants import EDIT_SCOPES
 from main import app
 
 
@@ -96,7 +96,7 @@ def test_auth_via_upass_with_excess_scopes(client, viewer_user):
                 "grant_type": "password",
                 "username": "test_viewer",
                 "password": "test_viewer_password",
-                "scopes": WRITE_SCOPES,
+                "scopes": EDIT_SCOPES,
             },
         )
     except HTTPException as e:

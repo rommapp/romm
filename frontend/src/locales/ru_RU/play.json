@@ -1,7 +1,14 @@
 {
-  "full-screen": "Full Screen",
-  "play": "Play",
-  "reset-session": "Reset Session",
-  "back-to-game-details": "Back to game details",
-  "back-to-gallery": "Back to gallery"
+  "back-to-gallery": "Вернуться в галерею",
+  "back-to-game-details": "Вернуться к деталям игры",
+  "clear-cache": "Очистить кэш EmulatorJS",
+  "clear-cache-description": "Любые сохранения или состояния, хранящиеся на сервере, не будут затронуты.",
+  "clear-cache-title": "Вы уверены, что хотите очистить кэш EmulatorJS?",
+  "clear-cache-warning": "Это удалит все сохранения и состояния, хранящиеся в браузере.",
+  "full-screen": "Полный экран",
+  "play": "Играть",
+  "quit": "Выйти",
+  "save-and-quit": "Сохранить и выйти",
+  "select-save": "Выбрать сохранение",
+  "select-state": "Выбрать состояние"
 }

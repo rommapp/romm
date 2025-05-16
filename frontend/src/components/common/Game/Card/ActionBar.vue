@@ -5,12 +5,14 @@ import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
+import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import {
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
   is3DSCIARom,
 } from "@/utils";
+import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject } from "vue";
 import { storeToRefs } from "pinia";
@@ -22,6 +24,7 @@ const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
+const auth = storeAuth();
 
 const platformSlug = computed(() => {
   return props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
@@ -66,7 +69,7 @@ const is3DSRom = computed(() => {
         size="x-small"
         @click="
           $router.push({
-            name: 'emulatorjs',
+            name: ROUTES.EMULATORJS,
             params: { rom: rom?.id },
           })
         "
@@ -81,7 +84,7 @@ const is3DSRom = computed(() => {
         size="x-small"
         @click="
           $router.push({
-            name: 'ruffle',
+            name: ROUTES.RUFFLE,
             params: { rom: rom?.id },
           })
         "
@@ -101,7 +104,14 @@ const is3DSRom = computed(() => {
         rounded="0"
       />
     </v-col>
-    <v-col class="d-flex">
+    <v-col
+      v-if="
+        auth.scopes.includes('roms.write') ||
+        auth.scopes.includes('roms.user.write') ||
+        auth.scopes.includes('collections.write')
+      "
+      class="d-flex"
+    >
       <v-menu location="bottom">
         <template #activator="{ props }">
           <v-btn

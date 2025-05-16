@@ -46,13 +46,13 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 ## Features
 
-- Scans your existing games library and enhances it with metadata from [IGDB][igdb-api] and [MobyGames][mobygames-api]
-- Supports a large number of **[platforms][platform-support]**
-- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs] and RuffleRS
-- Share your library with friends while [limiting access and permissions][wiki-authentication]
-- Supports MAME, Nintendo Switch, and Sony Playstation naming schemes
-- Detects and groups **multifile games** (e.g. PS1 games with multiple CDs)
-- Can [parse tags][tag-support] in filenames (e.g. (E), (USA), (rev v1), etc.)
+- Scans and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
+- Metadata available for [400+ platforms][platform-support]
+- Play games directly from the browser using [EmulatorJS][wiki-emulatorjs]
+- Share your library with friends with limited access and permissions
+- Official apps for [Playnite][playnite-app] and [muOS][muos-app]
+- Supports mutli-disk games, DCLs, mods, hacks, patches, and manuals
+- Parse and [filter by tags][tag-support] in filenames
 - View, upload, update, and delete games from any modern web browser
 
 ## Preview
@@ -78,10 +78,10 @@ As mentioned in the installation section, RomM requires a specific folder struct
  </tr>
  <tr>
   <td>
-    <code>library/roms/gbc/rom_1.gbc</code>
+    <code>library/roms/gbc/game_1.gbc</code>
   </td>
   <td>
-    <code>library/gbc/roms/rom_1.gbc</code>
+    <code>library/gbc/roms/game_1.gbc</code>
   </td>
  </tr>
  <tr>
@@ -90,55 +90,90 @@ As mentioned in the installation section, RomM requires a specific folder struct
         library/
         ├─ roms/
         │  ├─ gbc/
-        │  │  ├─ rom_1.gbc
-        │  │  ├─ rom_2.gbc
+        │  │  ├─ game_1.gbc
+        │  │  └─ game_2.gbc
         │  │
         │  ├─ gba/
-        │  │  ├─ rom_1.gba
-        │  │  ├─ rom_2.gba
+        │  │  ├─ game_3.gba
+        │  │  └─ game_4/
+        │  │     ├─ game_4.gba
+        │  │     ├─ dlc
+        │  │     │  ├─ game_4_dlc_1.7z
+        │  │     │  └─ game_4_dlc_2.7z
+        │  │     ├─ hack
+        │  │     │  └─ game_4_hardmode.rar
+        │  │     ├─ manual
+        │  │     │  └─ game_4_manual.pdf
+        │  │     ├─ mod
+        │  │     │  └─ game_4_crazy_mode.zip
+        │  │     ├─ patch
+        │  │     │  └─ game_4_patch_v1.1.zip
+        │  │     ├─ update
+        │  │     ├─ demo
+        │  │     ├─ translation
+        │  │     └─ prototype
         │  │
-        │  ├─ ps/
-        │     ├─ my_multifile_game/
-        │     │   ├─ my_game_cd1.iso
-        │     │   ├─ my_game_cd2.iso
+        │  └─ ps/
+        │     ├─ game_5/
+        │     │   ├─ game_5_cd_1.iso
+        │     │   └─ game_5_cd_2.iso
         │     │
-        │     ├─ rom_1.iso
-        ├─ bios/
-        │  ├─ gba/
-        │  │  ├─ gba_bios.bin
-        │  │
-        │  ├─ ps/
-        │     ├─ scph1001.bin
-        |     ├─ scph5501.bin
-        |     ├─ scph5502.bin
+        │     └─ game_6.iso
+        │
+        └─ bios/
+           ├─ gba/
+           │  └─ gba_bios.bin
+           │
+           └─ ps/
+              ├─ scph1001.bin
+              ├─ scph5501.bin
+              └─ scph5502.bin
       </pre>
     </td>
     <td>
       <pre>
         library/
         ├─ gbc/
-        │  ├─ roms/
-        │     ├─ rom_1.gbc
-        │     ├─ rom_2.gbc
+        │  └─ roms/
+        │     ├─ game_1.gbc
+        │     └─ game_2.gbc
         │
         ├─ gba/
         │  ├─ roms/
-        │     ├─ rom_1.gba
-        │     ├─ rom_2.gba
-        |  ├─ bios/
-        |     ├─ gba_bios.bin
+        │  │  ├─ game_3.gba
+        │  │  └─ game_4/
+        │  │     ├─ game_4.gba
+        │  │     ├─ dlc
+        │  │     │  ├─ game_4_dlc_1.7z
+        │  │     │  └─ game_4_dlc_2.7z
+        │  │     ├─ hacks
+        │  │     │  └─ game_4_hardmode.rar
+        │  │     ├─ manuals
+        │  │     │  └─ game_4_manual.pdf
+        │  │     ├─ mods
+        │  │     │  └─ game_4_crazy_mode.zip
+        │  │     ├─ patch
+        │  │     │  └─ game_4_patch_v1.1.zip
+        │  │     ├─ update
+        │  │     ├─ demo
+        │  │     ├─ translation
+        │  │     └─ prototype
+        │  │
+        │  └─ bios/
+        │     └─ gba_bios.bin
         │
-        ├─ ps/
-        │  ├─ roms/
-        │     ├─ my_multifile_game/
-        │     │  ├─ my_game_cd1.iso
-        │     │  ├─ my_game_cd2.iso
-        │     │
-        │     ├─ rom_1.iso
-        |  ├─ bios/
-        |     ├─ scph1001.bin
-        |     ├─ scph5501.bin
-        |     ├─ scph5502.bin
+        └─ ps/
+           ├─ roms/
+           │  ├─ game_5/
+           │  │  ├─ game_5_cd1.iso
+           │  │  └─ game_5_cd2.iso
+           │  │
+           │  └─ game_6.iso
+           │
+           └─ bios/
+              ├─ scph1001.bin
+              ├─ scph5501.bin
+              └─ scph5502.bin
       </pre>
     </td>
  </tr>
@@ -161,8 +196,6 @@ The scheduler allows you to schedule async tasks that run in the Redis container
 
 If you adhere to the [RomM folder structure][folder-structure], RomM supports all platforms listed on the [Supported Platforms][wiki-supported-platforms] page. **The folder is case-sensitive and must be used exactly as it appears on the list.** When scanning your library, RomM will use the folder name to determine the platform and fetch the appropriate game information, metadata, and cover art.
 
-Additionally, some of these platforms have custom icons available ([learn more about platform icons in our wiki][wiki-platforms-icons]).
-
 ## Tag Support
 
 Games can be tagged with region, revision, or other tags by using parentheses in the file name. Additionally, you can set the region and language by adding a prefix: (USA), [reg-J], (French), [De].
@@ -177,8 +210,8 @@ Tags can be used to search for games in the search bar. For example, searching f
 Here are a few projects maintained by members of our community. Please note that the RomM team does not regularly review their source code.
 
 - [romm-comm][romm-comm-discord-bot]: Discord Bot by @idio-sync
+- [DeckRommSync][deck-romm-sync]: SteamOS downloader and sync by @PeriBluGaming
 - CasaOS app via the [BigBear App Store][big-bear-casaos]
-- [Helm Chart to deploy on Kubernetes][kubernetes-helm-chart] by @psych0d0g
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
@@ -215,14 +248,12 @@ Here are a few projects that we think you might like:
 
 <!-- Wiki links -->
 
-[wiki]: https://github.com/rommapp/romm/wiki
-[wiki-supported-platforms]: https://github.com/rommapp/romm/wiki/Supported-Platforms
-[wiki-authentication]: https://github.com/rommapp/romm/wiki/Authentication
-[wiki-platforms-icons]: https://github.com/rommapp/romm/wiki/Custom-Platform-Icons
-[wiki-troubleshooting]: https://github.com/rommapp/romm/wiki/Troubleshooting
-[wiki-emulatorjs]: https://github.com/rommapp/romm/wiki/EmulatorJS-Player
-[wiki-scheduled-tasks]: https://github.com/rommapp/romm/wiki/Scheduled-Tasks
-[wiki-quick-start-guide]: https://github.com/rommapp/romm/wiki/Quick-Start-Guide
+[wiki]: https://docs.romm.app/latest/
+[wiki-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
+[wiki-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/
+[wiki-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
+[wiki-scheduled-tasks]: https://docs.romm.app/latest/Maintenance/Scheduled-Tasks/
+[wiki-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
 
 <!-- Badges -->
 
@@ -248,7 +279,10 @@ Here are a few projects that we think you might like:
 <!-- External links -->
 
 [igdb-api]: https://api-docs.igdb.com/#account-creation
+[screenscraper-api]: https://www.screenscraper.fr/membreinscription.php
 [mobygames-api]: https://www.mobygames.com/info/api/
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
-[kubernetes-helm-chart]: https://artifacthub.io/packages/helm/crystalnet/romm
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
+[deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
+[playnite-app]: https://github.com/rommapp/playnite-plugin
+[muos-app]: https://github.com/rommapp/muos-app
