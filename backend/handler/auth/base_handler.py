@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Tuple
 
 from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY, ROMM_BASE_URL
 from decorators.auth import oauth
@@ -22,6 +22,7 @@ class AuthHandler:
     def __init__(self) -> None:
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
         self.reset_passwd_token_expires_in_minutes = 10
+        self.invite_link_token_expires_in_minutes = 10
 
     def verify_password(self, plain_password, hashed_password):
         return self.pwd_context.verify(plain_password, hashed_password)
@@ -151,6 +152,79 @@ class AuthHandler:
         db_user_handler.update_user(
             user.id, {"hashed_password": self.get_password_hash(new_password)}
         )
+
+    def generate_invite_link_token(self, user: Any, role: str) -> str:
+        """
+        Generate an invite link token for the user.
+        Args:
+            user (Any): The user object.
+            role (str): The role of the user.
+        Returns:
+            str: The generated invite link token.
+        """
+        now = datetime.now(timezone.utc)
+
+        jti = str(uuid.uuid4())
+
+        to_encode = {
+            "sub": user.username,
+            "type": TokenPurpose.INVITE,
+            "role": role.upper(),
+            "iat": int(now.timestamp()),
+            "exp": int(
+                (
+                    now + timedelta(minutes=self.invite_link_token_expires_in_minutes)
+                ).timestamp()
+            ),
+            "jti": jti,
+        }
+        token = jwt.encode(
+            {"alg": ALGORITHM}, to_encode, OctKey.import_key(ROMM_AUTH_SECRET_KEY)
+        )
+        invite_link = f"{ROMM_BASE_URL}/register?token={token}"
+        log.info(
+            f"Invite link created by {hl(user.username, color=CYAN)}: {hl(invite_link)}"
+        )
+        redis_client.setex(
+            f"invite-jti:{jti}", self.invite_link_token_expires_in_minutes * 60, "valid"
+        )
+        return token
+
+    def verify_invite_link_token(self, token: str) -> Tuple[str, str]:
+        """
+        Verify the invite link token.
+        Args:
+            token (str): The token to verify.
+        Returns:
+            str: The JTI (JWT ID) of the token.
+        """
+        try:
+            payload = jwt.decode(token, OctKey.import_key(ROMM_AUTH_SECRET_KEY))
+        except (BadSignatureError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="Invalid token") from exc
+
+        if payload.claims.get("type") != TokenPurpose.INVITE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid token type.",
+            )
+
+        jti = payload.claims.get("jti")
+        role = payload.claims.get("role", "USER").upper()
+        if not jti or redis_client.get(f"invite-jti:{jti}") != b"valid":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invite token has already been used or is invalid.",
+            )
+        return jti, role
+
+    def invalidate_invite_link_token(self, jti: str) -> None:
+        """
+        Invalidate the invite link token.
+        Args:
+            jti (str): The JTI (JWT ID) of the token to invalidate.
+        """
+        redis_client.delete(f"invite-jti:{jti}")
 
 
 class OAuthHandler:

@@ -9,6 +9,7 @@
   "core": "Nucleu",
   "create": "Creează",
   "edit": "Editează",
+  "exclude-on-delete": "Excluzând la ștergere",
   "filter": "Filtru",
   "firmware": "Firmware",
   "games-n": "{n} Joc | {n} Jocuri",

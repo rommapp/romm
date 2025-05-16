@@ -34,8 +34,8 @@ function closeDialog() {
       <v-row class="justify-center text-center pa-2" no-gutters>
         <v-list-item>{{ t("rom.cant-copy-link") }}:</v-list-item>
       </v-row>
-      <v-row class="justify-center text-center pa-2 mb-3" no-gutters>
-        <v-list-item class="bg-toplayer">{{ link }}</v-list-item>
+      <v-row class="justify-center text-center pa-2" no-gutters>
+        <v-list-item>{{ link }}</v-list-item>
       </v-row>
     </template></r-dialog
   >
