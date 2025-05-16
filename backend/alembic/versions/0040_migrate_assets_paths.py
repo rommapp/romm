@@ -48,7 +48,7 @@ def upgrade() -> None:
                 SELECT {select_cols}
                 FROM {table}
                 WHERE {like_clause}
-            """
+            """  # nosec B608
             )
         ).fetchall()
 
@@ -96,7 +96,7 @@ def upgrade() -> None:
                 else:
                     log.info(f"[{table}] Old path does not exist: {old_abs}")
             except Exception as e:
-                log.info(f"[{table}] Error moving {old_abs} to {new_abs}: {e}")
+                log.error(f"[{table}] Error moving {old_abs} to {new_abs}: {e}")
                 continue
 
             # Update DB
@@ -106,7 +106,7 @@ def upgrade() -> None:
                     UPDATE {table}
                     SET file_path = :new_path
                     WHERE id = :item_id
-                """
+                """  # nosec B608
                 ),
                 {"new_path": new_path, "item_id": item_id},
             )

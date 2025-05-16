@@ -37,8 +37,10 @@ function closeDialog() {
       </v-row>
     </template>
     <template #content>
-      <div class="text-h6 pa-4">{{ t("play.clear-cache-title") }}</div>
-      <div class="text-body-1 px-4 pb-4">
+      <div class="text-h6 text-center pa-4">
+        {{ t("play.clear-cache-title") }}
+      </div>
+      <div class="text-body-1 text-center px-4 pb-4">
         <strong>{{ t("play.clear-cache-warning") }}</strong>
         <br />
         {{ t("play.clear-cache-description") }}
