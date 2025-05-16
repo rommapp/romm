@@ -1,7 +1,14 @@
 {
-  "username": "Username",
-  "password": "Password",
   "login": "Login",
   "login-oidc": "Login with {oidc}",
-  "or": "or"
+  "or": "or",
+  "password": "Password",
+  "username": "Username",
+  "forgot-password": "Forgot your password?",
+  "send-reset-link": "Send reset link",
+  "reset-sent": "Reset link sent. Contact your admin.",
+  "new-password": "New password",
+  "confirm-new-password": "Confirm new password",
+  "reset-password": "Reset password",
+  "back-to-login": "Back to login"
 }

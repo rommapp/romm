@@ -6,7 +6,7 @@ from anyio import Path
 from config import RESOURCES_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.collection import CollectionSchema
+from endpoints.responses.collection import CollectionSchema, VirtualCollectionSchema
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
@@ -17,16 +17,21 @@ from handler.auth.constants import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
 from PIL import Image
 from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/collections",
+    tags=["collections"],
+)
 
 
-@protected_route(router.post, "/collections", [Scope.COLLECTIONS_WRITE])
+@protected_route(router.post, "", [Scope.COLLECTIONS_WRITE])
 async def add_collection(
     request: Request,
     artwork: UploadFile | None = None,
@@ -75,8 +80,8 @@ async def add_collection(
             )
     else:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-            overwrite=True,
             entity=_added_collection,
+            overwrite=True,
             url_cover=_added_collection.url_cover,
         )
 
@@ -95,7 +100,7 @@ async def add_collection(
     return CollectionSchema.model_validate(created_collection)
 
 
-@protected_route(router.get, "/collections", [Scope.COLLECTIONS_READ])
+@protected_route(router.get, "", [Scope.COLLECTIONS_READ])
 def get_collections(request: Request) -> list[CollectionSchema]:
     """Get collections endpoint
 
@@ -108,10 +113,31 @@ def get_collections(request: Request) -> list[CollectionSchema]:
     """
 
     collections = db_collection_handler.get_collections()
+
     return CollectionSchema.for_user(request.user.id, [c for c in collections])
 
 
-@protected_route(router.get, "/collections/{id}", [Scope.COLLECTIONS_READ])
+@protected_route(router.get, "/virtual", [Scope.COLLECTIONS_READ])
+def get_virtual_collections(
+    request: Request,
+    type: str,
+    limit: int | None = None,
+) -> list[VirtualCollectionSchema]:
+    """Get virtual collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[VirtualCollectionSchema]: List of virtual collections
+    """
+
+    virtual_collections = db_collection_handler.get_virtual_collections(type, limit)
+
+    return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
+
+
+@protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
 def get_collection(request: Request, id: int) -> CollectionSchema:
     """Get collections endpoint
 
@@ -124,14 +150,32 @@ def get_collection(request: Request, id: int) -> CollectionSchema:
     """
 
     collection = db_collection_handler.get_collection(id)
-
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
     return CollectionSchema.model_validate(collection)
 
 
-@protected_route(router.put, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
+@protected_route(router.get, "/virtual/{id}", [Scope.COLLECTIONS_READ])
+def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema:
+    """Get virtual collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (str): Virtual collection id
+
+    Returns:
+        VirtualCollectionSchema: Virtual collection
+    """
+
+    virtual_collection = db_collection_handler.get_virtual_collection(id)
+    if not virtual_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    return VirtualCollectionSchema.model_validate(virtual_collection)
+
+
+@protected_route(router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
 async def update_collection(
     request: Request,
     id: int,
@@ -161,17 +205,14 @@ async def update_collection(
         raise CollectionNotFoundInDatabaseException(id)
 
     try:
-        roms = json.loads(data["roms"])  # type: ignore
+        rom_ids = json.loads(data["rom_ids"])  # type: ignore
     except json.JSONDecodeError as e:
-        raise ValueError("Invalid list for roms field in update collection") from e
-    except KeyError:
-        roms = collection.roms
+        raise ValueError("Invalid list for rom_ids field in update collection") from e
 
     cleaned_data = {
         "name": data.get("name", collection.name),
         "description": data.get("description", collection.description),
         "is_public": is_public if is_public is not None else collection.is_public,
-        "roms": list(set(roms)),
         "user_id": request.user.id,
     }
 
@@ -208,20 +249,22 @@ async def update_collection(
                     {"url_cover": data.get("url_cover", collection.url_cover)}
                 )
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-                    overwrite=True,
                     entity=collection,
+                    overwrite=True,
                     url_cover=data.get("url_cover", ""),  # type: ignore
                 )
                 cleaned_data.update(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
 
-    updated_collection = db_collection_handler.update_collection(id, cleaned_data)
+    updated_collection = db_collection_handler.update_collection(
+        id, cleaned_data, rom_ids
+    )
 
     return CollectionSchema.model_validate(updated_collection)
 
 
-@protected_route(router.delete, "/collections/{id}", [Scope.COLLECTIONS_WRITE])
+@protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
 async def delete_collections(request: Request, id: int) -> MessageResponse:
     """Delete collections endpoint
 
@@ -243,12 +286,14 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    log.info(f"Deleting {collection.name} from database")
+    log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
 
     try:
         rmtree(f"{RESOURCES_BASE_PATH}/{collection.fs_resources_path}")
     except FileNotFoundError:
-        log.error(f"Couldn't find resources to delete for {collection.name}")
+        log.error(
+            f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"
+        )
 
     return {"msg": f"{collection.name} deleted successfully!"}

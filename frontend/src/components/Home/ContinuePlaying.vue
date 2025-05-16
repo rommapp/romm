@@ -6,25 +6,41 @@ import { views } from "@/utils";
 import { storeToRefs } from "pinia";
 import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
+import { ref } from "vue";
 
 // Props
 const { t } = useI18n();
 const romsStore = storeRoms();
 const { continuePlayingRoms } = storeToRefs(romsStore);
-const gridContinuePlayingRoms = isNull(
-  localStorage.getItem("settings.gridContinuePlayingRoms"),
-)
-  ? false
-  : localStorage.getItem("settings.gridContinuePlayingRoms") === "true";
+const storedContinuePlaying = localStorage.getItem(
+  "settings.gridContinuePlayingRoms",
+);
+const gridContinuePlayingRoms = ref(
+  isNull(storedContinuePlaying) ? false : storedContinuePlaying === "true",
+);
+function toggleGridContinuePlaying() {
+  gridContinuePlayingRoms.value = !gridContinuePlayingRoms.value;
+  localStorage.setItem(
+    "settings.gridContinuePlayingRoms",
+    gridContinuePlayingRoms.value.toString(),
+  );
+}
 </script>
 <template>
   <r-section icon="mdi-play" :title="t('home.continue-playing')">
+    <template #toolbar-append>
+      <v-btn icon rounded="0" @click="toggleGridContinuePlaying"
+        ><v-icon>{{
+          gridContinuePlayingRoms ? "mdi-view-comfy" : "mdi-view-column"
+        }}</v-icon>
+      </v-btn>
+    </template>
     <template #content>
       <v-row
         :class="{
           'flex-nowrap overflow-x-auto': !gridContinuePlayingRoms,
-          'py-2': true,
         }"
+        class="pa-1"
         no-gutters
       >
         <v-col
@@ -48,6 +64,7 @@ const gridContinuePlayingRoms = isNull(
             transformScale
             showActionBar
             showPlatformIcon
+            disableViewTransition
           />
         </v-col>
       </v-row>

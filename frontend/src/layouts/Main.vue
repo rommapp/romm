@@ -11,6 +11,12 @@ import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
 import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import ShowQRCodeDialog from "@/components/common/Game/Dialog/ShowQRCode.vue";
+import UploadSavesDialog from "@/components/common/Game/Dialog/Asset/UploadSaves.vue";
+import UploadStatesDialog from "@/components/common/Game/Dialog/Asset/UploadStates.vue";
+import SelectSaveDialog from "@/components/common/Game/Dialog/Asset/SelectSave.vue";
+import SelectStateDialog from "@/components/common/Game/Dialog/Asset/SelectState.vue";
+import DeleteSavesDialog from "@/components/common/Game/Dialog/Asset/DeleteSaves.vue";
+import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
 import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
 import storeCollections from "@/stores/collections";
@@ -18,7 +24,8 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount } from "vue";
+import { inject, onBeforeMount, ref } from "vue";
+import { isNull } from "lodash";
 
 // Props
 const navigationStore = storeNavigation();
@@ -30,6 +37,21 @@ emitter?.on("refreshDrawer", async () => {
   platformsStore.set(platformData);
 });
 
+const showVirtualCollections = isNull(
+  localStorage.getItem("settings.showVirtualCollections"),
+)
+  ? true
+  : localStorage.getItem("settings.showVirtualCollections") === "true";
+
+const storedVirtualCollectionType = localStorage.getItem(
+  "settings.virtualCollectionType",
+);
+const virtualCollectionTypeRef = ref(
+  isNull(storedVirtualCollectionType)
+    ? "collection"
+    : storedVirtualCollectionType,
+);
+
 // Functions
 onBeforeMount(async () => {
   await platformApi
@@ -40,6 +62,7 @@ onBeforeMount(async () => {
     .catch((error) => {
       console.error(error);
     });
+
   await collectionApi
     .getCollections()
     .then(({ data: collections }) => {
@@ -53,7 +76,16 @@ onBeforeMount(async () => {
     .catch((error) => {
       console.error(error);
     });
-  navigationStore.resetDrawers();
+
+  if (showVirtualCollections) {
+    await collectionApi
+      .getVirtualCollections({ type: virtualCollectionTypeRef.value })
+      .then(({ data: virtualCollections }) => {
+        collectionsStore.setVirtual(virtualCollections);
+      });
+  }
+
+  navigationStore.reset();
 });
 </script>
 
@@ -73,4 +105,11 @@ onBeforeMount(async () => {
 
   <new-version-dialog />
   <upload-progress />
+
+  <upload-saves-dialog />
+  <delete-saves-dialog />
+  <upload-states-dialog />
+  <delete-states-dialog />
+  <select-save-dialog />
+  <select-state-dialog />
 </template>

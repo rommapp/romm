@@ -1,14 +1,15 @@
 import sys
-from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
 from config.config_manager import ConfigManager
+from logger.logger import unify_logger
 from models.assets import Save, Screenshot, State  # noqa
 from models.base import BaseModel
+from models.collection import VirtualCollection
 from models.firmware import Firmware  # noqa
 from models.platform import Platform  # noqa
-from models.rom import Rom, SiblingRom  # noqa
+from models.rom import Rom, RomMetadata, SiblingRom  # noqa
 from models.user import User  # noqa
 from sqlalchemy import create_engine
 
@@ -16,10 +17,7 @@ from sqlalchemy import create_engine
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name, disable_existing_loggers=False)
+unify_logger("alembic")
 
 # add your model's MetaData object here
 # for 'autogenerate' support
@@ -35,7 +33,11 @@ target_metadata = BaseModel.metadata
 
 # Ignore specific models when running migrations
 def include_object(object, name, type_, reflected, compare_to):
-    if type_ == "table" and name in [SiblingRom.__tablename__]:  # Virtual table
+    if type_ == "table" and name in [
+        SiblingRom.__tablename__,
+        VirtualCollection.__tablename__,
+        RomMetadata.__tablename__,
+    ]:  # Virtual table
         return False
 
     return True

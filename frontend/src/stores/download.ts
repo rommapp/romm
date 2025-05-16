@@ -18,7 +18,7 @@ export default defineStore("download", {
     remove(id: number) {
       this.value.splice(this.value.indexOf(id), 1);
     },
-    clear() {
+    reset() {
       this.value = [] as number[];
       this.filesToDownload = [] as RomFileSchema[];
     },

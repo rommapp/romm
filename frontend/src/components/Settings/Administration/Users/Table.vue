@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import CreateUserDialog from "@/components/Settings/Administration/Users/Dialog/CreateUser.vue";
+import InviteLinkDialog from "@/components/Settings/Administration/Users/Dialog/InviteLink.vue";
 import DeleteUserDialog from "@/components/Settings/Administration/Users/Dialog/DeleteUser.vue";
 import RSection from "@/components/common/RSection.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
-import { defaultAvatarPath, formatTimestamp } from "@/utils";
+import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const userSearch = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
@@ -30,6 +33,12 @@ const HEADERS = [
     align: "start",
     sortable: true,
     key: "username",
+  },
+  {
+    title: "Email",
+    align: "start",
+    sortable: true,
+    key: "email",
   },
   {
     title: "Role",
@@ -78,7 +87,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <r-section icon="mdi-account" title="Users">
+  <r-section icon="mdi-account" title="Users" class="ma-2">
     <template #content>
       <v-text-field
         v-model="userSearch"
@@ -91,7 +100,7 @@ onMounted(() => {
         class="bg-surface mt-2"
       />
       <v-data-table-virtual
-        height="350"
+        :style="{ 'max-height': '40dvh' }"
         :search="userSearch"
         :headers="HEADERS"
         :items="allUsers"
@@ -101,14 +110,24 @@ onMounted(() => {
         hide-default-footer
       >
         <template #header.actions>
-          <v-btn
-            prepend-icon="mdi-plus"
-            variant="outlined"
-            class="text-primary"
-            @click="emitter?.emit('showCreateUserDialog', null)"
-          >
-            Add
-          </v-btn>
+          <v-btn-group divided density="compact">
+            <v-btn
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-primary"
+              @click="emitter?.emit('showCreateUserDialog', null)"
+            >
+              {{ t("common.add") }}
+            </v-btn>
+            <v-btn
+              prepend-icon="mdi-share"
+              variant="outlined"
+              class="text-primary"
+              @click="emitter?.emit('showCreateInviteLinkDialog')"
+            >
+              {{ t("settings.invite-link") }}
+            </v-btn>
+          </v-btn-group>
         </template>
         <template #item.avatar_path="{ item }">
           <v-avatar>
@@ -120,6 +139,17 @@ onMounted(() => {
               "
             />
           </v-avatar>
+        </template>
+        <template #item.username="{ item }">
+          <v-list-item class="pa-0" min-width="120px">
+            {{ item.username }}
+          </v-list-item>
+        </template>
+        <template #item.role="{ item }">
+          <v-list-item class="pa-0" min-width="100px">
+            <v-icon class="mr-2">{{ getRoleIcon(item.role) }}</v-icon>
+            {{ item.role }}
+          </v-list-item>
         </template>
         <template #item.last_active="{ item }">
           {{ formatTimestamp(item.last_active) }}
@@ -156,5 +186,6 @@ onMounted(() => {
   </r-section>
 
   <create-user-dialog />
+  <invite-link-dialog />
   <delete-user-dialog />
 </template>

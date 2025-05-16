@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
@@ -21,6 +22,8 @@ class Platform(BaseModel):
     igdb_id: Mapped[int | None]
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
+    ss_id: Mapped[int | None]
+    ra_id: Mapped[int | None]
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))
@@ -33,9 +36,9 @@ class Platform(BaseModel):
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
     logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
-    roms: Mapped[list[Rom]] = relationship(back_populates="platform")
+    roms: Mapped[list[Rom]] = relationship(lazy="select", back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(
-        lazy="selectin", back_populates="platform"
+        lazy="select", back_populates="platform"
     )
 
     aspect_ratio: Mapped[str] = mapped_column(
@@ -49,3 +52,9 @@ class Platform(BaseModel):
 
     def __repr__(self) -> str:
         return self.name
+
+    @cached_property
+    def fs_size_bytes(self) -> int:
+        from handler.database import db_stats_handler
+
+        return db_stats_handler.get_platform_filesize(self.id)

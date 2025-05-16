@@ -6,23 +6,39 @@ import { views } from "@/utils";
 import { storeToRefs } from "pinia";
 import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
+import { ref } from "vue";
 
 // Props
 const { t } = useI18n();
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
-const gridRecentRoms = isNull(localStorage.getItem("settings.gridRecentRoms"))
-  ? false
-  : localStorage.getItem("settings.gridRecentRoms") === "true";
+const storedGridRecentRoms = localStorage.getItem("settings.gridRecentRoms");
+const gridRecentRoms = ref(
+  isNull(storedGridRecentRoms) ? false : storedGridRecentRoms === "true",
+);
+function toggleGridRecentRoms() {
+  gridRecentRoms.value = !gridRecentRoms.value;
+  localStorage.setItem(
+    "settings.gridRecentRoms",
+    gridRecentRoms.value.toString(),
+  );
+}
 </script>
 <template>
   <r-section icon="mdi-shimmer" :title="t('home.recently-added')">
+    <template #toolbar-append>
+      <v-btn icon rounded="0" @click="toggleGridRecentRoms"
+        ><v-icon>{{
+          gridRecentRoms ? "mdi-view-comfy" : "mdi-view-column"
+        }}</v-icon>
+      </v-btn>
+    </template>
     <template #content>
       <v-row
         :class="{
           'flex-nowrap overflow-x-auto': !gridRecentRoms,
-          'py-2': true,
         }"
+        class="pa-1"
         no-gutters
       >
         <v-col

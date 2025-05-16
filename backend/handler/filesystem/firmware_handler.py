@@ -43,7 +43,7 @@ class FSFirmwareHandler(FSHandler):
         except IndexError as exc:
             raise FirmwareNotFoundException(platform_fs_slug) from exc
 
-        return [f for f in self._exclude_files(fs_firmware_files, "single")]
+        return [f for f in self.exclude_single_files(fs_firmware_files)]
 
     def get_firmware_file_size(self, firmware_path: str, file_name: str):
         files = [f"{LIBRARY_BASE_PATH}/{firmware_path}/{file_name}"]
@@ -90,7 +90,6 @@ class FSFirmwareHandler(FSHandler):
             return
 
         Path(path).mkdir(parents=True, exist_ok=True)
-        log.info(f" - Uploading {file.filename}")
         file_location = os.path.join(path, file.filename)
 
         with open(file_location, "wb") as f:

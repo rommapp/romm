@@ -10,7 +10,7 @@ Please note that this project adheres to the Contributor Covenant [code of condu
 
 ## Contributing to the Wiki
 
-If you would like to contribute to the project's [documentation](https://github.com/rommapp/romm/wiki), open a pull request against [the wiki repo](https://github.com/rommapp/wiki). We welcome any contributions that help improve the documentation (new pages, updates, or corrections).
+If you would like to contribute to the project's [documentation](https://docs.romm.app), open a pull request against [the docs repo](https://github.com/rommapp/docs). We welcome any contributions that help improve the documentation (new pages, updates, or corrections).
 
 ## Adding Translations
 

@@ -1,7 +1,9 @@
 import asyncio
 import re
-from pathlib import Path
 
+from handler.metadata.ra_handler import RA_ID_TO_SLUG
+from logger.formatter import LIGHTMAGENTA
+from logger.formatter import highlight as hl
 from logger.logger import log
 
 RAHASHER_VALID_HASH_REGEX = re.compile(r"^[0-9a-f]{32}$")
@@ -87,16 +89,11 @@ class RAHasherError(Exception): ...
 class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
-    async def calculate_hash(self, platform_slug: str, file_path: Path) -> str:
-        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID.get(platform_slug)
-        if not platform_id:
-            raise RAHasherError(
-                f"Platform not supported by RetroAchievements. {platform_slug=}"
-            )
-
-        args = (str(platform_id), str(file_path))
-        log.debug("Executing RAHasher with args: %s", args)
-
+    async def calculate_hash(self, platform_id: int, file_path: str) -> str:
+        log.debug(
+            f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"
+        )
+        args = (str(platform_id), file_path)
         proc = await asyncio.create_subprocess_exec(
             "RAHasher",
             *args,
@@ -109,19 +106,21 @@ class RAHasherService:
                 stderr = (await proc.stderr.read()).decode("utf-8")
             else:
                 stderr = None
-            raise RAHasherError(f"RAHasher failed with code {return_code}. {stderr=}")
+            log.error(f"RAHasher failed with code {return_code}. {stderr=}")
+            return ""
 
         if proc.stdout is None:
-            raise RAHasherError("RAHasher did not return a hash.")
+            log.error("RAHasher did not return a hash.")
+            return ""
 
         file_hash = (await proc.stdout.read()).decode("utf-8").strip()
         if not file_hash:
-            raise RAHasherError(
-                f"RAHasher returned an empty hash. {platform_id=}, {file_path=}"
-            )
+            log.error(f"RAHasher returned an empty hash. {platform_id=}, {file_path=}")
+            return ""
         if not RAHASHER_VALID_HASH_REGEX.match(file_hash):
-            raise RAHasherError(
+            log.error(
                 f"RAHasher returned an invalid hash: {file_hash=}, {platform_id=}, {file_path=}"
             )
+            return ""
 
         return file_hash

@@ -4,10 +4,59 @@ import { computed } from "vue";
 
 export type Heartbeat = HeartbeatResponse;
 
-export default defineStore("heartbeat", {
-  state: () => {
-    return { value: {} as HeartbeatResponse };
+const defaultHeartbeat: Heartbeat = {
+  SYSTEM: {
+    VERSION: "0.0.0",
+    SHOW_SETUP_WIZARD: false,
   },
+  WATCHER: {
+    ENABLED: false,
+    TITLE: "",
+    MESSAGE: "",
+  },
+  SCHEDULER: {
+    RESCAN: {
+      ENABLED: false,
+      TITLE: "",
+      MESSAGE: "",
+      CRON: "",
+    },
+    SWITCH_TITLEDB: {
+      ENABLED: false,
+      TITLE: "",
+      MESSAGE: "",
+      CRON: "",
+    },
+  },
+  METADATA_SOURCES: {
+    ANY_SOURCE_ENABLED: false,
+    IGDB_API_ENABLED: false,
+    SS_API_ENABLED: false,
+    MOBY_API_ENABLED: false,
+    RA_ENABLED: false,
+    STEAMGRIDDB_ENABLED: false,
+  },
+  FILESYSTEM: {
+    FS_PLATFORMS: [],
+  },
+  EMULATION: {
+    DISABLE_EMULATOR_JS: false,
+    DISABLE_RUFFLE_RS: false,
+  },
+  FRONTEND: {
+    UPLOAD_TIMEOUT: 20,
+    DISABLE_USERPASS_LOGIN: false,
+  },
+  OIDC: {
+    ENABLED: false,
+    PROVIDER: "",
+  },
+};
+
+export default defineStore("heartbeat", {
+  state: () => ({
+    value: { ...defaultHeartbeat },
+  }),
 
   actions: {
     set(data: HeartbeatResponse) {
@@ -25,7 +74,18 @@ export default defineStore("heartbeat", {
           value: "moby",
           disabled: !this.value.METADATA_SOURCES?.MOBY_API_ENABLED,
         },
+        {
+          name: "Screenscraper",
+          value: "ss",
+          disabled: !this.value.METADATA_SOURCES?.SS_API_ENABLED,
+        },
+        {
+          name: "RetroAchievements",
+          value: "ra",
+          disabled: !this.value.METADATA_SOURCES?.RA_ENABLED,
+        },
       ]).value.filter((s) => !s.disabled);
     },
+    reset() {},
   },
 });

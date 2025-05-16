@@ -1,62 +1,35 @@
 <script setup lang="ts">
-import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
+import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import CollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/CollectionInfoDrawer.vue";
-import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
-import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
-import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
-import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
-import { storeToRefs } from "pinia";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
-import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
 
 // Props
-const { xs, smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <v-app-bar
-    elevation="0"
-    density="compact"
-    class="ma-2"
-    :class="{
-      'gallery-app-bar-mobile': smAndDown,
-      'gallery-app-bar-desktop': !smAndDown,
-    }"
-    rounded
-  >
+  <base-gallery-app-bar show-platforms-filter show-filter-bar>
     <template #prepend>
       <r-avatar
-        @click="navigationStore.swtichActiveCollectionInfoDrawer"
-        class="collection-icon cursor-pointer"
         v-if="currentCollection"
+        @click="navigationStore.switchActiveCollectionInfoDrawer"
+        class="collection-icon cursor-pointer"
         :size="45"
         :collection="currentCollection"
       />
-      <filter-btn />
     </template>
-    <filter-text-field v-if="!xs" />
-    <template #append>
-      <selecting-btn />
-      <gallery-view-btn />
-    </template>
-  </v-app-bar>
+  </base-gallery-app-bar>
 
   <collection-info-drawer />
-  <filter-drawer />
 </template>
 
 <style scoped>
-.gallery-app-bar-desktop {
-  width: calc(100% - 76px) !important;
-}
-.gallery-app-bar-mobile {
-  width: calc(100% - 16px) !important;
-}
 .collection-icon {
   transition:
     filter 0.15s ease-in-out,

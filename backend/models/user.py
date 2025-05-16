@@ -2,13 +2,21 @@ from __future__ import annotations
 
 import enum
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from handler.auth.constants import DEFAULT_SCOPES, FULL_SCOPES, WRITE_SCOPES, Scope
+from config import KIOSK_MODE
+from handler.auth.constants import (
+    EDIT_SCOPES,
+    FULL_SCOPES,
+    READ_SCOPES,
+    WRITE_SCOPES,
+    Scope,
+)
 from models.base import BaseModel
 from sqlalchemy import TIMESTAMP, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from starlette.authentication import SimpleUser
+from utils.database import CustomJSON
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -38,12 +46,37 @@ class User(BaseModel, SimpleUser):
     avatar_path: Mapped[str] = mapped_column(String(length=255), default="")
     last_login: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
     last_active: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    ra_username: Mapped[str | None] = mapped_column(String(length=255), default="")
+    ra_progression: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
 
-    saves: Mapped[list[Save]] = relationship(back_populates="user")
-    states: Mapped[list[State]] = relationship(back_populates="user")
-    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="user")
-    rom_users: Mapped[list[RomUser]] = relationship(back_populates="user")
-    collections: Mapped[list[Collection]] = relationship(back_populates="user")
+    saves: Mapped[list[Save]] = relationship(lazy="select", back_populates="user")
+    states: Mapped[list[State]] = relationship(lazy="select", back_populates="user")
+    screenshots: Mapped[list[Screenshot]] = relationship(
+        lazy="select", back_populates="user"
+    )
+    rom_users: Mapped[list[RomUser]] = relationship(
+        lazy="select", back_populates="user"
+    )
+    collections: Mapped[list[Collection]] = relationship(
+        lazy="select", back_populates="user"
+    )
+
+    @classmethod
+    def kiosk_mode_user(cls) -> User:
+        now = datetime.now(timezone.utc)
+        return cls(
+            id=-1,
+            username="kiosk",
+            role=Role.VIEWER,
+            enabled=True,
+            avatar_path="",
+            last_active=now,
+            last_login=now,
+            created_at=now,
+            updated_at=now,
+        )
 
     @property
     def oauth_scopes(self) -> list[Scope]:
@@ -51,9 +84,12 @@ class User(BaseModel, SimpleUser):
             return FULL_SCOPES
 
         if self.role == Role.EDITOR:
-            return WRITE_SCOPES
+            return EDIT_SCOPES
 
-        return DEFAULT_SCOPES
+        if KIOSK_MODE:
+            return READ_SCOPES
+
+        return WRITE_SCOPES
 
     @property
     def fs_safe_folder_name(self):

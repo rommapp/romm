@@ -54,10 +54,10 @@ async function switchFromFavourites() {
       });
   }
   if (!collectionsStore.isFav(props.rom)) {
-    favCollection.value?.roms.push(props.rom.id);
+    favCollection.value?.rom_ids.push(props.rom.id);
   } else {
     if (favCollection.value) {
-      favCollection.value.roms = favCollection.value.roms.filter(
+      favCollection.value.rom_ids = favCollection.value.rom_ids.filter(
         (id) => id !== props.rom.id,
       );
       if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
@@ -67,7 +67,7 @@ async function switchFromFavourites() {
   }
   await collectionApi
     .updateCollection({ collection: favCollection.value as Collection })
-    .then(() => {
+    .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: `${props.rom.name} ${
           collectionsStore.isFav(props.rom) ? "added to" : "removed from"
@@ -76,6 +76,8 @@ async function switchFromFavourites() {
         color: "green",
         timeout: 2000,
       });
+      favCollection.value = data;
+      collectionsStore.update(data);
     })
     .catch((error) => {
       console.log(error);
@@ -124,7 +126,7 @@ async function onScan() {
   emitter?.emit("snackbarShow", {
     msg: `Refreshing ${props.rom.name} metadata...`,
     icon: "mdi-loading mdi-spin",
-    color: "romm-accent-1",
+    color: "primary",
   });
 
   if (!socket.connected) socket.connect();
@@ -209,8 +211,19 @@ async function onScan() {
       @click="emitter?.emit('showAddToCollectionDialog', [{ ...rom }])"
     >
       <v-list-item-title class="d-flex">
-        <v-icon icon="mdi-bookmark-plus-outline" class="mr-2" />{{
+        <v-icon icon="mdi-bookmark-plus" class="mr-2" />{{
           t("rom.add-to-collection")
+        }}
+      </v-list-item-title>
+    </v-list-item>
+    <v-list-item
+      v-if="auth.scopes.includes('collections.write')"
+      class="py-4 pr-5"
+      @click="emitter?.emit('showRemoveFromCollectionDialog', [{ ...rom }])"
+    >
+      <v-list-item-title class="d-flex">
+        <v-icon icon="mdi-bookmark-remove-outline" class="mr-2" />{{
+          t("rom.remove-from-collection")
         }}
       </v-list-item-title>
     </v-list-item>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 
 // Props
@@ -10,8 +11,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
 
 <template>
   <v-list-item
-    :key="platform.slug"
-    :to="{ name: 'platform', params: { platform: platform.id } }"
+    :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
     :value="platform.slug"
     rounded
     density="compact"
@@ -19,9 +19,9 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
   >
     <template #prepend>
       <platform-icon
-        :key="platform.slug"
         :slug="platform.slug"
         :name="platform.name"
+        :fs-slug="platform.fs_slug"
         :size="40"
       >
         <v-tooltip
@@ -32,7 +32,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
           open-delay="500"
           ><template #activator="{ props }">
             <div
-              v-if="!platform.igdb_id && !platform.moby_id"
+              v-if="!platform.igdb_id && !platform.moby_id && !platform.ss_id"
               v-bind="props"
               class="not-found-icon"
             >

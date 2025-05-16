@@ -12,20 +12,19 @@ import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useDisplay, useTheme } from "vuetify";
+import { useDisplay } from "vuetify";
+import { getCollectionCoverImage } from "@/utils/covers";
 
 // Props
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
-const theme = useTheme();
 const auth = storeAuth();
 const romsStore = storeRoms();
 const collectionsStore = storeCollection();
 const { currentCollection } = storeToRefs(romsStore);
-const { allCollections } = storeToRefs(collectionsStore);
 const navigationStore = storeNavigation();
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
@@ -44,6 +43,10 @@ const collectionInfoFields = [
 const updating = ref(false);
 const updatedCollection = ref<UpdatedCollection>({} as UpdatedCollection);
 const isEditable = ref(false);
+const collectionCoverImage = computed(() =>
+  getCollectionCoverImage(updatedCollection.value.name),
+);
+
 emitter?.on("updateUrlCover", (url_cover) => {
   updatedCollection.value.url_cover = url_cover;
   setArtwork(url_cover);
@@ -88,7 +91,7 @@ function setArtwork(imageUrl: string) {
 }
 
 async function removeArtwork() {
-  imagePreviewUrl.value = `/assets/default/cover/big_${theme.global.name.value}_collection.png`;
+  imagePreviewUrl.value = collectionCoverImage.value;
   removeCover.value = true;
 }
 
@@ -101,19 +104,14 @@ async function updateCollection() {
       collection: updatedCollection.value,
       removeCover: removeCover.value,
     })
-    .then(({ data: collection }) => {
+    .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Collection updated successfully",
         icon: "mdi-check-bold",
         color: "green",
       });
-      currentCollection.value = collection;
-      const index = allCollections.value.findIndex(
-        (p) => p.id === collection.id,
-      );
-      if (index !== -1) {
-        allCollections.value[index] = collection;
-      }
+      currentCollection.value = data;
+      collectionsStore.update(data);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -138,14 +136,12 @@ async function updateCollection() {
     width="500"
     v-model="activeCollectionInfoDrawer"
     :class="{
-      'mx-2 px-1': activeCollectionInfoDrawer,
+      'ml-2': activeCollectionInfoDrawer,
       'drawer-mobile': smAndDown && activeCollectionInfoDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
-    <v-row no-gutters class="justify-center align-center pa-4">
+    <v-row no-gutters class="justify-center align-center pa-2">
       <v-col style="max-width: 240px" cols="12">
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right">
@@ -191,10 +187,9 @@ async function updateCollection() {
             :with-link="false"
             :collection="currentCollection"
             :src="imagePreviewUrl"
-            title-on-hover
           >
             <template v-if="isEditable" #append-inner>
-              <v-btn-group divided density="compact">
+              <v-btn-group rounded="0" divided density="compact">
                 <v-btn
                   title="Search for cover in SteamGridDB"
                   :disabled="
@@ -217,7 +212,7 @@ async function updateCollection() {
                   class="translucent-dark"
                   @click="triggerFileInput"
                 >
-                  <v-icon size="large">mdi-upload</v-icon>
+                  <v-icon size="large">mdi-cloud-upload-outline</v-icon>
                   <v-file-input
                     id="file-input"
                     v-model="updatedCollection.artwork"
@@ -342,6 +337,7 @@ async function updateCollection() {
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mx-2"
     >
       <template #content>
         <div class="text-center">
@@ -367,12 +363,5 @@ async function updateCollection() {
   top: 0.3rem;
   right: 0.3rem;
   z-index: 1;
-}
-.drawer-desktop {
-  top: 54px !important;
-}
-.drawer-mobile {
-  top: 114px !important;
-  width: calc(100% - 16px) !important;
 }
 </style>

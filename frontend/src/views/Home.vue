@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Collections from "@/components/Home/Collections.vue";
+import VirtualCollections from "@/components/Home/VirtualCollections.vue";
 import Platforms from "@/components/Home/Platforms.vue";
 import RecentSkeletonLoader from "@/components/Home/RecentSkeletonLoader.vue";
 import RecentAdded from "@/components/Home/RecentAdded.vue";
@@ -22,7 +23,7 @@ const { recentRoms, continuePlayingRoms: recentPlayedRoms } =
 const platforms = storePlatforms();
 const { filledPlatforms } = storeToRefs(platforms);
 const collections = storeCollections();
-const { allCollections } = storeToRefs(collections);
+const { allCollections, virtualCollections } = storeToRefs(collections);
 const showRecentRoms = isNull(localStorage.getItem("settings.showRecentRoms"))
   ? true
   : localStorage.getItem("settings.showRecentRoms") === "true";
@@ -37,6 +38,11 @@ const showPlatforms = isNull(localStorage.getItem("settings.showPlatforms"))
 const showCollections = isNull(localStorage.getItem("settings.showCollections"))
   ? true
   : localStorage.getItem("settings.showCollections") === "true";
+const showVirtualCollections = isNull(
+  localStorage.getItem("settings.showVirtualCollections"),
+)
+  ? true
+  : localStorage.getItem("settings.showVirtualCollections") === "true";
 const fetchingRecentAdded = ref(false);
 const fetchingContinuePlaying = ref(false);
 
@@ -46,8 +52,8 @@ onMounted(async () => {
   fetchingContinuePlaying.value = true;
   romApi
     .getRecentRoms()
-    .then(({ data: recentData }) => {
-      romsStore.setRecentRoms(recentData);
+    .then(({ data: { items } }) => {
+      romsStore.setRecentRoms(items);
     })
     .catch((error) => {
       console.error(error);
@@ -55,11 +61,12 @@ onMounted(async () => {
     .finally(() => {
       fetchingRecentAdded.value = false;
     });
+
   romApi
     .getRecentPlayedRoms()
-    .then(({ data: recentPlayedData }) => {
+    .then(({ data: { items } }) => {
       romsStore.setContinuePlayedRoms(
-        recentPlayedData.filter((rom) => rom.rom_user.last_played),
+        items.filter((rom) => rom.rom_user.last_played),
       );
     })
     .catch((error) => {
@@ -72,25 +79,33 @@ onMounted(async () => {
 </script>
 
 <template>
-  <stats />
+  <stats class="ma-2" />
   <recent-skeleton-loader
-    v-if="showRecentRoms && fetchingRecentAdded"
+    v-if="showRecentRoms && fetchingRecentAdded && recentRoms.length === 0"
     :title="t('home.recently-added')"
+    class="ma-2"
   />
-  <recent-added
-    v-if="recentRoms.length > 0 && showRecentRoms && !fetchingRecentAdded"
-  />
+  <recent-added class="ma-2" v-if="recentRoms.length > 0 && showRecentRoms" />
   <recent-skeleton-loader
-    v-if="showContinuePlaying && fetchingContinuePlaying"
+    v-if="
+      showContinuePlaying &&
+      fetchingContinuePlaying &&
+      recentPlayedRoms.length === 0
+    "
     :title="t('home.continue-playing')"
+    class="ma-2"
   />
   <continue-playing
-    v-if="
-      recentPlayedRoms.length > 0 &&
-      showContinuePlaying &&
-      !fetchingContinuePlaying
-    "
+    class="ma-2"
+    v-if="recentPlayedRoms.length > 0 && showContinuePlaying"
   />
-  <platforms v-if="filledPlatforms.length > 0 && showPlatforms" />
-  <collections v-if="allCollections.length > 0 && showCollections" />
+  <platforms class="ma-2" v-if="filledPlatforms.length > 0 && showPlatforms" />
+  <collections
+    class="ma-2"
+    v-if="allCollections.length > 0 && showCollections"
+  />
+  <virtual-collections
+    class="ma-2"
+    v-if="virtualCollections.length > 0 && showVirtualCollections"
+  />
 </template>

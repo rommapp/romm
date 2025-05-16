@@ -8,10 +8,11 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
+import { ROUTES } from "@/plugins/router";
 import storeRoms from "@/stores/roms";
-import { type SimpleRom } from "@/stores/roms.js";
-import { onMounted, ref, computed } from "vue";
-import { useTheme } from "vuetify";
+import { type SimpleRom } from "@/stores/roms";
+import { computed } from "vue";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 
 // Props
 const props = withDefaults(
@@ -30,6 +31,7 @@ const props = withDefaults(
     showFav?: boolean;
     withBorderPrimary?: boolean;
     withLink?: boolean;
+    disableViewTransition?: boolean;
     src?: string;
   }>(),
   {
@@ -45,6 +47,7 @@ const props = withDefaults(
     showPlatformIcon: false,
     showFav: false,
     withBorderPrimary: false,
+    disableViewTransition: false,
     withLink: false,
     src: "",
   },
@@ -65,7 +68,6 @@ const handleTouchEnd = (event: TouchEvent) => {
   emit("touchend", { event: event, rom: props.rom });
 };
 const downloadStore = storeDownload();
-const theme = useTheme();
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
@@ -75,28 +77,36 @@ const computedAspectRatio = computed(() => {
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
+const fallbackCoverImage = computed(() =>
+  props.rom.igdb_id || props.rom.moby_id || props.rom.ss_id
+    ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
+    : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
+);
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
     <v-card
+      :style="
+        disableViewTransition ? {} : { viewTransitionName: `card-${rom.id}` }
+      "
       :minWidth="width"
       :maxWidth="width"
       :minHeight="height"
       :maxHeight="height"
       v-bind="{
         ...hoverProps,
-        ...(withLink && rom && romsStore.isSimpleRom(rom)
+        ...(withLink && rom.id
           ? {
-              to: { name: 'rom', params: { rom: rom.id } },
+              to: { name: ROUTES.ROM, params: { rom: rom.id } },
             }
           : {}),
       }"
+      class="bg-transparent"
       :class="{
         'on-hover': isHovering,
         'border-selected': withBorderPrimary,
         'transform-scale': transformScale,
-        'bg-surface': !isHovering,
       }"
       :elevation="isHovering && transformScale ? 20 : 3"
     >
@@ -114,31 +124,26 @@ const computedAspectRatio = computed(() => {
             @touchstart="handleTouchStart"
             @touchend="handleTouchEnd"
             v-bind="hoverProps"
-            :class="{ pointer: pointerOnHover }"
             cover
+            :class="{ pointer: pointerOnHover }"
             :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
             :src="
               src ||
               (romsStore.isSimpleRom(rom)
-                ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                  ? `/assets/default/cover/${theme.global.name.value}_unmatched.svg`
-                  : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                    ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
-                    : `/assets/romm/resources/${rom.path_cover_l}?ts=${rom.updated_at}`
-                : !rom.igdb_url_cover && !rom.moby_url_cover
-                  ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
-                  : rom.igdb_url_cover || rom.moby_url_cover)
+                ? rom.path_cover_large || fallbackCoverImage
+                : rom.igdb_url_cover ||
+                  rom.moby_url_cover ||
+                  rom.ss_url_cover ||
+                  fallbackCoverImage)
             "
             :lazy-src="
-              romsStore.isSimpleRom(rom)
-                ? !rom.igdb_id && !rom.moby_id && !rom.has_cover
-                  ? `/assets/default/cover/${theme.global.name.value}_unmatched.svg`
-                  : (rom.igdb_id || rom.moby_id) && !rom.has_cover
-                    ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
-                    : `/assets/romm/resources/${rom.path_cover_s}?ts=${rom.updated_at}`
-                : !rom.igdb_url_cover && !rom.moby_url_cover
-                  ? `/assets/default/cover/${theme.global.name.value}_missing_cover.svg`
-                  : rom.igdb_url_cover || rom.moby_url_cover
+              src ||
+              (romsStore.isSimpleRom(rom)
+                ? rom.path_cover_small || fallbackCoverImage
+                : rom.igdb_url_cover ||
+                  rom.moby_url_cover ||
+                  rom.ss_url_cover ||
+                  fallbackCoverImage)
             "
             :aspect-ratio="computedAspectRatio"
           >
@@ -148,10 +153,13 @@ const computedAspectRatio = computed(() => {
                   <div
                     v-if="
                       isHovering ||
-                      (romsStore.isSimpleRom(rom) && !rom.has_cover) ||
+                      (romsStore.isSimpleRom(rom) &&
+                        rom.is_unidentified &&
+                        !rom.path_cover_large) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
-                        !rom.moby_url_cover)
+                        !rom.moby_url_cover &&
+                        !rom.ss_url_cover)
                     "
                     class="translucent-dark text-caption text-white"
                   >
@@ -175,6 +183,7 @@ const computedAspectRatio = computed(() => {
                 :key="rom.platform_slug"
                 :slug="rom.platform_slug"
                 :name="rom.platform_name"
+                :fs-slug="rom.platform_slug"
                 class="label-platform"
               />
             </div>
@@ -211,7 +220,7 @@ const computedAspectRatio = computed(() => {
             </div>
             <template #error>
               <v-img
-                :src="`/assets/default/cover/${theme.global.name.value}_missing_cover.svg`"
+                :src="fallbackCoverImage"
                 cover
                 :aspect-ratio="computedAspectRatio"
               ></v-img>
@@ -256,7 +265,7 @@ const computedAspectRatio = computed(() => {
 /* Apply styles to v-expand-transition component */
 .v-expand-transition-enter-active,
 .v-expand-transition-leave-active {
-  transition: max-height 0.5s; /* Adjust the transition duration if needed */
+  transition: max-height 0.5s;
 }
 .v-expand-transition-enter, .v-expand-transition-leave-to /* .v-expand-transition-leave-active in <2.1.8 */ {
   max-height: 0; /* Set max-height to 0 when entering or leaving */

@@ -1,7 +1,14 @@
 {
-  "username": "Usuario",
-  "password": "Contraseña",
   "login": "Iniciar sesión",
   "login-oidc": "Iniciar sesión con {oidc}",
-  "or": "o"
+  "or": "o",
+  "password": "Contraseña",
+  "username": "Usuario",
+  "forgot-password": "¿Olvidates tu contraseña?",
+  "send-reset-link": "Enviar enlace de restablecimiento",
+  "reset-sent": "Enlace de restablecimiento enviado. Contacta a tu administrador.",
+  "new-password": "Nueva contraseña",
+  "confirm-new-password": "Confirmar nueva contraseña",
+  "reset-password": "Restablecer contraseña",
+  "back-to-login": "Volver a iniciar sesión"
 }
