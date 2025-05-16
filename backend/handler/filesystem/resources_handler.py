@@ -8,7 +8,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
-from PIL import Image, ImageFile
+from PIL import Image, ImageFile, UnidentifiedImageError
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -88,8 +88,12 @@ class FSResourcesHandler(FSHandler):
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
 
         if size == CoverSize.SMALL:
-            with Image.open(cover_file) as img:
-                self.resize_cover_to_small(img, save_path=cover_file)
+            try:
+                with Image.open(cover_file) as img:
+                    self.resize_cover_to_small(img, save_path=cover_file)
+            except UnidentifiedImageError as exc:
+                log.error(f"Unable to identify image {cover_file}: {str(exc)}")
+                return None
 
     @staticmethod
     async def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:

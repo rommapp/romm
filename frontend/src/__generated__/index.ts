@@ -6,6 +6,8 @@
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
 export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
 export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firmware_api_firmware_post';
+export type { Body_request_password_reset_api_forgot_password_post } from './models/Body_request_password_reset_api_forgot_password_post';
+export type { Body_reset_password_api_reset_password_post } from './models/Body_reset_password_api_reset_password_post';
 export type { Body_token_api_token_post } from './models/Body_token_api_token_post';
 export type { Body_update_collection_api_collections__id__put } from './models/Body_update_collection_api_collections__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
@@ -24,6 +26,7 @@ export type { HTTPValidationError } from './models/HTTPValidationError';
 export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
+export type { InviteLinkSchema } from './models/InviteLinkSchema';
 export type { MessageResponse } from './models/MessageResponse';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
