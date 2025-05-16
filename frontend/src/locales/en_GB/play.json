@@ -8,6 +8,8 @@
   "full-screen": "Full screen",
   "play": "Play",
   "quit": "Quit",
+  "save-and-quit": "Save and quit",
+  "select-save": "Select save",
   "change-save": "Change save",
   "deselect-save": "Deselect save",
   "select-state": "Select state",
