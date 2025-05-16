@@ -11,13 +11,11 @@ import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { saveSave, saveState } from "./utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 import { getEmptyCoverImage } from "@/utils/covers";
 import { useDisplay } from "vuetify";
 
@@ -42,7 +40,6 @@ const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
-const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
 function onPlay() {
@@ -197,14 +194,9 @@ onMounted(async () => {
   if (storedDisc) {
     selectedDisc.value = parseInt(storedDisc);
   }
-
-  // emitter?.on("saveSelected", selectSave);
-  // emitter?.on("stateSelected", selectState);
 });
 
 onBeforeUnmount(async () => {
-  // emitter?.off("saveSelected", selectSave);
-  // emitter?.off("stateSelected", selectState);
   window.EJS_emulator?.callEvent("exit");
 });
 </script>
