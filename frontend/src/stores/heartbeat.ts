@@ -27,6 +27,12 @@ const defaultHeartbeat: Heartbeat = {
       MESSAGE: "",
       CRON: "",
     },
+    LAUNCHBOX_METADATA: {
+      ENABLED: false,
+      TITLE: "",
+      MESSAGE: "",
+      CRON: "",
+    },
   },
   METADATA_SOURCES: {
     ANY_SOURCE_ENABLED: false,
