@@ -78,12 +78,10 @@ function closeDialog() {
           </v-btn>
         </v-btn-toggle>
       </v-row>
-      <v-row
-        v-show="fullInviteLink"
-        class="justify-center text-center pa-2"
-        no-gutters
-      >
-        <v-list-item>{{ fullInviteLink }}</v-list-item>
+      <v-row v-show="fullInviteLink" class="text-center pa-2" no-gutters>
+        <v-list-item rounded class="bg-toplayer">{{
+          fullInviteLink
+        }}</v-list-item>
       </v-row>
     </template>
   </r-dialog>
