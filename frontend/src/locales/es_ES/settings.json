@@ -47,6 +47,8 @@
   "show-siblings-desc": "Mostrar el número de \"hermanos\" en la galería cuando la opción \"Agrupar roms\" está habilitada",
   "show-status": "Mostrar estado",
   "show-status-desc": "Mostrar icono de estado en la galería (backlogged, playing, completed, etc)",
+  "show-actionbar": "Mostrar barra de acciones",
+  "show-actionbar-desc": "Mostrar siempre la barra de acciones en la tarjeta del juego",
   "show-virtual-collections": "Mostrar colecciones generadas automáticamente",
   "show-virtual-collections-desc": "Mostrado en la página principal y en la barra lateral de colecciones.",
   "theme": "Tema",

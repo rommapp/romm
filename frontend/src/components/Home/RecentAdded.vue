@@ -27,7 +27,11 @@ function toggleGridRecentRoms() {
 <template>
   <r-section icon="mdi-shimmer" :title="t('home.recently-added')">
     <template #toolbar-append>
-      <v-btn icon rounded="0" @click="toggleGridRecentRoms"
+      <v-btn
+        aria-label="Toggle recently games added grid view"
+        icon
+        rounded="0"
+        @click="toggleGridRecentRoms"
         ><v-icon>{{
           gridRecentRoms ? "mdi-view-comfy" : "mdi-view-column"
         }}</v-icon>

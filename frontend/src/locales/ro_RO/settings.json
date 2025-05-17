@@ -48,6 +48,8 @@
   "show-siblings-desc": "Afișează numărul versiunilor alternative în galerie când opțiunea „Grupare rom-uri” este activată",
   "show-status": "Afișează statusul",
   "show-status-desc": "Afișează pictogramele de status în galerie (în așteptare, în curs de joc, finalizat etc.)",
+  "show-actionbar": "Afișează bara de acțiuni",
+  "show-actionbar-desc": "Afișează întotdeauna bara de acțiuni în cardul jocului",
   "show-virtual-collections": "Afișează colecțiile generate automat",
   "show-virtual-collections-desc": "Afișate pe pagina principală și în bara laterală a colecțiilor.",
   "theme": "Temă",

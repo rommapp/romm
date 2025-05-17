@@ -14,11 +14,12 @@ import {
 } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 
 // Props
 const props = defineProps<{ rom: SimpleRom }>();
+const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -43,6 +44,16 @@ const ruffleEmulationSupported = computed(() => {
 const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
+
+const menuOpen = ref(false);
+
+watch(menuOpen, (val) => {
+  if (val) {
+    emit("menu-open");
+  } else {
+    emit("menu-close");
+  }
+});
 </script>
 
 <template>
@@ -56,6 +67,7 @@ const is3DSRom = computed(() => {
         variant="text"
         rounded="0"
         @click.prevent="romApi.downloadRom({ rom })"
+        :aria-label="`Download ${rom.name}`"
       />
     </v-col>
     <v-col
@@ -76,6 +88,7 @@ const is3DSRom = computed(() => {
         icon="mdi-play"
         variant="text"
         rounded="0"
+        :aria-label="`Play ${rom.name}`"
       />
       <v-btn
         v-if="ruffleEmulationSupported"
@@ -91,6 +104,7 @@ const is3DSRom = computed(() => {
         icon="mdi-play"
         variant="text"
         rounded="0"
+        :aria-label="`Play ${rom.name}`"
       />
     </v-col>
     <v-col v-if="is3DSRom" class="d-flex">
@@ -102,6 +116,7 @@ const is3DSRom = computed(() => {
         icon="mdi-qrcode"
         variant="text"
         rounded="0"
+        :aria-label="`Show ${rom.name} QR code`"
       />
     </v-col>
     <v-col
@@ -112,7 +127,7 @@ const is3DSRom = computed(() => {
       "
       class="d-flex"
     >
-      <v-menu location="bottom">
+      <v-menu location="bottom" v-model="menuOpen">
         <template #activator="{ props }">
           <v-btn
             @click.prevent
@@ -122,6 +137,7 @@ const is3DSRom = computed(() => {
             icon="mdi-dots-vertical"
             variant="text"
             rounded="0"
+            :aria-label="`${rom.name} admin menu`"
           />
         </template>
         <admin-menu :rom="rom" />

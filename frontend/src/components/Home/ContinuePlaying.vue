@@ -29,7 +29,11 @@ function toggleGridContinuePlaying() {
 <template>
   <r-section icon="mdi-play" :title="t('home.continue-playing')">
     <template #toolbar-append>
-      <v-btn icon rounded="0" @click="toggleGridContinuePlaying"
+      <v-btn
+        aria-label="Toggle continue playing games grid view"
+        icon
+        rounded="0"
+        @click="toggleGridContinuePlaying"
         ><v-icon>{{
           gridContinuePlayingRoms ? "mdi-view-comfy" : "mdi-view-column"
         }}</v-icon>

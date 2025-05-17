@@ -27,6 +27,24 @@ const editable = ref(false);
     :title="t('settings.platforms-versions')"
     class="mx-2 mt-4 mb-2"
   >
+    <template #toolbar-title-append>
+      <v-tooltip bottom max-width="400">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            size="small"
+            variant="text"
+            icon="mdi-information-outline"
+          />
+        </template>
+        <p>
+          Versions of the same platform. A common example is Capcom Play System
+          1 is an arcade system. Platform versions will let you setup a custom
+          platform for RomM to import and tell RomM which platform it needs to
+          scrape against.
+        </p>
+      </v-tooltip>
+    </template>
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"

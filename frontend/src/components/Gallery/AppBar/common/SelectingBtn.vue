@@ -23,6 +23,7 @@ const romsStore = storeRoms();
         v-bind="props"
         class="mr-0"
         icon="mdi-select-group"
+        aria-label="Multi select"
         @click="romsStore.setSelecting()" /></template
   ></v-tooltip>
 </template>
