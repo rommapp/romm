@@ -4,11 +4,13 @@ from config import (
     DISABLE_USERPASS_LOGIN,
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     ENABLE_SCHEDULED_RESCAN,
+    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     OIDC_ENABLED,
     OIDC_PROVIDER,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCHEDULED_RESCAN_CRON,
+    SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
     UPLOAD_TIMEOUT,
 )
@@ -72,6 +74,12 @@ def heartbeat() -> HeartbeatResponse:
                 "CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
                 "TITLE": "Scheduled Switch TitleDB update",
                 "MESSAGE": "Updates the Nintendo Switch TitleDB file",
+            },
+            "LAUNCHBOX_METADATA": {
+                "ENABLED": ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+                "CRON": SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
+                "TITLE": "Scheduled LaunchBox metadata update",
+                "MESSAGE": "Updates the LaunchBox metadata",
             },
         },
         "EMULATION": {
