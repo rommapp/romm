@@ -207,14 +207,15 @@ onBeforeUnmount(async () => {
 </script>
 
 <template>
-  <v-row v-if="rom" class="justify-center scroll" no-gutters>
+  <!-- TODO: hide main app bar on play if fullscreen -->
+  <v-row v-if="rom" class="justify-center scroll px-2" no-gutters>
     <v-col
       v-if="gameRunning"
       cols="12"
       md="8"
       xl="10"
       id="game-wrapper"
-      class="bg-background"
+      class="bg-background pr-2"
       rounded
     >
       <player
@@ -234,28 +235,29 @@ onBeforeUnmount(async () => {
       :xl="!gameRunning ? 6 : 2"
     >
       <!-- Header -->
-      <v-row class="px-3 mt-6" no-gutters>
+      <v-row class="mt-6" no-gutters>
         <v-col>
           <v-img
             class="mx-auto"
             width="250"
             src="/assets/emulatorjs/powered_by_emulatorjs.png"
           />
-          <v-divider class="mb-4 mt-8" />
+          <v-divider class="my-4" />
           <rom-list-item :rom="rom" with-filename with-size />
         </v-col>
       </v-row>
 
-      <v-row v-if="!gameRunning" class="px-3 py-3" no-gutters>
+      <v-row v-if="!gameRunning" no-gutters>
         <v-col>
           <!-- disc selector -->
           <v-select
             v-if="rom.multi"
+            class="mt-4"
             v-model="selectedDisc"
-            class="my-1"
             hide-details
-            rounded="0"
             variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-disc"
             clearable
             :label="t('rom.file')"
             :items="
@@ -268,10 +270,12 @@ onBeforeUnmount(async () => {
           <!-- core selector -->
           <v-select
             v-if="supportedCores.length > 1"
+            class="mt-4"
             v-model="selectedCore"
-            class="my-1"
             hide-details
             variant="outlined"
+            prepend-inner-icon="mdi-chip"
+            density="compact"
             clearable
             :label="t('common.core')"
             :items="
@@ -284,10 +288,12 @@ onBeforeUnmount(async () => {
           <!-- bios selector -->
           <v-select
             v-if="firmwareOptions.length > 0"
+            class="mt-4"
             v-model="selectedFirmware"
-            class="my-1"
             hide-details
             variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-memory"
             clearable
             :label="t('common.firmware')"
             :items="
@@ -301,177 +307,179 @@ onBeforeUnmount(async () => {
           <!-- save/satate selector -->
           <v-row class="mt-4" no-gutters>
             <!-- state selector -->
-            <v-col
-              :class="gameRunning || smAndDown ? 'mt-2' : 'pl-1'"
-              :cols="smAndDown ? 12 : 6"
-            >
-              <v-row no-gutters>
-                <v-col>
-                  <v-btn
-                    block
-                    class="asset-selector bg-background"
-                    variant="outlined"
-                    prepend-icon="mdi-content-save"
-                    size="large"
-                    :color="openStateSelector ? 'primary' : ''"
-                    @click="switchStateSelector"
-                  >
-                    {{
-                      selectedState
-                        ? t("play.change-state")
-                        : t("play.select-state")
-                    }}
-                  </v-btn>
-                </v-col>
-              </v-row>
-              <v-expand-transition>
-                <v-card
-                  v-if="selectedState"
-                  class="bg-toplayer transform-scale selected-card mx-1"
-                  :class="{ 'disabled-card': openSaveSelector }"
+            <v-expand-transition>
+              <v-col
+                v-show="!openSaveSelector || !smAndDown"
+                :class="{
+                  'mt-2': gameRunning || smAndDown,
+                  'pr-1': !smAndDown,
+                }"
+                :cols="smAndDown ? 12 : 6"
+              >
+                <v-btn
+                  block
+                  variant="flat"
+                  class="asset-selector"
+                  prepend-icon="mdi-file"
+                  :color="openStateSelector ? 'primary' : ''"
+                  @click="switchStateSelector"
                 >
-                  <v-card-text class="px-2 pb-2 pt-4">
-                    <v-row no-gutters>
-                      <v-col cols="6">
-                        <v-img
-                          rounded
-                          :src="
-                            selectedState.screenshot?.download_path ??
-                            getEmptyCoverImage(selectedState.file_name)
-                          "
-                        >
-                        </v-img>
-                      </v-col>
-                      <v-col class="pl-2 d-flex flex-column" cols="6">
-                        <v-row
-                          class="px-1 text-caption text-primary"
-                          no-gutters
-                          >{{ selectedState.file_name }}</v-row
-                        >
-                        <v-row no-gutters>
-                          <v-col cols="12">
-                            <v-list-item rounded class="px-1 text-caption">
-                              Updated:
-                              {{ formatTimestamp(selectedState.updated_at) }}
-                              <span class="text-grey text-caption"
-                                >({{
-                                  formatRelativeDate(selectedState.updated_at)
-                                }})</span
+                  {{
+                    selectedState
+                      ? t("play.change-state")
+                      : t("play.select-state")
+                  }}
+                </v-btn>
+                <v-expand-transition>
+                  <v-card
+                    v-if="selectedState"
+                    class="bg-toplayer transform-scale selected-card mx-1"
+                    :class="{ 'disabled-card': openSaveSelector }"
+                  >
+                    <v-card-text class="px-2 pb-2 pt-4">
+                      <v-row no-gutters>
+                        <v-col cols="6">
+                          <v-img
+                            rounded
+                            :src="
+                              selectedState.screenshot?.download_path ??
+                              getEmptyCoverImage(selectedState.file_name)
+                            "
+                          >
+                          </v-img>
+                        </v-col>
+                        <v-col class="pl-2 d-flex flex-column" cols="6">
+                          <v-row
+                            class="px-1 text-caption text-primary"
+                            no-gutters
+                            >{{ selectedState.file_name }}</v-row
+                          >
+                          <v-row no-gutters>
+                            <v-col cols="12">
+                              <v-list-item rounded class="px-1 text-caption">
+                                Updated:
+                                {{ formatTimestamp(selectedState.updated_at) }}
+                                <span class="text-grey text-caption"
+                                  >({{
+                                    formatRelativeDate(
+                                      selectedState.updated_at,
+                                    )
+                                  }})</span
+                                >
+                              </v-list-item>
+                            </v-col>
+                            <v-col v-if="selectedState.emulator" cols="12">
+                              <v-chip size="x-small" color="orange" label>
+                                {{ selectedState.emulator }}
+                              </v-chip>
+                            </v-col>
+                          </v-row>
+                          <v-row no-gutters>
+                            <v-col class="text-right mt-auto pt-1">
+                              <v-btn
+                                variant="tonal"
+                                size="x-small"
+                                @click="unselectState()"
                               >
-                            </v-list-item>
-                          </v-col>
-                          <v-col v-if="selectedState.emulator" cols="12">
-                            <v-chip size="x-small" color="orange" label>
-                              {{ selectedState.emulator }}
-                            </v-chip>
-                          </v-col>
-                        </v-row>
-                        <v-row no-gutters>
-                          <v-col class="text-right mt-auto pt-1">
-                            <v-btn
-                              variant="tonal"
-                              size="x-small"
-                              @click="unselectState()"
-                            >
-                              <v-icon>mdi-close-circle-outline</v-icon>
-                            </v-btn>
-                          </v-col>
-                        </v-row>
-                      </v-col>
-                    </v-row>
-                  </v-card-text>
-                </v-card>
-              </v-expand-transition>
-            </v-col>
+                                <v-icon>mdi-close-circle-outline</v-icon>
+                              </v-btn>
+                            </v-col>
+                          </v-row>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
+                </v-expand-transition>
+              </v-col>
+            </v-expand-transition>
 
             <!-- save selector -->
-            <v-col
-              :class="gameRunning || smAndDown ? 'mt-2' : 'pl-1'"
-              :cols="smAndDown ? 12 : 6"
-            >
-              <v-row no-gutters>
-                <v-col>
-                  <v-btn
-                    block
-                    variant="outlined"
-                    prepend-icon="mdi-content-save"
-                    size="large"
-                    class="asset-selector bg-background"
-                    :color="openSaveSelector ? 'primary' : ''"
-                    @click="switchSaveSelector"
-                  >
-                    {{
-                      selectedSave
-                        ? t("play.change-save")
-                        : t("play.select-save")
-                    }}
-                  </v-btn>
-                </v-col>
-              </v-row>
-              <v-expand-transition>
-                <v-card
-                  v-if="selectedSave"
-                  class="bg-toplayer transform-scale selected-card mx-1"
-                  :class="{ 'disabled-card': openStateSelector }"
+            <v-expand-transition>
+              <v-col
+                v-show="!openStateSelector || !smAndDown"
+                :class="{
+                  'mt-2': gameRunning || smAndDown,
+                  'pl-1': !smAndDown,
+                }"
+                :cols="smAndDown ? 12 : 6"
+              >
+                <v-btn
+                  block
+                  variant="flat"
+                  class="asset-selector"
+                  prepend-icon="mdi-content-save"
+                  :color="openSaveSelector ? 'primary' : ''"
+                  @click="switchSaveSelector"
                 >
-                  <v-card-text class="px-2 pb-2 pt-4">
-                    <v-row no-gutters>
-                      <v-col cols="6">
-                        <v-img
-                          rounded
-                          :src="
-                            selectedSave.screenshot?.download_path ??
-                            getEmptyCoverImage(selectedSave.file_name)
-                          "
-                        >
-                        </v-img>
-                      </v-col>
-                      <v-col class="pl-2 d-flex flex-column" cols="6">
-                        <v-row
-                          class="px-1 text-caption text-primary"
-                          no-gutters
-                          >{{ selectedSave.file_name }}</v-row
-                        >
-                        <v-row no-gutters>
-                          <v-col cols="12">
-                            <v-list-item rounded class="px-1 text-caption">
-                              Updated:
-                              {{ formatTimestamp(selectedSave.updated_at) }}
-                              <span class="text-grey text-caption"
-                                >({{
-                                  formatRelativeDate(selectedSave.updated_at)
-                                }})</span
+                  {{
+                    selectedSave ? t("play.change-save") : t("play.select-save")
+                  }}
+                </v-btn>
+                <v-expand-transition>
+                  <v-card
+                    v-if="selectedSave"
+                    class="bg-toplayer transform-scale selected-card mx-1"
+                    :class="{ 'disabled-card': openStateSelector }"
+                  >
+                    <v-card-text class="px-2 pb-2 pt-4">
+                      <v-row no-gutters>
+                        <v-col cols="6">
+                          <v-img
+                            rounded
+                            :src="
+                              selectedSave.screenshot?.download_path ??
+                              getEmptyCoverImage(selectedSave.file_name)
+                            "
+                          >
+                          </v-img>
+                        </v-col>
+                        <v-col class="pl-2 d-flex flex-column" cols="6">
+                          <v-row
+                            class="px-1 text-caption text-primary"
+                            no-gutters
+                            >{{ selectedSave.file_name }}</v-row
+                          >
+                          <v-row no-gutters>
+                            <v-col cols="12">
+                              <v-list-item rounded class="px-1 text-caption">
+                                Updated:
+                                {{ formatTimestamp(selectedSave.updated_at) }}
+                                <span class="text-grey text-caption"
+                                  >({{
+                                    formatRelativeDate(selectedSave.updated_at)
+                                  }})</span
+                                >
+                              </v-list-item>
+                            </v-col>
+                            <v-col v-if="selectedSave.emulator" cols="12">
+                              <v-chip size="x-small" color="orange" label>
+                                {{ selectedSave.emulator }}
+                              </v-chip>
+                            </v-col>
+                          </v-row>
+                          <v-row no-gutters>
+                            <v-col class="text-right mt-auto pt-2">
+                              <v-btn
+                                variant="tonal"
+                                size="x-small"
+                                @click="unselectSave()"
                               >
-                            </v-list-item>
-                          </v-col>
-                          <v-col v-if="selectedSave.emulator" cols="12">
-                            <v-chip size="x-small" color="orange" label>
-                              {{ selectedSave.emulator }}
-                            </v-chip>
-                          </v-col>
-                        </v-row>
-                        <v-row no-gutters>
-                          <v-col class="text-right mt-auto pt-2">
-                            <v-btn
-                              variant="tonal"
-                              size="x-small"
-                              @click="unselectSave()"
-                            >
-                              <v-icon>mdi-close-circle-outline</v-icon>
-                            </v-btn>
-                          </v-col>
-                        </v-row>
-                      </v-col>
-                    </v-row>
-                  </v-card-text>
-                </v-card>
-              </v-expand-transition>
-            </v-col>
+                                <v-icon>mdi-close-circle-outline</v-icon>
+                              </v-btn>
+                            </v-col>
+                          </v-row>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
+                </v-expand-transition>
+              </v-col>
+            </v-expand-transition>
           </v-row>
 
           <!-- state display -->
           <v-expand-transition>
-            <v-row v-if="openStateSelector" class="mt-1" no-gutters>
+            <v-row v-if="openStateSelector" class="mt-2" no-gutters>
               <v-col
                 cols="6"
                 sm="4"
@@ -545,7 +553,7 @@ onBeforeUnmount(async () => {
 
           <!-- save display -->
           <v-expand-transition>
-            <v-row v-if="openSaveSelector" class="mt-1" no-gutters>
+            <v-row v-if="openSaveSelector" class="mt-2" no-gutters>
               <v-col
                 cols="6"
                 sm="4"
@@ -618,48 +626,49 @@ onBeforeUnmount(async () => {
       </v-row>
 
       <!-- Action buttons -->
-      <v-row class="px-3 py-2 mb-6 text-center" no-gutters>
-        <v-col>
-          <v-row v-if="!gameRunning" class="align-center" no-gutters>
-            <v-col :class="smAndDown ? '' : 'pr-1'">
-              <v-btn
-                block
-                size="large"
-                @click="onFullScreenChange"
-                :disabled="gameRunning"
-                :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
-                :color="fullScreenOnPlay ? 'primary' : ''"
-                ><v-icon class="mr-1">{{
-                  fullScreenOnPlay
-                    ? "mdi-checkbox-outline"
-                    : "mdi-checkbox-blank-outline"
-                }}</v-icon
-                >{{ t("play.full-screen") }}</v-btn
-              >
-            </v-col>
-            <v-col
-              :cols="gameRunning || smAndDown ? 12 : 8"
-              :class="gameRunning || smAndDown ? 'mt-2' : 'pl-1'"
-            >
-              <v-btn
-                color="primary"
-                block
-                :disabled="gameRunning"
-                variant="outlined"
-                size="large"
-                prepend-icon="mdi-play"
-                @click="onPlay()"
-                >{{ t("play.play") }}
-              </v-btn>
-            </v-col>
-          </v-row>
-          <v-row v-if="!gameRunning" class="align-center" no-gutters>
+      <template v-if="!gameRunning">
+        <v-row class="align-center mt-4" no-gutters>
+          <v-col :class="{ 'pr-1': !smAndDown }">
             <v-btn
-              class="mt-4"
               block
-              variant="outlined"
-              size="large"
+              @click="onFullScreenChange"
+              variant="flat"
+              :append-icon="
+                fullScreenOnPlay ? 'mdi-fullscreen' : 'mdi-fullscreen-exit'
+              "
+              :color="fullScreenOnPlay ? 'primary' : ''"
+              ><v-icon class="mr-2">{{
+                fullScreenOnPlay
+                  ? "mdi-checkbox-outline"
+                  : "mdi-checkbox-blank-outline"
+              }}</v-icon
+              >{{ t("play.full-screen") }}</v-btn
+            >
+          </v-col>
+          <v-col
+            :cols="smAndDown ? 12 : 8"
+            :class="smAndDown ? 'mt-2' : 'pl-1'"
+          >
+            <v-btn
+              block
+              variant="flat"
+              class="text-primary"
+              prepend-icon="mdi-play"
+              @click="onPlay()"
+              >{{ t("play.play") }}
+            </v-btn>
+          </v-col>
+        </v-row>
+        <v-row class="align-center my-4" no-gutters>
+          <v-col
+            :class="{ 'mt-2': gameRunning || smAndDown, 'pr-1': !smAndDown }"
+            :cols="smAndDown ? 12 : 6"
+          >
+            <v-btn
+              block
+              variant="flat"
               prepend-icon="mdi-arrow-left"
+              append-icon="mdi-details"
               @click="
                 $router.push({
                   name: ROUTES.ROM,
@@ -668,12 +677,16 @@ onBeforeUnmount(async () => {
               "
               >{{ t("play.back-to-game-details") }}
             </v-btn>
+          </v-col>
+          <v-col
+            :class="{ 'mt-2': gameRunning || smAndDown, 'pl-1': !smAndDown }"
+            :cols="smAndDown ? 12 : 6"
+          >
             <v-btn
-              class="mt-4"
               block
-              variant="outlined"
-              size="large"
+              variant="flat"
               prepend-icon="mdi-arrow-left"
+              append-icon="mdi-apps"
               @click="
                 $router.push({
                   name: ROUTES.PLATFORM,
@@ -682,32 +695,30 @@ onBeforeUnmount(async () => {
               "
               >{{ t("play.back-to-gallery") }}
             </v-btn>
-          </v-row>
-          <v-btn
-            v-if="gameRunning"
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-exit-to-app"
-            @click="onlyQuit"
-          >
-            {{ t("play.quit") }}
-          </v-btn>
-          <v-btn
-            v-if="gameRunning"
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-content-save-move"
-            @click="saveAndQuit"
-          >
-            {{ t("play.save-and-quit") }}
-          </v-btn>
-          <cache-dialog v-if="!gameRunning" />
-        </v-col>
+          </v-col>
+        </v-row>
+      </template>
+      <v-row v-else class="align-center my-4" no-gutters>
+        <v-btn
+          :class="{ 'mt-2': gameRunning || smAndDown, 'pr-1': !smAndDown }"
+          block
+          variant="flat"
+          prepend-icon="mdi-exit-to-app"
+          @click="onlyQuit"
+        >
+          {{ t("play.quit") }}
+        </v-btn>
+        <v-btn
+          :class="{ 'mt-2': gameRunning || smAndDown, 'pl-1': !smAndDown }"
+          block
+          variant="flat"
+          prepend-icon="mdi-content-save-move"
+          @click="saveAndQuit"
+        >
+          {{ t("play.save-and-quit") }}
+        </v-btn>
       </v-row>
+      <cache-dialog v-if="!gameRunning" />
     </v-col>
   </v-row>
 </template>
@@ -723,12 +734,12 @@ onBeforeUnmount(async () => {
   }
 }
 
-.disabled-card {
-  opacity: 0.2;
-}
-
 .selected-card {
   margin-top: -5px;
+}
+
+.disabled-card {
+  opacity: 0.2;
 }
 
 .asset-selector {
