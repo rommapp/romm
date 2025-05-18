@@ -160,7 +160,11 @@ function formatRelativeDate(date: string | Date) {
 }
 
 watch(selectedCore, (newSelectedCore) => {
-  if (selectedState.value && selectedState.value.emulator !== newSelectedCore) {
+  if (
+    selectedState.value &&
+    selectedState.value.emulator &&
+    selectedState.value.emulator !== newSelectedCore
+  ) {
     selectedState.value = null;
     localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
   }
@@ -331,7 +335,9 @@ onBeforeUnmount(async () => {
                   :color="openStateSelector ? 'primary' : ''"
                   @click="switchStateSelector"
                   :disabled="
-                    !rom.user_states.some((s) => s.emulator === selectedCore)
+                    !rom.user_states.some(
+                      (s) => !s.emulator || s.emulator === selectedCore,
+                    )
                   "
                 >
                   {{
@@ -496,7 +502,7 @@ onBeforeUnmount(async () => {
                 class="pa-1"
                 v-if="rom.user_states.length > 0"
                 v-for="state in rom.user_states
-                  .filter((s) => s.emulator === selectedCore)
+                  .filter((s) => !s.emulator || s.emulator === selectedCore)
                   .sort((a, b) => {
                     return (
                       new Date(b.updated_at).getTime() -
