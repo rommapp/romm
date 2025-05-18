@@ -269,11 +269,11 @@ const toggleStatus = (value: boolean) => {
         label
         variant="text"
         prepend-icon="mdi-controller"
-        class="ml-2 mt-1"
+        class="ml-2 mt-4"
         >{{ t("settings.platforms-drawer") }}</v-chip
       >
-      <v-divider class="border-opacity-25 ma-1 mb-2" />
-      <v-row class="py-2 align-center" no-gutters>
+      <v-divider class="border-opacity-25 ma-1" />
+      <v-row class="align-center py-1" no-gutters>
         <v-col
           cols="12"
           v-for="option in platformsDrawerOptions"
@@ -288,8 +288,7 @@ const toggleStatus = (value: boolean) => {
               { title: 'None', value: null },
             ]"
             :label="t('settings.platforms-drawer-group-by')"
-            class="mx-2"
-            :class="{ 'mt-4': smAndDown }"
+            class="mx-2 mt-2"
             variant="outlined"
             hide-details
             @update:model-value="setPlatformDrawerGroupBy"
@@ -300,7 +299,7 @@ const toggleStatus = (value: boolean) => {
         label
         variant="text"
         prepend-icon="mdi-view-grid"
-        class="ml-2 mt-1"
+        class="ml-2 mt-4"
         >{{ t("settings.gallery") }}</v-chip
       >
       <v-divider class="border-opacity-25 ma-1" />

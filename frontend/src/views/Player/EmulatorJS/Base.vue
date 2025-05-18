@@ -12,7 +12,7 @@ import { formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { saveSave, saveState } from "./utils";
@@ -158,6 +158,13 @@ function unselectState() {
 function formatRelativeDate(date: string | Date) {
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
+
+watch(selectedCore, (newSelectedCore) => {
+  if (selectedState.value && selectedState.value.emulator !== newSelectedCore) {
+    selectedState.value = null;
+    localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
+  }
+});
 
 onMounted(async () => {
   const romResponse = await romApi.getRom({
@@ -323,6 +330,9 @@ onBeforeUnmount(async () => {
                   prepend-icon="mdi-file"
                   :color="openStateSelector ? 'primary' : ''"
                   @click="switchStateSelector"
+                  :disabled="
+                    !rom.user_states.some((s) => s.emulator === selectedCore)
+                  "
                 >
                   {{
                     selectedState
@@ -485,12 +495,14 @@ onBeforeUnmount(async () => {
                 sm="4"
                 class="pa-1"
                 v-if="rom.user_states.length > 0"
-                v-for="state in rom.user_states.sort((a, b) => {
-                  return (
-                    new Date(b.updated_at).getTime() -
-                    new Date(a.updated_at).getTime()
-                  );
-                })"
+                v-for="state in rom.user_states
+                  .filter((s) => s.emulator === selectedCore)
+                  .sort((a, b) => {
+                    return (
+                      new Date(b.updated_at).getTime() -
+                      new Date(a.updated_at).getTime()
+                    );
+                  })"
               >
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
