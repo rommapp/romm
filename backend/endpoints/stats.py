@@ -17,10 +17,11 @@ def stats() -> StatsReturn:
     """
 
     return {
-        "PLATFORMS": db_stats_handler.get_platforms_count(),
+        "PLATFORMS_COUNT": db_stats_handler.get_platforms_count(),
+        "PLATFORMS": db_stats_handler.get_platforms_filesize(),
         "ROMS": db_stats_handler.get_roms_count(),
         "SAVES": db_stats_handler.get_saves_count(),
         "STATES": db_stats_handler.get_states_count(),
         "SCREENSHOTS": db_stats_handler.get_screenshots_count(),
-        "FILESIZE": db_stats_handler.get_total_filesize(),
+        "TOTAL_FILESIZE": db_stats_handler.get_total_filesize(),
     }

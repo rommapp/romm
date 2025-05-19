@@ -1,5 +1,6 @@
 from decorators.database import begin_session
 from models.assets import Save, Screenshot, State
+from models.platform import Platform
 from models.rom import Rom, RomFile
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
@@ -56,3 +57,24 @@ class DBStatsHandler(DBBaseHandler):
             )
             or 0
         )
+
+    @begin_session
+    def get_platforms_filesize(self, session: Session = None) -> list[dict]:
+        """
+        Returns a list of dicts: each with 'id', 'name', and 'filesize' for each platform.
+        """
+        platform_rows = (
+            session.execute(
+                select(Platform.id, Platform.name)
+                .join(Rom, Rom.platform_id == Platform.id)
+                .group_by(Platform.id, Platform.name)
+            )
+        ).all()
+        return [
+            {
+                "id": platform_id,
+                "name": platform_name,
+                "filesize": self.get_platform_filesize(platform_id, session=session),
+            }
+            for platform_id, platform_name in platform_rows
+        ]
