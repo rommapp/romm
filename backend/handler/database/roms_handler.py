@@ -295,7 +295,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
 
-    def filter_by_status(self, query: Query, selected_status: str | None):
+    def filter_by_status(self, query: Query, selected_status: str):
         status_filter = RomUser.status == selected_status
         if selected_status == "now_playing":
             status_filter = RomUser.now_playing.is_(True)
@@ -472,7 +472,10 @@ class DBRomsHandler(DBBaseHandler):
         if selected_language:
             query = self.filter_by_language(query, selected_language)
 
-        query = self.filter_by_status(query, selected_status)
+        if selected_status and user_id:
+            query = self.filter_by_status(query, selected_status)
+        elif user_id:
+            query = query.filter(RomUser.hidden.is_(False))
 
         return query
 
