@@ -23,7 +23,6 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -472,6 +471,7 @@ class DBRomsHandler(DBBaseHandler):
         if selected_language:
             query = self.filter_by_language(query, selected_language)
 
+        # The RomUser table is already joined if user_id is set
         if selected_status and user_id:
             query = self.filter_by_status(query, selected_status)
         elif user_id:
