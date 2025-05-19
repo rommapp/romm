@@ -1,26 +1,19 @@
 <script setup lang="ts">
-import api from "@/services/api/index";
 import { formatBytes } from "@/utils";
-import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 // Props
+defineProps<{
+  stats: {
+    PLATFORMS_COUNT: number;
+    ROMS: number;
+    SAVES: number;
+    STATES: number;
+    SCREENSHOTS: number;
+    TOTAL_FILESIZE: number;
+  };
+}>();
 const { t } = useI18n();
-const stats = ref({
-  PLATFORMS: 0,
-  ROMS: 0,
-  SAVES: 0,
-  STATES: 0,
-  SCREENSHOTS: 0,
-  FILESIZE: 0,
-});
-
-// Functions
-onBeforeMount(() => {
-  api.get("/stats").then(({ data }) => {
-    stats.value = data;
-  });
-});
 </script>
 <template>
   <v-card>
@@ -33,7 +26,7 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ t("common.platforms-n", stats.PLATFORMS) }}
+            {{ t("common.platforms-n", stats.PLATFORMS_COUNT) }}
           </v-chip>
         </v-col>
         <v-col>
@@ -83,7 +76,8 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ t("common.size-on-disk") }}: {{ formatBytes(stats.FILESIZE, 1) }}
+            {{ t("common.size-on-disk") }}:
+            {{ formatBytes(stats.TOTAL_FILESIZE, 1) }}
           </v-chip>
         </v-col>
       </v-row>

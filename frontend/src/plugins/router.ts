@@ -30,6 +30,7 @@ export const ROUTES = {
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
   ADMINISTRATION: "administration",
+  SERVER_STATS: "server-stats",
   NOT_FOUND: "404",
 } as const;
 
@@ -182,6 +183,17 @@ const routes = [
             path: "",
             name: ROUTES.ADMINISTRATION,
             component: () => import("@/views/Settings/Administration.vue"),
+          },
+        ],
+      },
+      {
+        path: "server-stats",
+        component: () => import("@/layouts/Settings.vue"),
+        children: [
+          {
+            path: "",
+            name: ROUTES.SERVER_STATS,
+            component: () => import("@/views/Settings/ServerStats.vue"),
           },
         ],
       },
