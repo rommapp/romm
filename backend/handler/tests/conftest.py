@@ -46,7 +46,7 @@ def platform():
 
 
 @pytest.fixture
-def rom(platform: Platform):
+def rom(admin_user: User, platform: Platform):
     rom = Rom(
         platform_id=platform.id,
         name="test_rom",
@@ -57,7 +57,11 @@ def rom(platform: Platform):
         fs_extension="zip",
         fs_path=f"{platform.slug}/roms",
     )
-    return db_rom_handler.add_rom(rom)
+    rom = db_rom_handler.add_rom(rom)
+
+    db_rom_handler.add_rom_user(rom_id=rom.id, user_id=admin_user.id)
+
+    return rom
 
 
 @pytest.fixture
