@@ -23,6 +23,7 @@ from sqlalchemy import (
     text,
     update,
 )
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -294,9 +295,7 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
 
-    def filter_by_status(self, query: Query, selected_status: str):
-        query = query.join(RomUser)
-
+    def filter_by_status(self, query: Query, selected_status: str | None):
         status_filter = RomUser.status == selected_status
         if selected_status == "now_playing":
             status_filter = RomUser.now_playing.is_(True)
@@ -467,14 +466,13 @@ class DBRomsHandler(DBBaseHandler):
         if selected_age_rating:
             query = self.filter_by_age_rating(query, selected_age_rating)
 
-        if selected_status:
-            query = self.filter_by_status(query, selected_status)
-
         if selected_region:
             query = self.filter_by_region(query, selected_region)
 
         if selected_language:
             query = self.filter_by_language(query, selected_language)
+
+        query = self.filter_by_status(query, selected_status)
 
         return query
 
