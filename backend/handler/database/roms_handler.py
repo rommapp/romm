@@ -479,6 +479,7 @@ class DBRomsHandler(DBBaseHandler):
         return query
 
     @with_simple
+    @begin_session
     def get_roms_query(
         self,
         *,
@@ -486,6 +487,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         user_id: int | None = None,
         query: Query = None,
+        session: Session = None,
     ) -> Query[Rom]:
         if user_id:
             query = query.outerjoin(
@@ -504,6 +506,19 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = getattr(Rom, order_by)
         else:
             order_attr = Rom.name
+
+        # Handle computed properties
+        if order_by == "fs_size_bytes":
+            subquery = (
+                session.query(
+                    RomFile.rom_id,
+                    func.sum(RomFile.file_size_bytes).label("total_size"),
+                )
+                .group_by(RomFile.rom_id)
+                .subquery()
+            )
+            query = query.outerjoin(subquery, Rom.id == subquery.c.rom_id)
+            order_attr = func.coalesce(subquery.c.total_size, 0)
 
         # Ignore case when the order attribute is a number
         if isinstance(order_attr.type, (String, Text)):
