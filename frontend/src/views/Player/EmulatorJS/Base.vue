@@ -393,8 +393,10 @@ onBeforeUnmount(async () => {
                           <v-row no-gutters>
                             <v-col class="text-right mt-auto pt-1">
                               <v-btn
-                                variant="tonal"
-                                size="x-small"
+                                variant="flat"
+                                color="toplayer"
+                                size="small"
+                                icon
                                 @click="unselectState()"
                               >
                                 <v-icon>mdi-close-circle-outline</v-icon>
@@ -476,8 +478,10 @@ onBeforeUnmount(async () => {
                           <v-row no-gutters>
                             <v-col class="text-right mt-auto pt-2">
                               <v-btn
-                                variant="tonal"
-                                size="x-small"
+                                variant="flat"
+                                color="toplayer"
+                                size="small"
+                                icon
                                 @click="unselectSave()"
                               >
                                 <v-icon>mdi-close-circle-outline</v-icon>
