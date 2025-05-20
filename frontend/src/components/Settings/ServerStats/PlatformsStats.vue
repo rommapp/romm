@@ -4,12 +4,13 @@ import PlatformListItem from "@/components/common/Platform/ListItem.vue";
 import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
 import { ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
 const props = defineProps<{
   total_filesize: number;
 }>();
-
+const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
 const orderBy = ref("name");
@@ -39,10 +40,15 @@ function getPlatformPercentage(
 </script>
 
 <template>
-  <v-card>
+  <v-card class="pa-2">
+    <v-card-title class="text-h6 text-truncate mb-2">
+      <v-icon class="mr-2">mdi-harddisk</v-icon>
+      {{ t("stats.platforms-size") }}
+    </v-card-title>
+    <v-divider class="mb-3"></v-divider>
     <v-card-text class="pa-0">
       <v-row no-gutters>
-        <v-col class="pa-4" cols="12">
+        <v-col class="pa-2" cols="12">
           <v-select
             v-model="orderBy"
             :items="[
