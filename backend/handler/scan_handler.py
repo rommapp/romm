@@ -414,19 +414,27 @@ def _scan_asset(file_name: str, path: str):
 
 
 def scan_save(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
+    file_name: str,
+    user: User,
+    platform_fs_slug: str,
+    rom_id: int,
+    emulator: str | None = None,
 ) -> Save:
     saves_path = fs_asset_handler.build_saves_file_path(
-        user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     return Save(**_scan_asset(file_name, saves_path))
 
 
 def scan_state(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
+    file_name: str,
+    user: User,
+    platform_fs_slug: str,
+    rom_id: int,
+    emulator: str | None = None,
 ) -> State:
     states_path = fs_asset_handler.build_states_file_path(
-        user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     return State(**_scan_asset(file_name, states_path))
 
@@ -435,8 +443,9 @@ def scan_screenshot(
     file_name: str,
     user: User,
     platform_fs_slug: str,
+    rom_id: int,
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
-        user=user, platform_fs_slug=platform_fs_slug
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id
     )
     return Screenshot(**_scan_asset(file_name, screenshots_path))
