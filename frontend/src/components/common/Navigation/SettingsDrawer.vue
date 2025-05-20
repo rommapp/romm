@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { UserSchema } from "@/__generated__";
+import AboutDialog from "@/components/Settings/AboutDialog.vue";
 import identityApi from "@/services/api/identity";
 import { refetchCSRFToken } from "@/services/api/index";
 import storeAuth from "@/stores/auth";
@@ -127,11 +127,7 @@ async function logout() {
         v-if="auth.user?.role === 'admin'"
         class="mt-1"
         rounded
-        @click="
-          () => {
-            /* TODO: Show about dialog */
-          }
-        "
+        @click="emitter?.emit('showAboutDialog')"
         append-icon="mdi-help-circle-outline"
         >{{ t("common.about") }}
       </v-list-item>
@@ -146,4 +142,6 @@ async function logout() {
       >
     </template>
   </v-navigation-drawer>
+
+  <about-dialog />
 </template>
