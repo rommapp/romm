@@ -2,10 +2,9 @@ from typing import TypedDict
 
 
 class StatsReturn(TypedDict):
-    PLATFORMS_COUNT: int
-    PLATFORMS: list
+    PLATFORMS: int
     ROMS: int
     SAVES: int
     STATES: int
     SCREENSHOTS: int
-    TOTAL_FILESIZE: int
+    TOTAL_FILESIZE_BYTES: int

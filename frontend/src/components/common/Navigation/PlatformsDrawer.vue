@@ -104,6 +104,7 @@ function clear() {
                 v-for="platform in platforms"
                 :key="platform.slug"
                 :platform="platform"
+                withLink
               />
             </v-list>
           </v-expansion-panel-text>
@@ -116,6 +117,7 @@ function clear() {
           v-for="platform in filteredPlatforms"
           :key="platform.slug"
           :platform="platform"
+          withLink
         />
       </v-list>
     </template>
