@@ -7,7 +7,8 @@
   "forgot-password": "Forgot your password?",
   "send-reset-link": "Send reset link",
   "reset-sent": "Reset link sent. Contact your admin.",
-  "confirm-password": "Confirm password",
+  "new-password": "New password",
+  "confirm-new-password": "Confirm new password",
   "reset-password": "Reset password",
   "back-to-login": "Back to login"
 }

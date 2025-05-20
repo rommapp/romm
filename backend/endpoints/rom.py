@@ -794,9 +794,7 @@ async def delete_roms(
             try:
                 fs_rom_handler.remove_from_fs(fs_path=rom.fs_path, fs_name=rom.fs_name)
             except FileNotFoundError as exc:
-                error = (
-                    f"Rom file {rom.fs_name} not found for platform {rom.platform_slug}"
-                )
+                error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
                 log.error(error)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=error

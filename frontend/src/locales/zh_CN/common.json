@@ -9,6 +9,7 @@
   "core": "核心",
   "create": "创建",
   "edit": "编辑",
+  "exclude-on-delete": "删除时排除",
   "filter": "筛选",
   "firmware": "固件",
   "games-n": "{n} 游戏 | {n} 游戏",

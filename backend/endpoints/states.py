@@ -27,6 +27,19 @@ async def add_state(
 ) -> StateSchema:
     data = await request.form()
 
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
+    log.info(f"Uploading state of {rom.name}")
+
+    states_path = fs_asset_handler.build_states_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
+        emulator=emulator,
+    )
+
     if "stateFile" not in data:
         log.error("No state file provided")
         raise HTTPException(
@@ -48,7 +61,10 @@ async def add_state(
     log.info(f"Uploading state {hl(stateFile.filename)} for {hl(rom.name, color=BLUE)}")
 
     states_path = fs_asset_handler.build_states_file_path(
-        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
     )
 
     fs_asset_handler.write_file(file=stateFile, path=states_path)
@@ -58,6 +74,7 @@ async def add_state(
         file_name=stateFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
         emulator=emulator,
     )
     db_state = db_state_handler.get_state_by_filename(
@@ -76,7 +93,7 @@ async def add_state(
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=rom.platform_slug
+            user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
         fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
@@ -86,6 +103,7 @@ async def add_state(
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
+            rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
             rom_id=rom.id, user_id=request.user.id, file_name=screenshotFile.filename
@@ -161,7 +179,9 @@ async def update_state(request: Request, id: int) -> StateSchema:
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=db_state.rom.platform_slug
+            user=request.user,
+            platform_fs_slug=db_state.rom.platform_slug,
+            rom_id=db_state.rom.id,
         )
 
         fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
@@ -171,6 +191,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=db_state.rom.platform_slug,
+            rom_id=db_state.rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
             rom_id=db_state.rom.id,
@@ -228,7 +249,7 @@ async def delete_states(request: Request) -> list[int]:
                 file_name=state.file_name, file_path=state.file_path
             )
         except FileNotFoundError:
-            error = f"State file {state.file_name} not found for platform {state.rom.platform_slug}"
+            error = f"State file {hl(state.file_name)} not found for platform {hl(state.rom.platform_display_name, color=BLUE)}[{hl(state.rom.platform_slug)}]"
             log.error(error)
 
         if state.screenshot:
@@ -240,7 +261,7 @@ async def delete_states(request: Request) -> list[int]:
                     file_path=state.screenshot.file_path,
                 )
             except FileNotFoundError:
-                error = f"Screenshot file {state.screenshot.file_name} not found for state {state.file_name}"
+                error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)
 
     return state_ids

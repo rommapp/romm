@@ -9,6 +9,7 @@
   "core": "Núcleo",
   "create": "Criar",
   "edit": "Editar",
+  "exclude-on-delete": "Excluir ao excluir",
   "filter": "Filtrar",
   "firmware": "Firmware",
   "games-n": "{n} Jogo | {n} Jogos",

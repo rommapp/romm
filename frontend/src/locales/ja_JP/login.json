@@ -7,7 +7,8 @@
   "forgot-password": "パスワードをお忘れですか？",
   "send-reset-link": "リセットリンクを送信",
   "reset-sent": "リセットリンクが送信されました。管理者に連絡してください。",
-  "confirm-password": "パスワードを確認",
+  "new-password": "新しいパスワード",
+  "confirm-new-password": "新しいパスワードを確認",
   "reset-password": "パスワードをリセット",
   "back-to-login": "ログインに戻る"
 }

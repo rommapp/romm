@@ -16,6 +16,7 @@ export const ROUTES = {
   SETUP: "setup",
   LOGIN: "login",
   RESET_PASSWORD: "reset-password",
+  REGISTER: "register",
   MAIN: "main",
   HOME: "home",
   SEARCH: "search",
@@ -69,6 +70,17 @@ const routes = [
         path: "",
         name: ROUTES.RESET_PASSWORD,
         component: () => import("@/views/Auth/ResetPassword.vue"),
+      },
+    ],
+  },
+  {
+    path: "/register",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: ROUTES.REGISTER,
+        component: () => import("@/views/Auth/Register.vue"),
       },
     ],
   },
@@ -242,7 +254,8 @@ function checkRoutePermissions(route: string, user: User | null): boolean {
   if (
     route === ROUTES.LOGIN ||
     route === ROUTES.SETUP ||
-    route === ROUTES.RESET_PASSWORD
+    route === ROUTES.RESET_PASSWORD ||
+    route === ROUTES.REGISTER
   )
     return true;
 
@@ -275,7 +288,8 @@ router.beforeEach(async (to, _from, next) => {
     if (
       !user.value &&
       currentRoute !== ROUTES.LOGIN &&
-      currentRoute !== ROUTES.RESET_PASSWORD
+      currentRoute !== ROUTES.RESET_PASSWORD &&
+      currentRoute !== ROUTES.REGISTER
     ) {
       return next({ name: ROUTES.LOGIN });
     }
