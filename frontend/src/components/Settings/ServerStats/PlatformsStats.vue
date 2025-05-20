@@ -43,7 +43,7 @@ function getPlatformPercentage(
   <v-card class="pa-2">
     <v-card-title class="text-h6 text-truncate mb-2">
       <v-icon class="mr-2">mdi-harddisk</v-icon>
-      {{ t("stats.platforms-size") }}
+      {{ t("common.platforms-size") }}
     </v-card-title>
     <v-divider class="mb-3"></v-divider>
     <v-card-text class="pa-0">
