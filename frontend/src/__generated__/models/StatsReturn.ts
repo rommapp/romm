@@ -3,12 +3,11 @@
 /* tslint:disable */
 /* eslint-disable */
 export type StatsReturn = {
-    PLATFORMS_COUNT: number;
-    PLATFORMS: Array<any>;
+    PLATFORMS: number;
     ROMS: number;
     SAVES: number;
     STATES: number;
     SCREENSHOTS: number;
-    TOTAL_FILESIZE: number;
+    TOTAL_FILESIZE_BYTES: number;
 };
 
