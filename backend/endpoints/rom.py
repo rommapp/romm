@@ -36,7 +36,12 @@ from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
-from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
+from handler.metadata import (
+    meta_igdb_handler,
+    meta_launchbox_handler,
+    meta_moby_handler,
+    meta_ss_handler,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -586,6 +591,20 @@ async def update_rom(
         )
         cleaned_data.update({"path_screenshots": path_screenshots})
 
+    if (
+        cleaned_data.get("launchbox_id", "")
+        and int(cleaned_data.get("launchbox_id", "")) != rom.launchbox_id
+    ):
+        igdb_rom = await meta_launchbox_handler.get_rom_by_id(
+            cleaned_data["launchbox_id"]
+        )
+        cleaned_data.update(igdb_rom)
+        path_screenshots = await fs_resource_handler.get_rom_screenshots(
+            rom=rom,
+            url_screenshots=cleaned_data.get("url_screenshots", []),
+        )
+        cleaned_data.update({"path_screenshots": path_screenshots})
+
     cleaned_data.update(
         {
             "name": data.get("name", rom.name),
@@ -714,7 +733,7 @@ async def add_rom_manuals(request: Request, id: int):
 
     manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
     file_location = Path(f"{manuals_path}/{rom.id}.pdf")
-    log.info(f"Uploading {hl(file_location)}")
+    log.info(f"Uploading {hl(str(file_location))}")
 
     if not os.path.exists(manuals_path):
         await Path(manuals_path).mkdir(parents=True, exist_ok=True)
@@ -778,7 +797,7 @@ async def delete_roms(
             raise RomNotFoundInDatabaseException(id)
 
         log.info(
-            f"Deleting {hl(rom.name, color=BLUE)} [{hl(rom.fs_name)}] from database"
+            f"Deleting {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}] from database"
         )
         db_rom_handler.delete_rom(id)
 
@@ -786,7 +805,7 @@ async def delete_roms(
             rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
         except FileNotFoundError:
             log.error(
-                f"Couldn't find resources to delete for {hl(rom.name, color=BLUE)}"
+                f"Couldn't find resources to delete for {hl(rom.name or 'ROM', color=BLUE)}"
             )
 
         if id in delete_from_fs:
