@@ -167,7 +167,9 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
             </v-avatar>
             <span>{{ rom.launchbox_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>{{ rom.launchbox_metadata?.community_rating }}</span>
+            <span>{{
+              rom.launchbox_metadata?.community_rating?.toFixed(2)
+            }}</span>
             <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </div>

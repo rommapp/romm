@@ -369,7 +369,7 @@ async def scan_rom(
         return SSRom(ss_id=None)
 
     async def fetch_launchbox_rom():
-        if MetadataSource.IGDB in metadata_sources and (
+        if MetadataSource.LB in metadata_sources and (
             not rom
             or scan_type == ScanType.COMPLETE
             or (scan_type == ScanType.PARTIAL and not rom.launchbox_id)
