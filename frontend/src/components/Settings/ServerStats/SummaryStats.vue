@@ -17,11 +17,6 @@ const { t } = useI18n();
 
 <template>
   <v-card class="pa-4">
-    <v-card-title class="text-h6 text-truncate mb-2">
-      <v-icon class="mr-2">mdi-server</v-icon>
-      {{ t("rom.summary") }}
-    </v-card-title>
-    <v-divider class="mb-3"></v-divider>
     <v-row dense>
       <v-col cols="6" md="4" lg="2">
         <v-sheet class="pa-3 text-center" color="toplayer" rounded>
