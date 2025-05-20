@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CreateUserDialog from "@/components/Settings/Administration/Users/Dialog/CreateUser.vue";
+import InviteLinkDialog from "@/components/Settings/Administration/Users/Dialog/InviteLink.vue";
 import DeleteUserDialog from "@/components/Settings/Administration/Users/Dialog/DeleteUser.vue";
 import RSection from "@/components/common/RSection.vue";
 import userApi from "@/services/api/user";
@@ -7,12 +8,13 @@ import storeAuth from "@/stores/auth";
 import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 const userSearch = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
 const usersStore = storeUsers();
@@ -108,14 +110,24 @@ onMounted(() => {
         hide-default-footer
       >
         <template #header.actions>
-          <v-btn
-            prepend-icon="mdi-plus"
-            variant="outlined"
-            class="text-primary"
-            @click="emitter?.emit('showCreateUserDialog', null)"
-          >
-            Add
-          </v-btn>
+          <v-btn-group divided density="compact">
+            <v-btn
+              prepend-icon="mdi-plus"
+              variant="outlined"
+              class="text-primary"
+              @click="emitter?.emit('showCreateUserDialog', null)"
+            >
+              {{ t("common.add") }}
+            </v-btn>
+            <v-btn
+              prepend-icon="mdi-share"
+              variant="outlined"
+              class="text-primary"
+              @click="emitter?.emit('showCreateInviteLinkDialog')"
+            >
+              {{ t("settings.invite-link") }}
+            </v-btn>
+          </v-btn-group>
         </template>
         <template #item.avatar_path="{ item }">
           <v-avatar>
@@ -174,5 +186,6 @@ onMounted(() => {
   </r-section>
 
   <create-user-dialog />
+  <invite-link-dialog />
   <delete-user-dialog />
 </template>

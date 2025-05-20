@@ -1,3 +1,6 @@
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
+
 folder_struct_msg = "Check RomM folder structure here: https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure"
 
 
@@ -30,7 +33,7 @@ class PlatformAlreadyExistsException(Exception):
 
 class RomsNotFoundException(Exception):
     def __init__(self, platform: str):
-        self.message = f"Roms not found for platform {platform}. {folder_struct_msg}"
+        self.message = f"Roms not found for platform {hl(platform, color=BLUE)}. {folder_struct_msg}"
         super().__init__(self.message)
 
     def __repr__(self):
@@ -39,7 +42,7 @@ class RomsNotFoundException(Exception):
 
 class RomAlreadyExistsException(Exception):
     def __init__(self, rom_name: str):
-        self.message = f"Can't rename: {rom_name} already exists"
+        self.message = f"Can't rename: {hl(rom_name)} already exists"
         super().__init__(self.message)
 
     def __repr__(self):
@@ -48,9 +51,7 @@ class RomAlreadyExistsException(Exception):
 
 class FirmwareNotFoundException(Exception):
     def __init__(self, platform: str):
-        self.message = (
-            f"Firmware not found for platform {platform}. {folder_struct_msg}"
-        )
+        self.message = f"Firmware not found for platform {hl(platform, color=BLUE)}. {folder_struct_msg}"
         super().__init__(self.message)
 
     def __repr__(self):
@@ -59,7 +60,7 @@ class FirmwareNotFoundException(Exception):
 
 class FirmwareAlreadyExistsException(Exception):
     def __init__(self, firmware_name: str):
-        self.message = f"Can't rename: {firmware_name} already exists"
+        self.message = f"Can't rename: {hl(firmware_name)} already exists"
         super().__init__(self.message)
 
     def __repr__(self):

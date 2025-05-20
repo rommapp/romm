@@ -106,19 +106,21 @@ class RAHasherService:
                 stderr = (await proc.stderr.read()).decode("utf-8")
             else:
                 stderr = None
-            raise RAHasherError(f"RAHasher failed with code {return_code}. {stderr=}")
+            log.error(f"RAHasher failed with code {return_code}. {stderr=}")
+            return ""
 
         if proc.stdout is None:
-            raise RAHasherError("RAHasher did not return a hash.")
+            log.error("RAHasher did not return a hash.")
+            return ""
 
         file_hash = (await proc.stdout.read()).decode("utf-8").strip()
         if not file_hash:
-            raise RAHasherError(
-                f"RAHasher returned an empty hash. {platform_id=}, {file_path=}"
-            )
+            log.error(f"RAHasher returned an empty hash. {platform_id=}, {file_path=}")
+            return ""
         if not RAHASHER_VALID_HASH_REGEX.match(file_hash):
-            raise RAHasherError(
+            log.error(
                 f"RAHasher returned an invalid hash: {file_hash=}, {platform_id=}, {file_path=}"
             )
+            return ""
 
         return file_hash

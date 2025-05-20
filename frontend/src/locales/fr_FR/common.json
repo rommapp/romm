@@ -9,6 +9,7 @@
   "core": "Noyau",
   "create": "Créer",
   "edit": "Éditer",
+  "exclude-on-delete": "Exclure lors de la suppression",
   "filter": "Filtrer",
   "firmware": "Micrologiciel",
   "games-n": "{n} Jeu | {n} Jeux",

@@ -7,7 +7,8 @@
   "forgot-password": "Mot de passe oublié ?",
   "send-reset-link": "Envoyer le lien de réinitialisation",
   "reset-sent": "Lien de réinitialisation envoyé. Contactez votre administrateur.",
-  "confirm-password": "Confirmer le mot de passe",
+  "new-password": "Nouveau mot de passe",
+  "confirm-new-password": "Confirmer le nouveau mot de passe",
   "reset-password": "Réinitialiser le mot de passe",
   "back-to-login": "Retour à la connexion"
 }
