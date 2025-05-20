@@ -1,9 +1,9 @@
 import json
 from typing import Final, NotRequired, TypedDict
 
+from config import str_to_bool
 from handler.redis_handler import async_cache
 from tasks.update_launchbox_metadata import (  # LAUNCHBOX_PLATFORMS_KEY,; LAUNCHBOX_METADATA_IMAGE_KEY,; LAUNCHBOX_MAME_KEY,; update_launchbox_metadata_task,
-    LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
 )
@@ -46,30 +46,25 @@ def extract_metadata_from_launchbox_rom(index_entry: dict) -> LaunchboxMetadata:
     return LaunchboxMetadata(
         {
             "release_date": index_entry.get("ReleaseDate", ""),
-            "max_players": index_entry.get("MaxPlayers", 0),
+            "max_players": int(index_entry.get("MaxPlayers") or 0),
             "release_type": index_entry.get("ReleaseType", ""),
-            "cooperative": index_entry.get("Cooperative", False),
-            "video_url": index_entry.get("VideoURL", ""),
-            "community_rating": index_entry.get("CommunityRating", 0),
-            "community_rating_count": index_entry.get("CommunityRatingCount", 0),
+            "cooperative": str_to_bool(index_entry.get("Cooperative") or "false"),
+            "video_url": index_entry.get("VideoURL") or "",
+            "community_rating": float(index_entry.get("CommunityRating") or 0.0),
+            "community_rating_count": int(index_entry.get("CommunityRatingCount") or 0),
             "wikipedia_url": index_entry.get("WikipediaURL", ""),
             "esrb": index_entry.get("ESRB", ""),
-            "genres": index_entry.get("Genres", []),
-            "developer": index_entry.get("Developer", ""),
-            "publisher": index_entry.get("Publisher", ""),
+            "genres": index_entry.get("Genres", []).split(),
+            "developer": index_entry.get("Developer") or "",
+            "publisher": index_entry.get("Publisher") or "",
         }
     )
 
 
 class LaunchboxHandler(MetadataHandler):
     async def _search_rom(self, file_name: str) -> dict | None:
-        file_index_entry = await async_cache.hget(LAUNCHBOX_FILES_KEY, file_name)
-        if not file_index_entry:
-            return None
-
-        file_index_entry = json.loads(file_index_entry)
         metadata_name_index_entry = await async_cache.hget(
-            LAUNCHBOX_METADATA_NAME_KEY, file_index_entry["name"]
+            LAUNCHBOX_METADATA_NAME_KEY, file_name
         )
 
         if not metadata_name_index_entry:
@@ -94,7 +89,7 @@ class LaunchboxHandler(MetadataHandler):
         if not LAUNCHBOX_API_ENABLED:
             return LaunchboxRom(launchbox_id=None)
 
-        search_term = fs_rom_handler.get_file_name_with_no_extension(fs_name)
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = LaunchboxRom(launchbox_id=None)
 
         index_entry = await self._search_rom(search_term)

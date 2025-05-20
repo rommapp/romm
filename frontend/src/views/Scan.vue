@@ -48,6 +48,12 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/ra.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.RA_ENABLED,
   },
+  {
+    name: "Launchbox",
+    value: "lb",
+    logo_path: "/assets/scrappers/launchbox.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_ENABLED,
+  },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
 const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
