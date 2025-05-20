@@ -57,7 +57,7 @@ function closeDialog() {
   >
     <template #content>
       <v-row class="justify-center text-center pa-2" no-gutters>
-        <v-btn-toggle divided v-model="selectedRole">
+        <v-btn-toggle class="ma-1" divided v-model="selectedRole">
           <v-btn
             v-for="role in roles"
             :key="role"
@@ -68,7 +68,7 @@ function closeDialog() {
             >{{ role.charAt(0).toUpperCase() + role.slice(1) }}
           </v-btn>
         </v-btn-toggle>
-        <v-btn-toggle class="ml-2 text-primary" divided>
+        <v-btn-toggle class="text-primary ma-1" divided>
           <v-btn
             :disabled="!selectedRole"
             variant="outlined"
@@ -78,12 +78,10 @@ function closeDialog() {
           </v-btn>
         </v-btn-toggle>
       </v-row>
-      <v-row
-        v-show="fullInviteLink"
-        class="justify-center text-center pa-2"
-        no-gutters
-      >
-        <v-list-item>{{ fullInviteLink }}</v-list-item>
+      <v-row v-show="fullInviteLink" class="text-center pa-2" no-gutters>
+        <v-list-item rounded class="bg-toplayer py-2">{{
+          fullInviteLink
+        }}</v-list-item>
       </v-row>
     </template>
   </r-dialog>

@@ -180,7 +180,7 @@ async function loadSave(save: SaveSchema) {
     loadEmulatorJSSave(new Uint8Array(data));
     displayMessage("Save loaded from server", {
       duration: 3000,
-      icon: "mdi-cloud-upload-outline",
+      icon: "mdi-cloud-download-outline",
     });
     return;
   }
@@ -231,7 +231,7 @@ async function loadState(state: StateSchema) {
     loadEmulatorJSState(new Uint8Array(data));
     displayMessage("State loaded from server", {
       duration: 3000,
-      icon: "mdi-cloud-upload-outline",
+      icon: "mdi-cloud-download-outline",
     });
     return;
   }
