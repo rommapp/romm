@@ -78,8 +78,8 @@ def heartbeat() -> HeartbeatResponse:
             "LAUNCHBOX_METADATA": {
                 "ENABLED": ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
                 "CRON": SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
-                "TITLE": "Scheduled LaunchBox metadata update",
-                "MESSAGE": "Updates the LaunchBox metadata",
+                "TITLE": "Scheduled LaunchBox Metadata update",
+                "MESSAGE": "Updates the LaunchBox Metadata",
             },
         },
         "EMULATION": {

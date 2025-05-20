@@ -42,111 +42,111 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
             with zipfile.ZipFile(zip_file_bytes) as z:
                 for file in z.namelist():
                     if file == "Platforms.xml":
-                        platform_dict = {}
                         with z.open(file, "r") as f:
-                            for platform in ET.parse(f).getroot().findall("Platform"):
-                                name_elem = platform.find("Name")
-                                assert name_elem is not None
-                                platform_dict[name_elem.text] = {
-                                    child.tag: child.text for child in platform
-                                }
-
                             async with async_cache.pipeline() as pipe:
-                                for platform_batch in batched(
-                                    platform_dict.items(), 2000
-                                ):
-                                    await pipe.hset(
-                                        LAUNCHBOX_PLATFORMS_KEY,
-                                        mapping={
-                                            k: json.dumps(v)
-                                            for k, v in dict(platform_batch).items()
-                                        },
-                                    )
+                                ctx = ET.iterparse(f, events=("end",))
+
+                                for _, elem in ctx:
+                                    if elem.tag == "Platform":
+                                        name_elem = elem.find("Name")
+                                        if name_elem is not None and name_elem.text:
+                                            await pipe.hset(
+                                                LAUNCHBOX_PLATFORMS_KEY,
+                                                mapping={
+                                                    name_elem.text: json.dumps(
+                                                        {
+                                                            child.tag: child.text
+                                                            for child in elem
+                                                        }
+                                                    )
+                                                },
+                                            )
+
+                                        elem.clear()
+                                await pipe.execute()
 
                     elif file == "Metadata.xml":
-                        metadata_by_id_dict: dict[str, object] = {}
-                        metadata_by_name_dict: dict[str, object] = {}
-                        metadata_images_by_id_dict: dict[str, list[object]] = {}
-
                         with z.open(file, "r") as f:
-                            root = ET.parse(f).getroot()
-                            for metadata in root.findall("Game"):
-                                id_elem = metadata.find("DatabaseID")
-                                assert id_elem is not None
-                                metadata_by_id_dict[str(id_elem.text)] = {
-                                    child.tag: child.text for child in metadata
-                                }
-
-                                name_elem = metadata.find("Name")
-                                assert name_elem is not None
-                                metadata_by_name_dict[str(name_elem.text)] = {
-                                    child.tag: child.text for child in metadata
-                                }
-
-                            for image in root.findall("GameImage"):
-                                id_elem = image.find("DatabaseID")
-                                assert id_elem is not None
-
-                                if id_elem.text not in metadata_images_by_id_dict:
-                                    metadata_images_by_id_dict[str(id_elem.text)] = []
-
-                                metadata_images_by_id_dict[str(id_elem.text)].append(
-                                    {child.tag: child.text for child in image}
-                                )
-
                             async with async_cache.pipeline() as pipe:
-                                for mbid_batch in batched(
-                                    metadata_by_id_dict.items(), 2000
-                                ):
-                                    await pipe.hset(
-                                        LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-                                        mapping={
-                                            k: json.dumps(v)
-                                            for k, v in dict(mbid_batch).items()
-                                        },
-                                    )
+                                ctx = ET.iterparse(f, events=("end",))
 
-                                for mbn_batch in batched(
-                                    metadata_by_name_dict.items(), 2000
-                                ):
-                                    await pipe.hset(
-                                        LAUNCHBOX_METADATA_NAME_KEY,
-                                        mapping={
-                                            k: json.dumps(v)
-                                            for k, v in dict(mbn_batch).items()
-                                        },
-                                    )
+                                for _, elem in ctx:
+                                    if elem.tag == "Game":
+                                        id_elem = elem.find("DatabaseID")
+                                        if id_elem is not None and id_elem.text:
+                                            await pipe.hset(
+                                                LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+                                                mapping={
+                                                    id_elem.text: json.dumps(
+                                                        {
+                                                            child.tag: child.text
+                                                            for child in elem
+                                                        }
+                                                    )
+                                                },
+                                            )
 
-                                for data_batch in batched(
-                                    metadata_images_by_id_dict.items(), 2000
-                                ):
+                                        name_elem = elem.find("Name")
+                                        if name_elem is not None and name_elem.text:
+                                            await pipe.hset(
+                                                LAUNCHBOX_METADATA_NAME_KEY,
+                                                mapping={
+                                                    name_elem.text: json.dumps(
+                                                        {
+                                                            child.tag: child.text
+                                                            for child in elem
+                                                        }
+                                                    )
+                                                },
+                                            )
+                                        elem.clear()
 
-                                    await pipe.hset(
-                                        LAUNCHBOX_METADATA_IMAGE_KEY,
-                                        mapping={
-                                            k: json.dumps(v)
-                                            for k, v in dict(data_batch).items()
-                                        },
-                                    )
+                                    elif elem.tag == "GameImage":
+                                        id_elem = elem.find("DatabaseID")
+                                        if id_elem is not None and id_elem.text:
+                                            image_id = str(id_elem.text)
+                                            if image_id:
+                                                await pipe.hset(
+                                                    LAUNCHBOX_METADATA_IMAGE_KEY,
+                                                    mapping={
+                                                        image_id: json.dumps(
+                                                            {
+                                                                child.tag: child.text
+                                                                for child in elem
+                                                            }
+                                                        )
+                                                    },
+                                                )
+                                        elem.clear()
+                                await pipe.execute()
+
                     elif file == "Mame.xml":
-                        mame_dict = {}
                         with z.open(file, "r") as f:
-                            for mame in ET.parse(f).getroot().findall("MameFile"):
-                                filename_elem = mame.find("FileName")
-                                assert filename_elem is not None
-                                mame_dict[filename_elem.text] = {
-                                    child.tag: child.text for child in mame
-                                }
-
                             async with async_cache.pipeline() as pipe:
-                                for mame_batch in batched(mame_dict.items(), 2000):
-                                    await pipe.hset(
-                                        LAUNCHBOX_MAME_KEY,
-                                        mapping={
-                                            k: json.dumps(v)
-                                            for k, v in dict(mame_batch).items()
-                                        },
-                                    )
+                                ctx = ET.iterparse(f, events=("end",))
+
+                                for _, elem in ctx:
+                                    if elem.tag == "MameFile":
+                                        filename_elem = elem.find("FileName")
+                                        if (
+                                            filename_elem is not None
+                                            and filename_elem.text
+                                        ):
+                                            await pipe.hset(
+                                                LAUNCHBOX_MAME_KEY,
+                                                mapping={
+                                                    filename_elem.text: json.dumps(
+                                                        {
+                                                            child.tag: child.text
+                                                            for child in elem
+                                                        }
+                                                    )
+                                                },
+                                            )
+
+                                        elem.clear()
+                                await pipe.execute()
+
         except zipfile.BadZipFile:
             log.error("Bad zip file in launchbox metadata update")
             return
