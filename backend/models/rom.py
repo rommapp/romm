@@ -311,12 +311,16 @@ class Rom(BaseModel):
     @property
     def is_unidentified(self) -> bool:
         return (
-            not self.igdb_id and not self.moby_id and not self.ss_id and not self.ra_id
+            not self.igdb_id
+            and not self.moby_id
+            and not self.ss_id
+            and not self.ra_id
+            and not self.launchbox_id
         )
 
     @property
-    def is_partially_identified(self) -> bool:
-        return not self.is_unidentified and not self.is_fully_identified
+    def is_identified(self) -> bool:
+        return not self.is_unidentified
 
     @property
     def is_fully_identified(self) -> bool:
@@ -325,6 +329,7 @@ class Rom(BaseModel):
             and bool(self.moby_id)
             and bool(self.ss_id)
             and bool(self.ra_id)
+            and bool(self.launchbox_id)
         )
 
     def has_m3u_file(self) -> bool:

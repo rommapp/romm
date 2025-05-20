@@ -31,6 +31,8 @@ class PlatformSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
     fs_size_bytes: int
+    is_unidentified: bool
+    is_identified: bool
 
     class Config:
         from_attributes = True

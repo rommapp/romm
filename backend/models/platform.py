@@ -53,6 +53,18 @@ class Platform(BaseModel):
     def __repr__(self) -> str:
         return self.name
 
+    @property
+    def is_unidentified(self) -> bool:
+        return not self.igdb_id and not self.moby_id and not self.ss_id
+
+    @property
+    def is_identified(self) -> bool:
+        return not self.is_unidentified
+
+    @property
+    def is_fully_identified(self) -> bool:
+        return bool(self.igdb_id) and bool(self.moby_id) and bool(self.ss_id)
+
     @cached_property
     def fs_size_bytes(self) -> int:
         from handler.database import db_stats_handler

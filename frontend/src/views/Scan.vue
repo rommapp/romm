@@ -357,7 +357,7 @@ async function stopScan() {
                 >
                   <template #append-body>
                     <v-chip
-                      v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
+                      v-if="rom.is_unidentified"
                       color="red"
                       size="x-small"
                       label

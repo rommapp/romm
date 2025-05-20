@@ -292,11 +292,7 @@ watch(
           </div>
         </div>
         <v-row
-          v-if="
-            currentPlatform.igdb_id ||
-            currentPlatform.moby_id ||
-            currentPlatform.ss_id
-          "
+          v-if="currentPlatform.is_identified"
           class="text-white text-shadow mt-2 text-center"
           no-gutters
         >
