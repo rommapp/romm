@@ -1,4 +1,5 @@
 from .igdb_handler import IGDBHandler
+from .launchbox_handler import LaunchboxHandler
 from .moby_handler import MobyGamesHandler
 from .ra_handler import RAHandler
 from .sgdb_handler import SGDBBaseHandler
@@ -9,3 +10,4 @@ meta_moby_handler = MobyGamesHandler()
 meta_ss_handler = SSHandler()
 meta_sgdb_handler = SGDBBaseHandler()
 meta_ra_handler = RAHandler()
+meta_launchbox_handler = LaunchboxHandler()

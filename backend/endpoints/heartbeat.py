@@ -18,6 +18,7 @@ from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
+from handler.metadata.launchbox_handler import LAUNCHBOX_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.metadata.ra_handler import RA_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
@@ -47,11 +48,13 @@ def heartbeat() -> HeartbeatResponse:
             "ANY_SOURCE_ENABLED": IGDB_API_ENABLED
             or SS_API_ENABLED
             or MOBY_API_ENABLED
-            or RA_API_ENABLED,
+            or RA_API_ENABLED
+            or LAUNCHBOX_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
+            "LAUNCHBOX_ENABLED": LAUNCHBOX_API_ENABLED,
             "RA_ENABLED": RA_API_ENABLED,
         },
         "FILESYSTEM": {
