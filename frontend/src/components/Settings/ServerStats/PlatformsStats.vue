@@ -63,8 +63,8 @@ function idToHexColor(id: number): string {
             getPercentage(platform.fs_size_bytes, props.total_filesize)
           "
           rounded
-          :color="idToHexColor(platform.id)"
-          height="10"
+          color="primary"
+          height="8"
         />
       </div>
     </v-card-text>

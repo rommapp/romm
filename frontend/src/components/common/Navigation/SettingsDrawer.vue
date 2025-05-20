@@ -123,6 +123,18 @@ async function logout() {
         append-icon="mdi-server"
         >{{ t("common.server-stats") }}
       </v-list-item>
+      <v-list-item
+        v-if="auth.user?.role === 'admin'"
+        class="mt-1"
+        rounded
+        @click="
+          () => {
+            /* TODO: Show about dialog */
+          }
+        "
+        append-icon="mdi-help-circle-outline"
+        >{{ t("common.about") }}
+      </v-list-item>
     </v-list>
     <template v-if="scopes.includes('me.write')" #append>
       <v-btn
