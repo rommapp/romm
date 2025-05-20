@@ -178,7 +178,7 @@ def get_roms(
         favourites_only (bool, optional): Filter only favourite roms. Defaults to False.
         duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False.
         playables_only (bool, optional): Filter only playable roms by emulatorjs. Defaults to False.
-        group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf ID. Defaults to False.
+        group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf/launchbox ID. Defaults to False.
         selected_genre (str, optional): Filter by genre. Defaults to None.
         selected_franchise (str, optional): Filter by franchise. Defaults to None.
         selected_collection (str, optional): Filter by collection. Defaults to None.
@@ -524,6 +524,7 @@ async def update_rom(
                 "moby_id": None,
                 "ss_id": None,
                 "ra_id": None,
+                "launchbox_id": None,
                 "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
@@ -537,6 +538,7 @@ async def update_rom(
                 "moby_metadata": {},
                 "ss_metadata": {},
                 "ra_metadata": {},
+                "launchbox_metadata": {},
                 "revision": "",
             },
         )
@@ -551,6 +553,7 @@ async def update_rom(
         "igdb_id": data.get("igdb_id", rom.igdb_id),
         "moby_id": data.get("moby_id", rom.moby_id),
         "ss_id": data.get("ss_id", rom.ss_id),
+        "launchbox_id": data.get("launchbox_id", rom.launchbox_id),
     }
 
     if (

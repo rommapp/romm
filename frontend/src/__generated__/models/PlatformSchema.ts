@@ -27,6 +27,8 @@ export type PlatformSchema = {
     created_at: string;
     updated_at: string;
     fs_size_bytes: number;
+    is_unidentified: boolean;
+    is_identified: boolean;
     readonly display_name: string;
 };
 
