@@ -41,6 +41,7 @@ const defaultHeartbeat: Heartbeat = {
     MOBY_API_ENABLED: false,
     RA_ENABLED: false,
     STEAMGRIDDB_ENABLED: false,
+    LAUNCHBOX_ENABLED: false,
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],

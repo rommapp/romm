@@ -1,7 +1,6 @@
 import json
 import zipfile
 from io import BytesIO
-from itertools import batched
 from typing import Final
 
 from config import (
@@ -19,6 +18,7 @@ LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final = "romm:launchbox_metadata_database_id
 LAUNCHBOX_METADATA_NAME_KEY: Final = "romm:launchbox_metadata_name"
 LAUNCHBOX_METADATA_IMAGE_KEY: Final = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final = "romm:launchbox_mame"
+LAUNCHBOX_FILES_KEY: Final = "romm:launchbox_files"
 
 
 class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
@@ -134,6 +134,33 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                         ):
                                             await pipe.hset(
                                                 LAUNCHBOX_MAME_KEY,
+                                                mapping={
+                                                    filename_elem.text: json.dumps(
+                                                        {
+                                                            child.tag: child.text
+                                                            for child in elem
+                                                        }
+                                                    )
+                                                },
+                                            )
+
+                                        elem.clear()
+                                await pipe.execute()
+
+                    elif file == "Files.xml":
+                        with z.open(file, "r") as f:
+                            async with async_cache.pipeline() as pipe:
+                                ctx = ET.iterparse(f, events=("end",))
+
+                                for _, elem in ctx:
+                                    if elem.tag == "File":
+                                        filename_elem = elem.find("FileName")
+                                        if (
+                                            filename_elem is not None
+                                            and filename_elem.text
+                                        ):
+                                            await pipe.hset(
+                                                LAUNCHBOX_FILES_KEY,
                                                 mapping={
                                                     filename_elem.text: json.dumps(
                                                         {
