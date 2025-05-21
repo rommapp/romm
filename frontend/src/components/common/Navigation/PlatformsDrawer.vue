@@ -132,6 +132,7 @@ function onClose() {
                 :tabindex="tabIndex"
                 role="listitem"
                 :aria-label="`${platform.display_name} with ${platform.rom_count} games`"
+                withLink
               />
             </v-list>
           </v-expansion-panel-text>
@@ -147,6 +148,7 @@ function onClose() {
           :tabindex="tabIndex"
           role="listitem"
           :aria-label="`${platform.display_name} with ${platform.rom_count} games`"
+          withLink
         />
       </v-list>
     </template>
