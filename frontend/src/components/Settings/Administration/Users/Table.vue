@@ -96,8 +96,9 @@ onMounted(() => {
         single-line
         hide-details
         clearable
+        rounded="0"
         density="comfortable"
-        class="bg-surface mt-2"
+        class="bg-surface"
       />
       <v-data-table-virtual
         :style="{ 'max-height': '40dvh' }"
@@ -107,6 +108,8 @@ onMounted(() => {
         :sort-by="[{ key: 'username', order: 'asc' }]"
         fixed-header
         fixed-footer
+        density="comfortable"
+        class="rounded bg-background"
         hide-default-footer
       >
         <template #header.actions>

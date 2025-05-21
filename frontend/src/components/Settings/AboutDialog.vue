@@ -30,12 +30,7 @@ function closeDialog() {
     width="550px"
   >
     <template #content>
-      <v-row no-gutters class="px-8 pt-4">
-        <v-col cols="12">
-          <span class="text-h6">{{ t("common.about") }} RomM</span>
-        </v-col>
-      </v-row>
-      <v-row class="align-center px-4" no-gutters>
+      <v-row class="align-center pa-4" no-gutters>
         <v-col class="pa-4" cols="6">
           <r-isotipo class="mr-2 mb-1" :size="20" /><span>RomM version</span>
           <v-divider class="my-2" />

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { formatBytes } from "@/utils";
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
+import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
 import { ref, computed } from "vue";
@@ -40,15 +41,17 @@ function getPlatformPercentage(
 </script>
 
 <template>
-  <v-card class="pa-2">
-    <v-card-title class="text-h6 text-truncate mb-2">
-      <v-icon class="mr-2">mdi-harddisk</v-icon>
-      {{ t("common.platforms-size") }}
-    </v-card-title>
-    <v-divider class="mb-3"></v-divider>
-    <v-card-text class="pa-0">
+  <r-section
+    icon="mdi-harddisk"
+    :title="t('common.platforms-size')"
+    elevation="0"
+    titleDivider
+    bgColor="bg-background"
+    class="mx-2"
+  >
+    <template #content>
       <v-row no-gutters>
-        <v-col class="pa-2" cols="12">
+        <v-col class="pa-4" cols="12">
           <v-select
             v-model="orderBy"
             :items="[
@@ -101,6 +104,6 @@ function getPlatformPercentage(
           />
         </v-col>
       </v-row>
-    </v-card-text>
-  </v-card>
+    </template>
+  </r-section>
 </template>
