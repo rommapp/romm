@@ -1,6 +1,5 @@
 from decorators.database import begin_session
 from models.assets import Save, Screenshot, State
-from models.platform import Platform
 from models.rom import Rom, RomFile
 from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
