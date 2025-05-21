@@ -87,7 +87,7 @@ const activeMenu = ref(false);
 const showActionBarAlways = isNull(
   localStorage.getItem("settings.showActionBar"),
 )
-  ? true
+  ? false
   : localStorage.getItem("settings.showActionBar") === "true";
 </script>
 
