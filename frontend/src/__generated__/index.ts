@@ -6,6 +6,7 @@
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
 export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
 export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firmware_api_firmware_post';
+export type { Body_create_user_from_invite_api_users_register_post } from './models/Body_create_user_from_invite_api_users_register_post';
 export type { Body_request_password_reset_api_forgot_password_post } from './models/Body_request_password_reset_api_forgot_password_post';
 export type { Body_reset_password_api_reset_password_post } from './models/Body_reset_password_api_reset_password_post';
 export type { Body_token_api_token_post } from './models/Body_token_api_token_post';
