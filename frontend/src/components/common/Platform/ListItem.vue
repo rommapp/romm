@@ -4,14 +4,28 @@ import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 
 // Props
-withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
-  rail: false,
-});
+withDefaults(
+  defineProps<{
+    platform: Platform;
+    withLink?: boolean;
+    showRomCount?: boolean;
+  }>(),
+  {
+    withLink: false,
+    showRomCount: true,
+  },
+);
 </script>
 
 <template>
   <v-list-item
-    :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
+    v-bind="{
+      ...(withLink
+        ? {
+            to: { name: ROUTES.PLATFORM, params: { platform: platform.id } },
+          }
+        : {}),
+    }"
     :value="platform.slug"
     rounded
     density="compact"
@@ -52,7 +66,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
         <span class="text-caption text-grey">{{ platform.fs_slug }}</span>
       </v-col>
     </v-row>
-    <template #append>
+    <template v-if="showRomCount" #append>
       <v-chip class="ml-2" size="x-small" label>
         {{ platform.rom_count }}
       </v-chip>

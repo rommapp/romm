@@ -1,4 +1,3 @@
-// Composables
 import {
   createRouter,
   createWebHistory,
@@ -30,6 +29,7 @@ export const ROUTES = {
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
   ADMINISTRATION: "administration",
+  SERVER_STATS: "server-stats",
   NOT_FOUND: "404",
 } as const;
 
@@ -161,59 +161,28 @@ const routes = [
       },
       {
         path: "user/:user",
-        component: () => import("@/layouts/Settings.vue"),
-        children: [
-          {
-            path: "",
-            name: ROUTES.USER_PROFILE,
-            meta: {
-              title: "Profile",
-            },
-            component: () => import("@/views/Settings/UserProfile.vue"),
-          },
-        ],
+        name: ROUTES.USER_PROFILE,
+        component: () => import("@/views/Settings/UserProfile.vue"),
       },
       {
         path: "user-interface",
-        component: () => import("@/layouts/Settings.vue"),
-        children: [
-          {
-            path: "",
-            name: ROUTES.USER_INTERFACE,
-            meta: {
-              title: "User Interface",
-            },
-            component: () => import("@/views/Settings/UserInterface.vue"),
-          },
-        ],
+        name: ROUTES.USER_INTERFACE,
+        component: () => import("@/views/Settings/UserInterface.vue"),
       },
       {
         path: "library-management",
-        component: () => import("@/layouts/Settings.vue"),
-        children: [
-          {
-            path: "",
-            name: ROUTES.LIBRARY_MANAGEMENT,
-            meta: {
-              title: "Library Management",
-            },
-            component: () => import("@/views/Settings/LibraryManagement.vue"),
-          },
-        ],
+        name: ROUTES.LIBRARY_MANAGEMENT,
+        component: () => import("@/views/Settings/LibraryManagement.vue"),
       },
       {
         path: "administration",
-        component: () => import("@/layouts/Settings.vue"),
-        children: [
-          {
-            path: "",
-            name: ROUTES.ADMINISTRATION,
-            meta: {
-              title: "Administration",
-            },
-            component: () => import("@/views/Settings/Administration.vue"),
-          },
-        ],
+        name: ROUTES.ADMINISTRATION,
+        component: () => import("@/views/Settings/Administration.vue"),
+      },
+      {
+        path: "server-stats",
+        name: ROUTES.SERVER_STATS,
+        component: () => import("@/views/Settings/ServerStats.vue"),
       },
       {
         path: ":pathMatch(.*)*",
