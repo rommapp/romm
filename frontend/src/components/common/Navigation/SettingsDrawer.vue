@@ -147,18 +147,24 @@ function onClose() {
       </v-list-item>
       <v-list-item
         v-if="auth.user?.role === 'admin'"
+        :tabindex="tabIndex"
         class="mt-1"
         rounded
         :to="{ name: ROUTES.SERVER_STATS }"
         append-icon="mdi-server"
+        aria-label="Server Stats"
+        role="listitem"
         >{{ t("common.server-stats") }}
       </v-list-item>
       <v-list-item
         v-if="auth.user?.role === 'admin'"
+        :tabindex="tabIndex"
         class="mt-1"
         rounded
         @click="emitter?.emit('showAboutDialog')"
         append-icon="mdi-help-circle-outline"
+        aria-label="About"
+        role="listitem"
         >{{ t("common.about") }}
       </v-list-item>
     </v-list>
