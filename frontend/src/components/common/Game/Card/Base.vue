@@ -11,8 +11,10 @@ import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
+import { isNull } from "lodash";
+import { useDisplay } from "vuetify";
 
 // Props
 const props = withDefaults(
@@ -27,6 +29,7 @@ const props = withDefaults(
     pointerOnHover?: boolean;
     titleOnFooter?: boolean;
     showActionBar?: boolean;
+    sizeActionBar?: number;
     showPlatformIcon?: boolean;
     showFav?: boolean;
     withBorderPrimary?: boolean;
@@ -44,6 +47,7 @@ const props = withDefaults(
     pointerOnHover: false,
     titleOnFooter: false,
     showActionBar: false,
+    sizeActionBar: 0,
     showPlatformIcon: false,
     showFav: false,
     withBorderPrimary: false,
@@ -52,7 +56,8 @@ const props = withDefaults(
     src: "",
   },
 );
-const platfotmsStore = storePlatforms();
+const { smAndDown } = useDisplay();
+const platformsStore = storePlatforms();
 const romsStore = storeRoms();
 const emit = defineEmits(["click", "touchstart", "touchend"]);
 const handleClick = (event: MouseEvent) => {
@@ -73,7 +78,7 @@ const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
   const ratio =
     props.aspectRatio ||
-    platfotmsStore.getAspectRatio(props.rom.platform_id) ||
+    platformsStore.getAspectRatio(props.rom.platform_id) ||
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
@@ -82,10 +87,16 @@ const fallbackCoverImage = computed(() =>
     ? getMissingCoverImage(props.rom.name || props.rom.slug || "")
     : getUnmatchedCoverImage(props.rom.name || props.rom.slug || ""),
 );
+const activeMenu = ref(false);
+const showActionBarAlways = isNull(
+  localStorage.getItem("settings.showActionBar"),
+)
+  ? false
+  : localStorage.getItem("settings.showActionBar") === "true";
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props: hoverProps }">
+  <v-hover v-slot="{ isHovering: isOuterHovering, props: hoverProps }">
     <v-card
       :style="
         disableViewTransition ? {} : { viewTransitionName: `card-${rom.id}` }
@@ -104,11 +115,12 @@ const fallbackCoverImage = computed(() =>
       }"
       class="bg-transparent"
       :class="{
-        'on-hover': isHovering,
+        'on-hover': isOuterHovering,
         'border-selected': withBorderPrimary,
         'transform-scale': transformScale,
       }"
-      :elevation="isHovering && transformScale ? 20 : 3"
+      :elevation="isOuterHovering && transformScale ? 20 : 3"
+      :aria-label="`${rom.name} game card`"
     >
       <v-card-text class="pa-0">
         <v-progress-linear
@@ -161,9 +173,14 @@ const fallbackCoverImage = computed(() =>
                         !rom.moby_url_cover &&
                         !rom.ss_url_cover)
                     "
-                    class="translucent-dark text-caption text-white"
+                    class="translucent-dark text-white"
+                    :class="
+                      sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
+                    "
                   >
-                    <v-list-item>{{ rom.name }}</v-list-item>
+                    <div :class="{ 'pa-2': sizeActionBar === 1 }">
+                      <v-list-item>{{ rom.name }}</v-list-item>
+                    </div>
                   </div>
                 </v-expand-transition>
               </template>
@@ -194,7 +211,7 @@ const fallbackCoverImage = computed(() =>
                   collectionsStore.isFav(rom) &&
                   showFav
                 "
-                @click.stop=""
+                tabindex="-1"
                 class="label-fav"
                 rouded="0"
                 size="small"
@@ -235,6 +252,22 @@ const fallbackCoverImage = computed(() =>
                 />
               </div>
             </template>
+            <v-expand-transition>
+              <action-bar
+                v-if="
+                  showActionBar &&
+                  !showActionBarAlways &&
+                  (isOuterHovering || activeMenu) &&
+                  romsStore.isSimpleRom(rom) &&
+                  !smAndDown
+                "
+                class="position-absolute append-inner translucent-dark"
+                @menu-open="activeMenu = true"
+                @menu-close="activeMenu = false"
+                :rom="rom"
+                :sizeActionBar="sizeActionBar"
+              />
+            </v-expand-transition>
           </v-img>
         </v-hover>
         <v-row v-if="titleOnFooter" class="pa-1 align-center">
@@ -245,8 +278,13 @@ const fallbackCoverImage = computed(() =>
       </v-card-text>
       <slot name="footer"></slot>
       <action-bar
-        v-if="showActionBar && romsStore.isSimpleRom(rom)"
+        v-if="
+          (smAndDown || showActionBarAlways) &&
+          showActionBar &&
+          romsStore.isSimpleRom(rom)
+        "
         :rom="rom"
+        :sizeActionBar="sizeActionBar"
       />
     </v-card>
   </v-hover>
@@ -276,6 +314,11 @@ const fallbackCoverImage = computed(() =>
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
+}
+.append-inner {
+  bottom: 0rem;
+  left: 0rem;
+  right: 0rem;
 }
 .append-inner-left {
   bottom: 0rem;

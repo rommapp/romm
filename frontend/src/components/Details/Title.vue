@@ -151,7 +151,7 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
           :class="{ 'ml-1': rom.igdb_id || rom.ss_id || rom.moby_id }"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
-            <v-avatar class="mr-2" size="30" rounded="0">
+            <v-avatar class="mr-2" size="30" rounded="1">
               <v-img src="/assets/scrappers/ra.png" />
             </v-avatar>
             <span>{{ rom.ra_id }}</span>

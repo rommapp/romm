@@ -190,6 +190,10 @@ onMounted(async () => {
   });
   rom.value = romResponse.data;
 
+  if (rom.value) {
+    document.title = `${rom.value.name} | Play`;
+  }
+
   const firmwareResponse = await firmwareApi.getFirmware({
     platformId: romResponse.data.platform_id,
   });

@@ -118,7 +118,7 @@ onMounted(() => {
           <empty-game v-if="emptyStateType == 'game'" />
           <empty-platform v-else-if="emptyStateType == 'platform'" />
           <empty-firmware v-else-if="emptyStateType == 'firmware'" />
-          <slot v-else name="emptyState"></slot>
+          <slot v-else name="empty-state"></slot>
         </v-row>
 
         <slot
