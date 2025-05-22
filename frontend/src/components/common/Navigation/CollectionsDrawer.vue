@@ -99,7 +99,6 @@ function onClose() {
       'ml-2': (mdAndUp && activeCollectionsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
       'unset-height': mdAndUp,
-      'max-h-70': smAndDown && activeCollectionsDrawer,
     }"
     class="bg-surface pa-1"
     rounded

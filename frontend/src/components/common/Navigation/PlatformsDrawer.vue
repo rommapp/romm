@@ -81,7 +81,6 @@ function onClose() {
       'ml-2': (mdAndUp && activePlatformsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
       'unset-height': mdAndUp,
-      'max-h-70': smAndDown && activePlatformsDrawer,
     }"
     class="bg-surface pa-1"
     rounded
