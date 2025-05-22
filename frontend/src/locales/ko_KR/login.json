@@ -10,5 +10,7 @@
   "new-password": "새 비밀번호",
   "confirm-new-password": "새 비밀번호 확인",
   "reset-password": "비밀번호 재설정",
-  "back-to-login": "로그인으로 돌아가기"
+  "back-to-login": "로그인으로 돌아가기",
+  "setup-wizard": "설정 마법사",
+  "register": "등록"
 }
