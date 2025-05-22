@@ -18,7 +18,7 @@ import { computed, inject, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 
 // Props
-const props = defineProps<{ rom: SimpleRom }>();
+const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
 const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
@@ -61,7 +61,7 @@ watch(menuOpen, (val) => {
     <v-col class="d-flex">
       <v-btn
         class="action-bar-btn-small flex-grow-1"
-        size="x-small"
+        :size="sizeActionBar === 1 ? 'large' : 'x-small'"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
         variant="text"
@@ -78,7 +78,7 @@ watch(menuOpen, (val) => {
         v-if="ejsEmulationSupported"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        size="x-small"
+        :size="sizeActionBar === 1 ? 'large' : 'x-small'"
         @click="
           $router.push({
             name: ROUTES.EMULATORJS,
@@ -94,7 +94,7 @@ watch(menuOpen, (val) => {
         v-if="ruffleEmulationSupported"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        size="x-small"
+        :size="sizeActionBar === 1 ? 'large' : 'x-small'"
         @click="
           $router.push({
             name: ROUTES.RUFFLE,
@@ -111,7 +111,7 @@ watch(menuOpen, (val) => {
       <v-btn
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        size="x-small"
+        :size="sizeActionBar === 1 ? 'large' : 'x-small'"
         @click="emitter?.emit('showQRCodeDialog', rom)"
         icon="mdi-qrcode"
         variant="text"
@@ -132,7 +132,7 @@ watch(menuOpen, (val) => {
           <v-btn
             @click.prevent
             class="action-bar-btn-small flex-grow-1"
-            size="x-small"
+            :size="sizeActionBar === 1 ? 'large' : 'x-small'"
             v-bind="props"
             icon="mdi-dots-vertical"
             variant="text"
@@ -148,7 +148,7 @@ watch(menuOpen, (val) => {
 
 <style scoped>
 .action-bar-btn-small {
-  max-height: 30px;
+  max-height: 250px;
   width: unset;
 }
 </style>

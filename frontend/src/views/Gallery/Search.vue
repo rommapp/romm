@@ -175,6 +175,7 @@ onBeforeUnmount(() => {
             :withBorderPrimary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
+            :sizeActionBar="currentView"
             @click="onGameClick"
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
