@@ -10,5 +10,7 @@
   "new-password": "New password",
   "confirm-new-password": "Confirm new password",
   "reset-password": "Reset password",
-  "back-to-login": "Back to login"
+  "back-to-login": "Back to login",
+  "setup-wizard": "Setup wizard",
+  "register": "Register"
 }

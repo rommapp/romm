@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import storeNavigation from "@/stores/navigation";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
@@ -9,6 +8,7 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 
 // Props
 withDefaults(
@@ -25,6 +25,7 @@ withDefaults(
     withTag: false,
   },
 );
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -140,7 +141,7 @@ onBeforeUnmount(() => {
           v-if="withTag"
           class="text-caption"
           :class="{ 'text-primary': $route.name == 'scan' }"
-          >Scan</span
+          >{{ t("scan.scan") }}</span
         >
       </v-expand-transition>
     </div>
