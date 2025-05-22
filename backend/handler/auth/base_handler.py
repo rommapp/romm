@@ -317,14 +317,14 @@ class OpenIDHandler:
                 "User with email '%s' not found, creating new user",
                 hl(email, color=CYAN),
             )
-            user = User(
+            new_user = User(
                 username=preferred_username,
                 hashed_password=str(uuid.uuid4()),
                 email=email,
                 enabled=True,
                 role=Role.VIEWER,
             )
-            db_user_handler.add_user(user)
+            user = db_user_handler.add_user(new_user)
 
         if not user.enabled:
             raise UserDisabledException
