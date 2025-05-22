@@ -72,6 +72,9 @@ function editUser() {
 
 onMounted(() => {
   userToEdit.value = { ...user.value, password: "", avatar: undefined };
+  if (userToEdit.value) {
+    document.title = `${userToEdit.value.username} | Profile`;
+  }
 });
 
 onUnmounted(() => {
