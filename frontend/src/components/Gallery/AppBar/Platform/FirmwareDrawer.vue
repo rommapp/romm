@@ -65,6 +65,7 @@ function deleteSelectedFirmware() {
     :style="{
       width: calculatedWidth,
     }"
+    tabindex="-1"
   >
     <v-data-table-virtual
       :items="currentPlatform?.firmware ?? []"
@@ -73,6 +74,7 @@ function deleteSelectedFirmware() {
       v-model="selectedFirmware"
       return-object
       show-select
+      tabindex="-1"
     >
       <template #header.actions>
         <v-btn-group tabindex="-1" divided density="compact">
