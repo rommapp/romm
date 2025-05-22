@@ -240,6 +240,7 @@ watch(
             </template>
           </div>
           <platform-icon
+            tabindex="-1"
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
             :fs-slug="currentPlatform.fs_slug"
@@ -382,8 +383,8 @@ watch(
           <v-card-text class="pa-4 d-flex flex-wrap ga-2">
             <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
               <div>
-                <v-chip :tabindex="tabIndex" size="small" class="px-0" label>
-                  <v-chip label>{{ field.label }}</v-chip>
+                <v-chip tabindex="-1" size="small" class="px-0" label>
+                  <v-chip :tabindex="tabIndex" label>{{ field.label }}</v-chip>
                   <span class="px-2">{{
                     field.format(currentPlatform[field.key]) || "N/A"
                   }}</span>
