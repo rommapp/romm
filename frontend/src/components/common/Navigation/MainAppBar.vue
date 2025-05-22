@@ -75,13 +75,15 @@ function collapse() {
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">
-        <home-btn />
+        <home-btn aria-label="Home" tabindex="1" />
       </v-row>
     </template>
 
     <v-row no-gutters class="justify-center mt-10">
       <v-divider class="mx-2" />
       <v-btn
+        aria-label="Collapse main navbar"
+        tabindex="2"
         @click="collapse"
         id="collapseBtn"
         size="small"
@@ -96,15 +98,45 @@ function collapse() {
         }}</v-icon></v-btn
       >
     </v-row>
-    <search-btn :withTag="!mainBarCollapsed" rounded class="mt-4" block />
-    <platforms-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
-    <collections-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
-    <scan-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
-    <upload-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
+    <search-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-4"
+      block
+      tabindex="3"
+    />
+    <platforms-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="4"
+    />
+    <collections-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="5"
+    />
+    <scan-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="6"
+    />
+    <upload-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="7"
+    />
 
     <template #append>
       <v-row no-gutters class="my-2 justify-center">
-        <user-btn />
+        <user-btn tabindex="8" aria-label="Settings menu" />
       </v-row>
     </template>
   </v-navigation-drawer>

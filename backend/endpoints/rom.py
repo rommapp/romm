@@ -714,7 +714,7 @@ async def add_rom_manuals(request: Request, id: int):
 
     manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
     file_location = Path(f"{manuals_path}/{rom.id}.pdf")
-    log.info(f"Uploading {hl(file_location)}")
+    log.info(f"Uploading {hl(str(file_location))}")
 
     if not os.path.exists(manuals_path):
         await Path(manuals_path).mkdir(parents=True, exist_ok=True)
@@ -778,7 +778,7 @@ async def delete_roms(
             raise RomNotFoundInDatabaseException(id)
 
         log.info(
-            f"Deleting {hl(rom.name, color=BLUE)} [{hl(rom.fs_name)}] from database"
+            f"Deleting {hl(str(rom.name), color=BLUE)} [{hl(rom.fs_name)}] from database"
         )
         db_rom_handler.delete_rom(id)
 
@@ -786,7 +786,7 @@ async def delete_roms(
             rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
         except FileNotFoundError:
             log.error(
-                f"Couldn't find resources to delete for {hl(rom.name, color=BLUE)}"
+                f"Couldn't find resources to delete for {hl(str(rom.name), color=BLUE)}"
             )
 
         if id in delete_from_fs:

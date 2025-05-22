@@ -79,6 +79,7 @@ onBeforeMount(async () => {
     if (currentPlatform && currentPlatform != romsStore.currentPlatform) {
       romsStore.setCurrentPlatform(currentPlatform);
     }
+    document.title = `${currentRom.value.name} | ${currentRom.value.platform_display_name}`;
   }
 
   const downloadStore = storeDownload();

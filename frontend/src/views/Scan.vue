@@ -9,14 +9,12 @@ import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
-import storeAuth from "@/stores/auth";
 import { useI18n } from "vue-i18n";
 
 // Props
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
-const auth = storeAuth();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();

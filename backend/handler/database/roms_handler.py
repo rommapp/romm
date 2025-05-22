@@ -475,7 +475,9 @@ class DBRomsHandler(DBBaseHandler):
         if selected_status and user_id:
             query = self.filter_by_status(query, selected_status)
         elif user_id:
-            query = query.filter(RomUser.hidden.is_(False))
+            query = query.filter(
+                or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
+            )
 
         return query
 

@@ -79,6 +79,7 @@ async function copyDownloadLink(rom: DetailedRom) {
             fileIDs: downloadStore.fileIDsToDownload,
           })
         "
+        :aria-label="`Download ${rom.name}`"
       >
         <v-tooltip
           activator="parent"
@@ -89,7 +90,11 @@ async function copyDownloadLink(rom: DetailedRom) {
         >
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
-      <v-btn class="flex-grow-1" @click="copyDownloadLink(rom)">
+      <v-btn
+        :aria-label="`Copy download link ${rom.name}`"
+        class="flex-grow-1"
+        @click="copyDownloadLink(rom)"
+      >
         <v-tooltip
           activator="parent"
           location="top"
@@ -108,6 +113,7 @@ async function copyDownloadLink(rom: DetailedRom) {
             params: { rom: rom?.id },
           })
         "
+        :aria-label="`Play ${rom.name}`"
       >
         <v-icon :icon="playInfoIcon" />
       </v-btn>
@@ -120,6 +126,7 @@ async function copyDownloadLink(rom: DetailedRom) {
             params: { rom: rom?.id },
           })
         "
+        :aria-label="`Play ${rom.name}`"
       >
         <v-icon :icon="playInfoIcon" />
       </v-btn>
@@ -127,6 +134,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         v-if="is3DSRom"
         class="flex-grow-1"
         @click="emitter?.emit('showQRCodeDialog', rom)"
+        :aria-label="`Show ${rom.name} QR code`"
       >
         <v-icon :icon="qrCodeIcon" />
       </v-btn>
@@ -139,7 +147,11 @@ async function copyDownloadLink(rom: DetailedRom) {
         location="bottom"
       >
         <template #activator="{ props: menuProps }">
-          <v-btn class="flex-grow-1" v-bind="menuProps">
+          <v-btn
+            :aria-label="`${rom.name} admin menu`"
+            class="flex-grow-1"
+            v-bind="menuProps"
+          >
             <v-icon icon="mdi-dots-vertical" size="large" />
           </v-btn>
         </template>
