@@ -27,6 +27,10 @@ const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const auth = storeAuth();
 
+const computedSize = computed(() => {
+  return props.sizeActionBar === 1 ? "small" : "x-small";
+});
+
 const platformSlug = computed(() => {
   return props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
     ? config.value.PLATFORMS_VERSIONS[props.rom.platform_slug]
@@ -61,7 +65,7 @@ watch(menuOpen, (val) => {
     <v-col class="d-flex">
       <v-btn
         class="action-bar-btn-small flex-grow-1"
-        :size="sizeActionBar === 1 ? 'large' : 'x-small'"
+        :size="computedSize"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
         variant="text"
@@ -78,7 +82,7 @@ watch(menuOpen, (val) => {
         v-if="ejsEmulationSupported"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        :size="sizeActionBar === 1 ? 'large' : 'x-small'"
+        :size="computedSize"
         @click="
           $router.push({
             name: ROUTES.EMULATORJS,
@@ -94,7 +98,7 @@ watch(menuOpen, (val) => {
         v-if="ruffleEmulationSupported"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        :size="sizeActionBar === 1 ? 'large' : 'x-small'"
+        :size="computedSize"
         @click="
           $router.push({
             name: ROUTES.RUFFLE,
@@ -111,7 +115,7 @@ watch(menuOpen, (val) => {
       <v-btn
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        :size="sizeActionBar === 1 ? 'large' : 'x-small'"
+        :size="computedSize"
         @click="emitter?.emit('showQRCodeDialog', rom)"
         icon="mdi-qrcode"
         variant="text"
@@ -132,7 +136,7 @@ watch(menuOpen, (val) => {
           <v-btn
             @click.prevent
             class="action-bar-btn-small flex-grow-1"
-            :size="sizeActionBar === 1 ? 'large' : 'x-small'"
+            :size="computedSize"
             v-bind="props"
             icon="mdi-dots-vertical"
             variant="text"

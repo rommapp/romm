@@ -134,7 +134,7 @@ function onClose() {
       <template
         v-if="showVirtualCollections && filteredVirtualCollections.length > 0"
       >
-        <v-divider class="my-4 mx-4" />
+        <v-divider v-if="filteredCollections.length > 0" class="my-4 mx-4" />
         <v-list-subheader
           role="listitem"
           :aria-label="t('common.virtual-collections')"
