@@ -28,6 +28,7 @@ const props = withDefaults(
     pointerOnHover?: boolean;
     titleOnFooter?: boolean;
     showActionBar?: boolean;
+    sizeActionBar?: number;
     showPlatformIcon?: boolean;
     showFav?: boolean;
     withBorderPrimary?: boolean;
@@ -45,6 +46,7 @@ const props = withDefaults(
     pointerOnHover: false,
     titleOnFooter: false,
     showActionBar: false,
+    sizeActionBar: 0,
     showPlatformIcon: false,
     showFav: false,
     withBorderPrimary: false,
@@ -53,7 +55,7 @@ const props = withDefaults(
     src: "",
   },
 );
-const platfotmsStore = storePlatforms();
+const platformsStore = storePlatforms();
 const romsStore = storeRoms();
 const emit = defineEmits(["click", "touchstart", "touchend"]);
 const handleClick = (event: MouseEvent) => {
@@ -74,7 +76,7 @@ const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
   const ratio =
     props.aspectRatio ||
-    platfotmsStore.getAspectRatio(props.rom.platform_id) ||
+    platformsStore.getAspectRatio(props.rom.platform_id) ||
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
@@ -169,9 +171,14 @@ const showActionBarAlways = isNull(
                         !rom.moby_url_cover &&
                         !rom.ss_url_cover)
                     "
-                    class="translucent-dark text-caption text-white"
+                    class="translucent-dark text-white"
+                    :class="
+                      sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
+                    "
                   >
-                    <v-list-item>{{ rom.name }}</v-list-item>
+                    <div :class="{ 'pa-2': sizeActionBar === 1 }">
+                      <v-list-item>{{ rom.name }}</v-list-item>
+                    </div>
                   </div>
                 </v-expand-transition>
               </template>
@@ -256,6 +263,7 @@ const showActionBarAlways = isNull(
                 @menu-open="activeMenu = true"
                 @menu-close="activeMenu = false"
                 :rom="rom"
+                :sizeActionBar="sizeActionBar"
               />
             </v-expand-transition>
           </v-img>
@@ -274,6 +282,7 @@ const showActionBarAlways = isNull(
           romsStore.isSimpleRom(rom)
         "
         :rom="rom"
+        :sizeActionBar="sizeActionBar"
       />
     </v-card>
   </v-hover>
