@@ -106,14 +106,21 @@ function onClose() {
       ></v-text-field>
     </template>
     <template v-if="groupedPlatforms">
-      <v-expansion-panels class="mt-2" multiple flat variant="accordion">
+      <v-expansion-panels
+        tabindex="-1"
+        class="mt-2"
+        multiple
+        flat
+        variant="accordion"
+      >
         <v-expansion-panel
           v-for="[group, platforms] in Object.entries(groupedPlatforms).sort(
             (a, b) => a[0].localeCompare(b[0]),
           )"
           :key="group"
+          tabindex="-1"
         >
-          <v-expansion-panel-title color="toplayer" static>
+          <v-expansion-panel-title :tabindex="tabIndex" color="toplayer" static>
             <!-- Specifically asked by Dan :P -->
             {{
               groupBy === "generation" && group !== "Other"
