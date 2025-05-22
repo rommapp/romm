@@ -10,5 +10,7 @@
   "new-password": "Parolă nouă",
   "confirm-new-password": "Confirmă parola nouă",
   "reset-password": "Resetează parola",
-  "back-to-login": "Înapoi la autentificare"
+  "back-to-login": "Înapoi la autentificare",
+  "setup-wizard": "Asistent de configurare",
+  "register": "Înregistrare"
 }
