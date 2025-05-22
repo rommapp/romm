@@ -52,11 +52,7 @@ const is3DSRom = computed(() => {
 const menuOpen = ref(false);
 
 watch(menuOpen, (val) => {
-  if (val) {
-    emit("menu-open");
-  } else {
-    emit("menu-close");
-  }
+  emit(val ? "menu-open" : "menu-close");
 });
 </script>
 
