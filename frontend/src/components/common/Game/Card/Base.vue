@@ -14,6 +14,7 @@ import { type SimpleRom } from "@/stores/roms";
 import { computed, ref } from "vue";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { isNull } from "lodash";
+import { useDisplay } from "vuetify";
 
 // Props
 const props = withDefaults(
@@ -55,6 +56,7 @@ const props = withDefaults(
     src: "",
   },
 );
+const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const romsStore = storeRoms();
 const emit = defineEmits(["click", "touchstart", "touchend"]);
@@ -257,7 +259,7 @@ const showActionBarAlways = isNull(
                   !showActionBarAlways &&
                   (isOuterHovering || activeMenu) &&
                   romsStore.isSimpleRom(rom) &&
-                  !$vuetify.display.mobile
+                  !smAndDown
                 "
                 class="position-absolute append-inner translucent-dark"
                 @menu-open="activeMenu = true"
@@ -277,7 +279,7 @@ const showActionBarAlways = isNull(
       <slot name="footer"></slot>
       <action-bar
         v-if="
-          ($vuetify.display.mobile || showActionBarAlways) &&
+          (smAndDown || showActionBarAlways) &&
           showActionBar &&
           romsStore.isSimpleRom(rom)
         "
