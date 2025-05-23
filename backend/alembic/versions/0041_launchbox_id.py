@@ -9,6 +9,7 @@ Create Date: 2025-05-20 22:39:16.993191
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
+from utils.database import CustomJSON
 
 revision = "0041_launchbox_id"
 down_revision = "0040_migrate_assets_paths"
@@ -19,6 +20,9 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
         batch_op.drop_column("ra_metadata")
+
+    with op.batch_alter_table("platforms", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("launchbox_id", sa.Integer(), nullable=True))
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("launchbox_id", sa.Integer(), nullable=True))
@@ -37,7 +41,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.drop_index("idx_roms_sgdb_id")
         batch_op.drop_index("idx_roms_ra_id")
@@ -45,12 +48,8 @@ def downgrade() -> None:
         batch_op.drop_column("launchbox_metadata")
         batch_op.drop_column("launchbox_id")
 
+    with op.batch_alter_table("platforms", schema=None) as batch_op:
+        batch_op.drop_column("launchbox_id")
+
     with op.batch_alter_table("rom_user", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "ra_metadata",
-                postgresql.JSONB(astext_type=sa.Text()),
-                autoincrement=False,
-                nullable=True,
-            )
-        )
+        batch_op.add_column(sa.Column("ra_metadata", CustomJSON(), nullable=True))

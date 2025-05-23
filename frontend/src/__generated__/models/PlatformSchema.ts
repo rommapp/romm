@@ -13,6 +13,7 @@ export type PlatformSchema = {
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
     moby_id?: (number | null);
+    launchbox_id?: (number | null);
     ss_id?: (number | null);
     ra_id?: (number | null);
     category?: (string | null);

@@ -90,17 +90,22 @@ class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
     async def calculate_hash(self, platform_id: int, file_path: str) -> str:
-        return ""
         log.debug(
             f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"
         )
         args = (str(platform_id), file_path)
-        proc = await asyncio.create_subprocess_exec(
-            "RAHasher",
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "RAHasher",
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            log.error("RAHasher executable not found in PATH")
+            return ""
+
         return_code = await proc.wait()
         if return_code != 1:
             if proc.stderr is not None:

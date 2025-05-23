@@ -255,12 +255,13 @@ async def _identify_platform(
         # Keep the existing ids if they exist on the platform
         scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
         scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
+        scanned_platform.launchbox_id = (
+            scanned_platform.launchbox_id or platform.launchbox_id
+        )
 
     scan_stats.scanned_platforms += 1
     scan_stats.added_platforms += 1 if not platform else 0
-    scan_stats.metadata_platforms += (
-        1 if scanned_platform.igdb_id or scanned_platform.moby_id else 0
-    )
+    scan_stats.metadata_platforms += 1 if scanned_platform.is_identified else 0
 
     platform = db_platform_handler.add_platform(scanned_platform)
 
@@ -461,9 +462,7 @@ async def _identify_rom(
 
     scan_stats.scanned_roms += 1
     scan_stats.added_roms += 1 if not rom else 0
-    scan_stats.metadata_roms += (
-        1 if scanned_rom.igdb_id or scanned_rom.moby_id or scanned_rom.ss_id else 0
-    )
+    scan_stats.metadata_roms += 1 if scanned_rom.is_identified else 0
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
