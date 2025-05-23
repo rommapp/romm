@@ -315,9 +315,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
               target="_blank"
-              :class="{
-                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
-              }"
+              class="ml-1"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
@@ -330,7 +328,7 @@ watch(
               v-if="currentPlatform.moby_id"
               style="text-decoration: none; color: inherit"
               target="_blank"
-              :class="{ 'ml-1': currentPlatform.igdb_id }"
+              class="ml-1"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
@@ -343,18 +341,26 @@ watch(
               v-if="currentPlatform.ra_id"
               style="text-decoration: none; color: inherit"
               target="_blank"
-              :class="{
-                'ml-1':
-                  currentPlatform.ra_id ||
-                  currentPlatform.ss_id ||
-                  currentPlatform.moby_id,
-              }"
+              class="ml-1"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="25" rounded="1">
                   <v-img src="/assets/scrappers/ra.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.ra_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.launchbox_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              class="ml-1"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="25" rounded="1">
+                  <v-img src="/assets/scrappers/launchbox.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.launchbox_id }}</span>
               </v-chip>
             </a>
           </v-col>

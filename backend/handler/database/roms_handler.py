@@ -191,6 +191,7 @@ class DBRomsHandler(DBBaseHandler):
                 Rom.igdb_id.is_(None),
                 Rom.moby_id.is_(None),
                 Rom.ss_id.is_(None),
+                Rom.launchbox_id.is_(None),
             )
         )
 
@@ -200,6 +201,7 @@ class DBRomsHandler(DBBaseHandler):
                 Rom.igdb_id.isnot(None),
                 Rom.moby_id.isnot(None),
                 Rom.ss_id.isnot(None),
+                Rom.launchbox_id.isnot(None),
             )
         )
 
@@ -405,6 +407,9 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
                     Rom.moby_id.isnot(None): build_func("moby", Rom.moby_id),
                     Rom.ss_id.isnot(None): build_func("ss", Rom.ss_id),
+                    Rom.launchbox_id.isnot(None): build_func(
+                        "launchbox", Rom.launchbox_id
+                    ),
                 },
                 else_=build_func("romm", Rom.id),
             )

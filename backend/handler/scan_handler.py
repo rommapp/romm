@@ -155,7 +155,7 @@ async def scan_platform(
     launchbox_platform = (
         meta_launchbox_handler.get_platform(platform_attrs["slug"])
         if MetadataSource.LB in metadata_sources
-        else LaunchboxPlatform(slug=platform_attrs["slug"])
+        else LaunchboxPlatform(launchbox_id=None, slug=platform_attrs["slug"])
     )
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
@@ -173,6 +173,7 @@ async def scan_platform(
         platform_attrs["igdb_id"]
         or platform_attrs["moby_id"]
         or platform_attrs["ss_id"]
+        or platform_attrs["launchbox_id"]
     ):
         log.info(
             emoji.emojize(
@@ -272,6 +273,7 @@ async def scan_rom(
                 "ss_id": rom.ss_id,
                 "sgdb_id": rom.sgdb_id,
                 "ra_id": rom.ra_id,
+                "launchbox_id": rom.launchbox_id,
                 "name": rom.name,
                 "slug": rom.slug,
                 "summary": rom.summary,
