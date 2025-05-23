@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DetailedRom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchievement";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
@@ -34,17 +34,21 @@ function toggleShowEarned() {
   }
 }
 
-function isAchievementEarned(achievement: RAGameRomAchievement) {
-  return earnedAchievements.value.some(
-    (earned) => earned.id === (achievement.badge_id ?? ""),
-  );
-}
+const isAchievementEarned = computed(
+  () => (achievement: RAGameRomAchievement) => {
+    return earnedAchievements.value.some(
+      (earned) => earned.id === (achievement.badge_id ?? ""),
+    );
+  },
+);
 
-function getAchievementEarnedDate(achievement: RAGameRomAchievement) {
-  return earnedAchievements.value.find(
-    (earned) => earned.id === (achievement.badge_id ?? ""),
-  )?.date;
-}
+const getAchievementEarnedDate = computed(
+  () => (achievement: RAGameRomAchievement) => {
+    return earnedAchievements.value.find(
+      (earned) => earned.id === (achievement.badge_id ?? ""),
+    )?.date;
+  },
+);
 
 onMounted(() => {
   filteredAchievements.value = (
