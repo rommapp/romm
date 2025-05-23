@@ -44,6 +44,7 @@ function toggleGridRecentRoms() {
         }"
         class="pa-1"
         no-gutters
+        style="overflow-y: hidden"
       >
         <v-col
           v-for="rom in recentRoms"
