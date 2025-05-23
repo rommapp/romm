@@ -43,15 +43,15 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
         <v-chip
           :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
-          {{ rom.platform_display_name }}
           <platform-icon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
             :name="rom.platform_name"
             :fs-slug="rom.platform_fs_slug"
             :size="30"
-            class="ml-2"
+            class="mr-2"
           />
+          {{ rom.platform_display_name }}
         </v-chip>
         <v-chip
           v-if="Number(rom.metadatum.first_release_date) > 0"
