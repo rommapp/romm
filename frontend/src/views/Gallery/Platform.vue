@@ -170,6 +170,7 @@ onMounted(async () => {
           ) {
             resetGallery();
             romsStore.setCurrentPlatform(platform);
+            document.title = `${platform.display_name}`;
             await fetchRoms();
           }
 
@@ -206,6 +207,7 @@ onBeforeRouteUpdate(async (to, from) => {
           platform
         ) {
           romsStore.setCurrentPlatform(platform);
+          document.title = `${platform.display_name}`;
           await fetchRoms();
         } else {
           noPlatformError.value = true;
@@ -256,6 +258,7 @@ onBeforeUnmount(() => {
               :withBorderPrimary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
+              :sizeActionBar="currentView"
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"

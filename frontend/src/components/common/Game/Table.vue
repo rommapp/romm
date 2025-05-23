@@ -56,7 +56,7 @@ const HEADERS = [
   {
     title: "Size",
     align: "start",
-    sortable: false,
+    sortable: true,
     key: "fs_size_bytes",
   },
   {

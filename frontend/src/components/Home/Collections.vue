@@ -25,7 +25,11 @@ function toggleGridCollections() {
 <template>
   <r-section icon="mdi-bookmark-box-multiple" :title="t('common.collections')">
     <template #toolbar-append>
-      <v-btn icon rounded="0" @click="toggleGridCollections"
+      <v-btn
+        aria-label="Toggle collections grid view"
+        icon
+        rounded="0"
+        @click="toggleGridCollections"
         ><v-icon>{{
           gridCollections ? "mdi-view-comfy" : "mdi-view-column"
         }}</v-icon>

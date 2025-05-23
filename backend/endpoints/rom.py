@@ -800,7 +800,7 @@ async def delete_roms(
             raise RomNotFoundInDatabaseException(id)
 
         log.info(
-            f"Deleting {hl(rom.name or 'ROM', color=BLUE)} [{hl(rom.fs_name)}] from database"
+            f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"
         )
         db_rom_handler.delete_rom(id)
 
@@ -808,7 +808,7 @@ async def delete_roms(
             rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
         except FileNotFoundError:
             log.error(
-                f"Couldn't find resources to delete for {hl(rom.name or 'ROM', color=BLUE)}"
+                f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
             )
 
         if id in delete_from_fs:

@@ -11,6 +11,7 @@ import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import navigationStore from "@/stores/navigation";
+import storePlaying from "@/stores/playing";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
@@ -18,6 +19,8 @@ import { useDisplay } from "vuetify";
 const { smAndDown } = useDisplay();
 const storeNavigation = navigationStore();
 const { mainBarCollapsed } = storeToRefs(storeNavigation);
+const playingStore = storePlaying();
+const { playing, fullScreen } = storeToRefs(playingStore);
 
 // Functions
 function collapse() {
@@ -30,7 +33,7 @@ function collapse() {
 </script>
 <template>
   <!-- Mobile top bar -->
-  <template v-if="smAndDown">
+  <template v-if="smAndDown && (!playing || (playing && !fullScreen))">
     <v-app-bar
       elevation="0"
       class="bg-background justify-center px-1"
@@ -63,7 +66,7 @@ function collapse() {
 
   <!-- Desktop app side bar -->
   <v-navigation-drawer
-    v-else
+    v-if="!smAndDown && (!playing || (playing && !fullScreen))"
     permanent
     rail
     :rail-width="mainBarCollapsed ? 60 : 100"
@@ -72,13 +75,15 @@ function collapse() {
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">
-        <home-btn />
+        <home-btn aria-label="Home" tabindex="1" />
       </v-row>
     </template>
 
     <v-row no-gutters class="justify-center mt-10">
       <v-divider class="mx-2" />
       <v-btn
+        aria-label="Collapse main navbar"
+        tabindex="2"
         @click="collapse"
         id="collapseBtn"
         size="small"
@@ -93,15 +98,45 @@ function collapse() {
         }}</v-icon></v-btn
       >
     </v-row>
-    <search-btn :withTag="!mainBarCollapsed" rounded class="mt-4" block />
-    <platforms-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
-    <collections-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
-    <scan-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
-    <upload-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
+    <search-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-4"
+      block
+      tabindex="3"
+    />
+    <platforms-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="4"
+    />
+    <collections-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="5"
+    />
+    <scan-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="6"
+    />
+    <upload-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="7"
+    />
 
     <template #append>
       <v-row no-gutters class="my-2 justify-center">
-        <user-btn />
+        <user-btn tabindex="8" aria-label="Settings menu" />
       </v-row>
     </template>
   </v-navigation-drawer>

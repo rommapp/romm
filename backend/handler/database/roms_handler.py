@@ -297,8 +297,6 @@ class DBRomsHandler(DBBaseHandler):
             )
 
     def filter_by_status(self, query: Query, selected_status: str):
-        query = query.join(RomUser)
-
         status_filter = RomUser.status == selected_status
         if selected_status == "now_playing":
             status_filter = RomUser.now_playing.is_(True)
@@ -472,18 +470,24 @@ class DBRomsHandler(DBBaseHandler):
         if selected_age_rating:
             query = self.filter_by_age_rating(query, selected_age_rating)
 
-        if selected_status:
-            query = self.filter_by_status(query, selected_status)
-
         if selected_region:
             query = self.filter_by_region(query, selected_region)
 
         if selected_language:
             query = self.filter_by_language(query, selected_language)
 
+        # The RomUser table is already joined if user_id is set
+        if selected_status and user_id:
+            query = self.filter_by_status(query, selected_status)
+        elif user_id:
+            query = query.filter(
+                or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
+            )
+
         return query
 
     @with_simple
+    @begin_session
     def get_roms_query(
         self,
         *,
@@ -491,6 +495,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         user_id: int | None = None,
         query: Query = None,
+        session: Session = None,
     ) -> Query[Rom]:
         if user_id:
             query = query.outerjoin(
@@ -509,6 +514,19 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = getattr(Rom, order_by)
         else:
             order_attr = Rom.name
+
+        # Handle computed properties
+        if order_by == "fs_size_bytes":
+            subquery = (
+                session.query(
+                    RomFile.rom_id,
+                    func.sum(RomFile.file_size_bytes).label("total_size"),
+                )
+                .group_by(RomFile.rom_id)
+                .subquery()
+            )
+            query = query.outerjoin(subquery, Rom.id == subquery.c.rom_id)
+            order_attr = func.coalesce(subquery.c.total_size, 0)
 
         # Ignore case when the order attribute is a number
         if isinstance(order_attr.type, (String, Text)):

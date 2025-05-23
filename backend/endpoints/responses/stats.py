@@ -7,4 +7,4 @@ class StatsReturn(TypedDict):
     SAVES: int
     STATES: int
     SCREENSHOTS: int
-    FILESIZE: int
+    TOTAL_FILESIZE_BYTES: int
