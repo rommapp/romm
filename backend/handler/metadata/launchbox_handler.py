@@ -82,6 +82,9 @@ class LaunchboxHandler(MetadataHandler):
         if not metadata_alternate_name_index_entry:
             return None
 
+        metadata_alternate_name_index_entry = json.loads(
+            metadata_alternate_name_index_entry
+        )
         database_id = metadata_alternate_name_index_entry["DatabaseID"]
         metadata_database_index_entry = await async_cache.hget(
             LAUNCHBOX_METADATA_DATABASE_ID_KEY, database_id
@@ -109,10 +112,10 @@ class LaunchboxHandler(MetadataHandler):
         # Define priority order
         priority_types = [
             "Box - Front",
-            "Cart - Front",
             "Box - 3D",
-            "Cart - 3D",
             "Fanart - Box - Front",
+            "Cart - Front",
+            "Cart - 3D",
         ]
 
         for image_type in priority_types:
