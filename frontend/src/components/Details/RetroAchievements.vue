@@ -4,8 +4,10 @@ import storeAuth from "@/stores/auth";
 import { ref, onMounted } from "vue";
 import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchievement";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 // Props
+const { smAndDown } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const auth = storeAuth();
@@ -88,7 +90,6 @@ onMounted(() => {
     <v-list-item
       v-for="achievement in filteredAchievements"
       :title="achievement.title?.toString()"
-      :subtitle="achievement.description?.toString()"
       class="mb-2 py-4 rounded bg-toplayer"
       :class="{
         earned: earnedAchievements.some(
@@ -120,16 +121,36 @@ onMounted(() => {
           />
         </v-avatar>
       </template>
-      <template #append>
+      <template #subtitle>
+        <v-list-item-subtitle>{{
+          achievement.description?.toString()
+        }}</v-list-item-subtitle>
         <v-chip
-          label
-          size="small"
           v-if="
             earnedAchievements.some(
               (earned) => earned.id === (achievement.badge_id ?? ''),
-            )
+            ) && smAndDown
           "
+          label
+          size="x-small"
+          class="mt-1"
         >
+          {{
+            earnedAchievements.find(
+              (earned) => earned.id === (achievement.badge_id ?? ""),
+            )?.date
+          }}
+        </v-chip>
+      </template>
+      <template
+        v-if="
+          earnedAchievements.some(
+            (earned) => earned.id === (achievement.badge_id ?? ''),
+          ) && !smAndDown
+        "
+        #append
+      >
+        <v-chip label size="small">
           {{
             earnedAchievements.find(
               (earned) => earned.id === (achievement.badge_id ?? ""),
