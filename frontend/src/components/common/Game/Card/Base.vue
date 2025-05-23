@@ -6,7 +6,6 @@ import Sources from "@/components/common/Game/Card/Sources.vue";
 import storePlatforms from "@/stores/platforms";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeCollections from "@/stores/collections";
-import storeDownload from "@/stores/download";
 import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
 import storeRoms from "@/stores/roms";
@@ -15,6 +14,7 @@ import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { isNull } from "lodash";
 import { useDisplay } from "vuetify";
+import VanillaTilt from "vanilla-tilt";
 
 // Props
 const props = withDefaults(
@@ -35,6 +35,7 @@ const props = withDefaults(
     withBorderPrimary?: boolean;
     withLink?: boolean;
     disableViewTransition?: boolean;
+    enable3DTilt?: boolean;
     src?: string;
   }>(),
   {
@@ -52,6 +53,7 @@ const props = withDefaults(
     showFav: false,
     withBorderPrimary: false,
     disableViewTransition: false,
+    enable3DTilt: false,
     withLink: false,
     src: "",
   },
@@ -59,7 +61,14 @@ const props = withDefaults(
 const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const romsStore = storeRoms();
-const emit = defineEmits(["click", "touchstart", "touchend"]);
+const emit = defineEmits([
+  "hover",
+  "openedmenu",
+  "closedmenu",
+  "click",
+  "touchstart",
+  "touchend",
+]);
 const handleClick = (event: MouseEvent) => {
   if (event.button === 0) {
     // Only handle left-click
@@ -72,7 +81,14 @@ const handleTouchStart = (event: TouchEvent) => {
 const handleTouchEnd = (event: TouchEvent) => {
   emit("touchend", { event: event, rom: props.rom });
 };
-const downloadStore = storeDownload();
+const handleOpenMenu = () => {
+  activeMenu.value = true;
+  emit("openedmenu", { openedMenu: true, id: props.rom.id });
+};
+const handleCloseMenu = () => {
+  activeMenu.value = false;
+  emit("closedmenu");
+};
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
@@ -94,7 +110,7 @@ const showActionBarAlways = isNull(
   ? false
   : localStorage.getItem("settings.showActionBar") === "true";
 
-import VanillaTilt from "vanilla-tilt";
+// Tilt 3D effect logic
 interface TiltHTMLElement extends HTMLElement {
   vanillaTilt?: {
     destroy: () => void;
@@ -104,19 +120,17 @@ interface TiltHTMLElement extends HTMLElement {
 const tiltCard = ref<TiltHTMLElement | null>(null);
 
 onMounted(() => {
-  if (tiltCard.value && !smAndDown.value) {
+  if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
     VanillaTilt.init(tiltCard.value, {
       max: 20,
       speed: 400,
-      glare: true,
-      "max-glare": 0.5,
-      scale: 1.15,
+      scale: 1.1,
     });
   }
 });
 
 onBeforeUnmount(() => {
-  if (tiltCard.value?.vanillaTilt) {
+  if (tiltCard.value?.vanillaTilt && props.enable3DTilt) {
     tiltCard.value.vanillaTilt.destroy();
   }
 });
@@ -125,7 +139,6 @@ onBeforeUnmount(() => {
 <template>
   <v-hover v-slot="{ isHovering: isOuterHovering, props: hoverProps }">
     <div data-tilt ref="tiltCard">
-      <!-- ...(isOuterHovering ? { zIndex: 1000 } : {}), -->
       <v-card
         :style="{
           ...(disableViewTransition
@@ -146,21 +159,24 @@ onBeforeUnmount(() => {
         }"
         class="bg-transparent"
         :class="{
-          'on-hover': isOuterHovering,
+          'on-hover': isOuterHovering || activeMenu,
           'border-selected': withBorderPrimary,
           'transform-scale': transformScale,
         }"
         :elevation="isOuterHovering && transformScale ? 20 : 3"
         :aria-label="`${rom.name} game card`"
+        @mouseenter="
+          () => {
+            emit('hover', { isHovering: true, id: rom.id });
+          }
+        "
+        @mouseleave="
+          () => {
+            emit('hover', { isHovering: false, id: rom.id });
+          }
+        "
       >
         <v-card-text class="pa-0">
-          <v-progress-linear
-            v-if="romsStore.isSimpleRom(rom)"
-            color="primary"
-            :active="downloadStore.value.includes(rom.id)"
-            :indeterminate="true"
-            absolute
-          />
           <v-hover v-slot="{ isHovering, props: hoverProps }" open-delay="800">
             <v-img
               @click="handleClick"
@@ -296,8 +312,8 @@ onBeforeUnmount(() => {
                     !smAndDown
                   "
                   class="position-absolute append-inner translucent-dark"
-                  @menu-open="activeMenu = true"
-                  @menu-close="activeMenu = false"
+                  @menu-open="handleOpenMenu"
+                  @menu-close="handleCloseMenu"
                   :rom="rom"
                   :sizeActionBar="sizeActionBar"
                 />
@@ -376,9 +392,5 @@ onBeforeUnmount(() => {
   transform: rotate(45deg);
   right: 0.25rem;
   bottom: 0.35rem;
-}
-
-.v-card:hover {
-  z-index: 9999 !important;
 }
 </style>

@@ -18,12 +18,33 @@ const storedContinuePlaying = localStorage.getItem(
 const gridContinuePlayingRoms = ref(
   isNull(storedContinuePlaying) ? false : storedContinuePlaying === "true",
 );
+const isHovering = ref(false);
+const hoveringRomId = ref();
+const openedMenu = ref(false);
+const openedMenuRomId = ref();
+
+// Functions
 function toggleGridContinuePlaying() {
   gridContinuePlayingRoms.value = !gridContinuePlayingRoms.value;
   localStorage.setItem(
     "settings.gridContinuePlayingRoms",
     gridContinuePlayingRoms.value.toString(),
   );
+}
+
+function onHover(emitData: { isHovering: boolean; id: number }) {
+  isHovering.value = emitData.isHovering;
+  hoveringRomId.value = emitData.id;
+}
+
+function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
+  openedMenu.value = emitData.openedMenu;
+  openedMenuRomId.value = emitData.id;
+}
+
+function onClosedMenu() {
+  openedMenu.value = false;
+  openedMenuRomId.value = null;
 }
 </script>
 <template>
@@ -46,11 +67,12 @@ function toggleGridContinuePlaying() {
         }"
         class="pa-1"
         no-gutters
+        style="overflow-y: hidden"
       >
         <v-col
           v-for="rom in continuePlayingRoms"
           :key="rom.id"
-          class="pa-1 align-self-end"
+          class="pa-1 align-self-end mt-4 mb-8 mx-2"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
@@ -68,7 +90,10 @@ function toggleGridContinuePlaying() {
             transformScale
             showActionBar
             showPlatformIcon
-            disableViewTransition
+            enable3DTilt
+            @hover="onHover"
+            @openedmenu="onOpenedMenu"
+            @closedmenu="onClosedMenu"
           />
         </v-col>
       </v-row>
