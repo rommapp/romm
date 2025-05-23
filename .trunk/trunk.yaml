@@ -2,7 +2,7 @@
 # To learn more about the format of this file, see https://docs.trunk.io/reference/trunk-yaml
 version: 0.1
 cli:
-  version: 1.22.12
+  version: 1.22.15
 # Trunk provides extensibility via plugins. (https://docs.trunk.io/plugins)
 plugins:
   sources:
@@ -21,25 +21,25 @@ lint:
     - pyright
   enabled:
     - markdownlint@0.44.0
-    - eslint@9.25.1
+    - eslint@9.26.0
     - actionlint@1.7.7
     - bandit@1.8.3
     - black@25.1.0
-    - checkov@3.2.408
+    - checkov@3.2.424
     - git-diff-check
     - isort@6.0.1
     - mypy@1.15.0
-    - osv-scanner@2.0.1
-    - oxipng@9.1.4
+    - osv-scanner@2.0.2
+    - oxipng@9.1.5
     - prettier@3.5.3
-    - ruff@0.11.6
+    - ruff@0.11.10
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - svgo@3.3.2
     - taplo@0.9.3
-    - trivy@0.61.1
-    - trufflehog@3.88.25
-    - yamllint@1.37.0
+    - trivy@0.62.1
+    - trufflehog@3.88.29
+    - yamllint@1.37.1
   ignore:
     - linters: [ALL]
       paths:

@@ -8,6 +8,8 @@ from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler
 from handler.scan_handler import scan_screenshot, scan_state
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -32,7 +34,10 @@ async def add_state(
     log.info(f"Uploading state of {rom.name}")
 
     states_path = fs_asset_handler.build_states_file_path(
-        user=request.user, platform_fs_slug=rom.platform.fs_slug, emulator=emulator
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
+        emulator=emulator,
     )
 
     if "stateFile" not in data:
@@ -42,11 +47,25 @@ async def add_state(
         )
 
     stateFile: UploadFile = data["stateFile"]  # type: ignore
+
     if not stateFile.filename:
         log.error("State file has no filename")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="State file has no filename"
         )
+
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        raise RomNotFoundInDatabaseException(rom_id)
+
+    log.info(f"Uploading state {hl(stateFile.filename)} for {hl(rom.name, color=BLUE)}")
+
+    states_path = fs_asset_handler.build_states_file_path(
+        user=request.user,
+        platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom.id,
+        emulator=emulator,
+    )
 
     fs_asset_handler.write_file(file=stateFile, path=states_path)
 
@@ -55,6 +74,7 @@ async def add_state(
         file_name=stateFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
+        rom_id=rom_id,
         emulator=emulator,
     )
     db_state = db_state_handler.get_state_by_filename(
@@ -73,7 +93,7 @@ async def add_state(
     screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
     if screenshotFile and screenshotFile.filename:
         screenshots_path = fs_asset_handler.build_screenshots_file_path(
-            user=request.user, platform_fs_slug=rom.platform_slug
+            user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
         fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
@@ -83,6 +103,7 @@ async def add_state(
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
+            rom_id=rom.id,
         )
         db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
             rom_id=rom.id, user_id=request.user.id, file_name=screenshotFile.filename
@@ -155,6 +176,40 @@ async def update_state(request: Request, id: int) -> StateSchema:
             db_state.id, {"file_size_bytes": stateFile.size}
         )
 
+    screenshotFile: UploadFile | None = data.get("screenshotFile", None)  # type: ignore
+    if screenshotFile and screenshotFile.filename:
+        screenshots_path = fs_asset_handler.build_screenshots_file_path(
+            user=request.user,
+            platform_fs_slug=db_state.rom.platform_slug,
+            rom_id=db_state.rom.id,
+        )
+
+        fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+
+        # Scan or update screenshot
+        scanned_screenshot = scan_screenshot(
+            file_name=screenshotFile.filename,
+            user=request.user,
+            platform_fs_slug=db_state.rom.platform_slug,
+            rom_id=db_state.rom.id,
+        )
+        db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
+            rom_id=db_state.rom.id,
+            user_id=request.user.id,
+            file_name=screenshotFile.filename,
+        )
+        if db_screenshot:
+            db_screenshot = db_screenshot_handler.update_screenshot(
+                db_screenshot.id,
+                {"file_size_bytes": scanned_screenshot.file_size_bytes},
+            )
+        else:
+            scanned_screenshot.rom_id = db_state.rom.id
+            scanned_screenshot.user_id = request.user.id
+            db_screenshot = db_screenshot_handler.add_screenshot(
+                screenshot=scanned_screenshot
+            )
+
     # Set the last played time for the current user
     rom_user = db_rom_handler.get_rom_user(db_state.rom_id, request.user.id)
     if not rom_user:
@@ -185,14 +240,16 @@ async def delete_states(request: Request) -> list[int]:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
         db_state_handler.delete_state(state_id)
-        log.info(f"Deleting {state.file_name} from filesystem")
+        log.info(
+            f"Deleting state {hl(state.file_name)} [{state.rom.platform_slug}] from filesystem"
+        )
 
         try:
             fs_asset_handler.remove_file(
                 file_name=state.file_name, file_path=state.file_path
             )
         except FileNotFoundError:
-            error = f"State file {state.file_name} not found for platform {state.rom.platform_slug}"
+            error = f"State file {hl(state.file_name)} not found for platform {hl(state.rom.platform_display_name, color=BLUE)}[{hl(state.rom.platform_slug)}]"
             log.error(error)
 
         if state.screenshot:
@@ -204,7 +261,7 @@ async def delete_states(request: Request) -> list[int]:
                     file_path=state.screenshot.file_path,
                 )
             except FileNotFoundError:
-                error = f"Screenshot file {state.screenshot.file_name} not found for state {state.file_name}"
+                error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)
 
     return state_ids

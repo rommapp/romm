@@ -3,10 +3,12 @@ import shutil
 import httpx
 from anyio import Path, open_file
 from config import RESOURCES_BASE_PATH
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
-from PIL import Image, ImageFile
+from PIL import Image, ImageFile, UnidentifiedImageError
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -44,6 +46,22 @@ class FSResourcesHandler(FSHandler):
         small_img = cover.resize(small_size)
         small_img.save(save_path)
 
+    async def store_badge(self, url: str, file_path: str) -> None:
+        httpx_client = ctx_httpx_client.get()
+        try:
+            async with httpx_client.stream("GET", url, timeout=120) as response:
+                if response.status_code == 200:
+                    await Path(f"{RESOURCES_BASE_PATH}/{file_path}").parent.mkdir(
+                        parents=True, exist_ok=True
+                    )
+                    async with await Path(f"{RESOURCES_BASE_PATH}/{file_path}").open(
+                        "wb"
+                    ) as f:
+                        async for chunk in response.aiter_raw():
+                            await f.write(chunk)
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
@@ -68,11 +86,14 @@ class FSResourcesHandler(FSHandler):
                             await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
-            return None
 
         if size == CoverSize.SMALL:
-            with Image.open(cover_file) as img:
-                self.resize_cover_to_small(img, save_path=cover_file)
+            try:
+                with Image.open(cover_file) as img:
+                    self.resize_cover_to_small(img, save_path=cover_file)
+            except UnidentifiedImageError as exc:
+                log.error(f"Unable to identify image {cover_file}: {str(exc)}")
+                return None
 
     @staticmethod
     async def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
@@ -126,7 +147,7 @@ class FSResourcesHandler(FSHandler):
             shutil.rmtree(cover_path)
         except FileNotFoundError:
             log.warning(
-                f"Couldn't remove cover from '{entity.name or entity.id}' since '{cover_path}' doesn't exists."
+                f"Couldn't remove cover from '{hl(entity.name or entity.id, color=BLUE)}' since '{cover_path}' doesn't exists."
             )
 
         return {"path_cover_s": "", "path_cover_l": ""}

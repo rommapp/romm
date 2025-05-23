@@ -14,17 +14,22 @@ import {
 } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 
 // Props
-const props = defineProps<{ rom: SimpleRom }>();
+const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
+const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const auth = storeAuth();
+
+const computedSize = computed(() => {
+  return props.sizeActionBar === 1 ? "small" : "x-small";
+});
 
 const platformSlug = computed(() => {
   return props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
@@ -43,6 +48,12 @@ const ruffleEmulationSupported = computed(() => {
 const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
+
+const menuOpen = ref(false);
+
+watch(menuOpen, (val) => {
+  emit(val ? "menu-open" : "menu-close");
+});
 </script>
 
 <template>
@@ -50,12 +61,13 @@ const is3DSRom = computed(() => {
     <v-col class="d-flex">
       <v-btn
         class="action-bar-btn-small flex-grow-1"
-        size="x-small"
+        :size="computedSize"
         :disabled="downloadStore.value.includes(rom.id)"
         icon="mdi-download"
         variant="text"
         rounded="0"
         @click.prevent="romApi.downloadRom({ rom })"
+        :aria-label="`Download ${rom.name}`"
       />
     </v-col>
     <v-col
@@ -66,7 +78,7 @@ const is3DSRom = computed(() => {
         v-if="ejsEmulationSupported"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        size="x-small"
+        :size="computedSize"
         @click="
           $router.push({
             name: ROUTES.EMULATORJS,
@@ -76,12 +88,13 @@ const is3DSRom = computed(() => {
         icon="mdi-play"
         variant="text"
         rounded="0"
+        :aria-label="`Play ${rom.name}`"
       />
       <v-btn
         v-if="ruffleEmulationSupported"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        size="x-small"
+        :size="computedSize"
         @click="
           $router.push({
             name: ROUTES.RUFFLE,
@@ -91,17 +104,19 @@ const is3DSRom = computed(() => {
         icon="mdi-play"
         variant="text"
         rounded="0"
+        :aria-label="`Play ${rom.name}`"
       />
     </v-col>
     <v-col v-if="is3DSRom" class="d-flex">
       <v-btn
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
-        size="x-small"
+        :size="computedSize"
         @click="emitter?.emit('showQRCodeDialog', rom)"
         icon="mdi-qrcode"
         variant="text"
         rounded="0"
+        :aria-label="`Show ${rom.name} QR code`"
       />
     </v-col>
     <v-col
@@ -112,16 +127,17 @@ const is3DSRom = computed(() => {
       "
       class="d-flex"
     >
-      <v-menu location="bottom">
+      <v-menu location="bottom" v-model="menuOpen">
         <template #activator="{ props }">
           <v-btn
             @click.prevent
             class="action-bar-btn-small flex-grow-1"
-            size="x-small"
+            :size="computedSize"
             v-bind="props"
             icon="mdi-dots-vertical"
             variant="text"
             rounded="0"
+            :aria-label="`${rom.name} admin menu`"
           />
         </template>
         <admin-menu :rom="rom" />
@@ -132,7 +148,7 @@ const is3DSRom = computed(() => {
 
 <style scoped>
 .action-bar-btn-small {
-  max-height: 30px;
+  max-height: 250px;
   width: unset;
 }
 </style>

@@ -12,6 +12,8 @@ def str_to_bool(value: str) -> bool:
     return value.lower() in ("true", "1")
 
 
+ROMM_BASE_URL = os.environ.get("ROMM_BASE_URL", "http://0.0.0.0")
+
 # GUNICORN
 DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
 DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
@@ -63,6 +65,12 @@ SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
 
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
+
+# RETROACHIEVEMENTS
+RETROACHIEVEMENTS_API_KEY: Final = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
+REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
+    os.environ.get("REFRESH_RETROACHIEVEMENTS_CACHE_DAYS", 30)
+)
 
 # MOBYGAMES
 MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()

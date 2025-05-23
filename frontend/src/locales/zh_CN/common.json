@@ -1,4 +1,5 @@
 {
+  "about": "关于",
   "add": "添加",
   "administration": "管理",
   "apply": "应用",
@@ -9,6 +10,7 @@
   "core": "核心",
   "create": "创建",
   "edit": "编辑",
+  "exclude-on-delete": "删除时排除",
   "filter": "筛选",
   "firmware": "固件",
   "games-n": "{n} 游戏 | {n} 游戏",
@@ -18,12 +20,14 @@
   "platform": "平台",
   "platforms": "平台",
   "platforms-n": "{n} 平台 | {n} 平台",
+  "platforms-size": "每个平台的大小",
   "profile": "简介",
   "save": "存档",
   "saves": "存档",
   "saves-n": "{n} 存档 | {n} 存档",
   "screenshots-n": "{n} 截图 | {n} 截图",
   "search": "搜索",
+  "server-stats": "服务器状态",
   "size-on-disk": "磁盘大小",
   "slug": "Slug",
   "state": "状态",
@@ -33,5 +37,6 @@
   "upload": "上传",
   "user-interface": "用户界面",
   "virtual-collection": "自动生成的收藏",
-  "virtual-collections": "自动生成的收藏"
+  "virtual-collections": "自动生成的收藏",
+  "sync": "同步"
 }

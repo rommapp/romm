@@ -1,4 +1,5 @@
 {
+  "about": "Despre",
   "add": "Adaugă",
   "administration": "Administrare",
   "apply": "Aplică",
@@ -9,6 +10,7 @@
   "core": "Nucleu",
   "create": "Creează",
   "edit": "Editează",
+  "exclude-on-delete": "Excluzând la ștergere",
   "filter": "Filtru",
   "firmware": "Firmware",
   "games-n": "{n} Joc | {n} Jocuri",
@@ -18,6 +20,7 @@
   "platform": "Platformă",
   "platforms": "Platforme",
   "platforms-n": "{n} Platformă | {n} Platforme",
+  "platforms-size": "Dimensiune per platformă",
   "profile": "Profil",
   "save": "Salvare",
   "saves": "Salvări",
@@ -25,6 +28,7 @@
   "screenshots": "Capturi de ecran",
   "screenshots-n": "{n} Captură de ecran | {n} Capturi de ecran",
   "search": "Căutare",
+  "server-stats": "Statistici server",
   "size-on-disk": "Dimensiune pe disc",
   "slug": "Slug",
   "state": "Stare",
@@ -34,5 +38,6 @@
   "upload": "Încarcă",
   "user-interface": "Interfață utilizator",
   "virtual-collection": "Colecție autogenerată",
-  "virtual-collections": "Colecții autogenerate"
+  "virtual-collections": "Colecții autogenerate",
+  "sync": "Sincronizează"
 }

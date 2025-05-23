@@ -3,5 +3,14 @@
   "login-oidc": "使用 {oidc} 登录",
   "or": "或",
   "password": "密码",
-  "username": "用户名"
+  "username": "用户名",
+  "forgot-password": "忘记密码？",
+  "send-reset-link": "发送重置链接",
+  "reset-sent": "重置链接已发送。请联系管理员。",
+  "new-password": "新密码",
+  "confirm-new-password": "确认新密码",
+  "reset-password": "重置密码",
+  "back-to-login": "返回登录",
+  "setup-wizard": "设置向导",
+  "register": "注册"
 }
