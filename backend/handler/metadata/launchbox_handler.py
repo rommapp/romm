@@ -3,8 +3,10 @@ from typing import Final, NotRequired, TypedDict
 
 from config import str_to_bool
 from handler.redis_handler import async_cache
-from tasks.update_launchbox_metadata import (  # LAUNCHBOX_PLATFORMS_KEY,; LAUNCHBOX_METADATA_IMAGE_KEY,; LAUNCHBOX_MAME_KEY,; update_launchbox_metadata_task,
+from tasks.update_launchbox_metadata import (  # LAUNCHBOX_PLATFORMS_KEY, LAUNCHBOX_MAME_KEY, update_launchbox_metadata_task,
+    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
+    LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
 )
 
@@ -62,15 +64,70 @@ def extract_metadata_from_launchbox_rom(index_entry: dict) -> LaunchboxMetadata:
 
 
 class LaunchboxHandler(MetadataHandler):
-    async def _search_rom(self, file_name: str) -> dict | None:
+    async def _get_rom_from_metadata(self, file_name: str) -> dict | None:
         metadata_name_index_entry = await async_cache.hget(
             LAUNCHBOX_METADATA_NAME_KEY, file_name
         )
 
-        if not metadata_name_index_entry:
+        if metadata_name_index_entry:
+            return json.loads(metadata_name_index_entry)
+
+        metadata_alternate_name_index_entry = await async_cache.hget(
+            LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY, file_name
+        )
+
+        if not metadata_alternate_name_index_entry:
             return None
 
-        return json.loads(metadata_name_index_entry)
+        database_id = metadata_alternate_name_index_entry["DatabaseID"]
+        metadata_database_index_entry = await async_cache.hget(
+            LAUNCHBOX_METADATA_DATABASE_ID_KEY, database_id
+        )
+
+        if not metadata_database_index_entry:
+            return None
+
+        return json.loads(metadata_database_index_entry)
+
+    async def _get_game_images(self, database_id: str) -> list[dict] | None:
+        metadata_image_index_entry = await async_cache.hget(
+            LAUNCHBOX_METADATA_IMAGE_KEY, database_id
+        )
+
+        if not metadata_image_index_entry:
+            return None
+
+        return json.loads(metadata_image_index_entry)
+
+    def _get_best_cover_image(self, game_images: list[dict]) -> dict | None:
+        """
+        Get the best cover image from a list of game images based on priority order:
+        """
+        # Define priority order
+        priority_types = [
+            "Box - Front",
+            "Cart - Front",
+            "Box - 3D",
+            "Cart - 3D",
+            "Fanart - Box - Front",
+        ]
+
+        for image_type in priority_types:
+            for image in game_images:
+                if image.get("Type") == image_type:
+                    return image
+
+        return None
+
+    def _get_screenshots(self, game_images: list[dict]) -> list[str]:
+        screenshots: list[str] = []
+        for image in game_images:
+            if "Screenshot" in image.get("Type", ""):
+                screenshots.append(
+                    f"https://images.launchbox-app.com/{image.get('FileName')}"
+                )
+
+        return screenshots
 
     def get_platform(self, slug: str) -> LaunchboxPlatform:
         platform_name = SLUG_TO_LAUNCHBOX_PLATFORM_NAME.get(slug, None)
@@ -92,14 +149,29 @@ class LaunchboxHandler(MetadataHandler):
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = LaunchboxRom(launchbox_id=None)
 
-        index_entry = await self._search_rom(search_term)
+        index_entry = await self._get_rom_from_metadata(search_term)
         if not index_entry:
             return fallback_rom
+
+        url_cover = None
+        url_screenshots = []
+
+        game_images = await self._get_game_images(index_entry["DatabaseID"])
+        if game_images:
+            best_cover = self._get_best_cover_image(game_images)
+            if best_cover:
+                url_cover = (
+                    f"https://images.launchbox-app.com/{best_cover.get("FileName")}"
+                )
+
+            url_screenshots = self._get_screenshots(game_images)
 
         rom = {
             "launchbox_id": index_entry["DatabaseID"],
             "name": index_entry["Name"],
             "summary": index_entry.get("Overview", ""),
+            "url_cover": url_cover,
+            "url_screenshots": url_screenshots,
             "launchbox_metadata": extract_metadata_from_launchbox_rom(index_entry),
         }
 
