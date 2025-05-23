@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { DetailedRom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchievement";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 // Props
+const { smAndDown } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const auth = storeAuth();
@@ -15,6 +17,7 @@ const achievemehtsPercentage = ref(0);
 const showEarned = ref(false);
 const filteredAchievements = ref<RAGameRomAchievement[]>([]);
 
+// Functions
 function toggleShowEarned() {
   showEarned.value = !showEarned.value;
   if (showEarned.value) {
@@ -30,6 +33,22 @@ function toggleShowEarned() {
     ).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
   }
 }
+
+const isAchievementEarned = computed(
+  () => (achievement: RAGameRomAchievement) => {
+    return earnedAchievements.value.some(
+      (earned) => earned.id === (achievement.badge_id ?? ""),
+    );
+  },
+);
+
+const getAchievementEarnedDate = computed(
+  () => (achievement: RAGameRomAchievement) => {
+    return earnedAchievements.value.find(
+      (earned) => earned.id === (achievement.badge_id ?? ""),
+    )?.date;
+  },
+);
 
 onMounted(() => {
   filteredAchievements.value = (
@@ -88,20 +107,11 @@ onMounted(() => {
     <v-list-item
       v-for="achievement in filteredAchievements"
       :title="achievement.title?.toString()"
-      :subtitle="achievement.description?.toString()"
       class="mb-2 py-4 rounded bg-toplayer"
       :class="{
-        earned: earnedAchievements.some(
-          (earned) => earned.id === (achievement.badge_id ?? ''),
-        ),
-        locked: !earnedAchievements.some(
-          (earned) => earned.id === (achievement.badge_id ?? ''),
-        ),
-        hidden:
-          showEarned &&
-          !earnedAchievements.some(
-            (earned) => earned.id === (achievement.badge_id ?? ''),
-          ),
+        earned: isAchievementEarned(achievement),
+        locked: !isAchievementEarned(achievement),
+        hidden: showEarned && !isAchievementEarned(achievement),
       }"
     >
       <template #prepend>
@@ -111,30 +121,29 @@ onMounted(() => {
         >
           <v-img
             :src="
-              earnedAchievements.some(
-                (earned) => earned.id === (achievement.badge_id ?? ''),
-              )
+              isAchievementEarned(achievement)
                 ? (achievement.badge_path ?? '')
                 : (achievement.badge_path_lock ?? '')
             "
           />
         </v-avatar>
       </template>
-      <template #append>
+      <template #subtitle>
+        <v-list-item-subtitle>{{
+          achievement.description?.toString()
+        }}</v-list-item-subtitle>
         <v-chip
+          v-if="isAchievementEarned(achievement) && smAndDown"
           label
-          size="small"
-          v-if="
-            earnedAchievements.some(
-              (earned) => earned.id === (achievement.badge_id ?? ''),
-            )
-          "
+          size="x-small"
+          class="mt-1"
         >
-          {{
-            earnedAchievements.find(
-              (earned) => earned.id === (achievement.badge_id ?? ""),
-            )?.date
-          }}
+          {{ getAchievementEarnedDate(achievement) }}
+        </v-chip>
+      </template>
+      <template v-if="isAchievementEarned(achievement) && !smAndDown" #append>
+        <v-chip label size="small">
+          {{ getAchievementEarnedDate(achievement) }}
         </v-chip>
       </template>
     </v-list-item>
