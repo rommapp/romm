@@ -10,5 +10,7 @@
   "new-password": "新密码",
   "confirm-new-password": "确认新密码",
   "reset-password": "重置密码",
-  "back-to-login": "返回登录"
+  "back-to-login": "返回登录",
+  "setup-wizard": "设置向导",
+  "register": "注册"
 }

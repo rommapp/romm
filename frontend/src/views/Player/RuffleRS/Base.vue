@@ -70,6 +70,10 @@ onMounted(async () => {
   });
   rom.value = romResponse.data;
 
+  if (rom.value) {
+    document.title = `${rom.value.name} | Play`;
+  }
+
   const script = document.createElement("script");
   script.src = "/assets/ruffle/ruffle.js";
 

@@ -10,5 +10,7 @@
   "new-password": "新しいパスワード",
   "confirm-new-password": "新しいパスワードを確認",
   "reset-password": "パスワードをリセット",
-  "back-to-login": "ログインに戻る"
+  "back-to-login": "ログインに戻る",
+  "setup-wizard": "セットアップウィザード",
+  "register": "登録"
 }

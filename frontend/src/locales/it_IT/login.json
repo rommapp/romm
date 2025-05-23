@@ -10,5 +10,7 @@
   "new-password": "Nuova password",
   "confirm-new-password": "Conferma nuova password",
   "reset-password": "Reimposta password",
-  "back-to-login": "Torna al login"
+  "back-to-login": "Torna al login",
+  "setup-wizard": "Procedura guidata di configurazione",
+  "register": "Registrati"
 }

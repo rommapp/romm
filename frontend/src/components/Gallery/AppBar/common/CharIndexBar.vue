@@ -100,6 +100,7 @@ watch(
       slider-color="primary"
       bg-color="surface"
       direction="vertical"
+      tabindex="-1"
     >
       <v-tab
         v-for="char in Object.keys(characterIndex)"

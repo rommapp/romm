@@ -7,6 +7,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import { formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
@@ -19,6 +20,7 @@ import { saveSave, saveState } from "./utils";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import { getEmptyCoverImage } from "@/utils/covers";
 import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
 
 const EMULATORJS_VERSION = "4.2.1";
 
@@ -27,6 +29,8 @@ const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const route = useRoute();
 const auth = storeAuth();
+const playingStore = storePlaying();
+const { playing, fullScreen } = storeToRefs(playingStore);
 const romsStore = storeRoms();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
@@ -54,6 +58,8 @@ function onPlay() {
 
   gameRunning.value = true;
   window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
+  fullScreen.value = fullScreenOnPlay.value;
+  playing.value = true;
 
   const LOCAL_PATH = "/assets/emulatorjs/data/";
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/`;
@@ -69,6 +75,8 @@ function onPlay() {
       return res.text();
     })
     .then((jsCode) => {
+      playing.value = true;
+      fullScreen.value = fullScreenOnPlay.value;
       const script = document.createElement("script");
       script.textContent = jsCode;
       document.body.appendChild(script);
@@ -88,11 +96,15 @@ function onFullScreenChange() {
 }
 
 async function onlyQuit() {
+  playing.value = false;
+  fullScreen.value = false;
   if (rom.value) romsStore.update(rom.value);
   window.history.back();
 }
 
 async function saveAndQuit() {
+  playing.value = false;
+  fullScreen.value = false;
   if (!rom.value) return window.history.back();
   const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
 
@@ -114,6 +126,8 @@ async function saveAndQuit() {
   });
 
   romsStore.update(rom.value);
+  playing.value = false;
+  fullScreen.value = false;
   window.history.back();
 }
 
@@ -175,6 +189,10 @@ onMounted(async () => {
     romId: parseInt(route.params.rom as string),
   });
   rom.value = romResponse.data;
+
+  if (rom.value) {
+    document.title = `${rom.value.name} | Play`;
+  }
 
   const firmwareResponse = await firmwareApi.getFirmware({
     platformId: romResponse.data.platform_id,

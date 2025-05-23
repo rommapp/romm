@@ -10,5 +10,7 @@
   "new-password": "Новый пароль",
   "confirm-new-password": "Подтвердите новый пароль",
   "reset-password": "Сбросить пароль",
-  "back-to-login": "Вернуться к входу"
+  "back-to-login": "Вернуться к входу",
+  "setup-wizard": "Мастер настройки",
+  "register": "Регистрация"
 }
