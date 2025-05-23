@@ -77,30 +77,36 @@ class SupportedPlatform(TypedDict):
     name: str
     igdb_slug: str | None
     moby_slug: str | None
-    ss_slug: str | None
-    lb_slug: str | None
+    ss_id: int | None
+    lb_id: int | None
 
 
 if __name__ == "__main__":
     supported_platforms: dict[str, SupportedPlatform] = {}
     matched_moby_slugs: list[str] = []
+    matched_ss_ids: list[int] = []
+    matched_lb_ids: list[int] = []
 
     for plt in IGDB_PLATFORM_LIST:
         moby_slug = plt["slug"] if plt["slug"] in MOBYGAMES_PLATFORM_LIST else None
         moby_slug = IGDB_SLUG_TO_MOBY_SLUG.get(plt["slug"], moby_slug)
 
-        ss_slug = plt["slug"] if plt["slug"] in SCREENSAVER_PLATFORM_LIST else None
-        lb_slug = plt["slug"] if plt["slug"] in LAUNCHBOX_PLATFORM_LIST else None
+        ss_id = SCREENSAVER_PLATFORM_LIST.get(plt["slug"], {}).get("id", None)
+        lb_id = LAUNCHBOX_PLATFORM_LIST.get(plt["slug"], {}).get("id", None)
 
         supported_platforms[plt["name"]] = {
             "name": plt["name"],
             "igdb_slug": plt["slug"],
             "moby_slug": moby_slug,
-            "ss_slug": ss_slug,
-            "lb_slug": lb_slug,
+            "ss_id": ss_id,
+            "lb_id": lb_id,
         }
         if moby_slug:
             matched_moby_slugs.append(moby_slug)
+        if ss_id:
+            matched_ss_ids.append(ss_id)
+        if lb_id:
+            matched_lb_ids.append(lb_id)
 
     # Now go over the moby ids
     for slug, pltf in MOBYGAMES_PLATFORM_LIST.items():
@@ -113,37 +119,37 @@ if __name__ == "__main__":
                 "name": pltf["name"],
                 "igdb_slug": None,
                 "moby_slug": slug,
-                "ss_slug": None,
-                "lb_slug": None,
+                "ss_id": None,
+                "lb_id": None,
             }
 
     # And the remaining metadata sources
-    for slug, pltf in SCREENSAVER_PLATFORM_LIST.items():
+    for _slug, pltf in SCREENSAVER_PLATFORM_LIST.items():
         if (
             pltf["name"] not in supported_platforms
             and pltf["name"].lower() not in supported_platforms
-            and slug not in matched_moby_slugs
+            and pltf["id"] not in matched_ss_ids
         ):
             supported_platforms[pltf["name"]] = {
                 "name": pltf["name"],
                 "igdb_slug": None,
                 "moby_slug": None,
-                "ss_slug": slug,
-                "lb_slug": None,
+                "ss_id": pltf["id"],
+                "lb_id": None,
             }
 
-    for slug, pltf in LAUNCHBOX_PLATFORM_LIST.items():
+    for _slug, pltf in LAUNCHBOX_PLATFORM_LIST.items():
         if (
             pltf["name"] not in supported_platforms
             and pltf["name"].lower() not in supported_platforms
-            and slug not in matched_moby_slugs
+            and pltf["id"] not in matched_lb_ids
         ):
             supported_platforms[pltf["name"]] = {
                 "name": pltf["name"],
                 "igdb_slug": None,
                 "moby_slug": None,
-                "ss_slug": None,
-                "lb_slug": slug,
+                "ss_id": None,
+                "lb_id": pltf["id"],
             }
 
     # Sort platforms by key
@@ -171,13 +177,13 @@ if __name__ == "__main__":
                 else " |"
             ),
             (
-                f'<a href="https://www.screensaver.fr/roms/{platform["ss_slug"]}" target="_blank" rel="noopener norefer">ScreenSaver.fr</a>'
-                if platform["ss_slug"]
+                f'<a href="https://www.screenscraper.fr/systemeinfos.php?plateforme={platform["ss_id"]}" target="_blank" rel="noopener norefer">ScreenSaver.fr</a>'
+                if platform["ss_id"]
                 else " |"
             ),
             (
-                f'<a href="https://gamesdb.launchbox-app.com/platforms/details/{platform["lb_slug"]}" target="_blank" rel="noopener norefer">LaunchBox</a>'
-                if platform["lb_slug"]
+                f'<a href="https://gamesdb.launchbox-app.com/platforms/games/{platform["lb_id"]}" target="_blank" rel="noopener norefer">LaunchBox</a>'
+                if platform["lb_id"]
                 else " |"
             ),
         )
