@@ -16,6 +16,7 @@ from utils.context import initialize_context
 LAUNCHBOX_PLATFORMS_KEY: Final = "romm:launchbox_platforms"
 LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final = "romm:launchbox_metadata_database_id"
 LAUNCHBOX_METADATA_NAME_KEY: Final = "romm:launchbox_metadata_name"
+LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final = "romm:launchbox_metadata_alternate_name"
 LAUNCHBOX_METADATA_IMAGE_KEY: Final = "romm:launchbox_metadata_image"
 LAUNCHBOX_MAME_KEY: Final = "romm:launchbox_mame"
 LAUNCHBOX_FILES_KEY: Final = "romm:launchbox_files"
@@ -70,6 +71,9 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                             async with async_cache.pipeline() as pipe:
                                 ctx = ET.iterparse(f, events=("end",))
 
+                                current_game_image_db_id = None
+                                current_game_images = []
+
                                 for _, elem in ctx:
                                     if elem.tag == "Game":
                                         id_elem = elem.find("DatabaseID")
@@ -101,22 +105,53 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             )
                                         elem.clear()
 
+                                    elif elem.tag == "GameAlternateName":
+                                        alternate_name_elem = elem.find("AlternateName")
+                                        if (
+                                            alternate_name_elem is not None
+                                            and alternate_name_elem.text
+                                        ):
+                                            await pipe.hset(
+                                                LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
+                                                mapping={
+                                                    alternate_name_elem.text: json.dumps(
+                                                        {
+                                                            child.tag: child.text
+                                                            for child in elem
+                                                        }
+                                                    )
+                                                },
+                                            )
+
+                                        elem.clear()
+
                                     elif elem.tag == "GameImage":
                                         id_elem = elem.find("DatabaseID")
                                         if id_elem is not None and id_elem.text:
                                             image_id = str(id_elem.text)
-                                            if image_id:
+
+                                            if (
+                                                current_game_image_db_id is not None
+                                                and image_id != current_game_image_db_id
+                                            ):
+                                                # Store the previous game's images
                                                 await pipe.hset(
                                                     LAUNCHBOX_METADATA_IMAGE_KEY,
                                                     mapping={
-                                                        image_id: json.dumps(
-                                                            {
-                                                                child.tag: child.text
-                                                                for child in elem
-                                                            }
+                                                        current_game_image_db_id: json.dumps(
+                                                            current_game_images
                                                         )
                                                     },
                                                 )
+                                                current_game_images = []
+
+                                            current_game_image_db_id = image_id
+                                            current_game_images.append(
+                                                {
+                                                    child.tag: child.text
+                                                    for child in elem
+                                                }
+                                            )
                                         elem.clear()
                                 await pipe.execute()
 
