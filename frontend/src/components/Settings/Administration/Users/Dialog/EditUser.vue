@@ -143,8 +143,8 @@ function closeDialog() {
                     {{ item.title }}
                   </v-list-item>
                 </template>
-                <template #item="{ item }">
-                  <v-list-item :title="item.title">
+                <template #item="{ item, props }">
+                  <v-list-item v-bind="props" :title="item.title">
                     <template #prepend>
                       <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
                     </template>

@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
   </template>
   <template v-else>
     <template v-if="filteredRoms.length > 0">
-      <v-row v-if="currentView != 2" class="mx-1 mt-3 mr-14" no-gutters>
+      <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
         <!-- Gallery cards view -->
         <v-col
           v-for="rom in filteredRoms"
@@ -175,6 +175,7 @@ onBeforeUnmount(() => {
             :withBorderPrimary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
+            :sizeActionBar="currentView"
             @click="onGameClick"
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"

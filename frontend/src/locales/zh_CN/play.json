@@ -10,5 +10,9 @@
   "quit": "退出",
   "save-and-quit": "保存并退出",
   "select-save": "选择存档",
-  "select-state": "选择状态"
+  "change-save": "更改存档",
+  "deselect-save": "取消选择存档",
+  "select-state": "选择状态",
+  "change-state": "更改状态",
+  "deselect-state": "取消选择状态"
 }

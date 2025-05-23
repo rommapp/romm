@@ -5,7 +5,6 @@ import Platforms from "@/components/Home/Platforms.vue";
 import RecentSkeletonLoader from "@/components/Home/RecentSkeletonLoader.vue";
 import RecentAdded from "@/components/Home/RecentAdded.vue";
 import ContinuePlaying from "@/components/Home/ContinuePlaying.vue";
-import Stats from "@/components/Home/Stats.vue";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
@@ -79,7 +78,6 @@ onMounted(async () => {
 </script>
 
 <template>
-  <stats class="ma-2" />
   <recent-skeleton-loader
     v-if="showRecentRoms && fetchingRecentAdded && recentRoms.length === 0"
     :title="t('home.recently-added')"

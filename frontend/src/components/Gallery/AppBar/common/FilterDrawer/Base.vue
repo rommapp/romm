@@ -4,6 +4,7 @@ import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/
 import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
+import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
@@ -18,10 +19,12 @@ import { useI18n } from "vue-i18n";
 // Props
 withDefaults(
   defineProps<{
+    showPlayablesFilter?: boolean;
     showPlatformsFilter?: boolean;
     showFilterBar?: boolean;
   }>(),
   {
+    showPlayablesFilter: true,
     showPlatformsFilter: false,
     showFilterBar: false,
   },
@@ -182,20 +185,38 @@ onMounted(async () => {
     }"
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
-    <v-list>
+    <v-list tabindex="-1">
       <template v-if="showFilterBar && xs">
         <v-list-item>
-          <filter-text-field />
+          <filter-text-field :tabindex="activeFilterDrawer ? 0 : -1" />
         </v-list-item>
       </template>
       <v-list-item>
-        <filter-unmatched-btn />
-        <filter-matched-btn class="mt-2" />
-        <filter-favourites-btn class="mt-2" />
-        <filter-duplicates-btn class="mt-2" />
+        <filter-unmatched-btn :tabindex="activeFilterDrawer ? 0 : -1" />
+        <filter-matched-btn
+          class="mt-2"
+          :tabindex="activeFilterDrawer ? 0 : -1"
+        />
+        <filter-favourites-btn
+          class="mt-2"
+          :tabindex="activeFilterDrawer ? 0 : -1"
+        />
+        <filter-duplicates-btn
+          class="mt-2"
+          :tabindex="activeFilterDrawer ? 0 : -1"
+        />
+        <filter-playables-btn
+          v-if="showPlayablesFilter"
+          class="mt-2"
+          :tabindex="activeFilterDrawer ? 0 : -1"
+        />
       </v-list-item>
-      <v-list-item v-if="showPlatformsFilter">
+      <v-list-item
+        v-if="showPlatformsFilter"
+        :tabindex="activeFilterDrawer ? 0 : -1"
+      >
         <v-autocomplete
+          :tabindex="activeFilterDrawer ? 0 : -1"
           v-model="selectedPlatform"
           hide-details
           prepend-inner-icon="mdi-controller"
@@ -244,9 +265,13 @@ onMounted(async () => {
           </template>
         </v-autocomplete>
       </v-list-item>
-      <v-list-item v-for="filter in filters">
+      <v-list-item
+        v-for="filter in filters"
+        :tabindex="activeFilterDrawer ? 0 : -1"
+      >
         <v-autocomplete
           v-model="filter.selected.value"
+          :tabindex="activeFilterDrawer ? 0 : -1"
           hide-details
           clearable
           :label="filter.label"
@@ -256,8 +281,16 @@ onMounted(async () => {
           @update:model-value="nextTick(() => emitter?.emit('filter', null))"
         />
       </v-list-item>
-      <v-list-item class="justify-center d-flex">
-        <v-btn size="small" variant="tonal" @click="resetFilters">
+      <v-list-item
+        class="justify-center d-flex"
+        :tabindex="activeFilterDrawer ? 0 : -1"
+      >
+        <v-btn
+          :tabindex="activeFilterDrawer ? 0 : -1"
+          size="small"
+          variant="tonal"
+          @click="resetFilters"
+        >
           {{ t("platform.reset-filters") }}
         </v-btn>
       </v-list-item>

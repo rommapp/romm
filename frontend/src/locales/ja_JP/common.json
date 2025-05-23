@@ -1,4 +1,5 @@
 {
+  "about": "概要",
   "add": "追加",
   "administration": "管理者メニュー",
   "apply": "適用",
@@ -9,6 +10,7 @@
   "core": "コア",
   "create": "作成",
   "edit": "編集",
+  "exclude-on-delete": "削除時に除外",
   "filter": "フィルタ",
   "firmware": "ファームウェア",
   "games-n": "{n} ゲーム | {n} ゲーム",
@@ -18,12 +20,14 @@
   "platform": "プラットフォーム",
   "platforms": "プラットフォーム",
   "platforms-n": "{n} プラットフォーム | {n} プラットフォームs",
+  "platforms-size": "プラットフォームごとのサイズ",
   "profile": "プロファイル",
   "save": "セーブ",
   "saves": "セーブ",
   "saves-n": "{n} セーブ | {n} セーブ",
   "screenshots-n": "{n} スクリーンショット | {n} スクリーンショット",
   "search": "検索",
+  "server-stats": "サーバーステータス",
   "size-on-disk": "ディスク上のサイズ",
   "slug": "スラッグ",
   "state": "ステートセーブ",
@@ -33,5 +37,6 @@
   "upload": "アップロード",
   "user-interface": "ユーザーインターフェイス",
   "virtual-collection": "自動生成コレクション",
-  "virtual-collections": "自動生成コレクション"
+  "virtual-collections": "自動生成コレクション",
+  "sync": "同期"
 }

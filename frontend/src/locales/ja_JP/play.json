@@ -10,5 +10,9 @@
   "quit": "終了",
   "save-and-quit": "保存して終了",
   "select-save": "セーブデータを選択",
-  "select-state": "ステートを選択"
+  "change-save": "セーブデータを変更",
+  "deselect-save": "セーブデータを解除",
+  "select-state": "ステートを選択",
+  "change-state": "ステートを変更",
+  "deselect-state": "ステートを解除"
 }

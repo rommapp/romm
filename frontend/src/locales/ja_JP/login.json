@@ -3,5 +3,14 @@
   "login-oidc": "Login with {oidc}",
   "or": "or",
   "password": "パスワード",
-  "username": "ユーザ名"
+  "username": "ユーザ名",
+  "forgot-password": "パスワードをお忘れですか？",
+  "send-reset-link": "リセットリンクを送信",
+  "reset-sent": "リセットリンクが送信されました。管理者に連絡してください。",
+  "new-password": "新しいパスワード",
+  "confirm-new-password": "新しいパスワードを確認",
+  "reset-password": "パスワードをリセット",
+  "back-to-login": "ログインに戻る",
+  "setup-wizard": "セットアップウィザード",
+  "register": "登録"
 }

@@ -56,6 +56,7 @@ const aspectRatioOptions = computed(() => [
     source: t("platform.old-horizontal-cases"),
   },
 ]);
+const tabIndex = computed(() => (activePlatformInfoDrawer.value ? 0 : -1));
 
 const PLATFORM_INFO_FIELDS: {
   key: keyof Platform;
@@ -189,9 +190,10 @@ watch(
     mobile
     floating
     width="500"
+    location="right"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'ml-2': activePlatformInfoDrawer,
+      'mr-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
     }"
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
@@ -207,6 +209,7 @@ watch(
                 class="bg-toplayer"
                 @click="showEditable"
                 size="small"
+                :tabindex="tabIndex"
               >
                 <template #loader>
                   <v-progress-circular
@@ -219,19 +222,25 @@ watch(
                 <v-icon>mdi-pencil</v-icon></v-btn
               >
               <template v-else>
-                <v-btn @click="closeEditable" size="small" class="bg-toplayer"
+                <v-btn
+                  @click="closeEditable"
+                  size="small"
+                  class="bg-toplayer"
+                  :tabindex="tabIndex"
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
                   @click="updatePlatform()"
                   size="small"
                   class="bg-toplayer ml-1"
+                  :tabindex="tabIndex"
                   ><v-icon color="romm-green">mdi-check</v-icon></v-btn
                 >
               </template>
             </template>
           </div>
           <platform-icon
+            tabindex="-1"
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
             :fs-slug="currentPlatform.fs_slug"
@@ -255,11 +264,13 @@ watch(
               v-model="updatedPlatform.display_name"
               :readonly="!isEditable"
               @keyup.enter="updatePlatform()"
+              :tabindex="tabIndex"
             />
           </div>
           <div class="mt-6">
             <v-btn
               class="bg-toplayer my-1"
+              :tabindex="tabIndex"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
               <v-icon class="text-romm-green mr-2"
@@ -272,6 +283,7 @@ watch(
               rounded="4"
               :loading="scanning"
               @click="scan"
+              :tabindex="tabIndex"
               class="ml-2 my-1 bg-toplayer"
             >
               <template #prepend>
@@ -306,25 +318,13 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.igdb.com/platforms/${currentPlatform.slug}`"
               target="_blank"
+              :tabindex="tabIndex"
             >
-              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/igdb.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.igdb_id }}</span>
-              </v-chip>
-            </a>
-            <a
-              v-if="currentPlatform.moby_id"
-              style="text-decoration: none; color: inherit"
-              target="_blank"
-              :class="{ 'ml-1': currentPlatform.igdb_id }"
-            >
-              <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="30" rounded="0">
-                  <v-img src="/assets/scrappers/moby.png" />
-                </v-avatar>
-                <span>{{ currentPlatform.moby_id }}</span>
               </v-chip>
             </a>
             <a
@@ -335,12 +335,46 @@ watch(
               :class="{
                 'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
               }"
+              :tabindex="tabIndex"
             >
-              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/ss.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.ss_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.moby_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              :class="{ 'ml-1': currentPlatform.igdb_id }"
+              :tabindex="tabIndex"
+            >
+              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/moby.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.moby_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.ra_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              :class="{
+                'ml-1':
+                  currentPlatform.ra_id ||
+                  currentPlatform.ss_id ||
+                  currentPlatform.moby_id,
+              }"
+              :tabindex="tabIndex"
+            >
+              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="25" rounded="1">
+                  <v-img src="/assets/scrappers/ra.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.ra_id }}</span>
               </v-chip>
             </a>
           </v-col>
@@ -349,8 +383,8 @@ watch(
           <v-card-text class="pa-4 d-flex flex-wrap ga-2">
             <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
               <div>
-                <v-chip size="small" class="px-0" label>
-                  <v-chip label>{{ field.label }}</v-chip>
+                <v-chip tabindex="-1" size="small" class="px-0" label>
+                  <v-chip :tabindex="tabIndex" label>{{ field.label }}</v-chip>
                   <span class="px-2">{{
                     field.format(currentPlatform[field.key]) || "N/A"
                   }}</span>
@@ -376,10 +410,12 @@ watch(
           variant="text"
           class="ml-2 mt-2"
           prepend-icon="mdi-aspect-ratio"
+          :tabindex="tabIndex"
           >{{ t("platform.cover-style") }}</v-chip
         >
         <v-divider class="border-opacity-25 mx-2" />
         <v-item-group
+          :tabindex="tabIndex"
           v-model="selectedAspectRatio"
           mandatory
           @update:model-value="setAspectRatio"
@@ -437,6 +473,7 @@ watch(
       <template #content>
         <div class="text-center">
           <v-btn
+            :tabindex="tabIndex"
             class="text-romm-red bg-toplayer ma-2"
             variant="flat"
             @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"

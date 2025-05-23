@@ -1,23 +1,26 @@
 <script setup lang="ts">
+import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
+import EmptyStates from "@/components/common/EmptyStates/EmptyStates.vue";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import { formatDistanceToNow } from "date-fns";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
-import { formatBytes, formatTimestamp, getSupportedEJSCores } from "@/utils";
+import { formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { isNull } from "lodash";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { saveSave, saveState } from "./utils";
-import CacheDialog from "./CacheDialog.vue";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
+import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import { getEmptyCoverImage } from "@/utils/covers";
 import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
 
 const EMULATORJS_VERSION = "4.2.1";
 
@@ -26,19 +29,22 @@ const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const route = useRoute();
 const auth = storeAuth();
+const playingStore = storePlaying();
+const { playing, fullScreen } = storeToRefs(playingStore);
 const romsStore = storeRoms();
 const rom = ref<DetailedRom | null>(null);
 const firmwareOptions = ref<FirmwareSchema[]>([]);
-const biosRef = ref<FirmwareSchema | null>(null);
-const saveRef = ref<SaveSchema | null>(null);
-const stateRef = ref<StateSchema | null>(null);
-const coreRef = ref<string | null>(null);
-const discRef = ref<number | null>(null);
+const selectedFirmware = ref<FirmwareSchema | null>(null);
+const selectedSave = ref<SaveSchema | null>(null);
+const openSaveSelector = ref(false);
+const selectedState = ref<StateSchema | null>(null);
+const openStateSelector = ref(false);
+const selectedCore = ref<string | null>(null);
+const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
-const emitter = inject<Emitter<Events>>("emitter");
 
 // Functions
 function onPlay() {
@@ -50,21 +56,38 @@ function onPlay() {
     });
   }
 
-  window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
-  window.EJS_pathtodata = "/assets/emulatorjs/data/";
-
-  const script = document.createElement("script");
-  script.src = "/assets/emulatorjs/data/loader.js";
-
-  script.onerror = () => {
-    window.EJS_pathtodata = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data`;
-    const fallbackScript = document.createElement("script");
-    fallbackScript.src = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/loader.js`;
-    document.body.appendChild(fallbackScript);
-  };
-
-  document.body.appendChild(script);
   gameRunning.value = true;
+  window.EJS_fullscreenOnLoaded = fullScreenOnPlay.value;
+  fullScreen.value = fullScreenOnPlay.value;
+  playing.value = true;
+
+  const LOCAL_PATH = "/assets/emulatorjs/data/";
+  const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/`;
+
+  // Try loading local loader.js via fetch to validate it's real JS
+  fetch(`${LOCAL_PATH}loader.js`)
+    .then((res) => {
+      const type = res.headers.get("content-type") || "";
+      if (!res.ok || !type.includes("javascript")) {
+        throw new Error("Invalid local loader.js");
+      }
+      window.EJS_pathtodata = LOCAL_PATH;
+      return res.text();
+    })
+    .then((jsCode) => {
+      playing.value = true;
+      fullScreen.value = fullScreenOnPlay.value;
+      const script = document.createElement("script");
+      script.textContent = jsCode;
+      document.body.appendChild(script);
+    })
+    .catch(() => {
+      console.warn("Local EmulatorJS failed, falling back to CDN");
+      window.EJS_pathtodata = CDN_PATH;
+      const fallbackScript = document.createElement("script");
+      fallbackScript.src = `${CDN_PATH}loader.js`;
+      document.body.appendChild(fallbackScript);
+    });
 }
 
 function onFullScreenChange() {
@@ -73,11 +96,15 @@ function onFullScreenChange() {
 }
 
 async function onlyQuit() {
+  playing.value = false;
+  fullScreen.value = false;
   if (rom.value) romsStore.update(rom.value);
   window.history.back();
 }
 
 async function saveAndQuit() {
+  playing.value = false;
+  fullScreen.value = false;
   if (!rom.value) return window.history.back();
   const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
 
@@ -93,36 +120,79 @@ async function saveAndQuit() {
   const saveFile = window.EJS_emulator.gameManager.getSaveFile();
   await saveSave({
     rom: rom.value,
-    save: saveRef.value,
+    save: selectedSave.value,
     saveFile,
     screenshotFile,
   });
 
   romsStore.update(rom.value);
+  playing.value = false;
+  fullScreen.value = false;
   window.history.back();
 }
 
-function saveSelected(save: SaveSchema) {
-  saveRef.value = save;
+function switchSaveSelector() {
+  openSaveSelector.value = !openSaveSelector.value;
+  openStateSelector.value = false;
+}
+
+function selectSave(save: SaveSchema) {
+  selectedSave.value = save;
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:save_id`,
     save.id.toString(),
   );
+  openSaveSelector.value = false;
 }
 
-function stateSelected(state: StateSchema) {
-  stateRef.value = state;
+function unselectSave() {
+  selectedSave.value = null;
+  localStorage.removeItem(`player:${rom.value?.platform_slug}:save_id`);
+}
+
+function switchStateSelector() {
+  openStateSelector.value = !openStateSelector.value;
+  openSaveSelector.value = false;
+}
+
+function selectState(state: StateSchema) {
+  selectedState.value = state;
   localStorage.setItem(
     `player:${rom.value?.platform_slug}:state_id`,
     state.id.toString(),
   );
+  openStateSelector.value = false;
 }
+
+function unselectState() {
+  selectedState.value = null;
+  localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
+}
+
+function formatRelativeDate(date: string | Date) {
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
+}
+
+watch(selectedCore, (newSelectedCore) => {
+  if (
+    selectedState.value &&
+    selectedState.value.emulator &&
+    selectedState.value.emulator !== newSelectedCore
+  ) {
+    selectedState.value = null;
+    localStorage.removeItem(`player:${rom.value?.platform_slug}:state_id`);
+  }
+});
 
 onMounted(async () => {
   const romResponse = await romApi.getRom({
     romId: parseInt(route.params.rom as string),
   });
   rom.value = romResponse.data;
+
+  if (rom.value) {
+    document.title = `${rom.value.name} | Play`;
+  }
 
   const firmwareResponse = await firmwareApi.getFirmware({
     platformId: romResponse.data.platform_id,
@@ -132,14 +202,14 @@ onMounted(async () => {
   supportedCores.value = [...getSupportedEJSCores(rom.value.platform_slug)];
 
   // Load stored bios, save, state, and core
-  saveRef.value = rom.value.user_saves[0] ?? null;
-  stateRef.value = rom.value.user_states[0] ?? null;
+  selectedSave.value = rom.value.user_saves[0] ?? null;
+  selectedState.value = rom.value.user_states[0] ?? null;
 
   const storedBiosID = localStorage.getItem(
     `player:${rom.value.platform_slug}:bios_id`,
   );
   if (storedBiosID) {
-    biosRef.value =
+    selectedFirmware.value =
       firmwareOptions.value.find((f) => f.id === parseInt(storedBiosID)) ??
       null;
   }
@@ -148,75 +218,75 @@ onMounted(async () => {
     `player:${rom.value.platform_slug}:core`,
   );
   if (storedCore) {
-    coreRef.value = storedCore;
+    selectedCore.value = storedCore;
   } else {
     // Otherwise auto select first supported core
-    coreRef.value = supportedCores.value[0];
+    selectedCore.value = supportedCores.value[0];
   }
 
   const storedDisc = localStorage.getItem(`player:${rom.value.id}:disc`);
   if (storedDisc) {
-    discRef.value = parseInt(storedDisc);
+    selectedDisc.value = parseInt(storedDisc);
   }
-
-  emitter?.on("saveSelected", saveSelected);
-  emitter?.on("stateSelected", stateSelected);
 });
 
 onBeforeUnmount(async () => {
-  emitter?.off("saveSelected", saveSelected);
-  emitter?.off("stateSelected", stateSelected);
   window.EJS_emulator?.callEvent("exit");
 });
 </script>
 
 <template>
-  <v-row v-if="rom" class="justify-center scroll" no-gutters>
+  <!-- TODO: hide main app bar on play if fullscreen -->
+  <v-row v-if="rom" class="justify-center scroll px-2" no-gutters>
     <v-col
       v-if="gameRunning"
       cols="12"
       md="8"
       xl="10"
       id="game-wrapper"
-      class="bg-background"
+      class="bg-background pr-2"
       rounded
     >
       <player
         :rom="rom"
-        :state="stateRef"
-        :save="saveRef"
-        :bios="biosRef"
-        :core="coreRef"
-        :disc="discRef"
+        :state="selectedState"
+        :save="selectedSave"
+        :bios="selectedFirmware"
+        :core="selectedCore"
+        :disc="selectedDisc"
       />
     </v-col>
 
     <v-col
       cols="12"
-      :sm="!gameRunning ? 10 : 10"
+      sm="10"
       :md="!gameRunning ? 8 : 4"
       :xl="!gameRunning ? 6 : 2"
     >
-      <v-row class="px-3 mt-6" no-gutters>
+      <!-- Header -->
+      <v-row class="mt-6" no-gutters>
         <v-col>
           <v-img
             class="mx-auto"
             width="250"
             src="/assets/emulatorjs/powered_by_emulatorjs.png"
           />
-          <v-divider class="my-4 mt-8" />
+          <v-divider class="my-4" />
           <rom-list-item :rom="rom" with-filename with-size />
         </v-col>
       </v-row>
-      <v-row v-if="!gameRunning" class="px-3 py-3" no-gutters>
+
+      <v-row v-if="!gameRunning" no-gutters>
         <v-col>
+          <!-- disc selector -->
           <v-select
             v-if="rom.multi"
-            v-model="discRef"
-            class="my-1"
+            class="mt-4"
+            v-model="selectedDisc"
             hide-details
-            rounded="0"
             variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-disc"
             clearable
             :label="t('rom.file')"
             :items="
@@ -226,12 +296,15 @@ onBeforeUnmount(async () => {
               }))
             "
           />
+          <!-- core selector -->
           <v-select
             v-if="supportedCores.length > 1"
-            v-model="coreRef"
-            class="my-1"
+            class="mt-4"
+            v-model="selectedCore"
             hide-details
             variant="outlined"
+            prepend-inner-icon="mdi-chip"
+            density="compact"
             clearable
             :label="t('common.core')"
             :items="
@@ -241,12 +314,15 @@ onBeforeUnmount(async () => {
               }))
             "
           />
+          <!-- bios selector -->
           <v-select
             v-if="firmwareOptions.length > 0"
-            v-model="biosRef"
-            class="my-1"
+            class="mt-4"
+            v-model="selectedFirmware"
             hide-details
             variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-memory"
             clearable
             :label="t('common.firmware')"
             :items="
@@ -256,178 +332,383 @@ onBeforeUnmount(async () => {
               })) ?? []
             "
           />
-          <v-row class="mt-2">
-            <v-col :cols="smAndDown ? 12 : 6">
-              <v-card v-if="stateRef" class="bg-toplayer transform-scale">
-                <v-card-text class="d-flex flex-row justify-end h-100">
-                  <v-col class="pa-0">
-                    <v-img
-                      cover
-                      height="100%"
-                      :src="
-                        stateRef.screenshot?.download_path ??
-                        getEmptyCoverImage(stateRef.file_name)
-                      "
-                    />
-                  </v-col>
-                  <v-col class="ml-4">
-                    <v-row class="text-h6">{{
-                      t("play.select-state").toUpperCase()
-                    }}</v-row>
-                    <v-row class="mt-4 flex-grow-0">{{
-                      stateRef.file_name
-                    }}</v-row>
-                    <v-row
-                      class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
-                      style="min-height: 20px"
-                    >
-                      <v-chip
-                        v-if="stateRef.emulator"
-                        size="x-small"
-                        color="orange"
-                        label
-                      >
-                        {{ stateRef.emulator }}
-                      </v-chip>
-                      <v-chip size="x-small" label>
-                        {{ formatBytes(stateRef.file_size_bytes) }}
-                      </v-chip>
-                      <v-chip size="x-small" label>
-                        {{ formatTimestamp(stateRef.updated_at) }}
-                      </v-chip>
-                      <v-btn
-                        class="w-100 mt-4"
-                        variant="outlined"
-                        size="large"
-                        @click="stateRef = null"
-                      >
-                        <v-icon>mdi-close-circle-outline</v-icon>
-                      </v-btn>
-                    </v-row>
-                  </v-col>
-                </v-card-text>
-              </v-card>
-              <v-row v-else>
-                <v-col>
-                  <v-btn
-                    class="w-100"
-                    variant="outlined"
-                    size="large"
-                    @click="emitter?.emit('selectStateDialog', rom)"
+
+          <!-- save/satate selector -->
+          <v-row class="mt-4" no-gutters>
+            <!-- state selector -->
+            <v-expand-transition>
+              <v-col
+                v-show="!openSaveSelector || !smAndDown"
+                :class="{
+                  'mt-2': gameRunning || smAndDown,
+                  'pr-1': !smAndDown,
+                }"
+                :cols="smAndDown ? 12 : 6"
+              >
+                <v-btn
+                  block
+                  variant="flat"
+                  class="asset-selector"
+                  prepend-icon="mdi-file"
+                  :color="openStateSelector ? 'primary' : ''"
+                  @click="switchStateSelector"
+                  :disabled="
+                    !rom.user_states.some(
+                      (s) => !s.emulator || s.emulator === selectedCore,
+                    )
+                  "
+                >
+                  {{
+                    selectedState
+                      ? t("play.change-state")
+                      : t("play.select-state")
+                  }}
+                </v-btn>
+                <v-expand-transition>
+                  <v-card
+                    v-if="selectedState"
+                    class="bg-toplayer transform-scale selected-card mx-1"
+                    :class="{ 'disabled-card': openSaveSelector }"
                   >
-                    {{ t("play.select-state") }}
-                  </v-btn>
-                </v-col>
-              </v-row>
-            </v-col>
-            <v-col :cols="smAndDown ? 12 : 6">
-              <v-card v-if="saveRef" class="bg-toplayer transform-scale">
-                <v-card-text class="d-flex flex-row justify-end h-100">
-                  <v-col class="pa-0">
-                    <v-img
-                      cover
-                      height="100%"
-                      :src="
-                        saveRef.screenshot?.download_path ??
-                        getEmptyCoverImage(saveRef.file_name)
-                      "
-                    />
-                  </v-col>
-                  <v-col class="ml-4">
-                    <v-row class="text-h6">{{
-                      t("play.select-save").toUpperCase()
-                    }}</v-row>
-                    <v-row class="mt-4 flex-grow-0">{{
-                      saveRef.file_name
-                    }}</v-row>
-                    <v-row
-                      class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
-                      style="min-height: 20px"
-                    >
-                      <v-chip
-                        v-if="saveRef.emulator"
-                        size="x-small"
-                        color="orange"
-                        label
-                      >
-                        {{ saveRef.emulator }}
-                      </v-chip>
-                      <v-chip size="x-small" label>
-                        {{ formatBytes(saveRef.file_size_bytes) }}
-                      </v-chip>
-                      <v-chip size="x-small" label>
-                        {{ formatTimestamp(saveRef.updated_at) }}
-                      </v-chip>
-                      <v-btn
-                        class="w-100 mt-4"
-                        variant="outlined"
-                        size="large"
-                        @click="saveRef = null"
-                      >
-                        <v-icon>mdi-close-circle-outline</v-icon>
-                      </v-btn>
-                    </v-row>
-                  </v-col>
-                </v-card-text>
-              </v-card>
-              <v-row v-else>
-                <v-col>
-                  <v-btn
-                    class="w-100"
-                    variant="outlined"
-                    size="large"
-                    @click="emitter?.emit('selectSaveDialog', rom)"
+                    <v-card-text class="px-2 pb-2 pt-4">
+                      <v-row no-gutters>
+                        <v-col cols="6">
+                          <v-img
+                            rounded
+                            :src="
+                              selectedState.screenshot?.download_path ??
+                              getEmptyCoverImage(selectedState.file_name)
+                            "
+                          >
+                          </v-img>
+                        </v-col>
+                        <v-col class="pl-2 d-flex flex-column" cols="6">
+                          <v-row
+                            class="px-1 text-caption text-primary"
+                            no-gutters
+                            >{{ selectedState.file_name }}</v-row
+                          >
+                          <v-row no-gutters>
+                            <v-col cols="12">
+                              <v-list-item rounded class="px-1 text-caption">
+                                Updated:
+                                {{ formatTimestamp(selectedState.updated_at) }}
+                                <span class="text-grey text-caption"
+                                  >({{
+                                    formatRelativeDate(
+                                      selectedState.updated_at,
+                                    )
+                                  }})</span
+                                >
+                              </v-list-item>
+                            </v-col>
+                            <v-col v-if="selectedState.emulator" cols="12">
+                              <v-chip size="x-small" color="orange" label>
+                                {{ selectedState.emulator }}
+                              </v-chip>
+                            </v-col>
+                          </v-row>
+                          <v-row no-gutters>
+                            <v-col class="text-right mt-auto pt-1">
+                              <v-btn
+                                variant="flat"
+                                color="toplayer"
+                                size="small"
+                                icon
+                                @click="unselectState()"
+                              >
+                                <v-icon>mdi-close-circle-outline</v-icon>
+                              </v-btn>
+                            </v-col>
+                          </v-row>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
+                </v-expand-transition>
+              </v-col>
+            </v-expand-transition>
+
+            <!-- save selector -->
+            <v-expand-transition>
+              <v-col
+                v-show="!openStateSelector || !smAndDown"
+                :class="{
+                  'mt-2': gameRunning || smAndDown,
+                  'pl-1': !smAndDown,
+                }"
+                :cols="smAndDown ? 12 : 6"
+              >
+                <v-btn
+                  block
+                  variant="flat"
+                  class="asset-selector"
+                  prepend-icon="mdi-content-save"
+                  :color="openSaveSelector ? 'primary' : ''"
+                  @click="switchSaveSelector"
+                >
+                  {{
+                    selectedSave ? t("play.change-save") : t("play.select-save")
+                  }}
+                </v-btn>
+                <v-expand-transition>
+                  <v-card
+                    v-if="selectedSave"
+                    class="bg-toplayer transform-scale selected-card mx-1"
+                    :class="{ 'disabled-card': openStateSelector }"
                   >
-                    {{ t("play.select-save") }}
-                  </v-btn>
-                </v-col>
-              </v-row>
-            </v-col>
+                    <v-card-text class="px-2 pb-2 pt-4">
+                      <v-row no-gutters>
+                        <v-col cols="6">
+                          <v-img
+                            rounded
+                            :src="
+                              selectedSave.screenshot?.download_path ??
+                              getEmptyCoverImage(selectedSave.file_name)
+                            "
+                          >
+                          </v-img>
+                        </v-col>
+                        <v-col class="pl-2 d-flex flex-column" cols="6">
+                          <v-row
+                            class="px-1 text-caption text-primary"
+                            no-gutters
+                            >{{ selectedSave.file_name }}</v-row
+                          >
+                          <v-row no-gutters>
+                            <v-col cols="12">
+                              <v-list-item rounded class="px-1 text-caption">
+                                Updated:
+                                {{ formatTimestamp(selectedSave.updated_at) }}
+                                <span class="text-grey text-caption"
+                                  >({{
+                                    formatRelativeDate(selectedSave.updated_at)
+                                  }})</span
+                                >
+                              </v-list-item>
+                            </v-col>
+                            <v-col v-if="selectedSave.emulator" cols="12">
+                              <v-chip size="x-small" color="orange" label>
+                                {{ selectedSave.emulator }}
+                              </v-chip>
+                            </v-col>
+                          </v-row>
+                          <v-row no-gutters>
+                            <v-col class="text-right mt-auto pt-2">
+                              <v-btn
+                                variant="flat"
+                                color="toplayer"
+                                size="small"
+                                icon
+                                @click="unselectSave()"
+                              >
+                                <v-icon>mdi-close-circle-outline</v-icon>
+                              </v-btn>
+                            </v-col>
+                          </v-row>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
+                </v-expand-transition>
+              </v-col>
+            </v-expand-transition>
           </v-row>
+
+          <!-- state display -->
+          <v-expand-transition>
+            <v-row v-if="openStateSelector" class="mt-2" no-gutters>
+              <v-col
+                cols="6"
+                sm="4"
+                class="pa-1"
+                v-if="rom.user_states.length > 0"
+                v-for="state in rom.user_states
+                  .filter((s) => !s.emulator || s.emulator === selectedCore)
+                  .sort((a, b) => {
+                    return (
+                      new Date(b.updated_at).getTime() -
+                      new Date(a.updated_at).getTime()
+                    );
+                  })"
+              >
+                <v-hover v-slot="{ isHovering, props }">
+                  <v-card
+                    :style="{
+                      zIndex: selectedState?.id === state.id ? 11 : undefined,
+                    }"
+                    v-bind="props"
+                    class="bg-toplayer transform-scale"
+                    :class="{
+                      'on-hover': isHovering,
+                      'border-selected': selectedState?.id === state.id,
+                    }"
+                    :elevation="isHovering ? 20 : 3"
+                    @click="selectState(state)"
+                  >
+                    <v-card-text class="pa-2">
+                      <v-row no-gutters>
+                        <v-col cols="12">
+                          <v-img
+                            rounded
+                            :src="
+                              state.screenshot?.download_path ??
+                              getEmptyCoverImage(state.file_name)
+                            "
+                          >
+                          </v-img>
+                        </v-col>
+                      </v-row>
+                      <v-row
+                        class="py-2 px-1 text-caption text-primary"
+                        no-gutters
+                        >{{ state.file_name }}</v-row
+                      >
+                      <v-row class="ga-1" no-gutters>
+                        <v-col cols="12">
+                          <v-list-item rounded class="pa-1 text-caption">
+                            Updated: {{ formatTimestamp(state.updated_at) }}
+                            <span class="ml-1 text-grey text-caption"
+                              >({{
+                                formatRelativeDate(state.updated_at)
+                              }})</span
+                            >
+                          </v-list-item>
+                        </v-col>
+                        <v-col v-if="state.emulator" cols="12" class="mt-1">
+                          <v-chip size="x-small" color="orange" label>
+                            {{ state.emulator }}
+                          </v-chip>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
+                </v-hover>
+              </v-col>
+              <v-col v-else class="pa-1 mt-1">
+                <empty-states />
+              </v-col>
+            </v-row>
+          </v-expand-transition>
+
+          <!-- save display -->
+          <v-expand-transition>
+            <v-row v-if="openSaveSelector" class="mt-2" no-gutters>
+              <v-col
+                cols="6"
+                sm="4"
+                class="pa-1"
+                v-if="rom.user_saves.length > 0"
+                v-for="save in rom.user_saves.sort((a, b) => {
+                  return (
+                    new Date(b.updated_at).getTime() -
+                    new Date(a.updated_at).getTime()
+                  );
+                })"
+              >
+                <v-hover v-slot="{ isHovering, props }">
+                  <v-card
+                    :style="{
+                      zIndex: selectedSave?.id === save.id ? 11 : undefined,
+                    }"
+                    v-bind="props"
+                    class="bg-toplayer transform-scale"
+                    :class="{
+                      'on-hover': isHovering,
+                      'border-selected': selectedSave?.id === save.id,
+                    }"
+                    :elevation="isHovering ? 20 : 3"
+                    @click="selectSave(save)"
+                  >
+                    <v-card-text class="pa-2">
+                      <v-row no-gutters>
+                        <v-col cols="12">
+                          <v-img
+                            rounded
+                            :src="
+                              save.screenshot?.download_path ??
+                              getEmptyCoverImage(save.file_name)
+                            "
+                          >
+                          </v-img>
+                        </v-col>
+                      </v-row>
+                      <v-row
+                        class="py-2 px-1 text-caption text-primary"
+                        no-gutters
+                        >{{ save.file_name }}</v-row
+                      >
+                      <v-row class="ga-1" no-gutters>
+                        <v-col cols="12">
+                          <v-list-item rounded class="pa-1 text-caption">
+                            Updated: {{ formatTimestamp(save.updated_at) }}
+                            <span class="ml-1 text-grey text-caption"
+                              >({{ formatRelativeDate(save.updated_at) }})</span
+                            >
+                          </v-list-item>
+                        </v-col>
+                        <v-col v-if="save.emulator" cols="12" class="mt-1">
+                          <v-chip size="x-small" color="orange" label>
+                            {{ save.emulator }}
+                          </v-chip>
+                        </v-col>
+                      </v-row>
+                    </v-card-text>
+                  </v-card>
+                </v-hover>
+              </v-col>
+              <v-col v-else class="pa-1 mt-1">
+                <empty-saves />
+              </v-col>
+            </v-row>
+          </v-expand-transition>
         </v-col>
       </v-row>
-      <v-row class="px-3 py-3 text-center" no-gutters>
-        <v-col>
-          <v-row v-if="!gameRunning" class="align-center" no-gutters>
-            <v-col>
-              <v-btn
-                block
-                size="large"
-                @click="onFullScreenChange"
-                :disabled="gameRunning"
-                :variant="fullScreenOnPlay ? 'flat' : 'outlined'"
-                :color="fullScreenOnPlay ? 'primary' : ''"
-                ><v-icon class="mr-1">{{
-                  fullScreenOnPlay
-                    ? "mdi-checkbox-outline"
-                    : "mdi-checkbox-blank-outline"
-                }}</v-icon
-                >{{ t("play.full-screen") }}</v-btn
-              >
-            </v-col>
-            <v-col
-              :cols="gameRunning || smAndDown ? 12 : 8"
-              :class="gameRunning || smAndDown ? 'mt-2' : 'ml-4'"
-            >
-              <v-btn
-                color="primary"
-                block
-                :disabled="gameRunning"
-                variant="outlined"
-                size="large"
-                prepend-icon="mdi-play"
-                @click="onPlay()"
-                >{{ t("play.play") }}
-              </v-btn>
-            </v-col>
-          </v-row>
-          <v-row v-if="!gameRunning" class="align-center" no-gutters>
+
+      <!-- Action buttons -->
+      <template v-if="!gameRunning">
+        <v-row class="align-center mt-4" no-gutters>
+          <v-col :class="{ 'pr-1': !smAndDown }">
             <v-btn
-              class="mt-4"
               block
-              variant="outlined"
-              size="large"
+              @click="onFullScreenChange"
+              variant="flat"
+              :append-icon="
+                fullScreenOnPlay ? 'mdi-fullscreen' : 'mdi-fullscreen-exit'
+              "
+              :color="fullScreenOnPlay ? 'primary' : ''"
+              ><v-icon class="mr-2">{{
+                fullScreenOnPlay
+                  ? "mdi-checkbox-outline"
+                  : "mdi-checkbox-blank-outline"
+              }}</v-icon
+              >{{ t("play.full-screen") }}</v-btn
+            >
+          </v-col>
+          <v-col
+            :cols="smAndDown ? 12 : 8"
+            :class="smAndDown ? 'mt-2' : 'pl-1'"
+          >
+            <v-btn
+              block
+              variant="flat"
+              class="text-primary"
+              prepend-icon="mdi-play"
+              @click="onPlay()"
+              >{{ t("play.play") }}
+            </v-btn>
+          </v-col>
+        </v-row>
+        <v-row class="align-center my-4" no-gutters>
+          <v-col
+            :class="{ 'mt-2': gameRunning || smAndDown, 'pr-1': !smAndDown }"
+            :cols="smAndDown ? 12 : 6"
+          >
+            <v-btn
+              block
+              variant="flat"
               prepend-icon="mdi-arrow-left"
+              append-icon="mdi-details"
               @click="
                 $router.push({
                   name: ROUTES.ROM,
@@ -436,12 +717,16 @@ onBeforeUnmount(async () => {
               "
               >{{ t("play.back-to-game-details") }}
             </v-btn>
+          </v-col>
+          <v-col
+            :class="{ 'mt-2': gameRunning || smAndDown, 'pl-1': !smAndDown }"
+            :cols="smAndDown ? 12 : 6"
+          >
             <v-btn
-              class="mt-4"
               block
-              variant="outlined"
-              size="large"
+              variant="flat"
               prepend-icon="mdi-arrow-left"
+              append-icon="mdi-apps"
               @click="
                 $router.push({
                   name: ROUTES.PLATFORM,
@@ -450,32 +735,30 @@ onBeforeUnmount(async () => {
               "
               >{{ t("play.back-to-gallery") }}
             </v-btn>
-          </v-row>
-          <v-btn
-            v-if="gameRunning"
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-exit-to-app"
-            @click="onlyQuit"
-          >
-            {{ t("play.quit") }}
-          </v-btn>
-          <v-btn
-            v-if="gameRunning"
-            class="mt-4"
-            block
-            variant="outlined"
-            size="large"
-            prepend-icon="mdi-content-save-move"
-            @click="saveAndQuit"
-          >
-            {{ t("play.save-and-quit") }}
-          </v-btn>
-          <cache-dialog v-if="!gameRunning" />
-        </v-col>
+          </v-col>
+        </v-row>
+      </template>
+      <v-row v-else class="align-center my-4" no-gutters>
+        <v-btn
+          :class="{ 'mt-2': gameRunning || smAndDown, 'pr-1': !smAndDown }"
+          block
+          variant="flat"
+          prepend-icon="mdi-exit-to-app"
+          @click="onlyQuit"
+        >
+          {{ t("play.quit") }}
+        </v-btn>
+        <v-btn
+          :class="{ 'mt-2': gameRunning || smAndDown, 'pl-1': !smAndDown }"
+          block
+          variant="flat"
+          prepend-icon="mdi-content-save-move"
+          @click="saveAndQuit"
+        >
+          {{ t("play.save-and-quit") }}
+        </v-btn>
       </v-row>
+      <cache-dialog v-if="!gameRunning" />
     </v-col>
   </v-row>
 </template>
@@ -489,5 +772,17 @@ onBeforeUnmount(async () => {
   #game-wrapper {
     height: calc(100vh - 55px);
   }
+}
+
+.selected-card {
+  margin-top: -5px;
+}
+
+.disabled-card {
+  opacity: 0.2;
+}
+
+.asset-selector {
+  z-index: 11;
 }
 </style>

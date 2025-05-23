@@ -22,10 +22,9 @@ function closeDialog() {
 
 <template>
   <v-btn
-    class="mt-12 text-romm-red"
+    class="text-romm-red mt-6"
     block
-    variant="outlined"
-    size="large"
+    variant="flat"
     prepend-icon="mdi-database-remove"
     @click="show = true"
     >{{ t("play.clear-cache") }}
@@ -37,8 +36,10 @@ function closeDialog() {
       </v-row>
     </template>
     <template #content>
-      <div class="text-h6 pa-4">{{ t("play.clear-cache-title") }}</div>
-      <div class="text-body-1 px-4 pb-4">
+      <div class="text-h6 text-center pa-4">
+        {{ t("play.clear-cache-title") }}
+      </div>
+      <div class="text-body-1 text-center px-4 pb-4">
         <strong>{{ t("play.clear-cache-warning") }}</strong>
         <br />
         {{ t("play.clear-cache-description") }}

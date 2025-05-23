@@ -24,9 +24,10 @@ const showStatus = isNull(localStorage.getItem("settings.showStatus"))
   : localStorage.getItem("settings.showStatus") === "true";
 
 const playingStatus = computed(() => {
-  if (props.rom.rom_user.now_playing) return "now_playing";
-  if (props.rom.rom_user.backlogged) return "backlogged";
-  return props.rom.rom_user.status;
+  const { now_playing, backlogged, status } = props.rom?.rom_user ?? {};
+  if (now_playing) return "now_playing";
+  if (backlogged) return "backlogged";
+  return status || "";
 });
 </script>
 

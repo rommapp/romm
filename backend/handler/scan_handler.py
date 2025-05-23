@@ -7,11 +7,17 @@ from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
+from handler.metadata import (
+    meta_igdb_handler,
+    meta_moby_handler,
+    meta_ra_handler,
+    meta_ss_handler,
+)
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
+from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
 from handler.metadata.ss_handler import SSPlatform, SSRom
-from logger.formatter import BLUE
+from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.assets import Save, Screenshot, State
@@ -19,6 +25,8 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+
+LOGGER_MODULE_NAME = {"module_name": "scan"}
 
 
 class ScanType(Enum):
@@ -34,6 +42,20 @@ class MetadataSource:
     IGDB = "igdb"
     MOBY = "moby"
     SS = "ss"
+    RA = "ra"
+
+
+async def fetch_ra_info(
+    platform: Platform,
+    rom_id: int,
+    hash: str,
+) -> RAGameRom:
+
+    return await meta_ra_handler.get_rom(
+        platform=platform,
+        rom_id=rom_id,
+        hash=hash,
+    )
 
 
 async def _get_main_platform_igdb_id(platform: Platform):
@@ -68,10 +90,13 @@ async def scan_platform(
         Platform object
     """
 
-    log.info(f"· {hl(fs_slug)}")
-
     if metadata_sources is None:
-        metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
+        metadata_sources = [
+            MetadataSource.IGDB,
+            MetadataSource.MOBY,
+            MetadataSource.SS,
+            MetadataSource.RA,
+        ]
 
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug
@@ -83,7 +108,8 @@ async def scan_platform(
     # Sometimes users change the name of the folder, so we try to match it with the config
     if fs_slug not in fs_platforms:
         log.warning(
-            f"  {fs_slug} not found in file system, trying to match via config..."
+            f"{hl(fs_slug)} not found in file system, trying to match via config",
+            extra=LOGGER_MODULE_NAME,
         )
         if fs_slug in swapped_platform_bindings.keys():
             platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
@@ -103,7 +129,6 @@ async def scan_platform(
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
-
     igdb_platform = (
         (await meta_igdb_handler.get_platform(platform_attrs["slug"]))
         if MetadataSource.IGDB in metadata_sources
@@ -120,9 +145,15 @@ async def scan_platform(
         else SSPlatform(ss_id=None, slug=platform_attrs["slug"])
     )
 
+    ra_platform = (
+        meta_ra_handler.get_platform(platform_attrs["slug"])
+        if MetadataSource.RA in metadata_sources
+        else RAGamesPlatform(ra_id=None, slug=platform_attrs["slug"])
+    )
+
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
-        {**moby_platform, **ss_platform, **igdb_platform}
+        {**ra_platform, **moby_platform, **ss_platform, **igdb_platform}
     )  # Reverse order
 
     if (
@@ -132,14 +163,16 @@ async def scan_platform(
     ):
         log.info(
             emoji.emojize(
-                f"  Identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
-            )
+                f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
+            ),
+            extra={"module_name": "scan"},
         )
     else:
         log.warning(
             emoji.emojize(
-                f" Platform {platform_attrs['slug']} not identified :cross_mark:"
-            )
+                f"Platform {hl(platform_attrs['slug'])} not identified :cross_mark:"
+            ),
+            extra=LOGGER_MODULE_NAME,
         )
 
     return Platform(**platform_attrs)
@@ -151,8 +184,6 @@ def scan_firmware(
     firmware: Firmware | None = None,
 ) -> Firmware:
     firmware_path = fs_firmware_handler.get_firmware_fs_structure(platform.fs_slug)
-
-    log.info(f"\t · {file_name}")
 
     # Set default properties
     firmware_attrs = {
@@ -198,15 +229,14 @@ async def scan_rom(
     metadata_sources: list[str] | None = None,
 ) -> Rom:
     if not metadata_sources:
-        metadata_sources = [MetadataSource.IGDB, MetadataSource.MOBY, MetadataSource.SS]
+        metadata_sources = [
+            MetadataSource.IGDB,
+            MetadataSource.MOBY,
+            MetadataSource.SS,
+            MetadataSource.RA,
+        ]
 
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
-
-    log.info(f"\t · {hl(fs_rom['fs_name'])}")
-
-    if fs_rom.get("multi", False):
-        for file in fs_rom["files"]:
-            log.info(f"\t\t · {file.file_name}")
 
     # Set default properties
     rom_attrs = {
@@ -228,6 +258,7 @@ async def scan_rom(
                 "moby_id": rom.moby_id,
                 "ss_id": rom.ss_id,
                 "sgdb_id": rom.sgdb_id,
+                "ra_id": rom.ra_id,
                 "name": rom.name,
                 "slug": rom.slug,
                 "summary": rom.summary,
@@ -348,20 +379,28 @@ async def scan_rom(
         and not ss_handler_rom.get("ss_id")
     ):
         log.warning(
-            emoji.emojize(
-                f"\t   Rom {rom_attrs['fs_name']} not identified :cross_mark:"
-            )
+            emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),
+            extra=LOGGER_MODULE_NAME,
         )
         return Rom(**rom_attrs)
 
-    log.info(emoji.emojize(f"\t   Identified as {rom_attrs['name']} :alien_monster:"))
+    log.info(
+        emoji.emojize(
+            f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} :alien_monster:"
+        ),
+        extra=LOGGER_MODULE_NAME,
+    )
+    if fs_rom.get("multi", False):
+        for file in fs_rom["files"]:
+            log.info(
+                f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
+                extra=LOGGER_MODULE_NAME,
+            )
 
     return Rom(**rom_attrs)
 
 
 def _scan_asset(file_name: str, path: str):
-    log.info(f"\t\t · {file_name}")
-
     file_size = fs_asset_handler.get_asset_size(file_name=file_name, asset_path=path)
 
     return {
@@ -375,19 +414,27 @@ def _scan_asset(file_name: str, path: str):
 
 
 def scan_save(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
+    file_name: str,
+    user: User,
+    platform_fs_slug: str,
+    rom_id: int,
+    emulator: str | None = None,
 ) -> Save:
     saves_path = fs_asset_handler.build_saves_file_path(
-        user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     return Save(**_scan_asset(file_name, saves_path))
 
 
 def scan_state(
-    file_name: str, user: User, platform_fs_slug: str, emulator: str | None = None
+    file_name: str,
+    user: User,
+    platform_fs_slug: str,
+    rom_id: int,
+    emulator: str | None = None,
 ) -> State:
     states_path = fs_asset_handler.build_states_file_path(
-        user=user, platform_fs_slug=platform_fs_slug, emulator=emulator
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
     return State(**_scan_asset(file_name, states_path))
 
@@ -396,8 +443,9 @@ def scan_screenshot(
     file_name: str,
     user: User,
     platform_fs_slug: str,
+    rom_id: int,
 ) -> Screenshot:
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
-        user=user, platform_fs_slug=platform_fs_slug
+        user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id
     )
     return Screenshot(**_scan_asset(file_name, screenshots_path))

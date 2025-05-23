@@ -6,8 +6,7 @@ import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
-import Saves from "@/components/Details/Saves.vue";
-import States from "@/components/Details/States.vue";
+import GameData from "@/components/Details/GameData.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
@@ -33,8 +32,7 @@ const route = useRoute();
 const tab = ref<
   | "details"
   | "manual"
-  | "saves"
-  | "states"
+  | "gamedata"
   | "personal"
   | "additionalcontent"
   | "screenshots"
@@ -81,6 +79,7 @@ onBeforeMount(async () => {
     if (currentPlatform && currentPlatform != romsStore.currentPlatform) {
       romsStore.setCurrentPlatform(currentPlatform);
     }
+    document.title = `${currentRom.value.name} | ${currentRom.value.platform_display_name}`;
   }
 
   const downloadStore = storeDownload();
@@ -117,7 +116,17 @@ watch(
         </v-container>
       </v-col>
 
-      <v-col md="7">
+      <v-col
+        :md="
+          !(
+            lgAndUp &&
+            (currentRom.igdb_metadata?.expansions?.length ||
+              currentRom.igdb_metadata?.dlcs?.length)
+          )
+            ? 8
+            : 7
+        "
+      >
         <div :class="{ 'position-absolute title-desktop pl-4': mdAndUp }">
           <title-info :rom="currentRom" />
         </div>
@@ -128,14 +137,14 @@ watch(
           <v-tabs
             v-model="tab"
             slider-color="primary"
+            show-arrows
             :class="{ 'mt-4': smAndDown }"
           >
             <v-tab value="details"> {{ t("rom.details") }} </v-tab>
             <v-tab value="manual" v-if="currentRom.has_manual">
               {{ t("rom.manual") }}
             </v-tab>
-            <v-tab value="saves"> {{ t("common.saves") }} </v-tab>
-            <v-tab value="states"> {{ t("common.states") }} </v-tab>
+            <v-tab value="gamedata">Game data</v-tab>
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
@@ -174,11 +183,8 @@ watch(
               <v-window-item value="manual">
                 <pdf-viewer v-if="currentRom.has_manual" :rom="currentRom" />
               </v-window-item>
-              <v-window-item value="saves">
-                <saves :rom="currentRom" />
-              </v-window-item>
-              <v-window-item value="states">
-                <states :rom="currentRom" />
+              <v-window-item value="gamedata">
+                <game-data :rom="currentRom" />
               </v-window-item>
               <v-window-item value="personal">
                 <personal :rom="currentRom" />

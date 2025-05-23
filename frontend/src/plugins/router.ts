@@ -1,4 +1,3 @@
-// Composables
 import {
   createRouter,
   createWebHistory,
@@ -11,10 +10,13 @@ import { storeToRefs } from "pinia";
 import type { User } from "@/stores/users";
 import { startViewTransition } from "@/plugins/transition";
 import romApi from "@/services/api/rom";
+import i18n from "@/locales";
 
 export const ROUTES = {
   SETUP: "setup",
   LOGIN: "login",
+  RESET_PASSWORD: "reset-password",
+  REGISTER: "register",
   MAIN: "main",
   HOME: "home",
   SEARCH: "search",
@@ -28,6 +30,7 @@ export const ROUTES = {
   USER_INTERFACE: "user-interface",
   LIBRARY_MANAGEMENT: "library-management",
   ADMINISTRATION: "administration",
+  SERVER_STATS: "server-stats",
   NOT_FOUND: "404",
 } as const;
 
@@ -39,6 +42,9 @@ const routes = [
       {
         path: "",
         name: ROUTES.SETUP,
+        meta: {
+          title: i18n.global.t("login.setup-wizard"),
+        },
         component: () => import("@/views/Auth/Setup.vue"),
       },
     ],
@@ -50,23 +56,63 @@ const routes = [
       {
         path: "",
         name: ROUTES.LOGIN,
+        meta: {
+          title: i18n.global.t("login.login"),
+        },
         component: () => import("@/views/Auth/Login.vue"),
+      },
+    ],
+  },
+  {
+    path: "/reset-password",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: ROUTES.RESET_PASSWORD,
+        meta: {
+          title: i18n.global.t("login.reset-password"),
+        },
+        component: () => import("@/views/Auth/ResetPassword.vue"),
+      },
+    ],
+  },
+  {
+    path: "/register",
+    component: () => import("@/layouts/Auth.vue"),
+    children: [
+      {
+        path: "",
+        name: ROUTES.REGISTER,
+        meta: {
+          title: i18n.global.t("login.register"),
+        },
+        component: () => import("@/views/Auth/Register.vue"),
       },
     ],
   },
   {
     path: "/",
     name: ROUTES.MAIN,
+    meta: {
+      title: "RomM",
+    },
     component: () => import("@/layouts/Main.vue"),
     children: [
       {
         path: "",
         name: ROUTES.HOME,
+        meta: {
+          title: i18n.global.t("settings.home"),
+        },
         component: () => import("@/views/Home.vue"),
       },
       {
         path: "search",
         name: ROUTES.SEARCH,
+        meta: {
+          title: i18n.global.t("common.search"),
+        },
         component: () => import("@/views/Gallery/Search.vue"),
       },
       {
@@ -115,51 +161,47 @@ const routes = [
       {
         path: "scan",
         name: ROUTES.SCAN,
+        meta: {
+          title: i18n.global.t("scan.scan"),
+        },
         component: () => import("@/views/Scan.vue"),
       },
       {
         path: "user/:user",
-        component: () => import("@/layouts/Settings.vue"),
-        children: [
-          {
-            path: "",
-            name: ROUTES.USER_PROFILE,
-            component: () => import("@/views/Settings/UserProfile.vue"),
-          },
-        ],
+        name: ROUTES.USER_PROFILE,
+        component: () => import("@/views/Settings/UserProfile.vue"),
       },
       {
         path: "user-interface",
-        component: () => import("@/layouts/Settings.vue"),
-        children: [
-          {
-            path: "",
-            name: ROUTES.USER_INTERFACE,
-            component: () => import("@/views/Settings/UserInterface.vue"),
-          },
-        ],
+        name: ROUTES.USER_INTERFACE,
+        meta: {
+          title: i18n.global.t("common.user-interface"),
+        },
+        component: () => import("@/views/Settings/UserInterface.vue"),
       },
       {
         path: "library-management",
-        component: () => import("@/layouts/Settings.vue"),
-        children: [
-          {
-            path: "",
-            name: ROUTES.LIBRARY_MANAGEMENT,
-            component: () => import("@/views/Settings/LibraryManagement.vue"),
-          },
-        ],
+        name: ROUTES.LIBRARY_MANAGEMENT,
+        meta: {
+          title: i18n.global.t("common.library-management"),
+        },
+        component: () => import("@/views/Settings/LibraryManagement.vue"),
       },
       {
         path: "administration",
-        component: () => import("@/layouts/Settings.vue"),
-        children: [
-          {
-            path: "",
-            name: ROUTES.ADMINISTRATION,
-            component: () => import("@/views/Settings/Administration.vue"),
-          },
-        ],
+        name: ROUTES.ADMINISTRATION,
+        meta: {
+          title: i18n.global.t("common.administration"),
+        },
+        component: () => import("@/views/Settings/Administration.vue"),
+      },
+      {
+        path: "server-stats",
+        name: ROUTES.SERVER_STATS,
+        meta: {
+          title: i18n.global.t("common.server-stats"),
+        },
+        component: () => import("@/views/Settings/ServerStats.vue"),
       },
       {
         path: ":pathMatch(.*)*",
@@ -178,6 +220,15 @@ interface RoutePermissions {
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
   routes,
+  scrollBehavior(to, from, savedPosition) {
+    // If savedPosition is available, it's a popstate navigation (back/forward)
+    if (savedPosition) {
+      return savedPosition;
+    } else {
+      // Otherwise, scroll to top
+      return { left: 0, top: 0 };
+    }
+  },
 });
 
 const routePermissions: RoutePermissions[] = [
@@ -188,7 +239,13 @@ const routePermissions: RoutePermissions[] = [
 
 function checkRoutePermissions(route: string, user: User | null): boolean {
   // No checks needed for login and setup pages
-  if (route === ROUTES.LOGIN || route === ROUTES.SETUP) return true;
+  if (
+    route === ROUTES.LOGIN ||
+    route === ROUTES.SETUP ||
+    route === ROUTES.RESET_PASSWORD ||
+    route === ROUTES.REGISTER
+  )
+    return true;
 
   // No user, no access
   if (!user) return false;
@@ -216,7 +273,12 @@ router.beforeEach(async (to, _from, next) => {
     }
 
     // Handle authentication
-    if (!user.value && currentRoute !== ROUTES.LOGIN) {
+    if (
+      !user.value &&
+      currentRoute !== ROUTES.LOGIN &&
+      currentRoute !== ROUTES.RESET_PASSWORD &&
+      currentRoute !== ROUTES.REGISTER
+    ) {
       return next({ name: ROUTES.LOGIN });
     }
 
@@ -229,16 +291,17 @@ router.beforeEach(async (to, _from, next) => {
       return next({ name: ROUTES.NOT_FOUND });
     }
 
+    if (to.meta.title) {
+      document.title = i18n.global.t(to.meta.title as string);
+    } else {
+      document.title = "RomM";
+    }
     next();
   } catch (error) {
     console.error("Navigation guard error:", error);
+    document.title = "RomM";
     next({ name: ROUTES.LOGIN });
   }
-});
-
-router.afterEach(() => {
-  // Scroll to top to avoid annoying behaviour on mobile
-  window.scrollTo({ top: 0, left: 0 });
 });
 
 router.beforeResolve(async () => {
