@@ -64,6 +64,7 @@ onBeforeUnmount(() => {
         }"
         class="pa-1"
         no-gutters
+        style="overflow-y: hidden"
       >
         <v-col
           v-for="collection in collections.virtualCollections.slice(

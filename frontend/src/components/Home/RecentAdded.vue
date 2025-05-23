@@ -16,12 +16,33 @@ const storedGridRecentRoms = localStorage.getItem("settings.gridRecentRoms");
 const gridRecentRoms = ref(
   isNull(storedGridRecentRoms) ? false : storedGridRecentRoms === "true",
 );
+const isHovering = ref(false);
+const hoveringRomId = ref();
+const openedMenu = ref(false);
+const openedMenuRomId = ref();
+
+// Functions
 function toggleGridRecentRoms() {
   gridRecentRoms.value = !gridRecentRoms.value;
   localStorage.setItem(
     "settings.gridRecentRoms",
     gridRecentRoms.value.toString(),
   );
+}
+
+function onHover(emitData: { isHovering: boolean; id: number }) {
+  isHovering.value = emitData.isHovering;
+  hoveringRomId.value = emitData.id;
+}
+
+function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
+  openedMenu.value = emitData.openedMenu;
+  openedMenuRomId.value = emitData.id;
+}
+
+function onClosedMenu() {
+  openedMenu.value = false;
+  openedMenuRomId.value = null;
 }
 </script>
 <template>
@@ -49,12 +70,19 @@ function toggleGridRecentRoms() {
         <v-col
           v-for="rom in recentRoms"
           :key="rom.id"
-          class="pa-1 align-self-end"
+          class="pa-1 align-self-end mt-4 mb-8"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
+          :style="{
+            zIndex:
+              (isHovering && hoveringRomId === rom.id) ||
+              (openedMenu && openedMenuRomId === rom.id)
+                ? 1100
+                : 1,
+          }"
         >
           <game-card
             :key="rom.updated_at"
@@ -67,6 +95,10 @@ function toggleGridRecentRoms() {
             transformScale
             showActionBar
             showPlatformIcon
+            enable3DTilt
+            @hover="onHover"
+            @openedmenu="onOpenedMenu"
+            @closedmenu="onClosedMenu"
           />
         </v-col>
       </v-row>

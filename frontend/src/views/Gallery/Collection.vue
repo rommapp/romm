@@ -39,8 +39,12 @@ const {
 } = storeToRefs(romsStore);
 const noCollectionError = ref(false);
 const router = useRouter();
-let timeout: ReturnType<typeof setTimeout>;
 const emitter = inject<Emitter<Events>>("emitter");
+const isHovering = ref(false);
+const hoveringRomId = ref();
+const openedMenu = ref(false);
+const openedMenuRomId = ref();
+let timeout: ReturnType<typeof setTimeout>;
 
 // Functions
 async function fetchRoms() {
@@ -71,6 +75,21 @@ async function fetchRoms() {
         scrim: false,
       });
     });
+}
+
+function onHover(emitData: { isHovering: boolean; id: number }) {
+  isHovering.value = emitData.isHovering;
+  hoveringRomId.value = emitData.id;
+}
+
+function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
+  openedMenu.value = emitData.openedMenu;
+  openedMenuRomId.value = emitData.id;
+}
+
+function onClosedMenu() {
+  openedMenu.value = false;
+  openedMenuRomId.value = null;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -296,6 +315,13 @@ onBeforeUnmount(() => {
             :md="views[currentView]['size-md']"
             :lg="views[currentView]['size-lg']"
             :xl="views[currentView]['size-xl']"
+            :style="{
+              zIndex:
+                (isHovering && hoveringRomId === rom.id) ||
+                (openedMenu && openedMenuRomId === rom.id)
+                  ? 1100
+                  : 1,
+            }"
           >
             <game-card
               :key="rom.updated_at"
@@ -312,9 +338,13 @@ onBeforeUnmount(() => {
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
               :sizeActionBar="currentView"
+              enable3DTilt
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
+              @hover="onHover"
+              @openedmenu="onOpenedMenu"
+              @closedmenu="onClosedMenu"
             />
           </v-col>
         </v-row>
