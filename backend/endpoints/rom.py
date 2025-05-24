@@ -153,6 +153,7 @@ def get_roms(
     favourites_only: bool = False,
     duplicates_only: bool = False,
     playables_only: bool = False,
+    ra_only: bool = False,
     group_by_meta_id: bool = False,
     selected_genre: str | None = None,
     selected_franchise: str | None = None,
@@ -178,6 +179,7 @@ def get_roms(
         favourites_only (bool, optional): Filter only favourite roms. Defaults to False.
         duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False.
         playables_only (bool, optional): Filter only playable roms by emulatorjs. Defaults to False.
+        ra_only (bool, optional): Filter only roms with Retroachievements compatibility.
         group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf/launchbox ID. Defaults to False.
         selected_genre (str, optional): Filter by genre. Defaults to None.
         selected_franchise (str, optional): Filter by franchise. Defaults to None.
@@ -212,6 +214,7 @@ def get_roms(
         favourites_only=favourites_only,
         duplicates_only=duplicates_only,
         playables_only=playables_only,
+        ra_only=ra_only,
         selected_genre=selected_genre,
         selected_franchise=selected_franchise,
         selected_collection=selected_collection,
