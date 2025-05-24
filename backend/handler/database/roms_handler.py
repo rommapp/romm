@@ -224,6 +224,9 @@ class DBRomsHandler(DBBaseHandler):
             Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
         )
 
+    def filter_by_ra_only(self, query: Query):
+        return query.filter(Rom.ra_id.isnot(None))
+
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
             return query.filter(
@@ -349,6 +352,7 @@ class DBRomsHandler(DBBaseHandler):
         favourites_only: bool = False,
         duplicates_only: bool = False,
         playables_only: bool = False,
+        ra_only: bool = False,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -389,6 +393,9 @@ class DBRomsHandler(DBBaseHandler):
 
         if playables_only:
             query = self.filter_by_playables_only(query)
+
+        if ra_only:
+            query = self.filter_by_ra_only(query)
 
         if group_by_meta_id:
 
