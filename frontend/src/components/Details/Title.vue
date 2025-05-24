@@ -43,35 +43,26 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
         <v-chip
           :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
-          {{ rom.platform_display_name }}
           <platform-icon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
             :name="rom.platform_name"
             :fs-slug="rom.platform_fs_slug"
             :size="30"
-            class="ml-2"
+            class="mr-2"
           />
+          {{ rom.platform_display_name }}
         </v-chip>
         <v-chip
-          v-if="hasReleaseDate && !smAndDown"
-          class="ml-1 font-italic"
+          v-if="Number(rom.metadatum.first_release_date) > 0"
+          class="font-italic ma-1"
           size="small"
         >
           {{ releaseDate }}
         </v-chip>
-        <v-chip
-          v-if="Number(rom.metadatum.first_release_date) > 0 && smAndDown"
-          class="font-italic ml-1"
-          size="small"
-        >
-          {{ releaseDate }}
+        <v-chip v-if="!smAndDown && rom.revision" size="small" class="ma-1">
+          Revision {{ rom.revision }}
         </v-chip>
-        <template v-if="!smAndDown">
-          <v-chip v-if="rom.revision" size="small" class="ml-1">
-            Revision {{ rom.revision }}
-          </v-chip>
-        </template>
       </v-col>
     </v-row>
 
