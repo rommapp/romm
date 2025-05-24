@@ -5,6 +5,7 @@ import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/Fi
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
+import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
@@ -210,6 +211,7 @@ onMounted(async () => {
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
+        <filter-ra-btn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
       </v-list-item>
       <v-list-item
         v-if="showPlatformsFilter"
