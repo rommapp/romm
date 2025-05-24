@@ -16,12 +16,20 @@ const storedPlatforms = localStorage.getItem("settings.gridPlatforms");
 const gridPlatforms = ref(
   isNull(storedPlatforms) ? false : storedPlatforms === "true",
 );
+const isHovering = ref(false);
+const hoveringPlatformId = ref();
+
 function toggleGridPlatforms() {
   gridPlatforms.value = !gridPlatforms.value;
   localStorage.setItem(
     "settings.gridPlatforms",
     gridPlatforms.value.toString(),
   );
+}
+
+function onHover(emitData: { isHovering: boolean; id: number }) {
+  isHovering.value = emitData.isHovering;
+  hoveringPlatformId.value = emitData.id;
 }
 </script>
 <template>
@@ -49,14 +57,22 @@ function toggleGridPlatforms() {
         <v-col
           v-for="platform in filledPlatforms"
           :key="platform.slug"
-          class="pa-1"
+          class="pa-1 mt-4 mb-8"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
+          :style="{
+            zIndex: isHovering && hoveringPlatformId === platform.id ? 1100 : 1,
+          }"
         >
-          <platform-card :key="platform.slug" :platform="platform" />
+          <platform-card
+            :key="platform.slug"
+            :platform="platform"
+            enable3DTilt
+            @hover="onHover"
+          />
         </v-col>
       </v-row>
     </template>
