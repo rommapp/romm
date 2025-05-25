@@ -1,18 +1,18 @@
 import json
-from typing import Final, NotRequired, TypedDict
+from typing import NotRequired, TypedDict
 
-from config import str_to_bool
+from config import LAUNCHBOX_API_ENABLED, str_to_bool
 from handler.redis_handler import async_cache
-from tasks.update_launchbox_metadata import (  # LAUNCHBOX_PLATFORMS_KEY, LAUNCHBOX_MAME_KEY, update_launchbox_metadata_task,
+from logger.logger import log
+from tasks.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
     LAUNCHBOX_METADATA_NAME_KEY,
+    update_launchbox_metadata_task,
 )
 
 from .base_hander import MetadataHandler
-
-LAUNCHBOX_API_ENABLED: Final = True
 
 
 class LaunchboxPlatform(TypedDict):
@@ -68,6 +68,14 @@ def extract_metadata_from_launchbox_rom(index_entry: dict) -> LaunchboxMetadata:
 
 class LaunchboxHandler(MetadataHandler):
     async def _get_rom_from_metadata(self, file_name: str) -> dict | None:
+        if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
+            log.warning("Fetching the Launchbox Metadata.xml file...")
+            await update_launchbox_metadata_task.run(force=True)
+
+            if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
+                log.error("Could not fetch the Launchbox Metadata.xml file")
+                return None
+
         metadata_name_index_entry = await async_cache.hget(
             LAUNCHBOX_METADATA_NAME_KEY, file_name
         )

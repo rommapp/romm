@@ -5,6 +5,7 @@ from typing import Final
 
 from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+    LAUNCHBOX_API_ENABLED,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
 )
 from defusedxml import ElementTree as ET
@@ -34,6 +35,10 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
     @initialize_context()
     async def run(self, force: bool = False) -> None:
+        if not LAUNCHBOX_API_ENABLED:
+            log.warning("Launchbox API is not enabled, skipping metadata update")
+            return
+
         content = await super().run(force)
         if content is None:
             return
