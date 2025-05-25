@@ -75,6 +75,11 @@ REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
 # MOBYGAMES
 MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
 
+# LAUNCHBOX
+LAUNCHBOX_API_ENABLED: Final = str_to_bool(
+    os.environ.get("LAUNCHBOX_API_ENABLED", "true")
+)
+
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)

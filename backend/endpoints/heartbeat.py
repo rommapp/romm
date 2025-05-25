@@ -6,6 +6,7 @@ from config import (
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    LAUNCHBOX_API_ENABLED,
     OIDC_ENABLED,
     OIDC_PROVIDER,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
@@ -18,7 +19,6 @@ from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
-from handler.metadata.launchbox_handler import LAUNCHBOX_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
 from handler.metadata.ra_handler import RA_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
