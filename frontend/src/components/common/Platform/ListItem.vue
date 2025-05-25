@@ -46,7 +46,7 @@ withDefaults(
           open-delay="500"
           ><template #activator="{ props }">
             <div
-              v-if="!platform.igdb_id && !platform.moby_id && !platform.ss_id"
+              v-if="platform.is_unidentified"
               v-bind="props"
               class="not-found-icon"
             >

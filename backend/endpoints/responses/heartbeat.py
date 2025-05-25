@@ -19,6 +19,7 @@ class TaskDict(WatcherDict):
 class SchedulerDict(TypedDict):
     RESCAN: TaskDict
     SWITCH_TITLEDB: TaskDict
+    LAUNCHBOX_METADATA: TaskDict
 
 
 class MetadataSourcesDict(TypedDict):
@@ -27,6 +28,7 @@ class MetadataSourcesDict(TypedDict):
     MOBY_API_ENABLED: bool
     SS_API_ENABLED: bool
     STEAMGRIDDB_ENABLED: bool
+    LAUNCHBOX_ENABLED: bool
     RA_ENABLED: bool
 
 
