@@ -15,6 +15,7 @@ import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
+import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
@@ -43,6 +44,10 @@ const isHovering = ref(false);
 const hoveringRomId = ref();
 const openedMenu = ref(false);
 const openedMenuRomId = ref();
+const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffect = ref(
+  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
+);
 let timeout: ReturnType<typeof setTimeout>;
 
 // Functions
@@ -285,7 +290,7 @@ onBeforeUnmount(() => {
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
               :sizeActionBar="currentView"
-              enable3DTilt
+              :enable3DTilt="enable3DEffect"
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"

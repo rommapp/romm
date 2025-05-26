@@ -16,6 +16,10 @@ const storedPlatforms = localStorage.getItem("settings.gridPlatforms");
 const gridPlatforms = ref(
   isNull(storedPlatforms) ? false : storedPlatforms === "true",
 );
+const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffect = ref(
+  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
+);
 const isHovering = ref(false);
 const hoveringPlatformId = ref();
 
@@ -70,7 +74,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
           <platform-card
             :key="platform.slug"
             :platform="platform"
-            enable3DTilt
+            :enable3DTilt="enable3DEffect"
             @hover="onHover"
           />
         </v-col>
