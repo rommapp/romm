@@ -72,7 +72,7 @@ function onClosedMenu() {
         <v-col
           v-for="rom in continuePlayingRoms"
           :key="rom.id"
-          class="pa-1 align-self-end mt-4 mb-8"
+          class="pa-1 align-self-end my-4"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
