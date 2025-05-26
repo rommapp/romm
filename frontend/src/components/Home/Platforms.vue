@@ -57,7 +57,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
         <v-col
           v-for="platform in filledPlatforms"
           :key="platform.slug"
-          class="pa-1 mt-4 mb-8"
+          class="pa-1 my-4"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"

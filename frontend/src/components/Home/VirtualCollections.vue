@@ -18,6 +18,11 @@ const gridVirtualCollections = ref(
     ? false
     : storedVirtualCollections === "true",
 );
+const visibleCollections = ref(72);
+const isHovering = ref(false);
+const hoveringCollectionId = ref();
+
+// Functions
 function toggleGridVirtualCollections() {
   gridVirtualCollections.value = !gridVirtualCollections.value;
   localStorage.setItem(
@@ -25,9 +30,12 @@ function toggleGridVirtualCollections() {
     gridVirtualCollections.value.toString(),
   );
 }
-const visibleCollections = ref(72);
 
-// Functions
+function onHover(emitData: { isHovering: boolean; id: number }) {
+  isHovering.value = emitData.isHovering;
+  hoveringCollectionId.value = emitData.id;
+}
+
 function onScroll() {
   if (
     window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
@@ -72,12 +80,16 @@ onBeforeUnmount(() => {
             visibleCollections,
           )"
           :key="collection.name"
-          class="pa-1"
+          class="pa-1 my-4"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
+          :style="{
+            zIndex:
+              isHovering && hoveringCollectionId === collection.id ? 1100 : 1,
+          }"
         >
           <collection-card
             show-rom-count
@@ -86,6 +98,8 @@ onBeforeUnmount(() => {
             :key="collection.id"
             :collection="collection"
             with-link
+            enable3DTilt
+            @hover="onHover"
           />
         </v-col>
       </v-row>
