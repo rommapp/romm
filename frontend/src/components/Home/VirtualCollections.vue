@@ -18,6 +18,10 @@ const gridVirtualCollections = ref(
     ? false
     : storedVirtualCollections === "true",
 );
+const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffect = ref(
+  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
+);
 const visibleCollections = ref(72);
 const isHovering = ref(false);
 const hoveringCollectionId = ref();
@@ -98,7 +102,7 @@ onBeforeUnmount(() => {
             :key="collection.id"
             :collection="collection"
             with-link
-            enable3DTilt
+            :enable3DTilt="enable3DEffect"
             @hover="onHover"
           />
         </v-col>

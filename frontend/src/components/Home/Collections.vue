@@ -14,6 +14,10 @@ const storedCollections = localStorage.getItem("settings.gridCollections");
 const gridCollections = ref(
   isNull(storedCollections) ? false : storedCollections === "true",
 );
+const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffect = ref(
+  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
+);
 const isHovering = ref(false);
 const hoveringCollectionId = ref();
 
@@ -74,7 +78,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
             :collection="collection"
             with-link
             title-on-hover
-            enable3DTilt
+            :enable3DTilt="enable3DEffect"
             @hover="onHover"
           />
         </v-col>

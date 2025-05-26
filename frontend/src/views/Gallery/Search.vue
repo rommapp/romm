@@ -12,6 +12,7 @@ import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
+import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -39,6 +40,10 @@ const isHovering = ref(false);
 const hoveringRomId = ref();
 const openedMenu = ref(false);
 const openedMenuRomId = ref();
+const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffect = ref(
+  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
+);
 let timeout: ReturnType<typeof setTimeout>;
 
 function onHover(emitData: { isHovering: boolean; id: number }) {
@@ -200,7 +205,7 @@ onBeforeUnmount(() => {
             :withBorderPrimary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
-            enable3DTilt
+            :enable3DTilt="enable3DEffect"
             :sizeActionBar="currentView"
             @click="onGameClick"
             @touchstart="onGameTouchStart"
