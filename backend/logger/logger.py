@@ -16,39 +16,6 @@ log.addHandler(stdout_handler)
 # Hush passlib warnings
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
-LOGGING_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "romm": {
-            "()": "logger.formatter.Formatter",
-        }
-    },
-    "handlers": {
-        "default": {
-            "formatter": "romm",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
-        }
-    },
-    "root": {
-        "handlers": ["default"],
-        "level": "DEBUG",
-    },
-    "loggers": {
-        "uvicorn": {
-            "level": "INFO",
-            "handlers": ["default"],
-            "propagate": False,
-        },
-        "uvicorn.error": {
-            "level": "INFO",
-            "handlers": ["default"],
-            "propagate": False,
-        },
-    },
-}
-
 
 def unify_logger(logger: str) -> None:
     """

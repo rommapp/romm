@@ -7,6 +7,39 @@ from user_agents import parse as parse_user_agent
 
 log = logging.getLogger("uvicorn.access")
 
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "romm": {
+            "()": "logger.formatter.Formatter",
+        }
+    },
+    "handlers": {
+        "default": {
+            "formatter": "romm",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        }
+    },
+    "root": {
+        "handlers": ["default"],
+        "level": "DEBUG",
+    },
+    "loggers": {
+        "uvicorn": {
+            "level": "INFO",
+            "handlers": ["default"],
+            "propagate": False,
+        },
+        "uvicorn.error": {
+            "level": "INFO",
+            "handlers": ["default"],
+            "propagate": False,
+        },
+    },
+}
+
 
 class CustomLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
