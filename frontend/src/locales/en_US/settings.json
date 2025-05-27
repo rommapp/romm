@@ -2,6 +2,8 @@
   "continue-playing-as-grid": "Continue playing as grid",
   "continue-playing-as-grid-desc": "View continue playing rom cards as a grid at the home page",
   "email": "Email",
+  "enable-3d-effect": "Enable 3D effect",
+  "enable-3d-effect-desc": "Enable 3D effect for the game/platform/collection cards",
   "excluded": "Excluded",
   "excluded-multi-rom-files": "Multi rom files",
   "excluded-multi-rom-parts-extensions": "Multi rom parts extensions",

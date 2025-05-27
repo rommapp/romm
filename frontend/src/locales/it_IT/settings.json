@@ -2,6 +2,8 @@
   "continue-playing-as-grid": "\"Continua a giocare\" come griglia",
   "continue-playing-as-grid-desc": "Visualizza le rom di \"Continua a giocare\" come una griglia nella home",
   "email": "Email",
+  "enable-3d-effect": "Abilita effetto 3D",
+  "enable-3d-effect-desc": "Abilita l'effetto 3D per le schede di gioco, piattaforma e collezione",
   "excluded": "Escluso",
   "excluded-multi-rom-files": "File rom multiple",
   "excluded-multi-rom-parts-extensions": "Estensioni parti di rom multiple",

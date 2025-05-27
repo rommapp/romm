@@ -2,6 +2,8 @@
   "continue-playing-as-grid": "Weiterspielen als Raster",
   "continue-playing-as-grid-desc": "Zeige die Weiterspielen-Karten als Raster auf der Startseite",
   "email": "E-Mail",
+  "enable-3d-effect": "3D-Effekt aktivieren",
+  "enable-3d-effect-desc": "3D-Effekt für die Spiel-/Plattform-/Sammlungskarten aktivieren",
   "excluded": "Ausnahmen",
   "excluded-multi-rom-files": "Unterverzeichnisse in Plattform-Verzeichnissen",
   "excluded-multi-rom-parts-extensions": "Dateiendungen in Unterverzeichnisse in Plattform-Verzeichnissen",
