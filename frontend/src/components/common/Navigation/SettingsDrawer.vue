@@ -156,17 +156,6 @@ function onClose() {
         role="listitem"
         >{{ t("common.server-stats") }}
       </v-list-item>
-      <v-list-item
-        v-if="auth.user?.role === 'admin'"
-        :tabindex="tabIndex"
-        class="mt-1"
-        rounded
-        @click="emitter?.emit('showAboutDialog')"
-        append-icon="mdi-help-circle-outline"
-        aria-label="About"
-        role="listitem"
-        >{{ t("common.about") }}
-      </v-list-item>
     </v-list>
     <template v-if="scopes.includes('me.write')" #append>
       <v-btn
