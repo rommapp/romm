@@ -2,6 +2,8 @@
   "continue-playing-as-grid": "Продолжение игры в виде сетки",
   "continue-playing-as-grid-desc": "Просмотр карточек продолжения игры в виде сетки на главной странице",
   "email": "Электронная почта",
+  "enable-3d-effect": "Включить 3D-эффект",
+  "enable-3d-effect-desc": "Включить 3D-эффект для карточек игр, платформ и коллекций",
   "excluded": "Исключено",
   "excluded-multi-rom-files": "Многосоставные файлы ромов",
   "excluded-multi-rom-parts-extensions": "Расширения частей многосоставных ромов",
