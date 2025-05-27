@@ -14,12 +14,25 @@ const storedCollections = localStorage.getItem("settings.gridCollections");
 const gridCollections = ref(
   isNull(storedCollections) ? false : storedCollections === "true",
 );
+const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffect = ref(
+  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
+);
+const isHovering = ref(false);
+const hoveringCollectionId = ref();
+
+// Functions
 function toggleGridCollections() {
   gridCollections.value = !gridCollections.value;
   localStorage.setItem(
     "settings.gridCollections",
     gridCollections.value.toString(),
   );
+}
+
+function onHover(emitData: { isHovering: boolean; id: number }) {
+  isHovering.value = emitData.isHovering;
+  hoveringCollectionId.value = emitData.id;
 }
 </script>
 <template>
@@ -42,16 +55,21 @@ function toggleGridCollections() {
         }"
         class="pa-1"
         no-gutters
+        style="overflow-y: hidden"
       >
         <v-col
           v-for="collection in collections.allCollections"
           :key="collection.name"
-          class="pa-1"
+          class="pa-1 my-4"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
+          :style="{
+            zIndex:
+              isHovering && hoveringCollectionId === collection.id ? 1100 : 1,
+          }"
         >
           <collection-card
             show-rom-count
@@ -60,6 +78,8 @@ function toggleGridCollections() {
             :collection="collection"
             with-link
             title-on-hover
+            :enable3DTilt="enable3DEffect"
+            @hover="onHover"
           />
         </v-col>
       </v-row>

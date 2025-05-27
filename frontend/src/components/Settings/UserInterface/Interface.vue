@@ -87,6 +87,10 @@ const storedActionBar = localStorage.getItem("settings.showActionBar");
 const actionBarRef = ref(
   isNull(storedActionBar) ? false : storedActionBar === "true",
 );
+const stored3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffectRef = ref(
+  isNull(stored3DEffect) ? true : stored3DEffect === "true",
+);
 
 const homeOptions = computed(() => [
   {
@@ -184,6 +188,14 @@ const galleryOptions = computed(() => [
     model: actionBarRef,
     modelTrigger: toggleActionBar,
   },
+  {
+    title: t("settings.enable-3d-effect"),
+    description: t("settings.enable-3d-effect-desc"),
+    iconEnabled: "mdi-cube",
+    iconDisabled: "mdi-cube-outline",
+    model: enable3DEffectRef,
+    modelTrigger: toggle3DEffect,
+  },
 ]);
 
 // Functions to update localStorage
@@ -251,6 +263,10 @@ const toggleStatus = (value: boolean) => {
 const toggleActionBar = (value: boolean) => {
   actionBarRef.value = value;
   localStorage.setItem("settings.showActionBar", value.toString());
+};
+const toggle3DEffect = (value: boolean) => {
+  enable3DEffectRef.value = value;
+  localStorage.setItem("settings.enable3DEffect", value.toString());
 };
 </script>
 <template>

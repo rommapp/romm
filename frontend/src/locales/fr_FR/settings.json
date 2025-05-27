@@ -2,6 +2,8 @@
   "continue-playing-as-grid": "Continuer à jouer en grille",
   "continue-playing-as-grid-desc": "Voir les cartes de continuer à jouer en grille sur la page d'accueil",
   "email": "E-mail",
+  "enable-3d-effect": "Activer l'effet 3D",
+  "enable-3d-effect-desc": "Activer l'effet 3D pour les cartes de jeu/plateforme/collection",
   "excluded": "Exclu",
   "excluded-multi-rom-files": "Fichiers de rom multiples",
   "excluded-multi-rom-parts-extensions": "Extensions de parties de rom multiples",
