@@ -40,8 +40,7 @@ from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
-from logger.log_middleware import CustomLoggingMiddleware
-from logger.logger import LOGGING_CONFIG
+from logger.log_middleware import LOGGING_CONFIG, CustomLoggingMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
 from utils.context import ctx_httpx_client, initialize_context, set_context_middleware
