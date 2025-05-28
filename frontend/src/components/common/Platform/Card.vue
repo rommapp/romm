@@ -27,6 +27,8 @@ onMounted(() => {
       max: 20,
       speed: 400,
       scale: 1.1,
+      glare: true,
+      "max-glare": 0.3,
     });
   }
 });
@@ -43,8 +45,8 @@ onBeforeUnmount(() => {
     <div data-tilt ref="tiltCard">
       <v-card
         v-bind="props"
-        class="bg-toplayer transform-scale"
-        :class="{ 'on-hover': isHovering }"
+        class="bg-toplayer"
+        :class="{ 'on-hover': isHovering, 'transform-scale': !enable3DTilt }"
         :elevation="isHovering ? 20 : 3"
         :aria-label="`${platform.name} platform card`"
         :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
