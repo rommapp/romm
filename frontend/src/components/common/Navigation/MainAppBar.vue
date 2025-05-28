@@ -5,7 +5,6 @@ import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
-import AboutBtn from "@/components/common/Navigation/AboutBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
@@ -47,8 +46,7 @@ function collapse() {
       </template>
 
       <template #append>
-        <upload-btn class="mr-1" />
-        <about-btn class="mr-4" />
+        <upload-btn class="mr-2" />
         <user-btn class="mr-1" />
       </template>
     </v-app-bar>
@@ -137,13 +135,6 @@ function collapse() {
     />
 
     <template #append>
-      <about-btn
-        :withTag="!mainBarCollapsed"
-        rounded
-        class="mb-6"
-        block
-        tabindex="7"
-      />
       <v-row no-gutters class="my-2 justify-center">
         <user-btn tabindex="8" aria-label="Settings menu" />
       </v-row>
