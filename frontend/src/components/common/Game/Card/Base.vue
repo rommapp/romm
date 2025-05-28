@@ -125,6 +125,8 @@ onMounted(() => {
       max: 20,
       speed: 400,
       scale: 1.1,
+      glare: true,
+      "max-glare": 0.3,
     });
   }
 });
@@ -161,7 +163,7 @@ onBeforeUnmount(() => {
         :class="{
           'on-hover': isOuterHovering || activeMenu,
           'border-selected': withBorderPrimary,
-          'transform-scale': transformScale,
+          'transform-scale': transformScale && !enable3DTilt,
         }"
         :elevation="isOuterHovering && transformScale ? 20 : 3"
         :aria-label="`${rom.name} game card`"
