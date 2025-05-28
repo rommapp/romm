@@ -285,7 +285,6 @@ onBeforeUnmount(() => {
               showFav
               transformScale
               showActionBar
-              showPlatformIcon
               :withBorderPrimary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
