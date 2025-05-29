@@ -1,8 +1,10 @@
+import io
 import shutil
 
 import httpx
 from anyio import Path, open_file
 from config import RESOURCES_BASE_PATH
+from fastapi import UploadFile
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -35,7 +37,7 @@ class FSResourcesHandler(FSHandler):
 
     @staticmethod
     def resize_cover_to_small(cover: ImageFile.ImageFile, save_path: Path) -> None:
-        """Resize cover to small size, and save it to filesystem."""
+        """Resize cover to small size, and save it as WebP to filesystem."""
         if cover.height >= 1000:
             ratio = 0.2
         else:
@@ -44,7 +46,7 @@ class FSResourcesHandler(FSHandler):
         small_height = int(cover.height * ratio)
         small_size = (small_width, small_height)
         small_img = cover.resize(small_size)
-        small_img.save(save_path)
+        small_img.save(save_path, format="WEBP", quality=90, method=6)
 
     async def store_badge(self, url: str, file_path: str) -> None:
         httpx_client = ctx_httpx_client.get()
@@ -74,26 +76,32 @@ class FSResourcesHandler(FSHandler):
             size: size of the cover
         """
         cover_path = Path(f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover")
-        cover_file = cover_path / Path(f"{size.value}.png")
+        cover_file = cover_path / Path(f"{size.value}.webp")
 
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url_cover, timeout=120) as response:
                 if response.status_code == 200:
                     await cover_path.mkdir(parents=True, exist_ok=True)
-                    async with await cover_file.open("wb") as f:
-                        async for chunk in response.aiter_raw():
-                            await f.write(chunk)
+                    img_bytes = b""
+                    async for chunk in response.aiter_raw():
+                        img_bytes += chunk
+                    # Open image from bytes and save as webp
+                    try:
+                        with Image.open(io.BytesIO(img_bytes)) as img:
+                            if size == CoverSize.SMALL:
+                                self.resize_cover_to_small(img, save_path=cover_file)
+                            else:
+                                img.save(
+                                    cover_file, format="WEBP", quality=90, method=6
+                                )
+                    except UnidentifiedImageError as exc:
+                        log.error(
+                            f"Unable to identify image from {url_cover}: {str(exc)}"
+                        )
+                        return None
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
-
-        if size == CoverSize.SMALL:
-            try:
-                with Image.open(cover_file) as img:
-                    self.resize_cover_to_small(img, save_path=cover_file)
-            except UnidentifiedImageError as exc:
-                log.error(f"Unable to identify image {cover_file}: {str(exc)}")
-                return None
 
     @staticmethod
     async def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
@@ -103,10 +111,11 @@ class FSResourcesHandler(FSHandler):
             entity: Rom or Collection object
             size: size of the cover
         """
-        async for matched_file in Path(
-            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
-        ).glob(f"{size.value}.*"):
-            return str(matched_file.relative_to(RESOURCES_BASE_PATH))
+        cover_file = Path(
+            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover/{size.value}.webp"
+        )
+        if await cover_file.exists():
+            return str(cover_file.relative_to(RESOURCES_BASE_PATH))
         return ""
 
     async def get_cover(
@@ -147,19 +156,21 @@ class FSResourcesHandler(FSHandler):
             shutil.rmtree(cover_path)
         except FileNotFoundError:
             log.warning(
-                f"Couldn't remove cover from '{hl(entity.name or entity.id, color=BLUE)}' since '{cover_path}' doesn't exists."
+                f"Couldn't remove cover from '{hl(str(entity.name or entity.id), color=BLUE)}' since '{cover_path}' doesn't exists."
             )
 
         return {"path_cover_s": "", "path_cover_l": ""}
 
     @staticmethod
-    async def build_artwork_path(entity: Rom | Collection | None, file_ext: str):
+    async def build_artwork_path(
+        entity: Rom | Collection | None, file_ext: str = "webp"
+    ):
         if not entity:
             return "", "", ""
 
         path_cover = f"{entity.fs_resources_path}/cover"
-        path_cover_l = f"{path_cover}/{CoverSize.BIG.value}.{file_ext}"
-        path_cover_s = f"{path_cover}/{CoverSize.SMALL.value}.{file_ext}"
+        path_cover_l = f"{path_cover}/{CoverSize.BIG.value}.webp"
+        path_cover_s = f"{path_cover}/{CoverSize.SMALL.value}.webp"
         artwork_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
         await Path(artwork_path).mkdir(parents=True, exist_ok=True)
 
@@ -273,3 +284,24 @@ class FSResourcesHandler(FSHandler):
         path_manual = (await self._get_manual_path(rom)) if manual_exists else ""
 
         return path_manual
+
+    async def save_uploaded_cover(self, rom: Rom, artwork: UploadFile) -> dict:
+        """Save uploaded cover artwork and return cover paths."""
+        file_ext = artwork.filename.split(".")[-1] if artwork.filename else "webp"
+        path_cover_l, path_cover_s, artwork_path = await self.build_artwork_path(
+            rom, file_ext
+        )
+
+        artwork_content = io.BytesIO(await artwork.read())
+        file_location_small = Path(f"{artwork_path}/small.webp")
+        file_location_large = Path(f"{artwork_path}/big.webp")
+
+        with Image.open(artwork_content) as img:
+            img.save(file_location_large, format="WEBP", quality=90, method=6)
+            self.resize_cover_to_small(img, save_path=file_location_small)
+
+        return {
+            "path_cover_s": path_cover_s,
+            "path_cover_l": path_cover_l,
+            "url_cover": "",
+        }

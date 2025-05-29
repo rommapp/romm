@@ -41,7 +41,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile
-from PIL import Image
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -612,27 +611,9 @@ async def update_rom(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
-            (
-                path_cover_l,
-                path_cover_s,
-                artwork_path,
-            ) = await fs_resource_handler.build_artwork_path(rom, file_ext)
-
-            cleaned_data.update(
-                {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
-            )
-
-            artwork_content = BytesIO(await artwork.read())
-            file_location_small = Path(f"{artwork_path}/small.{file_ext}")
-            file_location_large = Path(f"{artwork_path}/big.{file_ext}")
-            with Image.open(artwork_content) as img:
-                img.save(file_location_large)
-                fs_resource_handler.resize_cover_to_small(
-                    img, save_path=file_location_small
-                )
-
-            cleaned_data.update({"url_cover": ""})
+            # Use the resource handler to save and process the cover artwork
+            cover_data = await fs_resource_handler.save_uploaded_cover(rom, artwork)
+            cleaned_data.update(cover_data)
         else:
             if data.get("url_cover", "") != rom.url_cover or not (
                 await fs_resource_handler.cover_exists(rom, CoverSize.BIG)
