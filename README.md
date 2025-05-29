@@ -45,7 +45,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 - Share your library with friends with limited access and permissions
 - Official apps for [Playnite][playnite-app] and [muOS][muos-app]
 - Supports mutli-disk games, DCLs, mods, hacks, patches, and manuals
-- Parse and [filter by tags][tag-support] in filenames
+- Parse and [filter by tags][docs-tag-support] in filenames
 - View, upload, update, and delete games from any modern web browser
 
 ## Preview
@@ -94,7 +94,7 @@ Here are a few projects that we think you might like:
 [docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
 [docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
 [docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
-[tag-support]: http://docs.dev.romm.ginnugagap.net/Getting-Started/Folder-Structure/#tag-support
+[docs-tag-support]: http://docs.romm.app/Getting-Started/Folder-Structure/#tag-support
 
 <!-- Badges -->
 
