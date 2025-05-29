@@ -7,6 +7,7 @@ from logger.formatter import Formatter
 # Set up logger
 log = logging.getLogger("romm")
 log.setLevel(LOGLEVEL)
+log.propagate = False
 
 # Define stdout handler
 stdout_handler = logging.StreamHandler(sys.stdout)
