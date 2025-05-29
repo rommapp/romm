@@ -48,6 +48,8 @@ dependencies = [
   "types-passlib ~= 1.7",
   "types-pyyaml ~= 6.0",
   "types-redis ~= 4.6",
+  "ua-parser (>=1.0.1,<2.0.0)",
+  "user-agents (>=2.2.0,<3.0.0)",
   "uvicorn == 0.29.0",
   "watchdog ~= 4.0",
   "websockets == 12.0",

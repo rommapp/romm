@@ -1,3 +1,4 @@
+import logging.config
 import re
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -39,9 +40,12 @@ from handler.auth.constants import ALGORITHM
 from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
+from logger.log_middleware import LOGGING_CONFIG, CustomLoggingMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
 from utils.context import ctx_httpx_client, initialize_context, set_context_middleware
+
+logging.config.dictConfig(LOGGING_CONFIG)
 
 
 @asynccontextmanager
@@ -127,4 +131,5 @@ if __name__ == "__main__":
     alembic.config.main(argv=["upgrade", "head"])
 
     # Run application
-    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True)
+    app.add_middleware(CustomLoggingMiddleware)
+    uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True, access_log=False)

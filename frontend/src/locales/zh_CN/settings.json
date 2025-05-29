@@ -2,6 +2,8 @@
   "continue-playing-as-grid": "继续游玩（网格）",
   "continue-playing-as-grid-desc": "以网格形式在主页上显示继续游玩（卡片）部分",
   "email": "电子邮件",
+  "enable-3d-effect": "启用 3D 效果",
+  "enable-3d-effect-desc": "为游戏、平台和收藏卡片启用 3D 效果",
   "excluded": "排除",
   "excluded-multi-rom-files": "多个 Rom 文件",
   "excluded-multi-rom-parts-extensions": "多个 Rom 部分扩展",

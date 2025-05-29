@@ -54,14 +54,14 @@ body {
   transition-duration: 0.1s !important;
 }
 .transform-scale.on-hover {
-  transform: scale(1.05) !important;
+  transform: scale(1.1) !important;
 }
 .pointer {
   cursor: pointer !important;
 }
 .border-selected {
   border: 1px solid rgba(var(--v-theme-primary)) !important;
-  transform: scale(1.05);
+  transform: scale(1.1);
 }
 .greyscale {
   filter: grayscale(100%);

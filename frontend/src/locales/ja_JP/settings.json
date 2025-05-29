@@ -2,6 +2,8 @@
   "continue-playing-as-grid": "プレイを継続をグリッドで表示",
   "continue-playing-as-grid-desc": "ホームのプレイを継続をグリッドで表示",
   "email": "メール",
+  "enable-3d-effect": "3D効果を有効化",
+  "enable-3d-effect-desc": "ゲーム・プラットフォーム・コレクションカードに3D効果を有効化する",
   "excluded": "除外",
   "excluded-multi-rom-files": "複数ファイル",
   "excluded-multi-rom-parts-extensions": "複数ファイルの拡張子",
