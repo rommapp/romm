@@ -134,7 +134,7 @@ Here are a few projects that we think you might like:
 
 [docs]: https://docs.romm.app/latest/
 [docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
-[docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/
+[docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
 [docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
 [docs-scheduled-tasks]: https://docs.romm.app/latest/Maintenance/Scheduled-Tasks/
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
