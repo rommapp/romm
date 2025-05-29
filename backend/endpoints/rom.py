@@ -611,7 +611,6 @@ async def update_rom(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            # Use the resource handler to save and process the cover artwork
             cover_data = await fs_resource_handler.save_uploaded_cover(rom, artwork)
             cleaned_data.update(cover_data)
         else:
