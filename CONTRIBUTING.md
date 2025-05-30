@@ -8,7 +8,7 @@ Thank you for considering contributing to RomM! This document outlines some guid
 
 Please note that this project adheres to the Contributor Covenant [code of conduct](CODE_OF_CONDUCT.md). By participating in this project, you are expected to uphold this code.
 
-## Contributing to the Wiki
+## Contributing to the docs
 
 If you would like to contribute to the project's [documentation](https://docs.romm.app), open a pull request against [the docs repo](https://github.com/rommapp/docs). We welcome any contributions that help improve the documentation (new pages, updates, or corrections).
 
