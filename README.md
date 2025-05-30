@@ -44,7 +44,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 - Fetch custom arwork from [SteamGridDB][steamgriddb-api]
 - Display your achievements from [Retroachievements][retroachievements-api]
 - Metadata available for [400+ platforms][docs-supported-platforms]
-- Play games directly from the browser using [EmulatorJS][docs-emulatorjs]
+- Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
 - Share your library with friends with limited access and permissions
 - Official apps for [Playnite][playnite-app] and [muOS][muos-app]
 - Supports mutli-disk games, DCLs, mods, hacks, patches, and manuals
@@ -100,6 +100,7 @@ Here are a few projects that we think you might like:
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
 [docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
 [docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
+[docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
 [docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
 [docs-tag-support]: http://docs.romm.app/Getting-Started/Folder-Structure/#tag-support
 
