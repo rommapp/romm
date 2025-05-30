@@ -29,7 +29,7 @@
   - [Features](#features)
   - [Preview](#preview)
 - [Installation](#installation)
-  - [Contributing](#contributing)
+- [Contributing](#contributing)
 - [Community](#community)
   - [Support](#support)
   - [Our Friends](#our-friends)
@@ -59,7 +59,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting] and common issues, or join the [Discord][discord-invite] for support from the community.
 
-## Contributing
+# Contributing
 
 To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md)
 
