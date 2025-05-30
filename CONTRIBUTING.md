@@ -51,8 +51,8 @@ If you encounter any bugs or have suggestions for improvements, please [create a
 
 ## Licensing
 
-By contributing to ROMM, you agree that your contributions will be licensed under the project's [LICENSE](LICENSE).
+By contributing to RomM, you agree that your contributions will be licensed under the project's [LICENSE](LICENSE).
 
 ---
 
-Thank you for contributing to ROMM! Your help is greatly appreciated.
+Thank you for contributing to RomM! Your help is greatly appreciated.
