@@ -1,8 +1,6 @@
 import json
-from io import BytesIO
 from shutil import rmtree
 
-from anyio import Path
 from config import RESOURCES_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
@@ -21,7 +19,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
-from PIL import Image
 from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
@@ -63,21 +60,11 @@ async def add_collection(
     _added_collection = db_collection_handler.add_collection(Collection(**cleaned_data))
 
     if artwork is not None and artwork.filename is not None:
-        file_ext = artwork.filename.split(".")[-1]
-        (
-            path_cover_l,
-            path_cover_s,
-            artwork_path,
-        ) = await fs_resource_handler.build_artwork_path(_added_collection, file_ext)
-
-        artwork_content = BytesIO(await artwork.read())
-        file_location_small = Path(f"{artwork_path}/small.{file_ext}")
-        file_location_large = Path(f"{artwork_path}/big.{file_ext}")
-        with Image.open(artwork_content) as img:
-            img.save(file_location_large)
-            fs_resource_handler.resize_cover_to_small(
-                img, save_path=file_location_small
-            )
+        cover_data = await fs_resource_handler.save_uploaded_cover(
+            _added_collection, artwork
+        )
+        path_cover_s = cover_data["path_cover_s"]
+        path_cover_l = cover_data["path_cover_l"]
     else:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
             entity=_added_collection,
@@ -221,26 +208,10 @@ async def update_collection(
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
-            (
-                path_cover_l,
-                path_cover_s,
-                artwork_path,
-            ) = await fs_resource_handler.build_artwork_path(collection, file_ext)
-
-            cleaned_data["path_cover_l"] = path_cover_l
-            cleaned_data["path_cover_s"] = path_cover_s
-
-            artwork_content = BytesIO(await artwork.read())
-            file_location_small = Path(f"{artwork_path}/small.{file_ext}")
-            file_location_large = Path(f"{artwork_path}/big.{file_ext}")
-            with Image.open(artwork_content) as img:
-                img.save(file_location_large)
-                fs_resource_handler.resize_cover_to_small(
-                    img, save_path=file_location_small
-                )
-
-            cleaned_data.update({"url_cover": ""})
+            cover_data = await fs_resource_handler.save_uploaded_cover(
+                collection, artwork
+            )
+            cleaned_data.update(cover_data)
         else:
             if data.get("url_cover", "") != collection.url_cover or not (
                 await fs_resource_handler.cover_exists(collection, CoverSize.BIG)
