@@ -31,8 +31,8 @@
 - [Installation](#installation)
 - [Contributing](#contributing)
 - [Community](#community)
-  - [Support](#support)
-  - [Our Friends](#our-friends)
+- [Support](#support)
+- [Our Friends](#our-friends)
 
 # Overview
 
@@ -75,13 +75,13 @@ Join us on Discord, where you can ask questions, submit ideas, get help, showcas
 
 [![discord-invite-img]][discord-invite]
 
-## Support
+# Support
 
 Consider supporting the development of this project on Open Collective.
 
 [![oc-donate-img]][oc-donate]
 
-## Our Friends
+# Our Friends
 
 Here are a few projects that we think you might like:
 
