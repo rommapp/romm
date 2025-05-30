@@ -16,7 +16,6 @@
 [![docker-pulls-badge-img]][docker-pulls-badge]
 
 [![discord-badge-img]][discord-badge]
-[![unraid-badge-img]][unraid-badge]
 [![docs-badge-img]][docs]
 
   </div>
@@ -117,8 +116,6 @@ Here are a few projects that we think you might like:
 [release-badge]: https://github.com/rommapp/romm/releases
 [discord-badge-img]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
 [discord-badge]: https://discord.gg/P5HtHnhUDH
-[unraid-badge-img]: https://img.shields.io/badge/Unraid-f57842?style=for-the-badge&labelColor=ee512b
-[unraid-badge]: https://forums.unraid.net/topic/149738-support-eurotimmy-romm-rom-manager-by-zurdi15/
 [docs-badge-img]: https://img.shields.io/badge/docs-736e9b?style=for-the-badge
 [docker-pulls-badge-img]: https://img.shields.io/docker/pulls/rommapp/romm?style=for-the-badge&label=pulls
 [docker-pulls-badge]: https://hub.docker.com/r/rommapp/romm
