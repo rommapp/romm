@@ -40,7 +40,9 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 ## Features
 
-- Scans and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api] and fetch custom arwork from [SteamGridDB][steamgriddb-api]
+- Scans and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
+- Fetch custom arwork from [SteamGridDB][steamgriddb-api]
+- Display your achievements from [Retroachievements][retroachievements-api]
 - Metadata available for [400+ platforms][docs-supported-platforms]
 - Play games directly from the browser using [EmulatorJS][docs-emulatorjs]
 - Share your library with friends with limited access and permissions
@@ -124,10 +126,11 @@ Here are a few projects that we think you might like:
 
 <!-- External links -->
 
-[igdb-api]: https://api-docs.igdb.com/#account-creation
-[screenscraper-api]: https://www.screenscraper.fr/membreinscription.php
-[mobygames-api]: https://www.mobygames.com/info/api/
-[steamgriddb-api]: https://www.steamgriddb.com/api/v2
+[igdb-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#igdb
+[screenscraper-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#screenscraper
+[mobygames-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#mobygames
+[steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#steamgriddb
+[retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#retroachievements
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
