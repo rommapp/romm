@@ -160,7 +160,8 @@ function closeDialog() {
                   <v-btn-group divided density="compact">
                     <v-btn
                       :disabled="
-                        !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                        !heartbeat.value.METADATA_SOURCES
+                          ?.STEAMGRIDDB_API_ENABLED
                       "
                       size="small"
                       class="translucent-dark"

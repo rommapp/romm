@@ -193,7 +193,7 @@ async function updateCollection() {
                 <v-btn
                   title="Search for cover in SteamGridDB"
                   :disabled="
-                    !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                    !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
                   "
                   size="small"
                   class="translucent-dark"

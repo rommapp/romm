@@ -44,7 +44,7 @@ const metadataOptions = computed(() => [
     name: "RetroAchievements",
     value: "ra",
     logo_path: "/assets/scrappers/ra.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.RA_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
   },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
