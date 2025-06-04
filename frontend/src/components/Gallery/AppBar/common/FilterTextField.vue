@@ -54,7 +54,6 @@ watch(
   <v-text-field
     :density="xs ? 'comfortable' : 'default'"
     clearable
-    autofocus
     hide-details
     rounded="0"
     :label="t('common.filter')"

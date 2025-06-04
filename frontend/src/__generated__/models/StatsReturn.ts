@@ -8,6 +8,6 @@ export type StatsReturn = {
     SAVES: number;
     STATES: number;
     SCREENSHOTS: number;
-    FILESIZE: number;
+    TOTAL_FILESIZE_BYTES: number;
 };
 

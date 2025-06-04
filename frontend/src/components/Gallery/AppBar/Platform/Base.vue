@@ -2,21 +2,18 @@
 import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import FirmwareBtn from "@/components/Gallery/AppBar/Platform/FirmwareBtn.vue";
+import SettingsBtn from "@/components/Gallery/AppBar/Platform/SettingsBtn.vue";
 import FirmwareDrawer from "@/components/Gallery/AppBar/Platform/FirmwareDrawer.vue";
 import PlatformInfoDrawer from "@/components/Gallery/AppBar/Platform/PlatformInfoDrawer.vue";
-import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
-import { computed } from "vue";
 
 // Props
 const romsStore = storeRoms();
 const { currentPlatform } = storeToRefs(romsStore);
-const navigationStore = storeNavigation();
-const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 </script>
 <template>
-  <base-gallery-app-bar :show-platforms-filter="false" show-filter-bar>
+  <base-gallery-app-bar :show-playables-filter="false" show-filter-bar>
     <template #prepend>
       <platform-icon
         v-if="currentPlatform"
@@ -24,11 +21,12 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
         :name="currentPlatform.name"
         :fs-slug="currentPlatform.fs_slug"
         :size="36"
-        class="mx-3 cursor-pointer platform-icon"
-        :class="{ active: activePlatformInfoDrawer }"
-        @click="navigationStore.switchActivePlatformInfoDrawer"
+        class="mx-3"
       />
       <firmware-btn />
+    </template>
+    <template #append>
+      <settings-btn />
     </template>
   </base-gallery-app-bar>
 

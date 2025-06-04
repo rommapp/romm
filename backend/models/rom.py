@@ -52,6 +52,7 @@ class RomFile(BaseModel):
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    ra_hash: Mapped[str | None] = mapped_column(String(100))
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )
@@ -115,11 +116,14 @@ class Rom(BaseModel):
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
     ss_id: Mapped[int | None]
+    ra_id: Mapped[int | None]
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
         Index("idx_roms_ss_id", "ss_id"),
+        Index("idx_roms_ra_id", "ra_id"),
+        Index("idx_roms_sgdb_id", "sgdb_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=450))
@@ -138,6 +142,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     ss_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    ra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 
@@ -165,6 +172,7 @@ class Rom(BaseModel):
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
+    ra_hash: Mapped[str | None] = mapped_column(String(length=100))
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
@@ -232,7 +240,16 @@ class Rom(BaseModel):
 
     @cached_property
     def multi(self) -> bool:
-        return len(self.files) > 1
+        # TODO: Improve multi game detection. This is a temporal fix to check if multi.
+        if len(self.files) > 1:
+            return True
+        if (
+            self.files
+            and len(self.files) > 0
+            and len(self.files[0].full_path.split("/")) > 3
+        ):
+            return True
+        return False
 
     @cached_property
     def fs_size_bytes(self) -> int:
@@ -275,8 +292,22 @@ class Rom(BaseModel):
         )
 
     @property
+    def merged_ra_metadata(self) -> dict[str, list] | None:
+        if self.ra_metadata and "achievements" in self.ra_metadata:
+            for achievement in self.ra_metadata.get("achievements", []):
+                achievement["badge_path_lock"] = (
+                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
+                )
+                achievement["badge_path"] = (
+                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
+                )
+        return self.ra_metadata
+
+    @property
     def is_unidentified(self) -> bool:
-        return not self.igdb_id and not self.moby_id and not self.ss_id
+        return (
+            not self.igdb_id and not self.moby_id and not self.ss_id and not self.ra_id
+        )
 
     @property
     def is_partially_identified(self) -> bool:
@@ -284,7 +315,12 @@ class Rom(BaseModel):
 
     @property
     def is_fully_identified(self) -> bool:
-        return bool(self.igdb_id) and bool(self.moby_id) and bool(self.ss_id)
+        return (
+            bool(self.igdb_id)
+            and bool(self.moby_id)
+            and bool(self.ss_id)
+            and bool(self.ra_id)
+        )
 
     def has_m3u_file(self) -> bool:
         """

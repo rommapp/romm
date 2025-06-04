@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import EmptySates from "@/components/common/EmptyStates/EmptyStates.vue";
 import type { StateSchema } from "@/__generated__";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -69,121 +70,127 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
 </script>
 
 <template>
-  <div>
-    <v-btn-group divided density="default">
-      <v-btn
-        v-if="scopes.includes('assets.write')"
-        drawer
-        size="small"
-        @click="emitter?.emit('addStatesDialog', rom)"
-      >
-        <v-icon>mdi-cloud-upload-outline</v-icon>
-      </v-btn>
-      <v-btn
-        drawer
-        :disabled="!selectedStates.length"
-        :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
-        size="small"
-        @click="downloasStates"
-      >
-        <v-icon>mdi-download</v-icon>
-      </v-btn>
-      <v-btn
-        v-if="scopes.includes('assets.write')"
-        drawer
-        :class="{
-          'text-romm-red': selectedStates.length,
-        }"
-        :disabled="!selectedStates.length"
-        :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
-        @click="
-          emitter?.emit('showDeleteStatesDialog', {
-            rom: props.rom,
-            states: selectedStates,
-          })
-        "
-        size="small"
-      >
-        <v-icon>mdi-delete</v-icon>
-      </v-btn>
-    </v-btn-group>
-  </div>
-  <div class="d-flex ga-4 flex-md-wrap mt-6 px-2">
-    <v-hover
-      v-if="rom.user_states.length > 0"
-      v-for="state in rom.user_states"
-      v-slot="{ isHovering, props }"
-    >
-      <v-card
-        v-bind="props"
-        class="bg-toplayer transform-scale"
-        :class="{
-          'on-hover': isHovering,
-          'border-selected': selectedStates.some((s) => s.id === state.id),
-        }"
-        :elevation="isHovering ? 20 : 3"
-        width="250px"
-        @click="(e) => onCardClick(state, e)"
-      >
-        <v-card-text
-          class="d-flex flex-column justify-end h-100"
-          style="padding: 1.5rem"
+  <v-row class="ma-2" no-gutters>
+    <v-col class="pa-1">
+      <v-btn-group divided density="default">
+        <v-btn
+          v-if="scopes.includes('assets.write')"
+          drawer
+          size="small"
+          @click="emitter?.emit('addStatesDialog', rom)"
         >
-          <v-row class="position-relative">
-            <v-img
-              cover
-              height="100%"
-              min-height="75px"
-              :src="
-                state.screenshot?.download_path ??
-                getEmptyCoverImage(state.file_name)
-              "
-            />
-            <v-btn-group
-              v-if="isHovering"
-              class="position-absolute"
-              density="compact"
-              style="bottom: 4px; right: 4px"
-            >
-              <v-btn drawer :href="state.download_path" download size="small">
-                <v-icon>mdi-download</v-icon>
-              </v-btn>
-              <v-btn
-                v-if="scopes.includes('assets.write')"
-                drawer
-                size="small"
-                @click="
-                  emitter?.emit('showDeleteStatesDialog', {
-                    rom: props.rom,
-                    states: [state],
-                  })
-                "
-              >
-                <v-icon class="text-romm-red">mdi-delete</v-icon>
-              </v-btn>
-            </v-btn-group>
-          </v-row>
-          <v-row class="mt-6 flex-grow-0">{{ state.file_name }}</v-row>
-          <v-row
-            class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
-            style="min-height: 20px"
-          >
-            <v-chip v-if="state.emulator" size="x-small" color="orange" label>
-              {{ state.emulator }}
-            </v-chip>
-            <v-chip size="x-small" label>
-              {{ formatBytes(state.file_size_bytes) }}
-            </v-chip>
-            <v-chip size="x-small" label>
-              Updated: {{ formatTimestamp(state.updated_at) }}
-            </v-chip>
-          </v-row>
-        </v-card-text>
-      </v-card>
-    </v-hover>
-    <v-col v-else class="text-center mt-2">
-      <v-icon size="large">mdi-help-rhombus-outline</v-icon>
-      <p class="text-h6 mt-2">{{ t("rom.no-states-found") }}</p>
+          <v-icon>mdi-cloud-upload-outline</v-icon>
+        </v-btn>
+        <v-btn
+          drawer
+          :disabled="!selectedStates.length"
+          :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
+          size="small"
+          @click="downloasStates"
+        >
+          <v-icon>mdi-download</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="scopes.includes('assets.write')"
+          drawer
+          :class="{
+            'text-romm-red': selectedStates.length,
+          }"
+          :disabled="!selectedStates.length"
+          :variant="selectedStates.length > 0 ? 'flat' : 'plain'"
+          @click="
+            emitter?.emit('showDeleteStatesDialog', {
+              rom: props.rom,
+              states: selectedStates,
+            })
+          "
+          size="small"
+        >
+          <v-icon>mdi-delete</v-icon>
+        </v-btn>
+      </v-btn-group>
     </v-col>
-  </div>
+  </v-row>
+  <v-row v-if="rom.user_states.length > 0" class="ma-2" no-gutters>
+    <v-col cols="6" sm="4" class="pa-1" v-for="state in rom.user_states">
+      <v-hover v-slot="{ isHovering, props }">
+        <v-card
+          v-bind="props"
+          class="bg-toplayer transform-scale"
+          :class="{
+            'on-hover': isHovering,
+            'border-selected': selectedStates.some((s) => s.id === state.id),
+          }"
+          :elevation="isHovering ? 20 : 3"
+          @click="(e) => onCardClick(state, e)"
+        >
+          <v-card-text class="pa-2">
+            <v-row no-gutters>
+              <v-col cols="12">
+                <v-img
+                  rounded
+                  :src="
+                    state.screenshot?.download_path ??
+                    getEmptyCoverImage(state.file_name)
+                  "
+                >
+                  <v-slide-x-transition>
+                    <v-btn-group
+                      v-if="isHovering"
+                      class="position-absolute"
+                      density="compact"
+                      style="bottom: 4px; right: 4px"
+                    >
+                      <v-btn
+                        drawer
+                        :href="state.download_path"
+                        download
+                        size="small"
+                      >
+                        <v-icon>mdi-download</v-icon>
+                      </v-btn>
+                      <v-btn
+                        v-if="scopes.includes('assets.write')"
+                        drawer
+                        size="small"
+                        @click="
+                          emitter?.emit('showDeleteStatesDialog', {
+                            rom: props.rom,
+                            states: [state],
+                          })
+                        "
+                      >
+                        <v-icon class="text-romm-red">mdi-delete</v-icon>
+                      </v-btn>
+                    </v-btn-group>
+                  </v-slide-x-transition>
+                </v-img>
+              </v-col>
+            </v-row>
+            <v-row class="py-2 text-caption" no-gutters>{{
+              state.file_name
+            }}</v-row>
+            <v-row class="ga-1" no-gutters>
+              <v-col v-if="state.emulator" cols="12">
+                <v-chip size="x-small" color="orange" label>
+                  {{ state.emulator }}
+                </v-chip>
+              </v-col>
+              <v-col cols="12">
+                <v-chip size="x-small" label>
+                  {{ formatBytes(state.file_size_bytes) }}
+                </v-chip>
+              </v-col>
+              <v-col cols="12">
+                <v-chip size="x-small" label>
+                  Updated: {{ formatTimestamp(state.updated_at) }}
+                </v-chip>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
+      </v-hover>
+    </v-col>
+  </v-row>
+  <empty-sates v-else />
 </template>

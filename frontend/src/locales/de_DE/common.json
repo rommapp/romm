@@ -1,4 +1,5 @@
 {
+  "about": "Über",
   "add": "Hinzufügen",
   "administration": "Administration",
   "apply": "Anwenden",
@@ -9,6 +10,7 @@
   "core": "Core",
   "create": "Erstellen",
   "edit": "Bearbeiten",
+  "exclude-on-delete": "Beim Löschen ausschließen",
   "filter": "Filter",
   "firmware": "Firmware",
   "games-n": "{n} Spiel | {n} Spiele",
@@ -18,12 +20,14 @@
   "platform": "Plattform",
   "platforms": "Plattformen",
   "platforms-n": "{n} Plattform | {n} Plattformen",
+  "platforms-size": "Größe pro Plattform",
   "profile": "Profil",
   "save": "Speichern",
   "saves": "Speicherstände",
   "saves-n": "{n} Speichern | {n} Speicherstände",
   "screenshots-n": "{n} Screenshot | {n} Screenshots",
   "search": "Suche",
+  "server-stats": "Serverstatistiken",
   "size-on-disk": "Größe auf Festplatte",
   "slug": "Slug",
   "state": "Spielstand",
@@ -33,5 +37,6 @@
   "upload": "Hochladen",
   "user-interface": "Benutzeroberfläche",
   "virtual-collection": "Autogenerierte Sammlung",
-  "virtual-collections": "Autogenerierte Sammlungen"
+  "virtual-collections": "Autogenerierte Sammlungen",
+  "sync": "Synchronisieren"
 }

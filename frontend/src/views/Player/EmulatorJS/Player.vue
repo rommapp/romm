@@ -20,6 +20,8 @@ import {
 } from "./utils";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import storePlaying from "@/stores/playing";
+import { storeToRefs } from "pinia";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
@@ -36,6 +38,8 @@ const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
+const playingStore = storePlaying();
+const { playing, fullScreen } = storeToRefs(playingStore);
 
 // Declare global variables for EmulatorJS
 declare global {
@@ -110,6 +114,7 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
   .trim();
 
 onMounted(() => {
+  window.scrollTo(0, 0);
   if (props.bios) {
     localStorage.setItem(
       `player:${romRef.value.platform_slug}:bios_id`,
@@ -145,6 +150,8 @@ onBeforeUnmount(async () => {
   emitter?.off("saveSelected", loadSave);
   emitter?.off("stateSelected", loadState);
   window.EJS_emulator?.callEvent("exit");
+  fullScreen.value = false;
+  playing.value = false;
 });
 
 function displayMessage(
@@ -180,7 +187,7 @@ async function loadSave(save: SaveSchema) {
     loadEmulatorJSSave(new Uint8Array(data));
     displayMessage("Save loaded from server", {
       duration: 3000,
-      icon: "mdi-cloud-upload-outline",
+      icon: "mdi-cloud-download-outline",
     });
     return;
   }
@@ -231,7 +238,7 @@ async function loadState(state: StateSchema) {
     loadEmulatorJSState(new Uint8Array(data));
     displayMessage("State loaded from server", {
       duration: 3000,
-      icon: "mdi-cloud-upload-outline",
+      icon: "mdi-cloud-download-outline",
     });
     return;
   }
@@ -337,12 +344,6 @@ window.EJS_onGameStart = async () => {
 <template>
   <div id="game" />
 </template>
-
-<style scoped>
-#game {
-  height: 100%;
-}
-</style>
 
 <style>
 #game .ejs_cheat_code {

@@ -40,6 +40,12 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/ss.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
   },
+  {
+    name: "RetroAchievements",
+    value: "ra",
+    logo_path: "/assets/scrappers/ra.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
+  },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
 const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
@@ -103,7 +109,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
-    apis: metadataSources.value.map((s) => s.value),
+    apis: [...metadataSources.value.map((s) => s.value)],
   });
 }
 
@@ -211,7 +217,7 @@ async function stopScan() {
             <v-avatar class="mr-2" size="15" rounded="1">
               <v-img :src="item.raw.logo_path" />
             </v-avatar>
-            {{ item.raw.name }}
+            {{ item.raw.value }}
           </v-chip>
         </template>
       </v-select>
@@ -320,7 +326,7 @@ async function stopScan() {
               v-for="platform in scanningPlatforms"
               :key="platform.id"
             >
-              <v-expansion-panel-title>
+              <v-expansion-panel-title static>
                 <v-list-item class="pa-0">
                   <template #prepend>
                     <v-avatar rounded="0" size="40">

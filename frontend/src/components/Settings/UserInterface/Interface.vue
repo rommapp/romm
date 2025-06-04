@@ -14,10 +14,12 @@ const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 
 // Initializing refs from localStorage
+// Home
 const storedShowRecentRoms = localStorage.getItem("settings.showRecentRoms");
 const showRecentRomsRef = ref(
   isNull(storedShowRecentRoms) ? true : storedShowRecentRoms === "true",
 );
+
 const storedShowContinuePlaying = localStorage.getItem(
   "settings.showContinuePlaying",
 );
@@ -34,6 +36,8 @@ const storedShowCollections = localStorage.getItem("settings.showCollections");
 const showCollectionsRef = ref(
   isNull(storedShowCollections) ? true : storedShowCollections === "true",
 );
+
+// Virtual collections
 const storedShowVirtualCollections = localStorage.getItem(
   "settings.showVirtualCollections",
 );
@@ -51,6 +55,17 @@ const virtualCollectionTypeRef = ref(
     : storedVirtualCollectionType,
 );
 
+// Platforms drawer
+const storedPlatformsGroupBy = localStorage.getItem(
+  "settings.platformsGroupBy",
+);
+const platformsGroupByRef = ref(
+  isNull(storedPlatformsGroupBy) || storedPlatformsGroupBy === "null"
+    ? null
+    : storedPlatformsGroupBy,
+);
+
+// Gallery
 const storedGroupRoms = localStorage.getItem("settings.groupRoms");
 const groupRomsRef = ref(
   isNull(storedGroupRoms) ? true : storedGroupRoms === "true",
@@ -67,6 +82,15 @@ const languagesRef = ref(
 );
 const storedStatus = localStorage.getItem("settings.showStatus");
 const statusRef = ref(isNull(storedStatus) ? true : storedStatus === "true");
+
+const storedActionBar = localStorage.getItem("settings.showActionBar");
+const actionBarRef = ref(
+  isNull(storedActionBar) ? false : storedActionBar === "true",
+);
+const stored3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffectRef = ref(
+  isNull(stored3DEffect) ? true : stored3DEffect === "true",
+);
 
 const homeOptions = computed(() => [
   {
@@ -103,6 +127,17 @@ const homeOptions = computed(() => [
   },
 ]);
 
+const platformsDrawerOptions = computed(() => [
+  {
+    title: t("settings.group-platforms-by"),
+    description: t("settings.group-platforms-by-desc"),
+    iconEnabled: "mdi-controller",
+    iconDisabled: "mdi-controller",
+    model: platformsGroupByRef,
+    modelTrigger: setPlatformDrawerGroupBy,
+  },
+]);
+
 const galleryOptions = computed(() => [
   {
     title: t("settings.group-roms"),
@@ -118,7 +153,7 @@ const galleryOptions = computed(() => [
     iconEnabled: "mdi-account-group-outline",
     iconDisabled: "mdi-account-outline",
     model: siblingsRef,
-    disabled: !groupRomsRef.value,
+    disabled: !groupRomsRef,
     modelTrigger: toggleSiblings,
   },
   {
@@ -145,12 +180,28 @@ const galleryOptions = computed(() => [
     model: statusRef,
     modelTrigger: toggleStatus,
   },
+  {
+    title: t("settings.show-actionbar"),
+    description: t("settings.show-actionbar-desc"),
+    iconEnabled: "mdi-card",
+    iconDisabled: "mdi-card-outline",
+    model: actionBarRef,
+    modelTrigger: toggleActionBar,
+  },
+  {
+    title: t("settings.enable-3d-effect"),
+    description: t("settings.enable-3d-effect-desc"),
+    iconEnabled: "mdi-cube",
+    iconDisabled: "mdi-cube-outline",
+    model: enable3DEffectRef,
+    modelTrigger: toggle3DEffect,
+  },
 ]);
 
 // Functions to update localStorage
-const toggleShowRecentRoms = (value: boolean) => {
-  showRecentRomsRef.value = value;
-  localStorage.setItem("settings.showRecentRoms", value.toString());
+const setPlatformDrawerGroupBy = (value: string) => {
+  platformsGroupByRef.value = value;
+  localStorage.setItem("settings.platformsGroupBy", value);
 };
 const toggleShowContinuePlaying = (value: boolean) => {
   showContinuePlayingRef.value = value;
@@ -179,6 +230,11 @@ const setVirtualCollectionType = async (value: string) => {
     });
 };
 
+const toggleShowRecentRoms = (value: boolean) => {
+  showRecentRomsRef.value = value;
+  localStorage.setItem("settings.showRecentRoms", value.toString());
+};
+
 const toggleGroupRoms = (value: boolean) => {
   groupRomsRef.value = value;
   localStorage.setItem("settings.groupRoms", value.toString());
@@ -202,6 +258,15 @@ const toggleLanguages = (value: boolean) => {
 const toggleStatus = (value: boolean) => {
   statusRef.value = value;
   localStorage.setItem("settings.showStatus", value.toString());
+};
+
+const toggleActionBar = (value: boolean) => {
+  actionBarRef.value = value;
+  localStorage.setItem("settings.showActionBar", value.toString());
+};
+const toggle3DEffect = (value: boolean) => {
+  enable3DEffectRef.value = value;
+  localStorage.setItem("settings.enable3DEffect", value.toString());
 };
 </script>
 <template>
@@ -237,8 +302,38 @@ const toggleStatus = (value: boolean) => {
       <v-chip
         label
         variant="text"
+        prepend-icon="mdi-controller"
+        class="ml-2 mt-4"
+        >{{ t("settings.platforms-drawer") }}</v-chip
+      >
+      <v-divider class="border-opacity-25 ma-1" />
+      <v-row class="align-center py-1" no-gutters>
+        <v-col
+          cols="12"
+          v-for="option in platformsDrawerOptions"
+          :key="option.title"
+        >
+          <v-select
+            v-model="platformsGroupByRef"
+            :items="[
+              { title: 'Manufacturer', value: 'family_name' },
+              { title: 'Generation', value: 'generation' },
+              { title: 'Type', value: 'category' },
+              { title: 'None', value: null },
+            ]"
+            :label="t('settings.platforms-drawer-group-by')"
+            class="mx-2 mt-2"
+            variant="outlined"
+            hide-details
+            @update:model-value="setPlatformDrawerGroupBy"
+          />
+        </v-col>
+      </v-row>
+      <v-chip
+        label
+        variant="text"
         prepend-icon="mdi-view-grid"
-        class="ml-2 mt-1"
+        class="ml-2 mt-4"
         >{{ t("settings.gallery") }}</v-chip
       >
       <v-divider class="border-opacity-25 ma-1" />

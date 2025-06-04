@@ -1,13 +1,14 @@
 <script setup lang="ts">
+import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import type { SaveSchema } from "@/__generated__";
+import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import storeAuth from "@/stores/auth";
-import { storeToRefs } from "pinia";
 import { getEmptyCoverImage } from "@/utils/covers";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 // Props
@@ -67,121 +68,127 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
 </script>
 
 <template>
-  <div>
-    <v-btn-group divided density="default">
-      <v-btn
-        v-if="scopes.includes('assets.write')"
-        drawer
-        size="small"
-        @click="emitter?.emit('addSavesDialog', rom)"
-      >
-        <v-icon>mdi-cloud-upload-outline</v-icon>
-      </v-btn>
-      <v-btn
-        drawer
-        :disabled="!selectedSaves.length"
-        :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
-        size="small"
-        @click="downloasSaves"
-      >
-        <v-icon>mdi-download</v-icon>
-      </v-btn>
-      <v-btn
-        v-if="scopes.includes('assets.write')"
-        drawer
-        :class="{
-          'text-romm-red': selectedSaves.length,
-        }"
-        :disabled="!selectedSaves.length"
-        :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
-        @click="
-          emitter?.emit('showDeleteSavesDialog', {
-            rom: props.rom,
-            saves: selectedSaves,
-          })
-        "
-        size="small"
-      >
-        <v-icon>mdi-delete</v-icon>
-      </v-btn>
-    </v-btn-group>
-  </div>
-  <div class="d-flex ga-4 flex-md-wrap mt-6 px-2">
-    <v-hover
-      v-if="rom.user_saves.length > 0"
-      v-for="save in rom.user_saves"
-      v-slot="{ isHovering, props }"
-    >
-      <v-card
-        v-bind="props"
-        class="bg-toplayer transform-scale"
-        :class="{
-          'on-hover': isHovering,
-          'border-selected': selectedSaves.some((s) => s.id === save.id),
-        }"
-        :elevation="isHovering ? 20 : 3"
-        width="250px"
-        @click="(e) => onCardClick(save, e)"
-      >
-        <v-card-text
-          class="d-flex flex-column justify-end h-100"
-          style="padding: 1.5rem"
+  <v-row class="ma-2" no-gutters>
+    <v-col class="pa-1">
+      <v-btn-group divided density="default">
+        <v-btn
+          v-if="scopes.includes('assets.write')"
+          drawer
+          size="small"
+          @click="emitter?.emit('addSavesDialog', rom)"
         >
-          <v-row class="position-relative">
-            <v-img
-              cover
-              height="100%"
-              min-height="75px"
-              :src="
-                save.screenshot?.download_path ??
-                getEmptyCoverImage(save.file_name)
-              "
-            />
-            <v-btn-group
-              v-if="isHovering"
-              class="position-absolute"
-              density="compact"
-              style="bottom: 4px; right: 4px"
-            >
-              <v-btn drawer :href="save.download_path" download size="small">
-                <v-icon>mdi-download</v-icon>
-              </v-btn>
-              <v-btn
-                v-if="scopes.includes('assets.write')"
-                drawer
-                size="small"
-                @click="
-                  emitter?.emit('showDeleteSavesDialog', {
-                    rom: props.rom,
-                    saves: [save],
-                  })
-                "
-              >
-                <v-icon class="text-romm-red">mdi-delete</v-icon>
-              </v-btn>
-            </v-btn-group>
-          </v-row>
-          <v-row class="mt-6 flex-grow-0">{{ save.file_name }}</v-row>
-          <v-row
-            class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
-            style="min-height: 20px"
-          >
-            <v-chip v-if="save.emulator" size="x-small" color="orange" label>
-              {{ save.emulator }}
-            </v-chip>
-            <v-chip size="x-small" label>
-              {{ formatBytes(save.file_size_bytes) }}
-            </v-chip>
-            <v-chip size="x-small" label>
-              Updated: {{ formatTimestamp(save.updated_at) }}
-            </v-chip>
-          </v-row>
-        </v-card-text>
-      </v-card>
-    </v-hover>
-    <v-col v-else class="text-center mt-2">
-      <v-icon size="large">mdi-help-rhombus-outline</v-icon>
-      <p class="text-h6 mt-2">{{ t("rom.no-saves-found") }}</p>
+          <v-icon>mdi-cloud-upload-outline</v-icon>
+        </v-btn>
+        <v-btn
+          drawer
+          :disabled="!selectedSaves.length"
+          :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
+          size="small"
+          @click="downloasSaves"
+        >
+          <v-icon>mdi-download</v-icon>
+        </v-btn>
+        <v-btn
+          v-if="scopes.includes('assets.write')"
+          drawer
+          :class="{
+            'text-romm-red': selectedSaves.length,
+          }"
+          :disabled="!selectedSaves.length"
+          :variant="selectedSaves.length > 0 ? 'flat' : 'plain'"
+          @click="
+            emitter?.emit('showDeleteSavesDialog', {
+              rom: props.rom,
+              saves: selectedSaves,
+            })
+          "
+          size="small"
+        >
+          <v-icon>mdi-delete</v-icon>
+        </v-btn>
+      </v-btn-group>
     </v-col>
-  </div>
+  </v-row>
+  <v-row v-if="rom.user_saves.length > 0" class="ma-2" no-gutters>
+    <v-col cols="6" sm="4" class="pa-1" v-for="save in rom.user_saves">
+      <v-hover v-slot="{ isHovering, props }">
+        <v-card
+          v-bind="props"
+          class="bg-toplayer transform-scale"
+          :class="{
+            'on-hover': isHovering,
+            'border-selected': selectedSaves.some((s) => s.id === save.id),
+          }"
+          :elevation="isHovering ? 20 : 3"
+          @click="(e) => onCardClick(save, e)"
+        >
+          <v-card-text class="pa-2">
+            <v-row no-gutters>
+              <v-col cols="12">
+                <v-img
+                  rounded
+                  :src="
+                    save.screenshot?.download_path ??
+                    getEmptyCoverImage(save.file_name)
+                  "
+                >
+                  <v-slide-x-transition>
+                    <v-btn-group
+                      v-if="isHovering"
+                      class="position-absolute"
+                      density="compact"
+                      style="bottom: 4px; right: 4px"
+                    >
+                      <v-btn
+                        drawer
+                        :href="save.download_path"
+                        download
+                        size="small"
+                      >
+                        <v-icon>mdi-download</v-icon>
+                      </v-btn>
+                      <v-btn
+                        v-if="scopes.includes('assets.write')"
+                        drawer
+                        size="small"
+                        @click="
+                          emitter?.emit('showDeleteSavesDialog', {
+                            rom: props.rom,
+                            saves: [save],
+                          })
+                        "
+                      >
+                        <v-icon class="text-romm-red">mdi-delete</v-icon>
+                      </v-btn>
+                    </v-btn-group>
+                  </v-slide-x-transition>
+                </v-img>
+              </v-col>
+            </v-row>
+            <v-row class="py-2 text-caption" no-gutters>{{
+              save.file_name
+            }}</v-row>
+            <v-row class="ga-1" no-gutters>
+              <v-col v-if="save.emulator" cols="12">
+                <v-chip size="x-small" color="orange" label>
+                  {{ save.emulator }}
+                </v-chip>
+              </v-col>
+              <v-col cols="12">
+                <v-chip size="x-small" label>
+                  {{ formatBytes(save.file_size_bytes) }}
+                </v-chip>
+              </v-col>
+              <v-col cols="12">
+                <v-chip size="x-small" label>
+                  Updated: {{ formatTimestamp(save.updated_at) }}
+                </v-chip>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
+      </v-hover>
+    </v-col>
+  </v-row>
+  <empty-saves v-else />
 </template>

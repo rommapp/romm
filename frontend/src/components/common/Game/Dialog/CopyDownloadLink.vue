@@ -31,11 +31,11 @@ function closeDialog() {
     :width="lgAndUp ? '60vw' : '95vw'"
   >
     <template #content>
-      <v-row class="justify-center text-center pa-2" no-gutters>
+      <v-row class="justify-center pa-2" no-gutters>
         <v-list-item>{{ t("rom.cant-copy-link") }}:</v-list-item>
       </v-row>
-      <v-row class="justify-center text-center pa-2 mb-3" no-gutters>
-        <v-list-item class="bg-toplayer">{{ link }}</v-list-item>
+      <v-row class="text-center pa-2" no-gutters>
+        <v-list-item rounded class="bg-toplayer">{{ link }}</v-list-item>
       </v-row>
     </template></r-dialog
   >

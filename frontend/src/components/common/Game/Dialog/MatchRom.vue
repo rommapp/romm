@@ -3,6 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
+import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -33,6 +34,7 @@ const searching = ref(false);
 const route = useRoute();
 const searchText = ref("");
 const searchBy = ref("Name");
+const searched = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -131,6 +133,7 @@ async function searchRom() {
       })
       .finally(() => {
         searching.value = false;
+        searched.value = true;
       });
   }
 }
@@ -258,6 +261,8 @@ async function updateRom(
 
 function closeDialog() {
   show.value = false;
+  searching.value = false;
+  searched.value = false;
   searchBy.value = "Name";
   sources.value = [];
   showSelectSource.value = false;
@@ -278,7 +283,7 @@ onBeforeUnmount(() => {
     icon="mdi-search-web"
     :loading-condition="searching"
     :empty-state-condition="matchedRoms.length == 0"
-    empty-state-type="game"
+    :empty-state-type="searched ? 'game' : undefined"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
     :height="lgAndUp ? '90vh' : '775px'"
@@ -511,14 +516,16 @@ onBeforeUnmount(() => {
               <v-col>
                 <v-chip
                   @click="toggleRenameAsSource"
-                  :variant="renameFromSource ? 'flat' : 'outlined'"
-                  :color="renameFromSource ? 'primary' : ''"
+                  variant="text"
                   :disabled="selectedCover == undefined"
-                  ><v-icon class="mr-1">{{
-                    selectedCover && renameFromSource
-                      ? "mdi-checkbox-outline"
-                      : "mdi-checkbox-blank-outline"
-                  }}</v-icon
+                  ><v-icon
+                    :color="renameFromSource ? 'primary' : ''"
+                    class="mr-1"
+                    >{{
+                      selectedCover && renameFromSource
+                        ? "mdi-checkbox-outline"
+                        : "mdi-checkbox-blank-outline"
+                    }}</v-icon
                   >{{
                     t("rom.rename-file-part1", { source: selectedCover?.name })
                   }}</v-chip
@@ -563,6 +570,9 @@ onBeforeUnmount(() => {
           </v-col>
         </v-row>
       </template>
+    </template>
+    <template #empty-state>
+      <empty-manual-match />
     </template>
     <template #footer>
       <v-row no-gutters class="text-center">

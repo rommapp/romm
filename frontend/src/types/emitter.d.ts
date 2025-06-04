@@ -50,6 +50,7 @@ export type Events = {
     title: string;
   };
   showCreateUserDialog: null;
+  showCreateInviteLinkDialog: void;
   showEditUserDialog: User;
   showDeleteUserDialog: User;
   showDeleteSavesDialog: {
@@ -80,4 +81,5 @@ export type Events = {
   selectStateDialog: DetailedRom;
   saveSelected: SaveSchema;
   stateSelected: StateSchema;
+  showAboutDialog;
 };

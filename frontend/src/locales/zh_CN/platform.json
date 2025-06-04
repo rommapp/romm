@@ -28,6 +28,8 @@
   "show-firmwares": "显示固件与 BIOS",
   "show-matched": "显示匹配项",
   "show-unmatched": "显示不匹配项",
+  "show-playables": "显示可玩",
+  "show-ra": "显示 Retroachievements",
   "status": "状态",
   "upload-roms": "上传 Roms"
 }

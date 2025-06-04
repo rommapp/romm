@@ -23,7 +23,6 @@ withDefaults(
 
 <template>
   <v-list-item
-    :key="collection.id"
     v-bind="{
       ...(withLink && collection
         ? {
@@ -34,7 +33,7 @@ withDefaults(
           }
         : {}),
     }"
-    :value="collection.name"
+    :value="collection.id"
     rounded
     density="compact"
     class="my-1 py-2"

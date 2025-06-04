@@ -5,39 +5,74 @@ set -o nounset           # treat unset variables as an error
 set -o pipefail          # treat errors in pipes as fatal
 shopt -s inherit_errexit # inherit errexit
 
+LOGLEVEL="${LOGLEVEL:="info"}"
+
 # make it possible to disable the inotify watcher process
-ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="true"}"
+ENABLE_RESCAN_ON_FILESYSTEM_CHANGE="${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:="false"}"
+ENABLE_SCHEDULED_RESCAN="${ENABLE_SCHEDULED_RESCAN:="false"}"
+ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:="false"}"
 
-# Set INIT_DEBUG to false if not set by docker env
-# (this env var is currently undocumented and usually just needed for development purposes)
-INIT_DEBUG="${INIT_DEBUG:="false"}"
+# if REDIS_HOST is set, we assume that an external redis is used
+REDIS_HOST="${REDIS_HOST:=""}"
 
-# print debug log output if enabled
+# set DEFAULT_WEB_CONCURRENCY to 1 if not set by docker env to reduce resource usage
+# (since backend is almost 100% async this won't block anything)
+DEFAULT_WEB_CONCURRENCY=1
+
+# logger colors
+RED='\033[0;31m'
+LIGHTMAGENTA='\033[0;95m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+RESET='\033[0;00m'
+
+print_banner() {
+	info_log "               _____                 __  __ "
+	info_log '              |  __ \               |  \/  |'
+	info_log '              | |__) |___  _ __ ___ | \  / |'
+	info_log "              |  _  // _ \\| '_ \` _ \\| |\\/| |"
+	info_log '              | | \ \ (_) | | | | | | |  | |'
+	info_log '              |_|  \_\___/|_| |_| |_|_|  |_|'
+	info_log ""
+	info_log "The beautiful, powerful, self-hosted Rom manager and player"
+	info_log ""
+}
+
 debug_log() {
-	if [[ ${INIT_DEBUG} == "true" ]]; then
-		echo "DEBUG:    [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+	# print debug log output if enabled
+	if [[ ${LOGLEVEL} == "debug" ]]; then
+		echo -e "${LIGHTMAGENTA}DEBUG:    ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
 	fi
 }
 
 info_log() {
-	echo "INFO:     [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+	echo -e "${GREEN}INFO:     ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
 }
 
 warn_log() {
-	echo "WARNING:  [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+	echo -e "${YELLOW}WARNING:  ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
 }
 
 error_log() {
-	echo "ERROR:    [init][$(date +"%Y-%m-%d %T")]" "${@}" || true
+	echo -e "${RED}ERROR:    ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
 	exit 1
 }
 
 wait_for_gunicorn_socket() {
-	info_log "waiting for gunicorn socket file..."
-	while [[ ! -S /tmp/gunicorn.sock ]]; do
-		sleep 1
+	debug_log "Waiting for gunicorn socket file..."
+	local retries=60
+	while [[ ! -S /tmp/gunicorn.sock && retries -gt 0 ]]; do
+		sleep 0.5
+		((retries--))
 	done
-	info_log "gunicorn socket file found"
+
+	if [[ -S /tmp/gunicorn.sock ]]; then
+		debug_log "Gunicorn socket file found"
+	else
+		error_log "Gunicorn socket file not found after waiting 30s"
+	fi
 }
 
 # function that runs or main process and creates a corresponding PID file,
@@ -46,7 +81,7 @@ start_bin_gunicorn() {
 	rm /tmp/gunicorn.sock -f
 
 	# commands to start our main application and store its PID to check for crashes
-	info_log "starting gunicorn"
+	info_log "Starting backend"
 
 	# TODO: Remove support for GUNICORN_WORKERS in future version.
 	if [[ -n ${GUNICORN_WORKERS-} ]]; then
@@ -55,14 +90,15 @@ start_bin_gunicorn() {
 	fi
 
 	gunicorn \
-		--access-logfile - \
-		--error-logfile - \
-		--worker-class uvicorn.workers.UvicornWorker \
 		--bind=0.0.0.0:5000 \
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
-		--workers "${WEB_CONCURRENCY:-2}" \
+		--worker-class uvicorn.workers.UvicornWorker \
+		--workers "${WEB_CONCURRENCY:-${DEFAULT_WEB_CONCURRENCY:-1}}" \
+		--error-logfile - \
+		--error-logfile - \
+		--log-config /etc/gunicorn/logging.conf \
 		main:app &
 }
 
@@ -70,31 +106,68 @@ start_bin_gunicorn() {
 start_bin_nginx() {
 	wait_for_gunicorn_socket
 
-	info_log "starting nginx"
+	info_log "Starting nginx"
 	if [[ ${EUID} -ne 0 ]]; then
 		nginx
 	else
 		# if container runs as root, drop permissions
 		nginx -g 'user romm;'
 	fi
+
+	: "${ROMM_BASE_URL:=http://0.0.0.0:8080}"
+	info_log "🚀 RomM is now available at ${ROMM_BASE_URL}"
 }
 
+# Commands to start valkey-server (handling PID creation internally)
 start_bin_valkey-server() {
-	info_log "starting valkey-server"
-	# Check if /usr/local/etc/valkey/valkey.conf exists and use it if so
+	info_log "Starting internal valkey"
+
 	if [[ -f /usr/local/etc/valkey/valkey.conf ]]; then
-		valkey-server /usr/local/etc/valkey/valkey.conf &
+		if [[ ${LOGLEVEL} == "debug" ]]; then
+			valkey-server /usr/local/etc/valkey/valkey.conf &
+		else
+			valkey-server /usr/local/etc/valkey/valkey.conf >/dev/null 2>&1 &
+		fi
 	else
-		valkey-server --dir /redis-data &
+		if [[ ${LOGLEVEL} == "debug" ]]; then
+			valkey-server --dir /redis-data &
+		else
+			valkey-server --dir /redis-data >/dev/null 2>&1 &
+		fi
 	fi
+
 	VALKEY_PID=$!
 	echo "${VALKEY_PID}" >/tmp/valkey-server.pid
+
+	local host="127.0.0.1"
+	local port="6379"
+	local max_retries=120
+	local retry=0
+
+	debug_log "Waiting for internal valkey to be ready..."
+
+	# Temporarily disable errexit for this part of the script
+	set +o errexit
+
+	while ((retry < max_retries)); do
+		# Attempt to check if valkey TCP port is open
+		if (echo >/dev/tcp/"${host}"/"${port}") 2>/dev/null; then
+			debug_log "Internal valkey is ready and accepting connections"
+			set -o errexit # Re-enable errexit after success
+			return 0
+		fi
+
+		sleep 0.5
+		((retry++))
+	done
+
+	error_log "Internal valkey did not become ready after $((max_retries * 500))ms"
 }
 
 # function that runs our independent python scripts and creates corresponding PID files,
 start_python() {
 	SCRIPT="${1}"
-	info_log "starting ${SCRIPT}.py"
+	info_log "Starting ${SCRIPT}"
 	python3 "${SCRIPT}.py" &
 	WATCHER_PID=$!
 	echo "${WATCHER_PID}" >"/tmp/${SCRIPT}.pid"
@@ -106,9 +179,7 @@ watchdog_process_pid() {
 	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
 		# check if the pid we last wrote to our state file is actually active
 		PID=$(cat "/tmp/${PROCESS}.pid") || true
-		if [[ -d "/proc/${PID}" ]]; then
-			debug_log "${PROCESS} still running, no need to start"
-		else
+		if [[ ! -d "/proc/${PID}" ]]; then
 			if [[ ${TYPE} == "bin" ]]; then
 				start_bin_"${PROCESS}"
 			elif [[ ${TYPE} == "python" ]]; then
@@ -116,6 +187,7 @@ watchdog_process_pid() {
 			fi
 		fi
 	else
+		# start process if we dont have a corresponding PID file
 		if [[ ${TYPE} == "bin" ]]; then
 			start_bin_"${PROCESS}"
 		elif [[ ${TYPE} == "python" ]]; then
@@ -129,7 +201,7 @@ stop_process_pid() {
 	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
 		PID=$(cat "/tmp/${PROCESS}.pid") || true
 		if [[ -d "/proc/${PID}" ]]; then
-			info_log "stopping ${PROCESS}"
+			info_log "Stopping ${PROCESS}"
 			kill "${PID}" || true
 			# wait for process exit
 			while [[ -e "/proc/${PID}" ]]; do sleep 0.1; done
@@ -147,10 +219,10 @@ shutdown() {
 	stop_process_pid valkey-server
 }
 
+print_banner
+
 # switch to backend directory
 cd /backend || { error_log "/backend directory doesn't seem to exist"; }
-
-info_log "Starting up, please wait..."
 
 # setup trap handler
 exited=0
@@ -159,45 +231,38 @@ trap 'exited=1 && shutdown' SIGINT SIGTERM EXIT
 # clear any leftover PID files
 rm /tmp/*.pid -f
 
-# function definition done, lets start our main loop
+# Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
+if [[ -z ${REDIS_HOST} ]]; then
+	watchdog_process_pid bin valkey-server
+else
+	warn_log "REDIS_HOST is set, not starting internal valkey-server"
+fi
+
+# Run needed database migrations once at startup
+info_log "Running database migrations"
+if alembic upgrade head; then
+	info_log "Database migrations succeeded"
+else
+	error_log "Failed to run database migrations"
+fi
+
+# main loop
 while ! ((exited)); do
-	# Start Valkey server if we dont have a corresponding PID file
-	# and REDIS_HOST is not set (which would mean we're using an external Redis/Valkey)
-	if [[ -z ${REDIS_HOST:=""} ]]; then
-		watchdog_process_pid bin valkey-server
-	fi
-
-	# Run needed database migrations on startup,
-	# but only if it was not successful since the last full docker container start
-	if [[ ${ALEMBIC_SUCCESS:="false"} == "false" ]]; then
-		if alembic upgrade head; then
-			debug_log "database schema migrations succeeded"
-			ALEMBIC_SUCCESS="true"
-		else
-			error_log "Something went horribly wrong with our database"
-		fi
-	else
-		debug_log "database schema already upgraded during current container lifecycle"
-	fi
-
-	# Start gunicorn if we dont have a corresponding PID file
 	watchdog_process_pid bin gunicorn
 
-	# Start nginx if we dont have a corresponding PID file
-	watchdog_process_pid bin nginx
+	watchdog_process_pid python worker
 
-	# only start the watcher.py if we actually want to use the rescan on fs change feature
+	# only start the scheduler if enabled
+	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" ]]; then
+		watchdog_process_pid python scheduler
+	fi
+
+	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
-		# Start watcher if we dont have a corresponding PID file
 		watchdog_process_pid python watcher
 	fi
 
-	# Start background worker processes
-	debug_log "Starting worker and scheduler"
-	# Start worker if we dont have a corresponding PID file
-	watchdog_process_pid python worker
-	# Start scheduler if we dont have a corresponding PID file
-	watchdog_process_pid python scheduler
+	watchdog_process_pid bin nginx
 
 	# check for died processes every 5 seconds
 	sleep 5

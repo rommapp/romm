@@ -43,35 +43,26 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
         <v-chip
           :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
-          {{ rom.platform_display_name }}
           <platform-icon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
             :name="rom.platform_name"
             :fs-slug="rom.platform_fs_slug"
             :size="30"
-            class="ml-2"
+            class="mr-2"
           />
+          {{ rom.platform_display_name }}
         </v-chip>
         <v-chip
-          v-if="hasReleaseDate && !smAndDown"
-          class="ml-1 font-italic"
+          v-if="Number(rom.metadatum.first_release_date) > 0"
+          class="font-italic ma-1"
           size="small"
         >
           {{ releaseDate }}
         </v-chip>
-        <v-chip
-          v-if="Number(rom.metadatum.first_release_date) > 0 && smAndDown"
-          class="font-italic ml-1"
-          size="small"
-        >
-          {{ releaseDate }}
+        <v-chip v-if="!smAndDown && rom.revision" size="small" class="ma-1">
+          Revision {{ rom.revision }}
         </v-chip>
-        <template v-if="!smAndDown">
-          <v-chip v-if="rom.revision" size="small" class="ml-1">
-            Revision {{ rom.revision }}
-          </v-chip>
-        </template>
       </v-col>
     </v-row>
 
@@ -88,7 +79,7 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
     </v-row>
 
     <v-row
-      v-if="rom.igdb_id || rom.moby_id || rom.ss_id"
+      v-if="rom.igdb_id || rom.moby_id || rom.ss_id || rom.ra_id"
       class="text-white text-shadow mt-2"
       :class="{ 'text-center': smAndDown }"
       no-gutters
@@ -111,11 +102,28 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
           </v-chip>
         </a>
         <a
+          v-if="rom.ss_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
+          target="_blank"
+          :class="{ 'ml-1': rom.igdb_id }"
+        >
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/ss.png" />
+            </v-avatar>
+            <span>{{ rom.ss_id }}</span>
+            <v-divider class="mx-2 border-opacity-25" vertical />
+            <span>{{ rom.ss_metadata?.ss_score }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
+          </v-chip>
+        </a>
+        <a
           v-if="rom.moby_id"
           style="text-decoration: none; color: inherit"
           :href="`https://www.mobygames.com/game/${rom.moby_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id }"
+          :class="{ 'ml-1': rom.igdb_id || rom.ss_id }"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2" size="30" rounded="0">
@@ -128,20 +136,16 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
           </v-chip>
         </a>
         <a
-          v-if="rom.ss_id"
+          v-if="rom.ra_id"
           style="text-decoration: none; color: inherit"
-          :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id || rom.moby_id }"
+          :class="{ 'ml-1': rom.igdb_id || rom.ss_id || rom.moby_id }"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
-            <v-avatar class="mr-2" size="30" rounded="0">
-              <v-img src="/assets/scrappers/ss.png" />
+            <v-avatar class="mr-2" size="30" rounded="1">
+              <v-img src="/assets/scrappers/ra.png" />
             </v-avatar>
-            <span>{{ rom.ss_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>{{ rom.ss_metadata?.ss_score }}</span>
-            <v-icon class="ml-1">mdi-star</v-icon>
+            <span>{{ rom.ra_id }}</span>
           </v-chip>
         </a>
       </v-col>

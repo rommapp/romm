@@ -28,6 +28,8 @@
   "show-firmwares": "펌웨어/바이오스 보여주기",
   "show-matched": "DB 대응 됨",
   "show-unmatched": "DB 대응 안됨",
+  "show-playables": "플레이 가능한 게임 보기",
+  "show-ra": "Retroachievements 보기",
   "status": "플레이 상태",
   "upload-roms": "롬 업로드"
 }

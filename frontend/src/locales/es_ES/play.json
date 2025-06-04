@@ -10,5 +10,9 @@
   "quit": "Salir",
   "save-and-quit": "Guardar y salir",
   "select-save": "Seleccionar guardado",
-  "select-state": "Seleccionar estado"
+  "change-save": "Cambiar guardado",
+  "deselect-save": "Deseleccionar guardado",
+  "select-state": "Seleccionar estado",
+  "change-state": "Cambiar estado",
+  "deselect-state": "Deseleccionar estado"
 }

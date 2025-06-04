@@ -10,5 +10,9 @@
   "quit": "종료",
   "save-and-quit": "저장하고 종료",
   "select-save": "세이브 선택",
-  "select-state": "상태 선택"
+  "change-save": "세이브 변경",
+  "deselect-save": "세이브 선택 해제",
+  "select-state": "상태 선택",
+  "change-state": "상태 변경",
+  "deselect-state": "상태 선택 해제"
 }

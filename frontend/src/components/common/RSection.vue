@@ -23,6 +23,7 @@ withDefaults(
       <v-toolbar-title class="text-button">
         <v-icon :color="iconColor" class="mr-2">{{ icon }}</v-icon>
         {{ title }}
+        <slot name="toolbar-title-append"></slot>
       </v-toolbar-title>
       <slot name="toolbar-append"></slot>
     </v-toolbar>

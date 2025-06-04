@@ -1,4 +1,5 @@
 {
+  "about": "정보",
   "add": "추가",
   "administration": "유저 관리",
   "apply": "적용",
@@ -9,6 +10,7 @@
   "core": "코어",
   "create": "생성",
   "edit": "수정",
+  "exclude-on-delete": "삭제 시 제외",
   "filter": "필터",
   "firmware": "펌웨어",
   "games-n": "게임 {n}개 | 게임 {n}개",
@@ -18,12 +20,14 @@
   "platform": "플랫폼",
   "platforms": "플랫폼",
   "platforms-n": "{n}가지 플랫폼 | {n}가지 플랫폼",
+  "platforms-size": "플랫폼별 크기",
   "profile": "프로필",
   "save": "세이브",
   "saves": "세이브",
   "saves-n": "세이브 {n}개 | 세이브 {n}개",
   "screenshots-n": "스크린샷 {n}개 | 스크린샷 {n}개",
   "search": "검색",
+  "server-stats": "서버 통계",
   "size-on-disk": "디스크 크기",
   "slug": "슬러그",
   "state": "저장 상태",
@@ -33,5 +37,6 @@
   "upload": "업로드",
   "user-interface": "사용자 인터페이스",
   "virtual-collection": "자동 생성된 모음집",
-  "virtual-collections": "자동 생성된 모음집"
+  "virtual-collections": "자동 생성된 모음집",
+  "sync": "동기화"
 }

@@ -31,9 +31,10 @@ const defaultHeartbeat: Heartbeat = {
   METADATA_SOURCES: {
     ANY_SOURCE_ENABLED: false,
     IGDB_API_ENABLED: false,
-    MOBY_API_ENABLED: false,
     SS_API_ENABLED: false,
-    STEAMGRIDDB_ENABLED: false,
+    MOBY_API_ENABLED: false,
+    RA_API_ENABLED: false,
+    STEAMGRIDDB_API_ENABLED: false,
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],
@@ -77,6 +78,11 @@ export default defineStore("heartbeat", {
           name: "Screenscraper",
           value: "ss",
           disabled: !this.value.METADATA_SOURCES?.SS_API_ENABLED,
+        },
+        {
+          name: "RetroAchievements",
+          value: "ra",
+          disabled: !this.value.METADATA_SOURCES?.RA_API_ENABLED,
         },
       ]).value.filter((s) => !s.disabled);
     },

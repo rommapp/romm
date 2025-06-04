@@ -3,5 +3,14 @@
   "login-oidc": "Autentificare cu {oidc}",
   "or": "sau",
   "password": "Parolă",
-  "username": "Nume utilizator"
+  "username": "Nume utilizator",
+  "forgot-password": "Ai uitat parola?",
+  "send-reset-link": "Trimite link de resetare",
+  "reset-sent": "Linkul de resetare a fost trimis. Contactează administratorul.",
+  "new-password": "Parolă nouă",
+  "confirm-new-password": "Confirmă parola nouă",
+  "reset-password": "Resetează parola",
+  "back-to-login": "Înapoi la autentificare",
+  "setup-wizard": "Asistent de configurare",
+  "register": "Înregistrare"
 }

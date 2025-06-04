@@ -27,6 +27,23 @@ const editable = ref(false);
     :title="t('settings.platforms-bindings')"
     class="ma-2"
   >
+    <template #toolbar-title-append>
+      <v-tooltip bottom max-width="400">
+        <template #activator="{ props }">
+          <v-btn
+            v-bind="props"
+            size="small"
+            variant="text"
+            icon="mdi-information-outline"
+          />
+        </template>
+        <p>
+          Bind a folder to a name so RomM can treat that folder as if it were
+          referenced by that name. Useful if you don't want to rename your
+          platform folders to match the required name.
+        </p>
+      </v-tooltip>
+    </template>
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
@@ -53,6 +70,7 @@ const editable = ref(false);
             :editable="authStore.scopes.includes('platforms.write') && editable"
             :slug="slug"
             :fs-slug="fsSlug"
+            class="mx-1 mt-2"
             @click-edit="
               emitter?.emit('showCreatePlatformBindingDialog', {
                 fsSlug: fsSlug,

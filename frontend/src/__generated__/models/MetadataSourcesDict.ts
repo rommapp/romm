@@ -7,6 +7,7 @@ export type MetadataSourcesDict = {
     IGDB_API_ENABLED: boolean;
     MOBY_API_ENABLED: boolean;
     SS_API_ENABLED: boolean;
-    STEAMGRIDDB_ENABLED: boolean;
+    STEAMGRIDDB_API_ENABLED: boolean;
+    RA_API_ENABLED: boolean;
 };
 

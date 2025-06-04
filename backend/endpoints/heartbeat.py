@@ -17,6 +17,7 @@ from handler.database import db_user_handler
 from handler.filesystem import fs_platform_handler
 from handler.metadata.igdb_handler import IGDB_API_ENABLED
 from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.metadata.ra_handler import RA_API_ENABLED
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from handler.metadata.ss_handler import SS_API_ENABLED
 from utils import get_version
@@ -42,12 +43,14 @@ def heartbeat() -> HeartbeatResponse:
         },
         "METADATA_SOURCES": {
             "ANY_SOURCE_ENABLED": IGDB_API_ENABLED
+            or SS_API_ENABLED
             or MOBY_API_ENABLED
-            or SS_API_ENABLED,
+            or RA_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
-            "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
-            "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
+            "MOBY_API_ENABLED": MOBY_API_ENABLED,
+            "STEAMGRIDDB_API_ENABLED": STEAMGRIDDB_API_ENABLED,
+            "RA_API_ENABLED": RA_API_ENABLED,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": fs_platform_handler.get_platforms(),
