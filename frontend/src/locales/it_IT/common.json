@@ -1,4 +1,5 @@
 {
+  "about": "Informazioni",
   "add": "Aggiungi",
   "administration": "Amministrazione",
   "apply": "Applica",
@@ -9,6 +10,7 @@
   "core": "Core",
   "create": "Crea",
   "edit": "Modifica",
+  "exclude-on-delete": "Escludi al momento dell'eliminazione",
   "filter": "Filtro",
   "firmware": "Firmware",
   "games-n": "{n} Gioco | {n} Giochi",
@@ -18,12 +20,14 @@
   "platform": "Piattaforma",
   "platforms": "Piattaforme",
   "platforms-n": "{n} Piattaforma | {n} Piattaforme",
+  "platforms-size": "Dimensione per piattaforma",
   "profile": "Profilo",
   "save": "Salvataggio",
   "saves": "Salvataggi",
   "saves-n": "{n} Salvataggio | {n} Salvataggi",
   "screenshots-n": "{n} Screenshot | {n} Screenshots",
   "search": "Cerca",
+  "server-stats": "Statistiche del server",
   "size-on-disk": "Dimensione sul disco",
   "slug": "Slug",
   "state": "Stato",
@@ -33,5 +37,6 @@
   "upload": "Carica",
   "user-interface": "Interfaccia Utente",
   "virtual-collection": "Collezione generata automaticamente",
-  "virtual-collections": "Collezioni generate automaticamente"
+  "virtual-collections": "Collezioni generate automaticamente",
+  "sync": "Sincronizza"
 }

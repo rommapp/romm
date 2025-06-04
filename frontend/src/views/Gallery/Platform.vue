@@ -15,6 +15,7 @@ import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
+import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
@@ -39,6 +40,14 @@ const {
 const noPlatformError = ref(false);
 const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
+const isHovering = ref(false);
+const hoveringRomId = ref();
+const openedMenu = ref(false);
+const openedMenuRomId = ref();
+const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffect = ref(
+  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
+);
 let timeout: ReturnType<typeof setTimeout>;
 
 // Functions
@@ -71,6 +80,21 @@ async function fetchRoms() {
         scrim: false,
       });
     });
+}
+
+function onHover(emitData: { isHovering: boolean; id: number }) {
+  isHovering.value = emitData.isHovering;
+  hoveringRomId.value = emitData.id;
+}
+
+function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
+  openedMenu.value = emitData.openedMenu;
+  openedMenuRomId.value = emitData.id;
+}
+
+function onClosedMenu() {
+  openedMenu.value = false;
+  openedMenuRomId.value = null;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -170,6 +194,7 @@ onMounted(async () => {
           ) {
             resetGallery();
             romsStore.setCurrentPlatform(platform);
+            document.title = `${platform.display_name}`;
             await fetchRoms();
           }
 
@@ -206,6 +231,7 @@ onBeforeRouteUpdate(async (to, from) => {
           platform
         ) {
           romsStore.setCurrentPlatform(platform);
+          document.title = `${platform.display_name}`;
           await fetchRoms();
         } else {
           noPlatformError.value = true;
@@ -229,7 +255,7 @@ onBeforeUnmount(() => {
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
-        <v-row v-if="currentView != 2" class="mx-1 mt-3 mr-14" no-gutters>
+        <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
           <!-- Gallery cards view -->
           <v-col
             v-for="rom in filteredRoms"
@@ -240,6 +266,13 @@ onBeforeUnmount(() => {
             :md="views[currentView]['size-md']"
             :lg="views[currentView]['size-lg']"
             :xl="views[currentView]['size-xl']"
+            :style="{
+              zIndex:
+                (isHovering && hoveringRomId === rom.id) ||
+                (openedMenu && openedMenuRomId === rom.id)
+                  ? 1100
+                  : 1,
+            }"
           >
             <game-card
               v-if="currentPlatform"
@@ -252,13 +285,17 @@ onBeforeUnmount(() => {
               showFav
               transformScale
               showActionBar
-              showPlatformIcon
               :withBorderPrimary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
+              :sizeActionBar="currentView"
+              :enable3DTilt="enable3DEffect"
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
+              @hover="onHover"
+              @openedmenu="onOpenedMenu"
+              @closedmenu="onClosedMenu"
             />
           </v-col>
         </v-row>

@@ -6,7 +6,7 @@ import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch, computed } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { isNull } from "lodash";
@@ -21,6 +21,7 @@ const { filteredCollections, filteredVirtualCollections, filterText } =
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const visibleVirtualCollections = ref(72);
+const tabIndex = computed(() => (activeCollectionsDrawer.value ? 0 : -1));
 
 const showVirtualCollections = isNull(
   localStorage.getItem("settings.showVirtualCollections"),
@@ -35,6 +36,19 @@ async function addCollection() {
 function clear() {
   filterText.value = "";
 }
+
+// Ref to store the element that triggered the drawer
+const triggerElement = ref<HTMLElement | null>(null);
+// Watch for changes in the navigation drawer state
+const textFieldRef = ref();
+watch(activeCollectionsDrawer, (isOpen) => {
+  if (isOpen) {
+    // Store the currently focused element before opening the drawer
+    triggerElement.value = document.activeElement as HTMLElement;
+    // Focus the text field when the drawer is opened
+    textFieldRef.value?.focus();
+  }
+});
 
 function onScroll() {
   const collectionsDrawer = document.querySelector(
@@ -65,6 +79,12 @@ onBeforeUnmount(() => {
   );
   collectionsDrawer?.removeEventListener("scroll", onScroll);
 });
+
+function onClose() {
+  activeCollectionsDrawer.value = false;
+  // Focus the element that triggered the drawer
+  triggerElement.value?.focus();
+}
 </script>
 <template>
   <v-navigation-drawer
@@ -79,14 +99,17 @@ onBeforeUnmount(() => {
       'ml-2': (mdAndUp && activeCollectionsDrawer) || smAndDown,
       'drawer-mobile': smAndDown,
       'unset-height': mdAndUp,
-      'max-h-70': smAndDown && activeCollectionsDrawer,
     }"
     class="bg-surface pa-1"
     rounded
-    :border="0"
+    :border="1"
+    @keydown.esc="onClose"
   >
     <template #prepend>
       <v-text-field
+        ref="textFieldRef"
+        aria-label="Search collection"
+        :tabindex="tabIndex"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
@@ -99,19 +122,26 @@ onBeforeUnmount(() => {
         density="compact"
       ></v-text-field>
     </template>
-    <v-list lines="two" class="py-1 px-0">
+    <v-list tabindex="-1" lines="two" class="py-1 px-0">
       <collection-list-item
         v-for="collection in filteredCollections"
         :collection="collection"
         with-link
+        :tabindex="tabIndex"
+        role="listitem"
+        :aria-label="`${collection.name}`"
       />
       <template
         v-if="showVirtualCollections && filteredVirtualCollections.length > 0"
       >
-        <v-divider class="my-4 mx-4" />
-        <v-list-subheader class="uppercase">{{
-          t("common.virtual-collections").toUpperCase()
-        }}</v-list-subheader>
+        <v-divider v-if="filteredCollections.length > 0" class="my-4 mx-4" />
+        <v-list-subheader
+          role="listitem"
+          :aria-label="t('common.virtual-collections')"
+          :tabindex="tabIndex"
+          class="uppercase"
+          >{{ t("common.virtual-collections").toUpperCase() }}</v-list-subheader
+        >
         <collection-list-item
           v-for="collection in filteredVirtualCollections.slice(
             0,
@@ -119,6 +149,9 @@ onBeforeUnmount(() => {
           )"
           :collection="collection"
           with-link
+          role="listitem"
+          :tabindex="tabIndex"
+          :aria-label="`${collection.name} with ${collection.rom_count} games`"
         />
       </template>
     </v-list>
@@ -128,6 +161,7 @@ onBeforeUnmount(() => {
         variant="tonal"
         color="primary"
         prepend-icon="mdi-plus"
+        :tabindex="tabIndex"
         size="large"
         block
       >

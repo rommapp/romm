@@ -20,7 +20,7 @@ dependencies = [
   "colorama ~= 0.4",
   "emoji == 2.10.1",
   "fastapi == 0.115.6",
-  "gunicorn == 22.0.0",
+  "gunicorn == 23.0.0",
   "httpx ~= 0.27",
   "itsdangerous ~= 2.1",
   "joserfc ~= 0.9",
@@ -33,7 +33,7 @@ dependencies = [
   "python-magic ~= 0.4",
   "python-multipart ~= 0.0.18",
   "python-socketio == 5.11.1",
-  "redis ~= 5.0",
+  "redis ~= 6.2",
   "rq ~= 2.1",
   "rq-scheduler ~= 0.14",
   "sentry-sdk ~= 2.19",
@@ -52,6 +52,8 @@ dependencies = [
   "yarl ~= 1.14",
   "zipfile-deflate64 ~= 0.2",
   "fastapi-pagination (>=0.12.34,<0.13.0)",
+  "ua-parser (>=1.0.1,<2.0.0)",
+  "user-agents (>=2.2.0,<3.0.0)",
 ]
 
 [project.optional-dependencies]

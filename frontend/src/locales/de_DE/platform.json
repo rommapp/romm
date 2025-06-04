@@ -27,7 +27,9 @@
   "show-favourites": "Zeige Favoriten",
   "show-firmwares": "Zeige Firmwares/BIOS",
   "show-matched": "Zeige zugewiesene",
+  "show-playables": "Zeige spielbare",
   "show-unmatched": "Zeige unzugewiesene",
+  "show-ra": "Zeige Retroachievements",
   "status": "Status",
   "upload-roms": "Roms hochladen"
 }

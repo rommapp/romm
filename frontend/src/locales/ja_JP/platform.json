@@ -28,6 +28,8 @@
   "show-firmwares": "ファームウェア/BIOSを表示",
   "show-matched": "該当を表示",
   "show-unmatched": "非該当を表示",
+  "show-playables": "プレイ可能を表示",
+  "show-ra": "Retroachievementsを表示",
   "status": "ステータス",
   "upload-roms": "Romをアップロード"
 }

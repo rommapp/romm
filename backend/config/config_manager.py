@@ -19,6 +19,8 @@ from exceptions.config_exceptions import (
     ConfigNotReadableException,
     ConfigNotWritableException,
 )
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from sqlalchemy import URL
 from yaml.loader import SafeLoader
@@ -83,12 +85,6 @@ class ConfigManager:
             str: database connection string
         """
 
-        # DEPRECATED
-        if ROMM_DB_DRIVER == "sqlite":
-            log.critical("Sqlite is not supported anymore, migrate to mariaDB")
-            sys.exit(6)
-        # DEPRECATED
-
         if ROMM_DB_DRIVER == "mariadb":
             driver = "mariadb+mariadbconnector"
         elif ROMM_DB_DRIVER == "mysql":
@@ -96,7 +92,7 @@ class ConfigManager:
         elif ROMM_DB_DRIVER == "postgresql":
             driver = "postgresql+psycopg"
         else:
-            log.critical(f"{ROMM_DB_DRIVER} database not supported")
+            log.critical(f"{hl(ROMM_DB_DRIVER)} database not supported")
             sys.exit(3)
 
         if not DB_USER or not DB_PASSWD:
@@ -279,7 +275,7 @@ class ConfigManager:
     def add_platform_binding(self, fs_slug: str, slug: str) -> None:
         platform_bindings = self.config.PLATFORMS_BINDING
         if fs_slug in platform_bindings:
-            log.warning(f"Binding for {fs_slug} already exists")
+            log.warning(f"Binding for {hl(fs_slug)} already exists")
             return
 
         platform_bindings[fs_slug] = slug
@@ -300,7 +296,7 @@ class ConfigManager:
     def add_platform_version(self, fs_slug: str, slug: str) -> None:
         platform_versions = self.config.PLATFORMS_VERSIONS
         if fs_slug in platform_versions:
-            log.warning(f"Version for {fs_slug} already exists")
+            log.warning(f"Version for {hl(fs_slug)} already exists")
             return
 
         platform_versions[fs_slug] = slug
@@ -321,7 +317,9 @@ class ConfigManager:
     def add_exclusion(self, exclusion_type: str, exclusion_value: str):
         config_item = self.config.__getattribute__(exclusion_type)
         if exclusion_value in config_item:
-            log.warning(f"{exclusion_value} already excluded in {exclusion_type}")
+            log.warning(
+                f"{hl(exclusion_value)} already excluded in {hl(exclusion_type, color=BLUE)}"
+            )
             return
 
         config_item.append(exclusion_value)

@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
 
 // Props
-const emitter = inject<Emitter<Events>>("emitter");
 const emit = defineEmits(["clickEdit", "clickDelete"]);
 defineProps<{
   slug: string;
@@ -18,12 +14,7 @@ defineProps<{
     <v-card-text class="pa-1">
       <v-list-item class="bg-toplayer pa-1 text-truncate">
         <template #prepend>
-          <platform-icon
-            class="mx-2"
-            :key="slug"
-            :slug="slug"
-            :fs-slug="fsSlug"
-          />
+          <platform-icon class="mx-2" :key="slug" :slug="slug" />
         </template>
         <v-list-item class="bg-background pr-2 pl-2">
           <span>{{ fsSlug }}</span>

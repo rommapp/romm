@@ -153,7 +153,7 @@ watch(
         </v-col>
         <v-col>
           <v-row class="align-center" no-gutters>
-            <version-switcher :rom="rom" />
+            <version-switcher class="mr-2" :rom="rom" />
             <v-tooltip
               v-if="auth.scopes.includes('roms.user.write')"
               location="top"
@@ -167,8 +167,7 @@ watch(
                   rounded="1"
                   v-bind="props"
                   variant="flat"
-                  size="medium"
-                  class="ml-2 text-grey-lighten-2"
+                  class="my-1 text-grey-lighten-2"
                   style="padding: 10px 14px"
                   @click="toggleMainSibling"
                 >

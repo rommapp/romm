@@ -3,5 +3,14 @@
   "login-oidc": "Entrar com {oidc}",
   "or": "ou",
   "password": "Senha",
-  "username": "Nome de usuário"
+  "username": "Nome de usuário",
+  "forgot-password": "Esqueceu sua senha?",
+  "send-reset-link": "Enviar link de redefinição",
+  "reset-sent": "Link de redefinição enviado. Contate o administrador.",
+  "new-password": "Nova senha",
+  "confirm-new-password": "Confirmar nova senha",
+  "reset-password": "Redefinir senha",
+  "back-to-login": "Voltar para o login",
+  "setup-wizard": "Assistente de configuração",
+  "register": "Registrar"
 }

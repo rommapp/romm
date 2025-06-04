@@ -5,6 +5,7 @@ from typing import List, Sequence, Tuple
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from models.collection import Collection, VirtualCollection
+from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
     Integer,
@@ -25,6 +26,80 @@ from sqlalchemy import (
 from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
+
+EJS_SUPPORTED_PLATFORMS = [
+    "3do",
+    "amiga",
+    "amiga-cd32",
+    "arcade",
+    "neogeoaes",
+    "neogeomvs",
+    "atari2600",
+    "atari-2600-plus",
+    "atari5200",
+    "atari7800",
+    "c-plus-4",
+    "c64",
+    "cpet",
+    "commodore-64c",
+    "c128",
+    "commmodore-128",
+    "colecovision",
+    "jaguar",
+    "lynx",
+    "atari-lynx-mkii",
+    "neo-geo-pocket",
+    "neo-geo-pocket-color",
+    "nes",
+    "famicom",
+    "fds",
+    "game-televisison",
+    "new-style-nes",
+    "n64",
+    "ique-player",
+    "nds",
+    "nintendo-ds-lite",
+    "nintendo-dsi",
+    "nintendo-dsi-xl",
+    "gb",
+    "game-boy-pocket",
+    "game-boy-light",
+    "gba",
+    "game-boy-adavance-sp",
+    "game-boy-micro",
+    "gbc",
+    "pc-fx",
+    "ps",
+    "psp",
+    "segacd",
+    "sega32",
+    "gamegear",
+    "sms",
+    "sega-mark-iii",
+    "sega-game-box-9",
+    "sega-master-system-ii",
+    "master-system-super-compact",
+    "master-system-girl",
+    "genesis-slash-megadrive",
+    "sega-mega-drive-2-slash-genesis",
+    "sega-mega-jet",
+    "mega-pc",
+    "tera-drive",
+    "sega-nomad",
+    "saturn",
+    "snes",
+    "sfam",
+    "super-nintendo-original-european-version",
+    "super-famicom-shvc-001",
+    "super-famicom-jr-model-shvc-101",
+    "new-style-super-nes-model-sns-101",
+    "turbografx16--1",
+    "vic-20",
+    "virtualboy",
+    "wonderswan",
+    "swancrystal",
+    "wonderswan-color",
+]
 
 
 def with_details(func):
@@ -144,6 +219,14 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_duplicates_only(self, query: Query):
         return query.filter(Rom.sibling_roms.any())
 
+    def filter_by_playables_only(self, query: Query):
+        return query.join(Rom.platform).filter(
+            Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
+        )
+
+    def filter_by_ra_only(self, query: Query):
+        return query.filter(Rom.ra_id.isnot(None))
+
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
             return query.filter(
@@ -215,8 +298,6 @@ class DBRomsHandler(DBBaseHandler):
             )
 
     def filter_by_status(self, query: Query, selected_status: str):
-        query = query.join(RomUser)
-
         status_filter = RomUser.status == selected_status
         if selected_status == "now_playing":
             status_filter = RomUser.now_playing.is_(True)
@@ -270,6 +351,8 @@ class DBRomsHandler(DBBaseHandler):
         matched_only: bool = False,
         favourites_only: bool = False,
         duplicates_only: bool = False,
+        playables_only: bool = False,
+        ra_only: bool = False,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -307,6 +390,12 @@ class DBRomsHandler(DBBaseHandler):
 
         if duplicates_only:
             query = self.filter_by_duplicates_only(query)
+
+        if playables_only:
+            query = self.filter_by_playables_only(query)
+
+        if ra_only:
+            query = self.filter_by_ra_only(query)
 
         if group_by_meta_id:
 
@@ -383,18 +472,24 @@ class DBRomsHandler(DBBaseHandler):
         if selected_age_rating:
             query = self.filter_by_age_rating(query, selected_age_rating)
 
-        if selected_status:
-            query = self.filter_by_status(query, selected_status)
-
         if selected_region:
             query = self.filter_by_region(query, selected_region)
 
         if selected_language:
             query = self.filter_by_language(query, selected_language)
 
+        # The RomUser table is already joined if user_id is set
+        if selected_status and user_id:
+            query = self.filter_by_status(query, selected_status)
+        elif user_id:
+            query = query.filter(
+                or_(RomUser.hidden.is_(False), RomUser.hidden.is_(None))
+            )
+
         return query
 
     @with_simple
+    @begin_session
     def get_roms_query(
         self,
         *,
@@ -402,6 +497,7 @@ class DBRomsHandler(DBBaseHandler):
         order_dir: str = "asc",
         user_id: int | None = None,
         query: Query = None,
+        session: Session = None,
     ) -> Query[Rom]:
         if user_id:
             query = query.outerjoin(
@@ -420,6 +516,19 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = getattr(Rom, order_by)
         else:
             order_attr = Rom.name
+
+        # Handle computed properties
+        if order_by == "fs_size_bytes":
+            subquery = (
+                session.query(
+                    RomFile.rom_id,
+                    func.sum(RomFile.file_size_bytes).label("total_size"),
+                )
+                .group_by(RomFile.rom_id)
+                .subquery()
+            )
+            query = query.outerjoin(subquery, Rom.id == subquery.c.rom_id)
+            order_attr = func.coalesce(subquery.c.total_size, 0)
 
         # Ignore case when the order attribute is a number
         if isinstance(order_attr.type, (String, Text)):

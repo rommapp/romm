@@ -37,6 +37,7 @@ from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import meta_igdb_handler, meta_moby_handler, meta_ss_handler
+from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile
@@ -85,7 +86,9 @@ async def add_rom(request: Request):
 
     platform_fs_slug = db_platform.fs_slug
     roms_path = fs_rom_handler.build_upload_fs_path(platform_fs_slug)
-    log.info(f"Uploading file to {platform_fs_slug}")
+    log.info(
+        f"Uploading file to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}[{hl(platform_fs_slug)}]"
+    )
 
     file_location = Path(f"{roms_path}/{filename}")
     parser = StreamingFormDataParser(headers=request.headers)
@@ -93,7 +96,7 @@ async def add_rom(request: Request):
     parser.register(filename, FileTarget(str(file_location)))
 
     if await file_location.exists():
-        log.warning(f" - Skipping {filename} since the file already exists")
+        log.warning(f" - Skipping {hl(filename)} since the file already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File {filename} already exists",
@@ -144,6 +147,8 @@ def get_roms(
     matched_only: bool = False,
     favourites_only: bool = False,
     duplicates_only: bool = False,
+    playables_only: bool = False,
+    ra_only: bool = False,
     group_by_meta_id: bool = False,
     selected_genre: str | None = None,
     selected_franchise: str | None = None,
@@ -168,6 +173,8 @@ def get_roms(
         matched_only (bool, optional): Filter only matched roms. Defaults to False.
         favourites_only (bool, optional): Filter only favourite roms. Defaults to False.
         duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False.
+        playables_only (bool, optional): Filter only playable roms by emulatorjs. Defaults to False.
+        ra_only (bool, optional): Filter only roms with Retroachievements compatibility.
         group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf ID. Defaults to False.
         selected_genre (str, optional): Filter by genre. Defaults to None.
         selected_franchise (str, optional): Filter by franchise. Defaults to None.
@@ -201,6 +208,8 @@ def get_roms(
         matched_only=matched_only,
         favourites_only=favourites_only,
         duplicates_only=duplicates_only,
+        playables_only=playables_only,
+        ra_only=ra_only,
         selected_genre=selected_genre,
         selected_franchise=selected_franchise,
         selected_collection=selected_collection,
@@ -361,7 +370,9 @@ async def get_rom_content(
     files = [f for f in rom.files if f.id in file_ids or not file_ids]
     files.sort(key=lambda x: x.file_name)
 
-    log.info(f"User {current_username} is downloading {rom.fs_name}")
+    log.info(
+        f"User {hl(current_username, color=BLUE)} is downloading {hl(rom.fs_name)}"
+    )
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
@@ -406,7 +417,7 @@ async def get_rom_content(
                         zip_file.writestr(zip_info, content)
 
                     except FileNotFoundError:
-                        log.error(f"File {file_path} not found!")
+                        log.error(f"File {hl(file_path)} not found!")
                         raise
 
                 # Add M3U file if not already present
@@ -510,6 +521,7 @@ async def update_rom(
                 "sgdb_id": None,
                 "moby_id": None,
                 "ss_id": None,
+                "ra_id": None,
                 "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
@@ -522,6 +534,7 @@ async def update_rom(
                 "igdb_metadata": {},
                 "moby_metadata": {},
                 "ss_metadata": {},
+                "ra_metadata": {},
                 "revision": "",
             },
         )
@@ -646,7 +659,7 @@ async def update_rom(
         cleaned_data.update({"path_manual": path_manual})
 
     log.debug(
-        f"Updating {hl(cleaned_data.get('name', ''))} [{id}] with data {cleaned_data}"
+        f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
     )
 
     db_rom_handler.update_rom(id, cleaned_data)
@@ -704,7 +717,7 @@ async def add_rom_manuals(request: Request, id: int):
 
     manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
     file_location = Path(f"{manuals_path}/{rom.id}.pdf")
-    log.info(f"Uploading {file_location}")
+    log.info(f"Uploading {hl(str(file_location))}")
 
     if not os.path.exists(manuals_path):
         await Path(manuals_path).mkdir(parents=True, exist_ok=True)
@@ -767,22 +780,24 @@ async def delete_roms(
         if not rom:
             raise RomNotFoundInDatabaseException(id)
 
-        log.info(f"Deleting {rom.fs_name} from database")
+        log.info(
+            f"Deleting {hl(str(rom.name), color=BLUE)} [{hl(rom.fs_name)}] from database"
+        )
         db_rom_handler.delete_rom(id)
 
         try:
             rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
         except FileNotFoundError:
-            log.error(f"Couldn't find resources to delete for {rom.name}")
+            log.error(
+                f"Couldn't find resources to delete for {hl(str(rom.name), color=BLUE)}"
+            )
 
         if id in delete_from_fs:
-            log.info(f"Deleting {rom.fs_name} from filesystem")
+            log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
             try:
                 fs_rom_handler.remove_from_fs(fs_path=rom.fs_path, fs_name=rom.fs_name)
             except FileNotFoundError as exc:
-                error = (
-                    f"Rom file {rom.fs_name} not found for platform {rom.platform_slug}"
-                )
+                error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
                 log.error(error)
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail=error
@@ -885,7 +900,7 @@ async def get_romfile_content(
             detail="File not found",
         )
 
-    log.info(f"User {current_username} is downloading {file_name}")
+    log.info(f"User {hl(current_username, color=BLUE)} is downloading {hl(file_name)}")
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:

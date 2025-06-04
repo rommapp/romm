@@ -3,5 +3,14 @@
   "login-oidc": "{oidc}로 로그인",
   "or": "또는",
   "password": "패스워드",
-  "username": "아이디"
+  "username": "아이디",
+  "forgot-password": "비밀번호를 잊으셨나요?",
+  "send-reset-link": "재설정 링크 보내기",
+  "reset-sent": "재설정 링크가 전송되었습니다. 관리자에게 문의하세요.",
+  "new-password": "새 비밀번호",
+  "confirm-new-password": "새 비밀번호 확인",
+  "reset-password": "비밀번호 재설정",
+  "back-to-login": "로그인으로 돌아가기",
+  "setup-wizard": "설정 마법사",
+  "register": "등록"
 }

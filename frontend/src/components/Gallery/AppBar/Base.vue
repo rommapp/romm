@@ -13,11 +13,13 @@ import { calculateMainLayoutWidth } from "@/utils";
 // Props
 withDefaults(
   defineProps<{
+    showPlayablesFilter?: boolean;
     showPlatformsFilter?: boolean;
     showFilterBar?: boolean;
     showSearchBar?: boolean;
   }>(),
   {
+    showPlayablesFilter: true,
     showPlatformsFilter: false,
     showFilterBar: false,
     showSearchBar: false,
@@ -42,13 +44,14 @@ const { calculatedWidth } = calculateMainLayoutWidth();
     <search-text-field v-if="showSearchBar" />
     <slot name="content" />
     <template #append>
-      <slot name="append" />
       <selecting-btn />
       <gallery-view-btn />
+      <slot name="append" />
     </template>
   </v-app-bar>
 
   <filter-drawer
+    :show-playables-filter="showPlayablesFilter"
     :show-platforms-filter="showPlatformsFilter"
     :show-filter-bar="showFilterBar"
   />

@@ -10,10 +10,35 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const collections = storeCollections();
-const gridCollections = isNull(localStorage.getItem("settings.gridCollections"))
-  ? true
-  : localStorage.getItem("settings.gridCollections") === "true";
+const storedVirtualCollections = localStorage.getItem(
+  "settings.gridVirtualCollections",
+);
+const gridVirtualCollections = ref(
+  isNull(storedVirtualCollections)
+    ? false
+    : storedVirtualCollections === "true",
+);
+const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
+const enable3DEffect = ref(
+  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
+);
 const visibleCollections = ref(72);
+const isHovering = ref(false);
+const hoveringCollectionId = ref();
+
+// Functions
+function toggleGridVirtualCollections() {
+  gridVirtualCollections.value = !gridVirtualCollections.value;
+  localStorage.setItem(
+    "settings.gridVirtualCollections",
+    gridVirtualCollections.value.toString(),
+  );
+}
+
+function onHover(emitData: { isHovering: boolean; id: number }) {
+  isHovering.value = emitData.isHovering;
+  hoveringCollectionId.value = emitData.id;
+}
 
 function onScroll() {
   if (
@@ -37,13 +62,21 @@ onBeforeUnmount(() => {
     icon="mdi-bookmark-box-multiple"
     :title="t('common.virtual-collections')"
   >
+    <template #toolbar-append>
+      <v-btn icon rounded="0" @click="toggleGridVirtualCollections"
+        ><v-icon>{{
+          gridVirtualCollections ? "mdi-view-comfy" : "mdi-view-column"
+        }}</v-icon>
+      </v-btn>
+    </template>
     <template #content>
       <v-row
         :class="{
-          'flex-nowrap overflow-x-auto': !gridCollections,
+          'flex-nowrap overflow-x-auto': !gridVirtualCollections,
         }"
         class="pa-1"
         no-gutters
+        style="overflow-y: hidden"
       >
         <v-col
           v-for="collection in collections.virtualCollections.slice(
@@ -51,12 +84,16 @@ onBeforeUnmount(() => {
             visibleCollections,
           )"
           :key="collection.name"
-          class="pa-1"
+          class="pa-1 my-4"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
+          :style="{
+            zIndex:
+              isHovering && hoveringCollectionId === collection.id ? 1100 : 1,
+          }"
         >
           <collection-card
             show-rom-count
@@ -65,6 +102,8 @@ onBeforeUnmount(() => {
             :key="collection.id"
             :collection="collection"
             with-link
+            :enable3DTilt="enable3DEffect"
+            @hover="onHover"
           />
         </v-col>
       </v-row>

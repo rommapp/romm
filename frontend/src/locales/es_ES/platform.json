@@ -28,6 +28,8 @@
   "show-firmwares": "Mostrar firmwares/BIOS",
   "show-matched": "Mostrar identificados",
   "show-unmatched": "Mostrar no identificados",
+  "show-playables": "Mostrar jugables",
+  "show-ra": "Mostrar Retroachievements",
   "status": "Estado",
   "upload-roms": "Subir Roms"
 }
