@@ -57,7 +57,7 @@ class PlaymatchIdentifyResponse(TypedDict):
 
 class PlaymatchHandler:
     """
-    Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching Roms by Hash.
+    Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching Roms by Hashes.
     """
 
     def __init__(self):
