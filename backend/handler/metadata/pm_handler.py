@@ -9,7 +9,7 @@ from utils.context import ctx_httpx_client
 
 from backend.config import PLAYMATCH_ENABLED
 
-PM_ENABLED: Final = bool(PLAYMATCH_ENABLED)
+PM_ENABLED: Final = str.lower(PLAYMATCH_ENABLED) == "true"
 
 
 class PlaymatchProvider(str, Enum):
