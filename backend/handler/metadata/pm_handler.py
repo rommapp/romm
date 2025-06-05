@@ -1,11 +1,15 @@
 from enum import Enum
-from typing import NotRequired, Optional, TypedDict, cast
+from typing import Final, NotRequired, Optional, TypedDict, cast
 
 import httpx
 import yarl
 from fastapi import HTTPException, status
 from logger.logger import log
 from utils.context import ctx_httpx_client
+
+from backend.config import PLAYMATCH_ENABLED
+
+PM_ENABLED: Final = bool(PLAYMATCH_ENABLED)
 
 
 class PlaymatchProvider(str, Enum):
@@ -72,6 +76,10 @@ class PlaymatchHandler:
         :return: The IGDB provider ID if a match is found, otherwise None.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
+        if not PM_ENABLED:
+            log.debug("Playmatch is not enabled, skipping identification.")
+            return None
+
         url = f"{self.base_url}/identify/ids"
 
         response = await self._request(
