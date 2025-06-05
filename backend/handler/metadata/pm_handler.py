@@ -66,7 +66,7 @@ class PlaymatchHandler:
         Identify a ROM file using Playmatch API.
 
         :param file_name: The name of the ROM file.
-        :param file_size: The size of the ROM file in bytes.    
+        :param file_size: The size of the ROM file in bytes.
         :param md5: The MD5 hash of the ROM file, if available.
         :param sha1: The SHA1 hash of the ROM file, if available.
         :return: The IGDB provider ID if a match is found, otherwise None.
@@ -130,11 +130,13 @@ class PlaymatchHandler:
             url_with_query,
             timeout,
         )
-        
-        headers = {'user-agent': 'RomM (https://github.com/rommapp/romm)'}
+
+        headers = {"user-agent": "RomM (https://github.com/rommapp/romm)"}
 
         try:
-            res = await httpx_client.get(str(url_with_query), headers=headers, timeout=timeout)
+            res = await httpx_client.get(
+                str(url_with_query), headers=headers, timeout=timeout
+            )
             res.raise_for_status()
             return res.json()
         except httpx.HTTPStatusError as e:
