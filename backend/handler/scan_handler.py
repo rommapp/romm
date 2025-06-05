@@ -317,7 +317,10 @@ async def scan_rom(
         ):
             rom_file = fs_rom["files"][0]
             pm_igdbid = await meta_pm_handler.identify_rom(
-                rom_file.file_name, rom_file.file_size_bytes, rom_file.md5_hash, rom_file.sha1_hash
+                rom_file.file_name,
+                rom_file.file_size_bytes,
+                rom_file.md5_hash,
+                rom_file.sha1_hash,
             )
 
             if pm_igdbid is not None:
