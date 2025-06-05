@@ -9,8 +9,6 @@ from utils.context import ctx_httpx_client
 
 from backend.config import PLAYMATCH_ENABLED
 
-PM_ENABLED: Final = str.lower(PLAYMATCH_ENABLED) == "true"
-
 
 class PlaymatchProvider(str, Enum):
     """
@@ -76,7 +74,7 @@ class PlaymatchHandler:
         :return: The IGDB provider ID if a match is found, otherwise None.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
-        if not PM_ENABLED:
+        if not PLAYMATCH_ENABLED:
             log.debug("Playmatch is not enabled, skipping identification.")
             return None
 
