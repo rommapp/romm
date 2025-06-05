@@ -10,6 +10,7 @@ from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_igdb_handler,
     meta_moby_handler,
+    meta_pm_handler,
     meta_ra_handler,
     meta_ss_handler,
 )
@@ -314,6 +315,20 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
             )
         ):
+            rom_file = fs_rom["files"][0]
+            pm_igdbid = await meta_pm_handler.identify_rom(
+                rom_file.file_name, rom_file.file_size_bytes, rom_file.md5_hash, rom_file.sha1_hash
+            )
+
+            if pm_igdbid is not None:
+                log.debug(
+                    emoji.emojize(
+                        f"{hl(rom_attrs['fs_name'])} identified by Playmatch as {hl(pm_igdbid, color=BLUE)} :alien_monster:"
+                    ),
+                    extra=LOGGER_MODULE_NAME,
+                )
+                return await meta_igdb_handler.get_rom_by_id(pm_igdbid)
+
             main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
             return await meta_igdb_handler.get_rom(
                 rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id

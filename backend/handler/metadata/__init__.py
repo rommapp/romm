@@ -1,5 +1,6 @@
 from .igdb_handler import IGDBHandler
 from .moby_handler import MobyGamesHandler
+from .pm_handler import PlaymatchHandler
 from .ra_handler import RAHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
@@ -9,3 +10,4 @@ meta_moby_handler = MobyGamesHandler()
 meta_ss_handler = SSHandler()
 meta_sgdb_handler = SGDBBaseHandler()
 meta_ra_handler = RAHandler()
+meta_pm_handler = PlaymatchHandler()
