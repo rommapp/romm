@@ -82,12 +82,16 @@ class PlaymatchHandler:
 
         url = f"{self.base_url}/identify/ids"
 
-        response = await self._request(
-            url,
-            PlaymatchIdentifyRequest(
-                fileName=file_name, fileSize=file_size, md5=md5, sha1=sha1
-            ),
-        )
+        try:
+            response = await self._request(
+                url,
+                PlaymatchIdentifyRequest(
+                    fileName=file_name, fileSize=file_size, md5=md5, sha1=sha1
+                ),
+            )
+        except httpx.HTTPStatusError as e:
+            # We silently fail if the service is unavailable as this should not block the rest of RomM.
+            return None
 
         response_parsed = cast(PlaymatchIdentifyResponse, response)
 
