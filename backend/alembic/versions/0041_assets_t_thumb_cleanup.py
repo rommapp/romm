@@ -6,6 +6,8 @@ Create Date: 2025-06-06 16:22:08.361524
 
 """
 
+import json
+
 from alembic import op
 from sqlalchemy.sql import text
 from utils.database import is_postgresql
@@ -41,28 +43,51 @@ def upgrade() -> None:
                     )
                     FROM jsonb_array_elements_text(url_screenshots) AS value
                 )
-                WHERE url_screenshots::text LIKE '%t_thumb%';
+                WHERE url_screenshots IS NOT NULL
+                AND url_screenshots::text LIKE '%t_thumb%';
                 """
             )
         )
     else:
-        conn.execute(
+        result = conn.execute(
             text(
                 """
-                UPDATE roms 
-                SET url_screenshots = (
-                    SELECT JSON_ARRAYAGG(
-                        REPLACE(JSON_UNQUOTE(value), 't_thumb', 't_720p')
-                    )
-                    FROM JSON_TABLE(
-                        roms.url_screenshots, 
-                        '$[*]' COLUMNS (value JSON PATH '$')
-                    ) AS jt
-                )
-                WHERE JSON_SEARCH(url_screenshots, 'one', '%t_thumb%') IS NOT NULL;
+                SELECT id, url_screenshots
+                FROM roms
+                WHERE JSON_SEARCH(url_screenshots, 'one', '%t_thumb%') IS NOT NULL
                 """
             )
         )
+
+        for row in result:
+            row_id, screenshots_json = row
+            if screenshots_json:
+                try:
+                    screenshots = json.loads(screenshots_json)
+                    if isinstance(screenshots, list):
+                        updated_screenshots = [
+                            (
+                                url.replace("t_thumb", "t_720p")
+                                if isinstance(url, str)
+                                else url
+                            )
+                            for url in screenshots
+                        ]
+                        conn.execute(
+                            text(
+                                """
+                                UPDATE roms
+                                SET url_screenshots = :screenshots
+                                WHERE id = :id
+                                """
+                            ),
+                            {
+                                "screenshots": json.dumps(updated_screenshots),
+                                "id": row_id,
+                            },
+                        )
+                except json.JSONDecodeError:
+                    continue
 
 
 def downgrade() -> None:
