@@ -502,7 +502,7 @@ async def _identify_rom(
                     rom_id=_added_rom.id,
                     hash=ra_hash,
                 )
-                _added_rom.ra_id = ra_handler_rom["ra_id"]
+                _added_rom.ra_id = ra_handler_rom.get("ra_id", None)
                 ra_metadata = ra_handler_rom.get("ra_metadata", None)
                 if ra_metadata:
                     _added_rom.ra_metadata = dict(ra_metadata)
