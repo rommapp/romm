@@ -6,7 +6,7 @@ from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
 
-RAHASHER_VALID_HASH_REGEX = re.compile(r"^[0-9a-f]{32}$")
+RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
 
 # TODO: Centralize standarized platform slugs using StrEnum.
 PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
@@ -123,10 +123,12 @@ class RAHasherService:
         if not file_hash:
             log.error(f"RAHasher returned an empty hash. {platform_id=}, {file_path=}")
             return ""
-        if not RAHASHER_VALID_HASH_REGEX.match(file_hash):
+
+        match = RAHASHER_VALID_HASH_REGEX.search(file_hash)
+        if not match:
             log.error(
-                f"RAHasher returned an invalid hash: {file_hash=}, {platform_id=}, {file_path=}"
+                f"RAHasher returned an invalid hash: {file_hash}. Expected format: {RAHASHER_VALID_HASH_REGEX.pattern}"
             )
             return ""
 
-        return file_hash
+        return match.group(0)
