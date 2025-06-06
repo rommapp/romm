@@ -502,26 +502,22 @@ async def _identify_rom(
                     rom_id=_added_rom.id,
                     hash=ra_hash,
                 )
-                _added_rom.ra_id = ra_handler_rom.get("ra_id", "")
-                _added_rom.ra_metadata = ra_handler_rom.get("ra_metadata", {})
-                for a in _added_rom.ra_metadata.get("achievements", {}):
-                    # Store both normal and locked version
-                    badge_url_lock = a.get("badge_url_lock", None)
-                    badge_path_lock = a.get("badge_path_lock", None)
-                    if badge_url_lock and badge_path_lock:
-                        await fs_resource_handler.store_badge(
-                            badge_url_lock, badge_path_lock
-                        )
-                    badge_url = a.get("badge_url", None)
-                    badge_path = a.get("badge_path", None)
-                    if badge_url and badge_path:
-                        await fs_resource_handler.store_badge(badge_url, badge_path)
-                # Uncomment this to run scan in a background process
-                # low_prio_queue.enqueue(
-                #     _set_rom_hashes,
-                #     _added_rom.id,
-                #     job_timeout=60 * 15,  # Timeout (15 minutes)
-                # )
+                _added_rom.ra_id = ra_handler_rom.get("ra_id", None)
+                ra_metadata = ra_handler_rom.get("ra_metadata", None)
+                if ra_metadata:
+                    _added_rom.ra_metadata = dict(ra_metadata)
+                    for a in ra_metadata.get("achievements", {}):
+                        # Store both normal and locked version
+                        badge_url_lock = a.get("badge_url_lock", None)
+                        badge_path_lock = a.get("badge_path_lock", None)
+                        if badge_url_lock and badge_path_lock:
+                            await fs_resource_handler.store_badge(
+                                badge_url_lock, badge_path_lock
+                            )
+                        badge_url = a.get("badge_url", None)
+                        badge_path = a.get("badge_path", None)
+                        if badge_url and badge_path:
+                            await fs_resource_handler.store_badge(badge_url, badge_path)
 
     # Return early if we're only scanning for hashes
     if scan_type == ScanType.HASHES:
