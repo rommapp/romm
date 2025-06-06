@@ -47,7 +47,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 - Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
 - Share your library with friends with limited access and permissions
 - Official apps for [Playnite][playnite-app] and [muOS][muos-app]
-- Supports mutli-disk games, DCLs, mods, hacks, patches, and manuals
+- Supports multi-disk games, DLCs, mods, hacks, patches, and manuals
 - Parse and filter by [tags][docs-tag-support] in filenames
 - View, upload, update, and delete games from any modern web browser
 
