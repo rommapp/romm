@@ -121,13 +121,15 @@ class RAHasherService:
 
         file_hash = (await proc.stdout.read()).decode("utf-8").strip()
         if not file_hash:
-            log.error(f"RAHasher returned an empty hash. {platform_id=}, {file_path=}")
+            log.error(
+                f"RAHasher returned an empty hash for file {file_path} (platform ID: {platform_id})"
+            )
             return ""
 
         match = RAHASHER_VALID_HASH_REGEX.search(file_hash)
         if not match:
             log.error(
-                f"RAHasher returned an invalid hash: {file_hash}. Expected format: {RAHASHER_VALID_HASH_REGEX.pattern}"
+                f"RAHasher returned invalid hash {file_hash} for file {file_path} (platform ID: {platform_id}"
             )
             return ""
 
