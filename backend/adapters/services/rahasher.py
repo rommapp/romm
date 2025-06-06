@@ -6,7 +6,7 @@ from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
 
-RAHASHER_VALID_HASH_REGEX = re.compile(r"^[0-9a-f]{32}$")
+RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
 
 # TODO: Centralize standarized platform slugs using StrEnum.
 PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
@@ -94,12 +94,18 @@ class RAHasherService:
             f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"
         )
         args = (str(platform_id), file_path)
-        proc = await asyncio.create_subprocess_exec(
-            "RAHasher",
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "RAHasher",
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            log.error("RAHasher executable not found in PATH")
+            return ""
+
         return_code = await proc.wait()
         if return_code != 1:
             if proc.stderr is not None:
@@ -115,12 +121,16 @@ class RAHasherService:
 
         file_hash = (await proc.stdout.read()).decode("utf-8").strip()
         if not file_hash:
-            log.error(f"RAHasher returned an empty hash. {platform_id=}, {file_path=}")
-            return ""
-        if not RAHASHER_VALID_HASH_REGEX.match(file_hash):
             log.error(
-                f"RAHasher returned an invalid hash: {file_hash=}, {platform_id=}, {file_path=}"
+                f"RAHasher returned an empty hash for file {file_path} (platform ID: {platform_id})"
             )
             return ""
 
-        return file_hash
+        match = RAHASHER_VALID_HASH_REGEX.search(file_hash)
+        if not match:
+            log.error(
+                f"RAHasher returned invalid hash {file_hash} for file {file_path} (platform ID: {platform_id}"
+            )
+            return ""
+
+        return match.group(0)

@@ -418,7 +418,7 @@ class FSRomsHandler(FSHandler):
                 ra_hash=(
                     await RAHasherService().calculate_hash(
                         SLUG_TO_RA_ID[rom.platform.slug]["id"],
-                        f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}",
+                        f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}{'/*' if rom.multi else ''}",
                     )
                     if rom.platform.slug in SLUG_TO_RA_ID.keys()
                     else ""
