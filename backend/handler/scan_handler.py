@@ -50,7 +50,6 @@ async def fetch_ra_info(
     rom_id: int,
     hash: str,
 ) -> RAGameRom:
-
     return await meta_ra_handler.get_rom(
         platform=platform,
         rom_id=rom_id,
@@ -373,7 +372,7 @@ async def scan_rom(
         # Reversed to prioritize IGDB
         rom_attrs.update({**moby_handler_rom, **ss_handler_rom, **igdb_handler_rom})
 
-    # If not found in IGDB, MobyGames and Screenscraper
+    # If not found in IGDB, MobyGames or Screenscraper
     if (
         not igdb_handler_rom.get("igdb_id")
         and not moby_handler_rom.get("moby_id")
