@@ -201,7 +201,7 @@ watch(
     <v-row no-gutters class="justify-center align-center pa-2">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
-          <div class="position-absolute append-top-right">
+          <div class="position-absolute append-top-right mr-5">
             <template v-if="auth.scopes.includes('platforms.write')">
               <v-btn
                 v-if="!isEditable"
@@ -230,7 +230,7 @@ watch(
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
-                  @click="updatePlatform()"
+                  @click="updatePlatform"
                   size="small"
                   class="bg-toplayer ml-1"
                   :tabindex="tabIndex"
@@ -263,7 +263,7 @@ watch(
               density="compact"
               v-model="updatedPlatform.display_name"
               :readonly="!isEditable"
-              @keyup.enter="updatePlatform()"
+              @keyup.enter="updatePlatform"
               :tabindex="tabIndex"
             />
           </div>

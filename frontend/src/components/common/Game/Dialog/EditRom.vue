@@ -219,7 +219,7 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="updateRom()"
+                @keyup.enter="updateRom"
               />
             </v-col>
           </v-row>
@@ -229,10 +229,10 @@ function closeDialog() {
                 v-model="rom.fs_name"
                 class="py-2"
                 :rules="[(value: string) => !!value]"
-                :label="rom.multi ? t('rom.foldername') : t('rom.filename')"
+                :label="rom.multi ? t('rom.folder-name') : t('rom.filename')"
                 variant="outlined"
                 required
-                @keyup.enter="updateRom()"
+                @keyup.enter="updateRom"
               >
                 <template #details>
                   <v-label class="text-caption text-wrap">
@@ -256,7 +256,6 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="updateRom"
               />
             </v-col>
           </v-row>

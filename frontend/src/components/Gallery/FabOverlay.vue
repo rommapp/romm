@@ -302,7 +302,7 @@ function onDownload() {
         elevation="8"
         :size="40"
         rounded="0"
-        @click="scrollToTop()"
+        @click="scrollToTop"
         ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
       >
     </v-scroll-y-reverse-transition>

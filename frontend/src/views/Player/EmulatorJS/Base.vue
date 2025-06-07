@@ -415,7 +415,7 @@ onBeforeUnmount(async () => {
                                 color="toplayer"
                                 size="small"
                                 icon
-                                @click="unselectState()"
+                                @click="unselectState"
                               >
                                 <v-icon>mdi-close-circle-outline</v-icon>
                               </v-btn>
@@ -500,7 +500,7 @@ onBeforeUnmount(async () => {
                                 color="toplayer"
                                 size="small"
                                 icon
-                                @click="unselectSave()"
+                                @click="unselectSave"
                               >
                                 <v-icon>mdi-close-circle-outline</v-icon>
                               </v-btn>
@@ -694,7 +694,7 @@ onBeforeUnmount(async () => {
               variant="flat"
               class="text-primary"
               prepend-icon="mdi-play"
-              @click="onPlay()"
+              @click="onPlay"
               >{{ t("play.play") }}
             </v-btn>
           </v-col>

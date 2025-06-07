@@ -24,7 +24,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
         rounded="0"
         icon="mdi-cog"
         :color="activePlatformInfoDrawer ? 'primary' : ''"
-        @click="navigationStore.switchActivePlatformInfoDrawer()"
+        @click="navigationStore.switchActivePlatformInfoDrawer"
       >
         <platform-icon
           :slug="currentPlatform.slug"
