@@ -119,13 +119,19 @@ onMounted(() => {
           v-if="achievement.badge_path_lock || achievement.badge_path"
           rounded="0"
         >
-          <v-img
-            :src="
-              isAchievementEarned(achievement)
-                ? (achievement.badge_path ?? '')
-                : (achievement.badge_path_lock ?? '')
-            "
-          />
+          <a
+            :href="`https://retroachievements.org/achievement/${achievement.ra_id}`"
+            target="_blank"
+            style="height: 100%; width: 100%"
+          >
+            <v-img
+              :src="
+                isAchievementEarned(achievement)
+                  ? (achievement.badge_path ?? '')
+                  : (achievement.badge_path_lock ?? '')
+              "
+            />
+          </a>
         </v-avatar>
       </template>
       <template #subtitle>
