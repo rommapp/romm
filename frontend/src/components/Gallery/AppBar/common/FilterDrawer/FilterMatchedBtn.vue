@@ -22,7 +22,7 @@ function setUnmatched() {
     block
     variant="tonal"
     :color="filterMatched ? 'primary' : ''"
-    @click="setUnmatched()"
+    @click="setUnmatched"
   >
     <v-icon :color="filterMatched ? 'primary' : ''">mdi-file-find</v-icon
     ><span

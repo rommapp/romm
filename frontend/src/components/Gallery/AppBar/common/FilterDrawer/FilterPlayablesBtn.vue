@@ -27,7 +27,7 @@ function setPlayables() {
     block
     variant="tonal"
     :color="filterPlayables ? 'primary' : ''"
-    @click="setPlayables()"
+    @click="setPlayables"
     :disabled="fetchTotalRoms > 10000"
   >
     <v-icon :color="filterPlayables ? 'primary' : ''"> mdi-play </v-icon>
