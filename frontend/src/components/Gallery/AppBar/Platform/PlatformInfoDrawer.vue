@@ -190,7 +190,7 @@ watch(
     mobile
     floating
     width="500"
-    location="right"
+    location="left"
     v-model="activePlatformInfoDrawer"
     :class="{
       'mr-2': activePlatformInfoDrawer,
