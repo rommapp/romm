@@ -32,6 +32,6 @@ const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
               : ''
         "
         aria-label="Filter"
-        @click="galleryFilterStore.switchActiveFilterDrawer()" /></template
+        @click="galleryFilterStore.switchActiveFilterDrawer" /></template
   ></v-tooltip>
 </template>

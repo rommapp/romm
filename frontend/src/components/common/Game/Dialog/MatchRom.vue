@@ -381,7 +381,7 @@ onBeforeUnmount(() => {
           <v-text-field
             autofocus
             id="search-text-field"
-            @keyup.enter="searchRom()"
+            @keyup.enter="searchRom"
             @click:clear="searchText = ''"
             class="bg-toplayer"
             v-model="searchText"
@@ -404,7 +404,7 @@ onBeforeUnmount(() => {
         <v-col>
           <v-btn
             type="submit"
-            @click="searchRom()"
+            @click="searchRom"
             class="bg-toplayer"
             variant="text"
             rounded="0"

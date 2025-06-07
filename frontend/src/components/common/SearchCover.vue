@@ -126,7 +126,7 @@ onBeforeUnmount(() => {
         <v-col cols="8" sm="9">
           <v-text-field
             id="search-text-field"
-            @keyup.enter="searchCovers()"
+            @keyup.enter="searchCovers"
             @click:clear="searchText = ''"
             class="bg-toplayer"
             v-model="searchText"
@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
         <v-col>
           <v-btn
             type="submit"
-            @click="searchCovers()"
+            @click="searchCovers"
             class="bg-toplayer"
             variant="text"
             icon="mdi-search-web"

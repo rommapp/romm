@@ -27,7 +27,7 @@ function setRA() {
     block
     variant="tonal"
     :color="filterRA ? 'primary' : ''"
-    @click="setRA()"
+    @click="setRA"
     :disabled="fetchTotalRoms > 10000"
   >
     <v-icon :color="filterRA ? 'primary' : ''"> mdi-trophy </v-icon>
