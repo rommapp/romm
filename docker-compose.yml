@@ -1,6 +1,24 @@
 # Please see the full example under examples/docker-compose.example.yml
 
 services:
+  romm-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: romm-dev
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000" # Backend API
+      - "3000:3000" # Frontend dev server
+    depends_on:
+      - romm-db-dev
+      - romm-valkey-dev
+      - romm-postgres-dev
+    command: /bin/bash -c "cd /app && bash"
+    stdin_open: true
+    tty: true
+
   romm-db-dev:
     image: mariadb:11.3.2
     container_name: romm-db-dev
@@ -8,14 +26,14 @@ services:
     env_file:
       - .env
     environment:
-      - MARIADB_ROOT_PASSWORD=$DB_ROOT_PASSWD
-      - MARIADB_DATABASE=$DB_NAME
-      - MARIADB_USER=$DB_USER
-      - MARIADB_PASSWORD=$DB_PASSWD
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWD:-rootpassword}
+      - MARIADB_DATABASE=${DB_NAME:-romm}
+      - MARIADB_USER=${DB_USER:-romm}
+      - MARIADB_PASSWORD=${DB_PASSWD:-romm}
     volumes:
       - romm-db-dev:/var/lib/mysql
     ports:
-      - $DB_PORT:3306
+      - "${DB_PORT:-3306}:3306"
 
   romm-valkey-dev:
     image: valkey/valkey:8
@@ -24,22 +42,22 @@ services:
     env_file:
       - .env
     ports:
-      - $REDIS_PORT:6379
+      - "${REDIS_PORT:-6379}:6379"
 
   romm-postgres-dev:
-    image: docker.io/library/postgres:16-alpine
+    image: postgres:16-alpine
     container_name: romm-postgresql-dev
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
-      POSTGRES_USER: $POSTGRES_USER
-      POSTGRES_DB: $POSTGRES_DB
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-authentik}
     volumes:
       - postgres-db:/var/lib/postgresql/data
     ports:
-      - 5432:5432
+      - "5432:5432"
 
   romm-authentik-server:
     image: ghcr.io/goauthentik/server:2024.10.4
@@ -51,17 +69,17 @@ services:
     environment:
       AUTHENTIK_REDIS__HOST: romm-valkey-dev
       AUTHENTIK_POSTGRESQL__HOST: romm-postgres-dev
-      AUTHENTIK_POSTGRESQL__USER: $POSTGRES_USER
-      AUTHENTIK_POSTGRESQL__NAME: $POSTGRES_DB
-      AUTHENTIK_POSTGRESQL__PASSWORD: $POSTGRES_PASSWORD
-      AUTHENTIK_SECRET_KEY: $AUTHENTIK_SECRET_KEY
-      AUTHENTIK_BOOTSTRAP_PASSWORD: $AUTHENTIK_BOOTSTRAP_PASSWORD
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-postgres}
+      AUTHENTIK_POSTGRESQL__NAME: ${POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-secret-key-default}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-password}
     volumes:
       - authentik-media:/media
       - authentik-templates:/templates
     ports:
-      - 9001:9000
-      - 9444:9443
+      - "9001:9000"
+      - "9444:9443"
     depends_on:
       - romm-postgres-dev
       - romm-valkey-dev
@@ -76,11 +94,11 @@ services:
     environment:
       AUTHENTIK_REDIS__HOST: romm-valkey-dev
       AUTHENTIK_POSTGRESQL__HOST: romm-postgres-dev
-      AUTHENTIK_POSTGRESQL__USER: $POSTGRES_USER
-      AUTHENTIK_POSTGRESQL__NAME: $POSTGRES_DB
-      AUTHENTIK_POSTGRESQL__PASSWORD: $POSTGRES_PASSWORD
-      AUTHENTIK_SECRET_KEY: $AUTHENTIK_SECRET_KEY
-      AUTHENTIK_BOOTSTRAP_PASSWORD: $AUTHENTIK_BOOTSTRAP_PASSWORD
+      AUTHENTIK_POSTGRESQL__USER: ${POSTGRES_USER:-postgres}
+      AUTHENTIK_POSTGRESQL__NAME: ${POSTGRES_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:-secret-key-default}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-password}
     volumes:
       - authentik-media:/media
       - authentik-templates:/templates
