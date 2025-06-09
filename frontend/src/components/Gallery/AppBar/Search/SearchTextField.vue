@@ -96,6 +96,7 @@ onMounted(() => {
 
   // Check if search term is set in the URL (empty string is ok)
   if (searchTerm.value !== null) {
+    romsStore.resetPagination();
     fetchRoms();
   }
 });
@@ -105,6 +106,7 @@ watch(
   (query) => {
     if (query.search !== undefined && query.search !== searchTerm.value) {
       searchTerm.value = query.search as string;
+      romsStore.resetPagination();
       fetchRoms();
     }
   },
