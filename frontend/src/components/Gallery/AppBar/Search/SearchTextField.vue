@@ -5,17 +5,15 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, nextTick, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { debounce } from "lodash";
 
 // Props
-const { xs } = useDisplay();
 const { t } = useI18n();
 const router = useRouter();
 const romsStore = storeRoms();
-const { fetchingRoms, initialSearch } = storeToRefs(romsStore);
+const { initialSearch } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
