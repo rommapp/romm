@@ -15,18 +15,19 @@ if [[ ! -f /app/.env ]]; then
 	echo "Created .env file from template. Please edit with your configuration."
 fi
 
-# Install backend dependencies
-cd /app/backend
-poetry sync
-
 # Create symlinks for frontend
 mkdir -p /app/frontend/assets/romm
 ln -sf /app/backend/romm_mock/resources /app/frontend/assets/romm/resources
 ln -sf /app/backend/romm_mock/assets /app/frontend/assets/romm/assets
 
-# Install frontend dependencies
-cd /app/frontend
-npm install
+# Start all services in the background
+cd /app/backend
+poetry run python main.py &
+OBJC_DISABLE_INITIALIZE_FORK_SAFETY=1 poetry run python worker.py &
 
-# Execute the command passed to docker run
-exec "$@"
+# Start the frontend dev server
+cd /app/frontend
+npm run dev &
+
+# Wait for all background processes
+wait
