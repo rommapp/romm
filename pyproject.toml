@@ -40,9 +40,7 @@ dependencies = [
   "sentry-sdk ~= 2.19",
   "sqlakeyset ~= 2.0",
   "starlette-csrf ~= 3.0",
-  # TODO: Move back to official releases once the following PR is merged and released:
-  #       https://github.com/python-poetry/poetry-core/pull/803
-  "streaming-form-data @ git+https://github.com/gantoine/streaming-form-data.git@b8a49ba",
+  "streaming-form-data ~= 1.19",
   "types-colorama ~= 0.4",
   "types-passlib ~= 1.7",
   "types-pyyaml ~= 6.0",
