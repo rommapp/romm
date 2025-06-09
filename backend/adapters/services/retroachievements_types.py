@@ -1,5 +1,12 @@
 import enum
+from collections.abc import Mapping
 from typing import NotRequired, TypedDict
+
+
+class PaginatedResponse[T: Mapping](TypedDict):
+    Count: int
+    Total: int
+    Results: list[T]
 
 
 # https://github.com/RetroAchievements/RAWeb/blob/master/app/Platform/Enums/AchievementType.php
@@ -88,10 +95,7 @@ class RAUserCompletionProgressResult(TypedDict):
 
 
 # https://api-docs.retroachievements.org/v1/get-user-completion-progress.html#response
-class RAUserCompletionProgress(TypedDict):
-    Count: int
-    Total: int
-    Results: list[RAUserCompletionProgressResult]
+RAUserCompletionProgress = PaginatedResponse[RAUserCompletionProgressResult]
 
 
 # https://api-docs.retroachievements.org/v1/get-game-info-and-user-progress.html#response
