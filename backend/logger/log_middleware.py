@@ -24,7 +24,7 @@ LOGGING_CONFIG = {
     },
     "root": {
         "handlers": ["default"],
-        "level": "DEBUG",
+        "level": "INFO",
     },
     "loggers": {
         "uvicorn": {

@@ -16,7 +16,6 @@
 [![docker-pulls-badge-img]][docker-pulls-badge]
 
 [![discord-badge-img]][discord-badge]
-[![unraid-badge-img]][unraid-badge]
 [![docs-badge-img]][docs]
 
   </div>
@@ -29,15 +28,11 @@
   - [Features](#features)
   - [Preview](#preview)
 - [Installation](#installation)
-- [Configuration](#configuration)
-  - [Configuration File](#configuration-file)
-  - [Scheduler](#scheduler)
-- [Naming Convention](#naming-convention)
-  - [Platform Support](#platform-support)
-  - [Tag Support](#tag-support)
+- [Contributing](#contributing)
 - [Community](#community)
-  - [Support](#support)
-  - [Our Friends](#our-friends)
+- [Technical Support](#technical-support)
+- [Project Support](#project-support)
+- [Our Friends](#our-friends)
 
 # Overview
 
@@ -46,12 +41,14 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 ## Features
 
 - Scans and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
-- Metadata available for [400+ platforms][platform-support]
-- Play games directly from the browser using [EmulatorJS][docs-emulatorjs]
+- Fetch custom arwork from [SteamGridDB][steamgriddb-api]
+- Display your achievements from [Retroachievements][retroachievements-api]
+- Metadata available for [400+ platforms][docs-supported-platforms]
+- Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
 - Share your library with friends with limited access and permissions
 - Official apps for [Playnite][playnite-app] and [muOS][muos-app]
-- Supports mutli-disk games, DCLs, mods, hacks, patches, and manuals
-- Parse and [filter by tags][tag-support] in filenames
+- Supports multi-disk games, DLCs, mods, hacks, patches, and manuals
+- Parse and filter by [tags][docs-tag-support] in filenames
 - View, upload, update, and delete games from any modern web browser
 
 ## Preview
@@ -62,32 +59,11 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 # Installation
 
-To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting] and common issues, or join the [Discord][discord-invite] for support from the community.
+To start using RomM, check out the [Quick Start Guide][docs-quick-start-guide] in the docs. If you are having issues with RomM, please review the page for [troubleshooting steps][docs-troubleshooting].
 
-# Configuration
+# Contributing
 
-## Configuration File
-
-RomM's "understanding" of your library can be configured with a `config.yaml` file or through the `config` tab in the `Control Panel` under the `Settings` section. Refer to the [example config.yml][configuration-file-example] file for guidance on how to configure it and the [example docker-compose.yml][docker-compose-example] file on how to mount it into the container.
-
-## Scheduler
-
-The scheduler allows you to schedule async tasks that run in the Redis container at regular intervals. Jobs can be run at a specific time in the future, after a time delta, or at recurring internals using cron notation. The [docs page on the scheduler][docs-scheduled-tasks] has more information on which tasks are available and how to enable them.
-
-# Naming Convention
-
-## Platform Support
-
-If you adhere to the [RomM folder structure][folder-structure], RomM supports all platforms listed on the [Supported Platforms][docs-supported-platforms] page. **The folder is case-sensitive and must be used exactly as it appears on the list.** When scanning your library, RomM will use the folder name to determine the platform and fetch the appropriate game information, metadata, and cover art.
-
-## Tag Support
-
-Games can be tagged with region, revision, or other tags by using parentheses in the file name. Additionally, you can set the region and language by adding a prefix: (USA), [reg-J], (French), [De].
-
-- Revision tags must be prefixed with **"rev "** or **"rev-"** (e.g. **(rev v1)** or **(rev-1)**)
-- Other tags will also be imported, for example: **my_game [1.0001]\(HACK\)[!].gba**
-
-Tags can be used to search for games in the search bar. For example, searching for **(USA)** will return all games with the USA tag.
+To contribute to RomM, please check [Contribution Guide](./CONTRIBUTING.md).
 
 # Community
 
@@ -101,13 +77,17 @@ Join us on Discord, where you can ask questions, submit ideas, get help, showcas
 
 [![discord-invite-img]][discord-invite]
 
-## Support
+# Technical Support
+
+If you have any issues with RomM, please [open an issue](https://github.com/rommapp/romm/issues/new) in this repository.
+
+# Project Support
 
 Consider supporting the development of this project on Open Collective.
 
 [![oc-donate-img]][oc-donate]
 
-## Our Friends
+# Our Friends
 
 Here are a few projects that we think you might like:
 
@@ -118,26 +98,15 @@ Here are a few projects that we think you might like:
 - [Retrom](https://github.com/JMBeresford/retrom): A centralized game library/collection management service
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
-<!-- Sections -->
-
-[folder-structure]: #folder-structure
-[platform-support]: #platform-support
-[tag-support]: #tag-support
-[configuration-file]: #configuration-file
-
-<!-- Files -->
-
-[docker-compose-example]: examples/docker-compose.example.yml
-[configuration-file-example]: examples/config.example.yml
-
 <!-- docs links -->
 
 [docs]: https://docs.romm.app/latest/
-[docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
-[docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
-[docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
-[docs-scheduled-tasks]: https://docs.romm.app/latest/Maintenance/Scheduled-Tasks/
 [docs-quick-start-guide]: https://docs.romm.app/latest/Getting-Started/Quick-Start-Guide/
+[docs-supported-platforms]: https://docs.romm.app/latest/Platforms-and-Players/Supported-Platforms/
+[docs-emulatorjs]: https://docs.romm.app/latest/Platforms-and-Players/EmulatorJS-Player/
+[docs-rufflers]: https://docs.romm.app/latest/Platforms-and-Players/RuffleRS-Player/
+[docs-troubleshooting]: https://docs.romm.app/latest/Troubleshooting/Scanning-Issues/
+[docs-tag-support]: https://docs.romm.app/latest/Getting-Started/Folder-Structure/#tag-support
 
 <!-- Badges -->
 
@@ -147,8 +116,6 @@ Here are a few projects that we think you might like:
 [release-badge]: https://github.com/rommapp/romm/releases
 [discord-badge-img]: https://img.shields.io/badge/discord-7289da?style=for-the-badge
 [discord-badge]: https://discord.gg/P5HtHnhUDH
-[unraid-badge-img]: https://img.shields.io/badge/Unraid-f57842?style=for-the-badge&labelColor=ee512b
-[unraid-badge]: https://forums.unraid.net/topic/149738-support-eurotimmy-romm-rom-manager-by-zurdi15/
 [docs-badge-img]: https://img.shields.io/badge/docs-736e9b?style=for-the-badge
 [docker-pulls-badge-img]: https://img.shields.io/docker/pulls/rommapp/romm?style=for-the-badge&label=pulls
 [docker-pulls-badge]: https://hub.docker.com/r/rommapp/romm
@@ -162,9 +129,11 @@ Here are a few projects that we think you might like:
 
 <!-- External links -->
 
-[igdb-api]: https://api-docs.igdb.com/#account-creation
-[screenscraper-api]: https://www.screenscraper.fr/membreinscription.php
-[mobygames-api]: https://www.mobygames.com/info/api/
+[igdb-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#igdb
+[screenscraper-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#screenscraper
+[mobygames-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#mobygames
+[steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#steamgriddb
+[retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#retroachievements
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone

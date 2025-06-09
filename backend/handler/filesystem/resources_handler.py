@@ -147,7 +147,7 @@ class FSResourcesHandler(FSHandler):
             shutil.rmtree(cover_path)
         except FileNotFoundError:
             log.warning(
-                f"Couldn't remove cover from '{hl(entity.name or entity.id, color=BLUE)}' since '{cover_path}' doesn't exists."
+                f"Couldn't remove cover from '{hl(entity.name or str(entity.id), color=BLUE)}' since '{cover_path}' doesn't exist."
             )
 
         return {"path_cover_s": "", "path_cover_l": ""}

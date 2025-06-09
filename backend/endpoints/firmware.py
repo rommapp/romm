@@ -215,10 +215,10 @@ async def delete_firmware(
     """
 
     data: dict = await request.json()
-    firmare_ids: list = data["firmware"]
+    firmware_ids: list = data["firmware"]
     delete_from_fs: list = data["delete_from_fs"]
 
-    for id in firmare_ids:
+    for id in firmware_ids:
         firmware = db_firmware_handler.get_firmware(id)
         if not firmware:
             error = f"Firmware with ID {hl(id)} not found"
@@ -241,4 +241,4 @@ async def delete_firmware(
                     status_code=status.HTTP_404_NOT_FOUND, detail=error
                 ) from exc
 
-    return {"msg": f"{len(firmare_ids)} firmware files deleted successfully!"}
+    return {"msg": f"{len(firmware_ids)} firmware files deleted successfully!"}

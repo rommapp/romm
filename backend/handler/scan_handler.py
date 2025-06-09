@@ -53,7 +53,6 @@ async def fetch_ra_info(
     rom_id: int,
     hash: str,
 ) -> RAGameRom:
-
     return await meta_ra_handler.get_rom(
         platform=platform,
         rom_id=rom_id,
@@ -173,6 +172,7 @@ async def scan_platform(
         platform_attrs["igdb_id"]
         or platform_attrs["moby_id"]
         or platform_attrs["ss_id"]
+        or platform_attrs["ra_id"]
         or platform_attrs["launchbox_id"]
     ):
         log.info(
@@ -279,12 +279,12 @@ async def scan_rom(
                 "summary": rom.summary,
                 "igdb_metadata": rom.igdb_metadata,
                 "moby_metadata": rom.moby_metadata,
-                "url_cover": rom.url_cover,
-                "url_manual": rom.url_manual,
                 "path_cover_s": rom.path_cover_s,
                 "path_cover_l": rom.path_cover_l,
                 "path_screenshots": rom.path_screenshots,
+                "url_cover": rom.url_cover,
                 "url_screenshots": rom.url_screenshots,
+                "url_manual": rom.url_manual,
             }
         )
 

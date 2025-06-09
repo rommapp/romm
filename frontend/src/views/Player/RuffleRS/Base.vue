@@ -151,7 +151,7 @@ onMounted(async () => {
                 variant="outlined"
                 size="large"
                 prepend-icon="mdi-play"
-                @click="onPlay()"
+                @click="onPlay"
                 >{{ t("play.play") }}
               </v-btn>
             </v-col>
