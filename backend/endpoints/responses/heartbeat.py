@@ -27,9 +27,9 @@ class MetadataSourcesDict(TypedDict):
     IGDB_API_ENABLED: bool
     MOBY_API_ENABLED: bool
     SS_API_ENABLED: bool
-    STEAMGRIDDB_ENABLED: bool
-    LAUNCHBOX_ENABLED: bool
-    RA_ENABLED: bool
+    STEAMGRIDDB_API_ENABLED: bool
+    RA_API_ENABLED: bool
+    LAUNCHBOX_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):

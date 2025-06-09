@@ -44,13 +44,13 @@ const metadataOptions = computed(() => [
     name: "RetroAchievements",
     value: "ra",
     logo_path: "/assets/scrappers/ra.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.RA_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
   },
   {
     name: "Launchbox",
     value: "lb",
     logo_path: "/assets/scrappers/launchbox.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
   },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
@@ -258,7 +258,7 @@ async function stopScan() {
       :loading="scanning"
       rounded="4"
       height="40"
-      @click="scan()"
+      @click="scan"
     >
       <template #prepend>
         <v-icon :color="scanning ? '' : 'primary'">mdi-magnify-scan</v-icon>
@@ -278,7 +278,7 @@ async function stopScan() {
       class="ml-2"
       rounded="4"
       height="40"
-      @click="stopScan()"
+      @click="stopScan"
     >
       <template #prepend>
         <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>

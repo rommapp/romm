@@ -53,9 +53,9 @@ def heartbeat() -> HeartbeatResponse:
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
-            "STEAMGRIDDB_ENABLED": STEAMGRIDDB_API_ENABLED,
-            "LAUNCHBOX_ENABLED": LAUNCHBOX_API_ENABLED,
-            "RA_ENABLED": RA_API_ENABLED,
+            "STEAMGRIDDB_API_ENABLED": STEAMGRIDDB_API_ENABLED,
+            "RA_API_ENABLED": RA_API_ENABLED,
+            "LAUNCHBOX_API_ENABLED": LAUNCHBOX_API_ENABLED,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": fs_platform_handler.get_platforms(),

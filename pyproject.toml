@@ -35,7 +35,7 @@ dependencies = [
   "python-magic ~= 0.4",
   "python-multipart ~= 0.0.18",
   "python-socketio == 5.11.1",
-  "redis ~= 5.0",
+  "redis ~= 6.2",
   "rq ~= 2.1",
   "rq-scheduler ~= 0.14",
   "sentry-sdk ~= 2.19",
