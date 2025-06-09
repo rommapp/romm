@@ -6,11 +6,14 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: romm-dev
-    volumes:
-      - .:/app
     ports:
       - "8000:8000" # Backend API
       - "3000:3000" # Frontend dev server
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+      - ./romm_mock:/app/romm_mock
+      - ./romm_test:/app/romm_test
     depends_on:
       - romm-db-dev
       - romm-valkey-dev
