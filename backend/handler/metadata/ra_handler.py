@@ -3,10 +3,13 @@ import http
 import json
 import os
 import time
+from collections import defaultdict
 from typing import Final, NotRequired, TypedDict
 
 import httpx
 import yarl
+from adapters.services.retroachievements import RetroAchievementsService
+from adapters.services.retroachievements_types import RAGameListItem
 from anyio import open_file
 from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
@@ -76,15 +79,7 @@ class RAUserProgression(TypedDict):
 
 class RAHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.BASE_URL = "https://retroachievements.org/API"
-        self.search_endpoint = f"{self.BASE_URL}/API_GetGameList.php"
-        self.game_details_endpoint = f"{self.BASE_URL}/API_GetGameExtended.php"
-        self.user_complete_progression_endpoint = (
-            f"{self.BASE_URL}/API_GetUserCompletionProgress.php"
-        )
-        self.user_game_progression_endpoint = (
-            f"{self.BASE_URL}/API_GetGameInfoAndUserProgress.php"
-        )
+        self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes.json"
 
     def _get_rom_base_path(self, platform_id: int, rom_id: int) -> str:
@@ -185,28 +180,26 @@ class RAHandler(MetadataHandler):
 
     async def _search_rom(
         self, platform: Platform, rom_id: int, hash: str
-    ) -> dict | None:
+    ) -> RAGameListItem | None:
 
         if not platform.ra_id:
             return None
 
         self._create_resources_path(platform.id, rom_id)
 
-        url = yarl.URL(self.search_endpoint).with_query(
-            i=[platform.ra_id],
-            f=["1"],  # If 1, only return games that have achievements. Defaults to 0.
-            h=["1"],  # If 1, also return supported hashes for games. Defaults to 0.
-            y=[RETROACHIEVEMENTS_API_KEY],
-        )
-
         # Fetch all hashes for specific platform
+        roms: list[RAGameListItem]
         if (
             REFRESH_RETROACHIEVEMENTS_CACHE_DAYS
             <= self._days_since_last_cache_file_update(platform.id)
             or not self._exists_cache_file(platform.id)
         ):
             # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
-            roms = await self._request(str(url))
+            roms = await self.ra_service.get_game_list(
+                system_id=platform.ra_id,
+                only_games_with_achievements=True,
+                include_hashes=True,
+            )
             async with await open_file(
                 self._get_hashes_file_path(platform.id),
                 "w",
@@ -223,18 +216,10 @@ class RAHandler(MetadataHandler):
                 roms = json.loads(await json_file.read())
 
         for rom in roms:
-            if hash in rom["Hashes"]:
+            if hash in rom.get("Hashes", ()):
                 return rom
 
         return None
-
-    async def _get_rom_details(self, ra_id: int) -> dict:
-        url = yarl.URL(self.game_details_endpoint).with_query(
-            i=[ra_id],
-            y=[RETROACHIEVEMENTS_API_KEY],
-        )
-        details = await self._request(str(url))
-        return details
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
         platform = SLUG_TO_RA_ID.get(slug.lower(), None)
@@ -258,7 +243,7 @@ class RAHandler(MetadataHandler):
             return RAGameRom(ra_id=None)
 
         try:
-            rom_details = await self._get_rom_details(rom["ID"])
+            rom_details = await self.ra_service.get_game_extended_details(rom["ID"])
             return RAGameRom(
                 ra_id=rom["ID"],
                 ra_metadata=RAMetadata(
@@ -288,25 +273,24 @@ class RAHandler(MetadataHandler):
             return RAGameRom(ra_id=None)
 
     async def get_user_progression(self, username: str) -> RAUserProgression:
-        url = yarl.URL(self.user_complete_progression_endpoint).with_query(
-            u=[username], y=[RETROACHIEVEMENTS_API_KEY], c=[500]
+        user_complete_progression = await self.ra_service.get_user_completion_progress(
+            username=username,
+            limit=500,
         )
-        user_complete_progression = await self._request(str(url))
         roms_with_progression = user_complete_progression.get("Results", [])
+        rom_earned_achievements: dict[int, list[EarnedAchievement]] = defaultdict(list)
         for rom in roms_with_progression:
-            rom["EarnedAchievements"] = []
-            if rom.get("GameID", None):
-                url = yarl.URL(self.user_game_progression_endpoint).with_query(
-                    g=[rom["GameID"]],
-                    u=[username],
-                    y=[RETROACHIEVEMENTS_API_KEY],
+            rom_game_id = rom.get("GameID")
+            if rom_game_id:
+                result = await self.ra_service.get_user_game_progress(
+                    username=username,
+                    game_id=rom_game_id,
                 )
-                result = await self._request(str(url))
                 for achievement in result.get("Achievements", {}).values():
-                    if "DateEarned" in achievement.keys():
-                        rom["EarnedAchievements"].append(
+                    if achievement.get("DateEarned") and achievement.get("BadgeName"):
+                        rom_earned_achievements[rom_game_id].append(
                             {
-                                "id": achievement.get("BadgeName"),
+                                "id": achievement["BadgeName"],
                                 "date": achievement["DateEarned"],
                             }
                         )
@@ -319,7 +303,11 @@ class RAHandler(MetadataHandler):
                     max_possible=rom.get("MaxPossible", None),
                     num_awarded=rom.get("NumAwarded", None),
                     num_awarded_hardcore=rom.get("NumAwardedHardcore", None),
-                    earned_achievements=rom.get("EarnedAchievements", []),
+                    earned_achievements=(
+                        rom_earned_achievements.get(rom["GameID"], [])
+                        if rom.get("GameID")
+                        else []
+                    ),
                 )
                 for rom in roms_with_progression
             ],
