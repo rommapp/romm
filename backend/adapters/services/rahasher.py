@@ -37,7 +37,7 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
     "gamecube": 16,
     "ngc": 14,
     "genesis": 1,
-    "genesis-slash-megadrive": 16,
+    "genesis-slash-megadrive": 1,
     "intellivision": 45,
     "jaguar": 17,
     "lynx": 13,
