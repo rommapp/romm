@@ -5,6 +5,7 @@ import Platforms from "@/components/Home/Platforms.vue";
 import RecentSkeletonLoader from "@/components/Home/RecentSkeletonLoader.vue";
 import RecentAdded from "@/components/Home/RecentAdded.vue";
 import ContinuePlaying from "@/components/Home/ContinuePlaying.vue";
+import EmptyHome from "@/components/Home/EmptyHome.vue";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
@@ -105,5 +106,15 @@ onMounted(async () => {
   <virtual-collections
     class="ma-2"
     v-if="virtualCollections.length > 0 && showVirtualCollections"
+  />
+  <empty-home
+    v-if="
+      recentRoms.length === 0 &&
+      recentPlayedRoms.length === 0 &&
+      filledPlatforms.length === 0 &&
+      allCollections.length === 0 &&
+      virtualCollections.length === 0
+    "
+    class="ma-2"
   />
 </template>
