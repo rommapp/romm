@@ -119,11 +119,6 @@ async function getRoms({
       offset: offset,
       order_by: orderBy,
       order_dir: orderDir,
-      unmatched_only: filterUnmatched,
-      matched_only: filterMatched,
-      favourites_only: filterFavourites,
-      duplicates_only: filterDuplicates,
-      playables_only: filterPlayables,
       ra_only: filterRA,
       group_by_meta_id: groupByMetaId,
       selected_genre: selectedGenre,
@@ -134,6 +129,11 @@ async function getRoms({
       selected_status: getStatusKeyForText(selectedStatus),
       selected_region: selectedRegion,
       selected_language: selectedLanguage,
+      ...(filterUnmatched ? { matched: false } : {}),
+      ...(filterMatched ? { matched: true } : {}),
+      ...(filterFavourites ? { favourite: true } : {}),
+      ...(filterDuplicates ? { duplicate: true } : {}),
+      ...(filterPlayables ? { playable: true } : {}),
     },
   });
 }
