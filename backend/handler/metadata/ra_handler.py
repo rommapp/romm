@@ -3,7 +3,6 @@ import http
 import json
 import os
 import time
-from collections import defaultdict
 from typing import Final, NotRequired, TypedDict
 
 import httpx
@@ -72,7 +71,6 @@ class RAUserGameProgression(TypedDict):
 
 
 class RAUserProgression(TypedDict):
-    count: int
     total: int
     results: list[RAUserGameProgression]
 
@@ -273,44 +271,38 @@ class RAHandler(MetadataHandler):
             return RAGameRom(ra_id=None)
 
     async def get_user_progression(self, username: str) -> RAUserProgression:
-        user_complete_progression = await self.ra_service.get_user_completion_progress(
-            username=username,
-            limit=500,
-        )
-        roms_with_progression = user_complete_progression.get("Results", [])
-        rom_earned_achievements: dict[int, list[EarnedAchievement]] = defaultdict(list)
-        for rom in roms_with_progression:
+        game_progressions: list[RAUserGameProgression] = []
+
+        async for rom in self.ra_service.iter_user_completion_progress(username):
             rom_game_id = rom.get("GameID")
+            earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
                 result = await self.ra_service.get_user_game_progress(
                     username=username,
                     game_id=rom_game_id,
                 )
-                for achievement in result.get("Achievements", {}).values():
-                    if achievement.get("DateEarned") and achievement.get("BadgeName"):
-                        rom_earned_achievements[rom_game_id].append(
-                            {
-                                "id": achievement["BadgeName"],
-                                "date": achievement["DateEarned"],
-                            }
-                        )
-        return RAUserProgression(
-            count=user_complete_progression.get("Count", 0),
-            total=user_complete_progression.get("Total", 0),
-            results=[
+                earned_achievements = [
+                    {
+                        "id": achievement["BadgeName"],
+                        "date": achievement["DateEarned"],
+                    }
+                    for achievement in result.get("Achievements", {}).values()
+                    if achievement.get("DateEarned") and achievement.get("BadgeName")
+                ]
+
+            game_progressions.append(
                 RAUserGameProgression(
-                    rom_ra_id=rom.get("GameID", None),
+                    rom_ra_id=rom_game_id,
                     max_possible=rom.get("MaxPossible", None),
                     num_awarded=rom.get("NumAwarded", None),
                     num_awarded_hardcore=rom.get("NumAwardedHardcore", None),
-                    earned_achievements=(
-                        rom_earned_achievements.get(rom["GameID"], [])
-                        if rom.get("GameID")
-                        else []
-                    ),
+                    earned_achievements=earned_achievements,
                 )
-                for rom in roms_with_progression
-            ],
+            )
+
+        return RAUserProgression(
+            total=len(game_progressions),
+            results=game_progressions,
         )
 
 
