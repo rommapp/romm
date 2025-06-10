@@ -69,6 +69,9 @@ async def add_rom(request: Request):
     Raises:
         HTTPException: No files were uploaded
     """
+    import ipdb
+
+    ipdb.set_trace()
     platform_id = request.headers.get("x-upload-platform")
     filename = request.headers.get("x-upload-filename")
     if not platform_id or not filename:
@@ -95,12 +98,17 @@ async def add_rom(request: Request):
     parser.register("x-upload-platform", NullTarget())
     parser.register(filename, FileTarget(str(file_location)))
 
+    # Check if the file already exists
     if await file_location.exists():
         log.warning(f" - Skipping {hl(filename)} since the file already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File {filename} already exists",
         ) from None
+
+    # Create the directory if it doesn't exist
+    if not await file_location.parent.exists():
+        await file_location.parent.mkdir(parents=True, exist_ok=True)
 
     async def cleanup_partial_file():
         if await file_location.exists():
