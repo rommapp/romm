@@ -16,8 +16,10 @@ from sqlalchemy import (
     case,
     cast,
     delete,
+    false,
     func,
     literal,
+    not_,
     or_,
     select,
     text,
@@ -185,25 +187,21 @@ class DBRomsHandler(DBBaseHandler):
             )
         )
 
-    def filter_by_unmatched_only(self, query: Query):
-        return query.filter(
-            and_(
-                Rom.igdb_id.is_(None),
-                Rom.moby_id.is_(None),
-                Rom.ss_id.is_(None),
-            )
+    def filter_by_matched(self, query: Query, value: bool) -> Query:
+        """Filter based on whether the rom is matched to a metadata provider."""
+        predicate = or_(
+            Rom.igdb_id.isnot(None),
+            Rom.moby_id.isnot(None),
+            Rom.ss_id.isnot(None),
         )
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
-    def filter_by_matched_only(self, query: Query):
-        return query.filter(
-            or_(
-                Rom.igdb_id.isnot(None),
-                Rom.moby_id.isnot(None),
-                Rom.ss_id.isnot(None),
-            )
-        )
-
-    def filter_by_favourites_only(self, query: Query, session: Session, user_id: int):
+    def filter_by_favourite(
+        self, query: Query, session: Session, value: bool, user_id: int | None
+    ) -> Query:
+        """Filter based on whether the rom is in the user's Favourites collection."""
         favourites_collection = (
             session.query(Collection)
             .filter(Collection.name.ilike("favourites"))
@@ -212,17 +210,30 @@ class DBRomsHandler(DBBaseHandler):
         )
 
         if favourites_collection:
-            return query.filter(Rom.id.in_(favourites_collection.rom_ids))
+            predicate = Rom.id.in_(favourites_collection.rom_ids)
+            if not value:
+                predicate = not_(predicate)
+            return query.filter(predicate)
 
-        return query
+        # If no Favourites collection exists, return the original query if non-favourites
+        # were requested, or an empty query if favourites were requested.
+        if not value:
+            return query
+        return query.filter(false())
 
-    def filter_by_duplicates_only(self, query: Query):
-        return query.filter(Rom.sibling_roms.any())
+    def filter_by_duplicate(self, query: Query, value: bool) -> Query:
+        """Filter based on whether the rom has duplicates."""
+        predicate = Rom.sibling_roms.any()
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
-    def filter_by_playables_only(self, query: Query):
-        return query.join(Rom.platform).filter(
-            Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
-        )
+    def filter_by_playable(self, query: Query, value: bool) -> Query:
+        """Filter based on whether the rom is playable on supported platforms."""
+        predicate = Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
+        if not value:
+            predicate = not_(predicate)
+        return query.join(Rom.platform).filter(predicate)
 
     def filter_by_ra_only(self, query: Query):
         return query.filter(Rom.ra_id.isnot(None))
@@ -347,11 +358,10 @@ class DBRomsHandler(DBBaseHandler):
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
         search_term: str | None = None,
-        unmatched_only: bool = False,
-        matched_only: bool = False,
-        favourites_only: bool = False,
-        duplicates_only: bool = False,
-        playables_only: bool = False,
+        matched: bool | None = None,
+        favourite: bool | None = None,
+        duplicate: bool | None = None,
+        playable: bool | None = None,
         ra_only: bool = False,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
@@ -379,20 +389,19 @@ class DBRomsHandler(DBBaseHandler):
         if search_term:
             query = self.filter_by_search_term(query, search_term)
 
-        if unmatched_only:
-            query = self.filter_by_unmatched_only(query)
+        if matched is not None:
+            query = self.filter_by_matched(query, value=matched)
 
-        if matched_only:
-            query = self.filter_by_matched_only(query)
+        if favourite is not None:
+            query = self.filter_by_favourite(
+                query, session=session, value=favourite, user_id=user_id
+            )
 
-        if favourites_only and user_id:
-            query = self.filter_by_favourites_only(query, session, user_id)
+        if duplicate is not None:
+            query = self.filter_by_duplicate(query, value=duplicate)
 
-        if duplicates_only:
-            query = self.filter_by_duplicates_only(query)
-
-        if playables_only:
-            query = self.filter_by_playables_only(query)
+        if playable is not None:
+            query = self.filter_by_playable(query, value=playable)
 
         if ra_only:
             query = self.filter_by_ra_only(query)
@@ -562,10 +571,10 @@ class DBRomsHandler(DBBaseHandler):
             collection_id=kwargs.pop("collection_id", None),
             virtual_collection_id=kwargs.pop("virtual_collection_id", None),
             search_term=kwargs.pop("search_term", None),
-            unmatched_only=kwargs.pop("unmatched_only", False),
-            matched_only=kwargs.pop("matched_only", False),
-            favourites_only=kwargs.pop("favourites_only", False),
-            duplicates_only=kwargs.pop("duplicates_only", False),
+            matched=kwargs.pop("matched", None),
+            favourite=kwargs.pop("favourite", None),
+            duplicate=kwargs.pop("duplicate", None),
+            playable=kwargs.pop("playable", None),
             selected_genre=kwargs.pop("selected_genre", None),
             selected_franchise=kwargs.pop("selected_franchise", None),
             selected_collection=kwargs.pop("selected_collection", None),
