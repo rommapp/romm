@@ -1,5 +1,6 @@
 import asyncio
 import http
+from collections.abc import AsyncIterator
 from typing import cast
 
 import aiohttp
@@ -9,6 +10,7 @@ from adapters.services.retroachievements_types import (
     RAGameInfoAndUserProgress,
     RAGameListItem,
     RAUserCompletionProgress,
+    RAUserCompletionProgressResult,
 )
 from aiohttp.client import ClientTimeout
 from config import RETROACHIEVEMENTS_API_KEY
@@ -159,6 +161,31 @@ class RetroAchievementsService:
         )
         response = await self._request(str(url))
         return cast(RAUserCompletionProgress, response)
+
+    async def iter_user_completion_progress(
+        self,
+        username: str,
+    ) -> AsyncIterator[RAUserCompletionProgressResult]:
+        """Iterate through a given user's completion progress, targeted by their username.
+
+        Reference: https://api-docs.retroachievements.org/v1/get-user-completion-progress.html
+        """
+        page_size = 500  # Maximum page size for this endpoint.
+        offset = 0
+
+        while True:
+            response = await self.get_user_completion_progress(
+                username,
+                limit=page_size,
+                offset=offset or None,
+            )
+            results = response["Results"]
+            for result in results:
+                yield result
+
+            offset += len(results)
+            if len(results) < page_size or offset >= response["Total"]:
+                break
 
     async def get_user_game_progress(
         self,
