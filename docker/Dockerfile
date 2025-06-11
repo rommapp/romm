@@ -12,9 +12,9 @@
 #   - dev-full: Full image with emulator stage and development dependencies
 
 # Versions:
-ARG ALPINE_VERSION=3.20
-ARG NGINX_VERSION=1.27.1
-ARG NODE_VERSION=20.16
+ARG ALPINE_VERSION=3.22
+ARG NGINX_VERSION=1.27.5
+ARG NODE_VERSION=20.19
 ARG PYTHON_VERSION=3.12
 
 
@@ -58,24 +58,27 @@ FROM backend-build AS backend-dev-build
 RUN poetry install --no-ansi --no-cache --all-extras
 
 
-# TODO: Upgrade Alpine to the same version as the other stages, when RAHasher is updated to work
-#       with it (seems like Alpine 3.18's g++ v12 is the latest version that works with RAHasher,
-#       while g++ v13 fails to compile it).
-FROM alpine:3.18 AS rahasher-build
+FROM alpine:${ALPINE_VERSION} AS rahasher-build
 
 RUN apk add --no-cache \
     g++ \
     git \
-    linux-headers \
-    make \
-    zlib-dev
+    make
 
-ARG RALIBRETRO_VERSION=1.8.0
-
-# TODO: Remove `sed` command when RAHasher can be compiled without it.
-RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
+# TODO: Move to a tagged release of `RALibretro`, once a version newer than 1.8.0 is released.
+ARG RALIBRETRO_SHA=304ed205f11dd0bb22c01afe11d1ffabf176facc
+# TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
+# TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
+#       Related pull request: https://github.com/madler/zlib/pull/1022
+RUN git clone --recursive https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
+    git checkout "${RALIBRETRO_SHA}" && \
+    git submodule update --init --recursive && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
+    sed -i '6a #include <unistd.h>' \
+      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
@@ -126,7 +129,8 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
     chmod 644 ./objs/ngx_http_zip_module.so
 
 
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
+# TODO: Upgrade Alpine to the same version as the other stages, when a new nginx image is released.
+FROM nginx:${NGINX_VERSION}-alpine3.21 AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 # Install required packages and dependencies

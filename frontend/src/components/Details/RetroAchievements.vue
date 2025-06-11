@@ -12,8 +12,11 @@ const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const auth = storeAuth();
 const targetRom = ref();
-const earnedAchievements = ref<{ id: string; date: string }[]>([]);
-const achievemehtsPercentage = ref(0);
+const earnedAchievements = ref<
+  { id: string; date: string; hardcore: boolean }[]
+>([]);
+const achievementsPercentage = ref(0);
+const achievementsPercentageHardcore = ref(0);
 const showEarned = ref(false);
 const filteredAchievements = ref<RAGameRomAchievement[]>([]);
 
@@ -42,6 +45,16 @@ const isAchievementEarned = computed(
   },
 );
 
+const isAchievementEarnedHarcore = computed(
+  () => (achievement: RAGameRomAchievement) => {
+    return (
+      earnedAchievements.value.find(
+        (earned) => earned.id === (achievement.badge_id ?? ""),
+      )?.hardcore ?? false
+    );
+  },
+);
+
 const getAchievementEarnedDate = computed(
   () => (achievement: RAGameRomAchievement) => {
     return earnedAchievements.value.find(
@@ -60,14 +73,27 @@ onMounted(() => {
     );
     if (targetRom.value) {
       earnedAchievements.value = targetRom.value.earned_achievements.map(
-        (achievement: { id: string; date: string }) => ({
+        (achievement: {
+          id: string;
+          date: string;
+          date_hardcore?: string | null;
+        }) => ({
           id: achievement.id,
-          date: achievement.date,
+          date: achievement.date_hardcore || achievement.date,
+          hardcore: !!achievement.date_hardcore,
         }),
       );
       if (props.rom.merged_ra_metadata?.achievements) {
-        achievemehtsPercentage.value = Math.round(
+        achievementsPercentage.value = Math.round(
           (targetRom.value.earned_achievements.length /
+            props.rom.merged_ra_metadata?.achievements.length) *
+            100,
+        );
+        achievementsPercentageHardcore.value = Math.round(
+          (targetRom.value.earned_achievements.filter(
+            (achievement: { date_hardcore?: string }) =>
+              achievement.date_hardcore,
+          ).length /
             props.rom.merged_ra_metadata?.achievements.length) *
             100,
         );
@@ -86,10 +112,14 @@ onMounted(() => {
       >
     </template>
     <v-progress-linear
-      color="accent"
-      :model-value="achievemehtsPercentage"
+      bg-color="secondary"
+      color="romm-gold"
+      :model-value="achievementsPercentageHardcore"
+      buffer-color="primary"
+      buffer-opacity="0.6"
+      :buffer-value="achievementsPercentage"
       height="32"
-      ><p>{{ Math.ceil(achievemehtsPercentage) }}%</p></v-progress-linear
+      ><p>{{ Math.ceil(achievementsPercentage) }}%</p></v-progress-linear
     >
   </v-list-item>
   <v-chip
@@ -109,7 +139,10 @@ onMounted(() => {
       :title="achievement.title?.toString()"
       class="mb-2 py-4 rounded bg-toplayer"
       :class="{
-        earned: isAchievementEarned(achievement),
+        earned:
+          isAchievementEarned(achievement) &&
+          !isAchievementEarnedHarcore(achievement),
+        'earned-hardcore': isAchievementEarnedHarcore(achievement),
         locked: !isAchievementEarned(achievement),
         hidden: showEarned && !isAchievementEarned(achievement),
       }"
@@ -119,13 +152,19 @@ onMounted(() => {
           v-if="achievement.badge_path_lock || achievement.badge_path"
           rounded="0"
         >
-          <v-img
-            :src="
-              isAchievementEarned(achievement)
-                ? (achievement.badge_path ?? '')
-                : (achievement.badge_path_lock ?? '')
-            "
-          />
+          <a
+            :href="`https://retroachievements.org/achievement/${achievement.ra_id}`"
+            target="_blank"
+            style="height: 100%; width: 100%"
+          >
+            <v-img
+              :src="
+                isAchievementEarned(achievement)
+                  ? (achievement.badge_path ?? '')
+                  : (achievement.badge_path_lock ?? '')
+              "
+            />
+          </a>
         </v-avatar>
       </template>
       <template #subtitle>
@@ -156,6 +195,9 @@ onMounted(() => {
 }
 .earned {
   border-left: solid rgba(var(--v-theme-primary)) 4px;
+}
+.earned-hardcore {
+  border-left: solid rgba(var(--v-theme-romm-gold)) 4px;
 }
 .hidden {
   display: none;

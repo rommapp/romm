@@ -162,7 +162,7 @@ async function loginOIDC() {
               variant="text"
               :disabled="loggingInOIDC || loggingIn"
               :loading="loggingInOIDC"
-              @click="loginOIDC()"
+              @click="loginOIDC"
             >
               <template v-if="oidcProvider" #prepend>
                 <v-icon size="20">

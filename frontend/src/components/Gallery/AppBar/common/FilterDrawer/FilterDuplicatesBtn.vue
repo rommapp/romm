@@ -25,7 +25,7 @@ function setDuplicates() {
     block
     variant="tonal"
     :color="filterDuplicates ? 'primary' : ''"
-    @click="setDuplicates()"
+    @click="setDuplicates"
     :disabled="fetchTotalRoms > 10000"
   >
     <v-icon :color="filterDuplicates ? 'primary' : ''">

@@ -118,7 +118,7 @@ function closeDialog() {
             :disabled="!user.username || !user.password"
             :variant="!user.username || !user.password ? 'plain' : 'flat'"
             class="text-romm-green bg-toplayer"
-            @click="createUser()"
+            @click="createUser"
           >
             {{ t("common.create") }}
           </v-btn>

@@ -252,7 +252,7 @@ async function stopScan() {
       :loading="scanning"
       rounded="4"
       height="40"
-      @click="scan()"
+      @click="scan"
     >
       <template #prepend>
         <v-icon :color="scanning ? '' : 'primary'">mdi-magnify-scan</v-icon>
@@ -272,7 +272,7 @@ async function stopScan() {
       class="ml-2"
       rounded="4"
       height="40"
-      @click="stopScan()"
+      @click="stopScan"
     >
       <template #prepend>
         <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
