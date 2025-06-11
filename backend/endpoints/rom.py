@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
 from stat import S_IFREG
-from typing import Any, TypeVar
+from typing import Annotated, Any, TypeVar
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -95,12 +95,17 @@ async def add_rom(request: Request):
     parser.register("x-upload-platform", NullTarget())
     parser.register(filename, FileTarget(str(file_location)))
 
+    # Check if the file already exists
     if await file_location.exists():
         log.warning(f" - Skipping {hl(filename)} since the file already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File {filename} already exists",
         ) from None
+
+    # Create the directory if it doesn't exist
+    if not await file_location.parent.exists():
+        await file_location.parent.mkdir(parents=True, exist_ok=True)
 
     async def cleanup_partial_file():
         if await file_location.exists():
@@ -143,11 +148,17 @@ def get_roms(
     search_term: str | None = None,
     order_by: str = "name",
     order_dir: str = "asc",
-    unmatched_only: bool = False,
-    matched_only: bool = False,
-    favourites_only: bool = False,
-    duplicates_only: bool = False,
-    playables_only: bool = False,
+    matched: bool | None = None,
+    favourite: bool | None = None,
+    duplicate: bool | None = None,
+    playable: bool | None = None,
+    # TODO: Remove deprecated boolean parameters, in favor of their
+    #       optional counterparts.
+    unmatched_only: Annotated[bool, Query(deprecated=True)] = False,
+    matched_only: Annotated[bool, Query(deprecated=True)] = False,
+    favourites_only: Annotated[bool, Query(deprecated=True)] = False,
+    duplicates_only: Annotated[bool, Query(deprecated=True)] = False,
+    playables_only: Annotated[bool, Query(deprecated=True)] = False,
     ra_only: bool = False,
     group_by_meta_id: bool = False,
     selected_genre: str | None = None,
@@ -169,11 +180,15 @@ def get_roms(
         search_term (str, optional): Search term to filter roms. Defaults to None.
         order_by (str, optional): Field to order by. Defaults to "name".
         order_dir (str, optional): Order direction. Defaults to "asc".
-        unmatched_only (bool, optional): Filter only unmatched roms. Defaults to False.
-        matched_only (bool, optional): Filter only matched roms. Defaults to False.
-        favourites_only (bool, optional): Filter only favourite roms. Defaults to False.
-        duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False.
-        playables_only (bool, optional): Filter only playable roms by emulatorjs. Defaults to False.
+        matched (bool, optional): Filter for matched or unmatched roms. Defaults to None.
+        favourite (bool, optional): Filter for favourite or non-favourite roms. Defaults to None.
+        duplicate (bool, optional): Filter for duplicate or non-duplicate roms. Defaults to None.
+        playable (bool, optional): Filter for playable or non-playable roms. Defaults to None.
+        unmatched_only (bool, optional): Filter only unmatched roms. Defaults to False. DEPRECATED: use `matched` instead.
+        matched_only (bool, optional): Filter only matched roms. Defaults to False. DEPRECATED: use `matched` instead.
+        favourites_only (bool, optional): Filter only favourite roms. Defaults to False. DEPRECATED: use `favourite` instead.
+        duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False. DEPRECATED: use `duplicate` instead.
+        playables_only (bool, optional): Filter only playable roms by emulatorjs. Defaults to False. DEPRECATED: use `playable` instead.
         ra_only (bool, optional): Filter only roms with Retroachievements compatibility.
         group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf ID. Defaults to False.
         selected_genre (str, optional): Filter by genre. Defaults to None.
@@ -196,6 +211,22 @@ def get_roms(
         order_dir=order_dir.lower(),
     )
 
+    # Backwards compatibility for matched parameter.
+    if matched is None:
+        if unmatched_only:
+            matched = False
+        elif matched_only:
+            matched = True
+    # Backwards compatibility for favourite parameter.
+    if favourite is None and favourites_only:
+        favourite = True
+    # Backwards compatibility for duplicate parameter.
+    if duplicate is None and duplicates_only:
+        duplicate = True
+    # Backwards compatibility for playable parameter.
+    if playable is None and playables_only:
+        playable = True
+
     # Filter down the query
     query = db_rom_handler.filter_roms(
         query=query,
@@ -204,11 +235,10 @@ def get_roms(
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
         search_term=search_term,
-        unmatched_only=unmatched_only,
-        matched_only=matched_only,
-        favourites_only=favourites_only,
-        duplicates_only=duplicates_only,
-        playables_only=playables_only,
+        matched=matched,
+        favourite=favourite,
+        duplicate=duplicate,
+        playable=playable,
         ra_only=ra_only,
         selected_genre=selected_genre,
         selected_franchise=selected_franchise,

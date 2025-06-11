@@ -157,7 +157,7 @@ function onClose() {
     </v-list>
     <template #append>
       <v-btn
-        @click="addCollection()"
+        @click="addCollection"
         variant="tonal"
         color="primary"
         prepend-icon="mdi-plus"
