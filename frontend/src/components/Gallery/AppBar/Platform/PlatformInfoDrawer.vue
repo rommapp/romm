@@ -364,7 +364,7 @@ watch(
               target="_blank"
               :class="{
                 'ml-1':
-                  currentPlatform.ra_id ||
+                  currentPlatform.igdb_id ||
                   currentPlatform.ss_id ||
                   currentPlatform.moby_id,
               }"
