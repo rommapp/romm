@@ -89,7 +89,7 @@ const actionBarRef = ref(
 );
 const stored3DEffect = localStorage.getItem("settings.enable3DEffect");
 const enable3DEffectRef = ref(
-  isNull(stored3DEffect) ? true : stored3DEffect === "true",
+  isNull(stored3DEffect) ? false : stored3DEffect === "true",
 );
 
 const homeOptions = computed(() => [
