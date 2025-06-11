@@ -69,9 +69,6 @@ async def add_rom(request: Request):
     Raises:
         HTTPException: No files were uploaded
     """
-    import ipdb
-
-    ipdb.set_trace()
     platform_id = request.headers.get("x-upload-platform")
     filename = request.headers.get("x-upload-filename")
     if not platform_id or not filename:
