@@ -60,6 +60,7 @@ class RAGameRom(TypedDict):
 class EarnedAchievement(TypedDict):
     id: str
     date: str
+    date_hardcore: NotRequired[str]
 
 
 class RAUserGameProgression(TypedDict):
@@ -281,14 +282,18 @@ class RAHandler(MetadataHandler):
                     username=username,
                     game_id=rom_game_id,
                 )
-                earned_achievements = [
-                    {
-                        "id": achievement["BadgeName"],
-                        "date": achievement["DateEarned"],
-                    }
-                    for achievement in result.get("Achievements", {}).values()
-                    if achievement.get("DateEarned") and achievement.get("BadgeName")
-                ]
+                for achievement in result.get("Achievements", {}).values():
+                    badge_name = achievement.get("BadgeName")
+                    date_earned = achievement.get("DateEarned")
+                    date_earned_hardcore = achievement.get("DateEarnedHardcore")
+                    if badge_name and date_earned:
+                        earned_achievement = EarnedAchievement(
+                            id=badge_name,
+                            date=date_earned,
+                        )
+                        if date_earned_hardcore:
+                            earned_achievement["date_hardcore"] = date_earned_hardcore
+                        earned_achievements.append(earned_achievement)
 
             game_progressions.append(
                 RAUserGameProgression(
