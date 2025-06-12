@@ -193,7 +193,7 @@ watch(
     location="left"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'mr-2': activePlatformInfoDrawer,
+      'ml-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
     }"
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"

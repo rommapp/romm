@@ -54,14 +54,14 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
         :class="{
           'flex-nowrap overflow-x-auto': !gridPlatforms,
         }"
-        class="pa-1"
+        class="py-1"
         no-gutters
         style="overflow-y: hidden"
       >
         <v-col
           v-for="platform in filledPlatforms"
           :key="platform.slug"
-          class="pa-1 my-4"
+          class="pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
           :md="views[0]['size-md']"

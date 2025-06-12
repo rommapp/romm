@@ -5,6 +5,7 @@ const commonColors = {
   "romm-white": "#FEFDFE",
   "romm-gray": "#5D5D5D",
   "romm-black": "#000000",
+  "romm-gold": "#FFD700",
 };
 
 export const dark = {
