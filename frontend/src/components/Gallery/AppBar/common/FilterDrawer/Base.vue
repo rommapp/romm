@@ -2,6 +2,7 @@
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
+import FilterMissingBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMissingBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
@@ -212,6 +213,10 @@ onMounted(async () => {
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
         <filter-ra-btn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
+        <filter-missing-btn
+          class="mt-2"
+          :tabindex="activeFilterDrawer ? 0 : -1"
+        />
       </v-list-item>
       <v-list-item
         v-if="showPlatformsFilter"
