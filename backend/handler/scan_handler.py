@@ -16,6 +16,7 @@ from handler.metadata import (
 )
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
+from handler.metadata.pm_handler import PlaymatchProvider
 from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
 from handler.metadata.ss_handler import SSPlatform, SSRom
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -316,21 +317,24 @@ async def scan_rom(
             )
         ):
             rom_file = fs_rom["files"][0]
-            pm_igdbid = await meta_pm_handler.identify_rom(
+            pm_matches = await meta_pm_handler.lookup_rom(
                 rom_file.file_name,
                 rom_file.file_size_bytes,
                 rom_file.md5_hash,
                 rom_file.sha1_hash,
             )
 
-            if pm_igdbid is not None:
-                log.debug(
-                    emoji.emojize(
-                        f"{hl(rom_attrs['fs_name'])} identified by Playmatch as {hl(pm_igdbid, color=BLUE)} :alien_monster:"
-                    ),
-                    extra=LOGGER_MODULE_NAME,
-                )
-                return await meta_igdb_handler.get_rom_by_id(pm_igdbid)
+            for pm_match in pm_matches:
+                if pm_match["provider"] == PlaymatchProvider.IGDB:
+                    pm_igdbid = pm_match["provider_game_id"]
+                    if pm_igdbid is not None:
+                        log.debug(
+                            emoji.emojize(
+                                f"{hl(rom_attrs['fs_name'])} identified by Playmatch as {hl(str(pm_igdbid), color=BLUE)} :alien_monster:"
+                            ),
+                            extra=LOGGER_MODULE_NAME,
+                        )
+                        return await meta_igdb_handler.get_rom_by_id(pm_igdbid)
 
             main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
             return await meta_igdb_handler.get_rom(
