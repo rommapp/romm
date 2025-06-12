@@ -56,6 +56,7 @@ export type SimpleRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
+    missing: boolean;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
 };

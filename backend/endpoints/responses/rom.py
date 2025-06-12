@@ -225,6 +225,8 @@ class RomSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    missing: bool
+
     class Config:
         from_attributes = True
 

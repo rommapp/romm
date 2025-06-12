@@ -238,6 +238,26 @@ onBeforeUnmount(() => {
                 </template>
                 <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
                 <v-row no-gutters class="text-white px-1">
+                  <v-tooltip
+                    v-if="romsStore.isSimpleRom(rom) && rom.missing"
+                    location="top"
+                    class="tooltip"
+                    transition="fade-transition"
+                    :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
+                    open-delay="500"
+                    ><template #activator="{ props }">
+                      <v-chip
+                        v-bind="props"
+                        class="translucent-dark mr-1 mt-1 px-1"
+                        color="accent"
+                        density="compact"
+                      >
+                        <span class="text-caption"
+                          ><v-icon>mdi-alert-circle</v-icon></span
+                        >
+                      </v-chip>
+                    </template>
+                  </v-tooltip>
                   <game-card-flags
                     v-if="romsStore.isSimpleRom(rom) && showFlags"
                     :rom="rom"
