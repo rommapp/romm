@@ -398,7 +398,7 @@ async def scan_rom(
                 extra=LOGGER_MODULE_NAME,
             )
 
-    romm_attrs["missing"] = False
+    rom_attrs["missing"] = False
     return Rom(**rom_attrs)
 
 
