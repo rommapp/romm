@@ -227,18 +227,14 @@ async def _identify_rom(
         return scan_stats
 
     if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
-        log.debug(
-            f"Skipping {hl(fs_rom['fs_name'], color=BLUE)} for scan type {scan_type.name}"
-        )
-        if rom and rom.fs_name != fs_rom["fs_name"]:
-            # Just to update the filesystem data
-            rom.fs_name = fs_rom["fs_name"]
-            rom.missing = False
-            db_rom_handler.add_rom(rom)
+        if rom:
+            if rom.fs_name != fs_rom["fs_name"]:
+                # Just to update the filesystem data
+                rom.fs_name = fs_rom["fs_name"]
+                db_rom_handler.add_rom(rom)
 
-        elif rom and rom.missing:
-            rom.missing = False
-            db_rom_handler.add_rom(rom)
+            if rom.missing:
+                db_rom_handler.update_rom(rom.id, {"missing": False})
 
         return scan_stats
 
@@ -445,8 +441,6 @@ async def _identify_platform(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
         )
-
-        log.debug(rom_by_filename_map)
 
         for fs_rom in fs_roms_batch:
             scan_stats += await _identify_rom(
