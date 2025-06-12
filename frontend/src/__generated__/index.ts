@@ -28,6 +28,7 @@ export type { IGDBAgeRating } from './models/IGDBAgeRating';
 export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { InviteLinkSchema } from './models/InviteLinkSchema';
+export type { LaunchboxImage } from './models/LaunchboxImage';
 export type { MessageResponse } from './models/MessageResponse';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';

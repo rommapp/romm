@@ -21,6 +21,12 @@ class LaunchboxPlatform(TypedDict):
     name: NotRequired[str]
 
 
+class LaunchboxImage(TypedDict):
+    url: str
+    type: NotRequired[str]
+    region: NotRequired[str]
+
+
 class LaunchboxMetadata(TypedDict):
     release_date: NotRequired[str]
     max_players: NotRequired[int]
@@ -34,6 +40,7 @@ class LaunchboxMetadata(TypedDict):
     genres: NotRequired[list[str]]
     developer: NotRequired[str]
     publisher: NotRequired[str]
+    images: list[LaunchboxImage]
 
 
 class LaunchboxRom(TypedDict):
@@ -45,7 +52,9 @@ class LaunchboxRom(TypedDict):
     launchbox_metadata: NotRequired[LaunchboxMetadata]
 
 
-def extract_metadata_from_launchbox_rom(index_entry: dict) -> LaunchboxMetadata:
+def extract_metadata_from_launchbox_rom(
+    index_entry: dict, game_images: list[dict] | None
+) -> LaunchboxMetadata:
     return LaunchboxMetadata(
         {
             "release_date": index_entry.get("ReleaseDate", ""),
@@ -62,12 +71,24 @@ def extract_metadata_from_launchbox_rom(index_entry: dict) -> LaunchboxMetadata:
             ),
             "developer": index_entry.get("Developer") or "",
             "publisher": index_entry.get("Publisher") or "",
+            "images": [
+                LaunchboxImage(
+                    {
+                        "url": f"https://images.launchbox-app.com/{image['FileName']}",
+                        "type": image.get("Type", ""),
+                        "region": image.get("Region", ""),
+                    }
+                )
+                for image in game_images or []
+            ],
         }
     )
 
 
 class LaunchboxHandler(MetadataHandler):
-    async def _get_rom_from_metadata(self, file_name: str) -> dict | None:
+    async def _get_rom_from_metadata(
+        self, file_name: str, platform_slug: str
+    ) -> dict | None:
         if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
             log.warning("Fetching the Launchbox Metadata.xml file...")
             await update_launchbox_metadata_task.run(force=True)
@@ -76,8 +97,13 @@ class LaunchboxHandler(MetadataHandler):
                 log.error("Could not fetch the Launchbox Metadata.xml file")
                 return None
 
+        lb_platform = self.get_platform(platform_slug)
+        platform_name = lb_platform.get("name", None)
+        if not platform_name:
+            return None
+
         metadata_name_index_entry = await async_cache.hget(
-            LAUNCHBOX_METADATA_NAME_KEY, file_name
+            LAUNCHBOX_METADATA_NAME_KEY, f"{file_name}:{platform_name}"
         )
 
         if metadata_name_index_entry:
@@ -155,7 +181,7 @@ class LaunchboxHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, fs_name: str) -> LaunchboxRom:
+    async def get_rom(self, fs_name: str, platform_slug: str) -> LaunchboxRom:
         from handler.filesystem import fs_rom_handler
 
         if not LAUNCHBOX_API_ENABLED:
@@ -164,7 +190,7 @@ class LaunchboxHandler(MetadataHandler):
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = LaunchboxRom(launchbox_id=None)
 
-        index_entry = await self._get_rom_from_metadata(search_term)
+        index_entry = await self._get_rom_from_metadata(search_term, platform_slug)
         if not index_entry:
             return fallback_rom
 
@@ -187,7 +213,9 @@ class LaunchboxHandler(MetadataHandler):
             "summary": index_entry.get("Overview", ""),
             "url_cover": url_cover,
             "url_screenshots": url_screenshots,
-            "launchbox_metadata": extract_metadata_from_launchbox_rom(index_entry),
+            "launchbox_metadata": extract_metadata_from_launchbox_rom(
+                index_entry, game_images
+            ),
         }
 
         return LaunchboxRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
@@ -203,12 +231,17 @@ class LaunchboxHandler(MetadataHandler):
         if not metadata_database_index_entry:
             return LaunchboxRom(launchbox_id=None)
 
+        game_images = await self._get_game_images(
+            metadata_database_index_entry["DatabaseID"]
+        )
+
         rom = {
             "launchbox_id": database_id,
             "name": metadata_database_index_entry["Name"],
             "summary": metadata_database_index_entry.get("Overview", ""),
             "launchbox_metadata": extract_metadata_from_launchbox_rom(
-                metadata_database_index_entry
+                metadata_database_index_entry,
+                game_images,
             ),
         }
 

@@ -370,21 +370,26 @@ async def scan_rom(
 
         return SSRom(ss_id=None)
 
-    async def fetch_launchbox_rom():
+    async def fetch_launchbox_rom(platform_slug: str):
         if MetadataSource.LB in metadata_sources and (
             not rom
             or scan_type == ScanType.COMPLETE
             or (scan_type == ScanType.PARTIAL and not rom.launchbox_id)
             or (scan_type == ScanType.UNIDENTIFIED and not rom.launchbox_id)
         ):
-            return await meta_launchbox_handler.get_rom(rom_attrs["fs_name"])
+            return await meta_launchbox_handler.get_rom(
+                rom_attrs["fs_name"], platform_slug
+            )
 
         return LaunchboxRom(launchbox_id=None)
 
     # Run both metadata fetches concurrently
     igdb_handler_rom, moby_handler_rom, ss_handler_rom, launchbox_handler_rom = (
         await asyncio.gather(
-            fetch_igdb_rom(), fetch_moby_rom(), fetch_ss_rom(), fetch_launchbox_rom()
+            fetch_igdb_rom(),
+            fetch_moby_rom(),
+            fetch_ss_rom(),
+            fetch_launchbox_rom(platform.slug),
         )
     )
 
