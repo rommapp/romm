@@ -15,7 +15,7 @@ export type FirmwareSchema = {
     crc_hash: string;
     md5_hash: string;
     sha1_hash: string;
-    missing: boolean;
+    missing_from_fs: boolean;
     created_at: string;
     updated_at: string;
 };
