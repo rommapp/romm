@@ -479,49 +479,65 @@ async def _identify_rom(
             file_size_bytes=file.file_size_bytes,
             last_modified=file.last_modified,
             category=file.category,
+            crc_hash=file.crc_hash,
+            md5_hash=file.md5_hash,
+            sha1_hash=file.sha1_hash,
+            ra_hash=file.ra_hash,
         )
         for file in fs_rom["files"]
     ]
     for new_rom_file in new_rom_files:
         db_rom_handler.add_rom_file(new_rom_file)
 
-    # Calculating hashes is expensive, so we only do it if necessary
-    if (
-        not rom
-        or not rom.ra_id
-        or scan_type == ScanType.COMPLETE
-        or scan_type == ScanType.HASHES
-        or MetadataSource.RA in metadata_sources
-    ):
-        # Skip hashing games for platforms that don't have a hash database
-        if platform.slug not in NON_HASHABLE_PLATFORMS:
-            ra_hash = await _set_rom_hashes(_added_rom.id)
-            if ra_hash:
-                ra_handler_rom = await fetch_ra_info(
-                    platform=platform,
-                    rom_id=_added_rom.id,
-                    hash=ra_hash,
-                )
-                _added_rom.ra_id = ra_handler_rom.get("ra_id", "")
-                _added_rom.ra_metadata = ra_handler_rom.get("ra_metadata", {})
-                for a in _added_rom.ra_metadata.get("achievements", {}):
-                    # Store both normal and locked version
-                    badge_url_lock = a.get("badge_url_lock", None)
-                    badge_path_lock = a.get("badge_path_lock", None)
-                    if badge_url_lock and badge_path_lock:
-                        await fs_resource_handler.store_badge(
-                            badge_url_lock, badge_path_lock
-                        )
-                    badge_url = a.get("badge_url", None)
-                    badge_path = a.get("badge_path", None)
-                    if badge_url and badge_path:
-                        await fs_resource_handler.store_badge(badge_url, badge_path)
-                # Uncomment this to run scan in a background process
-                # low_prio_queue.enqueue(
-                #     _set_rom_hashes,
-                #     _added_rom.id,
-                #     job_timeout=60 * 15,  # Timeout (15 minutes)
-                # )
+    # # Calculating hashes is expensive, so we only do it if necessary
+    # if (
+    #     not rom
+    #     or not rom.ra_id
+    #     or scan_type == ScanType.COMPLETE
+    #     or scan_type == ScanType.HASHES
+    #     or MetadataSource.RA in metadata_sources
+    # ):
+    #     # Skip hashing games for platforms that don't have a hash database
+    #     if platform.slug not in NON_HASHABLE_PLATFORMS:
+    #         ra_hash = await _set_rom_hashes(_added_rom.id)
+    #         # Fetch retroachievements info if the hash is set
+    #         if ra_hash:
+    #             ra_handler_rom = await fetch_ra_info(
+    #                 platform=platform,
+    #                 rom_id=_added_rom.id,
+    #                 hash=ra_hash,
+    #             )
+    #             _added_rom.ra_id = ra_handler_rom.get("ra_id", "")
+    #             _added_rom.ra_metadata = ra_handler_rom.get("ra_metadata", {})
+    #             for a in _added_rom.ra_metadata.get("achievements", {}):
+    #                 # Store both normal and locked version
+    #                 badge_url_lock = a.get("badge_url_lock", None)
+    #                 badge_path_lock = a.get("badge_path_lock", None)
+    #                 if badge_url_lock and badge_path_lock:
+    #                     await fs_resource_handler.store_badge(
+    #                         badge_url_lock, badge_path_lock
+    #                     )
+    #                 badge_url = a.get("badge_url", None)
+    #                 badge_path = a.get("badge_path", None)
+    #                 if badge_url and badge_path:
+    #                     await fs_resource_handler.store_badge(badge_url, badge_path)
+
+    #         rom_file = fs_rom["files"][0]
+    #         pm_igdbid = await meta_pm_handler.identify_rom(
+    #             rom_file.file_name,
+    #             rom_file.file_size_bytes,
+    #             rom_file.md5_hash,
+    #             rom_file.sha1_hash,
+    #         )
+
+    #         if pm_igdbid is not None:
+    #             log.debug(
+    #                 emoji.emojize(
+    #                     f"{hl(rom_attrs['fs_name'])} identified by Playmatch as {hl(pm_igdbid, color=BLUE)} :alien_monster:"
+    #                 ),
+    #                 extra=LOGGER_MODULE_NAME,
+    #             )
+    #             return await meta_igdb_handler.get_rom_by_id(pm_igdbid)
 
     # Return early if we're only scanning for hashes
     if scan_type == ScanType.HASHES:

@@ -73,7 +73,9 @@ REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
 )
 
 # PLAYMATCH
-PLAYMATCH_ENABLED: Final = str_to_bool(os.environ.get("PLAYMATCH_ENABLED", "true"))
+PLAYMATCH_API_ENABLED: Final = str_to_bool(
+    os.environ.get("PLAYMATCH_API_ENABLED", "true")
+)
 
 # MOBYGAMES
 MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
