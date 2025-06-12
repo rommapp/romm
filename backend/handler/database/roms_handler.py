@@ -238,6 +238,9 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_ra_only(self, query: Query):
         return query.filter(Rom.ra_id.isnot(None))
 
+    def filter_by_missing_only(self, query: Query):
+        return query.filter(Rom.missing.isnot(False))
+
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
             return query.filter(
@@ -362,7 +365,8 @@ class DBRomsHandler(DBBaseHandler):
         favourite: bool | None = None,
         duplicate: bool | None = None,
         playable: bool | None = None,
-        ra_only: bool = False,
+        ra_only: bool | None = False,
+        missing_only: bool | None = False,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -405,6 +409,9 @@ class DBRomsHandler(DBBaseHandler):
 
         if ra_only:
             query = self.filter_by_ra_only(query)
+
+        if missing_only:
+            query = self.filter_by_missing_only(query)
 
         if group_by_meta_id:
 

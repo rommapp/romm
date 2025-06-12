@@ -159,6 +159,7 @@ def get_roms(
     favourites_only: Annotated[bool, Query(deprecated=True)] = False,
     duplicates_only: Annotated[bool, Query(deprecated=True)] = False,
     playables_only: Annotated[bool, Query(deprecated=True)] = False,
+    missing_only: Annotated[bool, Query(deprecated=True)] = False,
     ra_only: bool = False,
     group_by_meta_id: bool = False,
     selected_genre: str | None = None,
@@ -189,7 +190,8 @@ def get_roms(
         favourites_only (bool, optional): Filter only favourite roms. Defaults to False. DEPRECATED: use `favourite` instead.
         duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False. DEPRECATED: use `duplicate` instead.
         playables_only (bool, optional): Filter only playable roms by emulatorjs. Defaults to False. DEPRECATED: use `playable` instead.
-        ra_only (bool, optional): Filter only roms with Retroachievements compatibility.
+        ra_only (bool, optional): Filter only roms with Retroachievements compatibility. Defaults to False.
+        missing_only (bool, optional): Filter only roms that are missing from the filesystem. Defaults to False.
         group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf ID. Defaults to False.
         selected_genre (str, optional): Filter by genre. Defaults to None.
         selected_franchise (str, optional): Filter by franchise. Defaults to None.
@@ -240,6 +242,7 @@ def get_roms(
         duplicate=duplicate,
         playable=playable,
         ra_only=ra_only,
+        missing_only=missing_only,
         selected_genre=selected_genre,
         selected_franchise=selected_franchise,
         selected_collection=selected_collection,
