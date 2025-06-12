@@ -337,6 +337,7 @@ export function languageToEmoji(language: string) {
  */
 const _EJS_CORES_MAP = {
   "3do": ["opera"],
+  acpc: ["cap32", "crocods"],
   amiga: ["puae"],
   "amiga-cd32": ["puae"],
   arcade: [
@@ -359,6 +360,7 @@ const _EJS_CORES_MAP = {
   c128: ["vice_x128"],
   "commmodore-128": ["vice_x128"],
   colecovision: ["gearcoleco"],
+  doom: ["prboom"],
   jaguar: ["virtualjaguar"],
   lynx: ["handy"],
   "atari-lynx-mkii": ["handy"],
@@ -413,6 +415,7 @@ const _EJS_CORES_MAP = {
   wonderswan: ["mednafen_wswan"],
   swancrystal: ["mednafen_wswan"],
   "wonderswan-color": ["mednafen_wswan"],
+  "zx-spectrum": ["fuse"],
 } as const;
 
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;

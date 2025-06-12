@@ -562,7 +562,7 @@ MOBYGAMES_PLATFORM_LIST: dict[str, SlugToMobyId] = {
     "ngage": {"id": 32, "name": "N-Gage"},
     "ngage2": {"id": 89, "name": "N-Gage (service)"},
     "nes": {"id": 22, "name": "NES"},
-    "famicom": {"id": 22, "name": "NES"},
+    "famicom": {"id": 22, "name": "Family Computer"},
     "nascom": {"id": 175, "name": "Nascom"},
     "neo-geo": {"id": 36, "name": "Neo Geo"},
     "neogeoaes": {"id": 36, "name": "Neo Geo"},  # IGDB
@@ -650,7 +650,7 @@ MOBYGAMES_PLATFORM_LIST: dict[str, SlugToMobyId] = {
     "sk-vm": {"id": 259, "name": "SK-VM"},
     "smc-777": {"id": 273, "name": "SMC-777"},
     "snes": {"id": 15, "name": "SNES"},
-    "sfam": {"id": 15, "name": "SNES"},
+    "sfam": {"id": 15, "name": "Super Famicom"},
     "sri-5001000": {"id": 242, "name": "SRI-500/1000"},
     "swtpc-6800": {"id": 228, "name": "SWTPC 6800"},
     "sharp-mz-80b20002500": {"id": 182, "name": "Sharp MZ-80B/2000/2500"},

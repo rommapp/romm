@@ -3,7 +3,6 @@ import http
 import json
 import os
 import time
-from collections import defaultdict
 from typing import Final, NotRequired, TypedDict
 
 import httpx
@@ -61,6 +60,7 @@ class RAGameRom(TypedDict):
 class EarnedAchievement(TypedDict):
     id: str
     date: str
+    date_hardcore: NotRequired[str]
 
 
 class RAUserGameProgression(TypedDict):
@@ -72,7 +72,6 @@ class RAUserGameProgression(TypedDict):
 
 
 class RAUserProgression(TypedDict):
-    count: int
     total: int
     results: list[RAUserGameProgression]
 
@@ -273,44 +272,42 @@ class RAHandler(MetadataHandler):
             return RAGameRom(ra_id=None)
 
     async def get_user_progression(self, username: str) -> RAUserProgression:
-        user_complete_progression = await self.ra_service.get_user_completion_progress(
-            username=username,
-            limit=500,
-        )
-        roms_with_progression = user_complete_progression.get("Results", [])
-        rom_earned_achievements: dict[int, list[EarnedAchievement]] = defaultdict(list)
-        for rom in roms_with_progression:
+        game_progressions: list[RAUserGameProgression] = []
+
+        async for rom in self.ra_service.iter_user_completion_progress(username):
             rom_game_id = rom.get("GameID")
+            earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
                 result = await self.ra_service.get_user_game_progress(
                     username=username,
                     game_id=rom_game_id,
                 )
                 for achievement in result.get("Achievements", {}).values():
-                    if achievement.get("DateEarned") and achievement.get("BadgeName"):
-                        rom_earned_achievements[rom_game_id].append(
-                            {
-                                "id": achievement["BadgeName"],
-                                "date": achievement["DateEarned"],
-                            }
+                    badge_name = achievement.get("BadgeName")
+                    date_earned = achievement.get("DateEarned")
+                    date_earned_hardcore = achievement.get("DateEarnedHardcore")
+                    if badge_name and date_earned:
+                        earned_achievement = EarnedAchievement(
+                            id=badge_name,
+                            date=date_earned,
                         )
-        return RAUserProgression(
-            count=user_complete_progression.get("Count", 0),
-            total=user_complete_progression.get("Total", 0),
-            results=[
+                        if date_earned_hardcore:
+                            earned_achievement["date_hardcore"] = date_earned_hardcore
+                        earned_achievements.append(earned_achievement)
+
+            game_progressions.append(
                 RAUserGameProgression(
-                    rom_ra_id=rom.get("GameID", None),
+                    rom_ra_id=rom_game_id,
                     max_possible=rom.get("MaxPossible", None),
                     num_awarded=rom.get("NumAwarded", None),
                     num_awarded_hardcore=rom.get("NumAwardedHardcore", None),
-                    earned_achievements=(
-                        rom_earned_achievements.get(rom["GameID"], [])
-                        if rom.get("GameID")
-                        else []
-                    ),
+                    earned_achievements=earned_achievements,
                 )
-                for rom in roms_with_progression
-            ],
+            )
+
+        return RAUserProgression(
+            total=len(game_progressions),
+            results=game_progressions,
         )
 
 
@@ -336,6 +333,8 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "colecovision": {"id": 44, "name": "ColecoVision"},
     "dreamcast": {"id": 40, "name": "Dreamcast"},
     "dc": {"id": 40, "name": "Dreamcast"},  # IGDB
+    "elektor": {"id": 75, "name": "Elektor"},
+    "fairchild-channel-f": {"id": 57, "name": "Fairchild Channel F"},
     "gameboy": {"id": 4, "name": "Game Boy"},
     "gb": {"id": 4, "name": "Game Boy"},  # IGDB
     "gameboy-advance": {"id": 5, "name": "Game Boy Advance"},
@@ -345,16 +344,17 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "game-gear": {"id": 15, "name": "Game Gear"},
     "gamegear": {"id": 15, "name": "Game Gear"},  # IGDB
     "gamecube": {"id": 16, "name": "GameCube"},
-    "ngc": {"id": 14, "name": "GameCube"},  # IGDB
+    "ngc": {"id": 16, "name": "GameCube"},  # IGDB
     "genesis": {"id": 1, "name": "Genesis/Mega Drive"},
-    "genesis-slash-megadrive": {"id": 16, "name": "Genesis/Mega Drive"},
+    "genesis-slash-megadrive": {"id": 1, "name": "Genesis/Mega Drive"},
     "intellivision": {"id": 45, "name": "Intellivision"},
+    "interton-vc-4000": {"id": 74, "name": "Interton VC 4000"},
     "jaguar": {"id": 17, "name": "Jaguar"},
     "lynx": {"id": 13, "name": "Lynx"},
     "msx": {"id": 29, "name": "MSX"},
     "mega-duck-slash-cougar-boy": {"id": 69, "name": "Mega Duck/Cougar Boy"},
     "nes": {"id": 7, "name": "NES"},
-    "famicom": {"id": 7, "name": "NES"},
+    "famicom": {"id": 7, "name": "Family Computer"},
     "neo-geo-cd": {"id": 56, "name": "Neo Geo CD"},
     "neo-geo-pocket": {"id": 14, "name": "Neo Geo Pocket"},
     "neo-geo-pocket-color": {"id": 14, "name": "Neo Geo Pocket Color"},
@@ -380,17 +380,21 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "sms": {"id": 11, "name": "SEGA Master System"},  # IGDB
     "sg-1000": {"id": 33, "name": "SG-1000"},
     "snes": {"id": 3, "name": "SNES"},
+    "sfam": {"id": 3, "name": "Super Famicom"},  # IGDB
     "turbografx-cd": {"id": 76, "name": "TurboGrafx CD"},
     "turbografx-16-slash-pc-engine-cd": {"id": 76, "name": "TurboGrafx CD"},
     "turbo-grafx": {"id": 8, "name": "TurboGrafx-16"},
     "turbografx16--1": {"id": 8, "name": "TurboGrafx-16"},  # IGDB
-    "vectrex": {"id": 26, "name": "Vectrex"},
+    "uzebox": {"id": 80, "name": "Uzebox"},
+    "vectrex": {"id": 46, "name": "Vectrex"},
     "virtual-boy": {"id": 28, "name": "Virtual Boy"},
     "virtualboy": {"id": 28, "name": "Virtual Boy"},
+    "wasm-4": {"id": 72, "name": "WASM-4"},
     "watara-slash-quickshot-supervision": {
         "id": 63,
         "name": "Watara/QuickShot Supervision",
     },
+    "win": {"id": 102, "name": "Windows"},
     "wonderswan": {"id": 53, "name": "WonderSwan"},
     "wonderswan-color": {"id": 53, "name": "WonderSwan Color"},
 }
