@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 
@@ -50,25 +51,14 @@ withDefaults(
       </v-col>
     </v-row>
     <template v-if="showRomCount" #append>
-      <v-tooltip
+      <missing-from-f-s-icon
         v-if="platform.missing"
-        location="top"
-        class="tooltip"
-        transition="fade-transition"
         text="Missing platform from filesystem"
-        open-delay="500"
-        ><template #activator="{ props }">
-          <v-chip
-            v-bind="props"
-            class="ml-2"
-            size="x-small"
-            color="accent"
-            label
-          >
-            <v-icon>mdi-alert-circle</v-icon>
-          </v-chip>
-        </template>
-      </v-tooltip>
+        chip
+        chip-label
+        chipDensity="compact"
+        class="ml-2"
+      />
       <v-chip class="ml-2" size="x-small" label>
         {{ platform.rom_count }}
       </v-chip>

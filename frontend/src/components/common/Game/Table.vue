@@ -3,6 +3,7 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
@@ -207,26 +208,12 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           </v-col>
         </v-row>
         <template #append>
-          <v-tooltip
+          <missing-from-f-s-icon
             v-if="item.missing"
-            location="top"
-            class="tooltip"
-            transition="fade-transition"
             :text="`Missing game from filesystem: ${item.fs_path}/${item.fs_name}`"
-            open-delay="500"
-            ><template #activator="{ props }">
-              <v-chip
-                v-bind="props"
-                class="translucent-dark ml-4"
-                color="accent"
-                size="x-small"
-              >
-                <span class="text-caption"
-                  ><v-icon>mdi-alert-circle</v-icon></span
-                >
-              </v-chip>
-            </template>
-          </v-tooltip>
+            chip
+            chip-size="small"
+          />
           <v-chip
             v-if="item.siblings.length > 0 && showSiblings"
             class="translucent-dark ml-2"

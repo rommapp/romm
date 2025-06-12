@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import FirmwareBtn from "@/components/Gallery/AppBar/Platform/FirmwareBtn.vue";
 import FirmwareDrawer from "@/components/Gallery/AppBar/Platform/FirmwareDrawer.vue";
 import PlatformInfoDrawer from "@/components/Gallery/AppBar/Platform/PlatformInfoDrawer.vue";
@@ -18,6 +19,12 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 <template>
   <base-gallery-app-bar :show-playables-filter="false" show-filter-bar>
     <template #prepend>
+      <missing-from-f-s-icon
+        v-if="currentPlatform && currentPlatform.missing"
+        text="Missing platform from filesystem"
+        class="mx-2"
+        :size="18"
+      />
       <v-btn
         v-if="currentPlatform"
         variant="text"
