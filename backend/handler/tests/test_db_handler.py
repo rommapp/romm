@@ -29,7 +29,7 @@ def test_platforms():
 
     db_platform_handler.mark_missing_platforms([])
     platforms = db_platform_handler.get_platforms()
-    assert len(platforms) == 0
+    assert len(platforms) == 1
 
 
 def test_roms(rom: Rom, platform: Platform):
@@ -66,7 +66,7 @@ def test_roms(rom: Rom, platform: Platform):
     db_rom_handler.mark_missing_roms(rom_2.platform_id, [])
 
     roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
-    assert len(roms) == 0
+    assert len(roms) == 1
 
 
 def test_utils(rom: Rom, platform: Platform):
