@@ -776,15 +776,16 @@ class DBRomsHandler(DBBaseHandler):
         return session.query(RomFile).filter_by(id=id).one()
 
     @begin_session
-    def purge_rom_files(
+    def missing_rom_files(
         self, rom_id: int, session: Session = None
     ) -> Sequence[RomFile]:
-        purged_rom_files = (
+        missing_rom_files = (
             session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
         )
         session.execute(
-            delete(RomFile)
+            update(RomFile)
             .where(RomFile.rom_id == rom_id)
+            .values(**{"missing": True})
             .execution_options(synchronize_session="evaluate")
         )
-        return purged_rom_files
+        return missing_rom_files
