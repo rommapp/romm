@@ -203,6 +203,8 @@ class Rom(BaseModel):
         back_populates="roms",
     )
 
+    missing: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug

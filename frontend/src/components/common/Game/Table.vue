@@ -207,9 +207,29 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           </v-col>
         </v-row>
         <template #append>
+          <v-tooltip
+            v-if="item.missing"
+            location="top"
+            class="tooltip"
+            transition="fade-transition"
+            :text="`Missing game from filesystem: ${item.fs_path}/${item.fs_name}`"
+            open-delay="500"
+            ><template #activator="{ props }">
+              <v-chip
+                v-bind="props"
+                class="translucent-dark ml-4"
+                color="accent"
+                size="x-small"
+              >
+                <span class="text-caption"
+                  ><v-icon>mdi-alert-circle</v-icon></span
+                >
+              </v-chip>
+            </template>
+          </v-tooltip>
           <v-chip
             v-if="item.siblings.length > 0 && showSiblings"
-            class="translucent-dark ml-4"
+            class="translucent-dark ml-2"
             size="x-small"
           >
             <span class="text-caption">+{{ item.siblings.length }}</span>

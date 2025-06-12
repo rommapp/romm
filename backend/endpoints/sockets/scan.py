@@ -210,9 +210,9 @@ async def scan_platforms(
         # This protects against accidental deletion of entries when
         # the folder structure is not correct or the drive is not mounted
         if len(fs_platforms) > 0:
-            purged_platforms = db_platform_handler.purge_platforms(fs_platforms)
+            purged_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
             if len(purged_platforms) > 0:
-                log.warning("Purging platforms not found in the filesystem:")
+                log.warning("Missing platforms not found in the filesystem:")
                 for p in purged_platforms:
                     log.warning(f" - {p.slug}")
 
@@ -330,12 +330,12 @@ async def _identify_platform(
     # This protects against accidental deletion of entries when
     # the folder structure is not correct or the drive is not mounted
     if len(fs_roms) > 0:
-        purged_roms = db_rom_handler.purge_roms(
+        missing_roms = db_rom_handler.mark_missing_roms(
             platform.id, [rom["fs_name"] for rom in fs_roms]
         )
-        if len(purged_roms) > 0:
-            log.warning("Purging roms not found in the filesystem:")
-            for r in purged_roms:
+        if len(missing_roms) > 0:
+            log.warning("Missing roms not found in the filesystem:")
+            for r in missing_roms:
                 log.warning(f" - {r.fs_name}")
 
     # Same protection for firmware

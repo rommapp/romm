@@ -175,6 +175,7 @@ async def scan_platform(
             extra=LOGGER_MODULE_NAME,
         )
 
+    platform_attrs["missing"] = False
     return Platform(**platform_attrs)
 
 
@@ -397,6 +398,7 @@ async def scan_rom(
                 extra=LOGGER_MODULE_NAME,
             )
 
+    romm_attrs["missing"] = False
     return Rom(**rom_attrs)
 
 

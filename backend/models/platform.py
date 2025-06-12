@@ -50,11 +50,13 @@ class Platform(BaseModel):
         select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
     )
 
-    def __repr__(self) -> str:
-        return self.name
+    missing: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @cached_property
     def fs_size_bytes(self) -> int:
         from handler.database import db_stats_handler
 
         return db_stats_handler.get_platform_filesize(self.id)
+
+    def __repr__(self) -> str:
+        return self.name

@@ -674,10 +674,10 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_roms(
+    def mark_missing_roms(
         self, platform_id: int, fs_roms_to_keep: list[str], session: Session = None
     ) -> Sequence[Rom]:
-        purged_roms = (
+        missing_roms = (
             session.scalars(
                 select(Rom)
                 .order_by(Rom.fs_name.asc())
@@ -692,15 +692,16 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
         session.execute(
-            delete(Rom)
+            update(Rom)
             .where(
                 and_(
                     Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms_to_keep)
                 )
             )
+            .values(**{"missing": True})
             .execution_options(synchronize_session="evaluate")
         )
-        return purged_roms
+        return missing_roms
 
     @begin_session
     def add_rom_user(

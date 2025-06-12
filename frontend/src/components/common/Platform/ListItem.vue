@@ -37,24 +37,7 @@ withDefaults(
         :name="platform.name"
         :fs-slug="platform.fs_slug"
         :size="40"
-      >
-        <v-tooltip
-          location="bottom"
-          class="tooltip"
-          transition="fade-transition"
-          text="Not found"
-          open-delay="500"
-          ><template #activator="{ props }">
-            <div
-              v-if="!platform.igdb_id && !platform.moby_id && !platform.ss_id"
-              v-bind="props"
-              class="not-found-icon"
-            >
-              ⚠️
-            </div>
-          </template>
-        </v-tooltip></platform-icon
-      >
+      />
     </template>
     <v-row no-gutters
       ><v-col
@@ -67,17 +50,28 @@ withDefaults(
       </v-col>
     </v-row>
     <template v-if="showRomCount" #append>
+      <v-tooltip
+        v-if="platform.missing"
+        location="top"
+        class="tooltip"
+        transition="fade-transition"
+        text="Missing platform from filesystem"
+        open-delay="500"
+        ><template #activator="{ props }">
+          <v-chip
+            v-bind="props"
+            class="ml-2"
+            size="x-small"
+            color="accent"
+            label
+          >
+            <v-icon>mdi-alert-circle</v-icon>
+          </v-chip>
+        </template>
+      </v-tooltip>
       <v-chip class="ml-2" size="x-small" label>
         {{ platform.rom_count }}
       </v-chip>
     </template>
   </v-list-item>
 </template>
-
-<style scoped>
-.not-found-icon {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-}
-</style>
