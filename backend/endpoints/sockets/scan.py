@@ -130,6 +130,7 @@ async def _identify_firmware(
     scan_stats.scanned_firmware += 1
     scan_stats.added_firmware += 1 if not firmware else 0
 
+    scanned_firmware.missing = False
     db_firmware_handler.add_firmware(scanned_firmware)
     return scan_stats
 
@@ -453,27 +454,21 @@ async def _identify_platform(
                 socket_manager=socket_manager,
             )
 
-    # Only purge entries if there are some file remaining in the library
-    # This protects against accidental deletion of entries when
-    # the folder structure is not correct or the drive is not mounted
-    if len(fs_roms) > 0:
-        missing_roms = db_rom_handler.mark_missing_roms(
-            platform.id, [rom["fs_name"] for rom in fs_roms]
-        )
-        if len(missing_roms) > 0:
-            log.warning("Missing roms not found in the filesystem:")
-            for r in missing_roms:
-                log.warning(f" - {r.fs_name}")
+    missing_roms = db_rom_handler.mark_missing_roms(
+        platform.id, [rom["fs_name"] for rom in fs_roms]
+    )
+    if len(missing_roms) > 0:
+        log.warning(f"{hl('Missing')} roms from filesystem:")
+        for r in missing_roms:
+            log.warning(f" - {r.fs_name}")
 
-    # Same protection for firmware
-    if len(fs_firmware) > 0:
-        missing_firmware = db_firmware_handler.mark_missing_firmware(
-            platform.id, [fw for fw in fs_firmware]
-        )
-        if len(missing_firmware) > 0:
-            log.warning("Missing firmware not found in the filesystem:")
-            for f in missing_firmware:
-                log.warning(f" - {f}")
+    missing_firmware = db_firmware_handler.mark_missing_firmware(
+        platform.id, [fw for fw in fs_firmware]
+    )
+    if len(missing_firmware) > 0:
+        log.warning(f"{hl('Missing')} firmware from filesystem:")
+        for f in missing_firmware:
+            log.warning(f" - {f}")
 
     return scan_stats
 
@@ -550,15 +545,11 @@ async def scan_platforms(
                 socket_manager=sm,
             )
 
-        # Only purge platforms if there are some platforms remaining in the library
-        # This protects against accidental deletion of entries when
-        # the folder structure is not correct or the drive is not mounted
-        if len(fs_platforms) > 0:
-            missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
-            if len(missed_platforms) > 0:
-                log.warning("Missing platforms not found in the filesystem:")
-                for p in missed_platforms:
-                    log.warning(f" - {p.slug}")
+        missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
+        if len(missed_platforms) > 0:
+            log.warning(f"{hl('Missing')} platforms from filesystem:")
+            for p in missed_platforms:
+                log.warning(f" - {p.slug}")
 
         log.info(emoji.emojize(":check_mark:  Scan completed "))
         await sm.emit("scan:done", scan_stats.__dict__)
