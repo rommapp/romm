@@ -103,6 +103,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             and platform_elem is not None
                                             and platform_elem.text
                                         ):
+                                            # Use a unique combination of name and platform as the key
                                             await pipe.hset(
                                                 LAUNCHBOX_METADATA_NAME_KEY,
                                                 mapping={
