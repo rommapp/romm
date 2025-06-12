@@ -15,7 +15,7 @@ export type StateSchema = {
     file_size_bytes: number;
     full_path: string;
     download_path: string;
-    missing: boolean;
+    missing_from_fs: boolean;
     created_at: string;
     updated_at: string;
     emulator: (string | null);
