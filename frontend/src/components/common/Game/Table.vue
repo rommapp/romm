@@ -313,7 +313,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
       <v-btn-group density="compact">
         <fav-btn :rom="item" />
         <v-btn
-          :disabled="downloadStore.value.includes(item.id)"
+          :disabled="downloadStore.value.includes(item.id) || item.missing"
           download
           variant="text"
           size="small"
@@ -323,6 +323,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-btn>
         <v-btn
           v-if="checkIfEJSEmulationSupported(item.platform_slug)"
+          :disabled="item.missing"
           variant="text"
           size="small"
           @click.stop="
@@ -336,6 +337,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-btn>
         <v-btn
           v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
+          :disabled="item.missing"
           variant="text"
           size="small"
           @click.stop="

@@ -98,4 +98,11 @@ class DBPlatformsHandler(DBBaseHandler):
             .values(**{"missing": True})
             .execution_options(synchronize_session="fetch")
         )
+
+        session.execute(
+            update(Rom)
+            .where(Rom.platform_id.in_([p.id for p in missing_platforms]))  # type: ignore[attr-defined]
+            .values(**{"missing": True})
+            .execution_options(synchronize_session="fetch")
+        )
         return missing_platforms
