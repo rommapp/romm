@@ -255,7 +255,7 @@ async def _identify_rom(
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
     # Delete the existing rom files in the DB
-    db_rom_handler.purge_rom_files(_added_rom.id)
+    db_rom_handler.missing_rom_files(_added_rom.id)
 
     # Create each file entry for the rom
     new_rom_files = [
@@ -467,12 +467,12 @@ async def _identify_platform(
 
     # Same protection for firmware
     if len(fs_firmware) > 0:
-        purged_firmware = db_firmware_handler.purge_firmware(
+        missing_firmware = db_firmware_handler.mark_missing_firmware(
             platform.id, [fw for fw in fs_firmware]
         )
-        if len(purged_firmware) > 0:
-            log.warning("Purging firmware not found in the filesystem:")
-            for f in purged_firmware:
+        if len(missing_firmware) > 0:
+            log.warning("Missing firmware not found in the filesystem:")
+            for f in missing_firmware:
                 log.warning(f" - {f}")
 
     return scan_stats
@@ -554,10 +554,10 @@ async def scan_platforms(
         # This protects against accidental deletion of entries when
         # the folder structure is not correct or the drive is not mounted
         if len(fs_platforms) > 0:
-            purged_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
-            if len(purged_platforms) > 0:
+            missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
+            if len(missed_platforms) > 0:
                 log.warning("Missing platforms not found in the filesystem:")
-                for p in purged_platforms:
+                for p in missed_platforms:
                     log.warning(f" - {p.slug}")
 
         log.info(emoji.emojize(":check_mark:  Scan completed "))

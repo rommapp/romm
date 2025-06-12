@@ -64,14 +64,14 @@ class DBStatesHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_states(
+    def mark_missing_states(
         self,
         rom_id: int,
         user_id: int,
         states_to_keep: list[str],
         session: Session = None,
     ) -> Sequence[State]:
-        purged_states = session.scalars(
+        missing_states = session.scalars(
             select(State).filter(
                 and_(
                     State.rom_id == rom_id,
@@ -82,7 +82,7 @@ class DBStatesHandler(DBBaseHandler):
         ).all()
 
         session.execute(
-            delete(State)
+            update(State)
             .where(
                 and_(
                     State.rom_id == rom_id,
@@ -90,7 +90,8 @@ class DBStatesHandler(DBBaseHandler):
                     State.file_name.not_in(states_to_keep),
                 )
             )
+            .values(**{"missing": True})
             .execution_options(synchronize_session="evaluate")
         )
 
-        return purged_states
+        return missing_states

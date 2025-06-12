@@ -50,14 +50,14 @@ class DBScreenshotsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_screenshots(
+    def mark_missing_screenshots(
         self,
         rom_id: int,
         user_id: int,
         screenshots_to_keep: list[str],
         session: Session = None,
     ) -> Sequence[Screenshot]:
-        purged_screenshots = session.scalars(
+        missing_screenshots = session.scalars(
             select(Screenshot).filter(
                 and_(
                     Screenshot.rom_id == rom_id,
@@ -68,7 +68,7 @@ class DBScreenshotsHandler(DBBaseHandler):
         ).all()
 
         session.execute(
-            delete(Screenshot)
+            update(Screenshot)
             .where(
                 and_(
                     Screenshot.rom_id == rom_id,
@@ -76,7 +76,8 @@ class DBScreenshotsHandler(DBBaseHandler):
                     Screenshot.file_name.not_in(screenshots_to_keep),
                 )
             )
+            .values(**{"missing": True})
             .execution_options(synchronize_session="evaluate")
         )
 
-        return purged_screenshots
+        return missing_screenshots

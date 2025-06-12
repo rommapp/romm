@@ -27,10 +27,50 @@ def upgrade():
             sa.Column("missing", sa.Boolean(), nullable=False, server_default="0")
         )
 
+    with op.batch_alter_table("rom_files", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("missing", sa.Boolean(), nullable=False, server_default="0")
+        )
+
+    with op.batch_alter_table("firmware", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("missing", sa.Boolean(), nullable=False, server_default="0")
+        )
+
+    with op.batch_alter_table("saves", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("missing", sa.Boolean(), nullable=False, server_default="0")
+        )
+
+    with op.batch_alter_table("states", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("missing", sa.Boolean(), nullable=False, server_default="0")
+        )
+
+    with op.batch_alter_table("screenshots", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column("missing", sa.Boolean(), nullable=False, server_default="0")
+        )
+
 
 def downgrade():
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.drop_column("missing")
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.drop_column("missing")
+
+    with op.batch_alter_table("rom_files", schema=None) as batch_op:
+        batch_op.drop_column("missing")
+
+    with op.batch_alter_table("firmware", schema=None) as batch_op:
+        batch_op.drop_column("missing")
+
+    with op.batch_alter_table("saves", schema=None) as batch_op:
+        batch_op.drop_column("missing")
+
+    with op.batch_alter_table("states", schema=None) as batch_op:
+        batch_op.drop_column("missing")
+
+    with op.batch_alter_table("screenshots", schema=None) as batch_op:
         batch_op.drop_column("missing")
