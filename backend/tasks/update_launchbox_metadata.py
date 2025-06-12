@@ -96,11 +96,17 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                             )
 
                                         name_elem = elem.find("Name")
-                                        if name_elem is not None and name_elem.text:
+                                        platform_elem = elem.find("Platform")
+                                        if (
+                                            name_elem is not None
+                                            and name_elem.text
+                                            and platform_elem is not None
+                                            and platform_elem.text
+                                        ):
                                             await pipe.hset(
                                                 LAUNCHBOX_METADATA_NAME_KEY,
                                                 mapping={
-                                                    name_elem.text: json.dumps(
+                                                    f"{name_elem.text}:{platform_elem.text}": json.dumps(
                                                         {
                                                             child.tag: child.text
                                                             for child in elem

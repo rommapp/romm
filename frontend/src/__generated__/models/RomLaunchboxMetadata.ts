@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { LaunchboxImage } from './LaunchboxImage';
 export type RomLaunchboxMetadata = {
     release_date?: string;
     max_players?: number;
@@ -15,5 +16,6 @@ export type RomLaunchboxMetadata = {
     genres?: Array<string>;
     developer?: string;
     publisher?: string;
+    images?: Array<LaunchboxImage>;
 };
 
