@@ -71,7 +71,7 @@ async function copyDownloadLink(rom: DetailedRom) {
   <div>
     <v-btn-group divided density="compact" rounded="0" class="d-flex flex-row">
       <v-btn
-        :disabled="downloadStore.value.includes(rom.id) || rom.missing"
+        :disabled="downloadStore.value.includes(rom.id) || rom.missing_from_fs"
         class="flex-grow-1"
         @click="
           romApi.downloadRom({
@@ -91,7 +91,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
       <v-btn
-        :disabled="rom.missing"
+        :disabled="rom.missing_from_fs"
         :aria-label="`Copy download link ${rom.name}`"
         class="flex-grow-1"
         @click="copyDownloadLink(rom)"
@@ -107,7 +107,7 @@ async function copyDownloadLink(rom: DetailedRom) {
       </v-btn>
       <v-btn
         v-if="ejsEmulationSupported"
-        :disabled="rom.missing"
+        :disabled="rom.missing_from_fs"
         class="flex-grow-1"
         @click="
           $router.push({
@@ -121,7 +121,7 @@ async function copyDownloadLink(rom: DetailedRom) {
       </v-btn>
       <v-btn
         v-if="ruffleEmulationSupported"
-        :disabled="rom.missing"
+        :disabled="rom.missing_from_fs"
         class="flex-grow-1"
         @click="
           $router.push({
@@ -135,7 +135,7 @@ async function copyDownloadLink(rom: DetailedRom) {
       </v-btn>
       <v-btn
         v-if="is3DSRom"
-        :disabled="rom.missing"
+        :disabled="rom.missing_from_fs"
         class="flex-grow-1"
         @click="emitter?.emit('showQRCodeDialog', rom)"
         :aria-label="`Show ${rom.name} QR code`"

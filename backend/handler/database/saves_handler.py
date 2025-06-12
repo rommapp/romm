@@ -90,7 +90,7 @@ class DBSavesHandler(DBBaseHandler):
                     Save.file_name.not_in(saves_to_keep),
                 )
             )
-            .values(**{"missing": True})
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
 

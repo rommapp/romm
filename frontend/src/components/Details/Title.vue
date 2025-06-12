@@ -47,7 +47,10 @@ const { allPlatforms } = storeToRefs(platformsStore);
           :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
           <missing-from-f-s-icon
-            v-if="allPlatforms.find((p) => p.id === rom.platform_id)?.missing"
+            v-if="
+              allPlatforms.find((p) => p.id === rom.platform_id)
+                ?.missing_from_fs
+            "
             class="mr-2"
             text="Missing platform from filesystem"
           />

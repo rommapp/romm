@@ -116,7 +116,7 @@ function deleteSelectedFirmware() {
           <v-row no-gutters>
             <v-col>
               <missing-from-f-s-icon
-                v-if="item.missing"
+                v-if="item.missing_from_fs"
                 class="mr-1"
                 text="Missing firmware from filesystem"
               />

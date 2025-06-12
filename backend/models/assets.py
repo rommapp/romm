@@ -23,7 +23,7 @@ class BaseAsset(BaseModel):
     file_path: Mapped[str] = mapped_column(String(length=1000))
     file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
-    missing: Mapped[bool] = mapped_column(default=False, nullable=False)
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @cached_property
     def full_path(self) -> str:

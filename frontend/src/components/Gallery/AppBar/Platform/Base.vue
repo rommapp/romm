@@ -20,7 +20,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
   <base-gallery-app-bar :show-playables-filter="false" show-filter-bar>
     <template #prepend>
       <missing-from-f-s-icon
-        v-if="currentPlatform && currentPlatform.missing"
+        v-if="currentPlatform && currentPlatform.missing_from_fs"
         text="Missing platform from filesystem"
         class="mx-2"
         :size="18"

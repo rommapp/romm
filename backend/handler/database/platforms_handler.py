@@ -95,14 +95,14 @@ class DBPlatformsHandler(DBBaseHandler):
         session.execute(
             update(Platform)
             .where(or_(Platform.fs_slug.not_in(fs_platforms_to_keep), Platform.slug.is_(None)))  # type: ignore[attr-defined]
-            .values(**{"missing": True})
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="fetch")
         )
 
         session.execute(
             update(Rom)
             .where(Rom.platform_id.in_([p.id for p in missing_platforms]))  # type: ignore[attr-defined]
-            .values(**{"missing": True})
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="fetch")
         )
         return missing_platforms

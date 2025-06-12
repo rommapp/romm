@@ -130,7 +130,7 @@ async def _identify_firmware(
     scan_stats.scanned_firmware += 1
     scan_stats.added_firmware += 1 if not firmware else 0
 
-    scanned_firmware.missing = False
+    scanned_firmware.missing_from_fs = False
     db_firmware_handler.add_firmware(scanned_firmware)
     return scan_stats
 
@@ -234,8 +234,8 @@ async def _identify_rom(
                 rom.fs_name = fs_rom["fs_name"]
                 db_rom_handler.add_rom(rom)
 
-            if rom.missing:
-                db_rom_handler.update_rom(rom.id, {"missing": False})
+            if rom.missing_from_fs:
+                db_rom_handler.update_rom(rom.id, {"missing_from_fs": False})
 
         return scan_stats
 

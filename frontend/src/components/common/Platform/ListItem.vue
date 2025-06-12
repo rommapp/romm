@@ -52,7 +52,7 @@ withDefaults(
     </v-row>
     <template v-if="showRomCount" #append>
       <missing-from-f-s-icon
-        v-if="platform.missing"
+        v-if="platform.missing_from_fs"
         text="Missing platform from filesystem"
         chip
         chip-label

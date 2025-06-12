@@ -90,7 +90,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "created_at": now,
             "updated_at": now,
             "fs_size_bytes": 0,
-            "missing": False,
+            "missing_from_fs": False,
         }
 
         if platform["name"] in db_platforms_map:

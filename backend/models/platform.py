@@ -50,7 +50,7 @@ class Platform(BaseModel):
         select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
     )
 
-    missing: Mapped[bool] = mapped_column(default=False, nullable=False)
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @cached_property
     def fs_size_bytes(self) -> int:

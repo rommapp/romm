@@ -238,8 +238,8 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_ra_only(self, query: Query):
         return query.filter(Rom.ra_id.isnot(None))
 
-    def filter_by_missing_only(self, query: Query):
-        return query.filter(Rom.missing.isnot(False))
+    def filter_by_missing_from_fs_only(self, query: Query):
+        return query.filter(Rom.missing_from_fs.isnot(False))
 
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
@@ -411,7 +411,7 @@ class DBRomsHandler(DBBaseHandler):
             query = self.filter_by_ra_only(query)
 
         if missing_only:
-            query = self.filter_by_missing_only(query)
+            query = self.filter_by_missing_from_fs_only(query)
 
         if group_by_meta_id:
 
@@ -705,7 +705,7 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms_to_keep)
                 )
             )
-            .values(**{"missing": True})
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
         return missing_roms
@@ -792,7 +792,7 @@ class DBRomsHandler(DBBaseHandler):
         session.execute(
             update(RomFile)
             .where(RomFile.rom_id == rom_id)
-            .values(**{"missing": True})
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
         return missing_rom_files
