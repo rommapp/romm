@@ -32,7 +32,7 @@ class PlatformSchema(BaseModel):
     updated_at: datetime
     fs_size_bytes: int
 
-    missing: bool
+    missing_from_fs: bool
 
     class Config:
         from_attributes = True

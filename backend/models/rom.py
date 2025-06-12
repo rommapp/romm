@@ -59,7 +59,7 @@ class RomFile(BaseModel):
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
 
-    missing: Mapped[bool] = mapped_column(default=False, nullable=False)
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @cached_property
     def full_path(self) -> str:
@@ -205,7 +205,7 @@ class Rom(BaseModel):
         back_populates="roms",
     )
 
-    missing: Mapped[bool] = mapped_column(default=False, nullable=False)
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @property
     def platform_slug(self) -> str:

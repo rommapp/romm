@@ -244,7 +244,7 @@ onBeforeUnmount(() => {
                   <missing-from-f-s-icon
                     v-if="
                       romsStore.isSimpleRom(rom) &&
-                      rom.missing &&
+                      rom.missing_from_fs &&
                       showMissingFlag
                     "
                     :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"

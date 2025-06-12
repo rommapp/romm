@@ -90,7 +90,7 @@ class DBFirmwareHandler(DBBaseHandler):
                     Firmware.file_name.not_in(fs_firmwares_to_keep),
                 )
             )
-            .values(**{"missing": True})
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
         return missing_firmware

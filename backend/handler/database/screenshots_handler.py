@@ -76,7 +76,7 @@ class DBScreenshotsHandler(DBBaseHandler):
                     Screenshot.file_name.not_in(screenshots_to_keep),
                 )
             )
-            .values(**{"missing": True})
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
 

@@ -253,7 +253,7 @@ onMounted(async () => {
               </template>
               <template #append>
                 <missing-from-f-s-icon
-                  v-if="item.raw.missing"
+                  v-if="item.raw.missing_from_fs"
                   text="Missing platform from filesystem"
                   chip
                   chip-label

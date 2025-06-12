@@ -16,7 +16,7 @@ class BaseAsset(BaseModel):
     full_path: str
     download_path: str
 
-    missing: bool
+    missing_from_fs: bool
 
     created_at: datetime
     updated_at: datetime
