@@ -41,6 +41,8 @@ class Firmware(BaseModel):
 
     platform: Mapped[Platform] = relationship(lazy="joined", back_populates="firmware")
 
+    missing: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
