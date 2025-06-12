@@ -8,6 +8,7 @@ import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
@@ -251,6 +252,14 @@ onMounted(async () => {
                 />
               </template>
               <template #append>
+                <missing-from-f-s-icon
+                  v-if="item.raw.missing"
+                  text="Missing platform from filesystem"
+                  chip
+                  chip-label
+                  chipDensity="compact"
+                  class="ml-2"
+                />
                 <v-chip class="ml-2" size="x-small" label>
                   {{ item.raw.rom_count }}
                 </v-chip>
