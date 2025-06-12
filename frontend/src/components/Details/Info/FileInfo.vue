@@ -78,7 +78,6 @@ watch(
                 :label="rom.fs_name"
                 :items="rom.files"
                 :itemProps="itemProps"
-                rounded="0"
                 density="compact"
                 variant="outlined"
                 return-object
