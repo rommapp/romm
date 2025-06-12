@@ -65,9 +65,8 @@ watch(
         </v-col>
         <v-col>
           <v-row class="align-center" no-gutters>
-            <v-col cols="auto" class="pr-2">
+            <v-col v-if="rom.missing" cols="auto" class="pr-2">
               <missing-from-f-s-icon
-                v-if="rom.missing"
                 :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
                 :size="25"
               />
