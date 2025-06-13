@@ -15,6 +15,9 @@ class BaseAsset(BaseModel):
     file_size_bytes: int
     full_path: str
     download_path: str
+
+    missing_from_fs: bool
+
     created_at: datetime
     updated_at: datetime
 

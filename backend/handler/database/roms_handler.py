@@ -193,6 +193,7 @@ class DBRomsHandler(DBBaseHandler):
             Rom.igdb_id.isnot(None),
             Rom.moby_id.isnot(None),
             Rom.ss_id.isnot(None),
+            Rom.launchbox_id.isnot(None),
         )
         if not value:
             predicate = not_(predicate)
@@ -237,6 +238,9 @@ class DBRomsHandler(DBBaseHandler):
 
     def filter_by_ra_only(self, query: Query):
         return query.filter(Rom.ra_id.isnot(None))
+
+    def filter_by_missing_from_fs_only(self, query: Query):
+        return query.filter(Rom.missing_from_fs.isnot(False))
 
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
@@ -362,7 +366,8 @@ class DBRomsHandler(DBBaseHandler):
         favourite: bool | None = None,
         duplicate: bool | None = None,
         playable: bool | None = None,
-        ra_only: bool = False,
+        ra_only: bool | None = False,
+        missing_only: bool | None = False,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -406,6 +411,9 @@ class DBRomsHandler(DBBaseHandler):
         if ra_only:
             query = self.filter_by_ra_only(query)
 
+        if missing_only:
+            query = self.filter_by_missing_from_fs_only(query)
+
         if group_by_meta_id:
 
             def build_func(provider: str, column: InstrumentedAttribute):
@@ -419,6 +427,9 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
                     Rom.moby_id.isnot(None): build_func("moby", Rom.moby_id),
                     Rom.ss_id.isnot(None): build_func("ss", Rom.ss_id),
+                    Rom.launchbox_id.isnot(None): build_func(
+                        "launchbox", Rom.launchbox_id
+                    ),
                 },
                 else_=build_func("romm", Rom.id),
             )
@@ -674,10 +685,10 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_roms(
+    def mark_missing_roms(
         self, platform_id: int, fs_roms_to_keep: list[str], session: Session = None
     ) -> Sequence[Rom]:
-        purged_roms = (
+        missing_roms = (
             session.scalars(
                 select(Rom)
                 .order_by(Rom.fs_name.asc())
@@ -692,15 +703,16 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
         session.execute(
-            delete(Rom)
+            update(Rom)
             .where(
                 and_(
                     Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms_to_keep)
                 )
             )
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
-        return purged_roms
+        return missing_roms
 
     @begin_session
     def add_rom_user(
@@ -775,15 +787,16 @@ class DBRomsHandler(DBBaseHandler):
         return session.query(RomFile).filter_by(id=id).one()
 
     @begin_session
-    def purge_rom_files(
+    def missing_rom_files(
         self, rom_id: int, session: Session = None
     ) -> Sequence[RomFile]:
-        purged_rom_files = (
+        missing_rom_files = (
             session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
         )
         session.execute(
-            delete(RomFile)
+            update(RomFile)
             .where(RomFile.rom_id == rom_id)
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
-        return purged_rom_files
+        return missing_rom_files

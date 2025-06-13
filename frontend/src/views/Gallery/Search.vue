@@ -202,6 +202,7 @@ onBeforeUnmount(() => {
             transformScale
             showActionBar
             showPlatformIcon
+            show-missing-flag
             :withBorderPrimary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "

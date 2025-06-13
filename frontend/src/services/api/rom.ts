@@ -73,6 +73,7 @@ export interface GetRomsParams {
   filterDuplicates?: boolean;
   filterPlayables?: boolean;
   filterRA?: boolean;
+  filterMissing?: boolean;
   groupByMetaId?: boolean;
   selectedGenre?: string | null;
   selectedFranchise?: string | null;
@@ -99,6 +100,7 @@ async function getRoms({
   filterDuplicates = false,
   filterPlayables = false,
   filterRA = false,
+  filterMissing = false,
   groupByMetaId = false,
   selectedGenre = null,
   selectedFranchise = null,
@@ -134,6 +136,7 @@ async function getRoms({
       ...(filterFavourites ? { favourite: true } : {}),
       ...(filterDuplicates ? { duplicate: true } : {}),
       ...(filterPlayables ? { playable: true } : {}),
+      ...(filterMissing ? { missing_only: true } : {}),
     },
   });
 }
@@ -209,6 +212,8 @@ async function updateRom({
   if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
   if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
   if (rom.ss_id) formData.append("ss_id", rom.ss_id.toString());
+  if (rom.launchbox_id)
+    formData.append("launchbox_id", rom.launchbox_id.toString());
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");

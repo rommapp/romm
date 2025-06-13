@@ -77,248 +77,6 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
     return socketio.AsyncRedisManager(str(REDIS_URL), write_only=True)
 
 
-def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) -> bool:
-    """Decide if a rom should be scanned or not
-
-    Args:
-        scan_type (str): Type of scan to be performed.
-        roms_ids (list[str], optional): List of selected roms to be scanned.
-        metadata_sources (list[str], optional): List of metadata sources to be used
-    """
-
-    # This logic is tricky so only touch it if you know what you're doing"""
-    return bool(
-        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
-        or (scan_type == ScanType.COMPLETE)
-        or (scan_type == ScanType.HASHES)
-        or (
-            rom
-            and (
-                (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
-                or (scan_type == ScanType.PARTIAL and rom.is_partially_identified)
-                or (rom.id in roms_ids)
-            )
-        )
-    )
-
-
-@initialize_context()
-async def scan_platforms(
-    platform_ids: list[int],
-    scan_type: ScanType = ScanType.QUICK,
-    roms_ids: list[str] | None = None,
-    metadata_sources: list[str] | None = None,
-):
-    """Scan all the listed platforms and fetch metadata from different sources
-
-    Args:
-        platform_slugs (list[str]): List of platform slugs to be scanned
-        scan_type (str): Type of scan to be performed. Defaults to "quick".
-        roms_ids (list[str], optional): List of selected roms to be scanned. Defaults to [].
-        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
-    """
-
-    if not roms_ids:
-        roms_ids = []
-
-    if not metadata_sources:
-        metadata_sources = [
-            MetadataSource.IGDB,
-            MetadataSource.MOBY,
-            MetadataSource.SS,
-            MetadataSource.RA,
-        ]
-
-    sm = _get_socket_manager()
-
-    try:
-        fs_platforms: list[str] = fs_platform_handler.get_platforms()
-    except FolderStructureNotMatchException as e:
-        log.error(e)
-        await sm.emit("scan:done_ko", e.message)
-        return
-
-    scan_stats = ScanStats()
-
-    async def stop_scan():
-        log.info(emoji.emojize(":stop_sign: Scan stopped manually"))
-        await sm.emit("scan:done", scan_stats.__dict__)
-        redis_client.delete(STOP_SCAN_FLAG)
-
-    try:
-        platform_list = [
-            platform.fs_slug
-            for s in platform_ids
-            if (platform := db_platform_handler.get_platform(s)) is not None
-        ] or fs_platforms
-
-        if len(platform_list) == 0:
-            log.warning(
-                emoji.emojize(
-                    f"{hl(':warning:', color=LIGHTYELLOW)}  No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
-                Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
-                )
-            )
-        else:
-            log.info(
-                f"Found {hl(str(len(platform_list)))} platforms in the file system"
-            )
-
-        for platform_slug in platform_list:
-            scan_stats += await _identify_platform(
-                platform_slug=platform_slug,
-                scan_type=scan_type,
-                fs_platforms=fs_platforms,
-                roms_ids=roms_ids,
-                metadata_sources=metadata_sources,
-                socket_manager=sm,
-            )
-
-        # Only purge platforms if there are some platforms remaining in the library
-        # This protects against accidental deletion of entries when
-        # the folder structure is not correct or the drive is not mounted
-        if len(fs_platforms) > 0:
-            purged_platforms = db_platform_handler.purge_platforms(fs_platforms)
-            if len(purged_platforms) > 0:
-                log.warning("Purging platforms not found in the filesystem:")
-                for p in purged_platforms:
-                    log.warning(f" - {p.slug}")
-
-        log.info(emoji.emojize(":check_mark:  Scan completed "))
-        await sm.emit("scan:done", scan_stats.__dict__)
-    except ScanStoppedException:
-        await stop_scan()
-        return
-    except Exception as e:
-        log.error(f"Error in scan_platform: {e}")
-        # Catch all exceptions and emit error to the client
-        await sm.emit("scan:done_ko", str(e))
-        # Re-raise the exception to be caught by the error handler
-        raise e
-
-
-async def _identify_platform(
-    platform_slug: str,
-    scan_type: ScanType,
-    fs_platforms: list[str],
-    roms_ids: list[str],
-    metadata_sources: list[str],
-    socket_manager: socketio.AsyncRedisManager,
-) -> ScanStats:
-    # Stop the scan if the flag is set
-    if redis_client.get(STOP_SCAN_FLAG):
-        raise ScanStoppedException()
-
-    scan_stats = ScanStats()
-
-    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
-    if platform and scan_type == ScanType.NEW_PLATFORMS:
-        return scan_stats
-
-    scanned_platform = await scan_platform(
-        platform_slug, fs_platforms, metadata_sources=metadata_sources
-    )
-    if platform:
-        scanned_platform.id = platform.id
-        # Keep the existing ids if they exist on the platform
-        scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
-        scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
-
-    scan_stats.scanned_platforms += 1
-    scan_stats.added_platforms += 1 if not platform else 0
-    scan_stats.metadata_platforms += (
-        1 if scanned_platform.igdb_id or scanned_platform.moby_id else 0
-    )
-
-    platform = db_platform_handler.add_platform(scanned_platform)
-
-    await socket_manager.emit(
-        "scan:scanning_platform",
-        PlatformSchema.model_validate(platform).model_dump(
-            include={"id", "name", "slug", "fs_slug"}
-        ),
-    )
-    await socket_manager.emit("", None)
-
-    # Scanning firmware
-    try:
-        fs_firmware = fs_firmware_handler.get_firmware(platform.fs_slug)
-    except FirmwareNotFoundException:
-        fs_firmware = []
-
-    if len(fs_firmware) == 0:
-        log.warning(
-            emoji.emojize(
-                f"{hl(':warning:', color=LIGHTYELLOW)}  No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
-            )
-        )
-    else:
-        log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
-
-    for fs_fw in fs_firmware:
-        scan_stats += await _identify_firmware(
-            platform=platform,
-            fs_fw=fs_fw,
-        )
-
-    # Scanning roms
-    try:
-        fs_roms = await fs_rom_handler.get_roms(platform)
-    except RomsNotFoundException as e:
-        log.error(e)
-        return scan_stats
-
-    if len(fs_roms) == 0:
-        log.warning(
-            emoji.emojize(
-                f"{hl(':warning:', color=LIGHTYELLOW)}  No roms found, verify that the folder structure is correct"
-            )
-        )
-    else:
-        log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
-
-    for fs_roms_batch in batched(fs_roms, 200):
-        rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(
-            platform_id=platform.id,
-            fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
-        )
-
-        for fs_rom in fs_roms_batch:
-            scan_stats += await _identify_rom(
-                platform=platform,
-                fs_rom=fs_rom,
-                rom=rom_by_filename_map.get(fs_rom["fs_name"]),
-                scan_type=scan_type,
-                roms_ids=roms_ids,
-                metadata_sources=metadata_sources,
-                socket_manager=socket_manager,
-            )
-
-    # Only purge entries if there are some file remaining in the library
-    # This protects against accidental deletion of entries when
-    # the folder structure is not correct or the drive is not mounted
-    if len(fs_roms) > 0:
-        purged_roms = db_rom_handler.purge_roms(
-            platform.id, [rom["fs_name"] for rom in fs_roms]
-        )
-        if len(purged_roms) > 0:
-            log.warning("Purging roms not found in the filesystem:")
-            for r in purged_roms:
-                log.warning(f" - {r.fs_name}")
-
-    # Same protection for firmware
-    if len(fs_firmware) > 0:
-        purged_firmware = db_firmware_handler.purge_firmware(
-            platform.id, [fw for fw in fs_firmware]
-        )
-        if len(purged_firmware) > 0:
-            log.warning("Purging firmware not found in the filesystem:")
-            for f in purged_firmware:
-                log.warning(f" - {f}")
-
-    return scan_stats
-
-
 async def _identify_firmware(
     platform: Platform,
     fs_fw: str,
@@ -340,8 +98,33 @@ async def _identify_firmware(
     scan_stats.scanned_firmware += 1
     scan_stats.added_firmware += 1 if not firmware else 0
 
+    scanned_firmware.missing_from_fs = False
     db_firmware_handler.add_firmware(scanned_firmware)
     return scan_stats
+
+def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) -> bool:
+    """Decide if a rom should be scanned or not
+
+    Args:
+        scan_type (str): Type of scan to be performed.
+        roms_ids (list[str], optional): List of selected roms to be scanned.
+        metadata_sources (list[str], optional): List of metadata sources to be used
+    """
+
+    # This logic is tricky so only touch it if you know what you're doing"""
+    return bool(
+        (scan_type in {ScanType.NEW_PLATFORMS, ScanType.QUICK} and not rom)
+        or (scan_type == ScanType.COMPLETE)
+        or (scan_type == ScanType.HASHES)
+        or (
+            rom
+            and (
+                (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
+                or (scan_type == ScanType.PARTIAL and rom.is_identified)
+                or (rom.id in roms_ids)
+            )
+        )
+    )
 
 
 async def _identify_rom(
@@ -360,10 +143,14 @@ async def _identify_rom(
         return scan_stats
 
     if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
-        if rom and rom.fs_name != fs_rom["fs_name"]:
-            # Just to update the filesystem data
-            rom.fs_name = fs_rom["fs_name"]
-            db_rom_handler.add_rom(rom)
+        if rom:
+            if rom.fs_name != fs_rom["fs_name"]:
+                # Just to update the filesystem data
+                rom.fs_name = fs_rom["fs_name"]
+                db_rom_handler.add_rom(rom)
+
+            if rom.missing_from_fs:
+                db_rom_handler.update_rom(rom.id, {"missing_from_fs": False})
 
         return scan_stats
 
@@ -377,14 +164,12 @@ async def _identify_rom(
 
     scan_stats.scanned_roms += 1
     scan_stats.added_roms += 1 if not rom else 0
-    scan_stats.metadata_roms += (
-        1 if scanned_rom.igdb_id or scanned_rom.moby_id or scanned_rom.ss_id else 0
-    )
+    scan_stats.metadata_roms += 1 if scanned_rom.is_identified else 0
 
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
     # Delete the existing rom files in the DB
-    db_rom_handler.purge_rom_files(_added_rom.id)
+    db_rom_handler.missing_rom_files(_added_rom.id)
 
     # Create each file entry for the rom
     new_rom_files = [
@@ -494,7 +279,215 @@ async def _identify_rom(
     return scan_stats
 
 
-@socket_handler.socket_server.on("scan")  # type: ignore
+async def _identify_platform(
+    platform_slug: str,
+    scan_type: ScanType,
+    fs_platforms: list[str],
+    roms_ids: list[str],
+    metadata_sources: list[str],
+    socket_manager: socketio.AsyncRedisManager,
+) -> ScanStats:
+    # Stop the scan if the flag is set
+    if redis_client.get(STOP_SCAN_FLAG):
+        raise ScanStoppedException()
+
+    scan_stats = ScanStats()
+
+    platform = db_platform_handler.get_platform_by_fs_slug(platform_slug)
+    if platform and scan_type == ScanType.NEW_PLATFORMS:
+        return scan_stats
+
+    scanned_platform = await scan_platform(
+        platform_slug, fs_platforms, metadata_sources=metadata_sources
+    )
+    if platform:
+        scanned_platform.id = platform.id
+        # Keep the existing ids if they exist on the platform
+        scanned_platform.igdb_id = scanned_platform.igdb_id or platform.igdb_id
+        scanned_platform.moby_id = scanned_platform.moby_id or platform.moby_id
+        scanned_platform.launchbox_id = (
+            scanned_platform.launchbox_id or platform.launchbox_id
+        )
+
+    scan_stats.scanned_platforms += 1
+    scan_stats.added_platforms += 1 if not platform else 0
+    scan_stats.metadata_platforms += 1 if scanned_platform.is_identified else 0
+
+    platform = db_platform_handler.add_platform(scanned_platform)
+
+    await socket_manager.emit(
+        "scan:scanning_platform",
+        PlatformSchema.model_validate(platform).model_dump(
+            include={"id", "name", "slug", "fs_slug"}
+        ),
+    )
+    await socket_manager.emit("", None)
+
+    # Scanning firmware
+    try:
+        fs_firmware = fs_firmware_handler.get_firmware(platform.fs_slug)
+    except FirmwareNotFoundException:
+        fs_firmware = []
+
+    if len(fs_firmware) == 0:
+        log.warning(
+            emoji.emojize(
+                f"{hl(':warning:', color=LIGHTYELLOW)}  No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
+            )
+        )
+    else:
+        log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
+
+    for fs_fw in fs_firmware:
+        scan_stats += await _identify_firmware(
+            platform=platform,
+            fs_fw=fs_fw,
+        )
+
+    # Scanning roms
+    try:
+        fs_roms = await fs_rom_handler.get_roms(platform)
+    except RomsNotFoundException as e:
+        log.error(e)
+        return scan_stats
+
+    if len(fs_roms) == 0:
+        log.warning(
+            emoji.emojize(
+                f"{hl(':warning:', color=LIGHTYELLOW)}  No roms found, verify that the folder structure is correct"
+            )
+        )
+    else:
+        log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
+
+    for fs_roms_batch in batched(fs_roms, 200):
+        rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(
+            platform_id=platform.id,
+            fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
+        )
+
+        for fs_rom in fs_roms_batch:
+            scan_stats += await _identify_rom(
+                platform=platform,
+                fs_rom=fs_rom,
+                rom=rom_by_filename_map.get(fs_rom["fs_name"]),
+                scan_type=scan_type,
+                roms_ids=roms_ids,
+                metadata_sources=metadata_sources,
+                socket_manager=socket_manager,
+            )
+
+    missing_roms = db_rom_handler.mark_missing_roms(
+        platform.id, [rom["fs_name"] for rom in fs_roms]
+    )
+    if len(missing_roms) > 0:
+        log.warning(f"{hl('Missing')} roms from filesystem:")
+        for r in missing_roms:
+            log.warning(f" - {r.fs_name}")
+
+    missing_firmware = db_firmware_handler.mark_missing_firmware(
+        platform.id, [fw for fw in fs_firmware]
+    )
+    if len(missing_firmware) > 0:
+        log.warning(f"{hl('Missing')} firmware from filesystem:")
+        for f in missing_firmware:
+            log.warning(f" - {f}")
+
+    return scan_stats
+
+
+@initialize_context()
+async def scan_platforms(
+    platform_ids: list[int],
+    scan_type: ScanType = ScanType.QUICK,
+    roms_ids: list[str] | None = None,
+    metadata_sources: list[str] | None = None,
+):
+    """Scan all the listed platforms and fetch metadata from different sources
+
+    Args:
+        platform_slugs (list[str]): List of platform slugs to be scanned
+        scan_type (str): Type of scan to be performed. Defaults to "quick".
+        roms_ids (list[str], optional): List of selected roms to be scanned. Defaults to [].
+        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
+    """
+
+    if not roms_ids:
+        roms_ids = []
+
+    if not metadata_sources:
+        metadata_sources = [
+            MetadataSource.IGDB,
+            MetadataSource.MOBY,
+            MetadataSource.SS,
+            MetadataSource.RA,
+        ]
+
+    sm = _get_socket_manager()
+
+    try:
+        fs_platforms: list[str] = fs_platform_handler.get_platforms()
+    except FolderStructureNotMatchException as e:
+        log.error(e)
+        await sm.emit("scan:done_ko", e.message)
+        return
+
+    scan_stats = ScanStats()
+
+    async def stop_scan():
+        log.info(emoji.emojize(":stop_sign: Scan stopped manually"))
+        await sm.emit("scan:done", scan_stats.__dict__)
+        redis_client.delete(STOP_SCAN_FLAG)
+
+    try:
+        platform_list = [
+            platform.fs_slug
+            for s in platform_ids
+            if (platform := db_platform_handler.get_platform(s)) is not None
+        ] or fs_platforms
+
+        if len(platform_list) == 0:
+            log.warning(
+                emoji.emojize(
+                    f"{hl(':warning:', color=LIGHTYELLOW)}  No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
+                Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
+                )
+            )
+        else:
+            log.info(
+                f"Found {hl(str(len(platform_list)))} platforms in the file system"
+            )
+
+        for platform_slug in platform_list:
+            scan_stats += await _identify_platform(
+                platform_slug=platform_slug,
+                scan_type=scan_type,
+                fs_platforms=fs_platforms,
+                roms_ids=roms_ids,
+                metadata_sources=metadata_sources,
+                socket_manager=sm,
+            )
+
+        missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
+        if len(missed_platforms) > 0:
+            log.warning(f"{hl('Missing')} platforms from filesystem:")
+            for p in missed_platforms:
+                log.warning(f" - {p.slug}")
+
+        log.info(emoji.emojize(":check_mark:  Scan completed "))
+        await sm.emit("scan:done", scan_stats.__dict__)
+    except ScanStoppedException:
+        await stop_scan()
+        return
+    except Exception as e:
+        log.error(f"Error in scan_platform: {e}")
+        # Catch all exceptions and emit error to the client
+        await sm.emit("scan:done_ko", str(e))
+        # Re-raise the exception to be caught by the error handler
+        raise e
+
+
+@socket_handler.socket_server.on("scan") # type: ignore
 async def scan_handler(_sid: str, options: dict):
     """Scan socket endpoint
 
