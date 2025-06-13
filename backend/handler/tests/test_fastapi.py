@@ -41,7 +41,15 @@ async def test_scan_rom():
 
         rom = await scan_rom(
             platform,
-            {"fs_name": "Paper Mario (USA).z64", "multi": False, "files": files},
+            {
+                "fs_name": "Paper Mario (USA).z64",
+                "multi": False,
+                "files": files,
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
             ScanType.QUICK,
         )
 
