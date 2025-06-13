@@ -59,6 +59,8 @@ class RomFile(BaseModel):
 
     rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
 
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
@@ -207,6 +209,8 @@ class Rom(BaseModel):
         lazy="select",
         back_populates="roms",
     )
+
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @property
     def platform_slug(self) -> str:

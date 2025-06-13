@@ -51,8 +51,7 @@ class Platform(BaseModel):
         select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
     )
 
-    def __repr__(self) -> str:
-        return self.name
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @property
     def is_unidentified(self) -> bool:
@@ -81,3 +80,6 @@ class Platform(BaseModel):
         from handler.database import db_stats_handler
 
         return db_stats_handler.get_platform_filesize(self.id)
+
+    def __repr__(self) -> str:
+        return self.name

@@ -99,6 +99,7 @@ function onClosedMenu() {
             transformScale
             showActionBar
             showPlatformIcon
+            show-missing-flag
             :enable3DTilt="enable3DEffect"
             @hover="onHover"
             @openedmenu="onOpenedMenu"

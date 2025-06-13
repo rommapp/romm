@@ -35,6 +35,8 @@ class PlatformSchema(BaseModel):
     is_unidentified: bool
     is_identified: bool
 
+    missing_from_fs: bool
+
     class Config:
         from_attributes = True
 

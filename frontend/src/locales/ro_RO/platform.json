@@ -32,6 +32,7 @@
   "show-unmatched": "Jocuri neidentificate",
   "show-playables": "Afișează jocuri jucabile",
   "show-ra": "Afișează Retroachievements",
+  "show-missing": "Afișează lipsurile",
   "status": "Stare",
   "upload-roms": "Încărcare ROM-uri"
 }

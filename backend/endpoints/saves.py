@@ -58,7 +58,9 @@ async def add_save(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading save {hl(saveFile.filename)} for {hl(rom.name, color=BLUE)}")
+    log.info(
+        f"Uploading save {hl(saveFile.filename)} for {hl(str(rom.name), color=BLUE)}"
+    )
 
     saves_path = fs_asset_handler.build_saves_file_path(
         user=request.user,

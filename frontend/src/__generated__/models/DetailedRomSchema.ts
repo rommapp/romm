@@ -66,6 +66,7 @@ export type DetailedRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
+    missing_from_fs: boolean;
     merged_ra_metadata: (RomRAMetadata | null);
     merged_screenshots: Array<string>;
     siblings: Array<SiblingRomSchema>;
