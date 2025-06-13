@@ -119,6 +119,7 @@ class Rom(BaseModel):
     moby_id: Mapped[int | None]
     ss_id: Mapped[int | None]
     ra_id: Mapped[int | None]
+    launchbox_id: Mapped[int | None]
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -126,6 +127,7 @@ class Rom(BaseModel):
         Index("idx_roms_ss_id", "ss_id"),
         Index("idx_roms_ra_id", "ra_id"),
         Index("idx_roms_sgdb_id", "sgdb_id"),
+        Index("idx_roms_launchbox_id", "launchbox_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=450))
@@ -147,6 +149,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     ra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    launchbox_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 
@@ -310,12 +315,16 @@ class Rom(BaseModel):
     @property
     def is_unidentified(self) -> bool:
         return (
-            not self.igdb_id and not self.moby_id and not self.ss_id and not self.ra_id
+            not self.igdb_id
+            and not self.moby_id
+            and not self.ss_id
+            and not self.ra_id
+            and not self.launchbox_id
         )
 
     @property
-    def is_partially_identified(self) -> bool:
-        return not self.is_unidentified and not self.is_fully_identified
+    def is_identified(self) -> bool:
+        return not self.is_unidentified
 
     @property
     def is_fully_identified(self) -> bool:
@@ -324,6 +333,7 @@ class Rom(BaseModel):
             and bool(self.moby_id)
             and bool(self.ss_id)
             and bool(self.ra_id)
+            and bool(self.launchbox_id)
         )
 
     def has_m3u_file(self) -> bool:

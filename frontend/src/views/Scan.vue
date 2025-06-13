@@ -47,6 +47,12 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/ra.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
   },
+  {
+    name: "Launchbox",
+    value: "lb",
+    logo_path: "/assets/scrappers/launchbox.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
+  },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
 const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
@@ -364,7 +370,7 @@ async function stopScan() {
                 >
                   <template #append-body>
                     <v-chip
-                      v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
+                      v-if="rom.is_unidentified"
                       color="red"
                       size="x-small"
                       label
