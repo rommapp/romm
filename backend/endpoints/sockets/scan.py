@@ -395,15 +395,15 @@ async def _identify_rom(
             file_size_bytes=file.file_size_bytes,
             last_modified=file.last_modified,
             category=file.category,
+            crc_hash=file.crc_hash,
+            sha1_hash=file.sha1_hash,
+            md5_hash=file.md5_hash,
+            ra_hash=file.ra_hash,
         )
         for file in fs_rom["files"]
     ]
     for new_rom_file in new_rom_files:
         db_rom_handler.add_rom_file(new_rom_file)
-
-    # Return early if we're only scanning for hashes
-    if scan_type == ScanType.HASHES:
-        return scan_stats
 
     if _added_rom.ra_metadata:
         fs_resource_handler.create_ra_resources_path(platform.id, _added_rom.id)
@@ -493,7 +493,7 @@ async def _identify_rom(
     return scan_stats
 
 
-@socket_handler.socket_server.on("scan")
+@socket_handler.socket_server.on("scan")  # type: ignore
 async def scan_handler(_sid: str, options: dict):
     """Scan socket endpoint
 
@@ -526,7 +526,7 @@ async def scan_handler(_sid: str, options: dict):
     )
 
 
-@socket_handler.socket_server.on("scan:stop")
+@socket_handler.socket_server.on("scan:stop")  # type: ignore
 async def stop_scan_handler(_sid: str):
     """Stop scan socket endpoint"""
 
