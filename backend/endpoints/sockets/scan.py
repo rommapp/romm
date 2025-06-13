@@ -410,6 +410,7 @@ async def _identify_rom(
 
         # Store the achievements badges
         # This requires us to rebuild the achievements list using the Rom ID
+        # TODO:Remove this since we can do it on the client side
         updated_achievements: list[RAGameRomAchievement] = []
 
         for ach in _added_rom.ra_metadata.get("achievements", []):
