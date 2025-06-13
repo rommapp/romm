@@ -23,7 +23,6 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
-from handler.metadata.ra_handler import RAGameRomAchievement
 from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import (
     MetadataSource,
@@ -155,6 +154,23 @@ async def _identify_rom(
 
         return scan_stats
 
+    # Create the entry early so we have the ID
+    rom = (
+        db_rom_handler.add_rom(
+            Rom(
+                multi=fs_rom["multi"],
+                fs_name=fs_rom["fs_name"],
+                platform_id=platform.id,
+                name=fs_rom["fs_name"],
+                url_cover="",
+                url_manual="",
+                url_screenshots=[],
+            )
+        )
+        if not rom
+        else rom
+    )
+
     scanned_rom = await scan_rom(
         platform=platform,
         fs_rom=fs_rom,
@@ -195,10 +211,6 @@ async def _identify_rom(
         fs_resource_handler.create_ra_resources_path(platform.id, _added_rom.id)
 
         # Store the achievements badges
-        # This requires us to rebuild the achievements list using the Rom ID
-        # TODO:Remove this since we can do it on the client side
-        updated_achievements: list[RAGameRomAchievement] = []
-
         for ach in _added_rom.ra_metadata.get("achievements", []):
             # Store both normal and locked version
             badge_url_lock = ach.get("badge_url_lock", None)
@@ -213,26 +225,6 @@ async def _identify_rom(
             if badge_url and badge_path:
                 badge_path = f"{fs_resource_handler.get_ra_badges_path(platform.id, _added_rom.id)}/{badge_path}"
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
-
-            updated_achievements.append(
-                RAGameRomAchievement(
-                    ra_id=ach["ra_id"],
-                    title=ach["title"],
-                    description=ach["description"],
-                    points=ach["points"],
-                    num_awarded=ach["num_awarded"],
-                    num_awarded_hardcore=ach["num_awarded_hardcore"],
-                    badge_id=ach["badge_id"],
-                    badge_url_lock=ach["badge_url_lock"],
-                    badge_path_lock=badge_path_lock,
-                    badge_url=ach["badge_url"],
-                    badge_path=badge_path,
-                    display_order=ach["display_order"],
-                    type=ach["type"],
-                )
-            )
-
-        _added_rom.ra_metadata["achievements"] = updated_achievements
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,
