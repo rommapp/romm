@@ -15,6 +15,10 @@ const collectionsStore = storeCollections();
 
 // Initializing refs from localStorage
 // Home
+const storedShowStats = localStorage.getItem("settings.showStats");
+const showStatsRef = ref(
+  isNull(storedShowStats) ? true : storedShowStats === "true",
+);
 const storedShowRecentRoms = localStorage.getItem("settings.showRecentRoms");
 const showRecentRomsRef = ref(
   isNull(storedShowRecentRoms) ? true : storedShowRecentRoms === "true",
@@ -93,6 +97,14 @@ const enable3DEffectRef = ref(
 );
 
 const homeOptions = computed(() => [
+  {
+    title: t("settings.show-stats"),
+    description: t("settings.show-stats-desc"),
+    iconEnabled: "mdi-thermostat-box",
+    iconDisabled: "mdi-thermostat-box",
+    model: showStatsRef,
+    modelTrigger: toggleShowStats,
+  },
   {
     title: t("settings.show-recently-added"),
     description: t("settings.show-recently-added-desc"),
@@ -228,6 +240,11 @@ const setVirtualCollectionType = async (value: string) => {
     .then(({ data: virtualCollections }) => {
       collectionsStore.setVirtual(virtualCollections);
     });
+};
+
+const toggleShowStats = (value: boolean) => {
+  showStatsRef.value = value;
+  localStorage.setItem("settings.showStats", value.toString());
 };
 
 const toggleShowRecentRoms = (value: boolean) => {

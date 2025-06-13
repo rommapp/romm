@@ -49,6 +49,8 @@
   "show-siblings-desc": "在启用\"Rom 文件组\"选项时将会在游戏库中显示已分组 Rom 的版本数量",
   "show-status": "显示状态",
   "show-status-desc": "在游戏库中显示状态标识（积压、游玩中、已完成等）",
+  "show-stats": "显示统计信息",
+  "show-stats-desc": "在主页上显示统计信息摘要",
   "show-actionbar": "显示操作栏",
   "show-actionbar-desc": "始终在游戏卡片中显示操作栏",
   "show-virtual-collections": "显示自动生成的收藏",

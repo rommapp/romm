@@ -50,6 +50,8 @@
   "show-siblings-desc": "Mostra il numero di versioni correlate nella galleria quando l'opzione \"Raggruppa rom\" è attivata",
   "show-status": "Mostra stato",
   "show-status-desc": "Mostra le icone di stato nella galleria (in attesa, in gioco, completato, ecc.)",
+  "show-stats": "Mostra statistiche",
+  "show-stats-desc": "Mostra il riepilogo delle statistiche nella home",
   "show-actionbar": "Mostra barra delle azioni",
   "show-actionbar-desc": "Mostra sempre la barra delle azioni nella scheda del gioco",
   "show-virtual-collections": "Mostra collezioni autogenerate",
