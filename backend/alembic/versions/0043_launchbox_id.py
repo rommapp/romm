@@ -1,7 +1,7 @@
 """empty message
 
-Revision ID: 0042_launchbox_id
-Revises: 0041_assets_t_thumb_cleanup
+Revision ID: 0043_launchbox_id
+Revises: 0042_add_missing_from_fs
 Create Date: 2025-05-20 22:39:16.993191
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 from utils.database import CustomJSON
 
-revision = "0042_launchbox_id"
-down_revision = "0041_assets_t_thumb_cleanup"
+revision = "0043_launchbox_id"
+down_revision = "0042_add_missing_from_fs"
 branch_labels = None
 depends_on = None
 
