@@ -246,6 +246,10 @@ async def scan_rom(
         "url_cover": "",
         "url_manual": "",
         "url_screenshots": [],
+        "crc_hash": fs_rom["crc_hash"],
+        "md5_hash": fs_rom["md5_hash"],
+        "sha1_hash": fs_rom["sha1_hash"],
+        "ra_hash": fs_rom["ra_hash"],
     }
 
     # Update properties from existing rom if not a complete rescan
@@ -277,7 +281,6 @@ async def scan_rom(
     rom_attrs.update(
         {
             "fs_path": roms_path,
-            "fs_name": rom_attrs["fs_name"],
             "fs_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
                 rom_attrs["fs_name"]
             ),
@@ -292,14 +295,6 @@ async def scan_rom(
             "tags": other_tags,
         }
     )
-
-    # Set empty hashes when we plan to recalculate them
-    if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
-        rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
-
-    # If no metadata scan is required
-    if scan_type == ScanType.HASHES:
-        return Rom(**rom_attrs)
 
     async def fetch_igdb_rom():
         if (
