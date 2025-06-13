@@ -285,6 +285,7 @@ onBeforeUnmount(() => {
               showFav
               transformScale
               showActionBar
+              show-missing-flag
               :withBorderPrimary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "

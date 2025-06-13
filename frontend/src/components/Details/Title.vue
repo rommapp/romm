@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { DetailedRom } from "@/stores/roms";
-import { languageToEmoji, regionToEmoji } from "@/utils";
-import { identity } from "lodash";
+import storePlatforms from "@/stores/platforms";
+import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
 // Props
@@ -17,7 +18,9 @@ const releaseDate = new Date(
   month: "short",
   year: "numeric",
 });
-const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
+
+const platformsStore = storePlatforms();
+const { allPlatforms } = storeToRefs(platformsStore);
 </script>
 <template>
   <div>
@@ -43,6 +46,14 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
         <v-chip
           :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
+          <missing-from-f-s-icon
+            v-if="
+              allPlatforms.find((p) => p.id === rom.platform_id)
+                ?.missing_from_fs
+            "
+            class="mr-2"
+            text="Missing platform from filesystem"
+          />
           <platform-icon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
@@ -79,7 +90,7 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
     </v-row>
 
     <v-row
-      v-if="rom.igdb_id || rom.moby_id || rom.ss_id || rom.ra_id"
+      v-if="rom.is_identified"
       class="text-white text-shadow mt-2"
       :class="{ 'text-center': smAndDown }"
       no-gutters
@@ -149,6 +160,22 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
             <span>{{ rom.ra_id }}</span>
           </v-chip>
         </a>
+        <div
+          v-if="rom.launchbox_id"
+          :class="{ 'ml-1': rom.igdb_id || rom.ss_id }"
+        >
+          <v-chip class="pl-0 mt-1" size="small">
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/launchbox.png" />
+            </v-avatar>
+            <span>{{ rom.launchbox_id }}</span>
+            <v-divider class="mx-2 border-opacity-25" vertical />
+            <span>{{
+              rom.launchbox_metadata?.community_rating?.toFixed(2)
+            }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
+          </v-chip>
+        </div>
       </v-col>
     </v-row>
   </div>

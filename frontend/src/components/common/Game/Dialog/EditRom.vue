@@ -80,10 +80,6 @@ async function removeArtwork() {
   removeCover.value = true;
 }
 
-const noMetadataMatch = computed(() => {
-  return !rom.value?.igdb_id && !rom.value?.moby_id && !rom.value?.ss_id;
-});
-
 async function handleRomUpdate(
   options: {
     rom: UpdateRom;
@@ -371,8 +367,8 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-space-between px-4 py-2 mt-1" no-gutters>
         <v-btn
-          :disabled="noMetadataMatch"
-          :class="` ${noMetadataMatch ? '' : 'bg-toplayer text-romm-red'}`"
+          :disabled="rom.is_unidentified"
+          :class="` ${rom.is_unidentified ? '' : 'bg-toplayer text-romm-red'}`"
           variant="flat"
           @click="unmatchRom"
         >

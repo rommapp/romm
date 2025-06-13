@@ -1,0 +1,260 @@
+<?xml version="1.0" standalone="yes"?>
+<LaunchBox>
+  <Game>
+    <Name>Paper Mario</Name>
+    <ReleaseDate>2000-08-11T00:00:00-07:00</ReleaseDate>
+    <Overview>Mario pals around in an all-new action adventure! Mario's back in his first adventure since Super Mario 64, and this time, Bowser's bent on preventing a storybook ending. When Princess Peach is kidnapped, Mario plots to rescue the seven Star Spirits and rid the Mushroom Kingdom of Koopa's cruel cohorts. As he travels from the tropical jungles of Lavalava Island to the frosty heights of Shiver Mountain, he'll meet up with seven all-new companions... and he'll need help from each one or there'll be no happily ever after.</Overview>
+    <MaxPlayers>1</MaxPlayers>
+    <ReleaseType>Released</ReleaseType>
+    <Cooperative>false</Cooperative>
+    <VideoURL>http://www.youtube.com/watch?v=WoGJd0k_FR8</VideoURL>
+    <DatabaseID>141</DatabaseID>
+    <CommunityRating>4.4416873449131513</CommunityRating>
+    <WikipediaURL>https://en.wikipedia.org/wiki/Paper_Mario_(video_game)</WikipediaURL>
+    <Platform>Nintendo 64</Platform>
+    <ESRB>E - Everyone</ESRB>
+    <CommunityRatingCount>403</CommunityRatingCount>
+    <Genres> Role-Playing</Genres>
+    <Developer>Intelligent Systems</Developer>
+    <Publisher>Nintendo</Publisher>
+  </Game>
+  <GameAlternateName>
+    <AlternateName>Mario Story</AlternateName>
+    <DatabaseID>141</DatabaseID>
+    <Region>Japan</Region>
+  </GameAlternateName>
+  <GameAlternateName>
+    <AlternateName>纸片马力欧</AlternateName>
+    <DatabaseID>141</DatabaseID>
+    <Region>China</Region>
+  </GameAlternateName>
+  <GameAlternateName>
+    <AlternateName>纸片马里奥</AlternateName>
+    <DatabaseID>141</DatabaseID>
+    <Region>China</Region>
+  </GameAlternateName>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>5e4587a1-8505-4fd2-ace1-87613df5f5d1.png</FileName>
+    <Type>Advertisement Flyer - Front</Type>
+    <Region>China</Region>
+    <CRC32>2072259539</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>16231fc3-bcb3-4dbc-bbe4-f0bc36b31081.jpg</FileName>
+    <Type>Advertisement Flyer - Front</Type>
+    <Region>North America</Region>
+    <CRC32>727411021</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>dfb30000-001e-432b-8e95-bd8e9fff3983.jpg</FileName>
+    <Type>Advertisement Flyer - Front</Type>
+    <Region>North America</Region>
+    <CRC32>583876627</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>c417920f-1edc-4af1-95a2-2f55fb777194.jpg</FileName>
+    <Type>Banner</Type>
+    <CRC32>959239531</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>e76b4339-482d-43e1-8ecb-4c6e1b442daa.jpg</FileName>
+    <Type>Banner</Type>
+    <CRC32>1545972692</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>c205963e-7349-4755-8dc3-d7439a32a5a3.PNG</FileName>
+    <Type>Box - 3D</Type>
+    <Region>Japan</Region>
+    <CRC32>3690696107</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>1748e1a1-a1aa-4726-b9e8-4c04da848d58.png</FileName>
+    <Type>Box - 3D</Type>
+    <Region>Europe</Region>
+    <CRC32>2680176444</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>c7ae433d-5e91-4da5-bb75-24b84b68e69c.png</FileName>
+    <Type>Box - 3D</Type>
+    <Region>North America</Region>
+    <CRC32>3778415585</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>0edddd5d-4175-423d-8418-9340c9eae803.jpg</FileName>
+    <Type>Box - Back</Type>
+    <Region>North America</Region>
+    <CRC32>4144827731</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>11a54e4a-6831-4f99-bff2-dc2e9c5bf779.jpg</FileName>
+    <Type>Box - Back</Type>
+    <Region>Japan</Region>
+    <CRC32>1527171011</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>10e9028c-3c48-44d1-9272-aac002e26c86.jpg</FileName>
+    <Type>Box - Back</Type>
+    <Region>Europe</Region>
+    <CRC32>1577175924</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>346c7be3-6533-4418-80a3-55c61f2abc11.jpg</FileName>
+    <Type>Box - Front</Type>
+    <Region>Europe</Region>
+    <CRC32>2640187913</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>856a0c08-0d44-4142-8315-8d0c72a679c5.jpg</FileName>
+    <Type>Box - Front</Type>
+    <Region>Japan</Region>
+    <CRC32>386642606</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>eb7eb36a-2a90-4100-aa6b-1c9736e38ae6.png</FileName>
+    <Type>Box - Front</Type>
+    <Region>North America</Region>
+    <CRC32>390632758</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>310332a4-41d3-4606-bdb1-fedd21f0ea79.jpg</FileName>
+    <Type>Box - Front</Type>
+    <Region>Australia</Region>
+    <CRC32>936530111</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>d5755b52-d75c-405d-98e7-20e54526bed3.jpg</FileName>
+    <Type>Box - Spine</Type>
+    <Region>North America</Region>
+    <CRC32>3913618231</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>8a47e006-a565-4906-8420-02e6de9a33ad.jpg</FileName>
+    <Type>Box - Spine</Type>
+    <Region>Japan</Region>
+    <CRC32>1761128152</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>90115c9c-48b9-4b79-b8ea-2033519d9923.png</FileName>
+    <Type>Cart - 3D</Type>
+    <Region>North America</Region>
+    <CRC32>3602298032</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>87d84d99-db78-4cbc-8450-fda0ffc3ce80.png</FileName>
+    <Type>Cart - Front</Type>
+    <Region>North America</Region>
+    <CRC32>22235904</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>1e0a96eb-a772-4003-9777-290ac0ea8356.png</FileName>
+    <Type>Clear Logo</Type>
+    <Region>World</Region>
+    <CRC32>2486841913</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>7fa59a62-99a9-4daa-a8b4-cf9681a73b55.png</FileName>
+    <Type>Clear Logo</Type>
+    <Region>China</Region>
+    <CRC32>1965202817</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>bde294fa-b2d8-46dd-83da-4dc72623d922.png</FileName>
+    <Type>Clear Logo</Type>
+    <Region>Japan</Region>
+    <CRC32>1297661257</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>fb6214d1-b0ba-4193-97d6-82128de00930.png</FileName>
+    <Type>Clear Logo</Type>
+    <Region>Japan</Region>
+    <CRC32>2974004483</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>87f88c4e-689d-4eef-958c-e65f957f4243.jpg</FileName>
+    <Type>Fanart - Background</Type>
+    <CRC32>3930859962</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>fa81cb25-99d9-4de8-9526-929c1b791f4e.jpg</FileName>
+    <Type>Fanart - Background</Type>
+    <CRC32>397167211</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>70b9b270-361c-4134-8590-19760800245f.png</FileName>
+    <Type>Fanart - Box - Front</Type>
+    <CRC32>1787674306</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>7cf2a436-9ba6-42a4-9fe7-b805d6da2ccf.png</FileName>
+    <Type>Screenshot - Game Title</Type>
+    <Region>China</Region>
+    <CRC32>765939706</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>af53b508-1585-4522-bb31-de6eb5c7f6e1.png</FileName>
+    <Type>Screenshot - Game Title</Type>
+    <Region>China</Region>
+    <CRC32>698006263</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>363e6708-2ec8-495a-be53-492e31d3d5f8.png</FileName>
+    <Type>Screenshot - Game Title</Type>
+    <Region>Japan</Region>
+    <CRC32>4083516316</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>561f42f1-9f37-4787-82b8-dd8156399c29.png</FileName>
+    <Type>Screenshot - Game Title</Type>
+    <Region>North America</Region>
+    <CRC32>2631830900</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>3f33ae92-6a49-4428-81b6-10ba85f4e027.png</FileName>
+    <Type>Screenshot - Gameplay</Type>
+    <CRC32>991180833</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>927204b2-64ee-4379-99a2-2a114c26f64b.png</FileName>
+    <Type>Screenshot - Gameplay</Type>
+    <CRC32>3132977303</CRC32>
+  </GameImage>
+  <GameImage>
+    <DatabaseID>141</DatabaseID>
+    <FileName>15f6304e-85be-4863-a65d-9a81f25e7707.png</FileName>
+    <Type>Screenshot - Gameplay</Type>
+    <Region>China</Region>
+    <CRC32>1122730830</CRC32>
+  </GameImage>
+</LaunchBox>

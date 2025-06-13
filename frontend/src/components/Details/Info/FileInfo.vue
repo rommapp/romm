@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { RomFileSchema } from "@/__generated__";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
@@ -51,7 +52,11 @@ watch(
           <span>{{ t("rom.file") }}</span>
         </v-col>
         <v-col>
-          <span class="text-body-1">{{ rom.fs_name }}</span>
+          <missing-from-f-s-icon
+            v-if="rom.missing_from_fs"
+            :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
+            class="mr-2"
+          /><span class="text-body-1">{{ rom.fs_name }}</span>
         </v-col>
       </v-row>
       <v-row v-if="rom.multi" class="align-center my-3" no-gutters>
@@ -59,44 +64,53 @@ watch(
           <span>{{ t("rom.files") }}</span>
         </v-col>
         <v-col>
-          <v-select
-            v-model="downloadStore.filesToDownload"
-            :label="rom.fs_name"
-            :items="rom.files"
-            :itemProps="itemProps"
-            rounded="0"
-            density="compact"
-            variant="outlined"
-            return-object
-            multiple
-            hide-details
-            clearable
-            chips
-          >
-            <template #item="{ item, props }">
-              <v-list-item v-bind="props">
-                <template v-slot:prepend="{ isSelected }">
-                  <v-checkbox-btn
-                    :model-value="isSelected"
-                    density="compact"
-                    class="mr-2"
-                  />
+          <v-row class="align-center" no-gutters>
+            <v-col v-if="rom.missing_from_fs" cols="auto" class="pr-2">
+              <missing-from-f-s-icon
+                :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
+                :size="25"
+              />
+            </v-col>
+            <v-col>
+              <v-select
+                v-model="downloadStore.filesToDownload"
+                :label="rom.fs_name"
+                :items="rom.files"
+                :itemProps="itemProps"
+                density="compact"
+                variant="outlined"
+                return-object
+                multiple
+                hide-details
+                clearable
+                chips
+              >
+                <template #item="{ item, props }">
+                  <v-list-item v-bind="props">
+                    <template v-slot:prepend="{ isSelected }">
+                      <v-checkbox-btn
+                        :model-value="isSelected"
+                        density="compact"
+                        class="mr-2"
+                      />
+                    </template>
+                    <v-list-item-subtitle class="mt-1">
+                      <v-chip
+                        color="primary"
+                        size="x-small"
+                        class="mr-1"
+                        v-if="item.raw.category"
+                        >{{ item.raw.category.toLocaleUpperCase() }}</v-chip
+                      >
+                      <v-chip size="x-small">{{
+                        formatBytes(item.raw.file_size_bytes)
+                      }}</v-chip>
+                    </v-list-item-subtitle>
+                  </v-list-item>
                 </template>
-                <v-list-item-subtitle class="mt-1">
-                  <v-chip
-                    color="primary"
-                    size="x-small"
-                    class="mr-1"
-                    v-if="item.raw.category"
-                    >{{ item.raw.category.toLocaleUpperCase() }}</v-chip
-                  >
-                  <v-chip size="x-small">{{
-                    formatBytes(item.raw.file_size_bytes)
-                  }}</v-chip>
-                </v-list-item-subtitle>
-              </v-list-item>
-            </template>
-          </v-select>
+              </v-select>
+            </v-col>
+          </v-row>
         </v-col>
       </v-row>
       <v-row no-gutters class="align-center my-3">

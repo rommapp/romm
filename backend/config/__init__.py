@@ -75,10 +75,18 @@ REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
 # MOBYGAMES
 MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
 
+# LAUNCHBOX
+LAUNCHBOX_API_ENABLED: Final = str_to_bool(
+    os.environ.get("LAUNCHBOX_API_ENABLED", "true")
+)
+
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
+SESSION_MAX_AGE_SECONDS: Final = int(
+    os.environ.get("SESSION_MAX_AGE_SECONDS", 14 * 24 * 60 * 60)
+)  # 14 days, in seconds
 DISABLE_CSRF_PROTECTION = str_to_bool(
     os.environ.get("DISABLE_CSRF_PROTECTION", "false")
 )
@@ -119,6 +127,13 @@ ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: Final = str_to_bool(
 SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
     "0 4 * * *",  # At 4:00 AM every day
+)
+ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: Final = str_to_bool(
+    os.environ.get("ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA", "false")
+)
+SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON: Final = os.environ.get(
+    "SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON",
+    "0 5 * * *",  # At 5:00 AM every day
 )
 
 # EMULATION

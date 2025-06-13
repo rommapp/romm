@@ -9,11 +9,13 @@ from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_han
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_igdb_handler,
+    meta_launchbox_handler,
     meta_moby_handler,
     meta_ra_handler,
     meta_ss_handler,
 )
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
+from handler.metadata.launchbox_handler import LaunchboxPlatform, LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
 from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
 from handler.metadata.ss_handler import SSPlatform, SSRom
@@ -43,6 +45,7 @@ class MetadataSource:
     MOBY = "moby"
     SS = "ss"
     RA = "ra"
+    LB = "lb"
 
 
 async def fetch_ra_info(
@@ -141,16 +144,26 @@ async def scan_platform(
         if MetadataSource.SS in metadata_sources
         else SSPlatform(ss_id=None, slug=platform_attrs["slug"])
     )
-
     ra_platform = (
         meta_ra_handler.get_platform(platform_attrs["slug"])
         if MetadataSource.RA in metadata_sources
         else RAGamesPlatform(ra_id=None, slug=platform_attrs["slug"])
     )
+    launchbox_platform = (
+        meta_launchbox_handler.get_platform(platform_attrs["slug"])
+        if MetadataSource.LB in metadata_sources
+        else LaunchboxPlatform(launchbox_id=None, slug=platform_attrs["slug"])
+    )
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
-        {**ra_platform, **moby_platform, **ss_platform, **igdb_platform}
+        {
+            **launchbox_platform,
+            **ra_platform,
+            **moby_platform,
+            **ss_platform,
+            **igdb_platform,
+        }
     )  # Reverse order
 
     if (
@@ -158,6 +171,7 @@ async def scan_platform(
         or platform_attrs["moby_id"]
         or platform_attrs["ss_id"]
         or platform_attrs["ra_id"]
+        or platform_attrs["launchbox_id"]
     ):
         log.info(
             emoji.emojize(
@@ -173,6 +187,7 @@ async def scan_platform(
             extra=LOGGER_MODULE_NAME,
         )
 
+    platform_attrs["missing_from_fs"] = False
     return Platform(**platform_attrs)
 
 
@@ -261,6 +276,7 @@ async def scan_rom(
                 "ss_id": rom.ss_id,
                 "sgdb_id": rom.sgdb_id,
                 "ra_id": rom.ra_id,
+                "launchbox_id": rom.launchbox_id,
                 "name": rom.name,
                 "slug": rom.slug,
                 "summary": rom.summary,
@@ -347,6 +363,19 @@ async def scan_rom(
             )
 
         return SSRom(ss_id=None)
+    
+    async def fetch_launchbox_rom(platform_slug: str):
+        if MetadataSource.LB in metadata_sources and (
+            not rom
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.launchbox_id)
+            or (scan_type == ScanType.UNIDENTIFIED and not rom.launchbox_id)
+        ):
+            return await meta_launchbox_handler.get_rom(
+                rom_attrs["fs_name"], platform_slug
+            )
+
+        return LaunchboxRom(launchbox_id=None)
 
     async def fetch_ra_rom():
         if (
@@ -365,9 +394,9 @@ async def scan_rom(
         return RAGameRom(ra_id=None)
 
     # Run both metadata fetches concurrently
-    igdb_handler_rom, moby_handler_rom, ss_handler_rom, ra_handler_rom = (
+    igdb_handler_rom, moby_handler_rom, ss_handler_rom, ra_handler_rom, launchbox_handler_rom = (
         await asyncio.gather(
-            fetch_igdb_rom(), fetch_moby_rom(), fetch_ss_rom(), fetch_ra_rom()
+            fetch_igdb_rom(), fetch_moby_rom(), fetch_ss_rom(), fetch_ra_rom(), fetch_launchbox_rom(platform.slug)
         )
     )
 
@@ -381,18 +410,27 @@ async def scan_rom(
             rom_attrs.update({**ss_handler_rom})
         if igdb_handler_rom.get("igdb_id"):
             rom_attrs.update({**igdb_handler_rom})
+        if launchbox_handler_rom.get("launchbox_id"):
+            rom_attrs.update({**launchbox_handler_rom})
     else:
         # Reversed to prioritize IGDB
         rom_attrs.update(
-            {**ra_handler_rom, **moby_handler_rom, **ss_handler_rom, **igdb_handler_rom}
+            {
+                **ra_handler_rom,
+                **launchbox_handler_rom,
+                **moby_handler_rom,
+                **ss_handler_rom,
+                **igdb_handler_rom,
+            }
         )
 
-    # If not found in IGDB, MobyGames, Screenscraper or RA
+    # If not found in any metadata source, we return the rom with the default values
     if (
         not igdb_handler_rom.get("igdb_id")
         and not moby_handler_rom.get("moby_id")
         and not ss_handler_rom.get("ss_id")
         and not ra_handler_rom.get("ra_id")
+        and not launchbox_handler_rom.get("launchbox_id")
     ):
         log.warning(
             emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),
@@ -413,6 +451,7 @@ async def scan_rom(
                 extra=LOGGER_MODULE_NAME,
             )
 
+    rom_attrs["missing_from_fs"] = False
     return Rom(**rom_attrs)
 
 

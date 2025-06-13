@@ -5,6 +5,7 @@
 import type { CollectionSchema } from './CollectionSchema';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
+import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomRAMetadata } from './RomRAMetadata';
@@ -22,6 +23,7 @@ export type DetailedRomSchema = {
     moby_id: (number | null);
     ss_id: (number | null);
     ra_id: (number | null);
+    launchbox_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -43,6 +45,7 @@ export type DetailedRomSchema = {
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     ss_metadata: (RomSSMetadata | null);
+    launchbox_metadata: (RomLaunchboxMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
@@ -50,6 +53,7 @@ export type DetailedRomSchema = {
     path_manual: (string | null);
     url_manual: (string | null);
     is_unidentified: boolean;
+    is_identified: boolean;
     revision: (string | null);
     regions: Array<string>;
     languages: Array<string>;
@@ -62,6 +66,7 @@ export type DetailedRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
+    missing_from_fs: boolean;
     merged_ra_metadata: (RomRAMetadata | null);
     merged_screenshots: Array<string>;
     siblings: Array<SiblingRomSchema>;

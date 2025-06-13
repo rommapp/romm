@@ -178,7 +178,7 @@ class MobyGamesHandler(MetadataHandler):
         return pydash.get(exact_matches or roms, "[0]", None)
 
     def get_platform(self, slug: str) -> MobyGamesPlatform:
-        platform = SLUG_TO_MOBY_ID.get(slug, None)
+        platform = MOBYGAMES_PLATFORM_LIST.get(slug, None)
 
         if not platform:
             return MobyGamesPlatform(moby_id=None, slug=slug)
@@ -357,7 +357,7 @@ class SlugToMobyId(TypedDict):
     name: str
 
 
-SLUG_TO_MOBY_ID: dict[str, SlugToMobyId] = {
+MOBYGAMES_PLATFORM_LIST: dict[str, SlugToMobyId] = {
     "1292-advanced-programmable-video-system": {
         "id": 253,
         "name": "1292 Advanced Programmable Video System",
@@ -759,4 +759,4 @@ SLUG_TO_MOBY_ID: dict[str, SlugToMobyId] = {
 }
 
 # Reverse lookup
-MOBY_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_MOBY_ID.items()}
+MOBY_ID_TO_SLUG = {v["id"]: k for k, v in MOBYGAMES_PLATFORM_LIST.items()}
