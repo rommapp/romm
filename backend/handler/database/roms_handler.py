@@ -193,6 +193,7 @@ class DBRomsHandler(DBBaseHandler):
             Rom.igdb_id.isnot(None),
             Rom.moby_id.isnot(None),
             Rom.ss_id.isnot(None),
+            Rom.launchbox_id.isnot(None),
         )
         if not value:
             predicate = not_(predicate)
@@ -426,6 +427,9 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
                     Rom.moby_id.isnot(None): build_func("moby", Rom.moby_id),
                     Rom.ss_id.isnot(None): build_func("ss", Rom.ss_id),
+                    Rom.launchbox_id.isnot(None): build_func(
+                        "launchbox", Rom.launchbox_id
+                    ),
                 },
                 else_=build_func("romm", Rom.id),
             )

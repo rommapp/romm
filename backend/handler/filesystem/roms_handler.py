@@ -9,7 +9,7 @@ import tarfile
 import zipfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any, Final, Literal, TypedDict
+from typing import IO, Any, Final, Literal, TypedDict
 
 import magic
 import py7zr
@@ -87,22 +87,23 @@ def is_compressed_file(file_path: str) -> bool:
     )
 
 
-def read_basic_file(file_path: Path) -> Iterator[bytes]:
+def read_basic_file(file_path: os.PathLike[str]) -> Iterator[bytes]:
     with open(file_path, "rb") as f:
         while chunk := f.read(FILE_READ_CHUNK_SIZE):
             yield chunk
 
 
-def read_zip_file(file_path: Path) -> Iterator[bytes]:
+def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
     try:
-        with zipfile.ZipFile(file_path, "r") as z:
+        with zipfile.ZipFile(file, "r") as z:
             for file in z.namelist():
                 with z.open(file, "r") as f:
                     while chunk := f.read(FILE_READ_CHUNK_SIZE):
                         yield chunk
     except zipfile.BadZipFile:
-        for chunk in read_basic_file(file_path):
-            yield chunk
+        if isinstance(file, Path):
+            for chunk in read_basic_file(file):
+                yield chunk
 
 
 def read_tar_file(

@@ -1,0 +1,41 @@
+<?xml version="1.0" standalone="yes"?>
+<LaunchBox>
+  <MameFile>
+    <FileName>wrlok_l3</FileName>
+    <Name>Warlok</Name>
+    <Status>preliminary</Status>
+    <Developer />
+    <Publisher>Williams</Publisher>
+    <Year>1982</Year>
+    <IsMechanical>true</IsMechanical>
+    <Version>(L-3)</Version>
+    <Region>North America</Region>
+    <IsBootleg>false</IsBootleg>
+    <IsPrototype>false</IsPrototype>
+    <IsHack>false</IsHack>
+    <IsMature>false</IsMature>
+    <IsQuiz>false</IsQuiz>
+    <IsFruit>false</IsFruit>
+    <IsCasino>false</IsCasino>
+    <IsRhythm>false</IsRhythm>
+    <IsTableTop>false</IsTableTop>
+    <IsPlayChoice>false</IsPlayChoice>
+    <IsMahjong>false</IsMahjong>
+    <IsNonArcade>false</IsNonArcade>
+    <Genre>Electromechanical / Pinball</Genre>
+    <PlayMode>Pinball</PlayMode>
+    <Language>English</Language>
+    <Source>pinball/s7.cpp</Source>
+  </MameFile>
+  <ControllerSupport>
+    <ControllerName>Generic Keypad</ControllerName>
+    <ControllerCategory>Keyboard</ControllerCategory>
+    <FileName>wrlok_l3</FileName>
+    <Required>true</Required>
+  </ControllerSupport>
+  <MameListItem>
+    <FileName>wrlok_l3</FileName>
+    <GameName>Warlok (L-3)</GameName>
+    <ListName>Williams Classics</ListName>
+  </MameListItem>
+</LaunchBox>
