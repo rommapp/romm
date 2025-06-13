@@ -16,6 +16,7 @@ from config import (
     RETROACHIEVEMENTS_API_KEY,
 )
 from fastapi import HTTPException, status
+from handler.filesystem import fs_resource_handler
 from logger.logger import log
 from models.platform import Platform
 from utils.context import ctx_httpx_client
@@ -208,7 +209,7 @@ class RAHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, platform: Platform, hash: str) -> RAGameRom:
+    async def get_rom(self, platform: Platform, rom_id: int, hash: str) -> RAGameRom:
         if not platform.ra_id or not hash:
             return RAGameRom(ra_id=None)
 
@@ -234,9 +235,9 @@ class RAHandler(MetadataHandler):
                             ),
                             badge_id=achievement.get("BadgeName", ""),
                             badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}",
                             badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
-                            badge_path=f"{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{fs_resource_handler.get_ra_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}.png",
                             display_order=achievement.get("DisplayOrder", None),
                             type=achievement.get("type", ""),
                         )
