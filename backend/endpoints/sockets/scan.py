@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import zlib
 from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
@@ -24,17 +23,17 @@ from handler.filesystem import (
     fs_rom_handler,
 )
 from handler.filesystem.roms_handler import FSRom
+from handler.metadata.ra_handler import RAGameRomAchievement
 from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import (
     MetadataSource,
     ScanType,
-    fetch_ra_info,
     scan_firmware,
     scan_platform,
     scan_rom,
 )
 from handler.socket_handler import socket_handler
-from logger.formatter import BLUE, LIGHTYELLOW, RED
+from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.platform import Platform
@@ -45,37 +44,6 @@ from sqlalchemy.inspection import inspect
 from utils.context import initialize_context
 
 STOP_SCAN_FLAG: Final = "scan:stop"
-NON_HASHABLE_PLATFORMS = frozenset(
-    (
-        "amazon-alexa",
-        "amazon-fire-tv",
-        "android",
-        "gear-vr",
-        "ios",
-        "ipad",
-        "linux",
-        "mac",
-        "meta-quest-2",
-        "meta-quest-3",
-        "oculus-go",
-        "oculus-quest",
-        "oculus-rift",
-        "pc",
-        "ps3",
-        "ps4",
-        "ps4--1",
-        "ps5",
-        "psvr",
-        "psvr2",
-        "series-x",
-        "switch",
-        "wiiu",
-        "win",
-        "xbox-360",
-        "xbox360",
-        "xboxone",
-    )
-)
 
 
 @dataclass
@@ -295,7 +263,7 @@ async def _identify_platform(
 
     # Scanning roms
     try:
-        fs_roms = fs_rom_handler.get_roms(platform.fs_slug)
+        fs_roms = await fs_rom_handler.get_roms(platform)
     except RomsNotFoundException as e:
         log.error(e)
         return scan_stats
@@ -376,58 +344,6 @@ async def _identify_firmware(
     return scan_stats
 
 
-async def _set_rom_hashes(rom_id: int) -> str:
-    """Set the hashes for the given rom
-
-    Args:
-        rom_id (int): Rom id
-    Returns:
-        ra_hash (str): Calculated retroachievements hash
-    """
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        return ""
-
-    try:
-        rom_hash, rom_file_hashes = await fs_rom_handler.get_rom_hashes(rom)
-    except zlib.error as e:
-        # Set empty hashes if calculating them fails for corrupted files
-        log.error(
-            f"Hashes of {hl(rom.fs_name)} couldn't be calculated: {hl(str(e), color=RED)}"
-        )
-        db_rom_handler.update_rom(
-            rom_id,
-            {
-                "crc_hash": "",
-                "md5_hash": "",
-                "sha1_hash": "",
-                "ra_hash": "",
-            },
-        )
-        return ""
-    else:
-        db_rom_handler.update_rom(
-            rom_id,
-            {
-                "crc_hash": rom_hash["crc_hash"],
-                "md5_hash": rom_hash["md5_hash"],
-                "sha1_hash": rom_hash["sha1_hash"],
-                "ra_hash": rom_hash["ra_hash"],
-            },
-        )
-        for file_hash in rom_file_hashes:
-            db_rom_handler.update_rom_file(
-                file_hash["id"],
-                {
-                    "crc_hash": file_hash["crc_hash"],
-                    "md5_hash": file_hash["md5_hash"],
-                    "sha1_hash": file_hash["sha1_hash"],
-                    "ra_hash": rom_hash["ra_hash"],
-                },
-            )
-        return rom_hash["ra_hash"]
-
-
 async def _identify_rom(
     platform: Platform,
     fs_rom: FSRom,
@@ -485,43 +401,51 @@ async def _identify_rom(
     for new_rom_file in new_rom_files:
         db_rom_handler.add_rom_file(new_rom_file)
 
-    # Calculating hashes is expensive, so we only do it if necessary
-    if (
-        not rom
-        or not rom.ra_id
-        or scan_type == ScanType.COMPLETE
-        or scan_type == ScanType.HASHES
-        or MetadataSource.RA in metadata_sources
-    ):
-        # Skip hashing games for platforms that don't have a hash database
-        if platform.slug not in NON_HASHABLE_PLATFORMS:
-            ra_hash = await _set_rom_hashes(_added_rom.id)
-            if ra_hash:
-                ra_handler_rom = await fetch_ra_info(
-                    platform=platform,
-                    rom_id=_added_rom.id,
-                    hash=ra_hash,
-                )
-                _added_rom.ra_id = ra_handler_rom.get("ra_id", None)
-                ra_metadata = ra_handler_rom.get("ra_metadata", None)
-                if ra_metadata:
-                    _added_rom.ra_metadata = dict(ra_metadata)
-                    for a in ra_metadata.get("achievements", {}):
-                        # Store both normal and locked version
-                        badge_url_lock = a.get("badge_url_lock", None)
-                        badge_path_lock = a.get("badge_path_lock", None)
-                        if badge_url_lock and badge_path_lock:
-                            await fs_resource_handler.store_badge(
-                                badge_url_lock, badge_path_lock
-                            )
-                        badge_url = a.get("badge_url", None)
-                        badge_path = a.get("badge_path", None)
-                        if badge_url and badge_path:
-                            await fs_resource_handler.store_badge(badge_url, badge_path)
-
     # Return early if we're only scanning for hashes
     if scan_type == ScanType.HASHES:
         return scan_stats
+
+    if _added_rom.ra_metadata:
+        fs_resource_handler.create_ra_resources_path(platform.id, _added_rom.id)
+
+        # Store the achievements badges
+        # This requires us to rebuild the achievements list using the Rom ID
+        updated_achievements: list[RAGameRomAchievement] = []
+
+        for ach in _added_rom.ra_metadata.get("achievements", []):
+            # Store both normal and locked version
+            badge_url_lock = ach.get("badge_url_lock", None)
+            badge_path_lock = ach.get("badge_path_lock", None)
+            if badge_url_lock and badge_path_lock:
+                badge_path_lock = f"{fs_resource_handler.get_ra_badges_path(platform.id, _added_rom.id)}/{badge_path_lock}"
+                await fs_resource_handler.store_ra_badge(
+                    badge_url_lock, badge_path_lock
+                )
+            badge_url = ach.get("badge_url", None)
+            badge_path = ach.get("badge_path", None)
+            if badge_url and badge_path:
+                badge_path = f"{fs_resource_handler.get_ra_badges_path(platform.id, _added_rom.id)}/{badge_path}"
+                await fs_resource_handler.store_ra_badge(badge_url, badge_path)
+
+            updated_achievements.append(
+                RAGameRomAchievement(
+                    ra_id=ach["ra_id"],
+                    title=ach["title"],
+                    description=ach["description"],
+                    points=ach["points"],
+                    num_awarded=ach["num_awarded"],
+                    num_awarded_hardcore=ach["num_awarded_hardcore"],
+                    badge_id=ach["badge_id"],
+                    badge_url_lock=ach["badge_url_lock"],
+                    badge_path_lock=badge_path_lock,
+                    badge_url=ach["badge_url"],
+                    badge_path=badge_path,
+                    display_order=ach["display_order"],
+                    type=ach["type"],
+                )
+            )
+
+        _added_rom.ra_metadata["achievements"] = updated_achievements
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
         entity=_added_rom,

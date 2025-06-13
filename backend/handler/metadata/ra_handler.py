@@ -81,32 +81,12 @@ class RAHandler(MetadataHandler):
         self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes.json"
 
-    def _get_rom_base_path(self, platform_id: int, rom_id: int) -> str:
-        return os.path.join(
-            "roms",
-            str(platform_id),
-            str(rom_id),
-            "retroachievements",
-        )
-
     def _get_hashes_file_path(self, platform_id: int) -> str:
         return os.path.join(
             RESOURCES_BASE_PATH,
             "roms",
             str(platform_id),
             self.HASHES_FILE_NAME,
-        )
-
-    def _get_badges_path(self, platform_id: int, rom_id: int) -> str:
-        return os.path.join(self._get_rom_base_path(platform_id, rom_id), "badges")
-
-    def _create_resources_path(self, platform_id: int, rom_id: int) -> None:
-        os.makedirs(
-            os.path.join(
-                RESOURCES_BASE_PATH,
-                self._get_rom_base_path(platform_id, rom_id),
-            ),
-            exist_ok=True,
         )
 
     def _exists_cache_file(self, platform_id: int) -> bool:
@@ -177,14 +157,10 @@ class RAHandler(MetadataHandler):
 
         return res.json()
 
-    async def _search_rom(
-        self, platform: Platform, rom_id: int, hash: str
-    ) -> RAGameListItem | None:
+    async def _search_rom(self, platform: Platform, hash: str) -> RAGameListItem | None:
 
         if not platform.ra_id:
             return None
-
-        self._create_resources_path(platform.id, rom_id)
 
         # Fetch all hashes for specific platform
         roms: list[RAGameListItem]
@@ -232,11 +208,11 @@ class RAHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, platform: Platform, rom_id: int, hash: str) -> RAGameRom:
+    async def get_rom(self, platform: Platform, hash: str) -> RAGameRom:
         if not platform.ra_id or not hash:
             return RAGameRom(ra_id=None)
 
-        rom = await self._search_rom(platform, rom_id, hash)
+        rom = await self._search_rom(platform, hash)
 
         if not rom:
             return RAGameRom(ra_id=None)
@@ -258,9 +234,9 @@ class RAHandler(MetadataHandler):
                             ),
                             badge_id=achievement.get("BadgeName", ""),
                             badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{self._get_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{achievement.get('BadgeName', '')}_lock.png",
                             badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
-                            badge_path=f"{self._get_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{achievement.get('BadgeName', '')}.png",
                             display_order=achievement.get("DisplayOrder", None),
                             type=achievement.get("type", ""),
                         )

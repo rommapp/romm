@@ -47,12 +47,10 @@ class MetadataSource:
 
 async def fetch_ra_info(
     platform: Platform,
-    rom_id: int,
     hash: str,
 ) -> RAGameRom:
     return await meta_ra_handler.get_rom(
         platform=platform,
-        rom_id=rom_id,
         hash=hash,
     )
 
@@ -355,13 +353,33 @@ async def scan_rom(
 
         return SSRom(ss_id=None)
 
+    async def fetch_ra_rom():
+        if (
+            MetadataSource.RA in metadata_sources
+            and platform.ra_id
+            and (
+                not rom
+                or scan_type == ScanType.COMPLETE
+                or scan_type == ScanType.HASHES
+                or (scan_type == ScanType.PARTIAL and not rom.ra_id)
+                or (scan_type == ScanType.UNIDENTIFIED and not rom.ra_id)
+            )
+        ):
+            return await fetch_ra_info(platform=platform, hash=fs_rom["ra_hash"])
+
+        return RAGameRom(ra_id=None)
+
     # Run both metadata fetches concurrently
-    igdb_handler_rom, moby_handler_rom, ss_handler_rom = await asyncio.gather(
-        fetch_igdb_rom(), fetch_moby_rom(), fetch_ss_rom()
+    igdb_handler_rom, moby_handler_rom, ss_handler_rom, ra_handler_rom = (
+        await asyncio.gather(
+            fetch_igdb_rom(), fetch_moby_rom(), fetch_ss_rom(), fetch_ra_rom()
+        )
     )
 
     if rom:
         # Only update fields if match is found
+        if ra_handler_rom.get("ra_id"):
+            rom_attrs.update({**ra_handler_rom})
         if moby_handler_rom.get("moby_id"):
             rom_attrs.update({**moby_handler_rom})
         if ss_handler_rom.get("ss_id"):
@@ -370,13 +388,16 @@ async def scan_rom(
             rom_attrs.update({**igdb_handler_rom})
     else:
         # Reversed to prioritize IGDB
-        rom_attrs.update({**moby_handler_rom, **ss_handler_rom, **igdb_handler_rom})
+        rom_attrs.update(
+            {**ra_handler_rom, **moby_handler_rom, **ss_handler_rom, **igdb_handler_rom}
+        )
 
-    # If not found in IGDB, MobyGames or Screenscraper
+    # If not found in IGDB, MobyGames, Screenscraper or RA
     if (
         not igdb_handler_rom.get("igdb_id")
         and not moby_handler_rom.get("moby_id")
         and not ss_handler_rom.get("ss_id")
+        and not ra_handler_rom.get("ra_id")
     ):
         log.warning(
             emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),
