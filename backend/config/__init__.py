@@ -84,6 +84,9 @@ LAUNCHBOX_API_ENABLED: Final = str_to_bool(
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
 )
+SESSION_MAX_AGE_SECONDS: Final = int(
+    os.environ.get("SESSION_MAX_AGE_SECONDS", 14 * 24 * 60 * 60)
+)  # 14 days, in seconds
 DISABLE_CSRF_PROTECTION = str_to_bool(
     os.environ.get("DISABLE_CSRF_PROTECTION", "false")
 )

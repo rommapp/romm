@@ -3,6 +3,7 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
@@ -207,9 +208,15 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           </v-col>
         </v-row>
         <template #append>
+          <missing-from-f-s-icon
+            v-if="item.missing_from_fs"
+            :text="`Missing game from filesystem: ${item.fs_path}/${item.fs_name}`"
+            chip
+            chip-size="small"
+          />
           <v-chip
             v-if="item.siblings.length > 0 && showSiblings"
-            class="translucent-dark ml-4"
+            class="translucent-dark ml-2"
             size="x-small"
           >
             <span class="text-caption">+{{ item.siblings.length }}</span>
@@ -293,7 +300,9 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
       <v-btn-group density="compact">
         <fav-btn :rom="item" />
         <v-btn
-          :disabled="downloadStore.value.includes(item.id)"
+          :disabled="
+            downloadStore.value.includes(item.id) || item.missing_from_fs
+          "
           download
           variant="text"
           size="small"
@@ -303,6 +312,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-btn>
         <v-btn
           v-if="checkIfEJSEmulationSupported(item.platform_slug)"
+          :disabled="item.missing_from_fs"
           variant="text"
           size="small"
           @click.stop="
@@ -316,6 +326,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-btn>
         <v-btn
           v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
+          :disabled="item.missing_from_fs"
           variant="text"
           size="small"
           @click.stop="

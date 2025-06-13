@@ -30,6 +30,7 @@ export type PlatformSchema = {
     fs_size_bytes: number;
     is_unidentified: boolean;
     is_identified: boolean;
+    missing_from_fs: boolean;
     readonly display_name: string;
 };
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
@@ -166,6 +167,14 @@ async function stopScan() {
               />
             </template>
             <template #append>
+              <missing-from-f-s-icon
+                v-if="item.raw.missing_from_fs"
+                text="Missing platform from filesystem"
+                chip
+                chip-label
+                chipDensity="compact"
+                class="ml-2"
+              />
               <v-chip class="ml-2" size="x-small" label>
                 {{ item.raw.rom_count }}
               </v-chip>

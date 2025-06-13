@@ -109,6 +109,84 @@ def _get_socket_manager() -> socketio.AsyncRedisManager:
     return socketio.AsyncRedisManager(str(REDIS_URL), write_only=True)
 
 
+async def _identify_firmware(
+    platform: Platform,
+    fs_fw: str,
+) -> ScanStats:
+    scan_stats = ScanStats()
+
+    # Break early if the flag is set
+    if redis_client.get(STOP_SCAN_FLAG):
+        return scan_stats
+
+    firmware = db_firmware_handler.get_firmware_by_filename(platform.id, fs_fw)
+
+    scanned_firmware = scan_firmware(
+        platform=platform,
+        file_name=fs_fw,
+        firmware=firmware,
+    )
+
+    scan_stats.scanned_firmware += 1
+    scan_stats.added_firmware += 1 if not firmware else 0
+
+    scanned_firmware.missing_from_fs = False
+    db_firmware_handler.add_firmware(scanned_firmware)
+    return scan_stats
+
+
+async def _set_rom_hashes(rom_id: int) -> str:
+    """Set the hashes for the given rom
+
+    Args:
+        rom_id (int): Rom id
+    Returns:
+        ra_hash (str): Calculated retroachievements hash
+    """
+    rom = db_rom_handler.get_rom(rom_id)
+    if not rom:
+        return ""
+
+    try:
+        rom_hash, rom_file_hashes = await fs_rom_handler.get_rom_hashes(rom)
+    except zlib.error as e:
+        # Set empty hashes if calculating them fails for corrupted files
+        log.error(
+            f"Hashes of {hl(rom.fs_name)} couldn't be calculated: {hl(str(e), color=RED)}"
+        )
+        db_rom_handler.update_rom(
+            rom_id,
+            {
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+        )
+        return ""
+    else:
+        db_rom_handler.update_rom(
+            rom_id,
+            {
+                "crc_hash": rom_hash["crc_hash"],
+                "md5_hash": rom_hash["md5_hash"],
+                "sha1_hash": rom_hash["sha1_hash"],
+                "ra_hash": rom_hash["ra_hash"],
+            },
+        )
+        for file_hash in rom_file_hashes:
+            db_rom_handler.update_rom_file(
+                file_hash["id"],
+                {
+                    "crc_hash": file_hash["crc_hash"],
+                    "md5_hash": file_hash["md5_hash"],
+                    "sha1_hash": file_hash["sha1_hash"],
+                    "ra_hash": rom_hash["ra_hash"],
+                },
+            )
+        return rom_hash["ra_hash"]
+
+
 def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) -> bool:
     """Decide if a rom should be scanned or not
 
@@ -134,99 +212,147 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) 
     )
 
 
-@initialize_context()
-async def scan_platforms(
-    platform_ids: list[int],
-    scan_type: ScanType = ScanType.QUICK,
-    roms_ids: list[str] | None = None,
-    metadata_sources: list[str] | None = None,
-):
-    """Scan all the listed platforms and fetch metadata from different sources
-
-    Args:
-        platform_slugs (list[str]): List of platform slugs to be scanned
-        scan_type (str): Type of scan to be performed. Defaults to "quick".
-        roms_ids (list[str], optional): List of selected roms to be scanned. Defaults to [].
-        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
-    """
-
-    if not roms_ids:
-        roms_ids = []
-
-    if not metadata_sources:
-        metadata_sources = [
-            MetadataSource.IGDB,
-            MetadataSource.MOBY,
-            MetadataSource.SS,
-            MetadataSource.RA,
-        ]
-
-    sm = _get_socket_manager()
-
-    try:
-        fs_platforms: list[str] = fs_platform_handler.get_platforms()
-    except FolderStructureNotMatchException as e:
-        log.error(e)
-        await sm.emit("scan:done_ko", e.message)
-        return
-
+async def _identify_rom(
+    platform: Platform,
+    fs_rom: FSRom,
+    rom: Rom | None,
+    scan_type: ScanType,
+    roms_ids: list[str],
+    metadata_sources: list[str],
+    socket_manager: socketio.AsyncRedisManager,
+) -> ScanStats:
     scan_stats = ScanStats()
 
-    async def stop_scan():
-        log.info(emoji.emojize(":stop_sign: Scan stopped manually"))
-        await sm.emit("scan:done", scan_stats.__dict__)
-        redis_client.delete(STOP_SCAN_FLAG)
+    # Break early if the flag is set
+    if redis_client.get(STOP_SCAN_FLAG):
+        return scan_stats
 
-    try:
-        platform_list = [
-            platform.fs_slug
-            for s in platform_ids
-            if (platform := db_platform_handler.get_platform(s)) is not None
-        ] or fs_platforms
+    if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
+        if rom:
+            if rom.fs_name != fs_rom["fs_name"]:
+                # Just to update the filesystem data
+                rom.fs_name = fs_rom["fs_name"]
+                db_rom_handler.add_rom(rom)
 
-        if len(platform_list) == 0:
-            log.warning(
-                emoji.emojize(
-                    f"{hl(':warning:', color=LIGHTYELLOW)}  No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
-                Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
+            if rom.missing_from_fs:
+                db_rom_handler.update_rom(rom.id, {"missing_from_fs": False})
+
+        return scan_stats
+
+    scanned_rom = await scan_rom(
+        platform=platform,
+        fs_rom=fs_rom,
+        scan_type=scan_type,
+        rom=rom,
+        metadata_sources=metadata_sources,
+    )
+
+    scan_stats.scanned_roms += 1
+    scan_stats.added_roms += 1 if not rom else 0
+    scan_stats.metadata_roms += 1 if scanned_rom.is_identified else 0
+
+    _added_rom = db_rom_handler.add_rom(scanned_rom)
+
+    # Delete the existing rom files in the DB
+    db_rom_handler.missing_rom_files(_added_rom.id)
+
+    # Create each file entry for the rom
+    new_rom_files = [
+        RomFile(
+            rom_id=_added_rom.id,
+            file_name=file.file_name,
+            file_path=file.file_path,
+            file_size_bytes=file.file_size_bytes,
+            last_modified=file.last_modified,
+            category=file.category,
+        )
+        for file in fs_rom["files"]
+    ]
+    for new_rom_file in new_rom_files:
+        db_rom_handler.add_rom_file(new_rom_file)
+
+    # Calculating hashes is expensive, so we only do it if necessary
+    if (
+        not rom
+        or not rom.ra_id
+        or scan_type == ScanType.COMPLETE
+        or scan_type == ScanType.HASHES
+        or MetadataSource.RA in metadata_sources
+    ):
+        # Skip hashing games for platforms that don't have a hash database
+        if platform.slug not in NON_HASHABLE_PLATFORMS:
+            ra_hash = await _set_rom_hashes(_added_rom.id)
+            if ra_hash:
+                ra_handler_rom = await fetch_ra_info(
+                    platform=platform,
+                    rom_id=_added_rom.id,
+                    hash=ra_hash,
                 )
-            )
-        else:
-            log.info(
-                f"Found {hl(str(len(platform_list)))} platforms in the file system"
-            )
+                _added_rom.ra_id = ra_handler_rom.get("ra_id", None)
+                ra_metadata = ra_handler_rom.get("ra_metadata", None)
+                if ra_metadata:
+                    _added_rom.ra_metadata = dict(ra_metadata)
+                    for a in ra_metadata.get("achievements", {}):
+                        # Store both normal and locked version
+                        badge_url_lock = a.get("badge_url_lock", None)
+                        badge_path_lock = a.get("badge_path_lock", None)
+                        if badge_url_lock and badge_path_lock:
+                            await fs_resource_handler.store_badge(
+                                badge_url_lock, badge_path_lock
+                            )
+                        badge_url = a.get("badge_url", None)
+                        badge_path = a.get("badge_path", None)
+                        if badge_url and badge_path:
+                            await fs_resource_handler.store_badge(badge_url, badge_path)
 
-        for platform_slug in platform_list:
-            scan_stats += await _identify_platform(
-                platform_slug=platform_slug,
-                scan_type=scan_type,
-                fs_platforms=fs_platforms,
-                roms_ids=roms_ids,
-                metadata_sources=metadata_sources,
-                socket_manager=sm,
-            )
+    # Return early if we're only scanning for hashes
+    if scan_type == ScanType.HASHES:
+        return scan_stats
 
-        # Only purge platforms if there are some platforms remaining in the library
-        # This protects against accidental deletion of entries when
-        # the folder structure is not correct or the drive is not mounted
-        if len(fs_platforms) > 0:
-            purged_platforms = db_platform_handler.purge_platforms(fs_platforms)
-            if len(purged_platforms) > 0:
-                log.warning("Purging platforms not found in the filesystem:")
-                for p in purged_platforms:
-                    log.warning(f" - {p.slug}")
+    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
+        entity=_added_rom,
+        overwrite=True,
+        url_cover=_added_rom.url_cover,
+    )
 
-        log.info(emoji.emojize(":check_mark:  Scan completed "))
-        await sm.emit("scan:done", scan_stats.__dict__)
-    except ScanStoppedException:
-        await stop_scan()
-        return
-    except Exception as e:
-        log.error(f"Error in scan_platform: {e}")
-        # Catch all exceptions and emit error to the client
-        await sm.emit("scan:done_ko", str(e))
-        # Re-raise the exception to be caught by the error handler
-        raise e
+    path_manual = await fs_resource_handler.get_manual(
+        rom=_added_rom,
+        overwrite=True,
+        url_manual=_added_rom.url_manual,
+    )
+
+    path_screenshots = await fs_resource_handler.get_rom_screenshots(
+        rom=_added_rom,
+        url_screenshots=_added_rom.url_screenshots,
+    )
+
+    _added_rom.path_cover_s = path_cover_s
+    _added_rom.path_cover_l = path_cover_l
+    _added_rom.path_screenshots = path_screenshots
+    _added_rom.path_manual = path_manual
+    # Update the scanned rom with the cover and screenshots paths and update database
+    db_rom_handler.update_rom(
+        _added_rom.id,
+        {
+            c: getattr(_added_rom, c)
+            for c in inspect(_added_rom).mapper.column_attrs.keys()
+        },
+    )
+
+    await socket_manager.emit(
+        "scan:scanning_rom",
+        {
+            "platform_name": platform.name,
+            "platform_slug": platform.slug,
+            "platform_fs_slug": platform.fs_slug,
+            **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
+                exclude={"created_at", "updated_at", "rom_user"}
+            ),
+        },
+    )
+    await socket_manager.emit("", None)
+
+    return scan_stats
 
 
 async def _identify_platform(
@@ -327,245 +453,114 @@ async def _identify_platform(
                 socket_manager=socket_manager,
             )
 
-    # Only purge entries if there are some file remaining in the library
-    # This protects against accidental deletion of entries when
-    # the folder structure is not correct or the drive is not mounted
-    if len(fs_roms) > 0:
-        purged_roms = db_rom_handler.purge_roms(
-            platform.id, [rom["fs_name"] for rom in fs_roms]
-        )
-        if len(purged_roms) > 0:
-            log.warning("Purging roms not found in the filesystem:")
-            for r in purged_roms:
-                log.warning(f" - {r.fs_name}")
-
-    # Same protection for firmware
-    if len(fs_firmware) > 0:
-        purged_firmware = db_firmware_handler.purge_firmware(
-            platform.id, [fw for fw in fs_firmware]
-        )
-        if len(purged_firmware) > 0:
-            log.warning("Purging firmware not found in the filesystem:")
-            for f in purged_firmware:
-                log.warning(f" - {f}")
-
-    return scan_stats
-
-
-async def _identify_firmware(
-    platform: Platform,
-    fs_fw: str,
-) -> ScanStats:
-    scan_stats = ScanStats()
-
-    # Break early if the flag is set
-    if redis_client.get(STOP_SCAN_FLAG):
-        return scan_stats
-
-    firmware = db_firmware_handler.get_firmware_by_filename(platform.id, fs_fw)
-
-    scanned_firmware = scan_firmware(
-        platform=platform,
-        file_name=fs_fw,
-        firmware=firmware,
+    missing_roms = db_rom_handler.mark_missing_roms(
+        platform.id, [rom["fs_name"] for rom in fs_roms]
     )
+    if len(missing_roms) > 0:
+        log.warning(f"{hl('Missing')} roms from filesystem:")
+        for r in missing_roms:
+            log.warning(f" - {r.fs_name}")
 
-    scan_stats.scanned_firmware += 1
-    scan_stats.added_firmware += 1 if not firmware else 0
+    missing_firmware = db_firmware_handler.mark_missing_firmware(
+        platform.id, [fw for fw in fs_firmware]
+    )
+    if len(missing_firmware) > 0:
+        log.warning(f"{hl('Missing')} firmware from filesystem:")
+        for f in missing_firmware:
+            log.warning(f" - {f}")
 
-    db_firmware_handler.add_firmware(scanned_firmware)
     return scan_stats
 
 
-async def _set_rom_hashes(rom_id: int) -> str:
-    """Set the hashes for the given rom
+@initialize_context()
+async def scan_platforms(
+    platform_ids: list[int],
+    scan_type: ScanType = ScanType.QUICK,
+    roms_ids: list[str] | None = None,
+    metadata_sources: list[str] | None = None,
+):
+    """Scan all the listed platforms and fetch metadata from different sources
 
     Args:
-        rom_id (int): Rom id
-    Returns:
-        ra_hash (str): Calculated retroachievements hash
+        platform_slugs (list[str]): List of platform slugs to be scanned
+        scan_type (str): Type of scan to be performed. Defaults to "quick".
+        roms_ids (list[str], optional): List of selected roms to be scanned. Defaults to [].
+        metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
     """
-    rom = db_rom_handler.get_rom(rom_id)
-    if not rom:
-        return ""
+
+    if not roms_ids:
+        roms_ids = []
+
+    if not metadata_sources:
+        metadata_sources = [
+            MetadataSource.IGDB,
+            MetadataSource.MOBY,
+            MetadataSource.SS,
+            MetadataSource.RA,
+        ]
+
+    sm = _get_socket_manager()
 
     try:
-        rom_hash, rom_file_hashes = await fs_rom_handler.get_rom_hashes(rom)
-    except zlib.error as e:
-        # Set empty hashes if calculating them fails for corrupted files
-        log.error(
-            f"Hashes of {hl(rom.fs_name)} couldn't be calculated: {hl(str(e), color=RED)}"
-        )
-        db_rom_handler.update_rom(
-            rom_id,
-            {
-                "crc_hash": "",
-                "md5_hash": "",
-                "sha1_hash": "",
-                "ra_hash": "",
-            },
-        )
-        return ""
-    else:
-        db_rom_handler.update_rom(
-            rom_id,
-            {
-                "crc_hash": rom_hash["crc_hash"],
-                "md5_hash": rom_hash["md5_hash"],
-                "sha1_hash": rom_hash["sha1_hash"],
-                "ra_hash": rom_hash["ra_hash"],
-            },
-        )
-        for file_hash in rom_file_hashes:
-            db_rom_handler.update_rom_file(
-                file_hash["id"],
-                {
-                    "crc_hash": file_hash["crc_hash"],
-                    "md5_hash": file_hash["md5_hash"],
-                    "sha1_hash": file_hash["sha1_hash"],
-                    "ra_hash": rom_hash["ra_hash"],
-                },
-            )
-        return rom_hash["ra_hash"]
+        fs_platforms: list[str] = fs_platform_handler.get_platforms()
+    except FolderStructureNotMatchException as e:
+        log.error(e)
+        await sm.emit("scan:done_ko", e.message)
+        return
 
-
-async def _identify_rom(
-    platform: Platform,
-    fs_rom: FSRom,
-    rom: Rom | None,
-    scan_type: ScanType,
-    roms_ids: list[str],
-    metadata_sources: list[str],
-    socket_manager: socketio.AsyncRedisManager,
-) -> ScanStats:
     scan_stats = ScanStats()
 
-    # Break early if the flag is set
-    if redis_client.get(STOP_SCAN_FLAG):
-        return scan_stats
+    async def stop_scan():
+        log.info(emoji.emojize(":stop_sign: Scan stopped manually"))
+        await sm.emit("scan:done", scan_stats.__dict__)
+        redis_client.delete(STOP_SCAN_FLAG)
 
-    if not _should_scan_rom(scan_type=scan_type, rom=rom, roms_ids=roms_ids):
-        if rom and rom.fs_name != fs_rom["fs_name"]:
-            # Just to update the filesystem data
-            rom.fs_name = fs_rom["fs_name"]
-            db_rom_handler.add_rom(rom)
+    try:
+        platform_list = [
+            platform.fs_slug
+            for s in platform_ids
+            if (platform := db_platform_handler.get_platform(s)) is not None
+        ] or fs_platforms
 
-        return scan_stats
-
-    scanned_rom = await scan_rom(
-        platform=platform,
-        fs_rom=fs_rom,
-        scan_type=scan_type,
-        rom=rom,
-        metadata_sources=metadata_sources,
-    )
-
-    scan_stats.scanned_roms += 1
-    scan_stats.added_roms += 1 if not rom else 0
-    scan_stats.metadata_roms += 1 if scanned_rom.is_identified else 0
-
-    _added_rom = db_rom_handler.add_rom(scanned_rom)
-
-    # Delete the existing rom files in the DB
-    db_rom_handler.purge_rom_files(_added_rom.id)
-
-    # Create each file entry for the rom
-    new_rom_files = [
-        RomFile(
-            rom_id=_added_rom.id,
-            file_name=file.file_name,
-            file_path=file.file_path,
-            file_size_bytes=file.file_size_bytes,
-            last_modified=file.last_modified,
-            category=file.category,
-        )
-        for file in fs_rom["files"]
-    ]
-    for new_rom_file in new_rom_files:
-        db_rom_handler.add_rom_file(new_rom_file)
-
-    # Calculating hashes is expensive, so we only do it if necessary
-    if (
-        not rom
-        or not rom.ra_id
-        or scan_type == ScanType.COMPLETE
-        or scan_type == ScanType.HASHES
-        or MetadataSource.RA in metadata_sources
-    ):
-        # Skip hashing games for platforms that don't have a hash database
-        if platform.slug not in NON_HASHABLE_PLATFORMS:
-            ra_hash = await _set_rom_hashes(_added_rom.id)
-            if ra_hash:
-                ra_handler_rom = await fetch_ra_info(
-                    platform=platform,
-                    rom_id=_added_rom.id,
-                    hash=ra_hash,
+        if len(platform_list) == 0:
+            log.warning(
+                emoji.emojize(
+                    f"{hl(':warning:', color=LIGHTYELLOW)}  No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
+                Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
                 )
-                _added_rom.ra_id = ra_handler_rom.get("ra_id", None)
-                ra_metadata = ra_handler_rom.get("ra_metadata", None)
-                if ra_metadata:
-                    _added_rom.ra_metadata = dict(ra_metadata)
-                    for a in ra_metadata.get("achievements", {}):
-                        # Store both normal and locked version
-                        badge_url_lock = a.get("badge_url_lock", None)
-                        badge_path_lock = a.get("badge_path_lock", None)
-                        if badge_url_lock and badge_path_lock:
-                            await fs_resource_handler.store_badge(
-                                badge_url_lock, badge_path_lock
-                            )
-                        badge_url = a.get("badge_url", None)
-                        badge_path = a.get("badge_path", None)
-                        if badge_url and badge_path:
-                            await fs_resource_handler.store_badge(badge_url, badge_path)
+            )
+        else:
+            log.info(
+                f"Found {hl(str(len(platform_list)))} platforms in the file system"
+            )
 
-    # Return early if we're only scanning for hashes
-    if scan_type == ScanType.HASHES:
-        return scan_stats
+        for platform_slug in platform_list:
+            scan_stats += await _identify_platform(
+                platform_slug=platform_slug,
+                scan_type=scan_type,
+                fs_platforms=fs_platforms,
+                roms_ids=roms_ids,
+                metadata_sources=metadata_sources,
+                socket_manager=sm,
+            )
 
-    path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-        entity=_added_rom,
-        overwrite=True,
-        url_cover=_added_rom.url_cover,
-    )
+        missed_platforms = db_platform_handler.mark_missing_platforms(fs_platforms)
+        if len(missed_platforms) > 0:
+            log.warning(f"{hl('Missing')} platforms from filesystem:")
+            for p in missed_platforms:
+                log.warning(f" - {p.slug}")
 
-    path_manual = await fs_resource_handler.get_manual(
-        rom=_added_rom,
-        overwrite=True,
-        url_manual=_added_rom.url_manual,
-    )
-
-    path_screenshots = await fs_resource_handler.get_rom_screenshots(
-        rom=_added_rom,
-        url_screenshots=_added_rom.url_screenshots,
-    )
-
-    _added_rom.path_cover_s = path_cover_s
-    _added_rom.path_cover_l = path_cover_l
-    _added_rom.path_screenshots = path_screenshots
-    _added_rom.path_manual = path_manual
-    # Update the scanned rom with the cover and screenshots paths and update database
-    db_rom_handler.update_rom(
-        _added_rom.id,
-        {
-            c: getattr(_added_rom, c)
-            for c in inspect(_added_rom).mapper.column_attrs.keys()
-        },
-    )
-
-    await socket_manager.emit(
-        "scan:scanning_rom",
-        {
-            "platform_name": platform.name,
-            "platform_slug": platform.slug,
-            "platform_fs_slug": platform.fs_slug,
-            **SimpleRomSchema.from_orm_with_factory(_added_rom).model_dump(
-                exclude={"created_at", "updated_at", "rom_user"}
-            ),
-        },
-    )
-    await socket_manager.emit("", None)
-
-    return scan_stats
+        log.info(emoji.emojize(":check_mark:  Scan completed "))
+        await sm.emit("scan:done", scan_stats.__dict__)
+    except ScanStoppedException:
+        await stop_scan()
+        return
+    except Exception as e:
+        log.error(f"Error in scan_platform: {e}")
+        # Catch all exceptions and emit error to the client
+        await sm.emit("scan:done_ko", str(e))
+        # Re-raise the exception to be caught by the error handler
+        raise e
 
 
 @socket_handler.socket_server.on("scan")
