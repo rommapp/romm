@@ -102,6 +102,7 @@ async def _identify_firmware(
     db_firmware_handler.add_firmware(scanned_firmware)
     return scan_stats
 
+
 def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) -> bool:
     """Decide if a rom should be scanned or not
 
@@ -487,7 +488,7 @@ async def scan_platforms(
         raise e
 
 
-@socket_handler.socket_server.on("scan") # type: ignore
+@socket_handler.socket_server.on("scan")  # type: ignore
 async def scan_handler(_sid: str, options: dict):
     """Scan socket endpoint
 
