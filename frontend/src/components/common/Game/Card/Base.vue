@@ -5,6 +5,7 @@ import GameCardFlags from "@/components/common/Game/Card/Flags.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
 import storePlatforms from "@/stores/platforms";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
@@ -31,6 +32,7 @@ const props = withDefaults(
     showActionBar?: boolean;
     sizeActionBar?: number;
     showPlatformIcon?: boolean;
+    showMissingFlag?: boolean;
     showFav?: boolean;
     withBorderPrimary?: boolean;
     withLink?: boolean;
@@ -50,6 +52,7 @@ const props = withDefaults(
     showActionBar: false,
     sizeActionBar: 0,
     showPlatformIcon: false,
+    showMissingFlag: false,
     showFav: false,
     withBorderPrimary: false,
     disableViewTransition: false,
@@ -238,6 +241,17 @@ onBeforeUnmount(() => {
                 </template>
                 <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
                 <v-row no-gutters class="text-white px-1">
+                  <missing-from-f-s-icon
+                    v-if="
+                      romsStore.isSimpleRom(rom) &&
+                      rom.missing_from_fs &&
+                      showMissingFlag
+                    "
+                    :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
+                    class="mr-1 mt-1 px-1"
+                    chip
+                    chipDensity="compact"
+                  />
                   <game-card-flags
                     v-if="romsStore.isSimpleRom(rom) && showFlags"
                     :rom="rom"
