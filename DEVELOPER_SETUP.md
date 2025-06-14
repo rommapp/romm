@@ -133,7 +133,7 @@ trunk check
 ### - Create the test user and database with root user
 
 ```sh
-docker exec -i romm-mariadb-dev mariadb -uroot -p<root password> < backend/romm_test/setup.sql
+docker exec -i romm-db-dev mariadb -uroot -p<root password> < backend/romm_test/setup.sql
 ```
 
 ### - Run tests
