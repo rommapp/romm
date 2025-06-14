@@ -7,6 +7,7 @@ import re
 import shutil
 import tarfile
 import zipfile
+import zlib
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import IO, Any, Final, Literal, TypedDict
@@ -20,7 +21,7 @@ from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
 from handler.metadata.ra_handler import SLUG_TO_RA_ID
 from models.platform import Platform
-from models.rom import RomFile, RomFileCategory
+from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
     Bad7zFile,
     DecompressionError,
@@ -100,18 +101,12 @@ FILE_READ_CHUNK_SIZE = 1024 * 8
 class FSRom(TypedDict):
     multi: bool
     fs_name: str
-    files: list[RomFile]
-    crc_hash: str
-    md5_hash: str
-    sha1_hash: str
-    ra_hash: str
 
 
 class FileHash(TypedDict):
     crc_hash: str
     md5_hash: str
     sha1_hash: str
-    ra_hash: str
 
 
 def is_compressed_file(file_path: str) -> bool:
@@ -313,26 +308,17 @@ class FSRomsHandler(FSHandler):
             crc_hash=file_hash["crc_hash"],
             md5_hash=file_hash["md5_hash"],
             sha1_hash=file_hash["sha1_hash"],
-            ra_hash=file_hash["ra_hash"],
         )
 
-    def _build_file_hash(self, crc_c: int, md5_h: Any, sha1_h: Any) -> FileHash:
-        return FileHash(
-            crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
-            md5_hash=(
-                md5_h.hexdigest() if md5_h.digest() != DEFAULT_MD5_H_DIGEST else ""
-            ),
-            sha1_hash=(
-                sha1_h.hexdigest() if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST else ""
-            ),
-            ra_hash="",
-        )
-
-    def _get_rom_files(
-        self, rom: str, roms_path: str, hashable_platform: bool
-    ) -> tuple[list[RomFile], int, Any, Any]:
-        abs_fs_path = f"{LIBRARY_BASE_PATH}/{roms_path}"  # Absolute path to roms
+    async def get_rom_files(self, rom: Rom) -> tuple[list[RomFile], str, str, str, str]:
+        rel_roms_path = self.get_roms_fs_structure(
+            rom.platform.fs_slug
+        )  # Relative path to roms
+        abs_fs_path = f"{LIBRARY_BASE_PATH}/{rel_roms_path}"  # Absolute path to roms
         rom_files: list[RomFile] = []
+
+        # Skip hashing games for platforms that don't have a hash database
+        hashable_platform = rom.platform.slug not in NON_HASHABLE_PLATFORMS
 
         excluded_file_names = cm.get_config().EXCLUDED_MULTI_PARTS_FILES
         excluded_file_exts = cm.get_config().EXCLUDED_MULTI_PARTS_EXT
@@ -340,6 +326,7 @@ class FSRomsHandler(FSHandler):
         rom_crc_c = 0
         rom_md5_h = hashlib.md5(usedforsecurity=False)
         rom_sha1_h = hashlib.sha1(usedforsecurity=False)
+        rom_ra_h = ""
 
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{abs_fs_path}/{rom}"):
@@ -356,19 +343,38 @@ class FSRomsHandler(FSHandler):
                     continue
 
                 if hashable_platform:
-                    crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                        self._calculate_rom_hashes(
-                            Path(f_path, file_name), rom_crc_c, rom_md5_h, rom_sha1_h
+                    try:
+                        crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                            self._calculate_rom_hashes(
+                                Path(f_path, file_name),
+                                rom_crc_c,
+                                rom_md5_h,
+                                rom_sha1_h,
+                            )
                         )
-                    )
+                    except zlib.error:
+                        crc_c = 0
+                        md5_h = hashlib.md5(usedforsecurity=False)
+                        sha1_h = hashlib.sha1(usedforsecurity=False)
 
-                    file_hash = self._build_file_hash(crc_c, md5_h, sha1_h)
+                    file_hash = FileHash(
+                        crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
+                        md5_hash=(
+                            md5_h.hexdigest()
+                            if md5_h.digest() != DEFAULT_MD5_H_DIGEST
+                            else ""
+                        ),
+                        sha1_hash=(
+                            sha1_h.hexdigest()
+                            if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                            else ""
+                        ),
+                    )
                 else:
                     file_hash = FileHash(
                         crc_hash="",
                         md5_hash="",
                         sha1_hash="",
-                        ra_hash="",
                     )
 
                 rom_files.append(
@@ -379,24 +385,59 @@ class FSRomsHandler(FSHandler):
                     )
                 )
         elif hashable_platform:
-            crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
-                self._calculate_rom_hashes(
-                    Path(abs_fs_path, rom), rom_crc_c, rom_md5_h, rom_sha1_h
+            try:
+                crc_c, rom_crc_c, md5_h, rom_md5_h, sha1_h, rom_sha1_h = (
+                    self._calculate_rom_hashes(
+                        Path(abs_fs_path, rom.fs_name), rom_crc_c, rom_md5_h, rom_sha1_h
+                    )
                 )
-            )
+            except zlib.error:
+                crc_c = 0
+                md5_h = hashlib.md5(usedforsecurity=False)
+                sha1_h = hashlib.sha1(usedforsecurity=False)
 
-            file_hash = self._build_file_hash(crc_c, md5_h, sha1_h)
-            rom_files.append(self._build_rom_file(Path(roms_path), rom, file_hash))
+            # Calculate the RA hash if the platform has a slug that matches a known RA slug,
+            if rom.platform.slug in SLUG_TO_RA_ID.keys():
+                rom_ra_h = await RAHasherService().calculate_hash(
+                    SLUG_TO_RA_ID[rom.platform.slug]["id"],
+                    f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{rom.fs_name}",
+                )
+
+            file_hash = FileHash(
+                crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
+                md5_hash=(
+                    md5_h.hexdigest() if md5_h.digest() != DEFAULT_MD5_H_DIGEST else ""
+                ),
+                sha1_hash=(
+                    sha1_h.hexdigest()
+                    if sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                    else ""
+                ),
+            )
+            rom_files.append(
+                self._build_rom_file(Path(rel_roms_path), rom.fs_name, file_hash)
+            )
         else:
             file_hash = FileHash(
                 crc_hash="",
                 md5_hash="",
                 sha1_hash="",
-                ra_hash="",
             )
-            rom_files.append(self._build_rom_file(Path(roms_path), rom, file_hash))
+            rom_files.append(
+                self._build_rom_file(Path(rel_roms_path), rom.fs_name, file_hash)
+            )
 
-        return rom_files, rom_crc_c, rom_md5_h, rom_sha1_h
+        return (
+            rom_files,
+            crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else "",
+            rom_md5_h.hexdigest() if rom_md5_h.digest() != DEFAULT_MD5_H_DIGEST else "",
+            (
+                rom_sha1_h.hexdigest()
+                if rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
+                else ""
+            ),
+            rom_ra_h,
+        )
 
     def _calculate_rom_hashes(
         self,
@@ -496,41 +537,14 @@ class FSRomsHandler(FSHandler):
             for rom in self._exclude_multi_roms(fs_multi_roms)
         ]
 
-        # Skip hashing games for platforms that don't have a hash database
-        hashable_platform = platform.slug not in NON_HASHABLE_PLATFORMS
-
-        async def create_fs_rom(f_rom: dict) -> FSRom:
-            f_rom_files, rom_crc_c, rom_md5_h, rom_sha1_h = self._get_rom_files(
-                f_rom["fs_name"], rel_roms_path, hashable_platform
-            )
-
-            return FSRom(
-                multi=f_rom["multi"],
-                fs_name=f_rom["fs_name"],
-                files=f_rom_files,
-                crc_hash=crc32_to_hex(rom_crc_c) if rom_crc_c != DEFAULT_CRC_C else "",
-                md5_hash=(
-                    rom_md5_h.hexdigest()
-                    if rom_md5_h.digest() != DEFAULT_MD5_H_DIGEST
-                    else ""
-                ),
-                sha1_hash=(
-                    rom_sha1_h.hexdigest()
-                    if rom_sha1_h.digest() != DEFAULT_SHA1_H_DIGEST
-                    else ""
-                ),
-                ra_hash=(
-                    await RAHasherService().calculate_hash(
-                        SLUG_TO_RA_ID[platform.slug]["id"],
-                        f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{f_rom['fs_name']}",
-                    )
-                    if platform.slug in SLUG_TO_RA_ID.keys()
-                    else ""
-                ),
-            )
-
         return sorted(
-            [await create_fs_rom(rom) for rom in fs_roms],
+            [
+                FSRom(
+                    multi=rom["multi"],
+                    fs_name=rom["fs_name"],
+                )
+                for rom in fs_roms
+            ],
             key=lambda rom: rom["fs_name"],
         )
 

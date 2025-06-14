@@ -28,9 +28,17 @@ async def test_scan_platform():
 @pytest.mark.vcr
 async def test_scan_rom():
     platform = Platform(fs_slug="n64", igdb_id=4)
+    rom = Rom(
+        fs_name="Paper Mario (USA).z64",
+        name="Paper Mario",
+        igdb_id=3340,
+        fs_size_bytes=1024,
+        tags=[],
+        multi=False,
+    )
 
     async with initialize_context():
-        files = [
+        rom.files = [
             RomFile(
                 file_name="Paper Mario (USA).z64",
                 file_path="n64/Paper Mario (USA)",
@@ -39,19 +47,7 @@ async def test_scan_rom():
             )
         ]
 
-        rom = await scan_rom(
-            platform,
-            {
-                "fs_name": "Paper Mario (USA).z64",
-                "multi": False,
-                "files": files,
-                "crc_hash": "",
-                "md5_hash": "",
-                "sha1_hash": "",
-                "ra_hash": "",
-            },
-            ScanType.QUICK,
-        )
+        rom = await scan_rom(platform, ScanType.QUICK, rom, [], True)
 
     assert type(rom) is Rom
     assert rom.fs_name == "Paper Mario (USA).z64"
