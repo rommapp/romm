@@ -38,16 +38,29 @@ async def test_scan_rom():
     )
 
     async with initialize_context():
-        rom.files = [
-            RomFile(
-                file_name="Paper Mario (USA).z64",
-                file_path="n64/Paper Mario (USA)",
-                file_size_bytes=1024,
-                last_modified=1620000000,
-            )
-        ]
-
-        rom = await scan_rom(platform, ScanType.QUICK, rom, [], True)
+        rom = await scan_rom(
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Paper Mario (USA).z64",
+                "multi": False,
+                "files": [
+                    RomFile(
+                        file_name="Paper Mario (USA).z64",
+                        file_path="n64/Paper Mario (USA)",
+                        file_size_bytes=1024,
+                        last_modified=1620000000,
+                    )
+                ],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[],
+            newly_added=True,
+        )
 
     assert type(rom) is Rom
     assert rom.fs_name == "Paper Mario (USA).z64"
