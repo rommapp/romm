@@ -408,12 +408,12 @@ async def scan_rom(
             rom_attrs.update({**ra_handler_rom})
         if moby_handler_rom.get("moby_id"):
             rom_attrs.update({**moby_handler_rom})
+        if launchbox_handler_rom.get("launchbox_id"):
+            rom_attrs.update({**launchbox_handler_rom})
         if ss_handler_rom.get("ss_id"):
             rom_attrs.update({**ss_handler_rom})
         if igdb_handler_rom.get("igdb_id"):
             rom_attrs.update({**igdb_handler_rom})
-        if launchbox_handler_rom.get("launchbox_id"):
-            rom_attrs.update({**launchbox_handler_rom})
 
     # If not found in any metadata source, we return the rom with the default values
     if (
