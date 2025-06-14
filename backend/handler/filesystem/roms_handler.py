@@ -364,10 +364,10 @@ class FSRomsHandler(FSHandler):
                         sha1_h = hashlib.sha1(usedforsecurity=False)
 
                     # Calculate the RA hash if the platform has a slug that matches a known RA slug
-                    if rom.platform.slug in SLUG_TO_RA_ID.keys():
+                    if rom.platform_slug in SLUG_TO_RA_ID.keys():
                         rom_ra_h = await RAHasherService().calculate_hash(
-                            SLUG_TO_RA_ID[rom.platform.slug]["id"],
-                            f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{rom.fs_name}/*",
+                            SLUG_TO_RA_ID[rom.platform_slug]["id"],
+                            f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}/*",
                         )
 
                     file_hash = FileHash(
@@ -413,7 +413,7 @@ class FSRomsHandler(FSHandler):
             if rom.platform.slug in SLUG_TO_RA_ID.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
                     SLUG_TO_RA_ID[rom.platform.slug]["id"],
-                    f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{rom.fs_name}",
+                    f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}",
                 )
 
             file_hash = FileHash(
