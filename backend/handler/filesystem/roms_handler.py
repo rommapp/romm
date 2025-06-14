@@ -363,6 +363,13 @@ class FSRomsHandler(FSHandler):
                         md5_h = hashlib.md5(usedforsecurity=False)
                         sha1_h = hashlib.sha1(usedforsecurity=False)
 
+                    # Calculate the RA hash if the platform has a slug that matches a known RA slug
+                    if rom.platform.slug in SLUG_TO_RA_ID.keys():
+                        rom_ra_h = await RAHasherService().calculate_hash(
+                            SLUG_TO_RA_ID[rom.platform.slug]["id"],
+                            f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{rom.fs_name}/*",
+                        )
+
                     file_hash = FileHash(
                         crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
                         md5_hash=(
@@ -402,7 +409,7 @@ class FSRomsHandler(FSHandler):
                 md5_h = hashlib.md5(usedforsecurity=False)
                 sha1_h = hashlib.sha1(usedforsecurity=False)
 
-            # Calculate the RA hash if the platform has a slug that matches a known RA slug,
+            # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if rom.platform.slug in SLUG_TO_RA_ID.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
                     SLUG_TO_RA_ID[rom.platform.slug]["id"],
