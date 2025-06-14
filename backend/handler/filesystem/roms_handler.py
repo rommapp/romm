@@ -324,7 +324,7 @@ class FSRomsHandler(FSHandler):
         rom_files: list[RomFile] = []
 
         # Skip hashing games for platforms that don't have a hash database
-        hashable_platform = rom.platform.slug not in NON_HASHABLE_PLATFORMS
+        hashable_platform = rom.platform_slug not in NON_HASHABLE_PLATFORMS
 
         excluded_file_names = cm.get_config().EXCLUDED_MULTI_PARTS_FILES
         excluded_file_exts = cm.get_config().EXCLUDED_MULTI_PARTS_EXT
@@ -367,7 +367,7 @@ class FSRomsHandler(FSHandler):
                     if rom.platform_slug in SLUG_TO_RA_ID.keys():
                         rom_ra_h = await RAHasherService().calculate_hash(
                             SLUG_TO_RA_ID[rom.platform_slug]["id"],
-                            f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}/*",
+                            f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{rom.fs_name}/*",
                         )
 
                     file_hash = FileHash(
@@ -410,10 +410,10 @@ class FSRomsHandler(FSHandler):
                 sha1_h = hashlib.sha1(usedforsecurity=False)
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
-            if rom.platform.slug in SLUG_TO_RA_ID.keys():
+            if rom.platform_slug in SLUG_TO_RA_ID.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
-                    SLUG_TO_RA_ID[rom.platform.slug]["id"],
-                    f"{LIBRARY_BASE_PATH}/{rom.fs_path}/{rom.fs_name}",
+                    SLUG_TO_RA_ID[rom.platform_slug]["id"],
+                    f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{rom.fs_name}",
                 )
 
             file_hash = FileHash(
