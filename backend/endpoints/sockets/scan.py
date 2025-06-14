@@ -155,6 +155,7 @@ async def _identify_rom(
         return scan_stats
 
     # Create the entry early so we have the ID
+    newly_added: bool = rom is None
     rom = (
         db_rom_handler.add_rom(
             Rom(
@@ -171,12 +172,21 @@ async def _identify_rom(
         else rom
     )
 
+    # Build rom files object before scanning
+    rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
+        await fs_rom_handler.get_rom_files(rom)
+    )
+    rom.crc_hash = rom_crc_c
+    rom.md5_hash = rom_md5_h
+    rom.sha1_hash = rom_sha1_h
+    rom.ra_hash = rom_ra_h
+
     scanned_rom = await scan_rom(
         platform=platform,
-        fs_rom=fs_rom,
         scan_type=scan_type,
         rom=rom,
         metadata_sources=metadata_sources,
+        newly_added=newly_added,
     )
 
     scan_stats.scanned_roms += 1
@@ -202,7 +212,7 @@ async def _identify_rom(
             md5_hash=file.md5_hash,
             ra_hash=file.ra_hash,
         )
-        for file in fs_rom["files"]
+        for file in rom_files
     ]
     for new_rom_file in new_rom_files:
         db_rom_handler.add_rom_file(new_rom_file)
