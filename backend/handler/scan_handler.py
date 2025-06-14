@@ -232,6 +232,15 @@ async def scan_rom(
     metadata_sources: list[str],
     newly_added: bool,
 ) -> Rom:
+    if not metadata_sources:
+        metadata_sources = [
+            MetadataSource.IGDB,
+            MetadataSource.MOBY,
+            MetadataSource.SS,
+            MetadataSource.RA,
+            MetadataSource.LB,
+        ]
+
     # Set default properties
     rom_attrs = {
         "id": rom.id if rom else None,

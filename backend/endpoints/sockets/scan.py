@@ -431,6 +431,7 @@ async def scan_platforms(
             MetadataSource.MOBY,
             MetadataSource.SS,
             MetadataSource.RA,
+            MetadataSource.LB,
         ]
 
     sm = _get_socket_manager()
