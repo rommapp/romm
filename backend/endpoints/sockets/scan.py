@@ -126,6 +126,12 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) 
     )
 
 
+# There's an order of operations here that is important:
+# 1. Read the list of roms from the filesystem
+# 2. Check if ROM should be scanned based on the scan type
+# 3. Create a new ROM entry if it doesn't exist
+# 4. Build the ROM files and calculate the hashes
+# 4. Scan the ROM and update its metadata
 async def _identify_rom(
     platform: Platform,
     fs_rom: FSRom,
