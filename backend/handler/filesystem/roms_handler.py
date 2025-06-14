@@ -19,7 +19,6 @@ from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
-from handler.metadata.ra_handler import SLUG_TO_RA_ID
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
@@ -101,6 +100,11 @@ FILE_READ_CHUNK_SIZE = 1024 * 8
 class FSRom(TypedDict):
     multi: bool
     fs_name: str
+    files: list[RomFile]
+    crc_hash: str
+    md5_hash: str
+    sha1_hash: str
+    ra_hash: str
 
 
 class FileHash(TypedDict):
@@ -311,6 +315,8 @@ class FSRomsHandler(FSHandler):
         )
 
     async def get_rom_files(self, rom: Rom) -> tuple[list[RomFile], str, str, str, str]:
+        from handler.metadata.ra_handler import SLUG_TO_RA_ID
+
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
         )  # Relative path to roms
@@ -542,6 +548,11 @@ class FSRomsHandler(FSHandler):
                 FSRom(
                     multi=rom["multi"],
                     fs_name=rom["fs_name"],
+                    files=[],
+                    crc_hash="",
+                    md5_hash="",
+                    sha1_hash="",
+                    ra_hash="",
                 )
                 for rom in fs_roms
             ],

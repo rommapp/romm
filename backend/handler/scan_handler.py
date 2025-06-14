@@ -6,6 +6,7 @@ import emoji
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
+from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_igdb_handler,
     meta_launchbox_handler,
@@ -224,19 +225,24 @@ def scan_firmware(
 
 
 async def scan_rom(
-    platform: Platform,
     scan_type: ScanType,
+    platform: Platform,
     rom: Rom,
+    fs_rom: FSRom,
     metadata_sources: list[str],
     newly_added: bool,
 ) -> Rom:
     # Set default properties
     rom_attrs = {
-        "id": rom.id,
-        "multi": rom.multi,
-        "fs_name": rom.fs_name,
+        "id": rom.id if rom else None,
+        "multi": fs_rom["multi"],
+        "fs_name": fs_rom["fs_name"],
         "platform_id": platform.id,
-        "name": rom.name,
+        "name": fs_rom["fs_name"],
+        "crc_hash": fs_rom["crc_hash"],
+        "md5_hash": fs_rom["md5_hash"],
+        "sha1_hash": fs_rom["sha1_hash"],
+        "ra_hash": fs_rom["ra_hash"],
         "url_cover": "",
         "url_manual": "",
         "url_screenshots": [],
@@ -267,7 +273,7 @@ async def scan_rom(
         )
 
     # Update properties that don't require metadata
-    filesize = sum([file.file_size_bytes for file in rom.files])
+    filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
     regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["fs_name"])
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
@@ -430,7 +436,7 @@ async def scan_rom(
         extra=LOGGER_MODULE_NAME,
     )
     if rom.multi:
-        for file in rom.files:
+        for file in fs_rom["files"]:
             log.info(
                 f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
                 extra=LOGGER_MODULE_NAME,

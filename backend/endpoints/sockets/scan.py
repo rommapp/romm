@@ -156,8 +156,8 @@ async def _identify_rom(
 
     # Create the entry early so we have the ID
     newly_added: bool = rom is None
-    rom = (
-        db_rom_handler.add_rom(
+    if not rom:
+        rom = db_rom_handler.add_rom(
             Rom(
                 multi=fs_rom["multi"],
                 fs_name=fs_rom["fs_name"],
@@ -168,23 +168,30 @@ async def _identify_rom(
                 url_screenshots=[],
             )
         )
-        if not rom
-        else rom
-    )
+
+    # Silly checks to make the type checker happy
+    if not rom:
+        return scan_stats
 
     # Build rom files object before scanning
     rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
         await fs_rom_handler.get_rom_files(rom)
     )
-    rom.crc_hash = rom_crc_c
-    rom.md5_hash = rom_md5_h
-    rom.sha1_hash = rom_sha1_h
-    rom.ra_hash = rom_ra_h
+    fs_rom.update(
+        {
+            "files": rom_files,
+            "crc_hash": rom_crc_c,
+            "md5_hash": rom_md5_h,
+            "sha1_hash": rom_sha1_h,
+            "ra_hash": rom_ra_h,
+        }
+    )
 
     scanned_rom = await scan_rom(
-        platform=platform,
         scan_type=scan_type,
+        platform=platform,
         rom=rom,
+        fs_rom=fs_rom,
         metadata_sources=metadata_sources,
         newly_added=newly_added,
     )
@@ -196,7 +203,7 @@ async def _identify_rom(
     _added_rom = db_rom_handler.add_rom(scanned_rom)
 
     # Delete the existing rom files in the DB
-    db_rom_handler.missing_rom_files(_added_rom.id)
+    db_rom_handler.purge_rom_files(_added_rom.id)
 
     # Create each file entry for the rom
     new_rom_files = [
