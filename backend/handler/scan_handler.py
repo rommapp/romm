@@ -233,13 +233,8 @@ async def scan_rom(
     newly_added: bool,
 ) -> Rom:
     if not metadata_sources:
-        metadata_sources = [
-            MetadataSource.IGDB,
-            MetadataSource.MOBY,
-            MetadataSource.SS,
-            MetadataSource.RA,
-            MetadataSource.LB,
-        ]
+        log.error("No metadata sources provided")
+        raise ValueError("No metadata sources provided")
 
     # Set default properties
     rom_attrs = {

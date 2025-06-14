@@ -1,5 +1,5 @@
 import pytest
-from handler.scan_handler import ScanType, scan_platform, scan_rom
+from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from utils.context import initialize_context
@@ -58,7 +58,7 @@ async def test_scan_rom():
                 "sha1_hash": "",
                 "ra_hash": "",
             },
-            metadata_sources=[],
+            metadata_sources=[MetadataSource.IGDB],
             newly_added=True,
         )
 

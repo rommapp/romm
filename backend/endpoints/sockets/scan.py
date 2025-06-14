@@ -25,7 +25,6 @@ from handler.filesystem import (
 from handler.filesystem.roms_handler import FSRom
 from handler.redis_handler import high_prio_queue, redis_client
 from handler.scan_handler import (
-    MetadataSource,
     ScanType,
     scan_firmware,
     scan_platform,
@@ -425,16 +424,12 @@ async def scan_platforms(
     if not roms_ids:
         roms_ids = []
 
-    if not metadata_sources:
-        metadata_sources = [
-            MetadataSource.IGDB,
-            MetadataSource.MOBY,
-            MetadataSource.SS,
-            MetadataSource.RA,
-            MetadataSource.LB,
-        ]
-
     sm = _get_socket_manager()
+
+    if not metadata_sources:
+        log.error("No metadata sources provided")
+        await sm.emit("scan:done_ko", "No metadata sources provided")
+        return
 
     try:
         fs_platforms: list[str] = fs_platform_handler.get_platforms()
