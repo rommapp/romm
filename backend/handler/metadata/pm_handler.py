@@ -5,6 +5,7 @@ import httpx
 import yarl
 from fastapi import HTTPException, status
 from logger.logger import log
+from models.rom import RomFile
 from utils.context import ctx_httpx_client
 
 from backend.config import PLAYMATCH_API_ENABLED
@@ -54,9 +55,7 @@ class PlaymatchHandler:
     def __init__(self):
         self.base_url = "https://playmatch.retrorealm.dev/api"
 
-    async def lookup_rom(
-        self, file_name: str, file_size: int, md5: str | None, sha1: str | None
-    ) -> list[PlaymatchRomMatch]:
+    async def lookup_rom(self, rom_file: RomFile) -> list[PlaymatchRomMatch]:
         """
         Identify a ROM file using Playmatch API.
 
@@ -76,10 +75,10 @@ class PlaymatchHandler:
             response = await self._request(
                 url,
                 {
-                    "fileName": file_name,
-                    "fileSize": file_size,
-                    "md5": md5,
-                    "sha1": sha1,
+                    "fileName": rom_file.file_name,
+                    "fileSize": rom_file.file_size_bytes,
+                    "md5": rom_file.md5_hash,
+                    "sha1": rom_file.sha1_hash,
                 },
             )
         except httpx.HTTPStatusError as e:
