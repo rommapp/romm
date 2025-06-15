@@ -43,7 +43,12 @@ from handler.socket_handler import socket_handler
 from logger.log_middleware import LOGGING_CONFIG, CustomLoggingMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
 from utils import get_version
-from utils.context import ctx_httpx_client, initialize_context, set_context_middleware
+from utils.context import (
+    ctx_aiohttp_session,
+    ctx_httpx_client,
+    initialize_context,
+    set_context_middleware,
+)
 
 logging.config.dictConfig(LOGGING_CONFIG)
 
@@ -51,6 +56,7 @@ logging.config.dictConfig(LOGGING_CONFIG)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async with initialize_context():
+        app.state.aiohttp_session = ctx_aiohttp_session.get()
         app.state.httpx_client = ctx_httpx_client.get()
         yield
 

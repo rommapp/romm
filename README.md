@@ -47,7 +47,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 - Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
 - Share your library with friends with limited access and permissions
 - Official apps for [Playnite][playnite-app] and [muOS][muos-app]
-- Supports mutli-disk games, DCLs, mods, hacks, patches, and manuals
+- Supports multi-disk games, DLCs, mods, hacks, patches, and manuals
 - Parse and filter by [tags][docs-tag-support] in filenames
 - View, upload, update, and delete games from any modern web browser
 
@@ -71,6 +71,7 @@ Here are a few projects maintained by members of our community. Please note that
 
 - [romm-comm][romm-comm-discord-bot]: Discord Bot by @idio-sync
 - [DeckRommSync][deck-romm-sync]: SteamOS downloader and sync by @PeriBluGaming
+- [RommBrowser][romm-browser]: An electron client for RomM by @smurflabs
 - CasaOS app via the [BigBear App Store][big-bear-casaos]
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
@@ -137,5 +138,6 @@ Here are a few projects that we think you might like:
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
+[romm-browser]: https://github.com/smurflabs/RommBrowser/
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [muos-app]: https://github.com/rommapp/muos-app
