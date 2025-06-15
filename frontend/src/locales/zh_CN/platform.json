@@ -30,6 +30,7 @@
   "show-unmatched": "显示不匹配项",
   "show-playables": "显示可玩",
   "show-ra": "显示 Retroachievements",
+  "show-missing": "显示缺失",
   "status": "状态",
   "upload-roms": "上传 Roms"
 }

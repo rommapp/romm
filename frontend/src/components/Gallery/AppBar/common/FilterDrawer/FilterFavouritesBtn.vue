@@ -22,7 +22,7 @@ function setFavourites() {
     block
     variant="tonal"
     :color="filterFavourites ? 'primary' : ''"
-    @click="setFavourites()"
+    @click="setFavourites"
   >
     <v-icon :color="filterFavourites ? 'primary' : ''">mdi-star</v-icon
     ><span

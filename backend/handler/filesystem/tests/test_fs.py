@@ -27,9 +27,9 @@ def test_get_roms_fs_structure():
     assert roms_structure == "n64/roms"
 
 
-def test_get_roms():
+async def test_get_roms():
     platform = Platform(name="Nintendo 64", slug="n64", fs_slug="n64")
-    roms = fs_rom_handler.get_roms(platform_fs_slug=platform.fs_slug)
+    roms = await fs_rom_handler.get_roms(platform)
 
     assert len(roms) == 2
     assert roms[0]["fs_name"] == "Paper Mario (USA).z64"

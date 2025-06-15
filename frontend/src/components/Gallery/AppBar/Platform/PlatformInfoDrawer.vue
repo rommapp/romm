@@ -190,10 +190,10 @@ watch(
     mobile
     floating
     width="500"
-    location="right"
+    location="left"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'mr-2': activePlatformInfoDrawer,
+      'ml-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
     }"
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
@@ -201,7 +201,7 @@ watch(
     <v-row no-gutters class="justify-center align-center pa-2">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
-          <div class="position-absolute append-top-right">
+          <div class="position-absolute append-top-right mr-5">
             <template v-if="auth.scopes.includes('platforms.write')">
               <v-btn
                 v-if="!isEditable"
@@ -230,7 +230,7 @@ watch(
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
-                  @click="updatePlatform()"
+                  @click="updatePlatform"
                   size="small"
                   class="bg-toplayer ml-1"
                   :tabindex="tabIndex"
@@ -263,7 +263,7 @@ watch(
               density="compact"
               v-model="updatedPlatform.display_name"
               :readonly="!isEditable"
-              @keyup.enter="updatePlatform()"
+              @keyup.enter="updatePlatform"
               :tabindex="tabIndex"
             />
           </div>
@@ -304,11 +304,7 @@ watch(
           </div>
         </div>
         <v-row
-          v-if="
-            currentPlatform.igdb_id ||
-            currentPlatform.moby_id ||
-            currentPlatform.ss_id
-          "
+          v-if="currentPlatform.is_identified"
           class="text-white text-shadow mt-2 text-center"
           no-gutters
         >
@@ -332,9 +328,7 @@ watch(
               style="text-decoration: none; color: inherit"
               :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
               target="_blank"
-              :class="{
-                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
-              }"
+              class="ml-1"
               :tabindex="tabIndex"
             >
               <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
@@ -348,7 +342,7 @@ watch(
               v-if="currentPlatform.moby_id"
               style="text-decoration: none; color: inherit"
               target="_blank"
-              :class="{ 'ml-1': currentPlatform.igdb_id }"
+              class="ml-1"
               :tabindex="tabIndex"
             >
               <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
@@ -362,12 +356,7 @@ watch(
               v-if="currentPlatform.ra_id"
               style="text-decoration: none; color: inherit"
               target="_blank"
-              :class="{
-                'ml-1':
-                  currentPlatform.ra_id ||
-                  currentPlatform.ss_id ||
-                  currentPlatform.moby_id,
-              }"
+              class="ml-1"
               :tabindex="tabIndex"
             >
               <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
@@ -375,6 +364,19 @@ watch(
                   <v-img src="/assets/scrappers/ra.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.ra_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.launchbox_id"
+              style="text-decoration: none; color: inherit"
+              target="_blank"
+              class="ml-1"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="25" rounded="1">
+                  <v-img src="/assets/scrappers/launchbox.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.launchbox_id }}</span>
               </v-chip>
             </a>
           </v-col>

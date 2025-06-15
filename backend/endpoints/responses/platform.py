@@ -17,6 +17,7 @@ class PlatformSchema(BaseModel):
     igdb_id: int | None = None
     sgdb_id: int | None = None
     moby_id: int | None = None
+    launchbox_id: int | None = None
     ss_id: int | None = None
     ra_id: int | None = None
     category: str | None = None
@@ -31,6 +32,10 @@ class PlatformSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
     fs_size_bytes: int
+    is_unidentified: bool
+    is_identified: bool
+
+    missing_from_fs: bool
 
     class Config:
         from_attributes = True

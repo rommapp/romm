@@ -127,7 +127,7 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="createCollection()"
+                @keyup.enter="createCollection"
               />
             </v-col>
           </v-row>
@@ -140,7 +140,7 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="createCollection()"
+                @keyup.enter="createCollection"
               />
             </v-col>
           </v-row>

@@ -144,7 +144,7 @@ async function updateCollection() {
     <v-row no-gutters class="justify-center align-center pa-2">
       <v-col style="max-width: 240px" cols="12">
         <div class="text-center justify-center align-center">
-          <div class="position-absolute append-top-right">
+          <div class="position-absolute append-top-right mr-5">
             <template
               v-if="
                 currentCollection.user__username === auth.user?.username &&
@@ -173,7 +173,7 @@ async function updateCollection() {
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
-                  @click="updateCollection()"
+                  @click="updateCollection"
                   size="small"
                   class="bg-toplayer ml-1"
                   ><v-icon color="romm-green">mdi-check</v-icon></v-btn
@@ -271,7 +271,7 @@ async function updateCollection() {
               required
               density="compact"
               hide-details
-              @keyup.enter="updateCollection()"
+              @keyup.enter="updateCollection"
             />
             <v-text-field
               class="mt-4"
@@ -281,7 +281,7 @@ async function updateCollection() {
               required
               density="compact"
               hide-details
-              @keyup.enter="updateCollection()"
+              @keyup.enter="updateCollection"
             />
             <v-switch
               class="mt-2"

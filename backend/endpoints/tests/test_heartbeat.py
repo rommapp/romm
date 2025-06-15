@@ -27,4 +27,12 @@ def test_heartbeat(client):
         heartbeat.get("SCHEDULER").get("SWITCH_TITLEDB").get("TITLE")
         == "Scheduled Switch TitleDB update"
     )
+    assert heartbeat.get("SCHEDULER").get("LAUNCHBOX_METADATA").get("ENABLED")
+    assert (
+        heartbeat.get("SCHEDULER").get("LAUNCHBOX_METADATA").get("CRON") == "0 5 * * *"
+    )
+    assert (
+        heartbeat.get("SCHEDULER").get("LAUNCHBOX_METADATA").get("TITLE")
+        == "Scheduled LaunchBox metadata update"
+    )
     assert heartbeat.get("FRONTEND").get("UPLOAD_TIMEOUT") == 20

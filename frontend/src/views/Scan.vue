@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
@@ -45,6 +46,12 @@ const metadataOptions = computed(() => [
     value: "ra",
     logo_path: "/assets/scrappers/ra.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
+  },
+  {
+    name: "Launchbox",
+    value: "lb",
+    logo_path: "/assets/scrappers/launchbox.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED,
   },
 ]);
 // Use the computed metadataOptions to filter out disabled sources
@@ -160,6 +167,14 @@ async function stopScan() {
               />
             </template>
             <template #append>
+              <missing-from-f-s-icon
+                v-if="item.raw.missing_from_fs"
+                text="Missing platform from filesystem"
+                chip
+                chip-label
+                chipDensity="compact"
+                class="ml-2"
+              />
               <v-chip class="ml-2" size="x-small" label>
                 {{ item.raw.rom_count }}
               </v-chip>
@@ -252,7 +267,7 @@ async function stopScan() {
       :loading="scanning"
       rounded="4"
       height="40"
-      @click="scan()"
+      @click="scan"
     >
       <template #prepend>
         <v-icon :color="scanning ? '' : 'primary'">mdi-magnify-scan</v-icon>
@@ -272,7 +287,7 @@ async function stopScan() {
       class="ml-2"
       rounded="4"
       height="40"
-      @click="stopScan()"
+      @click="stopScan"
     >
       <template #prepend>
         <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
@@ -355,7 +370,7 @@ async function stopScan() {
                 >
                   <template #append-body>
                     <v-chip
-                      v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
+                      v-if="rom.is_unidentified"
                       color="red"
                       size="x-small"
                       label

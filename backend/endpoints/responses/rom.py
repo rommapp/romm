@@ -8,6 +8,7 @@ from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.igdb_handler import IGDBMetadata
+from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
@@ -36,6 +37,11 @@ RomSSMetadata = TypedDict(  # type: ignore[misc]
 RomRAMetadata = TypedDict(  # type: ignore[misc]
     "RomRAMetadata",
     dict((k, NotRequired[v]) for k, v in get_type_hints(RAMetadata).items()),
+    total=False,
+)
+RomLaunchboxMetadata = TypedDict(  # type: ignore[misc]
+    "RomLaunchboxMetadata",
+    dict((k, NotRequired[v]) for k, v in get_type_hints(LaunchboxMetadata).items()),
     total=False,
 )
 
@@ -173,6 +179,7 @@ class RomSchema(BaseModel):
     moby_id: int | None
     ss_id: int | None
     ra_id: int | None
+    launchbox_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -199,6 +206,7 @@ class RomSchema(BaseModel):
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
     ss_metadata: RomSSMetadata | None
+    launchbox_metadata: RomLaunchboxMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None
@@ -209,6 +217,7 @@ class RomSchema(BaseModel):
     url_manual: str | None
 
     is_unidentified: bool
+    is_identified: bool
 
     revision: str | None
     regions: list[str]
@@ -224,6 +233,8 @@ class RomSchema(BaseModel):
     full_path: str
     created_at: datetime
     updated_at: datetime
+
+    missing_from_fs: bool
 
     class Config:
         from_attributes = True

@@ -1,3 +1,4 @@
+import os
 import shutil
 
 import httpx
@@ -45,22 +46,6 @@ class FSResourcesHandler(FSHandler):
         small_size = (small_width, small_height)
         small_img = cover.resize(small_size)
         small_img.save(save_path)
-
-    async def store_badge(self, url: str, file_path: str) -> None:
-        httpx_client = ctx_httpx_client.get()
-        try:
-            async with httpx_client.stream("GET", url, timeout=120) as response:
-                if response.status_code == 200:
-                    await Path(f"{RESOURCES_BASE_PATH}/{file_path}").parent.mkdir(
-                        parents=True, exist_ok=True
-                    )
-                    async with await Path(f"{RESOURCES_BASE_PATH}/{file_path}").open(
-                        "wb"
-                    ) as f:
-                        async for chunk in response.aiter_raw():
-                            await f.write(chunk)
-        except httpx.TransportError as exc:
-            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
 
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
@@ -147,7 +132,7 @@ class FSResourcesHandler(FSHandler):
             shutil.rmtree(cover_path)
         except FileNotFoundError:
             log.warning(
-                f"Couldn't remove cover from '{hl(entity.name or entity.id, color=BLUE)}' since '{cover_path}' doesn't exists."
+                f"Couldn't remove cover from '{hl(entity.name or str(entity.id), color=BLUE)}' since '{cover_path}' doesn't exist."
             )
 
         return {"path_cover_s": "", "path_cover_l": ""}
@@ -273,3 +258,39 @@ class FSResourcesHandler(FSHandler):
         path_manual = (await self._get_manual_path(rom)) if manual_exists else ""
 
         return path_manual
+
+    async def store_ra_badge(self, url: str, file_path: str) -> None:
+        httpx_client = ctx_httpx_client.get()
+        try:
+            async with httpx_client.stream("GET", url, timeout=120) as response:
+                if response.status_code == 200:
+                    await Path(f"{RESOURCES_BASE_PATH}/{file_path}").parent.mkdir(
+                        parents=True, exist_ok=True
+                    )
+                    async with await Path(f"{RESOURCES_BASE_PATH}/{file_path}").open(
+                        "wb"
+                    ) as f:
+                        async for chunk in response.aiter_raw():
+                            await f.write(chunk)
+        except httpx.TransportError as exc:
+            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+
+    def get_ra_base_path(self, platform_id: int, rom_id: int) -> str:
+        return os.path.join(
+            "roms",
+            str(platform_id),
+            str(rom_id),
+            "retroachievements",
+        )
+
+    def get_ra_badges_path(self, platform_id: int, rom_id: int) -> str:
+        return os.path.join(self.get_ra_base_path(platform_id, rom_id), "badges")
+
+    def create_ra_resources_path(self, platform_id: int, rom_id: int) -> None:
+        os.makedirs(
+            os.path.join(
+                RESOURCES_BASE_PATH,
+                self.get_ra_base_path(platform_id, rom_id),
+            ),
+            exist_ok=True,
+        )
