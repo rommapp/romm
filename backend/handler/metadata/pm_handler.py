@@ -9,6 +9,8 @@ from logger.logger import log
 from models.rom import RomFile
 from utils.context import ctx_httpx_client
 
+from backend.utils import get_version
+
 
 class PlaymatchProvider(str, Enum):
     """
@@ -138,7 +140,9 @@ class PlaymatchHandler:
             timeout,
         )
 
-        headers = {"user-agent": "RomM (https://github.com/rommapp/romm)"}
+        headers = {
+            "user-agent": "RomM/" + get_version() + " (https://github.com/rommapp/romm)"
+        }
 
         try:
             res = await httpx_client.get(
