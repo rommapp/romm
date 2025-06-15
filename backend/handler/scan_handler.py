@@ -389,6 +389,7 @@ async def scan_rom(
     async def fetch_playmatch_rom() -> IGDBRom:
         if (
             MetadataSource.PM in metadata_sources
+            and MetadataSource.IGDB in metadata_sources
             and platform.igdb_id
             and (
                 newly_added
