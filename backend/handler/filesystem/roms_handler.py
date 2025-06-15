@@ -336,6 +336,13 @@ class FSRomsHandler(FSHandler):
 
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{abs_fs_path}/{rom}"):
+            # Calculate the RA hash if the platform has a slug that matches a known RA slug
+            if rom.platform_slug in SLUG_TO_RA_ID.keys():
+                rom_ra_h = await RAHasherService().calculate_hash(
+                    SLUG_TO_RA_ID[rom.platform_slug]["id"],
+                    f"{abs_fs_path}/{rom.fs_name}/*",
+                )
+
             for f_path, file_name in iter_files(f"{abs_fs_path}/{rom}", recursive=True):
                 # Check if file is excluded
                 ext = self.parse_file_extension(file_name)
@@ -362,13 +369,6 @@ class FSRomsHandler(FSHandler):
                         crc_c = 0
                         md5_h = hashlib.md5(usedforsecurity=False)
                         sha1_h = hashlib.sha1(usedforsecurity=False)
-
-                    # Calculate the RA hash if the platform has a slug that matches a known RA slug
-                    if rom.platform_slug in SLUG_TO_RA_ID.keys():
-                        rom_ra_h = await RAHasherService().calculate_hash(
-                            SLUG_TO_RA_ID[rom.platform_slug]["id"],
-                            f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{rom.fs_name}/*",
-                        )
 
                     file_hash = FileHash(
                         crc_hash=crc32_to_hex(crc_c) if crc_c != DEFAULT_CRC_C else "",
@@ -413,7 +413,7 @@ class FSRomsHandler(FSHandler):
             if rom.platform_slug in SLUG_TO_RA_ID.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
                     SLUG_TO_RA_ID[rom.platform_slug]["id"],
-                    f"{LIBRARY_BASE_PATH}/{rel_roms_path}/{rom.fs_name}",
+                    f"{abs_fs_path}/{rom.fs_name}",
                 )
 
             file_hash = FileHash(
