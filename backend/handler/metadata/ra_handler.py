@@ -158,7 +158,7 @@ class RAHandler(MetadataHandler):
 
         return res.json()
 
-    async def _search_rom(self, rom: Rom) -> RAGameListItem | None:
+    async def _search_rom(self, rom: Rom, ra_hash: str) -> RAGameListItem | None:
         if not rom.platform.ra_id:
             return None
 
@@ -191,7 +191,7 @@ class RAHandler(MetadataHandler):
                 roms = json.loads(await json_file.read())
 
         for r in roms:
-            if rom.ra_hash in r.get("Hashes", ()):
+            if ra_hash in r.get("Hashes", ()):
                 return r
 
         return None
@@ -208,11 +208,11 @@ class RAHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, rom: Rom) -> RAGameRom:
-        if not rom.platform.ra_id or not rom.ra_hash:
+    async def get_rom(self, rom: Rom, ra_hash: str) -> RAGameRom:
+        if not rom.platform.ra_id or not ra_hash:
             return RAGameRom(ra_id=None)
 
-        ra_game_list_item = await self._search_rom(rom)
+        ra_game_list_item = await self._search_rom(rom, ra_hash)
 
         if not ra_game_list_item:
             return RAGameRom(ra_id=None)
