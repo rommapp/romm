@@ -31,8 +31,10 @@ sudo apt install libmariadb3 libmariadb-dev libpq-dev pipx
 
 # Build and configure RAHasher (optional)
 # IMPORTANT! This is only required to calculate RA hashes. This is needed only if RA API is going to be enabled
-git clone --recursive --branch 1.8.0 --depth 1 https://github.com/RetroAchievements/RALibretro.git
+git clone --recursive https://github.com/RetroAchievements/RALibretro.git
 cd ./RALibretro
+git checkout 1.8.0
+git submodule update --init --recursive
 sed -i '22a #include <ctime>' ./src/Util.h
 make HAVE_CHD=1 -f ./Makefile.RAHasher
 cp ./bin64/RAHasher /usr/bin/RAHasher
