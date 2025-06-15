@@ -48,18 +48,6 @@ class MetadataSource:
     LB = "lb"
 
 
-async def fetch_ra_info(
-    platform: Platform,
-    rom_id: int,
-    hash: str,
-) -> RAGameRom:
-    return await meta_ra_handler.get_rom(
-        platform=platform,
-        rom_id=rom_id,
-        hash=hash,
-    )
-
-
 async def _get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
@@ -237,21 +225,16 @@ def scan_firmware(
 
 
 async def scan_rom(
-    platform: Platform,
-    fs_rom: FSRom,
     scan_type: ScanType,
-    rom: Rom | None = None,
-    metadata_sources: list[str] | None = None,
+    platform: Platform,
+    rom: Rom,
+    fs_rom: FSRom,
+    metadata_sources: list[str],
+    newly_added: bool,
 ) -> Rom:
     if not metadata_sources:
-        metadata_sources = [
-            MetadataSource.IGDB,
-            MetadataSource.MOBY,
-            MetadataSource.SS,
-            MetadataSource.RA,
-        ]
-
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+        log.error("No metadata sources provided")
+        raise ValueError("No metadata sources provided")
 
     # Set default properties
     rom_attrs = {
@@ -260,13 +243,17 @@ async def scan_rom(
         "fs_name": fs_rom["fs_name"],
         "platform_id": platform.id,
         "name": fs_rom["fs_name"],
+        "crc_hash": fs_rom["crc_hash"],
+        "md5_hash": fs_rom["md5_hash"],
+        "sha1_hash": fs_rom["sha1_hash"],
+        "ra_hash": fs_rom["ra_hash"],
         "url_cover": "",
         "url_manual": "",
         "url_screenshots": [],
     }
 
     # Update properties from existing rom if not a complete rescan
-    if rom and scan_type != ScanType.COMPLETE:
+    if not newly_added and scan_type != ScanType.COMPLETE:
         rom_attrs.update(
             {
                 "igdb_id": rom.igdb_id,
@@ -292,10 +279,11 @@ async def scan_rom(
     # Update properties that don't require metadata
     filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
     regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["fs_name"])
+    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+
     rom_attrs.update(
         {
             "fs_path": roms_path,
-            "fs_name": rom_attrs["fs_name"],
             "fs_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
                 rom_attrs["fs_name"]
             ),
@@ -311,20 +299,12 @@ async def scan_rom(
         }
     )
 
-    # Set empty hashes when we plan to recalculate them
-    if not rom or scan_type == ScanType.COMPLETE or scan_type == ScanType.HASHES:
-        rom_attrs.update({"crc_hash": "", "md5_hash": "", "sha1_hash": ""})
-
-    # If no metadata scan is required
-    if scan_type == ScanType.HASHES:
-        return Rom(**rom_attrs)
-
     async def fetch_igdb_rom():
         if (
             MetadataSource.IGDB in metadata_sources
             and platform.igdb_id
             and (
-                not rom
+                newly_added
                 or scan_type == ScanType.COMPLETE
                 or (scan_type == ScanType.PARTIAL and not rom.igdb_id)
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
@@ -342,7 +322,7 @@ async def scan_rom(
             MetadataSource.MOBY in metadata_sources
             and platform.moby_id
             and (
-                not rom
+                newly_added
                 or scan_type == ScanType.COMPLETE
                 or (scan_type == ScanType.PARTIAL and not rom.moby_id)
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.moby_id)
@@ -359,7 +339,7 @@ async def scan_rom(
             MetadataSource.SS in metadata_sources
             and platform.ss_id
             and (
-                not rom
+                newly_added
                 or scan_type == ScanType.COMPLETE
                 or (scan_type == ScanType.PARTIAL and not rom.ss_id)
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.ss_id)
@@ -373,7 +353,7 @@ async def scan_rom(
 
     async def fetch_launchbox_rom(platform_slug: str):
         if MetadataSource.LB in metadata_sources and (
-            not rom
+            newly_added
             or scan_type == ScanType.COMPLETE
             or (scan_type == ScanType.PARTIAL and not rom.launchbox_id)
             or (scan_type == ScanType.UNIDENTIFIED and not rom.launchbox_id)
@@ -384,42 +364,67 @@ async def scan_rom(
 
         return LaunchboxRom(launchbox_id=None)
 
+    async def fetch_ra_rom():
+        if (
+            MetadataSource.RA in metadata_sources
+            and platform.ra_id
+            and (
+                newly_added
+                or scan_type == ScanType.COMPLETE
+                or scan_type == ScanType.HASHES
+                or (scan_type == ScanType.PARTIAL and not rom.ra_id)
+                or (scan_type == ScanType.UNIDENTIFIED and not rom.ra_id)
+            )
+        ):
+            return await meta_ra_handler.get_rom(rom=rom, ra_hash=rom_attrs["ra_hash"])
+
+        return RAGameRom(ra_id=None)
+
     # Run both metadata fetches concurrently
-    igdb_handler_rom, moby_handler_rom, ss_handler_rom, launchbox_handler_rom = (
-        await asyncio.gather(
-            fetch_igdb_rom(),
-            fetch_moby_rom(),
-            fetch_ss_rom(),
-            fetch_launchbox_rom(platform.slug),
-        )
+    (
+        igdb_handler_rom,
+        moby_handler_rom,
+        ss_handler_rom,
+        ra_handler_rom,
+        launchbox_handler_rom,
+    ) = await asyncio.gather(
+        fetch_igdb_rom(),
+        fetch_moby_rom(),
+        fetch_ss_rom(),
+        fetch_ra_rom(),
+        fetch_launchbox_rom(platform.slug),
     )
 
-    if rom:
-        # Only update fields if match is found
-        if moby_handler_rom.get("moby_id"):
-            rom_attrs.update({**moby_handler_rom})
-        if ss_handler_rom.get("ss_id"):
-            rom_attrs.update({**ss_handler_rom})
-        if igdb_handler_rom.get("igdb_id"):
-            rom_attrs.update({**igdb_handler_rom})
-        if launchbox_handler_rom.get("launchbox_id"):
-            rom_attrs.update({**launchbox_handler_rom})
-    else:
+    if newly_added:
         # Reversed to prioritize IGDB
         rom_attrs.update(
             {
+                **ra_handler_rom,
                 **launchbox_handler_rom,
                 **moby_handler_rom,
                 **ss_handler_rom,
                 **igdb_handler_rom,
             }
         )
+    else:
+        # Only update fields if match is found
+        if ra_handler_rom.get("ra_id"):
+            rom_attrs.update({**ra_handler_rom})
+        if moby_handler_rom.get("moby_id"):
+            rom_attrs.update({**moby_handler_rom})
+        if launchbox_handler_rom.get("launchbox_id"):
+            rom_attrs.update({**launchbox_handler_rom})
+        if ss_handler_rom.get("ss_id"):
+            rom_attrs.update({**ss_handler_rom})
+        if igdb_handler_rom.get("igdb_id"):
+            rom_attrs.update({**igdb_handler_rom})
 
     # If not found in any metadata source, we return the rom with the default values
     if (
         not igdb_handler_rom.get("igdb_id")
         and not moby_handler_rom.get("moby_id")
         and not ss_handler_rom.get("ss_id")
+        and not ra_handler_rom.get("ra_id")
         and not launchbox_handler_rom.get("launchbox_id")
     ):
         log.warning(
@@ -434,7 +439,7 @@ async def scan_rom(
         ),
         extra=LOGGER_MODULE_NAME,
     )
-    if fs_rom.get("multi", False):
+    if rom.multi:
         for file in fs_rom["files"]:
             log.info(
                 f"\t · {hl(file.file_name, color=LIGHTYELLOW)}",
