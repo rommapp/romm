@@ -7,9 +7,8 @@ from config import PLAYMATCH_API_ENABLED
 from fastapi import HTTPException, status
 from logger.logger import log
 from models.rom import RomFile
+from utils import get_version
 from utils.context import ctx_httpx_client
-
-from backend.utils import get_version
 
 
 class PlaymatchProvider(str, Enum):
