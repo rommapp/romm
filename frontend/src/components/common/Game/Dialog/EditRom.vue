@@ -29,6 +29,7 @@ const manualFiles = ref<File[]>([]);
 const platfotmsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 const uploadStore = storeUpload();
+const validForm = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   show.value = true;
@@ -158,7 +159,9 @@ async function uploadManuals() {
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
-        msg: `Unable to upload manuals: ${response?.data?.detail || response?.statusText || message}`,
+        msg: `Unable to upload manuals: ${
+          response?.data?.detail || response?.statusText || message
+        }`,
         icon: "mdi-close-circle",
         color: "red",
         timeout: 4000,
@@ -208,185 +211,162 @@ function closeDialog() {
     :width="lgAndUp ? '65vw' : '95vw'"
   >
     <template #content>
-      <v-row class="align-center pa-2" no-gutters>
-        <v-col cols="12" md="8" xl="9">
-          <v-row class="px-2" no-gutters>
-            <v-col>
-              <v-text-field
-                v-model="rom.name"
-                class="py-2"
-                :label="t('common.name')"
-                variant="outlined"
-                required
-                hide-details
-                @keyup.enter="updateRom"
-              />
-            </v-col>
-          </v-row>
-          <v-row class="px-2" no-gutters>
-            <v-col>
-              <v-text-field
-                v-model="rom.fs_name"
-                class="py-2"
-                :rules="[(value: string) => !!value]"
-                :label="rom.multi ? t('rom.folder-name') : t('rom.filename')"
-                variant="outlined"
-                required
-                @keyup.enter="updateRom"
-              >
-                <template #details>
-                  <v-label class="text-caption text-wrap">
-                    <v-icon size="small" class="mr-2 text-primary">
-                      mdi-folder-file-outline
-                    </v-icon>
-                    <span>
-                      /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
-                    </span>
-                  </v-label>
-                </template>
-              </v-text-field>
-            </v-col>
-          </v-row>
-          <v-row class="px-2" no-gutters>
-            <v-col>
-              <v-textarea
-                v-model="rom.summary"
-                class="py-2"
-                :label="t('rom.summary')"
-                variant="outlined"
-                required
-                hide-details
-              />
-            </v-col>
-          </v-row>
-          <v-row class="px-2 mt-2" no-gutters>
-            <v-col>
-              <v-chip
-                :variant="rom.has_manual ? 'flat' : 'tonal'"
-                label
-                size="large"
-                class="pr-0 bg-toplayer"
-              >
-                <span
-                  :class="{
-                    'text-romm-red': !rom.has_manual,
-                    'text-romm-green': rom.has_manual,
-                  }"
-                  >{{ t("rom.manual")
-                  }}<v-icon class="ml-1">{{
-                    rom.has_manual ? "mdi-check" : "mdi-close"
-                  }}</v-icon></span
-                >
-                <v-btn
-                  @click="triggerFileInput('manual-file-input')"
-                  class="bg-toplayer ml-3"
-                  icon="mdi-cloud-upload-outline"
-                  rounded="0"
-                  size="small"
-                >
-                  <v-icon size="large">mdi-cloud-upload-outline</v-icon>
-                  <v-file-input
-                    id="manual-file-input"
-                    v-model="manualFiles"
-                    accept="application/pdf"
-                    hide-details
-                    multiple
-                    required
-                    class="file-input"
-                    @change="uploadManuals"
-                  />
-                </v-btn>
-              </v-chip>
-              <div v-if="rom.has_manual" class="mt-1">
+      <v-form v-model="validForm">
+        <v-row no-gutters>
+          <v-col class="pa-4" cols="auto">
+            <game-card
+              width="240"
+              :rom="rom"
+              :src="imagePreviewUrl"
+              disableViewTransition
+            >
+              <template #append-inner-right>
+                <v-btn-group divided density="compact" rounded="0">
+                  <v-btn
+                    :disabled="
+                      !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
+                    "
+                    size="small"
+                    class="translucent-dark"
+                    @click="
+                      emitter?.emit('showSearchCoverDialog', {
+                        term: rom.name as string,
+                        aspectRatio: computedAspectRatio,
+                      })
+                    "
+                  >
+                    <v-icon size="large">mdi-image-search-outline</v-icon>
+                  </v-btn>
+                  <v-btn
+                    size="small"
+                    class="translucent-dark"
+                    @click="triggerFileInput('cover-file-input')"
+                  >
+                    <v-icon size="large">mdi-pencil</v-icon>
+                    <v-file-input
+                      id="cover-file-input"
+                      v-model="rom.artwork"
+                      accept="image/*"
+                      hide-details
+                      class="file-input"
+                      @change="previewImage"
+                    />
+                  </v-btn>
+                  <v-btn
+                    size="small"
+                    class="translucent-dark"
+                    @click="removeArtwork"
+                  >
+                    <v-icon size="large" class="text-romm-red"
+                      >mdi-delete</v-icon
+                    >
+                  </v-btn>
+                </v-btn-group>
+              </template>
+            </game-card>
+          </v-col>
+          <v-col class="pa-4">
+            <v-text-field
+              v-model="rom.name"
+              :label="t('common.name')"
+              variant="outlined"
+              required
+              @keyup.enter="updateRom"
+            />
+            <v-text-field
+              v-model="rom.fs_name"
+              :rules="[(value: string) => !!value]"
+              :label="rom.multi ? t('rom.folder-name') : t('rom.filename')"
+              variant="outlined"
+              required
+              @keyup.enter="updateRom"
+            >
+              <template #details>
                 <v-label class="text-caption text-wrap">
-                  <v-icon size="small" class="mr-2 text-primary">
+                  <v-icon size="small" class="text-primary mr-2">
                     mdi-folder-file-outline
                   </v-icon>
-                  <span> /romm/resources/{{ rom.path_manual }} </span>
+                  <span>
+                    /romm/library/{{ rom.fs_path }}/{{ rom.fs_name }}
+                  </span>
                 </v-label>
-              </div>
-            </v-col>
-          </v-row>
-        </v-col>
-        <v-col cols="12" md="4" xl="3">
-          <v-row
-            class="justify-center"
-            :class="{ 'mt-4': smAndDown }"
-            no-gutters
-          >
-            <v-col style="max-width: 240px">
-              <game-card
-                :rom="rom"
-                :src="imagePreviewUrl"
-                disableViewTransition
+              </template>
+            </v-text-field>
+            <v-textarea
+              v-model="rom.summary"
+              class="py-2"
+              :label="t('rom.summary')"
+              variant="outlined"
+              required
+            />
+            <v-chip
+              :variant="rom.has_manual ? 'flat' : 'tonal'"
+              label
+              size="large"
+              class="bg-toplayer px-0"
+            >
+              <span
+                class="ml-4"
+                :class="{
+                  'text-romm-red': !rom.has_manual,
+                  'text-romm-green': rom.has_manual,
+                }"
+                >{{ t("rom.manual")
+                }}<v-icon class="ml-1">{{
+                  rom.has_manual ? "mdi-check" : "mdi-close"
+                }}</v-icon></span
               >
-                <template #append-inner-right>
-                  <v-btn-group divided density="compact" rounded="0">
-                    <v-btn
-                      :disabled="
-                        !heartbeat.value.METADATA_SOURCES
-                          ?.STEAMGRIDDB_API_ENABLED
-                      "
-                      size="small"
-                      class="translucent-dark"
-                      @click="
-                        emitter?.emit('showSearchCoverDialog', {
-                          term: rom.name as string,
-                          aspectRatio: computedAspectRatio,
-                        })
-                      "
-                    >
-                      <v-icon size="large">mdi-image-search-outline</v-icon>
-                    </v-btn>
-                    <v-btn
-                      size="small"
-                      class="translucent-dark"
-                      @click="triggerFileInput('cover-file-input')"
-                    >
-                      <v-icon size="large">mdi-pencil</v-icon>
-                      <v-file-input
-                        id="cover-file-input"
-                        v-model="rom.artwork"
-                        accept="image/*"
-                        hide-details
-                        class="file-input"
-                        @change="previewImage"
-                      />
-                    </v-btn>
-                    <v-btn
-                      size="small"
-                      class="translucent-dark"
-                      @click="removeArtwork"
-                    >
-                      <v-icon size="large" class="text-romm-red"
-                        >mdi-delete</v-icon
-                      >
-                    </v-btn>
-                  </v-btn-group>
-                </template>
-              </game-card>
-            </v-col>
-          </v-row>
-        </v-col>
-      </v-row>
-      <v-row class="justify-space-between px-4 py-2 mt-1" no-gutters>
-        <v-btn
-          :disabled="noMetadataMatch"
-          :class="` ${noMetadataMatch ? '' : 'bg-toplayer text-romm-red'}`"
-          variant="flat"
-          @click="unmatchRom"
-        >
-          {{ t("rom.unmatch-rom") }}
-        </v-btn>
-        <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog">
-            {{ t("common.cancel") }}
-          </v-btn>
-          <v-btn class="text-romm-green bg-toplayer" @click="updateRom">
-            {{ t("common.apply") }}
-          </v-btn>
-        </v-btn-group>
-      </v-row>
+              <v-btn
+                @click="triggerFileInput('manual-file-input')"
+                class="bg-toplayer ml-3"
+                icon="mdi-cloud-upload-outline"
+                rounded="0"
+                size="small"
+              >
+                <v-icon size="large">mdi-cloud-upload-outline</v-icon>
+                <v-file-input
+                  id="manual-file-input"
+                  v-model="manualFiles"
+                  accept="application/pdf"
+                  hide-details
+                  multiple
+                  required
+                  class="file-input"
+                  @change="uploadManuals"
+                />
+              </v-btn>
+            </v-chip>
+            <div v-if="rom.has_manual">
+              <v-label class="text-caption text-wrap">
+                <v-icon size="small" class="text-primary mr-2">
+                  mdi-folder-file-outline
+                </v-icon>
+                <span> /romm/resources/{{ rom.path_manual }} </span>
+              </v-label>
+            </div>
+            <v-row class="justify-space-between mt-4" no-gutters>
+              <v-btn
+                :disabled="noMetadataMatch"
+                :class="` ${
+                  noMetadataMatch ? '' : 'bg-toplayer text-romm-red'
+                }`"
+                variant="flat"
+                @click="unmatchRom"
+              >
+                {{ t("rom.unmatch-rom") }}
+              </v-btn>
+              <v-btn-group divided density="compact">
+                <v-btn class="bg-toplayer" @click="closeDialog">
+                  {{ t("common.cancel") }}
+                </v-btn>
+                <v-btn class="text-romm-green bg-toplayer" @click="updateRom">
+                  {{ t("common.apply") }}
+                </v-btn>
+              </v-btn-group>
+            </v-row>
+          </v-col>
+        </v-row>
+      </v-form>
     </template>
   </r-dialog>
 </template>

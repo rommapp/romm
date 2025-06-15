@@ -10,13 +10,13 @@ export const userApi = api;
 
 async function createUser({
   username,
-  password,
   email,
+  password,
   role,
 }: {
   username: string;
-  password: string;
   email: string;
+  password: string;
   role: string;
 }): Promise<{ data: UserSchema }> {
   return api.post(
