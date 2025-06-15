@@ -1,5 +1,5 @@
 import pytest
-from handler.scan_handler import ScanType, scan_platform, scan_rom
+from handler.scan_handler import MetadataSource, ScanType, scan_platform, scan_rom
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from utils.context import initialize_context
@@ -28,21 +28,38 @@ async def test_scan_platform():
 @pytest.mark.vcr
 async def test_scan_rom():
     platform = Platform(fs_slug="n64", igdb_id=4)
+    rom = Rom(
+        fs_name="Paper Mario (USA).z64",
+        name="Paper Mario",
+        igdb_id=3340,
+        fs_size_bytes=1024,
+        tags=[],
+        multi=False,
+    )
 
     async with initialize_context():
-        files = [
-            RomFile(
-                file_name="Paper Mario (USA).z64",
-                file_path="n64/Paper Mario (USA)",
-                file_size_bytes=1024,
-                last_modified=1620000000,
-            )
-        ]
-
         rom = await scan_rom(
-            platform,
-            {"fs_name": "Paper Mario (USA).z64", "multi": False, "files": files},
-            ScanType.QUICK,
+            platform=platform,
+            scan_type=ScanType.QUICK,
+            rom=rom,
+            fs_rom={
+                "fs_name": "Paper Mario (USA).z64",
+                "multi": False,
+                "files": [
+                    RomFile(
+                        file_name="Paper Mario (USA).z64",
+                        file_path="n64/Paper Mario (USA)",
+                        file_size_bytes=1024,
+                        last_modified=1620000000,
+                    )
+                ],
+                "crc_hash": "",
+                "md5_hash": "",
+                "sha1_hash": "",
+                "ra_hash": "",
+            },
+            metadata_sources=[MetadataSource.IGDB],
+            newly_added=True,
         )
 
     assert type(rom) is Rom

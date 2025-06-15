@@ -249,7 +249,7 @@ class Rom(BaseModel):
 
     @cached_property
     def multi(self) -> bool:
-        # TODO: Improve multi game detection. This is a temporal fix to check if multi.
+        # TODO: Improve multi game detection as this is a very basic check
         if len(self.files) > 1:
             return True
         if (
