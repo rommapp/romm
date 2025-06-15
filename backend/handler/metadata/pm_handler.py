@@ -1,14 +1,13 @@
 from enum import Enum
-from typing import NotRequired, TypedDict, cast
+from typing import NotRequired, TypedDict
 
 import httpx
 import yarl
+from config import PLAYMATCH_API_ENABLED
 from fastapi import HTTPException, status
 from logger.logger import log
 from models.rom import RomFile
 from utils.context import ctx_httpx_client
-
-from backend.config import PLAYMATCH_API_ENABLED
 
 
 class PlaymatchProvider(str, Enum):
@@ -81,7 +80,7 @@ class PlaymatchHandler:
                     "sha1": rom_file.sha1_hash,
                 },
             )
-        except httpx.HTTPStatusError as e:
+        except httpx.HTTPStatusError:
             # We silently fail if the service is unavailable as this should not block the rest of RomM.
             return []
 

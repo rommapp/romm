@@ -30,6 +30,7 @@ class MetadataSourcesDict(TypedDict):
     STEAMGRIDDB_API_ENABLED: bool
     RA_API_ENABLED: bool
     LAUNCHBOX_API_ENABLED: bool
+    PLAYMATCH_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):

@@ -10,5 +10,6 @@ export type MetadataSourcesDict = {
     STEAMGRIDDB_API_ENABLED: boolean;
     RA_API_ENABLED: boolean;
     LAUNCHBOX_API_ENABLED: boolean;
+    PLAYMATCH_API_ENABLED: boolean;
 };
 

@@ -9,6 +9,7 @@ from config import (
     LAUNCHBOX_API_ENABLED,
     OIDC_ENABLED,
     OIDC_PROVIDER,
+    PLAYMATCH_API_ENABLED,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
@@ -49,13 +50,15 @@ def heartbeat() -> HeartbeatResponse:
             or SS_API_ENABLED
             or MOBY_API_ENABLED
             or RA_API_ENABLED
-            or LAUNCHBOX_API_ENABLED,
+            or LAUNCHBOX_API_ENABLED
+            or PLAYMATCH_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "STEAMGRIDDB_API_ENABLED": STEAMGRIDDB_API_ENABLED,
             "RA_API_ENABLED": RA_API_ENABLED,
             "LAUNCHBOX_API_ENABLED": LAUNCHBOX_API_ENABLED,
+            "PLAYMATCH_API_ENABLED": PLAYMATCH_API_ENABLED,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": fs_platform_handler.get_platforms(),
