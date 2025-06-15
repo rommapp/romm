@@ -7,18 +7,12 @@ export type User = UserSchema;
 export default defineStore("users", {
   state: () => ({
     allUsers: [] as User[],
-    nameRules: [
-      (v: string) => !!v || i18n.global.t("common.required"),
-      (v: string) =>
-        /* trunk-ignore(eslint/no-useless-escape) */
-        /^[a-zA-Z0-9-_\\\./\|]+$/.test(v) ||
-        i18n.global.t("common.invalid-name"),
-    ],
+    nameRules: [(v: string) => !!v || i18n.global.t("common.required")],
     passwordRules: [(v: string) => !!v || i18n.global.t("common.required")],
     emailRules: [
       (v: string) => !!v || i18n.global.t("common.required"),
       (v: string) =>
-        /.+@.+\..+/.test(v) || i18n.global.t("common.invalidEmail"),
+        /.+@.+\..+/.test(v) || i18n.global.t("common.invalid-email"),
     ],
   }),
 
