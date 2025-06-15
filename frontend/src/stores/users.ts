@@ -1,11 +1,25 @@
 import { defineStore } from "pinia";
 import type { UserSchema } from "@/__generated__";
+//import { useI18n } from "vue-i18n";
 
+//const { t } = useI18n();
 export type User = UserSchema;
 
 export default defineStore("users", {
   state: () => ({
     allUsers: [] as User[],
+    nameRules: [
+      (v: string) => !!v || "common.required",
+      (v: string) =>
+        /* trunk-ignore(eslint/no-useless-escape) */
+        /^[a-zA-Z0-9-_\\\./\|]+$/.test(v) ||
+        "Name can't contain special characters",
+    ],
+    passwordRules: [(v: string) => !!v || "common.required"],
+    emailRules: [
+      (v: string) => !!v || "common.required",
+      (v: string) => /.+@.+\..+/.test(v) || "common.invalidEmail",
+    ],
   }),
 
   getters: {
