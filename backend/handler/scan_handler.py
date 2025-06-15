@@ -365,6 +365,7 @@ async def scan_rom(
         return LaunchboxRom(launchbox_id=None)
 
     async def fetch_ra_rom():
+        print("Fetching RA ROM metadata...")  # Debugging line
         if (
             MetadataSource.RA in metadata_sources
             and platform.ra_id
@@ -376,7 +377,8 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.ra_id)
             )
         ):
-            return await meta_ra_handler.get_rom(rom=rom)
+            print("RA metadata fetch conditions met")
+            return await meta_ra_handler.get_rom(rom=rom, ra_hash=rom_attrs["ra_hash"])
 
         return RAGameRom(ra_id=None)
 
