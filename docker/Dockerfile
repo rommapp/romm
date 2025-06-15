@@ -63,7 +63,9 @@ FROM alpine:${ALPINE_VERSION} AS rahasher-build
 RUN apk add --no-cache \
     g++ \
     git \
-    make
+    make \
+    linux-headers \
+    zlib-dev
 
 # TODO: Move to a tagged release of `RALibretro`, once a version newer than 1.8.0 is released.
 ARG RALIBRETRO_VERSION=1.8.0
