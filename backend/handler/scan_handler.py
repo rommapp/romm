@@ -473,6 +473,7 @@ async def scan_rom(
         and not ss_handler_rom.get("ss_id")
         and not ra_handler_rom.get("ra_id")
         and not launchbox_handler_rom.get("launchbox_id")
+        and not playmatch_handler_rom.get("igdb_id")
     ):
         log.warning(
             emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),
