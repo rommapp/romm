@@ -59,6 +59,9 @@ IGDB_CLIENT_SECRET: Final = os.environ.get(
     "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
 ).strip()
 
+# MOBYGAMES
+MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
+
 # SCREENSCRAPER
 SCREENSCRAPER_USER: Final = os.environ.get("SCREENSCRAPER_USER", "")
 SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
@@ -72,12 +75,14 @@ REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
     os.environ.get("REFRESH_RETROACHIEVEMENTS_CACHE_DAYS", 30)
 )
 
-# MOBYGAMES
-MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
-
 # LAUNCHBOX
 LAUNCHBOX_API_ENABLED: Final = str_to_bool(
-    os.environ.get("LAUNCHBOX_API_ENABLED", "true")
+    os.environ.get("LAUNCHBOX_API_ENABLED", "false")
+)
+
+# PLAYMATCH
+PLAYMATCH_API_ENABLED: Final = str_to_bool(
+    os.environ.get("PLAYMATCH_API_ENABLED", "false")
 )
 
 # AUTH

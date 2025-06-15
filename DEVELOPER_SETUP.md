@@ -55,14 +55,14 @@ Then create the virtual environment
 ```sh
 # Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
-poetry sync
+poetry sync --all-extras
 ```
 
 If you are on Arch Linux or another Arch-based distro, you need to run the command as follows:
 
 ```sh
 # https://bbs.archlinux.org/viewtopic.php?id=296542
-CFLAGS="-Wno-error=incompatible-pointer-types" poetry sync
+CFLAGS="-Wno-error=incompatible-pointer-types" poetry sync --all-extras
 ```
 
 #### - Spin up mariadb in docker

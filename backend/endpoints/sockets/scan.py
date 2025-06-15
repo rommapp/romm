@@ -220,8 +220,8 @@ async def _identify_rom(
             last_modified=file.last_modified,
             category=file.category,
             crc_hash=file.crc_hash,
-            sha1_hash=file.sha1_hash,
             md5_hash=file.md5_hash,
+            sha1_hash=file.sha1_hash,
             ra_hash=file.ra_hash,
         )
         for file in rom_files
