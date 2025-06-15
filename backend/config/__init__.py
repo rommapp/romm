@@ -77,12 +77,12 @@ REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
 
 # LAUNCHBOX
 LAUNCHBOX_API_ENABLED: Final = str_to_bool(
-    os.environ.get("LAUNCHBOX_API_ENABLED", "true")
+    os.environ.get("LAUNCHBOX_API_ENABLED", "false")
 )
 
 # PLAYMATCH
 PLAYMATCH_API_ENABLED: Final = str_to_bool(
-    os.environ.get("PLAYMATCH_API_ENABLED", "true")
+    os.environ.get("PLAYMATCH_API_ENABLED", "false")
 )
 
 # AUTH
