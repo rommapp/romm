@@ -101,6 +101,7 @@ const { allPlatforms } = storeToRefs(platformsStore);
           style="text-decoration: none; color: inherit"
           :href="`https://www.igdb.com/games/${rom.slug}`"
           target="_blank"
+          class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2" size="30" rounded="0">
@@ -117,7 +118,7 @@ const { allPlatforms } = storeToRefs(platformsStore);
           style="text-decoration: none; color: inherit"
           :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id }"
+          class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2" size="30" rounded="0">
@@ -134,7 +135,7 @@ const { allPlatforms } = storeToRefs(platformsStore);
           style="text-decoration: none; color: inherit"
           :href="`https://www.mobygames.com/game/${rom.moby_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id || rom.ss_id }"
+          class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2" size="30" rounded="0">
@@ -151,7 +152,7 @@ const { allPlatforms } = storeToRefs(platformsStore);
           style="text-decoration: none; color: inherit"
           :href="`https://retroachievements.org/game/${rom.ra_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id || rom.ss_id || rom.moby_id }"
+          class="mr-1"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2" size="25" rounded="1">
@@ -160,10 +161,7 @@ const { allPlatforms } = storeToRefs(platformsStore);
             <span>{{ rom.ra_id }}</span>
           </v-chip>
         </a>
-        <div
-          v-if="rom.launchbox_id"
-          :class="{ 'ml-1': rom.igdb_id || rom.ss_id }"
-        >
+        <span v-if="rom.launchbox_id" class="mr-1">
           <v-chip class="pl-0 mt-1" size="small">
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/launchbox.png" />
@@ -175,7 +173,46 @@ const { allPlatforms } = storeToRefs(platformsStore);
             }}</span>
             <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
-        </div>
+        </span>
+        <span v-if="rom.hasheous_id" class="mr-1">
+          <v-chip class="pl-0 mt-1" size="small">
+            <v-avatar class="mr-2 pa-1" size="30" rounded="0">
+              <v-img src="/assets/scrappers/hasheous.png" />
+            </v-avatar>
+            <span>{{ rom.hasheous_id }}</span>
+          </v-chip>
+        </span>
+      </v-col>
+    </v-row>
+    <v-row
+      v-if="rom.hasheous_id"
+      class="text-white text-shadow mt-2"
+      :class="{ 'text-center': smAndDown }"
+      no-gutters
+    >
+      <v-col cols="12">
+        <v-chip
+          v-if="rom.hasheous_metadata?.tosec_match"
+          prepend-icon="mdi-check"
+          class="mt-1 mr-1"
+          size="small"
+          title="Passed CRC, SHA1 and MD5 checksum checks"
+        >
+          <span>Verified</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>TOSEC</span>
+        </v-chip>
+        <v-chip
+          v-if="rom.hasheous_metadata?.nointro_match"
+          prepend-icon="mdi-check"
+          class="mt-1 mr-1"
+          size="small"
+          title="Passed CRC, SHA1 and MD5 checksum checks"
+        >
+          <span>Verified</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>NoIntro</span>
+        </v-chip>
       </v-col>
     </v-row>
   </div>

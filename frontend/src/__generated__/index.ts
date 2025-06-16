@@ -40,6 +40,7 @@ export type { RAUserGameProgression } from './models/RAUserGameProgression';
 export type { Role } from './models/Role';
 export type { RomFileCategory } from './models/RomFileCategory';
 export type { RomFileSchema } from './models/RomFileSchema';
+export type { RomHasheousMetadata } from './models/RomHasheousMetadata';
 export type { RomIGDBMetadata } from './models/RomIGDBMetadata';
 export type { RomLaunchboxMetadata } from './models/RomLaunchboxMetadata';
 export type { RomMetadataSchema } from './models/RomMetadataSchema';

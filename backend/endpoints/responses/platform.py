@@ -20,6 +20,8 @@ class PlatformSchema(BaseModel):
     launchbox_id: int | None = None
     ss_id: int | None = None
     ra_id: int | None = None
+    hasheous_id: int | None = None
+    tgdb_id: int | None = None
     category: str | None = None
     generation: int | None = None
     family_name: str | None = None
