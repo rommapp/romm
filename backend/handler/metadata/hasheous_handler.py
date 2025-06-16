@@ -1,5 +1,5 @@
 import json
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 import httpx
 from config import HASHEOUS_API_ENABLED
@@ -15,11 +15,17 @@ class HasheousMetadata(TypedDict):
 
 
 class HasheousPlatform(TypedDict):
-    id: int
+    slug: str
+    hasheous_id: int | None
+    name: NotRequired[str]
+    igdb_id: NotRequired[str | None]
+    tgdb_id: NotRequired[int | None]
+    ra_id: NotRequired[int | None]
 
 
 class HasheousRom(TypedDict):
-    igdb_id: int | None
+    hasheous_id: int | None
+    igdb_id: NotRequired[int | None]
 
 
 class HasheousHandler(MetadataHandler):
@@ -28,20 +34,28 @@ class HasheousHandler(MetadataHandler):
         self.platform_endpoint = f"{self.BASE_URL}/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/ByHash"
 
-    async def _request(self, url: str, params: dict, timeout: int = 120) -> dict:
+    async def _request(
+        self, url: str, params: dict, data: dict, timeout: int = 120
+    ) -> dict:
         httpx_client = ctx_httpx_client.get()
 
         try:
             log.debug(
-                "API request: URL=%s, Params=%s, Timeout=%s",
+                "API request: URL=%s, Params=%s, Data=%s, Timeout=%s",
                 url,
                 params,
+                data,
                 timeout,
             )
-            res = await httpx_client.get(
+            print(
+                f"API request: URL={url}, Params={params}, Data={data}, Timeout={timeout}"
+            )
+            res = await httpx_client.post(
                 url,
                 params=params,
+                data=data,
                 timeout=timeout,
+                headers={"Content-Type": "application/json"},
             )
 
             res.raise_for_status()
@@ -60,6 +74,21 @@ class HasheousHandler(MetadataHandler):
             pass
 
         return {}
+
+    def get_platform(self, slug: str) -> HasheousPlatform:
+        platform = HASHEOUS_PLATFORM_LIST.get(slug, None)
+
+        if not platform:
+            return HasheousPlatform(hasheous_id=None, slug=slug)
+
+        return HasheousPlatform(
+            hasheous_id=platform["id"],
+            slug=slug,
+            name=platform["name"],
+            igdb_id=platform["igdb_id"],
+            tgdb_id=platform["tgdb_id"],
+            ra_id=platform["ra_id"],
+        )
 
     # async def _build_platforms(self) -> None:
     #     from .igdb_handler import IGDB_PLATFORMS_BY_SLUG
@@ -107,24 +136,41 @@ class HasheousHandler(MetadataHandler):
 
     async def get_rom(self, rom_attrs: dict) -> HasheousRom:
         if not HASHEOUS_API_ENABLED:
-            return HasheousRom(igdb_id=None)
+            return HasheousRom(hasheous_id=None)
+
+        md5_hash = rom_attrs.get("md5_hash")
+        sha1_hash = rom_attrs.get("sha1_hash")
+        crc_hash = rom_attrs.get("crc_hash")
+
+        if not (md5_hash or sha1_hash or crc_hash):
+            log.warning(
+                "No hashes provided for Hasheous lookup. "
+                "At least one of md5_hash, sha1_hash, or crc_hash is required."
+            )
+            return HasheousRom(hasheous_id=None)
+
+        data = {}
+        if md5_hash:
+            data["mD5"] = md5_hash
+        if sha1_hash:
+            data["shA1"] = sha1_hash
+        if crc_hash:
+            data["crc"] = crc_hash
 
         hasheous_game = await self._request(
             self.games_endpoint,
             params={
-                "mD5": rom_attrs["md5_hash"],
-                "shA1": rom_attrs["sha1_hash"],
-                "crc": rom_attrs["crc_hash"],
                 "returnAllSources": True,
                 "returnFields": "All",
             },
+            data=data,
         )
 
         import ipdb
 
         ipdb.set_trace()
 
-        return HasheousRom(igdb_id=None)
+        return HasheousRom(hasheous_id=None)
 
 
 class SlugToHasheousId(TypedDict):
