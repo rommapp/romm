@@ -5,6 +5,7 @@ import i18n from "@/locales";
 export type User = UserSchema;
 
 const asciiOnly = (v: string) =>
+  /* trunk-ignore(eslint/no-control-regex) */
   /^[\u0000-\u007F]*$/.test(v) || i18n.global.t("common.ascii-only");
 
 export default defineStore("users", {
