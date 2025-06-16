@@ -24,7 +24,9 @@ const panels = ref<number[]>([]);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
-    name: "IGDB",
+    name: !heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
+      ? "IGDB + Playmatch"
+      : "IGDB",
     value: "igdb",
     logo_path: "/assets/scrappers/igdb.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED
@@ -68,14 +70,6 @@ const metadataOptions = computed(() => [
     value: "hasheous",
     logo_path: "/assets/scrappers/hasheous.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED
-      ? t("scan.disabled-by-admin")
-      : "",
-  },
-  {
-    name: "Playmatch",
-    value: "pm",
-    logo_path: "/assets/scrappers/playmatch.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
       ? t("scan.disabled-by-admin")
       : "",
   },
