@@ -31,8 +31,10 @@ sudo apt install libmariadb3 libmariadb-dev libpq-dev pipx
 
 # Build and configure RAHasher (optional)
 # IMPORTANT! This is only required to calculate RA hashes. This is needed only if RA API is going to be enabled
-git clone --recursive --branch 1.8.0 --depth 1 https://github.com/RetroAchievements/RALibretro.git
+git clone --recursive https://github.com/RetroAchievements/RALibretro.git
 cd ./RALibretro
+git checkout 1.8.0
+git submodule update --init --recursive
 sed -i '22a #include <ctime>' ./src/Util.h
 make HAVE_CHD=1 -f ./Makefile.RAHasher
 cp ./bin64/RAHasher /usr/bin/RAHasher
@@ -53,14 +55,14 @@ Then create the virtual environment
 ```sh
 # Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
-poetry sync
+poetry sync --all-extras
 ```
 
 If you are on Arch Linux or another Arch-based distro, you need to run the command as follows:
 
 ```sh
 # https://bbs.archlinux.org/viewtopic.php?id=296542
-CFLAGS="-Wno-error=incompatible-pointer-types" poetry sync
+CFLAGS="-Wno-error=incompatible-pointer-types" poetry sync --all-extras
 ```
 
 #### - Spin up mariadb in docker

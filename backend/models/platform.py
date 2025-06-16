@@ -24,6 +24,7 @@ class Platform(BaseModel):
     moby_id: Mapped[int | None]
     ss_id: Mapped[int | None]
     ra_id: Mapped[int | None]
+    launchbox_id: Mapped[int | None]
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))
@@ -51,6 +52,28 @@ class Platform(BaseModel):
     )
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    @property
+    def is_unidentified(self) -> bool:
+        return (
+            not self.igdb_id
+            and not self.moby_id
+            and not self.ss_id
+            and not self.launchbox_id
+        )
+
+    @property
+    def is_identified(self) -> bool:
+        return not self.is_unidentified
+
+    @property
+    def is_fully_identified(self) -> bool:
+        return (
+            bool(self.igdb_id)
+            and bool(self.moby_id)
+            and bool(self.ss_id)
+            and bool(self.launchbox_id)
+        )
 
     @cached_property
     def fs_size_bytes(self) -> int:

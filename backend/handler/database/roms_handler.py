@@ -193,6 +193,7 @@ class DBRomsHandler(DBBaseHandler):
             Rom.igdb_id.isnot(None),
             Rom.moby_id.isnot(None),
             Rom.ss_id.isnot(None),
+            Rom.launchbox_id.isnot(None),
         )
         if not value:
             predicate = not_(predicate)
@@ -426,6 +427,9 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
                     Rom.moby_id.isnot(None): build_func("moby", Rom.moby_id),
                     Rom.ss_id.isnot(None): build_func("ss", Rom.ss_id),
+                    Rom.launchbox_id.isnot(None): build_func(
+                        "launchbox", Rom.launchbox_id
+                    ),
                 },
                 else_=build_func("romm", Rom.id),
             )
@@ -783,16 +787,15 @@ class DBRomsHandler(DBBaseHandler):
         return session.query(RomFile).filter_by(id=id).one()
 
     @begin_session
-    def missing_rom_files(
+    def purge_rom_files(
         self, rom_id: int, session: Session = None
     ) -> Sequence[RomFile]:
-        missing_rom_files = (
+        purged_rom_files = (
             session.scalars(select(RomFile).filter_by(rom_id=rom_id)).unique().all()
         )
         session.execute(
-            update(RomFile)
+            delete(RomFile)
             .where(RomFile.rom_id == rom_id)
-            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
-        return missing_rom_files
+        return purged_rom_files

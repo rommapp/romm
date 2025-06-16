@@ -3,6 +3,7 @@
   "api-key-missing": "Cheie API invalidă sau neconfigurată",
   "complete-rescan": "Scanare completă",
   "complete-rescan-desc": "Scanare completă a tuturor fișierelor și platformelor (mai lent)",
+  "disabled-by-admin": "Dezactivat de administrator",
   "hashes": "Recalculează hash-urile",
   "hashes-desc": "Recalculează hash-urile tuturor fișierelor",
   "manage-library": "Gestionează biblioteca",

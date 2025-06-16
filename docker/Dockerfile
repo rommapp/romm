@@ -58,27 +58,24 @@ FROM backend-build AS backend-dev-build
 RUN poetry install --no-ansi --no-cache --all-extras
 
 
-FROM alpine:${ALPINE_VERSION} AS rahasher-build
+# TODO: Upgrade Alpine to the same version as the other stages, when RAHasher is updated to workAdd commentMore actions
+#       with it (seems like Alpine 3.18's g++ v12 is the latest version that works with RAHasher,
+#       while g++ v13 fails to compile it).
+FROM alpine:3.18 AS rahasher-build
 
 RUN apk add --no-cache \
     g++ \
     git \
-    make
+    linux-headers \
+    make \
+    zlib-dev
 
-# TODO: Move to a tagged release of `RALibretro`, once a version newer than 1.8.0 is released.
-ARG RALIBRETRO_SHA=304ed205f11dd0bb22c01afe11d1ffabf176facc
-# TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
-# TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
-#       Related pull request: https://github.com/madler/zlib/pull/1022
-RUN git clone --recursive https://github.com/RetroAchievements/RALibretro.git && \
+ARG RALIBRETRO_VERSION=1.8.0
+
+# TODO: Remove `sed` command when RAHasher can be compiled without it.
+RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
-    git checkout "${RALIBRETRO_SHA}" && \
-    git submodule update --init --recursive && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
-    sed -i '6a #include <unistd.h>' \
-      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
-      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
