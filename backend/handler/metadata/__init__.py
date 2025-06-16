@@ -1,3 +1,4 @@
+from .hasheous_handler import HasheousHandler
 from .igdb_handler import IGDBHandler
 from .launchbox_handler import LaunchboxHandler
 from .moby_handler import MobyGamesHandler
@@ -13,3 +14,4 @@ meta_sgdb_handler = SGDBBaseHandler()
 meta_ra_handler = RAHandler()
 meta_pm_handler = PlaymatchHandler()
 meta_launchbox_handler = LaunchboxHandler()
+meta_hasheous_handler = HasheousHandler()
