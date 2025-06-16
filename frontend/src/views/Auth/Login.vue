@@ -116,7 +116,7 @@ async function loginOIDC() {
               v-model="username"
               :label="t('login.username')"
               type="text"
-              required
+              :rules="[(value: string) => !!value || t('common.required')]"
               autocomplete="username"
               name="username"
               prepend-inner-icon="mdi-account"
@@ -126,7 +126,7 @@ async function loginOIDC() {
               v-model="password"
               :label="t('login.password')"
               :type="visiblePassword ? 'text' : 'password'"
-              required
+              :rules="[(value: string) => !!value || t('common.required')]"
               autocomplete="current-password"
               name="password"
               prepend-inner-icon="mdi-lock"
@@ -140,7 +140,7 @@ async function loginOIDC() {
               variant="text"
               block
               :loading="loggingIn"
-              :disabled="loggingIn || !username || !password || loggingInOIDC"
+              :disabled="loggingIn || loggingInOIDC || !validForm"
             >
               <template #prepend>
                 <v-icon>mdi-login</v-icon>
