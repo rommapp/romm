@@ -43,6 +43,7 @@ const defaultHeartbeat: Heartbeat = {
     STEAMGRIDDB_API_ENABLED: false,
     LAUNCHBOX_API_ENABLED: false,
     PLAYMATCH_API_ENABLED: false,
+    HASHEOUS_API_ENABLED: false,
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],

@@ -819,7 +819,13 @@ SEARCH_FIELDS = ("game.id", "name")
 #   name: a.innerText
 # }))
 
-IGDB_PLATFORM_LIST = (
+
+class SlugToIGDB(TypedDict):
+    slug: str
+    name: str
+
+
+IGDB_PLATFORM_LIST: list[SlugToIGDB] = [
     {"slug": "visionos", "name": "visionOS"},
     {"slug": "meta-quest-3", "name": "Meta Quest 3"},
     {"slug": "atari2600", "name": "Atari 2600"},
@@ -1036,7 +1042,11 @@ IGDB_PLATFORM_LIST = (
     {"slug": "onlive-game-system", "name": "OnLive Game System"},
     {"slug": "vc", "name": "Virtual Console"},
     {"slug": "airconsole", "name": "AirConsole"},
-)
+]
+
+IGDB_PLATFORMS_BY_SLUG: dict[str, SlugToIGDB] = {
+    platform["slug"]: platform for platform in IGDB_PLATFORM_LIST
+}
 
 IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
     0: "Unknown",

@@ -25,6 +25,8 @@ class Platform(BaseModel):
     ss_id: Mapped[int | None]
     ra_id: Mapped[int | None]
     launchbox_id: Mapped[int | None]
+    hasheous_id: Mapped[int | None]
+    tgdb_id: Mapped[int | None]
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))

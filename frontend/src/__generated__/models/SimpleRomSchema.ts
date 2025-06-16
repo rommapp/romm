@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RomFileSchema } from './RomFileSchema';
+import type { RomHasheousMetadata } from './RomHasheousMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
@@ -18,6 +19,8 @@ export type SimpleRomSchema = {
     ss_id: (number | null);
     ra_id: (number | null);
     launchbox_id: (number | null);
+    hasheous_id: (number | null);
+    tgdb_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -40,6 +43,7 @@ export type SimpleRomSchema = {
     moby_metadata: (RomMobyMetadata | null);
     ss_metadata: (RomSSMetadata | null);
     launchbox_metadata: (RomLaunchboxMetadata | null);
+    hasheous_metadata: (RomHasheousMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
