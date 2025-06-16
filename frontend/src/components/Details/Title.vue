@@ -129,13 +129,14 @@ const hashMatches = computed(() => {
       :class="{ 'text-center': smAndDown }"
       no-gutters
     >
-      <v-col cols="12">
+      <v-col>
         <a
           v-if="rom.igdb_id"
           style="text-decoration: none; color: inherit"
           :href="`https://www.igdb.com/games/${rom.slug}`"
           target="_blank"
           class="mr-1"
+          title="IGDB ID"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2" size="30" rounded="0">
@@ -191,32 +192,31 @@ const hashMatches = computed(() => {
             <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
-        <span v-if="rom.launchbox_id" class="mr-1">
-          <v-chip class="pl-0 mt-1" size="small" title="LaunchBox GamesBD ID">
-            <v-avatar class="mr-2" size="30" rounded="0">
-              <v-img src="/assets/scrappers/launchbox.png" />
-            </v-avatar>
-            <span>{{ rom.launchbox_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>{{
-              rom.launchbox_metadata?.community_rating?.toFixed(2)
-            }}</span>
-            <v-icon class="ml-1">mdi-star</v-icon>
-          </v-chip>
-        </span>
+        <v-chip
+          v-if="rom.launchbox_id"
+          class="pl-0 mt-1 mr-1"
+          size="small"
+          title="LaunchBox ID"
+        >
+          <v-avatar class="mr-2" size="30" rounded="0">
+            <v-img src="/assets/scrappers/launchbox.png" />
+          </v-avatar>
+          <span>{{ rom.launchbox_id }}</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>{{
+            rom.launchbox_metadata?.community_rating?.toFixed(2)
+          }}</span>
+          <v-icon class="ml-1">mdi-star</v-icon>
+        </v-chip>
         <a
           v-if="rom.ra_id"
           style="text-decoration: none; color: inherit"
           :href="`https://retroachievements.org/game/${rom.ra_id}`"
           target="_blank"
           class="mr-1"
+          title="RetroAchievements ID"
         >
-          <v-chip
-            class="pl-0 mt-1"
-            size="small"
-            @click.stop
-            title="RetroAchievements ID"
-          >
+          <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2" size="25" rounded="1">
               <v-img src="/assets/scrappers/ra.png" />
             </v-avatar>
