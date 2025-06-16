@@ -427,9 +427,16 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.hasheous_id)
             )
         ):
-            return await meta_hasheous_handler.get_rom(rom_attrs)
+            hasheous_rom = await meta_hasheous_handler.get_rom(rom_attrs)
+            igdb_id = hasheous_rom.get("igdb_id")
+            if igdb_id:
+                # If Hasheous returns an IGDB ID, we can use it to fetch the IGDB ROM
+                igdb_rom = await meta_hasheous_handler.get_igdb_game(
+                    hasheous_rom, igdb_id
+                )
+                hasheous_rom.update(igdb_rom)
 
-        return HasheousRom(hasheous_id=None)
+        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
     # Run both metadata fetches concurrently
     (
