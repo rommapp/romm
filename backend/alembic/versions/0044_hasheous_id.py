@@ -20,6 +20,7 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("hasheous_id", sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column("tgdb_id", sa.Integer(), nullable=True))
         batch_op.add_column(
             sa.Column(
                 "hasheous_metadata",
@@ -30,6 +31,7 @@ def upgrade() -> None:
             )
         )
         batch_op.create_index("idx_roms_hasheous_id", ["hasheous_id"], unique=False)
+        batch_op.create_index("idx_roms_tgdb_id", ["tgdb_id"], unique=False)
 
     with op.batch_alter_table("platforms", schema=None) as batch_op:
         batch_op.add_column(sa.Column("hasheous_id", sa.Integer(), nullable=True))
@@ -42,6 +44,8 @@ def downgrade() -> None:
         batch_op.drop_column("tgdb_id")
 
     with op.batch_alter_table("roms", schema=None) as batch_op:
+        batch_op.drop_index("idx_roms_tgdb_id")
         batch_op.drop_index("idx_roms_hasheous_id")
         batch_op.drop_column("hasheous_metadata")
+        batch_op.drop_column("tgdb_id")
         batch_op.drop_column("hasheous_id")

@@ -121,6 +121,7 @@ class Rom(BaseModel):
     ra_id: Mapped[int | None]
     launchbox_id: Mapped[int | None]
     hasheous_id: Mapped[int | None]
+    tgdb_id: Mapped[int | None]
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -130,6 +131,7 @@ class Rom(BaseModel):
         Index("idx_roms_sgdb_id", "sgdb_id"),
         Index("idx_roms_launchbox_id", "launchbox_id"),
         Index("idx_roms_hasheous_id", "hasheous_id"),
+        Index("idx_roms_tgdb_id", "tgdb_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=450))
