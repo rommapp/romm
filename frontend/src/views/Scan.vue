@@ -64,6 +64,14 @@ const metadataOptions = computed(() => [
       : "",
   },
   {
+    name: "Hasheous",
+    value: "hasheous",
+    logo_path: "/assets/scrappers/hasheous.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED
+      ? t("scan.disabled-by-admin")
+      : "",
+  },
+  {
     name: "Playmatch",
     value: "pm",
     logo_path: "/assets/scrappers/playmatch.png",
