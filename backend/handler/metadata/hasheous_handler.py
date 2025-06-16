@@ -8,6 +8,8 @@ from logger.logger import log
 from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
+from .igdb_handler import IGDBRom, extract_metadata_from_igdb_rom
+from .ra_handler import RAGameRom
 
 
 class HasheousMetadata(TypedDict):
@@ -30,45 +32,60 @@ class HasheousPlatform(TypedDict):
     ra_id: NotRequired[int | None]
 
 
-class HasheousRom(TypedDict):
+class HasheousRom(IGDBRom, RAGameRom):
     hasheous_id: int | None
-    igdb_id: NotRequired[int | None]
-    tgdb_id: NotRequired[int | None]
-    ra_id: NotRequired[int | None]
-    name: NotRequired[str]
-    url_cover: NotRequired[str]
+    tgdb_id: int | None
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
 class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.BASE_URL = "https://hasheous.org/api/v1/Lookup"
-        self.platform_endpoint = f"{self.BASE_URL}/Platforms"
-        self.games_endpoint = f"{self.BASE_URL}/ByHash"
+        self.BASE_URL = "https://hasheous.org/api/v1"
+        self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
+        self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
+        self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
 
     async def _request(
-        self, url: str, params: dict, data: dict, timeout: int = 120
+        self,
+        url: str,
+        method: str = "POST",
+        params: dict | None = None,
+        data: dict | None = None,
+        timeout: int = 120,
     ) -> dict:
         httpx_client = ctx_httpx_client.get()
 
+        # Normalize method to uppercase
+        method = method.upper()
+        if method not in ["GET", "POST"]:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+
         try:
             log.debug(
-                "API request: URL=%s, Params=%s, Data=%s, Timeout=%s",
+                "API request: Method=%s, URL=%s, Params=%s, Data=%s, Timeout=%s",
+                method,
                 url,
                 params,
                 data,
                 timeout,
             )
-            print(
-                f"API request: URL={url}, Params={params}, Data={data}, Timeout={timeout}"
-            )
-            res = await httpx_client.post(
-                url,
-                params=params,
-                json=data,
-                timeout=timeout,
-                headers={"Content-Type": "application/json-patch+json"},
-            )
+
+            # Prepare request kwargs
+            request_kwargs = {
+                "url": url,
+                "params": params,
+                "timeout": timeout,
+            }
+
+            # Add method-specific parameters
+            if method == "POST":
+                request_kwargs["json"] = data
+                request_kwargs["headers"] = {
+                    "Content-Type": "application/json-patch+json"
+                }
+
+            # Make the request
+            res = await httpx_client.request(method, **request_kwargs)
 
             res.raise_for_status()
             return res.json()
@@ -79,7 +96,7 @@ class HasheousHandler(MetadataHandler):
                 detail="Can't connect to Hasheous, check your internet connection",
             ) from exc
         except json.decoder.JSONDecodeError as exc:
-            # Log the error and return an empty list if the response is not valid JSON
+            # Log the error and return an empty dict if the response is not valid JSON
             log.error(exc)
             return {}
         except httpx.TimeoutException:
@@ -89,10 +106,6 @@ class HasheousHandler(MetadataHandler):
 
     def get_platform(self, slug: str) -> HasheousPlatform:
         platform = HASHEOUS_PLATFORM_LIST.get(slug, None)
-
-        import ipdb
-
-        ipdb.set_trace()
 
         if not platform:
             return HasheousPlatform(hasheous_id=None, slug=slug)
@@ -106,53 +119,16 @@ class HasheousHandler(MetadataHandler):
             ra_id=platform["ra_id"],
         )
 
-    # async def _build_platforms(self) -> None:
-    #     from .igdb_handler import IGDB_PLATFORMS_BY_SLUG
-
-    #     if not HASHEOUS_API_ENABLED:
-    #         return
-
-    #     platforms = await self._request(
-    #         self.platform_endpoint,
-    #         params={
-    #             "PageSize": 500,
-    #         },
-    #     )
-
-    #     iplats = {}
-    #     mplats = {}
-
-    #     for platform in platforms["objects"]:
-    #         metadata = platform["metadata"]
-
-    #         igdb_id = None
-    #         tgdb_id = None
-    #         ra_id = None
-
-    #         for meta in metadata:
-    #             if meta["source"] == "IGDB":
-    #                 igdb_id = meta["id"]
-    #             elif meta["source"] == "TheGamesDB":
-    #                 tgdb_id = meta["immutableId"]
-    #             elif meta["source"] == "RetroAchievements":
-    #                 ra_id = meta["immutableId"]
-
-    #         platform_data = {
-    #             "id": platform["id"],
-    #             "name": platform["name"],
-    #             "igdb_id": igdb_id,
-    #             "tgdb_id": int(tgdb_id) if tgdb_id else None,
-    #             "ra_id": int(ra_id) if ra_id else None,
-    #         }
-
-    #         if igdb_id in IGDB_PLATFORMS_BY_SLUG:
-    #             iplats[igdb_id] = platform_data
-    #         else:
-    #             mplats[platform["id"]] = platform_data
-
     async def get_rom(self, rom_attrs: dict) -> HasheousRom:
+        fallback_rom = HasheousRom(
+            hasheous_id=None,
+            igdb_id=None,
+            tgdb_id=None,
+            ra_id=None,
+        )
+
         if not HASHEOUS_API_ENABLED:
-            return HasheousRom(hasheous_id=None)
+            return fallback_rom
 
         md5_hash = rom_attrs.get("md5_hash")
         sha1_hash = rom_attrs.get("sha1_hash")
@@ -163,7 +139,7 @@ class HasheousHandler(MetadataHandler):
                 "No hashes provided for Hasheous lookup. "
                 "At least one of md5_hash, sha1_hash, or crc_hash is required."
             )
-            return HasheousRom(hasheous_id=None)
+            return fallback_rom
 
         data = {}
         if md5_hash:
@@ -183,11 +159,7 @@ class HasheousHandler(MetadataHandler):
         )
 
         if not hasheous_game:
-            return HasheousRom(hasheous_id=None)
-
-        import ipdb
-
-        ipdb.set_trace()
+            return fallback_rom
 
         metadata = hasheous_game.get("metadata", [])
         attributes = hasheous_game.get("attributes", [])
@@ -228,6 +200,52 @@ class HasheousHandler(MetadataHandler):
                 ra_match="RetroAchievements" in signatures,
                 fbneo_match="FBNeo" in signatures,
             ),
+        )
+
+    async def get_igdb_game(
+        self, hasheous_rom: HasheousRom, igdb_id: int
+    ) -> HasheousRom:
+        fallback_rom = HasheousRom(
+            hasheous_id=None,
+            igdb_id=None,
+            tgdb_id=None,
+            ra_id=None,
+        )
+
+        if not HASHEOUS_API_ENABLED:
+            return fallback_rom
+
+        if not igdb_id:
+            log.warning("No IGDB ID provided for Hasheous IGDB game lookup.")
+            return fallback_rom
+
+        igdb_game = await self._request(
+            self.proxy_igdb_game_endpoint,
+            params={"Id": igdb_id},
+            method="GET",
+        )
+
+        if not igdb_game:
+            log.warning(f"No Hasheous game found for IGDB ID {igdb_id}.")
+            return fallback_rom
+
+        return HasheousRom(
+            {
+                **hasheous_rom,
+                "slug": igdb_game.get("slug", ""),
+                "name": igdb_game.get("name", ""),
+                "summary": igdb_game.get("summary", ""),
+                "url_cover": self._normalize_cover_url(
+                    igdb_game.get("cover", {}).get("url", "")
+                ).replace("t_thumb", "t_1080p"),
+                "url_screenshots": [
+                    self._normalize_cover_url(s.get("url", "")).replace(
+                        "t_thumb", "t_720p"
+                    )
+                    for s in igdb_game.get("screenshots", [])
+                ],
+                "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
+            }
         )
 
 
