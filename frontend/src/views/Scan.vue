@@ -27,33 +27,68 @@ const metadataOptions = computed(() => [
     name: "IGDB",
     value: "igdb",
     logo_path: "/assets/scrappers/igdb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED
+      ? t("scan.api-key-missing")
+      : "",
   },
   {
     name: "Mobygames",
     value: "moby",
     logo_path: "/assets/scrappers/moby.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED
+      ? t("scan.api-key-missing")
+      : "",
   },
   {
     name: "Screenscraper",
     value: "ss",
     logo_path: "/assets/scrappers/ss.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED
+      ? t("scan.api-key-missing")
+      : "",
   },
   {
     name: "RetroAchievements",
     value: "ra",
     logo_path: "/assets/scrappers/ra.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED
+      ? t("scan.api-key-missing")
+      : "",
+  },
+  {
+    name: "Launchbox",
+    value: "lb",
+    logo_path: "/assets/scrappers/launchbox.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED
+      ? t("scan.disabled-by-admin")
+      : "",
+  },
+  {
+    name: "Playmatch",
+    value: "pm",
+    logo_path: "/assets/scrappers/playmatch.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
+      ? t("scan.disabled-by-admin")
+      : "",
   },
 ]);
+
 // Use the computed metadataOptions to filter out disabled sources
 const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
-// Since metadataOptions is now a computed property, it will automatically update.
-// Therefore, we only need to watch metadataOptions for changes.
 watch(metadataOptions, (newOptions) => {
   metadataSources.value = newOptions.filter((option) => !option.disabled);
+});
+watch(metadataSources, (newSources) => {
+  const igdbEnabled = newSources.some((s) => s.value === "igdb");
+  if (igdbEnabled) return;
+
+  const playmatchEnabled = newSources.some((s) => s.value === "pm");
+  if (playmatchEnabled) {
+    // If IGDB is disabled, Playmatch should also be disabled
+    metadataSources.value = metadataSources.value.filter(
+      (s) => s.value !== "pm",
+    );
+  }
 });
 
 // Adding each new scanned platform to panelIndex to be open by default
@@ -211,8 +246,8 @@ async function stopScan() {
           <v-list-item
             v-bind="props"
             :title="item.raw.name"
-            :subtitle="item.raw.disabled ? t('scan.api-key-missing') : ''"
-            :disabled="item.raw.disabled"
+            :subtitle="item.raw.disabled"
+            :disabled="Boolean(item.raw.disabled)"
           >
             <template #prepend>
               <v-avatar size="25" rounded="1">
@@ -364,7 +399,7 @@ async function stopScan() {
                 >
                   <template #append-body>
                     <v-chip
-                      v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
+                      v-if="rom.is_unidentified"
                       color="red"
                       size="x-small"
                       label

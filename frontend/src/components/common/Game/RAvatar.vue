@@ -8,7 +8,7 @@ const props = withDefaults(defineProps<{ rom: SimpleRom; size?: number }>(), {
 });
 
 const fallbackCoverImage = computed(() =>
-  props.rom.igdb_id || props.rom.moby_id
+  props.rom.is_identified
     ? getMissingCoverImage(props.rom.name || props.rom.fs_name)
     : getUnmatchedCoverImage(props.rom.name || props.rom.fs_name),
 );
