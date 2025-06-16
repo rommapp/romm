@@ -733,7 +733,7 @@ MOBYGAMES_PLATFORM_LIST: dict[str, SlugToMobyId] = {
     "xbox-one": {"id": 142, "name": "Xbox One"},
     "xboxone": {"id": 142, "name": "Xbox One"},
     "xbox-series": {"id": 289, "name": "Xbox Series"},
-    "series-x": {"id": 289, "name": "Xbox Series X"},  # IGDB
+    "series-x-s": {"id": 289, "name": "Xbox Series X/S"},  # IGDB
     "xerox-alto": {"id": 254, "name": "Xerox Alto"},
     "z-machine": {"id": 169, "name": "Z-machine"},
     "zx-spectrum": {"id": 41, "name": "ZX Spectrum"},
