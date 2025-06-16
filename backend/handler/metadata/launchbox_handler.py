@@ -339,7 +339,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[str, SlugToLaunchboxPlatformName] = {
     "xbox": {"id": 18, "name": "Microsoft Xbox"},
     "xbox360": {"id": 19, "name": "Microsoft Xbox 360"},
     "xboxone": {"id": 20, "name": "Microsoft Xbox One"},
-    "series-x": {"id": 222, "name": "Microsoft Xbox Series X/S"},
+    "series-x-s": {"id": 222, "name": "Microsoft Xbox Series X/S"},
     "pc-8800-series": {"id": 192, "name": "NEC PC-8801"},
     "pc-9800-series": {"id": 193, "name": "NEC PC-9801"},
     "pc-fx": {"id": 161, "name": "NEC PC-FX"},

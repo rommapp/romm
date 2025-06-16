@@ -837,7 +837,7 @@ IGDB_PLATFORM_LIST: list[SlugToIGDB] = [
     {"slug": "win", "name": "PC (Microsoft Windows)"},
     {"slug": "oculus-quest", "name": "Oculus Quest"},
     {"slug": "playdate", "name": "Playdate"},
-    {"slug": "series-x", "name": "Xbox Series X"},
+    {"slug": "series-x-s", "name": "Xbox Series X/S"},
     {"slug": "meta-quest-2", "name": "Meta Quest 2"},
     {"slug": "ps5", "name": "PlayStation 5"},
     {"slug": "oculus-rift", "name": "Oculus Rift"},
