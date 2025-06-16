@@ -264,18 +264,19 @@ function closeDialog() {
           <v-col class="pa-4">
             <v-text-field
               v-model="rom.name"
+              :rules="[(value: string) => !!value || t('common.required')]"
               :label="t('common.name')"
               variant="outlined"
-              required
               @keyup.enter="updateRom"
+              class="my-2"
             />
             <v-text-field
               v-model="rom.fs_name"
-              :rules="[(value: string) => !!value]"
+              :rules="[(value: string) => !!value || t('common.required')]"
               :label="rom.multi ? t('rom.folder-name') : t('rom.filename')"
               variant="outlined"
-              required
               @keyup.enter="updateRom"
+              class="my-2"
             >
               <template #details>
                 <v-label class="text-caption text-wrap">
@@ -290,12 +291,11 @@ function closeDialog() {
             </v-text-field>
             <v-textarea
               v-model="rom.summary"
-              class="py-2"
               :label="t('rom.summary')"
               variant="outlined"
-              required
+              class="my-2"
             />
-            <v-chip
+            <!-- <v-chip
               :variant="rom.has_manual ? 'flat' : 'tonal'"
               label
               size="large"
@@ -326,7 +326,6 @@ function closeDialog() {
                   accept="application/pdf"
                   hide-details
                   multiple
-                  required
                   class="file-input"
                   @change="uploadManuals"
                 />
@@ -339,7 +338,7 @@ function closeDialog() {
                 </v-icon>
                 <span> /romm/resources/{{ rom.path_manual }} </span>
               </v-label>
-            </div>
+            </div> -->
             <v-row class="justify-space-between mt-4" no-gutters>
               <v-btn
                 :disabled="rom.is_unidentified"
@@ -355,7 +354,12 @@ function closeDialog() {
                 <v-btn class="bg-toplayer" @click="closeDialog">
                   {{ t("common.cancel") }}
                 </v-btn>
-                <v-btn class="text-romm-green bg-toplayer" @click="updateRom">
+                <v-btn
+                  :variant="!validForm ? 'plain' : 'flat'"
+                  :disabled="!validForm"
+                  class="text-romm-green bg-toplayer"
+                  @click="updateRom"
+                >
                   {{ t("common.apply") }}
                 </v-btn>
               </v-btn-group>

@@ -53,7 +53,6 @@ function closeDialog() {
     email: "",
     role: "viewer",
   };
-  validForm.value = false;
 }
 </script>
 <template>
@@ -67,71 +66,57 @@ function closeDialog() {
       <v-form v-model="validForm">
         <v-row no-gutters class="pa-4">
           <v-col>
-            <v-row class="pa-2" no-gutters>
-              <v-col>
-                <v-text-field
-                  v-model="user.username"
-                  variant="outlined"
-                  :label="t('settings.username')"
-                  :rules="usersStore.nameRules"
-                  required
-                  clearable
-                />
-              </v-col>
-            </v-row>
-            <v-row class="pa-2" no-gutters>
-              <v-col>
-                <v-text-field
-                  v-model="user.password"
-                  variant="outlined"
-                  :label="t('settings.password')"
-                  :rules="usersStore.passwordRules"
-                  type="password"
-                  required
-                  clearable
-                />
-              </v-col>
-            </v-row>
-            <v-row class="pa-2" no-gutters>
-              <v-col>
-                <v-text-field
-                  v-model="user.email"
-                  variant="outlined"
-                  :label="t('settings.email')"
-                  :rules="usersStore.emailRules"
-                  type="email"
-                  clearable
-                />
-              </v-col>
-            </v-row>
-            <v-row class="pa-2" no-gutters>
-              <v-col>
-                <v-select
-                  v-model="user.role"
-                  variant="outlined"
-                  :items="['viewer', 'editor', 'admin']"
-                  :label="t('settings.role')"
-                  required
-                  hide-details
-                >
-                  <template #selection="{ item }">
-                    <v-list-item class="pa-0">
-                      <v-icon class="mr-2">{{
-                        getRoleIcon(item.title)
-                      }}</v-icon>
-                      {{ item.title }}
-                    </v-list-item>
+            <v-text-field
+              v-model="user.username"
+              variant="outlined"
+              :label="t('settings.username')"
+              :rules="usersStore.nameRules"
+              required
+              clearable
+              class="ma-2"
+            />
+            <v-text-field
+              v-model="user.password"
+              variant="outlined"
+              :label="t('settings.password')"
+              :rules="usersStore.passwordRules"
+              type="password"
+              required
+              clearable
+              class="ma-2"
+            />
+            <v-text-field
+              v-model="user.email"
+              variant="outlined"
+              :label="t('settings.email')"
+              :rules="usersStore.emailRules"
+              type="email"
+              clearable
+              class="ma-2"
+            />
+            <v-select
+              v-model="user.role"
+              variant="outlined"
+              :items="['viewer', 'editor', 'admin']"
+              :label="t('settings.role')"
+              required
+              hide-details
+              class="ma-2"
+            >
+              <template #selection="{ item }">
+                <v-list-item class="pa-0">
+                  <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+                  {{ item.title }}
+                </v-list-item>
+              </template>
+              <template #item="{ item, props }">
+                <v-list-item v-bind="props" :title="item.title">
+                  <template #prepend>
+                    <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
                   </template>
-                  <template #item="{ item, props }">
-                    <v-list-item v-bind="props" :title="item.title">
-                      <template #prepend>
-                        <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
-                      </template>
-                    </v-list-item>
-                  </template>
-                </v-select>
-              </v-col>
-            </v-row>
+                </v-list-item>
+              </template>
+            </v-select>
           </v-col>
         </v-row>
       </v-form>
@@ -143,8 +128,8 @@ function closeDialog() {
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            :disabled="!validForm"
             :variant="!validForm ? 'plain' : 'flat'"
+            :disabled="!validForm"
             class="text-romm-green bg-toplayer"
             @click="createUser"
           >
