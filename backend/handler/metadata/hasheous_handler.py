@@ -11,7 +11,14 @@ from .base_hander import MetadataHandler
 
 
 class HasheousMetadata(TypedDict):
-    pass
+    tosec_match: bool
+    mame_arcade_match: bool
+    mame_mess_match: bool
+    nointro_match: bool
+    redump_match: bool
+    whdload_match: bool
+    ra_match: bool
+    fbneo_match: bool
 
 
 class HasheousPlatform(TypedDict):
@@ -26,6 +33,11 @@ class HasheousPlatform(TypedDict):
 class HasheousRom(TypedDict):
     hasheous_id: int | None
     igdb_id: NotRequired[int | None]
+    tgdb_id: NotRequired[int | None]
+    ra_id: NotRequired[int | None]
+    name: NotRequired[str]
+    url_cover: NotRequired[str]
+    hasheous_metadata: NotRequired[HasheousMetadata]
 
 
 class HasheousHandler(MetadataHandler):
@@ -53,9 +65,9 @@ class HasheousHandler(MetadataHandler):
             res = await httpx_client.post(
                 url,
                 params=params,
-                data=data,
+                json=data,
                 timeout=timeout,
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json-patch+json"},
             )
 
             res.raise_for_status()
@@ -117,9 +129,9 @@ class HasheousHandler(MetadataHandler):
     #             if meta["source"] == "IGDB":
     #                 igdb_id = meta["id"]
     #             elif meta["source"] == "TheGamesDB":
-    #                 tgdb_id = meta["id"]
+    #                 tgdb_id = meta["immutableId"]
     #             elif meta["source"] == "RetroAchievements":
-    #                 ra_id = meta["id"]
+    #                 ra_id = meta["immutableId"]
 
     #         platform_data = {
     #             "id": platform["id"],
@@ -160,17 +172,59 @@ class HasheousHandler(MetadataHandler):
         hasheous_game = await self._request(
             self.games_endpoint,
             params={
-                "returnAllSources": True,
-                "returnFields": "All",
+                "returnAllSources": "true",
+                "returnFields": "Signatures, Metadata, Attributes",
             },
             data=data,
         )
+
+        if not hasheous_game:
+            return HasheousRom(hasheous_id=None)
 
         import ipdb
 
         ipdb.set_trace()
 
-        return HasheousRom(hasheous_id=None)
+        metadata = hasheous_game.get("metadata", [])
+        attributes = hasheous_game.get("attributes", [])
+        signatures = hasheous_game.get("signatures", {}).keys()
+
+        igdb_id = None
+        tgdb_id = None
+        ra_id = None
+
+        for meta in metadata:
+            if meta["source"] == "IGDB":
+                igdb_id = meta["immutableId"]
+            elif meta["source"] == "TheGamesDB":
+                tgdb_id = meta["immutableId"]
+            elif meta["source"] == "RetroAchievements":
+                ra_id = meta["immutableId"]
+
+        url_cover = ""
+        for attr in attributes:
+            if attr["attributeName"] == "Logo":
+                url_cover = f"https://hasheous.org{attr['link']}"
+                break
+
+        return HasheousRom(
+            hasheous_id=hasheous_game["id"],
+            name=hasheous_game.get("name", ""),
+            igdb_id=igdb_id,
+            tgdb_id=int(tgdb_id) if tgdb_id else None,
+            ra_id=int(ra_id) if ra_id else None,
+            url_cover=url_cover,
+            hasheous_metadata=HasheousMetadata(
+                tosec_match="TOSEC" in signatures,
+                mame_arcade_match="MAMEArcade" in signatures,
+                mame_mess_match="MAMEMess" in signatures,
+                nointro_match="NoIntros" in signatures,
+                redump_match="Redump" in signatures,
+                whdload_match="WHDLoad" in signatures,
+                ra_match="RetroAchievements" in signatures,
+                fbneo_match="FBNeo" in signatures,
+            ),
+        )
 
 
 class SlugToHasheousId(TypedDict):
