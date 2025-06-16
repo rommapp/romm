@@ -52,7 +52,6 @@ def heartbeat() -> HeartbeatResponse:
             or MOBY_API_ENABLED
             or RA_API_ENABLED
             or LAUNCHBOX_API_ENABLED
-            or PLAYMATCH_API_ENABLED
             or HASHEOUS_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
