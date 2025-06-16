@@ -48,7 +48,7 @@ const computedAspectRatio = computed(() => {
   return parseFloat(ratio.toString());
 });
 const missingCoverImage = computed(() =>
-  getMissingCoverImage(rom.value?.name || rom.value?.fs_name || "")
+  getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
 
 // Functions
@@ -87,7 +87,7 @@ async function handleRomUpdate(
     removeCover?: boolean;
     unmatch?: boolean;
   },
-  successMessage: string
+  successMessage: string,
 ) {
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
@@ -129,7 +129,7 @@ async function uploadManuals() {
     })
     .then((responses: PromiseSettledResult<unknown>[]) => {
       const successfulUploads = responses.filter(
-        (d) => d.status == "fulfilled"
+        (d) => d.status == "fulfilled",
       );
       const failedUploads = responses.filter((d) => d.status == "rejected");
 
@@ -170,7 +170,7 @@ async function unmatchRom() {
   if (!rom.value) return;
   await handleRomUpdate(
     { rom: rom.value, unmatch: true },
-    "Rom unmatched successfully"
+    "Rom unmatched successfully",
   );
 }
 
@@ -186,7 +186,7 @@ async function updateRom() {
 
   await handleRomUpdate(
     { rom: rom.value, removeCover: removeCover.value },
-    "Rom updated successfully!"
+    "Rom updated successfully!",
   );
 }
 
