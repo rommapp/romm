@@ -1,5 +1,7 @@
 from typing import NotRequired, TypedDict
 
+from config import TGDB_API_ENABLED
+
 from .base_hander import MetadataHandler
 
 
@@ -22,6 +24,9 @@ class TGDBHandler(MetadataHandler):
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
 
     def get_platform(self, slug: str) -> TGDBPlatform:
+        if not TGDB_API_ENABLED:
+            return TGDBPlatform(tgdb_id=None, slug=slug)
+
         platform = TGDB_PLATFORM_LIST.get(slug.lower(), None)
 
         if not platform:
