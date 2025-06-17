@@ -16,9 +16,6 @@ const showRegions = isNull(localStorage.getItem("settings.showRegions"))
 const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
   ? true
   : localStorage.getItem("settings.showLanguages") === "true";
-const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
-  ? true
-  : localStorage.getItem("settings.showSiblings") === "true";
 const showStatus = isNull(localStorage.getItem("settings.showStatus"))
   ? true
   : localStorage.getItem("settings.showStatus") === "true";
@@ -56,17 +53,10 @@ const playingStatus = computed(() => {
   </v-chip>
   <v-chip
     v-if="playingStatus && showStatus"
-    class="translucent-dark mr-1 mt-1"
+    class="translucent-dark mr-1 mt-1 px-2"
     density="compact"
     :title="getTextForStatus(playingStatus)"
   >
     {{ getEmojiForStatus(playingStatus) }}
-  </v-chip>
-  <v-chip
-    v-if="rom.siblings.length > 0 && showSiblings"
-    class="translucent-dark mr-1 mt-1"
-    density="compact"
-  >
-    +{{ rom.siblings.length }}
   </v-chip>
 </template>

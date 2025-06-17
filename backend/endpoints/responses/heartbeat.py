@@ -31,6 +31,7 @@ class MetadataSourcesDict(TypedDict):
     RA_API_ENABLED: bool
     LAUNCHBOX_API_ENABLED: bool
     PLAYMATCH_API_ENABLED: bool
+    HASHEOUS_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):

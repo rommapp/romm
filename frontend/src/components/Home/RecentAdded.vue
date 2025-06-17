@@ -64,12 +64,9 @@ function onClosedMenu() {
     </template>
     <template #content>
       <v-row
-        :class="{
-          'flex-nowrap overflow-x-auto': !gridRecentRoms,
-        }"
+        :class="{ 'flex-nowrap overflow-x-auto': !gridRecentRoms }"
         class="py-1"
         no-gutters
-        style="overflow-y: hidden"
       >
         <v-col
           v-for="rom in recentRoms"
@@ -94,12 +91,9 @@ function onClosedMenu() {
             titleOnHover
             pointerOnHover
             withLink
-            showFlags
-            showFav
             transformScale
+            showChips
             showActionBar
-            showPlatformIcon
-            show-missing-flag
             :enable3DTilt="enable3DEffect"
             @hover="onHover"
             @openedmenu="onOpenedMenu"
