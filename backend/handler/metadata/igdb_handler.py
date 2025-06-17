@@ -960,6 +960,7 @@ IGDB_PLATFORM_LIST: list[SlugToIGDB] = [
     {"slug": "atari-st", "name": "Atari ST/STE"},
     {"slug": "tatung-einstein", "name": "Tatung Einstein"},
     {"slug": "amstrad-pcw", "name": "Amstrad PCW"},
+    {"slug": "amstrad-gx4000", "name": "Amstrad GX4000"},
     {"slug": "epoch-super-cassette-vision", "name": "Epoch Super Cassette Vision"},
     {"slug": "atari7800", "name": "Atari 7800"},
     {"slug": "hp3000", "name": "HP 3000"},

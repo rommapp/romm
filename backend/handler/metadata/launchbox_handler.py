@@ -267,7 +267,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[str, SlugToLaunchboxPlatformName] = {
     "atom": {"id": 107, "name": "Acorn Atom"},
     "acorn-electron": {"id": 65, "name": "Acorn Electron"},
     "acpc": {"id": 3, "name": "Amstrad CPC"},
-    "gx4000": {"id": 109, "name": "Amstrad GX4000"},
+    "amstrad-gx4000": {"id": 109, "name": "Amstrad GX4000"},
     "android": {"id": 4, "name": "Android"},
     "bk-01": {"id": 175, "name": "Apogee BK-01"},
     "appleii": {"id": 110, "name": "Apple II"},
