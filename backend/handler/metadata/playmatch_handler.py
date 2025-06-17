@@ -58,11 +58,8 @@ class PlaymatchHandler:
         """
         Identify a ROM file using Playmatch API.
 
-        :param file_name: The name of the ROM file.
-        :param file_size: The size of the ROM file in bytes.
-        :param md5: The MD5 hash of the ROM file, if available.
-        :param sha1: The SHA1 hash of the ROM file, if available.
-        :return: The IGDB provider ID if a match is found, otherwise None.
+        :param rom_attrs: A dictionary containing the ROM attributes.
+        :return: A list of PlaymatchRomMatch objects containing the matched ROM information.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
         if not PLAYMATCH_API_ENABLED:
