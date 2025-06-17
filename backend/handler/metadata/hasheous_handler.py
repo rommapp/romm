@@ -98,6 +98,21 @@ class HasheousHandler(MetadataHandler):
 
             res.raise_for_status()
             return res.json()
+        except httpx.HTTPStatusError as exc:
+            # Check if its a 404 error
+            if exc.response.status_code == status.HTTP_404_NOT_FOUND:
+                log.warning("Hasheous API returned 404 Not Found")
+                return {}
+
+            log.error(
+                "Hasheous API returned an error: %s %s",
+                exc.response.status_code,
+                exc.response.text,
+            )
+            raise HTTPException(
+                status_code=exc.response.status_code,
+                detail=f"Hasheous API error: {exc.response.text}",
+            ) from exc
         except httpx.NetworkError as exc:
             log.critical("Connection error: can't connect to Hasheous")
             raise HTTPException(
