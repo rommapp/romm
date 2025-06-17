@@ -71,12 +71,9 @@ onBeforeUnmount(() => {
     </template>
     <template #content>
       <v-row
-        :class="{
-          'flex-nowrap overflow-x-auto': !gridVirtualCollections,
-        }"
+        :class="{ 'flex-nowrap': !gridVirtualCollections }"
         class="py-1"
         no-gutters
-        style="overflow-y: hidden"
       >
         <v-col
           v-for="collection in collections.virtualCollections.slice(
