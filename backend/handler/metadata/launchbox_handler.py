@@ -202,7 +202,7 @@ class LaunchboxHandler(MetadataHandler):
             best_cover = self._get_best_cover_image(game_images)
             if best_cover:
                 url_cover = (
-                    f"https://images.launchbox-app.com/{best_cover.get("FileName")}"
+                    f"https://images.launchbox-app.com/{best_cover.get('FileName')}"
                 )
 
             url_screenshots = self._get_screenshots(game_images)
