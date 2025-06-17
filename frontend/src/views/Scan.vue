@@ -80,18 +80,6 @@ const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 watch(metadataOptions, (newOptions) => {
   metadataSources.value = newOptions.filter((option) => !option.disabled);
 });
-watch(metadataSources, (newSources) => {
-  const igdbEnabled = newSources.some((s) => s.value === "igdb");
-  if (igdbEnabled) return;
-
-  const playmatchEnabled = newSources.some((s) => s.value === "pm");
-  if (playmatchEnabled) {
-    // If IGDB is disabled, Playmatch should also be disabled
-    metadataSources.value = metadataSources.value.filter(
-      (s) => s.value !== "pm",
-    );
-  }
-});
 
 // Adding each new scanned platform to panelIndex to be open by default
 watch(
@@ -164,7 +152,7 @@ async function stopScan() {
 <template>
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" md="5" lg="6" class="px-1">
+    <v-col cols="12" md="4" lg="5" class="px-1">
       <!-- TODO: add 'ALL' default option -->
       <v-select
         v-model="platformsToScan"
@@ -229,7 +217,7 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col cols="12" md="5" lg="4" class="px-1" :class="{ 'mt-3': smAndDown }">
+    <v-col cols="12" md="4" lg="5" class="px-1" :class="{ 'mt-3': smAndDown }">
       <v-select
         v-model="metadataSources"
         :items="metadataOptions"
@@ -263,7 +251,7 @@ async function stopScan() {
             <v-avatar class="mr-2" size="15" rounded="1">
               <v-img :src="item.raw.logo_path" />
             </v-avatar>
-            {{ item.raw.value }}
+            {{ item.raw.name }}
           </v-chip>
         </template>
       </v-select>
