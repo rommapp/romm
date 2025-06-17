@@ -8,7 +8,7 @@ defineProps<{ title: string }>();
 <template>
   <r-section icon="mdi-shimmer" :title="title">
     <template #content>
-      <v-row class="flex-nowrap overflow-x-auto pa-1" no-gutters>
+      <v-row class="flex-nowrap pa-1" no-gutters>
         <v-col
           v-for="_ in 15"
           class="align-self-end pa-1"
