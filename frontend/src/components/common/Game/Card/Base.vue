@@ -228,8 +228,8 @@ onBeforeUnmount(() => {
                         sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
                       "
                     >
-                      <div :class="{ 'pa-2': sizeActionBar === 1 }">
-                        <v-list-item>{{ rom.name }}</v-list-item>
+                      <div class="pa-2">
+                        {{ rom.name }}
                       </div>
                     </div>
                   </v-expand-transition>
@@ -252,7 +252,7 @@ onBeforeUnmount(() => {
                     :slug="rom.platform_slug"
                     :name="rom.platform_name"
                     :fs-slug="rom.platform_slug"
-                    class="label-platform ml-2"
+                    class="ml-1"
                   />
                   <div v-if="showChips">
                     <v-chip
@@ -372,22 +372,5 @@ onBeforeUnmount(() => {
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
-}
-.append-inner {
-  bottom: 0rem;
-  left: 0rem;
-  right: 0rem;
-}
-.append-inner-left {
-  bottom: 0rem;
-  left: 0rem;
-}
-.label-platform {
-  right: -0.1rem;
-  top: -0.1rem;
-}
-.append-inner-right {
-  bottom: 0rem;
-  right: 0rem;
 }
 </style>
