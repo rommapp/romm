@@ -23,7 +23,7 @@ withDefaults(
     v-if="chip"
     class="translucent-dark"
     :density="chipDensity"
-    color="accent"
+    color="secondary"
     :label="chipLabel"
     :size="chipSize"
   >
@@ -35,7 +35,7 @@ withDefaults(
       open-delay="500"
       activator="parent"
     />
-    <v-icon>mdi-alert-circle</v-icon>
+    <v-icon>mdi-folder-question</v-icon>
   </v-chip>
   <span v-else>
     <v-tooltip
@@ -46,7 +46,7 @@ withDefaults(
       open-delay="500"
       activator="parent"
     />
-    <v-icon color="accent" :size="size"> mdi-alert-circle </v-icon>
+    <v-icon color="secondary" :size="size">mdi-folder-question</v-icon>
   </span>
 </template>
 <style scoped>

@@ -253,6 +253,40 @@ class RAHandler(MetadataHandler):
         except KeyError:
             return RAGameRom(ra_id=None)
 
+    async def get_rom_by_id(self, ra_id: int) -> RAGameRom:
+        if not ra_id:
+            return RAGameRom(ra_id=None)
+
+        try:
+            rom_details = await self.ra_service.get_game_extended_details(ra_id)
+            return RAGameRom(
+                ra_id=ra_id,
+                ra_metadata=RAMetadata(
+                    achievements=[
+                        RAGameRomAchievement(
+                            ra_id=achievement.get("ID", None),
+                            title=achievement.get("Title", ""),
+                            description=achievement.get("Description", ""),
+                            points=achievement.get("Points", None),
+                            num_awarded=achievement.get("NumAwarded", None),
+                            num_awarded_hardcore=achievement.get(
+                                "NumAwardedHardcore", None
+                            ),
+                            badge_id=achievement.get("BadgeName", ""),
+                            badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(0, 0)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{fs_resource_handler.get_ra_badges_path(0, 0)}/{achievement.get('BadgeName', '')}.png",
+                            display_order=achievement.get("DisplayOrder", None),
+                            type=achievement.get("type", ""),
+                        )
+                        for achievement in rom_details.get("Achievements", {}).values()
+                    ]
+                ),
+            )
+        except KeyError:
+            return RAGameRom(ra_id=None)
+
     async def get_user_progression(self, username: str) -> RAUserProgression:
         game_progressions: list[RAUserGameProgression] = []
 

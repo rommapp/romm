@@ -8,17 +8,19 @@ from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
+    meta_hasheous_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
-    meta_pm_handler,
+    meta_playmatch_handler,
     meta_ra_handler,
     meta_ss_handler,
 )
+from handler.metadata.hasheous_handler import HasheousPlatform, HasheousRom
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
 from handler.metadata.launchbox_handler import LaunchboxPlatform, LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
-from handler.metadata.pm_handler import PlaymatchProvider
+from handler.metadata.playmatch_handler import PlaymatchProvider, PlaymatchRomMatch
 from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
 from handler.metadata.ss_handler import SSPlatform, SSRom
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -48,7 +50,7 @@ class MetadataSource:
     SS = "ss"  # Screenscraper
     RA = "ra"  # RetroAchivements
     LB = "lb"  # Launchbox
-    PM = "pm"  # Playmatch
+    HASHEOUS = "hasheous"  # Hasheous
 
 
 async def _get_main_platform_igdb_id(platform: Platform):
@@ -90,7 +92,6 @@ async def scan_platform(
             MetadataSource.SS,
             MetadataSource.RA,
             MetadataSource.LB,
-            MetadataSource.PM,
         ]
 
     platform_attrs: dict[str, Any] = {}
@@ -149,10 +150,16 @@ async def scan_platform(
         if MetadataSource.LB in metadata_sources
         else LaunchboxPlatform(launchbox_id=None, slug=platform_attrs["slug"])
     )
+    hasheous_platform = (
+        meta_hasheous_handler.get_platform(platform_attrs["slug"])
+        if MetadataSource.HASHEOUS in metadata_sources
+        else HasheousPlatform(hasheous_id=None, slug=platform_attrs["slug"])
+    )
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
         {
+            **hasheous_platform,
             **launchbox_platform,
             **ra_platform,
             **moby_platform,
@@ -167,6 +174,7 @@ async def scan_platform(
         or platform_attrs["ss_id"]
         or platform_attrs["ra_id"]
         or platform_attrs["launchbox_id"]
+        or hasheous_platform["hasheous_id"]
     ):
         log.info(
             emoji.emojize(
@@ -304,7 +312,7 @@ async def scan_rom(
         }
     )
 
-    async def fetch_igdb_rom() -> IGDBRom:
+    async def fetch_playmatch_roms() -> list[PlaymatchRomMatch]:
         if (
             MetadataSource.IGDB in metadata_sources
             and platform.igdb_id
@@ -315,6 +323,79 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
             )
         ):
+            return await meta_playmatch_handler.lookup_rom(rom_attrs)
+
+        return []
+
+    async def fetch_hasheous_rom() -> HasheousRom:
+        if (
+            MetadataSource.HASHEOUS in metadata_sources
+            and platform.hasheous_id
+            and (
+                newly_added
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.PARTIAL and not rom.hasheous_id)
+                or (scan_type == ScanType.UNIDENTIFIED and not rom.hasheous_id)
+            )
+        ):
+            return await meta_hasheous_handler.get_rom(rom_attrs)
+
+        return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
+
+    # Run hash fetches concurrently
+    (
+        playmatch_handler_roms,
+        hasheous_handler_rom,
+    ) = await asyncio.gather(
+        fetch_playmatch_roms(),
+        fetch_hasheous_rom(),
+    )
+
+    async def fetch_igdb_rom(
+        playmatch_roms: list[PlaymatchRomMatch], hasheous_rom: HasheousRom
+    ) -> IGDBRom:
+        if (
+            MetadataSource.IGDB in metadata_sources
+            and platform.igdb_id
+            and (
+                newly_added
+                or scan_type == ScanType.COMPLETE
+                or (scan_type == ScanType.PARTIAL and not rom.igdb_id)
+                or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
+            )
+        ):
+            # Use Hasheous match to get the IGDB ID
+            h_igdb_id = hasheous_rom.get("igdb_id")
+            if h_igdb_id:
+                log.debug(
+                    emoji.emojize(
+                        f"{hl(rom_attrs['fs_name'])} identified by Hasheous as "
+                        f"{hl(str(h_igdb_id), color=BLUE)} :alien_monster:"
+                    ),
+                    extra=LOGGER_MODULE_NAME,
+                )
+                return await meta_igdb_handler.get_rom_by_id(h_igdb_id)
+
+            # Use Playmatch matches to get the IGDB ID
+            for playmatch_match in playmatch_roms:
+                if playmatch_match["provider"] != PlaymatchProvider.IGDB:
+                    continue
+
+                p_igdb_id = playmatch_match.get("provider_game_id")
+                if p_igdb_id is None:
+                    continue
+
+                log.debug(
+                    emoji.emojize(
+                        f"{hl(rom_attrs['fs_name'])} identified by Playmatch as "
+                        f"{hl(str(p_igdb_id), color=BLUE)} :alien_monster:"
+                    ),
+                    extra=LOGGER_MODULE_NAME,
+                )
+
+                return await meta_igdb_handler.get_rom_by_id(p_igdb_id)
+
+            # If no matches found, use the file name to get the IGDB ID
             main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
             return await meta_igdb_handler.get_rom(
                 rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
@@ -369,7 +450,7 @@ async def scan_rom(
 
         return LaunchboxRom(launchbox_id=None)
 
-    async def fetch_ra_rom() -> RAGameRom:
+    async def fetch_ra_rom(hasheous_rom: HasheousRom) -> RAGameRom:
         if (
             MetadataSource.RA in metadata_sources
             and platform.ra_id
@@ -381,68 +462,40 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.ra_id)
             )
         ):
+            # Use Hasheous match to get the IGDB ID
+            h_ra_id = hasheous_rom.get("ra_id")
+            if h_ra_id:
+                log.debug(
+                    emoji.emojize(
+                        f"{hl(rom_attrs['fs_name'])} identified by Hasheous as "
+                        f"{hl(str(h_ra_id), color=BLUE)} :alien_monster:"
+                    ),
+                    extra=LOGGER_MODULE_NAME,
+                )
+                return await meta_ra_handler.get_rom_by_id(h_ra_id)
+
             return await meta_ra_handler.get_rom(rom=rom, ra_hash=rom_attrs["ra_hash"])
 
         return RAGameRom(ra_id=None)
 
-    # Playmatch currectly only supports IGDB IDs
-    async def fetch_playmatch_rom() -> IGDBRom:
-        if (
-            MetadataSource.PM in metadata_sources
-            and MetadataSource.IGDB in metadata_sources
-            and platform.igdb_id
-            and (
-                newly_added
-                or scan_type == ScanType.COMPLETE
-                or (scan_type == ScanType.PARTIAL and not rom.igdb_id)
-                or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
-            )
-        ):
-            rom_file = fs_rom["files"][0]
-            pm_matches = await meta_pm_handler.lookup_rom(rom_file)
-
-            for pm_match in pm_matches:
-                if pm_match["provider"] != PlaymatchProvider.IGDB:
-                    continue
-
-                pm_igdbid = pm_match.get("provider_game_id")
-                if pm_igdbid is None:
-                    continue
-
-                # Log the successful identification
-                log.debug(
-                    emoji.emojize(
-                        f"{hl(rom_attrs['fs_name'])} identified by Playmatch as "
-                        f"{hl(str(pm_igdbid), color=BLUE)} :alien_monster:"
-                    ),
-                    extra=LOGGER_MODULE_NAME,
-                )
-
-                # Return the ROM data from IGDB
-                return await meta_igdb_handler.get_rom_by_id(pm_igdbid)
-
-        return IGDBRom(igdb_id=None)
-
-    # Run both metadata fetches concurrently
+    # Run metadata fetches concurrently
     (
         igdb_handler_rom,
         moby_handler_rom,
         ss_handler_rom,
         ra_handler_rom,
         launchbox_handler_rom,
-        playmatch_handler_rom,
     ) = await asyncio.gather(
-        fetch_igdb_rom(),
+        fetch_igdb_rom(playmatch_handler_roms, hasheous_handler_rom),
         fetch_moby_rom(),
         fetch_ss_rom(),
-        fetch_ra_rom(),
+        fetch_ra_rom(hasheous_handler_rom),
         fetch_launchbox_rom(platform.slug),
-        fetch_playmatch_rom(),
     )
 
     # Only update fields if match is found
-    if playmatch_handler_rom.get("igdb_id"):
-        rom_attrs.update({**playmatch_handler_rom})
+    if hasheous_handler_rom.get("hasheous_id"):
+        rom_attrs.update({**hasheous_handler_rom})
     if ra_handler_rom.get("ra_id"):
         rom_attrs.update({**ra_handler_rom})
     if moby_handler_rom.get("moby_id"):
@@ -461,7 +514,7 @@ async def scan_rom(
         and not ss_handler_rom.get("ss_id")
         and not ra_handler_rom.get("ra_id")
         and not launchbox_handler_rom.get("launchbox_id")
-        and not playmatch_handler_rom.get("igdb_id")
+        and not hasheous_handler_rom.get("hasheous_id")
     ):
         log.warning(
             emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),

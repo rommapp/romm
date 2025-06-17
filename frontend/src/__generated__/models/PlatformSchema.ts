@@ -16,6 +16,8 @@ export type PlatformSchema = {
     launchbox_id?: (number | null);
     ss_id?: (number | null);
     ra_id?: (number | null);
+    hasheous_id?: (number | null);
+    tgdb_id?: (number | null);
     category?: (string | null);
     generation?: (number | null);
     family_name?: (string | null);

@@ -202,7 +202,7 @@ class LaunchboxHandler(MetadataHandler):
             best_cover = self._get_best_cover_image(game_images)
             if best_cover:
                 url_cover = (
-                    f"https://images.launchbox-app.com/{best_cover.get("FileName")}"
+                    f"https://images.launchbox-app.com/{best_cover.get('FileName')}"
                 )
 
             url_screenshots = self._get_screenshots(game_images)
@@ -270,7 +270,9 @@ LAUNCHBOX_PLATFORM_LIST: dict[str, SlugToLaunchboxPlatformName] = {
     "gx4000": {"id": 109, "name": "Amstrad GX4000"},
     "android": {"id": 4, "name": "Android"},
     "bk-01": {"id": 175, "name": "Apogee BK-01"},
+    "appleii": {"id": 110, "name": "Apple II"},
     "apple2": {"id": 111, "name": "Apple II"},
+    "apple-iigs": {"id": 112, "name": "Apple IIGS"},
     "apple2gs": {"id": 112, "name": "Apple IIGS"},
     "mac": {"id": 16, "name": "Apple Mac OS"},
     "ios": {"id": 18, "name": "Apple iOS"},
@@ -337,7 +339,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[str, SlugToLaunchboxPlatformName] = {
     "xbox": {"id": 18, "name": "Microsoft Xbox"},
     "xbox360": {"id": 19, "name": "Microsoft Xbox 360"},
     "xboxone": {"id": 20, "name": "Microsoft Xbox One"},
-    "series-x": {"id": 222, "name": "Microsoft Xbox Series X/S"},
+    "series-x-s": {"id": 222, "name": "Microsoft Xbox Series X/S"},
     "pc-8800-series": {"id": 192, "name": "NEC PC-8801"},
     "pc-9800-series": {"id": 193, "name": "NEC PC-9801"},
     "pc-fx": {"id": 161, "name": "NEC PC-FX"},

@@ -120,6 +120,8 @@ class Rom(BaseModel):
     ss_id: Mapped[int | None]
     ra_id: Mapped[int | None]
     launchbox_id: Mapped[int | None]
+    hasheous_id: Mapped[int | None]
+    tgdb_id: Mapped[int | None]
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -128,6 +130,8 @@ class Rom(BaseModel):
         Index("idx_roms_ra_id", "ra_id"),
         Index("idx_roms_sgdb_id", "sgdb_id"),
         Index("idx_roms_launchbox_id", "launchbox_id"),
+        Index("idx_roms_hasheous_id", "hasheous_id"),
+        Index("idx_roms_tgdb_id", "tgdb_id"),
     )
 
     fs_name: Mapped[str] = mapped_column(String(length=450))
@@ -152,6 +156,9 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     launchbox_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    hasheous_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 

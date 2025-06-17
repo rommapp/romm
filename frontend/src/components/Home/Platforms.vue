@@ -51,12 +51,9 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
     </template>
     <template #content>
       <v-row
-        :class="{
-          'flex-nowrap overflow-x-auto': !gridPlatforms,
-        }"
+        :class="{ 'flex-nowrap overflow-x-auto': !gridPlatforms }"
         class="py-1"
         no-gutters
-        style="overflow-y: hidden"
       >
         <v-col
           v-for="platform in filledPlatforms"

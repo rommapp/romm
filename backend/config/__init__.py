@@ -85,6 +85,11 @@ PLAYMATCH_API_ENABLED: Final = str_to_bool(
     os.environ.get("PLAYMATCH_API_ENABLED", "false")
 )
 
+# HASHEOUS
+HASHEOUS_API_ENABLED: Final = str_to_bool(
+    os.environ.get("HASHEOUS_API_ENABLED", "false")
+)
+
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
     "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)

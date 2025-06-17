@@ -65,7 +65,7 @@ IGDB_SLUG_TO_MOBY_SLUG = {
     "turbografx-16-slash-pc-engine-cd": "turbografx-cd",
     "virtualboy": "virtual-boy",
     "wiiu": "wii-u",
-    "series-x": "xbox-series",
+    "series-x-s": "xbox-series",
     "ios": "iphone",
     "windows-mobile": "windowsphone",
     "winphone": "windows-phone",
