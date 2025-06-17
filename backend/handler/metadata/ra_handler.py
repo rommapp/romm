@@ -201,7 +201,7 @@ class RAHandler(MetadataHandler):
         return None
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
-        platform = SLUG_TO_RA_ID.get(slug.lower(), None)
+        platform = RA_PLATFORM_LIST.get(slug.lower(), None)
 
         if not platform:
             return RAGamesPlatform(ra_id=None, slug=slug)
@@ -332,7 +332,7 @@ class SlugToRAId(TypedDict):
     name: str
 
 
-SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
+RA_PLATFORM_LIST: dict[str, SlugToRAId] = {
     "3do": {"id": 43, "name": "3DO"},
     "cpc": {"id": 37, "name": "Amstrad CPC"},
     "acpc": {"id": 37, "name": "Amstrad CPC"},
@@ -416,4 +416,4 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
 }
 
 # Reverse lookup
-RA_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_RA_ID.items()}
+RA_ID_TO_SLUG = {v["id"]: k for k, v in RA_PLATFORM_LIST.items()}
