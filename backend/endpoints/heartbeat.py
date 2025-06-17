@@ -60,8 +60,7 @@ def heartbeat() -> HeartbeatResponse:
             "RA_API_ENABLED": RA_API_ENABLED,
             "LAUNCHBOX_API_ENABLED": LAUNCHBOX_API_ENABLED,
             "HASHEOUS_API_ENABLED": HASHEOUS_API_ENABLED,
-            # Platmatch requires use of the IGDB API
-            "PLAYMATCH_API_ENABLED": PLAYMATCH_API_ENABLED and IGDB_API_ENABLED,
+            "PLAYMATCH_API_ENABLED": PLAYMATCH_API_ENABLED,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": fs_platform_handler.get_platforms(),
