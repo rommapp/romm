@@ -7,6 +7,8 @@ class TGDBPlatform(TypedDict):
     slug: str
     tgdb_id: int | None
     name: NotRequired[str]
+    family_name: NotRequired[str | None]
+    url_logo: NotRequired[str | None]
 
 
 class TGDBGameRom(TypedDict):
@@ -20,7 +22,6 @@ class TGDBHandler(MetadataHandler):
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
 
     # async def get_platforms(self) -> None:
-    #     import json
     #     import re
     #     from utils.context import ctx_httpx_client
 
@@ -109,10 +110,9 @@ class TGDBHandler(MetadataHandler):
             tgdb_id=platform["id"],
             slug=slug,
             name=platform["name"],
+            family_name=platform["manufacturer"],
+            url_logo=platform["url_logo"],
         )
-
-    async def get_rom(self, tgdb_id: int) -> TGDBGameRom:
-        return TGDBGameRom(tgdb_id=tgdb_id)
 
 
 class SlugToTGDBId(TypedDict):
