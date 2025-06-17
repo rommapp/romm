@@ -175,6 +175,10 @@ class RAHandler(MetadataHandler):
                 only_games_with_achievements=True,
                 include_hashes=True,
             )
+            os.makedirs(
+                os.path.dirname(self._get_hashes_file_path(rom.platform.id)),
+                exist_ok=True,
+            )
             async with await open_file(
                 self._get_hashes_file_path(rom.platform.id),
                 "w",
