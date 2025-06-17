@@ -104,7 +104,7 @@ const hashMatches = computed(() => {
         </v-chip>
         <v-chip
           v-if="Number(rom.metadatum.first_release_date) > 0"
-          class="ma-1"
+          class="mx-1"
         >
           {{ releaseDate }}
         </v-chip>
@@ -245,10 +245,10 @@ const hashMatches = computed(() => {
           :key="hash.name"
           class="pl-0 mt-1 mr-1"
           size="small"
-          title="Passed CRC, SHA1 and MD5 checksum checks"
+          title="Verified with Hasheous"
         >
           <v-avatar class="bg-romm-green" size="30" rounded="0">
-            <v-icon>mdi-check</v-icon>
+            <v-icon>mdi-check-decagram-outline</v-icon>
           </v-avatar>
           <v-divider
             class="ml-0 mr-2 border-opacity-25"
