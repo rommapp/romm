@@ -386,7 +386,7 @@ watch(
               class="ml-1"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="25" rounded="1">
+                <v-avatar class="mr-2 pa-1" size="30" rounded="0">
                   <v-img src="/assets/scrappers/hasheous.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.hasheous_id }}</span>
