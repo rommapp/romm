@@ -44,6 +44,7 @@ const defaultHeartbeat: Heartbeat = {
     LAUNCHBOX_API_ENABLED: false,
     PLAYMATCH_API_ENABLED: false,
     HASHEOUS_API_ENABLED: false,
+    TGDB_API_ENABLED: false,
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],
