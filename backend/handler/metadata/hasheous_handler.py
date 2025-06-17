@@ -5,11 +5,10 @@ import httpx
 from config import HASHEOUS_API_ENABLED
 from fastapi import HTTPException, status
 from logger.logger import log
+from utils import get_version
 from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
-from .igdb_handler import IGDBRom, extract_metadata_from_igdb_rom
-from .ra_handler import RAGameRom
 
 
 class HasheousMetadata(TypedDict):
@@ -32,9 +31,13 @@ class HasheousPlatform(TypedDict):
     ra_id: NotRequired[int | None]
 
 
-class HasheousRom(IGDBRom, RAGameRom):
+class HasheousRom(TypedDict):
     hasheous_id: int | None
-    tgdb_id: int | None
+    name: NotRequired[str]
+    url_cover: NotRequired[str]
+    igdb_id: NotRequired[int | None]
+    tgdb_id: NotRequired[int | None]
+    ra_id: NotRequired[int | None]
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
@@ -43,7 +46,11 @@ class HasheousHandler(MetadataHandler):
         self.BASE_URL = "https://hasheous.org/api/v1"
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
-        self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
+        # self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
+        # self.proxy_igdb_cover_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Cover"
+        # self.app_api_key = (
+        #     "JNoFBA-jEh4HbxuxEHM6MVzydKoAXs9eCcp2dvcg5LRCnpp312voiWmjuaIssSzS"
+        # )
 
     async def _request(
         self,
@@ -74,15 +81,17 @@ class HasheousHandler(MetadataHandler):
             request_kwargs = {
                 "url": url,
                 "params": params,
+                "headers": {
+                    "Content-Type": "application/json-patch+json",
+                    "User-Agent": f"RomM/{get_version()}",
+                    # "X-Client-API-Key": self.app_api_key,
+                },
                 "timeout": timeout,
             }
 
             # Add method-specific parameters
             if method == "POST":
                 request_kwargs["json"] = data
-                request_kwargs["headers"] = {
-                    "Content-Type": "application/json-patch+json"
-                }
 
             # Make the request
             res = await httpx_client.request(method, **request_kwargs)
@@ -120,12 +129,7 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def get_rom(self, rom_attrs: dict) -> HasheousRom:
-        fallback_rom = HasheousRom(
-            hasheous_id=None,
-            igdb_id=None,
-            tgdb_id=None,
-            ra_id=None,
-        )
+        fallback_rom = HasheousRom(hasheous_id=None)
 
         if not HASHEOUS_API_ENABLED:
             return fallback_rom
@@ -202,51 +206,52 @@ class HasheousHandler(MetadataHandler):
             ),
         )
 
-    async def get_igdb_game(
-        self, hasheous_rom: HasheousRom, igdb_id: int
-    ) -> HasheousRom:
-        fallback_rom = HasheousRom(
-            hasheous_id=None,
-            igdb_id=None,
-            tgdb_id=None,
-            ra_id=None,
-        )
+    # Not in use while fibble works on the proxy
+    # async def get_igdb_game(
+    #     self, hasheous_rom: HasheousRom, igdb_id: int
+    # ) -> HasheousRom:
+    #     fallback_rom = HasheousRom(
+    #         hasheous_id=None,
+    #         igdb_id=None,
+    #         tgdb_id=None,
+    #         ra_id=None,
+    #     )
 
-        if not HASHEOUS_API_ENABLED:
-            return fallback_rom
+    #     if not HASHEOUS_API_ENABLED:
+    #         return fallback_rom
 
-        if not igdb_id:
-            log.warning("No IGDB ID provided for Hasheous IGDB game lookup.")
-            return fallback_rom
+    #     if not igdb_id:
+    #         log.warning("No IGDB ID provided for Hasheous IGDB game lookup.")
+    #         return fallback_rom
 
-        igdb_game = await self._request(
-            self.proxy_igdb_game_endpoint,
-            params={"Id": igdb_id},
-            method="GET",
-        )
+    #     igdb_game = await self._request(
+    #         self.proxy_igdb_game_endpoint,
+    #         params={"Id": igdb_id},
+    #         method="GET",
+    #     )
 
-        if not igdb_game:
-            log.warning(f"No Hasheous game found for IGDB ID {igdb_id}.")
-            return fallback_rom
+    #     if not igdb_game:
+    #         log.warning(f"No Hasheous game found for IGDB ID {igdb_id}.")
+    #         return fallback_rom
 
-        return HasheousRom(
-            {
-                **hasheous_rom,
-                "slug": igdb_game.get("slug", ""),
-                "name": igdb_game.get("name", ""),
-                "summary": igdb_game.get("summary", ""),
-                "url_cover": self._normalize_cover_url(
-                    igdb_game.get("cover", {}).get("url", "")
-                ).replace("t_thumb", "t_1080p"),
-                "url_screenshots": [
-                    self._normalize_cover_url(s.get("url", "")).replace(
-                        "t_thumb", "t_720p"
-                    )
-                    for s in igdb_game.get("screenshots", [])
-                ],
-                "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
-            }
-        )
+    #     return HasheousRom(
+    #         {
+    #             **hasheous_rom,
+    #             "slug": igdb_game.get("slug", ""),
+    #             "name": igdb_game.get("name", ""),
+    #             "summary": igdb_game.get("summary", ""),
+    #             "url_cover": self._normalize_cover_url(
+    #                 igdb_game.get("cover", {}).get("url", "")
+    #             ).replace("t_thumb", "t_1080p"),
+    #             "url_screenshots": [
+    #                 self._normalize_cover_url(s.get("url", "")).replace(
+    #                     "t_thumb", "t_720p"
+    #                 )
+    #                 for s in igdb_game.get("screenshots", [])
+    #             ],
+    #             "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
+    #         }
+    #     )
 
 
 class SlugToHasheousId(TypedDict):

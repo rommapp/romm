@@ -24,7 +24,7 @@ const panels = ref<number[]>([]);
 // Use a computed property to reactively update metadataOptions based on heartbeat
 const metadataOptions = computed(() => [
   {
-    name: !heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
+    name: heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
       ? "IGDB + Playmatch"
       : "IGDB",
     value: "igdb",
