@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { DetailedRom } from "@/stores/roms";
-import { languageToEmoji, regionToEmoji } from "@/utils";
-import { identity } from "lodash";
+import storePlatforms from "@/stores/platforms";
+import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { computed } from "vue";
 
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
@@ -17,7 +19,46 @@ const releaseDate = new Date(
   month: "short",
   year: "numeric",
 });
-const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
+
+const platformsStore = storePlatforms();
+const { allPlatforms } = storeToRefs(platformsStore);
+
+const hashMatches = computed(() => {
+  return [
+    {
+      name: "TOSEC",
+      match: props.rom.hasheous_metadata?.tosec_match,
+    },
+    {
+      name: "NoIntro",
+      match: props.rom.hasheous_metadata?.nointro_match,
+    },
+    {
+      name: "Redump",
+      match: props.rom.hasheous_metadata?.redump_match,
+    },
+    {
+      name: "FBNeo",
+      match: props.rom.hasheous_metadata?.fbneo_match,
+    },
+    {
+      name: "MAMEArcade",
+      match: props.rom.hasheous_metadata?.mame_arcade_match,
+    },
+    {
+      name: "MAMEMess",
+      match: props.rom.hasheous_metadata?.mame_mess_match,
+    },
+    {
+      name: "WHDLoad",
+      match: props.rom.hasheous_metadata?.whdload_match,
+    },
+    {
+      name: "RetroAchievements",
+      match: props.rom.hasheous_metadata?.ra_match,
+    },
+  ].filter((item) => item.match);
+});
 </script>
 <template>
   <div>
@@ -43,6 +84,14 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
         <v-chip
           :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
+          <missing-from-f-s-icon
+            v-if="
+              allPlatforms.find((p) => p.id === rom.platform_id)
+                ?.missing_from_fs
+            "
+            class="mr-2"
+            text="Missing platform from filesystem"
+          />
           <platform-icon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
@@ -55,13 +104,9 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
         </v-chip>
         <v-chip
           v-if="Number(rom.metadatum.first_release_date) > 0"
-          class="font-italic ma-1"
-          size="small"
+          class="mx-1"
         >
           {{ releaseDate }}
-        </v-chip>
-        <v-chip v-if="!smAndDown && rom.revision" size="small" class="ma-1">
-          Revision {{ rom.revision }}
         </v-chip>
       </v-col>
     </v-row>
@@ -79,17 +124,19 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
     </v-row>
 
     <v-row
-      v-if="rom.igdb_id || rom.moby_id || rom.ss_id || rom.ra_id"
+      v-if="rom.is_identified"
       class="text-white text-shadow mt-2"
       :class="{ 'text-center': smAndDown }"
       no-gutters
     >
-      <v-col cols="12">
+      <v-col>
         <a
           v-if="rom.igdb_id"
           style="text-decoration: none; color: inherit"
           :href="`https://www.igdb.com/games/${rom.slug}`"
           target="_blank"
+          class="mr-1"
+          title="IGDB ID"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2" size="30" rounded="0">
@@ -106,9 +153,14 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
           style="text-decoration: none; color: inherit"
           :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id }"
+          class="mr-1"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+          <v-chip
+            class="pl-0 mt-1"
+            size="small"
+            @click.stop
+            title="ScreenScraper ID"
+          >
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ss.png" />
             </v-avatar>
@@ -123,9 +175,14 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
           style="text-decoration: none; color: inherit"
           :href="`https://www.mobygames.com/game/${rom.moby_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id || rom.ss_id }"
+          class="mr-1"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+          <v-chip
+            class="pl-0 mt-1"
+            size="small"
+            @click.stop
+            title="MobyGames ID"
+          >
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/moby.png" />
             </v-avatar>
@@ -135,20 +192,71 @@ const hasReleaseDate = Number(props.rom.metadatum.first_release_date) > 0;
             <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
+        <v-chip
+          v-if="rom.launchbox_id"
+          class="pl-0 mt-1 mr-1"
+          size="small"
+          title="LaunchBox ID"
+        >
+          <v-avatar class="mr-2" size="30" rounded="0">
+            <v-img src="/assets/scrappers/launchbox.png" />
+          </v-avatar>
+          <span>{{ rom.launchbox_id }}</span>
+          <v-divider class="mx-2 border-opacity-25" vertical />
+          <span>{{
+            rom.launchbox_metadata?.community_rating?.toFixed(2)
+          }}</span>
+          <v-icon class="ml-1">mdi-star</v-icon>
+        </v-chip>
         <a
           v-if="rom.ra_id"
           style="text-decoration: none; color: inherit"
           :href="`https://retroachievements.org/game/${rom.ra_id}`"
           target="_blank"
-          :class="{ 'ml-1': rom.igdb_id || rom.ss_id || rom.moby_id }"
+          class="mr-1"
+          title="RetroAchievements ID"
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
-            <v-avatar class="mr-2" size="30" rounded="1">
-              <v-img src="/assets/scrappers/ra.png" :cover="false" />
+            <v-avatar class="mr-2" size="25" rounded="1">
+              <v-img src="/assets/scrappers/ra.png" />
             </v-avatar>
             <span>{{ rom.ra_id }}</span>
           </v-chip>
         </a>
+        <span v-if="rom.hasheous_id" class="mr-1">
+          <v-chip class="pl-0 mt-1" size="small">
+            <v-avatar class="mr-2 pa-1" size="30" rounded="0">
+              <v-img src="/assets/scrappers/hasheous.png" />
+            </v-avatar>
+            <span>{{ rom.hasheous_id }}</span>
+          </v-chip>
+        </span>
+      </v-col>
+    </v-row>
+    <v-row
+      v-if="rom.hasheous_id"
+      class="text-white text-shadow mt-2"
+      :class="{ 'text-center': smAndDown }"
+      no-gutters
+    >
+      <v-col cols="12">
+        <v-chip
+          v-for="hash in hashMatches"
+          :key="hash.name"
+          class="pl-0 mt-1 mr-1"
+          size="small"
+          title="Verified with Hasheous"
+        >
+          <v-avatar class="bg-romm-green" size="30" rounded="0">
+            <v-icon>mdi-check-decagram-outline</v-icon>
+          </v-avatar>
+          <v-divider
+            class="ml-0 mr-2 border-opacity-25"
+            style="margin-left: 2px"
+            vertical
+          />
+          <span>{{ hash.name }}</span>
+        </v-chip>
       </v-col>
     </v-row>
   </div>

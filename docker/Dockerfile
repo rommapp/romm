@@ -12,9 +12,9 @@
 #   - dev-full: Full image with emulator stage and development dependencies
 
 # Versions:
-ARG ALPINE_VERSION=3.20
-ARG NGINX_VERSION=1.27.1
-ARG NODE_VERSION=20.16
+ARG ALPINE_VERSION=3.22
+ARG NGINX_VERSION=1.27.5
+ARG NODE_VERSION=20.19
 ARG PYTHON_VERSION=3.12
 
 
@@ -58,7 +58,7 @@ FROM backend-build AS backend-dev-build
 RUN poetry install --no-ansi --no-cache --all-extras
 
 
-# TODO: Upgrade Alpine to the same version as the other stages, when RAHasher is updated to work
+# TODO: Upgrade Alpine to the same version as the other stages, when RAHasher is updated to workAdd commentMore actions
 #       with it (seems like Alpine 3.18's g++ v12 is the latest version that works with RAHasher,
 #       while g++ v13 fails to compile it).
 FROM alpine:3.18 AS rahasher-build
@@ -126,7 +126,8 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
     chmod 644 ./objs/ngx_http_zip_module.so
 
 
-FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
+# TODO: Upgrade Alpine to the same version as the other stages, when a new nginx image is released.
+FROM nginx:${NGINX_VERSION}-alpine3.21 AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 # Install required packages and dependencies

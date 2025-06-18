@@ -3,7 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RomFileSchema } from './RomFileSchema';
+import type { RomHasheousMetadata } from './RomHasheousMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
+import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
 import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
@@ -16,6 +18,9 @@ export type SimpleRomSchema = {
     moby_id: (number | null);
     ss_id: (number | null);
     ra_id: (number | null);
+    launchbox_id: (number | null);
+    hasheous_id: (number | null);
+    tgdb_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -37,6 +42,8 @@ export type SimpleRomSchema = {
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     ss_metadata: (RomSSMetadata | null);
+    launchbox_metadata: (RomLaunchboxMetadata | null);
+    hasheous_metadata: (RomHasheousMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
@@ -44,6 +51,7 @@ export type SimpleRomSchema = {
     path_manual: (string | null);
     url_manual: (string | null);
     is_unidentified: boolean;
+    is_identified: boolean;
     revision: (string | null);
     regions: Array<string>;
     languages: Array<string>;
@@ -56,6 +64,7 @@ export type SimpleRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
+    missing_from_fs: boolean;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
 };

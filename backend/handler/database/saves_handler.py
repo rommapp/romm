@@ -64,14 +64,14 @@ class DBSavesHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_saves(
+    def mark_missing_saves(
         self,
         rom_id: int,
         user_id: int,
         saves_to_keep: list[str],
         session: Session = None,
     ) -> Sequence[Save]:
-        purged_saves = session.scalars(
+        missing_saves = session.scalars(
             select(Save).filter(
                 and_(
                     Save.rom_id == rom_id,
@@ -82,7 +82,7 @@ class DBSavesHandler(DBBaseHandler):
         ).all()
 
         session.execute(
-            delete(Save)
+            update(Save)
             .where(
                 and_(
                     Save.rom_id == rom_id,
@@ -90,7 +90,8 @@ class DBSavesHandler(DBBaseHandler):
                     Save.file_name.not_in(saves_to_keep),
                 )
             )
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
 
-        return purged_saves
+        return missing_saves

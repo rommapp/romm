@@ -27,6 +27,12 @@ const defaultHeartbeat: Heartbeat = {
       MESSAGE: "",
       CRON: "",
     },
+    LAUNCHBOX_METADATA: {
+      ENABLED: false,
+      TITLE: "",
+      MESSAGE: "",
+      CRON: "",
+    },
   },
   METADATA_SOURCES: {
     ANY_SOURCE_ENABLED: false,
@@ -35,6 +41,9 @@ const defaultHeartbeat: Heartbeat = {
     MOBY_API_ENABLED: false,
     RA_API_ENABLED: false,
     STEAMGRIDDB_API_ENABLED: false,
+    LAUNCHBOX_API_ENABLED: false,
+    PLAYMATCH_API_ENABLED: false,
+    HASHEOUS_API_ENABLED: false,
   },
   FILESYSTEM: {
     FS_PLATFORMS: [],

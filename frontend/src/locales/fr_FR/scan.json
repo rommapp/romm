@@ -3,6 +3,7 @@
   "api-key-missing": "Clé API invalide ou non configurée",
   "complete-rescan": "Scan complet",
   "complete-rescan-desc": "Scan complet de tous les fichiers et plateformes (plus lent)",
+  "disabled-by-admin": "Désactivé par l'administrateur",
   "hashes": "Recalculer les hachages",
   "hashes-desc": "Recalculer les hachages de tous les fichiers",
   "manage-library": "Gérer la bibliothèque",

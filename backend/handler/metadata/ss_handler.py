@@ -331,7 +331,7 @@ class SSHandler(MetadataHandler):
         return pydash.get(roms, "[0]", None)
 
     def get_platform(self, slug: str) -> SSPlatform:
-        platform = SLUG_TO_SS_ID.get(slug, None)
+        platform = SCREENSAVER_PLATFORM_LIST.get(slug, None)
 
         if not platform:
             return SSPlatform(ss_id=None, slug=slug)
@@ -675,7 +675,7 @@ class SlugToSSId(TypedDict):
     name: str
 
 
-SLUG_TO_SS_ID: dict[str, SlugToSSId] = {
+SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "3do": {"id": 29, "name": "3DO"},
     "amiga": {"id": 64, "name": "Amiga"},
     "amiga-cd32": {"id": 134, "name": "Amiga CD"},
@@ -854,4 +854,4 @@ SLUG_TO_SS_ID: dict[str, SlugToSSId] = {
 }
 
 # Reverse lookup
-SS_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_SS_ID.items()}
+SS_ID_TO_SLUG = {v["id"]: k for k, v in SCREENSAVER_PLATFORM_LIST.items()}

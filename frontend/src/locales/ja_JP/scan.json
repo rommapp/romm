@@ -3,6 +3,7 @@
   "api-key-missing": "API keyが見つからないか誤っています",
   "complete-rescan": "完全再スキャン",
   "complete-rescan-desc": "全てのプラットフォームとファイルを再スキャン (最遅)",
+  "disabled-by-admin": "管理者によって無効化されています",
   "hashes": "ハッシュ値の再計算",
   "hashes-desc": "全ファイルのハッシュ値を再計算します",
   "manage-library": "ライブラリを編集",

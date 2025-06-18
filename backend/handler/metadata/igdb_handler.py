@@ -819,7 +819,13 @@ SEARCH_FIELDS = ("game.id", "name")
 #   name: a.innerText
 # }))
 
-IGDB_PLATFORM_LIST = (
+
+class SlugToIGDB(TypedDict):
+    slug: str
+    name: str
+
+
+IGDB_PLATFORM_LIST: list[SlugToIGDB] = [
     {"slug": "visionos", "name": "visionOS"},
     {"slug": "meta-quest-3", "name": "Meta Quest 3"},
     {"slug": "atari2600", "name": "Atari 2600"},
@@ -831,7 +837,7 @@ IGDB_PLATFORM_LIST = (
     {"slug": "win", "name": "PC (Microsoft Windows)"},
     {"slug": "oculus-quest", "name": "Oculus Quest"},
     {"slug": "playdate", "name": "Playdate"},
-    {"slug": "series-x", "name": "Xbox Series X"},
+    {"slug": "series-x-s", "name": "Xbox Series X/S"},
     {"slug": "meta-quest-2", "name": "Meta Quest 2"},
     {"slug": "ps5", "name": "PlayStation 5"},
     {"slug": "oculus-rift", "name": "Oculus Rift"},
@@ -954,6 +960,7 @@ IGDB_PLATFORM_LIST = (
     {"slug": "atari-st", "name": "Atari ST/STE"},
     {"slug": "tatung-einstein", "name": "Tatung Einstein"},
     {"slug": "amstrad-pcw", "name": "Amstrad PCW"},
+    {"slug": "amstrad-gx4000", "name": "Amstrad GX4000"},
     {"slug": "epoch-super-cassette-vision", "name": "Epoch Super Cassette Vision"},
     {"slug": "atari7800", "name": "Atari 7800"},
     {"slug": "hp3000", "name": "HP 3000"},
@@ -1036,7 +1043,11 @@ IGDB_PLATFORM_LIST = (
     {"slug": "onlive-game-system", "name": "OnLive Game System"},
     {"slug": "vc", "name": "Virtual Console"},
     {"slug": "airconsole", "name": "AirConsole"},
-)
+]
+
+IGDB_PLATFORMS_BY_SLUG: dict[str, SlugToIGDB] = {
+    platform["slug"]: platform for platform in IGDB_PLATFORM_LIST
+}
 
 IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
     0: "Unknown",
@@ -1048,185 +1059,211 @@ IGDB_PLATFORM_CATEGORIES: dict[int, str] = {
     6: "Computer",
 }
 
+IGDB_AGE_RATING_ORGS: dict[int, str] = {
+    0: "Unknown",
+    1: "ESRB",
+    2: "PEGI",
+    3: "CERO",
+    4: "USK",
+    5: "GRAC",
+    6: "CLASS_IND",
+    7: "ACB",
+}
+
 IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
     1: {
-        "rating": "Three",
-        "category": "PEGI",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_3.png",
-    },
-    2: {
-        "rating": "Seven",
-        "category": "PEGI",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_7.png",
-    },
-    3: {
-        "rating": "Twelve",
-        "category": "PEGI",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_12.png",
-    },
-    4: {
-        "rating": "Sixteen",
-        "category": "PEGI",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_16.png",
-    },
-    5: {
-        "rating": "Eighteen",
-        "category": "PEGI",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_18.png",
-    },
-    6: {
         "rating": "RP",
-        "category": "ESRB",
+        "category": IGDB_AGE_RATING_ORGS[1],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_rp.png",
     },
-    7: {
+    2: {
         "rating": "EC",
-        "category": "ESRB",
+        "category": IGDB_AGE_RATING_ORGS[1],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_ec.png",
     },
-    8: {
+    3: {
         "rating": "E",
-        "category": "ESRB",
+        "category": IGDB_AGE_RATING_ORGS[1],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_e.png",
     },
-    9: {
-        "rating": "E10",
-        "category": "ESRB",
+    4: {
+        "rating": "E10+",
+        "category": IGDB_AGE_RATING_ORGS[1],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_e10.png",
     },
-    10: {
+    5: {
         "rating": "T",
-        "category": "ESRB",
+        "category": IGDB_AGE_RATING_ORGS[1],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_t.png",
     },
-    11: {
+    6: {
         "rating": "M",
-        "category": "ESRB",
+        "category": IGDB_AGE_RATING_ORGS[1],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_m.png",
     },
-    12: {
+    7: {
         "rating": "AO",
-        "category": "ESRB",
+        "category": IGDB_AGE_RATING_ORGS[1],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/esrb/esrb_ao.png",
     },
+    8: {
+        "rating": "3",
+        "category": IGDB_AGE_RATING_ORGS[2],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_3.png",
+    },
+    9: {
+        "rating": "7",
+        "category": IGDB_AGE_RATING_ORGS[2],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_7.png",
+    },
+    10: {
+        "rating": "12",
+        "category": IGDB_AGE_RATING_ORGS[2],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_12.png",
+    },
+    11: {
+        "rating": "16",
+        "category": IGDB_AGE_RATING_ORGS[2],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_16.png",
+    },
+    12: {
+        "rating": "18",
+        "category": IGDB_AGE_RATING_ORGS[2],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/pegi/pegi_18.png",
+    },
     13: {
-        "rating": "CERO_A",
-        "category": "CERO",
+        "rating": "A",
+        "category": IGDB_AGE_RATING_ORGS[3],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_a.png",
     },
     14: {
-        "rating": "CERO_B",
-        "category": "CERO",
+        "rating": "B",
+        "category": IGDB_AGE_RATING_ORGS[3],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_b.png",
     },
     15: {
-        "rating": "CERO_C",
-        "category": "CERO",
+        "rating": "C",
+        "category": IGDB_AGE_RATING_ORGS[3],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_c.png",
     },
     16: {
-        "rating": "CERO_D",
-        "category": "CERO",
+        "rating": "D",
+        "category": IGDB_AGE_RATING_ORGS[3],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_d.png",
     },
     17: {
-        "rating": "CERO_Z",
-        "category": "CERO",
+        "rating": "Z",
+        "category": IGDB_AGE_RATING_ORGS[3],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/cero/cero_z.png",
     },
     18: {
-        "rating": "USK_0",
-        "category": "USK",
+        "rating": "0",
+        "category": IGDB_AGE_RATING_ORGS[4],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_0.png",
     },
     19: {
-        "rating": "USK_6",
-        "category": "USK",
+        "rating": "6",
+        "category": IGDB_AGE_RATING_ORGS[4],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_6.png",
     },
     20: {
-        "rating": "USK_12",
-        "category": "USK",
+        "rating": "12",
+        "category": IGDB_AGE_RATING_ORGS[4],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_12.png",
     },
     21: {
-        "rating": "USK_16",
-        "category": "USK",
+        "rating": "16",
+        "category": IGDB_AGE_RATING_ORGS[4],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_16.png",
     },
     22: {
-        "rating": "USK_18",
-        "category": "USK",
+        "rating": "18",
+        "category": IGDB_AGE_RATING_ORGS[4],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/usk/usk_18.png",
     },
     23: {
-        "rating": "GRAC_ALL",
-        "category": "GRAC",
+        "rating": "ALL",
+        "category": IGDB_AGE_RATING_ORGS[5],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_all.png",
     },
     24: {
-        "rating": "GRAC_Twelve",
-        "category": "GRAC",
+        "rating": "12+",
+        "category": IGDB_AGE_RATING_ORGS[5],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_12.png",
     },
     25: {
-        "rating": "GRAC_Fifteen",
-        "category": "GRAC",
+        "rating": "15+",
+        "category": IGDB_AGE_RATING_ORGS[5],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_15.png",
     },
     26: {
-        "rating": "GRAC_Eighteen",
-        "category": "GRAC",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_18.png",
+        "rating": "19+",
+        "category": IGDB_AGE_RATING_ORGS[5],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_19.png",
     },
     27: {
-        "rating": "GRAC_TESTING",
-        "category": "GRAC",
+        "rating": "TESTING",
+        "category": IGDB_AGE_RATING_ORGS[5],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/grac/grac_testing.png",
     },
     28: {
-        "rating": "CLASS_IND_L",
-        "category": "CLASS_IND",
+        "rating": "L",
+        "category": IGDB_AGE_RATING_ORGS[6],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_l.png",
     },
     29: {
-        "rating": "CLASS_IND_Ten",
-        "category": "CLASS_IND",
+        "rating": "10",
+        "category": IGDB_AGE_RATING_ORGS[6],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_10.png",
     },
     30: {
-        "rating": "CLASS_IND_Twelve",
-        "category": "CLASS_IND",
+        "rating": "12",
+        "category": IGDB_AGE_RATING_ORGS[6],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_12.png",
     },
     31: {
-        "rating": "ACB_G",
-        "category": "ACB",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_g.png",
+        "rating": "14",
+        "category": IGDB_AGE_RATING_ORGS[6],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_14.png",
     },
     32: {
-        "rating": "ACB_PG",
-        "category": "ACB",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_pg.png",
+        "rating": "16",
+        "category": IGDB_AGE_RATING_ORGS[6],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_16.png",
     },
     33: {
-        "rating": "ACB_M",
-        "category": "ACB",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_m.png",
+        "rating": "18",
+        "category": IGDB_AGE_RATING_ORGS[6],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/class_ind/class_ind_18.png",
     },
     34: {
-        "rating": "ACB_MA15",
-        "category": "ACB",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_ma15.png",
+        "rating": "G",
+        "category": IGDB_AGE_RATING_ORGS[7],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_g.png",
     },
     35: {
-        "rating": "ACB_R18",
-        "category": "ACB",
-        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_r18.png",
+        "rating": "PG",
+        "category": IGDB_AGE_RATING_ORGS[7],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_pg.png",
     },
     36: {
-        "rating": "ACB_RC",
-        "category": "ACB",
+        "rating": "M",
+        "category": IGDB_AGE_RATING_ORGS[7],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_m.png",
+    },
+    37: {
+        "rating": "MA 15+",
+        "category": IGDB_AGE_RATING_ORGS[7],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_ma15.png",
+    },
+    38: {
+        "rating": "R 18+",
+        "category": IGDB_AGE_RATING_ORGS[7],
+        "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_r18.png",
+    },
+    39: {
+        "rating": "RC",
+        "category": IGDB_AGE_RATING_ORGS[7],
         "rating_cover_url": "https://www.igdb.com/icons/rating_icons/acb/acb_rc.png",
     },
 }

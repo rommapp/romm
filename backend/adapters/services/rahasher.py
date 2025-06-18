@@ -1,7 +1,6 @@
 import asyncio
 import re
 
-from handler.metadata.ra_handler import RA_ID_TO_SLUG
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -56,7 +55,6 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
     "nds": 18,
     "nintendo-dsi": 78,
     "odyssey-2": 23,
-    "win": 102,
     "pc-8000": 47,
     "pc-8800-series": 47,
     "pc-fx": 49,
@@ -85,6 +83,7 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
     "virtualboy": 28,
     "wasm-4": 72,
     "watara-slash-quickshot-supervision": 63,
+    "win": 102,
     "wonderswan": 53,
     "wonderswan-color": 53,
 }
@@ -97,6 +96,8 @@ class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
     async def calculate_hash(self, platform_id: int, file_path: str) -> str:
+        from handler.metadata.ra_handler import RA_ID_TO_SLUG
+
         log.debug(
             f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"
         )

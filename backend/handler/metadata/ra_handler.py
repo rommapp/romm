@@ -3,7 +3,6 @@ import http
 import json
 import os
 import time
-from collections import defaultdict
 from typing import Final, NotRequired, TypedDict
 
 import httpx
@@ -17,8 +16,9 @@ from config import (
     RETROACHIEVEMENTS_API_KEY,
 )
 from fastapi import HTTPException, status
+from handler.filesystem import fs_resource_handler
 from logger.logger import log
-from models.platform import Platform
+from models.rom import Rom
 from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
@@ -61,6 +61,7 @@ class RAGameRom(TypedDict):
 class EarnedAchievement(TypedDict):
     id: str
     date: str
+    date_hardcore: NotRequired[str]
 
 
 class RAUserGameProgression(TypedDict):
@@ -72,7 +73,6 @@ class RAUserGameProgression(TypedDict):
 
 
 class RAUserProgression(TypedDict):
-    count: int
     total: int
     results: list[RAUserGameProgression]
 
@@ -82,32 +82,12 @@ class RAHandler(MetadataHandler):
         self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes.json"
 
-    def _get_rom_base_path(self, platform_id: int, rom_id: int) -> str:
-        return os.path.join(
-            "roms",
-            str(platform_id),
-            str(rom_id),
-            "retroachievements",
-        )
-
     def _get_hashes_file_path(self, platform_id: int) -> str:
         return os.path.join(
             RESOURCES_BASE_PATH,
             "roms",
             str(platform_id),
             self.HASHES_FILE_NAME,
-        )
-
-    def _get_badges_path(self, platform_id: int, rom_id: int) -> str:
-        return os.path.join(self._get_rom_base_path(platform_id, rom_id), "badges")
-
-    def _create_resources_path(self, platform_id: int, rom_id: int) -> None:
-        os.makedirs(
-            os.path.join(
-                RESOURCES_BASE_PATH,
-                self._get_rom_base_path(platform_id, rom_id),
-            ),
-            exist_ok=True,
         )
 
     def _exists_cache_file(self, platform_id: int) -> bool:
@@ -178,30 +158,29 @@ class RAHandler(MetadataHandler):
 
         return res.json()
 
-    async def _search_rom(
-        self, platform: Platform, rom_id: int, hash: str
-    ) -> RAGameListItem | None:
-
-        if not platform.ra_id:
+    async def _search_rom(self, rom: Rom, ra_hash: str) -> RAGameListItem | None:
+        if not rom.platform.ra_id:
             return None
-
-        self._create_resources_path(platform.id, rom_id)
 
         # Fetch all hashes for specific platform
         roms: list[RAGameListItem]
         if (
             REFRESH_RETROACHIEVEMENTS_CACHE_DAYS
-            <= self._days_since_last_cache_file_update(platform.id)
-            or not self._exists_cache_file(platform.id)
+            <= self._days_since_last_cache_file_update(rom.platform.id)
+            or not self._exists_cache_file(rom.platform.id)
         ):
             # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
             roms = await self.ra_service.get_game_list(
-                system_id=platform.ra_id,
+                system_id=rom.platform.ra_id,
                 only_games_with_achievements=True,
                 include_hashes=True,
             )
+            os.makedirs(
+                os.path.dirname(self._get_hashes_file_path(rom.platform.id)),
+                exist_ok=True,
+            )
             async with await open_file(
-                self._get_hashes_file_path(platform.id),
+                self._get_hashes_file_path(rom.platform.id),
                 "w",
                 encoding="utf-8",
             ) as json_file:
@@ -209,20 +188,20 @@ class RAHandler(MetadataHandler):
         else:
             # Read the roms result from the JSON file
             async with await open_file(
-                self._get_hashes_file_path(platform.id),
+                self._get_hashes_file_path(rom.platform.id),
                 "r",
                 encoding="utf-8",
             ) as json_file:
                 roms = json.loads(await json_file.read())
 
-        for rom in roms:
-            if hash in rom.get("Hashes", ()):
-                return rom
+        for r in roms:
+            if ra_hash in r.get("Hashes", ()):
+                return r
 
         return None
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
-        platform = SLUG_TO_RA_ID.get(slug.lower(), None)
+        platform = RA_PLATFORM_LIST.get(slug.lower(), None)
 
         if not platform:
             return RAGamesPlatform(ra_id=None, slug=slug)
@@ -233,19 +212,21 @@ class RAHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, platform: Platform, rom_id: int, hash: str) -> RAGameRom:
-        if not platform.ra_id or not hash:
+    async def get_rom(self, rom: Rom, ra_hash: str) -> RAGameRom:
+        if not rom.platform.ra_id or not ra_hash:
             return RAGameRom(ra_id=None)
 
-        rom = await self._search_rom(platform, rom_id, hash)
+        ra_game_list_item = await self._search_rom(rom, ra_hash)
 
-        if not rom:
+        if not ra_game_list_item:
             return RAGameRom(ra_id=None)
 
         try:
-            rom_details = await self.ra_service.get_game_extended_details(rom["ID"])
+            rom_details = await self.ra_service.get_game_extended_details(
+                ra_game_list_item["ID"]
+            )
             return RAGameRom(
-                ra_id=rom["ID"],
+                ra_id=ra_game_list_item["ID"],
                 ra_metadata=RAMetadata(
                     achievements=[
                         RAGameRomAchievement(
@@ -259,9 +240,43 @@ class RAHandler(MetadataHandler):
                             ),
                             badge_id=achievement.get("BadgeName", ""),
                             badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{self._get_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}",
                             badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
-                            badge_path=f"{self._get_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
+                            display_order=achievement.get("DisplayOrder", None),
+                            type=achievement.get("type", ""),
+                        )
+                        for achievement in rom_details.get("Achievements", {}).values()
+                    ]
+                ),
+            )
+        except KeyError:
+            return RAGameRom(ra_id=None)
+
+    async def get_rom_by_id(self, ra_id: int) -> RAGameRom:
+        if not ra_id:
+            return RAGameRom(ra_id=None)
+
+        try:
+            rom_details = await self.ra_service.get_game_extended_details(ra_id)
+            return RAGameRom(
+                ra_id=ra_id,
+                ra_metadata=RAMetadata(
+                    achievements=[
+                        RAGameRomAchievement(
+                            ra_id=achievement.get("ID", None),
+                            title=achievement.get("Title", ""),
+                            description=achievement.get("Description", ""),
+                            points=achievement.get("Points", None),
+                            num_awarded=achievement.get("NumAwarded", None),
+                            num_awarded_hardcore=achievement.get(
+                                "NumAwardedHardcore", None
+                            ),
+                            badge_id=achievement.get("BadgeName", ""),
+                            badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(0, 0)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{fs_resource_handler.get_ra_badges_path(0, 0)}/{achievement.get('BadgeName', '')}.png",
                             display_order=achievement.get("DisplayOrder", None),
                             type=achievement.get("type", ""),
                         )
@@ -273,44 +288,42 @@ class RAHandler(MetadataHandler):
             return RAGameRom(ra_id=None)
 
     async def get_user_progression(self, username: str) -> RAUserProgression:
-        user_complete_progression = await self.ra_service.get_user_completion_progress(
-            username=username,
-            limit=500,
-        )
-        roms_with_progression = user_complete_progression.get("Results", [])
-        rom_earned_achievements: dict[int, list[EarnedAchievement]] = defaultdict(list)
-        for rom in roms_with_progression:
+        game_progressions: list[RAUserGameProgression] = []
+
+        async for rom in self.ra_service.iter_user_completion_progress(username):
             rom_game_id = rom.get("GameID")
+            earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
                 result = await self.ra_service.get_user_game_progress(
                     username=username,
                     game_id=rom_game_id,
                 )
                 for achievement in result.get("Achievements", {}).values():
-                    if achievement.get("DateEarned") and achievement.get("BadgeName"):
-                        rom_earned_achievements[rom_game_id].append(
-                            {
-                                "id": achievement["BadgeName"],
-                                "date": achievement["DateEarned"],
-                            }
+                    badge_name = achievement.get("BadgeName")
+                    date_earned = achievement.get("DateEarned")
+                    date_earned_hardcore = achievement.get("DateEarnedHardcore")
+                    if badge_name and date_earned:
+                        earned_achievement = EarnedAchievement(
+                            id=badge_name,
+                            date=date_earned,
                         )
-        return RAUserProgression(
-            count=user_complete_progression.get("Count", 0),
-            total=user_complete_progression.get("Total", 0),
-            results=[
+                        if date_earned_hardcore:
+                            earned_achievement["date_hardcore"] = date_earned_hardcore
+                        earned_achievements.append(earned_achievement)
+
+            game_progressions.append(
                 RAUserGameProgression(
-                    rom_ra_id=rom.get("GameID", None),
+                    rom_ra_id=rom_game_id,
                     max_possible=rom.get("MaxPossible", None),
                     num_awarded=rom.get("NumAwarded", None),
                     num_awarded_hardcore=rom.get("NumAwardedHardcore", None),
-                    earned_achievements=(
-                        rom_earned_achievements.get(rom["GameID"], [])
-                        if rom.get("GameID")
-                        else []
-                    ),
+                    earned_achievements=earned_achievements,
                 )
-                for rom in roms_with_progression
-            ],
+            )
+
+        return RAUserProgression(
+            total=len(game_progressions),
+            results=game_progressions,
         )
 
 
@@ -319,7 +332,7 @@ class SlugToRAId(TypedDict):
     name: str
 
 
-SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
+RA_PLATFORM_LIST: dict[str, SlugToRAId] = {
     "3do": {"id": 43, "name": "3DO"},
     "cpc": {"id": 37, "name": "Amstrad CPC"},
     "acpc": {"id": 37, "name": "Amstrad CPC"},
@@ -336,6 +349,8 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "colecovision": {"id": 44, "name": "ColecoVision"},
     "dreamcast": {"id": 40, "name": "Dreamcast"},
     "dc": {"id": 40, "name": "Dreamcast"},  # IGDB
+    "elektor": {"id": 75, "name": "Elektor"},
+    "fairchild-channel-f": {"id": 57, "name": "Fairchild Channel F"},
     "gameboy": {"id": 4, "name": "Game Boy"},
     "gb": {"id": 4, "name": "Game Boy"},  # IGDB
     "gameboy-advance": {"id": 5, "name": "Game Boy Advance"},
@@ -345,16 +360,17 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "game-gear": {"id": 15, "name": "Game Gear"},
     "gamegear": {"id": 15, "name": "Game Gear"},  # IGDB
     "gamecube": {"id": 16, "name": "GameCube"},
-    "ngc": {"id": 14, "name": "GameCube"},  # IGDB
+    "ngc": {"id": 16, "name": "GameCube"},  # IGDB
     "genesis": {"id": 1, "name": "Genesis/Mega Drive"},
-    "genesis-slash-megadrive": {"id": 16, "name": "Genesis/Mega Drive"},
+    "genesis-slash-megadrive": {"id": 1, "name": "Genesis/Mega Drive"},
     "intellivision": {"id": 45, "name": "Intellivision"},
+    "interton-vc-4000": {"id": 74, "name": "Interton VC 4000"},
     "jaguar": {"id": 17, "name": "Jaguar"},
     "lynx": {"id": 13, "name": "Lynx"},
     "msx": {"id": 29, "name": "MSX"},
     "mega-duck-slash-cougar-boy": {"id": 69, "name": "Mega Duck/Cougar Boy"},
     "nes": {"id": 7, "name": "NES"},
-    "famicom": {"id": 7, "name": "NES"},
+    "famicom": {"id": 7, "name": "Family Computer"},
     "neo-geo-cd": {"id": 56, "name": "Neo Geo CD"},
     "neo-geo-pocket": {"id": 14, "name": "Neo Geo Pocket"},
     "neo-geo-pocket-color": {"id": 14, "name": "Neo Geo Pocket Color"},
@@ -380,20 +396,24 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
     "sms": {"id": 11, "name": "SEGA Master System"},  # IGDB
     "sg-1000": {"id": 33, "name": "SG-1000"},
     "snes": {"id": 3, "name": "SNES"},
+    "sfam": {"id": 3, "name": "Super Famicom"},  # IGDB
     "turbografx-cd": {"id": 76, "name": "TurboGrafx CD"},
     "turbografx-16-slash-pc-engine-cd": {"id": 76, "name": "TurboGrafx CD"},
     "turbo-grafx": {"id": 8, "name": "TurboGrafx-16"},
     "turbografx16--1": {"id": 8, "name": "TurboGrafx-16"},  # IGDB
-    "vectrex": {"id": 26, "name": "Vectrex"},
+    "uzebox": {"id": 80, "name": "Uzebox"},
+    "vectrex": {"id": 46, "name": "Vectrex"},
     "virtual-boy": {"id": 28, "name": "Virtual Boy"},
     "virtualboy": {"id": 28, "name": "Virtual Boy"},
+    "wasm-4": {"id": 72, "name": "WASM-4"},
     "watara-slash-quickshot-supervision": {
         "id": 63,
         "name": "Watara/QuickShot Supervision",
     },
+    "win": {"id": 102, "name": "Windows"},
     "wonderswan": {"id": 53, "name": "WonderSwan"},
     "wonderswan-color": {"id": 53, "name": "WonderSwan Color"},
 }
 
 # Reverse lookup
-RA_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_RA_ID.items()}
+RA_ID_TO_SLUG = {v["id"]: k for k, v in RA_PLATFORM_LIST.items()}

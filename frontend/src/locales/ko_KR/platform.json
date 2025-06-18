@@ -30,6 +30,7 @@
   "show-unmatched": "DB 대응 안됨",
   "show-playables": "플레이 가능한 게임 보기",
   "show-ra": "Retroachievements 보기",
+  "show-missing": "누락된 항목 보기",
   "status": "플레이 상태",
   "upload-roms": "롬 업로드"
 }

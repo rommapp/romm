@@ -334,11 +334,9 @@ onBeforeUnmount(() => {
               title-on-hover
               pointer-on-hover
               with-link
-              show-flags
-              show-fav
               transform-scale
               show-action-bar
-              show-platform-icon
+              show-chips
               :with-border-primary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "

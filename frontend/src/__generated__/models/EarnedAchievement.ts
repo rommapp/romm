@@ -5,5 +5,6 @@
 export type EarnedAchievement = {
     id: string;
     date: string;
+    date_hardcore?: string;
 };
 
