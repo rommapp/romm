@@ -133,7 +133,7 @@ Here are a few projects that we think you might like:
 [screenscraper-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#screenscraper
 [mobygames-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#mobygames
 [steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#steamgriddb
-[retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Generate-API-Keys/#retroachievements
+[retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
 [big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
