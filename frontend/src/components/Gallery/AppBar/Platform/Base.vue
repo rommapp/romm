@@ -45,7 +45,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
           size="xs"
           class="position-absolute"
           style="bottom: 4px; right: 4px"
-        ></v-icon>
+        />
       </v-btn>
       <firmware-btn />
     </template>

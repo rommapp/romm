@@ -38,7 +38,8 @@ const groupedPlatforms = computed(() => {
   if (!groupBy.value) return null;
   const groups: Record<string, Platform[]> = {};
   for (const platform of filteredPlatforms.value) {
-    const key = platform[groupBy.value] ?? "Other";
+    let key = platform[groupBy.value];
+    if (!key) key = "Other"; // Handles null, undefined, and empty string
     if (!groups[key]) groups[key] = [];
     groups[key].push(platform);
   }
