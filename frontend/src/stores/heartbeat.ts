@@ -1,8 +1,14 @@
 import type { HeartbeatResponse } from "@/__generated__";
 import { defineStore } from "pinia";
-import { computed } from "vue";
+import i18n from "@/locales";
 
 export type Heartbeat = HeartbeatResponse;
+type MetadataOption = {
+  name: string;
+  value: string;
+  logo_path: string;
+  disabled: string;
+};
 
 const defaultHeartbeat: Heartbeat = {
   SYSTEM: {
@@ -71,29 +77,63 @@ export default defineStore("heartbeat", {
     set(data: HeartbeatResponse) {
       this.value = { ...this.value, ...data };
     },
-    getMetadataOptions() {
-      return computed(() => [
+
+    getAllMetadataOptions(): MetadataOption[] {
+      return [
         {
-          name: "IGDB",
+          name: this.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
+            ? "IGDB + Playmatch"
+            : "IGDB",
           value: "igdb",
-          disabled: !this.value.METADATA_SOURCES?.IGDB_API_ENABLED,
+          logo_path: "/assets/scrappers/igdb.png",
+          disabled: !this.value.METADATA_SOURCES?.IGDB_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
+            : "",
         },
         {
-          name: "MobyGames",
+          name: "Mobygames",
           value: "moby",
-          disabled: !this.value.METADATA_SOURCES?.MOBY_API_ENABLED,
+          logo_path: "/assets/scrappers/moby.png",
+          disabled: !this.value.METADATA_SOURCES?.MOBY_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
+            : "",
         },
         {
           name: "Screenscraper",
           value: "ss",
-          disabled: !this.value.METADATA_SOURCES?.SS_API_ENABLED,
+          logo_path: "/assets/scrappers/ss.png",
+          disabled: !this.value.METADATA_SOURCES?.SS_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
+            : "",
         },
         {
           name: "RetroAchievements",
           value: "ra",
-          disabled: !this.value.METADATA_SOURCES?.RA_API_ENABLED,
+          logo_path: "/assets/scrappers/ra.png",
+          disabled: !this.value.METADATA_SOURCES?.RA_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
+            : "",
         },
-      ]).value.filter((s) => !s.disabled);
+        {
+          name: "Launchbox",
+          value: "lb",
+          logo_path: "/assets/scrappers/launchbox.png",
+          disabled: !this.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+        {
+          name: "Hasheous",
+          value: "hasheous",
+          logo_path: "/assets/scrappers/hasheous.png",
+          disabled: !this.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
+            : "",
+        },
+      ];
+    },
+    getEnabledMetadataOptions(): MetadataOption[] {
+      return this.getAllMetadataOptions().filter((s) => !s.disabled);
     },
     reset() {},
   },
