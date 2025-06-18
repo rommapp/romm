@@ -53,10 +53,6 @@ const hashMatches = computed(() => {
       name: "WHDLoad",
       match: props.rom.hasheous_metadata?.whdload_match,
     },
-    // {
-    //   name: "RetroAchievements",
-    //   match: props.rom.hasheous_metadata?.ra_match,
-    // },
   ].filter((item) => item.match);
 });
 </script>
