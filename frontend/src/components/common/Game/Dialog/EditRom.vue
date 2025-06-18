@@ -341,34 +341,38 @@ function closeDialog() {
                 <span> /romm/resources/{{ rom.path_manual }} </span>
               </v-label>
             </div>
-            <v-row class="justify-space-between mt-4" no-gutters>
-              <v-btn
-                :disabled="rom.is_unidentified"
-                :class="` ${
-                  rom.is_unidentified ? '' : 'bg-toplayer text-romm-red'
-                }`"
-                variant="flat"
-                @click="unmatchRom"
-              >
-                {{ t("rom.unmatch-rom") }}
-              </v-btn>
-              <v-btn-group divided density="compact">
-                <v-btn class="bg-toplayer" @click="closeDialog">
-                  {{ t("common.cancel") }}
-                </v-btn>
-                <v-btn
-                  :variant="!validForm ? 'plain' : 'flat'"
-                  :disabled="!validForm"
-                  class="text-romm-green bg-toplayer"
-                  @click="updateRom"
-                >
-                  {{ t("common.apply") }}
-                </v-btn>
-              </v-btn-group>
-            </v-row>
+            <v-btn
+              :disabled="rom.is_unidentified"
+              :class="` ${
+                rom.is_unidentified ? '' : 'bg-toplayer text-romm-red'
+              }`"
+              variant="flat"
+              class="mt-4"
+              @click="unmatchRom"
+            >
+              {{ t("rom.unmatch-rom") }}
+            </v-btn>
           </v-col>
         </v-row>
       </v-form>
+    </template>
+    <template #append>
+      <v-divider />
+      <v-row class="d-flex justify-center pa-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            :variant="!validForm ? 'plain' : 'flat'"
+            :disabled="!validForm"
+            class="text-romm-green bg-toplayer"
+            @click="updateRom"
+          >
+            {{ t("common.apply") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
     </template>
   </r-dialog>
 </template>
