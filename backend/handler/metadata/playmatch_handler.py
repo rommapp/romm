@@ -71,8 +71,8 @@ class PlaymatchHandler:
             response = await self._request(
                 url,
                 {
-                    "fileName": rom_attrs["file_name"],
-                    "fileSize": rom_attrs["file_size_bytes"],
+                    "fileName": rom_attrs["fs_name"],
+                    "fileSize": rom_attrs["fs_size_bytes"],
                     "md5": rom_attrs["md5_hash"],
                     "sha1": rom_attrs["sha1_hash"],
                 },
