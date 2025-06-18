@@ -284,6 +284,7 @@ onBeforeUnmount(() => {
               transformScale
               showActionBar
               showChips
+              :showPlatformIcon="false"
               :withBorderPrimary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "

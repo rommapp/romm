@@ -29,6 +29,7 @@ const props = withDefaults(
     titleOnHover?: boolean;
     pointerOnHover?: boolean;
     showChips?: boolean;
+    showPlatformIcon?: boolean;
     showActionBar?: boolean;
     sizeActionBar?: number;
     withBorderPrimary?: boolean;
@@ -44,6 +45,7 @@ const props = withDefaults(
     titleOnHover: false,
     pointerOnHover: false,
     showChips: false,
+    showPlatformIcon: true,
     showActionBar: true,
     sizeActionBar: 0,
     withBorderPrimary: false,
@@ -179,12 +181,12 @@ onBeforeUnmount(() => {
         "
       >
         <v-card-text class="pa-0">
-          <v-hover v-slot="{ isHovering, props: hoverProps }" open-delay="800">
+          <v-hover v-slot="{ isHovering, props }" open-delay="800">
             <v-img
               @click="handleClick"
               @touchstart="handleTouchStart"
               @touchend="handleTouchEnd"
-              v-bind="hoverProps"
+              v-bind="props"
               cover
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
@@ -198,68 +200,83 @@ onBeforeUnmount(() => {
                     rom.ss_url_cover ||
                     fallbackCoverImage)
               "
-              :lazy-src="
-                src ||
-                (romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_small || fallbackCoverImage
-                  : rom.igdb_url_cover ||
-                    rom.moby_url_cover ||
-                    rom.ss_url_cover ||
-                    fallbackCoverImage)
-              "
               :aspect-ratio="computedAspectRatio"
             >
-              <div v-bind="props">
-                <template v-if="titleOnHover">
-                  <v-expand-transition>
-                    <div
-                      v-if="
-                        isHovering ||
-                        (romsStore.isSimpleRom(rom) &&
-                          rom.is_unidentified &&
-                          !rom.path_cover_large) ||
-                        (!romsStore.isSimpleRom(rom) &&
-                          !rom.igdb_url_cover &&
-                          !rom.moby_url_cover &&
-                          !rom.ss_url_cover)
-                      "
-                      class="translucent-dark text-white"
-                      :class="
-                        sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
-                      "
-                    >
-                      <div class="pa-2">
-                        {{ rom.name }}
-                      </div>
+              <template v-bind="props" v-if="titleOnHover">
+                <v-expand-transition>
+                  <div
+                    v-if="
+                      isHovering ||
+                      (romsStore.isSimpleRom(rom) &&
+                        rom.is_unidentified &&
+                        !rom.path_cover_large) ||
+                      (!romsStore.isSimpleRom(rom) &&
+                        !rom.igdb_url_cover &&
+                        !rom.moby_url_cover &&
+                        !rom.ss_url_cover)
+                    "
+                    class="translucent-dark text-white"
+                    :class="
+                      sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
+                    "
+                  >
+                    <div class="pa-2">
+                      {{ rom.name }}
                     </div>
-                  </v-expand-transition>
-                </template>
-                <v-row no-gutters class="text-white px-1">
+                  </div>
+                </v-expand-transition>
+              </template>
+              <v-row no-gutters class="text-white px-1">
+                <v-col>
                   <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
                   <flags
                     v-if="romsStore.isSimpleRom(rom) && showChips"
                     :rom="rom"
                   />
-                  <slot name="prepend-inner"></slot>
-                </v-row>
-              </div>
+                </v-col>
+              </v-row>
               <div v-bind="props">
-                <div class="d-flex justify-space-between">
-                  <platform-icon
-                    v-if="romsStore.isSimpleRom(rom) && showChips"
-                    :size="25"
-                    :key="rom.platform_slug"
-                    :slug="rom.platform_slug"
-                    :name="rom.platform_name"
-                    :fs-slug="rom.platform_slug"
-                    class="ml-1"
-                  />
-                  <div v-if="showChips">
+                <v-row
+                  v-if="romsStore.isSimpleRom(rom) && showChips"
+                  no-gutters
+                >
+                  <v-col cols="auto" class="px-0">
+                    <platform-icon
+                      v-if="showPlatformIcon"
+                      :size="25"
+                      :key="rom.platform_slug"
+                      :slug="rom.platform_slug"
+                      :name="rom.platform_name"
+                      :fs-slug="rom.platform_slug"
+                      class="ml-1"
+                    />
+                  </v-col>
+                  <v-col class="px-1 d-flex justify-end">
+                    <missing-from-f-s-icon
+                      v-if="rom.missing_from_fs"
+                      :text="`Missing from filesystem: ${rom.fs_path}/${rom.fs_name}`"
+                      class="mr-1 mb-1 px-1"
+                      chip
+                      chipDensity="compact"
+                    />
                     <v-chip
-                      v-if="
-                        romsStore.isSimpleRom(rom) &&
-                        collectionsStore.isFav(rom)
-                      "
+                      v-if="rom.hasheous_id"
+                      class="translucent-dark mr-1 mb-1 px-1"
+                      density="compact"
+                      title="Verified with Hasheous"
+                    >
+                      <v-icon>mdi-check-decagram</v-icon>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.siblings.length > 0 && showSiblings"
+                      class="translucent-dark text-secondary mr-1 mb-1 px-1"
+                      density="compact"
+                      :title="`${rom.siblings.length} sibling(s)`"
+                    >
+                      <v-icon>mdi-card-multiple</v-icon>
+                    </v-chip>
+                    <v-chip
+                      v-if="collectionsStore.isFav(rom)"
                       text="Favorite"
                       color="secondary"
                       density="compact"
@@ -267,34 +284,10 @@ onBeforeUnmount(() => {
                     >
                       <v-icon>mdi-star</v-icon>
                     </v-chip>
-                    <missing-from-f-s-icon
-                      v-if="romsStore.isSimpleRom(rom) && rom.missing_from_fs"
-                      :text="`Missing from filesystem: ${rom.fs_path}/${rom.fs_name}`"
-                      class="mr-1 mb-1 px-1"
-                      chip
-                      chipDensity="compact"
-                    />
-                    <v-chip
-                      v-if="romsStore.isSimpleRom(rom) && rom.hasheous_id"
-                      class="translucent-dark text-secondary mr-1 mb-1 px-1"
-                      density="compact"
-                      title="Verified with Hasheous"
-                    >
-                      <v-icon>mdi-check-decagram</v-icon>
-                    </v-chip>
-                    <v-chip
-                      v-if="
-                        romsStore.isSimpleRom(rom) &&
-                        rom.siblings.length > 0 &&
-                        showSiblings
-                      "
-                      class="translucent-dark text-secondary mr-1 mb-1 px-1"
-                      density="compact"
-                      :title="`${rom.siblings.length} sibling(s)`"
-                    >
-                      <v-icon>mdi-card-multiple</v-icon>
-                    </v-chip>
-                  </div>
+                  </v-col>
+                </v-row>
+                <div class="position-absolute append-inner-right">
+                  <slot name="append-inner-right"> </slot>
                 </div>
                 <v-expand-transition>
                   <action-bar
@@ -333,7 +326,6 @@ onBeforeUnmount(() => {
             </v-img>
           </v-hover>
         </v-card-text>
-        <slot name="footer"></slot>
         <action-bar
           v-if="
             (smAndDown || showActionBarAlways) &&
@@ -372,5 +364,10 @@ onBeforeUnmount(() => {
   -webkit-user-select: none; /* Safari */
   -moz-user-select: none; /* Firefox */
   -ms-user-select: none; /* Internet Explorer/Edge */
+}
+
+.append-inner-right {
+  bottom: 0rem;
+  right: 0rem;
 }
 </style>
