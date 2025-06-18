@@ -60,7 +60,7 @@ watch(activePlatformsDrawer, (isOpen) => {
     // Store the currently focused element before opening the drawer
     triggerElement.value = document.activeElement as HTMLElement;
     // Focus the text field when the drawer is opened
-    textFieldRef.value?.focus();
+    // textFieldRef.value?.focus();
   }
 });
 
