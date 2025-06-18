@@ -15,6 +15,7 @@ from handler.metadata import (
     meta_playmatch_handler,
     meta_ra_handler,
     meta_ss_handler,
+    meta_tgdb_handler,
 )
 from handler.metadata.hasheous_handler import HasheousPlatform, HasheousRom
 from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
@@ -23,6 +24,7 @@ from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
 from handler.metadata.playmatch_handler import PlaymatchProvider, PlaymatchRomMatch
 from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
 from handler.metadata.ss_handler import SSPlatform, SSRom
+from handler.metadata.tgdb_handler import TGDBPlatform
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -51,6 +53,7 @@ class MetadataSource:
     RA = "ra"  # RetroAchivements
     LB = "lb"  # Launchbox
     HASHEOUS = "hasheous"  # Hasheous
+    TGDB = "tgdb"  # TheGamesDB
 
 
 async def _get_main_platform_igdb_id(platform: Platform):
@@ -155,11 +158,17 @@ async def scan_platform(
         if MetadataSource.HASHEOUS in metadata_sources
         else HasheousPlatform(hasheous_id=None, slug=platform_attrs["slug"])
     )
+    tgdb_platform = (
+        meta_tgdb_handler.get_platform(platform_attrs["slug"])
+        if MetadataSource.TGDB in metadata_sources
+        else TGDBPlatform(tgdb_id=None, slug=platform_attrs["slug"])
+    )
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
         {
             **hasheous_platform,
+            **tgdb_platform,
             **launchbox_platform,
             **ra_platform,
             **moby_platform,
@@ -175,6 +184,7 @@ async def scan_platform(
         or platform_attrs["ra_id"]
         or platform_attrs["launchbox_id"]
         or hasheous_platform["hasheous_id"]
+        or tgdb_platform["tgdb_id"]
     ):
         log.info(
             emoji.emojize(

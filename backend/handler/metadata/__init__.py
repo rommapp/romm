@@ -6,6 +6,7 @@ from .playmatch_handler import PlaymatchHandler
 from .ra_handler import RAHandler
 from .sgdb_handler import SGDBBaseHandler
 from .ss_handler import SSHandler
+from .tgdb_handler import TGDBHandler
 
 meta_igdb_handler = IGDBHandler()
 meta_moby_handler = MobyGamesHandler()
@@ -15,3 +16,4 @@ meta_ra_handler = RAHandler()
 meta_playmatch_handler = PlaymatchHandler()
 meta_launchbox_handler = LaunchboxHandler()
 meta_hasheous_handler = HasheousHandler()
+meta_tgdb_handler = TGDBHandler()

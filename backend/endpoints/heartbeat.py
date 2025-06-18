@@ -15,6 +15,7 @@ from config import (
     SCHEDULED_RESCAN_CRON,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    TGDB_API_ENABLED,
     UPLOAD_TIMEOUT,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
@@ -52,7 +53,8 @@ def heartbeat() -> HeartbeatResponse:
             or MOBY_API_ENABLED
             or RA_API_ENABLED
             or LAUNCHBOX_API_ENABLED
-            or HASHEOUS_API_ENABLED,
+            or HASHEOUS_API_ENABLED
+            or TGDB_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
@@ -61,6 +63,7 @@ def heartbeat() -> HeartbeatResponse:
             "LAUNCHBOX_API_ENABLED": LAUNCHBOX_API_ENABLED,
             "HASHEOUS_API_ENABLED": HASHEOUS_API_ENABLED,
             "PLAYMATCH_API_ENABLED": PLAYMATCH_API_ENABLED,
+            "TGDB_API_ENABLED": TGDB_API_ENABLED,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": fs_platform_handler.get_platforms(),
