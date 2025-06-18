@@ -53,10 +53,10 @@ const hashMatches = computed(() => {
       name: "WHDLoad",
       match: props.rom.hasheous_metadata?.whdload_match,
     },
-    {
-      name: "RetroAchievements",
-      match: props.rom.hasheous_metadata?.ra_match,
-    },
+    // {
+    //   name: "RetroAchievements",
+    //   match: props.rom.hasheous_metadata?.ra_match,
+    // },
   ].filter((item) => item.match);
 });
 </script>
@@ -250,12 +250,7 @@ const hashMatches = computed(() => {
           <v-avatar class="bg-romm-green" size="30" rounded="0">
             <v-icon>mdi-check-decagram-outline</v-icon>
           </v-avatar>
-          <v-divider
-            class="ml-0 mr-2 border-opacity-25"
-            style="margin-left: 2px"
-            vertical
-          />
-          <span>{{ hash.name }}</span>
+          <span class="ml-2">{{ hash.name }}</span>
         </v-chip>
       </v-col>
     </v-row>
