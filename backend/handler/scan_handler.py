@@ -472,7 +472,7 @@ async def scan_rom(
                     ),
                     extra=LOGGER_MODULE_NAME,
                 )
-                return await meta_ra_handler.get_rom_by_id(h_ra_id)
+                return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
 
             return await meta_ra_handler.get_rom(rom=rom, ra_hash=rom_attrs["ra_hash"])
 
