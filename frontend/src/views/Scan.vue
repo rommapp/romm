@@ -21,64 +21,15 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
 const panels = ref<number[]>([]);
-// Use a computed property to reactively update metadataOptions based on heartbeat
-const metadataOptions = computed(() => [
-  {
-    name: heartbeat.value.METADATA_SOURCES?.PLAYMATCH_API_ENABLED
-      ? "IGDB + Playmatch"
-      : "IGDB",
-    value: "igdb",
-    logo_path: "/assets/scrappers/igdb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED
-      ? t("scan.api-key-missing")
-      : "",
-  },
-  {
-    name: "Mobygames",
-    value: "moby",
-    logo_path: "/assets/scrappers/moby.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED
-      ? t("scan.api-key-missing")
-      : "",
-  },
-  {
-    name: "Screenscraper",
-    value: "ss",
-    logo_path: "/assets/scrappers/ss.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED
-      ? t("scan.api-key-missing")
-      : "",
-  },
-  {
-    name: "RetroAchievements",
-    value: "ra",
-    logo_path: "/assets/scrappers/ra.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED
-      ? t("scan.api-key-missing")
-      : "",
-  },
-  {
-    name: "Launchbox",
-    value: "lb",
-    logo_path: "/assets/scrappers/launchbox.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED
-      ? t("scan.disabled-by-admin")
-      : "",
-  },
-  {
-    name: "Hasheous",
-    value: "hasheous",
-    logo_path: "/assets/scrappers/hasheous.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED
-      ? t("scan.disabled-by-admin")
-      : "",
-  },
-]);
+// Use store getters
+const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
+const metadataSources = ref([...heartbeat.getEnabledMetadataOptions()]);
 
-// Use the computed metadataOptions to filter out disabled sources
-const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
 watch(metadataOptions, (newOptions) => {
-  metadataSources.value = newOptions.filter((option) => !option.disabled);
+  // Remove any sources that are now disabled
+  metadataSources.value = metadataSources.value.filter((s) =>
+    newOptions.some((opt) => opt.value === s.value && !opt.disabled),
+  );
 });
 
 // Adding each new scanned platform to panelIndex to be open by default
@@ -135,7 +86,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
-    apis: [...metadataSources.value.map((s) => s.value)],
+    apis: metadataSources.value.map((s) => s.value),
   });
 }
 
