@@ -86,6 +86,3 @@ body {
   height: fit-content !important;
   max-height: 70dvh !important;
 }
-.overflow-y-hidden {
-  overflow-y: hidden !important;
-}
