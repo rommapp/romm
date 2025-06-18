@@ -341,24 +341,25 @@ function closeDialog() {
                 <span> /romm/resources/{{ rom.path_manual }} </span>
               </v-label>
             </div>
-            <v-btn
-              :disabled="rom.is_unidentified"
-              :class="` ${
-                rom.is_unidentified ? '' : 'bg-toplayer text-romm-red'
-              }`"
-              variant="flat"
-              class="mt-4"
-              @click="unmatchRom"
-            >
-              {{ t("rom.unmatch-rom") }}
-            </v-btn>
+            <div class="mt-6">
+              <v-btn
+                :disabled="rom.is_unidentified"
+                :class="{
+                  'text-romm-red bg-toplayer': !rom.is_unidentified,
+                }"
+                variant="flat"
+                @click="unmatchRom"
+              >
+                {{ t("rom.unmatch-rom") }}
+              </v-btn>
+            </div>
           </v-col>
         </v-row>
       </v-form>
     </template>
     <template #append>
       <v-divider />
-      <v-row class="d-flex justify-center pa-2" no-gutters>
+      <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
