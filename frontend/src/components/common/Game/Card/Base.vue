@@ -200,15 +200,6 @@ onBeforeUnmount(() => {
                     rom.ss_url_cover ||
                     fallbackCoverImage)
               "
-              :lazy-src="
-                src ||
-                (romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_small || fallbackCoverImage
-                  : rom.igdb_url_cover ||
-                    rom.moby_url_cover ||
-                    rom.ss_url_cover ||
-                    fallbackCoverImage)
-              "
               :aspect-ratio="computedAspectRatio"
             >
               <template v-bind="props" v-if="titleOnHover">
