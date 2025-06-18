@@ -33,6 +33,7 @@ const defaultFilterState = {
   filterPlayables: false,
   filterRA: false,
   filterMissing: false,
+  filterVerified: false,
   selectedPlatform: null as Platform | null,
   selectedGenre: null as string | null,
   selectedFranchise: null as string | null,
@@ -148,6 +149,12 @@ export default defineStore("galleryFilter", {
     disableFilterMissing() {
       this.filterMissing = false;
     },
+    switchFilterVerified() {
+      this.filterVerified = !this.filterVerified;
+    },
+    disableFilterVerified() {
+      this.filterVerified = false;
+    },
     isFiltered() {
       return Boolean(
         this.filterUnmatched ||
@@ -157,6 +164,7 @@ export default defineStore("galleryFilter", {
           this.filterPlayables ||
           this.filterRA ||
           this.filterMissing ||
+          this.filterVerified ||
           this.selectedPlatform ||
           this.selectedGenre ||
           this.selectedFranchise ||
@@ -186,6 +194,7 @@ export default defineStore("galleryFilter", {
       this.disableFilterPlayables();
       this.disableFilterRA();
       this.disableFilterMissing();
+      this.disableFilterVerified();
     },
   },
 });

@@ -31,6 +31,7 @@
   "show-playables": "プレイ可能を表示",
   "show-ra": "Retroachievementsを表示",
   "show-missing": "欠落を表示",
+  "show-verified": "確認済みを表示",
   "status": "ステータス",
   "upload-roms": "Romをアップロード"
 }
