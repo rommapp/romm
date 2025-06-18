@@ -216,8 +216,8 @@ const hashMatches = computed(() => {
           class="mr-1"
           title="RetroAchievements ID"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop>
-            <v-avatar class="mr-2" size="25" rounded="1">
+          <v-chip tabindex="-1" class="px-2 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ra.png" />
             </v-avatar>
             <span>{{ rom.ra_id }}</span>

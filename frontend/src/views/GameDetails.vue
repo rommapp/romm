@@ -110,7 +110,12 @@ watch(
     >
       <v-col cols="auto">
         <v-container :width="270" id="artwork-container" class="pa-0">
-          <game-card :key="currentRom.updated_at" :rom="currentRom" />
+          <game-card
+            :key="currentRom.updated_at"
+            :rom="currentRom"
+            :showPlatformIcon="false"
+            :showActionBar="false"
+          />
           <action-bar class="mt-2" :rom="currentRom" />
           <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>

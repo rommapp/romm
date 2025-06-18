@@ -215,6 +215,8 @@ function closeDialog() {
               :rom="rom"
               :src="imagePreviewUrl"
               disableViewTransition
+              :showPlatformIcon="false"
+              :showActionBar="false"
             >
               <template #append-inner-right>
                 <v-btn-group divided density="compact" rounded="0">
@@ -295,7 +297,7 @@ function closeDialog() {
               variant="outlined"
               class="my-2"
             />
-            <!-- <v-chip
+            <v-chip
               :variant="rom.has_manual ? 'flat' : 'tonal'"
               label
               size="large"
@@ -338,7 +340,7 @@ function closeDialog() {
                 </v-icon>
                 <span> /romm/resources/{{ rom.path_manual }} </span>
               </v-label>
-            </div> -->
+            </div>
             <v-row class="justify-space-between mt-4" no-gutters>
               <v-btn
                 :disabled="rom.is_unidentified"

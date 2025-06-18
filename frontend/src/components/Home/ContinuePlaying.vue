@@ -69,6 +69,7 @@ function onClosedMenu() {
         :class="{ 'flex-nowrap overflow-x-auto': !gridContinuePlayingRoms }"
         class="py-1"
         no-gutters
+        style="overflow-y: hidden"
       >
         <v-col
           v-for="rom in continuePlayingRoms"
