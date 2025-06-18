@@ -127,7 +127,7 @@ async function uploadRoms() {
         socket.emit("scan", {
           platforms: [platformId],
           type: "quick",
-          apis: heartbeat.getMetadataOptions().map((s) => s.value),
+          apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
         });
       }, 2000);
     })
@@ -276,7 +276,8 @@ function closeDialog() {
       </v-data-table-virtual>
     </template>
     <template #append>
-      <v-row class="justify-center mb-2" no-gutters>
+      <v-divider />
+      <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">{{
             t("common.cancel")
