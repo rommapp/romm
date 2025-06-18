@@ -240,7 +240,7 @@ class RAHandler(MetadataHandler):
                             ),
                             badge_id=achievement.get("BadgeName", ""),
                             badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
                             badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
                             badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
                             display_order=achievement.get("DisplayOrder", None),
@@ -253,7 +253,7 @@ class RAHandler(MetadataHandler):
         except KeyError:
             return RAGameRom(ra_id=None)
 
-    async def get_rom_by_id(self, ra_id: int) -> RAGameRom:
+    async def get_rom_by_id(self, rom: Rom, ra_id: int) -> RAGameRom:
         if not ra_id:
             return RAGameRom(ra_id=None)
 
@@ -274,9 +274,9 @@ class RAHandler(MetadataHandler):
                             ),
                             badge_id=achievement.get("BadgeName", ""),
                             badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(0, 0)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
                             badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
-                            badge_path=f"{fs_resource_handler.get_ra_badges_path(0, 0)}/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
                             display_order=achievement.get("DisplayOrder", None),
                             type=achievement.get("type", ""),
                         )
