@@ -3,6 +3,7 @@
   "api-key-missing": "API 키가 없거나 올바르지 않습니다",
   "complete-rescan": "모두 재스캔",
   "complete-rescan-desc": "모든 플랫폼과 파일 재스캔 (가장 느림)",
+  "disabled-by-admin": "관리자에 의해 비활성화됨",
   "hashes": "해시",
   "hashes-desc": "해시로만 스캔",
   "manage-library": "라이브러리 관리",
