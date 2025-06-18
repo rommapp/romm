@@ -157,6 +157,9 @@ def get_roms(
     favourite: bool | None = None,
     duplicate: bool | None = None,
     playable: bool | None = None,
+    missing: bool | None = None,
+    has_ra: bool | None = None,
+    verified: bool | None = None,
     # TODO: Remove deprecated boolean parameters, in favor of their
     #       optional counterparts.
     unmatched_only: Annotated[bool, Query(deprecated=True)] = False,
@@ -165,7 +168,7 @@ def get_roms(
     duplicates_only: Annotated[bool, Query(deprecated=True)] = False,
     playables_only: Annotated[bool, Query(deprecated=True)] = False,
     missing_only: Annotated[bool, Query(deprecated=True)] = False,
-    ra_only: bool = False,
+    ra_only: Annotated[bool, Query(deprecated=True)] = False,
     group_by_meta_id: bool = False,
     selected_genre: str | None = None,
     selected_franchise: str | None = None,
@@ -190,13 +193,15 @@ def get_roms(
         favourite (bool, optional): Filter for favourite or non-favourite roms. Defaults to None.
         duplicate (bool, optional): Filter for duplicate or non-duplicate roms. Defaults to None.
         playable (bool, optional): Filter for playable or non-playable roms. Defaults to None.
+        missing (bool, optional): Filter only roms that are missing from the filesystem. Defaults to False.
+        verified (bool, optional): Filter only roms that are verified by hasheous from the filesystem. Defaults to False.
         unmatched_only (bool, optional): Filter only unmatched roms. Defaults to False. DEPRECATED: use `matched` instead.
         matched_only (bool, optional): Filter only matched roms. Defaults to False. DEPRECATED: use `matched` instead.
         favourites_only (bool, optional): Filter only favourite roms. Defaults to False. DEPRECATED: use `favourite` instead.
         duplicates_only (bool, optional): Filter only duplicate roms. Defaults to False. DEPRECATED: use `duplicate` instead.
         playables_only (bool, optional): Filter only playable roms by emulatorjs. Defaults to False. DEPRECATED: use `playable` instead.
-        ra_only (bool, optional): Filter only roms with Retroachievements compatibility. Defaults to False.
-        missing_only (bool, optional): Filter only roms that are missing from the filesystem. Defaults to False.
+        ra_only (bool, optional): Filter only roms with Retroachievements compatibility. Defaults to False. DEPRECATED: use `has_ra` instead.
+        missing_only (bool, optional): Filter only roms that are missing from the filesystem. Defaults to False. DEPRECATED: use `missing` instead.
         group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf/launchbox ID. Defaults to False.
         selected_genre (str, optional): Filter by genre. Defaults to None.
         selected_franchise (str, optional): Filter by franchise. Defaults to None.
@@ -233,6 +238,12 @@ def get_roms(
     # Backwards compatibility for playable parameter.
     if playable is None and playables_only:
         playable = True
+    # Backwards compatibility for has_ra parameter.
+    if has_ra is None and ra_only:
+        has_ra = True
+    # Backwards compatibility for missing parameter.
+    if missing is None and missing_only:
+        missing = True
 
     # Filter down the query
     query = db_rom_handler.filter_roms(
@@ -246,8 +257,9 @@ def get_roms(
         favourite=favourite,
         duplicate=duplicate,
         playable=playable,
-        ra_only=ra_only,
-        missing_only=missing_only,
+        has_ra=has_ra,
+        missing=missing,
+        verified=verified,
         selected_genre=selected_genre,
         selected_franchise=selected_franchise,
         selected_collection=selected_collection,

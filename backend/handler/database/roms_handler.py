@@ -236,11 +236,41 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.join(Rom.platform).filter(predicate)
 
-    def filter_by_ra_only(self, query: Query):
+    def filter_by_has_ra(self, query: Query):
         return query.filter(Rom.ra_id.isnot(None))
 
-    def filter_by_missing_from_fs_only(self, query: Query):
+    def filter_by_missing_from_fs(self, query: Query):
         return query.filter(Rom.missing_from_fs.isnot(False))
+
+    def filter_by_verified(self, query: Query):
+        if ROMM_DB_DRIVER == "postgresql":
+            return query.filter(
+                text(
+                    """
+                    (hasheous_metadata->>'tosec_match')::boolean OR
+                    (hasheous_metadata->>'mame_arcade_match')::boolean OR
+                    (hasheous_metadata->>'mame_mess_match')::boolean OR
+                    (hasheous_metadata->>'nointro_match')::boolean OR
+                    (hasheous_metadata->>'redump_match')::boolean OR
+                    (hasheous_metadata->>'whdload_match')::boolean OR
+                    (hasheous_metadata->>'ra_match')::boolean OR
+                    (hasheous_metadata->>'fbneo_match')::boolean
+                    """
+                )
+            )
+        else:
+            return query.filter(
+                or_(
+                    Rom.hasheous_metadata["tosec_match"].as_boolean(),
+                    Rom.hasheous_metadata["mame_arcade_match"].as_boolean(),
+                    Rom.hasheous_metadata["mame_mess_match"].as_boolean(),
+                    Rom.hasheous_metadata["nointro_match"].as_boolean(),
+                    Rom.hasheous_metadata["redump_match"].as_boolean(),
+                    Rom.hasheous_metadata["whdload_match"].as_boolean(),
+                    Rom.hasheous_metadata["ra_match"].as_boolean(),
+                    Rom.hasheous_metadata["fbneo_match"].as_boolean(),
+                )
+            )
 
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
@@ -366,8 +396,9 @@ class DBRomsHandler(DBBaseHandler):
         favourite: bool | None = None,
         duplicate: bool | None = None,
         playable: bool | None = None,
-        ra_only: bool | None = False,
-        missing_only: bool | None = False,
+        has_ra: bool | None = False,
+        missing: bool | None = False,
+        verified: bool | None = False,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -408,11 +439,14 @@ class DBRomsHandler(DBBaseHandler):
         if playable is not None:
             query = self.filter_by_playable(query, value=playable)
 
-        if ra_only:
-            query = self.filter_by_ra_only(query)
+        if has_ra:
+            query = self.filter_by_has_ra(query)
 
-        if missing_only:
-            query = self.filter_by_missing_from_fs_only(query)
+        if missing:
+            query = self.filter_by_missing_from_fs(query)
+
+        if verified:
+            query = self.filter_by_verified(query)
 
         if group_by_meta_id:
 
