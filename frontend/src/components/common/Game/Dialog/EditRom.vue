@@ -208,13 +208,15 @@ function closeDialog() {
   >
     <template #content>
       <v-form v-model="validForm">
-        <v-row no-gutters>
+        <v-row class="d-flex justify-center" no-gutters>
           <v-col class="pa-4" cols="auto">
             <game-card
               width="240"
               :rom="rom"
               :src="imagePreviewUrl"
               disableViewTransition
+              :showPlatformIcon="false"
+              :showActionBar="false"
             >
               <template #append-inner-right>
                 <v-btn-group divided density="compact" rounded="0">
@@ -295,7 +297,7 @@ function closeDialog() {
               variant="outlined"
               class="my-2"
             />
-            <!-- <v-chip
+            <v-chip
               :variant="rom.has_manual ? 'flat' : 'tonal'"
               label
               size="large"
@@ -338,35 +340,40 @@ function closeDialog() {
                 </v-icon>
                 <span> /romm/resources/{{ rom.path_manual }} </span>
               </v-label>
-            </div> -->
-            <v-row class="justify-space-between mt-4" no-gutters>
+            </div>
+            <div class="mt-6">
               <v-btn
                 :disabled="rom.is_unidentified"
-                :class="` ${
-                  rom.is_unidentified ? '' : 'bg-toplayer text-romm-red'
-                }`"
+                :class="{
+                  'text-romm-red bg-toplayer': !rom.is_unidentified,
+                }"
                 variant="flat"
                 @click="unmatchRom"
               >
                 {{ t("rom.unmatch-rom") }}
               </v-btn>
-              <v-btn-group divided density="compact">
-                <v-btn class="bg-toplayer" @click="closeDialog">
-                  {{ t("common.cancel") }}
-                </v-btn>
-                <v-btn
-                  :variant="!validForm ? 'plain' : 'flat'"
-                  :disabled="!validForm"
-                  class="text-romm-green bg-toplayer"
-                  @click="updateRom"
-                >
-                  {{ t("common.apply") }}
-                </v-btn>
-              </v-btn-group>
-            </v-row>
+            </div>
           </v-col>
         </v-row>
       </v-form>
+    </template>
+    <template #append>
+      <v-divider />
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            :variant="!validForm ? 'plain' : 'flat'"
+            :disabled="!validForm"
+            class="text-romm-green bg-toplayer"
+            @click="updateRom"
+          >
+            {{ t("common.apply") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
     </template>
   </r-dialog>
 </template>

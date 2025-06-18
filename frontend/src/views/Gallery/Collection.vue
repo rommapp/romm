@@ -331,13 +331,13 @@ onBeforeUnmount(() => {
             <game-card
               :key="rom.updated_at"
               :rom="rom"
-              title-on-hover
-              pointer-on-hover
-              with-link
-              transform-scale
-              show-action-bar
-              show-chips
-              :with-border-primary="
+              titleOnHover
+              pointerOnHover
+              withLink
+              transformScale
+              showActionBar
+              showChips
+              :withBorderPrimary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
               :sizeActionBar="currentView"

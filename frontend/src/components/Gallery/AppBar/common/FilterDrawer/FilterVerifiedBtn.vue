@@ -9,10 +9,10 @@ import { useI18n } from "vue-i18n";
 // Props
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
-const { filterMissing } = storeToRefs(galleryFilterStore);
+const { filterVerified } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
-function setMissing() {
-  galleryFilterStore.switchFilterMissing();
+function setVerified() {
+  galleryFilterStore.switchFilterVerified();
   emitter?.emit("filter", null);
 }
 </script>
@@ -21,16 +21,16 @@ function setMissing() {
   <v-btn
     block
     variant="tonal"
-    :color="filterMissing ? 'primary' : ''"
-    @click="setMissing"
+    :color="filterVerified ? 'primary' : ''"
+    @click="setVerified"
   >
-    <v-icon :color="filterMissing ? 'primary' : ''">mdi-folder-question</v-icon
+    <v-icon :color="filterVerified ? 'primary' : ''">mdi-check-decagram</v-icon
     ><span
       class="ml-2"
       :class="{
-        'text-primary': filterMissing,
+        'text-primary': filterVerified,
       }"
-      >{{ t("platform.show-missing") }}</span
+      >{{ t("platform.show-verified") }}</span
     ></v-btn
   >
 </template>

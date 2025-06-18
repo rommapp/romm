@@ -130,7 +130,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: [romsStore.currentPlatform?.id],
     type: "quick",
-    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+    apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
   });
 }
 
@@ -359,8 +359,8 @@ watch(
               class="ml-1"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="25" rounded="1">
+              <v-chip tabindex="-1" class="px-2 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/ra.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.ra_id }}</span>
@@ -379,19 +379,17 @@ watch(
                 <span>{{ currentPlatform.launchbox_id }}</span>
               </v-chip>
             </a>
-            <a
+            <v-chip
               v-if="currentPlatform.hasheous_id"
-              style="text-decoration: none; color: inherit"
-              target="_blank"
-              class="ml-1"
+              class="pl-0 mt-1 ml-1"
+              size="small"
+              @click.stop
             >
-              <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2 pa-1" size="30" rounded="0">
-                  <v-img src="/assets/scrappers/hasheous.png" />
-                </v-avatar>
-                <span>{{ currentPlatform.hasheous_id }}</span>
-              </v-chip>
-            </a>
+              <v-avatar class="mr-2 pa-1" size="30" rounded="0">
+                <v-img src="/assets/scrappers/hasheous.png" />
+              </v-avatar>
+              <span>{{ currentPlatform.hasheous_id }}</span>
+            </v-chip>
           </v-col>
         </v-row>
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
