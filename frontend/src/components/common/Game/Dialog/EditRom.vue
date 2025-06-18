@@ -208,7 +208,7 @@ function closeDialog() {
   >
     <template #content>
       <v-form v-model="validForm">
-        <v-row no-gutters>
+        <v-row class="d-flex justify-center" no-gutters>
           <v-col class="pa-4" cols="auto">
             <game-card
               width="240"
