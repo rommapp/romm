@@ -315,7 +315,7 @@ class FSRomsHandler(FSHandler):
         )
 
     async def get_rom_files(self, rom: Rom) -> tuple[list[RomFile], str, str, str, str]:
-        from handler.metadata.ra_handler import SLUG_TO_RA_ID
+        from handler.metadata.ra_handler import RA_PLATFORM_LIST
 
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
@@ -337,9 +337,9 @@ class FSRomsHandler(FSHandler):
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{abs_fs_path}/{rom}"):
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
-            if rom.platform_slug in SLUG_TO_RA_ID.keys():
+            if rom.platform_slug in RA_PLATFORM_LIST.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
-                    SLUG_TO_RA_ID[rom.platform_slug]["id"],
+                    RA_PLATFORM_LIST[rom.platform_slug]["id"],
                     f"{abs_fs_path}/{rom.fs_name}/*",
                 )
 
@@ -410,9 +410,9 @@ class FSRomsHandler(FSHandler):
                 sha1_h = hashlib.sha1(usedforsecurity=False)
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
-            if rom.platform_slug in SLUG_TO_RA_ID.keys():
+            if rom.platform_slug in RA_PLATFORM_LIST.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
-                    SLUG_TO_RA_ID[rom.platform_slug]["id"],
+                    RA_PLATFORM_LIST[rom.platform_slug]["id"],
                     f"{abs_fs_path}/{rom.fs_name}",
                 )
 
