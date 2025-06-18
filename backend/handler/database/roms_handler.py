@@ -261,9 +261,7 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(text(conditions))
         else:
             return query.filter(
-                or_(
-                    *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check)
-                )
+                or_(*(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check))
             )
 
     def filter_by_genre(self, query: Query, selected_genre: str):
