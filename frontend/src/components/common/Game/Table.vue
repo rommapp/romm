@@ -210,16 +210,26 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         <template #append>
           <missing-from-f-s-icon
             v-if="item.missing_from_fs"
-            :text="`Missing game from filesystem: ${item.fs_path}/${item.fs_name}`"
+            :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
+            class="mr-1 mb-1 px-1"
             chip
-            chip-size="small"
+            chipDensity="compact"
           />
           <v-chip
-            v-if="item.siblings.length > 0 && showSiblings"
-            class="translucent-dark ml-2"
-            size="x-small"
+            v-if="item.hasheous_id"
+            class="translucent-dark mr-1 mb-1 px-1"
+            density="compact"
+            title="Verified with Hasheous"
           >
-            <span class="text-caption">+{{ item.siblings.length }}</span>
+            <v-icon>mdi-check-decagram</v-icon>
+          </v-chip>
+          <v-chip
+            v-if="item.siblings.length > 0 && showSiblings"
+            class="translucent-dark text-secondary mr-1 mb-1 px-1"
+            density="compact"
+            :title="`${item.siblings.length} sibling(s)`"
+          >
+            <v-icon>mdi-card-multiple</v-icon>
           </v-chip>
         </template>
       </v-list-item>

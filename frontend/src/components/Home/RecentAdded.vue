@@ -67,6 +67,7 @@ function onClosedMenu() {
         :class="{ 'flex-nowrap overflow-x-auto': !gridRecentRoms }"
         class="py-1"
         no-gutters
+        style="overflow-y: hidden"
       >
         <v-col
           v-for="rom in recentRoms"
