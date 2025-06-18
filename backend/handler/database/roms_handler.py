@@ -243,32 +243,26 @@ class DBRomsHandler(DBBaseHandler):
         return query.filter(Rom.missing_from_fs.isnot(False))
 
     def filter_by_verified(self, query: Query):
+        keys_to_check = [
+            "tosec_match",
+            "mame_arcade_match",
+            "mame_mess_match",
+            "nointro_match",
+            "redump_match",
+            "whdload_match",
+            "ra_match",
+            "fbneo_match",
+        ]
+
         if ROMM_DB_DRIVER == "postgresql":
-            return query.filter(
-                text(
-                    """
-                    (hasheous_metadata->>'tosec_match')::boolean OR
-                    (hasheous_metadata->>'mame_arcade_match')::boolean OR
-                    (hasheous_metadata->>'mame_mess_match')::boolean OR
-                    (hasheous_metadata->>'nointro_match')::boolean OR
-                    (hasheous_metadata->>'redump_match')::boolean OR
-                    (hasheous_metadata->>'whdload_match')::boolean OR
-                    (hasheous_metadata->>'ra_match')::boolean OR
-                    (hasheous_metadata->>'fbneo_match')::boolean
-                    """
-                )
+            conditions = " OR ".join(
+                f"(hasheous_metadata->>'{key}')::boolean" for key in keys_to_check
             )
+            return query.filter(text(conditions))
         else:
             return query.filter(
                 or_(
-                    Rom.hasheous_metadata["tosec_match"].as_boolean(),
-                    Rom.hasheous_metadata["mame_arcade_match"].as_boolean(),
-                    Rom.hasheous_metadata["mame_mess_match"].as_boolean(),
-                    Rom.hasheous_metadata["nointro_match"].as_boolean(),
-                    Rom.hasheous_metadata["redump_match"].as_boolean(),
-                    Rom.hasheous_metadata["whdload_match"].as_boolean(),
-                    Rom.hasheous_metadata["ra_match"].as_boolean(),
-                    Rom.hasheous_metadata["fbneo_match"].as_boolean(),
+                    *(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check)
                 )
             )
 
