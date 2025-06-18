@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Joystick" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #baa9a0;
+      }
+
+      .cls-2 {
+        fill: #c64747;
+      }
+
+      .cls-3 {
+        fill: #1e1e1e;
+      }
+
+      .cls-4 {
+        fill: #303030;
+      }
+
+      .cls-5 {
+        fill: #d2c1b5;
+      }
+
+      .cls-6 {
+        fill: #333;
+      }
+
+      .cls-7 {
+        fill: #0f0f0f;
+      }
+
+      .cls-8 {
+        fill: #c6b6ac;
+      }
+    </style>
+  </defs>
+  <path class="cls-8" d="M328.59,342.29h342.82v522.74c0,11.17-9.07,20.23-20.23,20.23h-302.36c-11.17,0-20.23-9.07-20.23-20.23V342.29h0Z"/>
+  <path class="cls-5" d="M350.96,114.41h298.07c12.35,0,22.38,10.03,22.38,22.38v205.51h-342.82v-205.51c0-12.35,10.03-22.38,22.38-22.38Z"/>
+  <rect class="cls-4" x="361.23" y="147.82" width="283.38" height="167.45" rx="8.33" ry="8.33"/>
+  <circle class="cls-3" cx="502.92" cy="231.54" r="57.47"/>
+  <path class="cls-1" d="M615.42,388.59h-230.25c-10.7,0-19.38,8.68-19.38,19.38v408.25c0,10.7,8.68,19.38,19.38,19.38h61.63c7.73,0,13.99,6.26,13.99,13.99v36.01h78v-36.01c0-7.73,6.26-13.99,13.99-13.99h62.63c10.7,0,19.38-8.68,19.38-19.38v-408.25c0-10.7-8.68-19.38-19.38-19.38Z"/>
+  <rect class="cls-2" x="397.73" y="438.57" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-2" x="547.67" y="438.57" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="397.73" y="510.35" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="470.53" y="510.35" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="547.67" y="510.35" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="397.73" y="586.09" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="472.7" y="586.09" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="547.67" y="586.09" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="397.73" y="661.84" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="472.7" y="661.84" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="547.67" y="661.84" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="397.73" y="737.58" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="472.7" y="737.58" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <rect class="cls-4" x="547.67" y="737.58" width="52.4" height="35.67" rx="3.21" ry="3.21"/>
+  <circle class="cls-7" cx="502.92" cy="231.54" r="48.48"/>
+  <circle class="cls-6" cx="502.92" cy="231.54" r="16.86"/>
+</svg>
