@@ -236,8 +236,11 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.join(Rom.platform).filter(predicate)
 
-    def filter_by_has_ra(self, query: Query):
-        return query.filter(Rom.ra_id.isnot(None))
+    def filter_by_has_ra(self, query: Query, value: bool) -> Query:
+        predicate = query.filter(Rom.ra_id.isnot(None))
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
     def filter_by_missing_from_fs(self, query: Query):
         return query.filter(Rom.missing_from_fs.isnot(False))
@@ -431,8 +434,8 @@ class DBRomsHandler(DBBaseHandler):
         if playable is not None:
             query = self.filter_by_playable(query, value=playable)
 
-        if has_ra:
-            query = self.filter_by_has_ra(query)
+        if has_ra is not None:
+            query = self.filter_by_has_ra(query, value=has_ra)
 
         if missing:
             query = self.filter_by_missing_from_fs(query)
