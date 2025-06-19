@@ -68,14 +68,13 @@ RUN pyenv install 3.12 && pyenv global 3.12
 
 # Install pipx and poetry for the non-root user
 RUN pip3 install pipx poetry \
-    && pip3 install --user pipx \
     && python3 -m pipx ensurepath
 
 # Make poetry available to all users
 ENV PATH="/usr/local/bin:$HOME/.local/bin:${PATH}"
 
 # Copy project files (including pyproject.toml and poetry.lock)
-COPY pyproject.toml poetry.lock* .env .python-version /app/
+COPY pyproject.toml poetry.lock* .python-version /app/
 
 # Install Python dependencies
 RUN poetry sync
