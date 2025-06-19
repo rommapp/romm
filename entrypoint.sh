@@ -12,6 +12,14 @@ mkdir -p /app/frontend/assets/romm
 ln -sf /app/romm_mock/resources /app/frontend/assets/romm/resources
 ln -sf /app/romm_mock/assets /app/frontend/assets/romm/assets
 
+# Define a signal handler to propagate termination signals
+function handle_termination() {
+    echo "Terminating child processes..."
+    kill -TERM $(jobs -p) 2>/dev/null
+}
+
+# Trap SIGTERM and SIGINT signals
+trap handle_termination SIGTERM SIGINT
 # Start all services in the background
 cd /app/backend
 poetry run python main.py &
