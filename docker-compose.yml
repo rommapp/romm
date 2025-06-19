@@ -6,14 +6,21 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: romm-dev
+    env_file: .env
+    environment:
+      - REDIS_HOST=romm-valkey-dev
+      - DB_HOST=romm-db-dev
+      - ROMM_BASE_PATH=/app/romm
     ports:
       - "8000:8000" # Backend API
       - "3000:3000" # Frontend dev server
     volumes:
       - ./backend:/app/backend
+      - /app/backend/romm_mock # Empty directory
       - ./frontend:/app/frontend
-      - ./romm_mock:/app/romm_mock
-      - ./romm_test:/app/romm_test
+      - /app/frontend/node_modules # Empty directory
+      - /app/frontend/dist # Empty directory
+      - ./romm_mock:/app/romm
     depends_on:
       - romm-db-dev
       - romm-valkey-dev

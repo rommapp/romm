@@ -16,10 +16,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmariadb-dev \
     libpq-dev \
     libffi-dev \
-    libpq-dev \
     musl-dev \
     curl \
     ca-certificates \
+    libmagic-dev \
+    p7zip \
+    tzdata \
+    libbz2-dev \
+    libssl-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    zlib1g-dev \
+    liblzma-dev \
+    libncurses5-dev \
+    libncursesw5-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -37,6 +47,19 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | b
     && nvm alias default 18.20.8
 ENV PATH="$NVM_DIR/versions/node/v18.20.8/bin:$PATH"
 
+# Build and install RAHasher (optional for RA hashes)
+RUN git clone --recursive --branch 1.8.0 --depth 1 https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro
+WORKDIR /tmp/RALibretro
+RUN sed -i '22a #include <ctime>' ./src/Util.h \
+    && make HAVE_CHD=1 -f ./Makefile.RAHasher \
+    && cp ./bin64/RAHasher /usr/bin/RAHasher
+RUN rm -rf /tmp/RALibretro
+
+# Install frontend dependencies
+COPY frontend/package.json /app/frontend/
+WORKDIR /app/frontend
+RUN npm install
+
 # Set working directory
 WORKDIR /app
 
@@ -51,30 +74,11 @@ RUN pip3 install pipx poetry \
 # Make poetry available to all users
 ENV PATH="/usr/local/bin:$HOME/.local/bin:${PATH}"
 
-# Install Trunk CLI
-RUN curl https://get.trunk.io -fsSL | bash
-
-# Build and install RAHasher (optional for RA hashes)
-RUN git clone --recursive --branch 1.8.0 --depth 1 https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro
-WORKDIR /tmp/RALibretro
-RUN sed -i '22a #include <ctime>' ./src/Util.h \
-    && make HAVE_CHD=1 -f ./Makefile.RAHasher \
-    && cp ./bin64/RAHasher /usr/bin/RAHasher
-WORKDIR /app
-
-RUN rm -rf /tmp/RALibretro
-
 # Copy project files (including pyproject.toml and poetry.lock)
-COPY pyproject.toml poetry.lock* .env .python-version ./
+COPY pyproject.toml poetry.lock* .env .python-version /app/
 
 # Install Python dependencies
 RUN poetry sync
-
-# Copy frontend files
-COPY frontend/package*.json ./frontend/
-
-# Install frontend dependencies
-RUN cd frontend && npm ci
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
