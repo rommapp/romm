@@ -77,7 +77,7 @@ ENV PATH="/usr/local/bin:$HOME/.local/bin:${PATH}"
 COPY pyproject.toml poetry.lock* .python-version /app/
 
 # Install Python dependencies
-RUN poetry sync
+RUN poetry sync --all-extras
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
