@@ -14,8 +14,8 @@ ln -sf /app/romm_mock/assets /app/frontend/assets/romm/assets
 
 # Define a signal handler to propagate termination signals
 function handle_termination() {
-    echo "Terminating child processes..."
-    kill -TERM $(jobs -p) 2>/dev/null
+	echo "Terminating child processes..."
+	kill -TERM $(jobs -p) 2>/dev/null
 }
 
 # Trap SIGTERM and SIGINT signals
