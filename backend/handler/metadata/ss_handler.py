@@ -1,20 +1,14 @@
-import asyncio
 import base64
-import http
-import json
 import re
 from datetime import datetime
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
-import httpx
 import pydash
-import yarl
+from adapters.services.screenscraper import ScreenScraperService
+from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
-from fastapi import HTTPException, status
-from logger.logger import log
 from unidecode import unidecode as uc
-from utils.context import ctx_httpx_client
 
 from .base_hander import (
     PS2_OPL_REGEX,
@@ -137,7 +131,68 @@ class SSRom(TypedDict):
     ss_metadata: NotRequired[SSMetadata]
 
 
-def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
+def build_ss_rom(game: SSGame) -> SSRom:
+    res_name = next(
+        (name["text"] for name in game.get("noms", []) if name.get("region") == "ss"),
+        "",
+    )
+    res_summary = next(
+        (
+            synopsis["text"]
+            for synopsis in game.get("synopsis", [])
+            if synopsis.get("langue") == "en"
+        ),
+        "",
+    )
+
+    cover_preferred_regions = ["us", "ss"]
+    url_cover = ""
+    for region in cover_preferred_regions:
+        url_cover = next(
+            (
+                media["url"]
+                for media in game.get("medias", [])
+                if media.get("region") == region
+                and media.get("type") == "box-2D"
+                and media.get("parent") == "jeu"
+            ),
+            "",
+        )
+        if url_cover:
+            break
+
+    manual_preferred_regions = ["us", "eu"]
+    url_manual: str = ""
+    for region in manual_preferred_regions:
+        url_manual = next(
+            (
+                media["url"]
+                for media in game.get("medias", [])
+                if media.get("region") == region
+                and media.get("type") == "manuel"
+                and media.get("parent") == "jeu"
+                and media.get("format") == "pdf"
+            ),
+            "",
+        )
+        if url_manual:
+            break
+
+    ss_id = int(game["id"]) if game.get("id") is not None else None
+    rom: SSRom = {
+        "ss_id": ss_id,
+        "name": res_name,
+        "summary": res_summary,
+        "url_cover": url_cover,
+        "url_manual": url_manual,
+        "url_screenshots": [],
+        "ss_metadata": extract_metadata_from_ss_rom(game),
+    }
+
+    return SSRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+
+
+def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
     def _normalize_score(score: str) -> str:
         """Normalize the score to be between 0 and 10 because for some reason Screenscraper likes to rate over 20."""
         try:
@@ -145,72 +200,61 @@ def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
         except (ValueError, TypeError):
             return ""
 
-    def _get_lowest_date(dates: list[str]) -> int | None:
-        lowest_date = pydash.chain(dates).map("text").sort().head().value()
-        if lowest_date:
+    def _get_lowest_date(dates: list[SSGameDate]) -> int | None:
+        lowest_date = min(dates, default=None, key=lambda v: v.get("text", ""))
+        if not lowest_date:
+            return None
+
+        try:
+            return int(datetime.strptime(lowest_date["text"], "%Y-%m-%d").timestamp())
+        except ValueError:
             try:
-                lowest_date = int(
-                    datetime.strptime(lowest_date, "%Y-%m-%d").timestamp()
-                )
+                return int(datetime.strptime(lowest_date["text"], "%Y").timestamp())
             except ValueError:
-                try:
-                    lowest_date = int(datetime.strptime(lowest_date, "%Y").timestamp())
-                except ValueError:
-                    lowest_date = None
-        else:
-            lowest_date = None
-        return lowest_date
+                return None
 
-    def _get_genres(rom: dict) -> list[str]:
-        return (
-            pydash.chain(rom.get("genres", []))
-            .map("noms")
-            .flatten()
-            .filter({"langue": "en"})
-            .map("text")
-            .value()
-        )
+    def _get_genres(rom: SSGame) -> list[str]:
+        return [
+            genre_name["text"]
+            for genre in rom.get("genres", [])
+            for genre_name in genre.get("noms", [])
+            if genre_name.get("langue") == "en"
+        ]
 
-    def _get_franchises(rom: dict) -> list[str]:
-        return (
-            pydash.chain(rom.get("familles", []))
-            .map("noms")
-            .flatten()
-            .filter({"langue": "en"})
-            .map("text")
-            .value()
-            or pydash.chain(rom.get("familles", []))
-            .map("noms")
-            .flatten()
-            .filter({"langue": "fr"})
-            .map("text")
-            .value()
-        )
+    def _get_franchises(rom: SSGame) -> list[str]:
+        preferred_languages = ["en", "fr"]
+        for lang in preferred_languages:
+            franchises = [
+                franchise_name["text"]
+                for franchise in rom.get("familles", [])
+                for franchise_name in franchise.get("noms", [])
+                if franchise_name.get("langue") == lang
+            ]
+            if franchises:
+                return franchises
+        return []
 
-    def _get_game_modes(rom: dict) -> list[str]:
-        return (
-            pydash.chain(rom.get("modes", []))
-            .map("noms")
-            .flatten()
-            .filter({"langue": "en"})
-            .map("text")
-            .value()
-            or pydash.chain(rom.get("modes", []))
-            .map("noms")
-            .flatten()
-            .filter({"langue": "fr"})
-            .map("text")
-            .value()
-        )
+    def _get_game_modes(rom: SSGame) -> list[str]:
+        preferred_languages = ["en", "fr"]
+        for lang in preferred_languages:
+            modes = [
+                mode_name["text"]
+                for mode in rom.get("modes", [])
+                for mode_name in mode.get("noms", [])
+                if mode_name.get("langue") == lang
+            ]
+            if modes:
+                return modes
+        return []
 
     return SSMetadata(
         {
-            "ss_score": _normalize_score(pydash.get(rom, "note.text", None)),
-            "alternative_names": pydash.map_(rom.get("noms", []), "text"),
+            "ss_score": _normalize_score(rom.get("note", {}).get("text", "")),
+            "alternative_names": [name["text"] for name in rom.get("noms", [])],
             "companies": pydash.compact(
                 [
-                    pydash.get(rom, "editeur.text", None),
-                    pydash.get(rom, "developpeur.text", None),
+                    rom.get("editeur", {}).get("text"),
+                    rom.get("developpeur", {}).get("text"),
                 ]
             ),
             "genres": _get_genres(rom),
@@ -223,112 +267,18 @@ def extract_metadata_from_ss_rom(rom: dict) -> SSMetadata:
 
 class SSHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.BASE_URL = "https://api.screenscraper.fr/api2"
-        self.search_endpoint = f"{self.BASE_URL}/jeuRecherche.php"
-        self.platform_endpoint = f"{self.BASE_URL}/systemesListe.php"
-        self.games_endpoint = f"{self.BASE_URL}/jeuInfos.php"
-        self.LOGIN_ERROR_CHECK: Final = "Erreur de login"
+        self.ss_service = ScreenScraperService()
 
-    async def _request(self, url: str, timeout: int = 120) -> dict:
-        httpx_client = ctx_httpx_client.get()
-        authorized_url = yarl.URL(url).update_query(
-            ssid=SCREENSCRAPER_USER,
-            sspassword=SCREENSCRAPER_PASSWORD,
-            devid=SS_DEV_ID,
-            devpassword=SS_DEV_PASSWORD,
-            softname="romm",
-            output="json",
-        )
-        masked_url = authorized_url.with_query(
-            self._mask_sensitive_values(dict(authorized_url.query))
-        )
-
-        log.debug(
-            "API request: URL=%s, Timeout=%s",
-            masked_url,
-            timeout,
-        )
-
-        try:
-            res = await httpx_client.get(str(authorized_url), timeout=timeout)
-            res.raise_for_status()
-            if self.LOGIN_ERROR_CHECK in res.text:
-                log.error("Invalid screenscraper credentials")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid screenscraper credentials",
-                )
-
-            return res.json()
-        except httpx.NetworkError as exc:
-            log.critical(
-                "Connection error: can't connect to Screenscrapper", exc_info=True
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Screenscrapper, check your internet connection",
-            ) from exc
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == http.HTTPStatus.UNAUTHORIZED:
-                # Sometimes Screenscrapper returns 401 even with a valid API key
-                log.error(exc)
-                return {}
-            elif exc.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
-                await asyncio.sleep(2)
-            else:
-                # Log the error and return an empty dict if the request fails with a different code
-                log.error(exc)
-                return {}
-        except json.decoder.JSONDecodeError as exc:
-            # Log the error and return an empty list if the response is not valid JSON
-            log.error(exc)
-            return {}
-        except httpx.TimeoutException:
-            log.debug(
-                "Request to URL=%s timed out. Retrying with URL=%s", masked_url, url
-            )
-
-        # Retry the request once if it times out
-        try:
-            log.debug(
-                "API request: URL=%s, Timeout=%s",
-                url,
-                timeout,
-            )
-            res = await httpx_client.get(url, timeout=timeout)
-            res.raise_for_status()
-
-            if self.LOGIN_ERROR_CHECK in res.text:
-                log.error("Invalid screenscraper credentials")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid screenscraper credentials",
-                )
-
-            return res.json()
-        except (
-            httpx.HTTPStatusError,
-            httpx.TimeoutException,
-            json.decoder.JSONDecodeError,
-        ) as exc:
-            # Log the error and return an empty dict if the request fails with a different code
-            log.error(exc)
-            return {}
-
-    async def _search_rom(self, search_term: str, platform_ss_id: int) -> dict | None:
+    async def _search_rom(self, search_term: str, platform_ss_id: int) -> SSGame | None:
         if not platform_ss_id:
             return None
 
         search_term = uc(search_term)
-        url = yarl.URL(self.search_endpoint).with_query(
-            systemeid=[platform_ss_id],
-            recherche=quote(search_term, safe="/ "),
+        roms = await self.ss_service.search_games(
+            term=quote(search_term, safe="/ "),
+            system_id=platform_ss_id,
         )
-        found_roms = (await self._request(str(url))).get("response", {}).get("jeux", [])
-        # If no roms are return, "jeux" is list with an empty dict that can lead to issues. It needs to be checked.
-        roms = [] if len(found_roms) == 1 and not found_roms[0] else found_roms
-        return pydash.get(roms, "[0]", None)
+        return roms[0] if roms else None
 
     def get_platform(self, slug: str) -> SSPlatform:
         platform = SCREENSAVER_PLATFORM_LIST.get(slug, None)
@@ -421,138 +371,20 @@ class SSHandler(MetadataHandler):
                 if res:
                     break
 
-        if not res:
+        if not res or not res.get("id"):
             return fallback_rom
 
-        res_ss_id = res.get("id", None)
-        if not res_ss_id:
-            return fallback_rom
-
-        ss_id: int = int(res_ss_id)
-
-        res_name = (
-            pydash.chain(res.get("noms", []))
-            .filter({"region": "ss"})
-            .map("text")
-            .head()
-            .value()
-        )
-        res_summary = (
-            pydash.chain(res.get("synopsis", []))
-            .filter({"langue": "en"})
-            .map("text")
-            .head()
-            .value()
-        )
-        res_url_cover = (
-            pydash.chain(res.get("medias", []))
-            .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
-            .map("url")
-            .head()
-            .value()
-            or pydash.chain(res.get("medias", []))
-            .filter({"region": "ss", "type": "box-2D", "parent": "jeu"})
-            .map("url")
-            .head()
-            .value()
-            or ""
-        )
-        res_url_manual = (
-            pydash.chain(res.get("medias", []))
-            .filter(
-                {"region": "us", "type": "manuel", "parent": "jeu", "format": "pdf"}
-            )
-            .map("url")
-            .head()
-            .value()
-            or pydash.chain(res.get("medias", []))
-            .filter(
-                {"region": "eu", "type": "manuel", "parent": "jeu", "format": "pdf"}
-            )
-            .map("url")
-            .head()
-            .value()
-            or ""
-        )
-
-        rom = {
-            "ss_id": ss_id,
-            "name": res_name,
-            "summary": res_summary,
-            "url_cover": res_url_cover,
-            "url_manual": res_url_manual,
-            "url_screenshots": [],
-            "ss_metadata": extract_metadata_from_ss_rom(res),
-        }
-
-        return SSRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return build_ss_rom(res)
 
     async def get_rom_by_id(self, ss_id: int) -> SSRom:
         if not SS_API_ENABLED:
             return SSRom(ss_id=None)
 
-        url = yarl.URL(self.games_endpoint).with_query(gameid=ss_id)
-        res = (await self._request(str(url))).get("response", {}).get("jeu", [])
-
+        res = await self.ss_service.get_game_info(game_id=ss_id)
         if not res:
             return SSRom(ss_id=None)
 
-        res_name = (
-            pydash.chain(res.get("noms", []))
-            .filter({"region": "ss"})
-            .map("text")
-            .head()
-            .value()
-        )
-        res_summary = (
-            pydash.chain(res.get("synopsis", []))
-            .filter({"langue": "en"})
-            .map("text")
-            .head()
-            .value()
-        )
-        res_url_cover = (
-            pydash.chain(res.get("medias", []))
-            .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
-            .map("url")
-            .head()
-            .value()
-            or pydash.chain(res.get("medias", []))
-            .filter({"region": "ss", "type": "box-2D", "parent": "jeu"})
-            .map("url")
-            .head()
-            .value()
-            or ""
-        )
-        res_url_manual = (
-            pydash.chain(res.get("medias", []))
-            .filter(
-                {"region": "us", "type": "manuel", "parent": "jeu", "format": "pdf"}
-            )
-            .map("url")
-            .head()
-            .value()
-            or pydash.chain(res.get("medias", []))
-            .filter(
-                {"region": "eu", "type": "manuel", "parent": "jeu", "format": "pdf"}
-            )
-            .map("url")
-            .head()
-            .value()
-            or ""
-        )
-
-        rom = {
-            "ss_id": res.get("id"),
-            "name": res_name,
-            "summary": res_summary,
-            "url_cover": res_url_cover,
-            "url_manual": res_url_manual,
-            "url_screenshots": [],
-            "ss_metadata": extract_metadata_from_ss_rom(res),
-        }
-
-        return SSRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
+        return build_ss_rom(res)
 
     async def get_matched_rom_by_id(self, ss_id: int) -> SSRom | None:
         if not SS_API_ENABLED:
@@ -571,102 +403,18 @@ class SSHandler(MetadataHandler):
             return []
 
         search_term = uc(search_term)
-        url = yarl.URL(self.search_endpoint).with_query(
-            systemeid=[platform_ss_id],
-            recherche=quote(search_term, safe="/ "),
+        matched_roms = await self.ss_service.search_games(
+            term=quote(search_term, safe="/ "),
+            system_id=platform_ss_id,
         )
-        roms = (await self._request(str(url))).get("response", {}).get("jeux", [])
-        # If no roms are return, "jeux" is list with an empty dict that can lead to issues. It needs to be checked.
-        matched_roms = [] if len(roms) == 1 and not roms[0] else roms
 
-        def _get_name(rom: dict) -> str | None:
-            return (
-                pydash.chain(rom.get("noms", []))
-                .filter({"region": "ss"})
-                .map("text")
-                .head()
-                .value()
-            )
-
-        def _get_summary(rom: dict) -> str | None:
-            return (
-                pydash.chain(rom.get("synopsis", []))
-                .filter({"langue": "en"})
-                .map("text")
-                .head()
-                .value()
-            )
-
-        def _get_url_cover(rom: dict) -> str:
-            return (
-                pydash.chain(rom.get("medias", []))
-                .filter({"region": "us", "type": "box-2D", "parent": "jeu"})
-                .map("url")
-                .head()
-                .value()
-                or pydash.chain(rom.get("medias", []))
-                .filter({"region": "ss", "type": "box-2D", "parent": "jeu"})
-                .map("url")
-                .head()
-                .value()
-                or ""
-            )
-
-        def _get_url_manual(rom: dict) -> str:
-            return (
-                pydash.chain(rom.get("medias", []))
-                .filter(
-                    {
-                        "region": "us",
-                        "type": "manuel",
-                        "parent": "jeu",
-                        "format": "pdf",
-                    }
-                )
-                .map("url")
-                .head()
-                .value()
-                or pydash.chain(rom.get("medias", []))
-                .filter(
-                    {
-                        "region": "eu",
-                        "type": "manuel",
-                        "parent": "jeu",
-                        "format": "pdf",
-                    }
-                )
-                .map("url")
-                .head()
-                .value()
-                or ""
-            )
-
-        def _is_ss_region(rom: dict) -> bool:
-            return bool(
-                pydash.chain(rom.get("noms", []))
-                .filter({"region": "ss"})
-                .map("text")
-                .head()
-                .value()
-            )
+        def _is_ss_region(rom: SSGame) -> bool:
+            return any(name.get("region") == "ss" for name in rom.get("noms", []))
 
         return [
-            SSRom(
-                {  # type: ignore[misc]
-                    k: v
-                    for k, v in {
-                        "ss_id": rom.get("id"),
-                        "name": _get_name(rom),
-                        "summary": _get_summary(rom),
-                        "url_cover": _get_url_cover(rom),
-                        "url_manual": _get_url_manual(rom),
-                        "url_screenshots": [],
-                        "ss_metadata": extract_metadata_from_ss_rom(rom),
-                    }.items()
-                    if v and _is_ss_region(rom) and rom.get("id", False)
-                }
-            )
+            build_ss_rom(rom)
             for rom in matched_roms
+            if _is_ss_region(rom) and rom.get("id")
         ]
 
 
