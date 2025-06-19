@@ -237,13 +237,16 @@ class DBRomsHandler(DBBaseHandler):
         return query.join(Rom.platform).filter(predicate)
 
     def filter_by_has_ra(self, query: Query, value: bool) -> Query:
-        predicate = query.filter(Rom.ra_id.isnot(None))
+        predicate = Rom.ra_id.isnot(None)
         if not value:
             predicate = not_(predicate)
         return query.filter(predicate)
 
-    def filter_by_missing_from_fs(self, query: Query):
-        return query.filter(Rom.missing_from_fs.isnot(False))
+    def filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
+        predicate = Rom.missing_from_fs.isnot(False)
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
     def filter_by_verified(self, query: Query):
         keys_to_check = [
@@ -391,9 +394,9 @@ class DBRomsHandler(DBBaseHandler):
         favourite: bool | None = None,
         duplicate: bool | None = None,
         playable: bool | None = None,
-        has_ra: bool | None = False,
-        missing: bool | None = False,
-        verified: bool | None = False,
+        has_ra: bool | None = None,
+        missing: bool | None = None,
+        verified: bool | None = None,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -437,9 +440,10 @@ class DBRomsHandler(DBBaseHandler):
         if has_ra is not None:
             query = self.filter_by_has_ra(query, value=has_ra)
 
-        if missing:
-            query = self.filter_by_missing_from_fs(query)
+        if missing is not None:
+            query = self.filter_by_missing_from_fs(query, value=missing)
 
+        # TODO: Correctly support true/false values.
         if verified:
             query = self.filter_by_verified(query)
 
@@ -615,6 +619,9 @@ class DBRomsHandler(DBBaseHandler):
             favourite=kwargs.pop("favourite", None),
             duplicate=kwargs.pop("duplicate", None),
             playable=kwargs.pop("playable", None),
+            has_ra=kwargs.pop("has_ra", None),
+            missing=kwargs.pop("missing", None),
+            verified=kwargs.pop("verified", None),
             selected_genre=kwargs.pop("selected_genre", None),
             selected_franchise=kwargs.pop("selected_franchise", None),
             selected_collection=kwargs.pop("selected_collection", None),
