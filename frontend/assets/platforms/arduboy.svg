@@ -1,0 +1,638 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <style>
+      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5, .cls-6, .cls-7, .cls-8, .cls-9 {
+        stroke-miterlimit: 10;
+      }
+
+      .cls-1, .cls-4, .cls-8 {
+        fill: none;
+      }
+
+      .cls-1, .cls-6 {
+        stroke-width: 2.64px;
+      }
+
+      .cls-1, .cls-6, .cls-8 {
+        stroke: #e6e7e8;
+      }
+
+      .cls-10 {
+        fill: #363436;
+      }
+
+      .cls-11 {
+        fill: #cfac32;
+      }
+
+      .cls-12 {
+        fill: #88865b;
+      }
+
+      .cls-13, .cls-6 {
+        fill: #fff;
+      }
+
+      .cls-2 {
+        fill: #c9c9c9;
+        stroke: #fff;
+      }
+
+      .cls-2, .cls-3, .cls-5, .cls-9 {
+        stroke-width: .26px;
+      }
+
+      .cls-14 {
+        fill: #0081c0;
+      }
+
+      .cls-15 {
+        fill: #a67f3a;
+      }
+
+      .cls-3 {
+        fill: #5b5940;
+        stroke: #44432e;
+      }
+
+      .cls-16 {
+        opacity: .36;
+      }
+
+      .cls-17 {
+        fill: #231f20;
+      }
+
+      .cls-18 {
+        fill: #373737;
+      }
+
+      .cls-19 {
+        fill: #97999b;
+      }
+
+      .cls-20 {
+        fill: #6e6f5e;
+      }
+
+      .cls-21 {
+        fill: #5b5a57;
+      }
+
+      .cls-22 {
+        fill: #fe2921;
+      }
+
+      .cls-4 {
+        stroke: #6e6f5e;
+        stroke-width: .53px;
+      }
+
+      .cls-23 {
+        fill: #c0c2c4;
+      }
+
+      .cls-5, .cls-24 {
+        fill: #c2c4c6;
+      }
+
+      .cls-5, .cls-9 {
+        stroke: #797a7d;
+      }
+
+      .cls-25 {
+        fill: #5a4952;
+      }
+
+      .cls-26 {
+        fill: #3b3b3c;
+      }
+
+      .cls-7 {
+        stroke: #909578;
+      }
+
+      .cls-7, .cls-8 {
+        stroke-width: 1.32px;
+      }
+
+      .cls-7, .cls-27 {
+        fill: #c9c7b3;
+      }
+
+      .cls-28 {
+        opacity: .32;
+      }
+
+      .cls-9 {
+        fill: #a8aaac;
+      }
+
+      .cls-29 {
+        fill: #f3ed6b;
+      }
+
+      .cls-30 {
+        fill: #e6e7e8;
+      }
+    </style>
+  </defs>
+  <g id="Screen">
+    <g>
+      <rect class="cls-24" x="95.06" y="224.62" width="5.87" height="2.32" rx=".92" ry=".92" transform="translate(-127.79 323.77) rotate(-90)"/>
+      <rect class="cls-29" x="96.14" y="224.74" width="3.71" height="2.07" rx=".82" ry=".82" transform="translate(-127.78 323.78) rotate(-90)"/>
+    </g>
+    <path class="cls-6" d="M194.13,250.24s9.54.36,9.54-8.23.99-227.76.99-227.76c0,0-.57-7.24-7.63-7.18-7.06.06-137.9-.24-137.9-.24,0,0-7.6-.03-7.75,8.02s.24,227.24.24,229.01c.02,2.5.82,6.2,7.55,6.3,6.73.1,134.96.08,134.96.08Z"/>
+    <g>
+      <circle class="cls-27" cx="189.08" cy="22.01" r="5.79"/>
+      <path class="cls-7" d="M189.08,18.68l.12-.09c.26-.19.63-.13.82.13l.09.12.15-.05c.31-.1.64.07.74.38l.05.15h.15c.32,0,.58.26.58.58v.15s.15.05.15.05c.31.1.47.43.38.74l-.05.15.12.09c.26.19.32.56.13.82l-.09.12.09.12c.19.26.13.63-.13.82l-.12.09.05.15c.1.31-.07.64-.38.74l-.15.05v.15c0,.32-.26.58-.58.58h-.15s-.05.15-.05.15c-.1.31-.43.47-.74.38l-.15-.05-.09.12c-.19.26-.56.32-.82.13l-.12-.09-.12.09c-.26.19-.63.13-.82-.13l-.09-.12-.15.05c-.31.1-.64-.07-.74-.38l-.05-.15h-.15c-.32,0-.58-.26-.58-.58v-.15s-.15-.05-.15-.05c-.31-.1-.47-.43-.38-.74l.05-.15-.12-.09c-.26-.19-.32-.56-.13-.82l.09-.12-.09-.12c-.19-.26-.13-.63.13-.82l.12-.09-.05-.15c-.1-.31.07-.64.38-.74l.15-.05v-.15c0-.32.26-.58.58-.58h.15s.05-.15.05-.15c.1-.31.43-.47.74-.38l.15.05.09-.12c.19-.26.56-.32.82-.13l.12.09Z"/>
+      <circle class="cls-24" cx="189.08" cy="22.01" r="1.41"/>
+    </g>
+    <g>
+      <circle class="cls-27" cx="66.78" cy="22.01" r="5.79"/>
+      <path class="cls-7" d="M66.78,18.68l.12-.09c.26-.19.63-.13.82.13l.09.12.15-.05c.31-.1.64.07.74.38l.05.15h.15c.32,0,.58.26.58.58v.15s.15.05.15.05c.31.1.47.43.38.74l-.05.15.12.09c.26.19.32.56.13.82l-.09.12.09.12c.19.26.13.63-.13.82l-.12.09.05.15c.1.31-.07.64-.38.74l-.15.05v.15c0,.32-.26.58-.58.58h-.15s-.05.15-.05.15c-.1.31-.43.47-.74.38l-.15-.05-.09.12c-.19.26-.56.32-.82.13l-.12-.09-.12.09c-.26.19-.63.13-.82-.13l-.09-.12-.15.05c-.31.1-.64-.07-.74-.38l-.05-.15h-.15c-.32,0-.58-.26-.58-.58v-.15s-.15-.05-.15-.05c-.31-.1-.47-.43-.38-.74l.05-.15-.12-.09c-.26-.19-.32-.56-.13-.82l.09-.12-.09-.12c-.19-.26-.13-.63.13-.82l.12-.09-.05-.15c-.1-.31.07-.64.38-.74l.15-.05v-.15c0-.32.26-.58.58-.58h.15s.05-.15.05-.15c.1-.31.43-.47.74-.38l.15.05.09-.12c.19-.26.56-.32.82-.13l.12.09Z"/>
+      <circle class="cls-24" cx="66.78" cy="22.01" r="1.41"/>
+    </g>
+    <circle class="cls-8" cx="187.7" cy="236.11" r="7.08"/>
+    <circle class="cls-27" cx="187.7" cy="236.11" r="5.79"/>
+    <path class="cls-7" d="M187.7,232.78l.12-.09c.26-.19.63-.13.82.13l.09.12.15-.05c.31-.1.64.07.74.38l.05.15h.15c.32,0,.58.26.58.58v.15s.15.05.15.05c.31.1.47.43.38.74l-.05.15.12.09c.26.19.32.56.13.82l-.09.12.09.12c.19.26.13.63-.13.82l-.12.09.05.15c.1.31-.07.64-.38.74l-.15.05v.15c0,.32-.26.58-.58.58h-.15s-.05.15-.05.15c-.1.31-.43.47-.74.38l-.15-.05-.09.12c-.19.26-.56.32-.82.13l-.12-.09-.12.09c-.26.19-.63.13-.82-.13l-.09-.12-.15.05c-.31.1-.64-.07-.74-.38l-.05-.15h-.15c-.32,0-.58-.26-.58-.58v-.15s-.15-.05-.15-.05c-.31-.1-.47-.43-.38-.74l.05-.15-.12-.09c-.26-.19-.32-.56-.13-.82l.09-.12-.09-.12c-.19-.26-.13-.63.13-.82l.12-.09-.05-.15c-.1-.31.07-.64.38-.74l.15-.05v-.15c0-.32.26-.58.58-.58h.15s.05-.15.05-.15c.1-.31.43-.47.74-.38l.15.05.09-.12c.19-.26.56-.32.82-.13l.12.09Z"/>
+    <circle class="cls-24" cx="187.7" cy="236.11" r="1.41"/>
+    <circle class="cls-27" cx="66.86" cy="235.54" r="5.79"/>
+    <path class="cls-7" d="M66.86,232.2l.12-.09c.26-.19.63-.13.82.13l.09.12.15-.05c.31-.1.64.07.74.38l.05.15h.15c.32,0,.58.26.58.58v.15s.15.05.15.05c.31.1.47.43.38.74l-.05.15.12.09c.26.19.32.56.13.82l-.09.12.09.12c.19.26.13.63-.13.82l-.12.09.05.15c.1.31-.07.64-.38.74l-.15.05v.15c0,.32-.26.58-.58.58h-.15s-.05.15-.05.15c-.1.31-.43.47-.74.38l-.15-.05-.09.12c-.19.26-.56.32-.82.13l-.12-.09-.12.09c-.26.19-.63.13-.82-.13l-.09-.12-.15.05c-.31.1-.64-.07-.74-.38l-.05-.15h-.15c-.32,0-.58-.26-.58-.58v-.15s-.15-.05-.15-.05c-.31-.1-.47-.43-.38-.74l.05-.15-.12-.09c-.26-.19-.32-.56-.13-.82l.09-.12-.09-.12c-.19-.26-.13-.63.13-.82l.12-.09-.05-.15c-.1-.31.07-.64.38-.74l.15-.05v-.15c0-.32.26-.58.58-.58h.15s.05-.15.05-.15c.1-.31.43-.47.74-.38l.15.05.09-.12c.19-.26.56-.32.82-.13l.12.09Z"/>
+    <circle class="cls-24" cx="66.86" cy="235.54" r="1.41"/>
+    <circle class="cls-8" cx="66.86" cy="235.54" r="7.08"/>
+    <circle class="cls-8" cx="66.78" cy="22.01" r="7.08"/>
+    <circle class="cls-8" cx="189.08" cy="22.01" r="7.08"/>
+    <rect class="cls-8" x="110.23" y="225.34" width="34.8" height="24.9" rx="6.65" ry="6.65"/>
+    <circle class="cls-22" cx="154.62" cy="167.75" r="12.74"/>
+    <circle class="cls-22" cx="180.33" cy="156.27" r="12.74"/>
+    <path class="cls-1" d="M154.43,185.29c-9.67,0-17.55-7.87-17.55-17.55s7.87-17.55,17.55-17.55c3.1,0,6.12.83,8.76,2.35,1.71-7.89,8.75-13.82,17.15-13.82,9.67,0,17.55,7.87,17.55,17.55s-7.87,17.55-17.55,17.55c-3.1,0-6.12-.83-8.76-2.35-1.71,7.89-8.75,13.82-17.15,13.82Z"/>
+    <g>
+      <path class="cls-10" d="M124.93,157.6s-.06-6.97-.04-9.07c-.03-2.21-1.12-3.01-3.36-3.05-1.1.01-10.81.03-12.12,0s-2.08-.02-2.6.52-7.81,7.88-8.65,8.73c-1.37,1.5-1.56,1.82-1.54,2.78v-.02c-.02.96.17,1.28,1.54,2.78.84.85,8.13,8.19,8.65,8.73s1.3.54,2.6.52,11.01,0,12.12,0c2.24-.04,3.33-.84,3.36-3.05-.02-2.1.04-9.07.04-9.07"/>
+      <path class="cls-10" d="M92.26,125.7s-6.97.06-9.07.04c-2.21.03-3.01,1.12-3.05,3.36.01,1.1.03,10.81,0,12.12s-.02,2.08.52,2.6,7.88,7.81,8.73,8.65c1.5,1.37,1.82,1.56,2.78,1.54h-.02c.96.02,1.28-.17,2.78-1.54.85-.84,8.19-8.13,8.73-8.65s.54-1.3.52-2.6,0-11.01,0-12.12c-.04-2.24-.84-3.33-3.05-3.36-2.1.02-9.07-.04-9.07-.04"/>
+      <path class="cls-10" d="M59.54,157.42s.06,6.97.04,9.07c.03,2.21,1.12,3.01,3.36,3.05,1.1-.01,10.81-.03,12.12,0s2.08.02,2.6-.52,7.81-7.88,8.65-8.73c1.37-1.5,1.56-1.82,1.54-2.78v.02c.02-.96-.17-1.28-1.54-2.78-.84-.85-8.13-8.19-8.65-8.73s-1.3-.54-2.6-.52-11.01,0-12.12,0c-2.24.04-3.33.84-3.36,3.05.02,2.1-.04,9.07-.04,9.07"/>
+      <path class="cls-10" d="M92.07,188.66s6.97-.06,9.07-.04c2.21-.03,3.01-1.12,3.05-3.36-.01-1.1-.03-10.81,0-12.12s.02-2.08-.52-2.6-7.88-7.81-8.73-8.65c-1.5-1.37-1.82-1.56-2.78-1.54h.02c-.96-.02-1.28.17-2.78,1.54-.85.84-8.19,8.13-8.73,8.65s-.54,1.3-.52,2.6,0,11.01,0,12.12c.04,2.24.84,3.33,3.05,3.36,2.1-.02,9.07.04,9.07.04"/>
+    </g>
+    <path class="cls-1" d="M83.14,192.98c-4.31,0-7.82-3.51-7.82-7.82v-10.8h-12.24c-4.31,0-7.82-3.51-7.82-7.82v-18.06c0-4.31,3.51-7.82,7.82-7.82h12.24v-11.45c0-4.31,3.51-7.82,7.82-7.82h18.06c4.31,0,7.82,3.51,7.82,7.82v11.45h12.37c4.31,0,7.82,3.51,7.82,7.82v18.06c0,4.31-3.51,7.82-7.82,7.82h-12.37v10.8c0,4.31-3.51,7.82-7.82,7.82h-18.06Z"/>
+    <rect class="cls-24" x="172.32" y="221.7" width="10.43" height="4.33" transform="translate(-106.29 191.11) rotate(-45)"/>
+    <g>
+      <rect class="cls-23" x="165.35" y="197" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(142.74 454.55) rotate(-135)"/>
+      <rect class="cls-23" x="166.34" y="198" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(143.74 456.96) rotate(-135)"/>
+      <rect class="cls-23" x="167.34" y="199" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(144.74 459.37) rotate(-135)"/>
+      <rect class="cls-23" x="168.34" y="200" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(145.74 461.78) rotate(-135)"/>
+      <rect class="cls-23" x="169.34" y="201" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(146.73 464.18) rotate(-135)"/>
+      <rect class="cls-23" x="170.34" y="201.99" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(147.74 466.59) rotate(-135)"/>
+      <rect class="cls-23" x="171.34" y="202.99" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(148.73 469) rotate(-135)"/>
+      <rect class="cls-23" x="172.33" y="203.99" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(149.73 471.41) rotate(-135)"/>
+      <rect class="cls-23" x="173.33" y="204.99" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(150.73 473.82) rotate(-135)"/>
+      <rect class="cls-23" x="174.33" y="205.99" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(151.73 476.23) rotate(-135)"/>
+      <rect class="cls-23" x="175.33" y="206.99" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(152.73 478.64) rotate(-135)"/>
+      <rect class="cls-23" x="176.33" y="207.98" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(153.73 481.05) rotate(-135)"/>
+    </g>
+    <g>
+      <rect class="cls-23" x="150.94" y="211.41" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(107.95 468.96) rotate(-135)"/>
+      <rect class="cls-23" x="151.93" y="212.41" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(108.95 471.37) rotate(-135)"/>
+      <rect class="cls-23" x="152.93" y="213.41" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(109.95 473.78) rotate(-135)"/>
+      <rect class="cls-23" x="153.93" y="214.41" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(110.95 476.19) rotate(-135)"/>
+      <rect class="cls-23" x="154.93" y="215.41" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(111.95 478.6) rotate(-135)"/>
+      <rect class="cls-23" x="155.93" y="216.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(112.95 481) rotate(-135)"/>
+      <rect class="cls-23" x="156.93" y="217.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(113.94 483.41) rotate(-135)"/>
+      <rect class="cls-23" x="157.92" y="218.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(114.95 485.82) rotate(-135)"/>
+      <rect class="cls-23" x="158.92" y="219.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(115.94 488.23) rotate(-135)"/>
+      <rect class="cls-23" x="159.92" y="220.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(116.94 490.64) rotate(-135)"/>
+      <rect class="cls-23" x="160.92" y="221.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(117.94 493.05) rotate(-135)"/>
+      <rect class="cls-23" x="161.92" y="222.39" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(118.93 495.46) rotate(-135)"/>
+    </g>
+    <g>
+      <rect class="cls-23" x="162.05" y="196.84" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-92.17 172.56) rotate(-45)"/>
+      <rect class="cls-23" x="161.05" y="197.84" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-93.17 172.15) rotate(-45)"/>
+      <rect class="cls-23" x="160.05" y="198.84" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-94.17 171.73) rotate(-45)"/>
+      <rect class="cls-23" x="159.05" y="199.83" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-95.17 171.32) rotate(-45)"/>
+      <rect class="cls-23" x="158.06" y="200.83" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-96.17 170.91) rotate(-45)"/>
+      <rect class="cls-23" x="157.06" y="201.83" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-97.16 170.49) rotate(-45)"/>
+      <rect class="cls-23" x="156.06" y="202.83" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-98.16 170.08) rotate(-45)"/>
+      <rect class="cls-23" x="155.06" y="203.83" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-99.16 169.67) rotate(-45)"/>
+      <rect class="cls-23" x="154.06" y="204.82" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-100.16 169.25) rotate(-45)"/>
+      <rect class="cls-23" x="153.06" y="205.82" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-101.16 168.84) rotate(-45)"/>
+      <rect class="cls-23" x="152.07" y="206.82" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-102.16 168.43) rotate(-45)"/>
+      <rect class="cls-23" x="151.07" y="207.82" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-103.15 168.01) rotate(-45)"/>
+    </g>
+    <g>
+      <rect class="cls-23" x="176.28" y="211.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-98.3 186.89) rotate(-45)"/>
+      <rect class="cls-23" x="175.29" y="212.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-99.3 186.48) rotate(-45)"/>
+      <rect class="cls-23" x="174.29" y="213.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-100.3 186.07) rotate(-45)"/>
+      <rect class="cls-23" x="173.29" y="214.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-101.3 185.66) rotate(-45)"/>
+      <rect class="cls-23" x="172.29" y="215.4" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-102.3 185.24) rotate(-45)"/>
+      <rect class="cls-23" x="171.29" y="216.39" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-103.29 184.83) rotate(-45)"/>
+      <rect class="cls-23" x="170.3" y="217.39" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-104.29 184.41) rotate(-45)"/>
+      <rect class="cls-23" x="169.3" y="218.39" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-105.29 184) rotate(-45)"/>
+      <rect class="cls-23" x="168.3" y="219.39" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-106.29 183.59) rotate(-45)"/>
+      <rect class="cls-23" x="167.3" y="220.39" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-107.29 183.17) rotate(-45)"/>
+      <rect class="cls-23" x="166.3" y="221.38" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-108.28 182.76) rotate(-45)"/>
+      <rect class="cls-23" x="165.3" y="222.38" width=".33" height="1.41" rx=".13" ry=".13" transform="translate(-109.28 182.35) rotate(-45)"/>
+    </g>
+    <rect class="cls-18" x="153.67" y="200.32" width="20.22" height="20.22" rx="1.39" ry="1.39" transform="translate(-100.83 177.44) rotate(-45)"/>
+    <g>
+      <rect class="cls-24" x="102.76" y="108.51" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="104.3" y="108.64" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-12" x="106.13" y="108.51" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="113.12" y="108.51" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="114.66" y="108.64" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-12" x="116.49" y="108.51" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="144.2" y="108.51" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="145.74" y="108.64" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-12" x="147.56" y="108.51" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="133.84" y="108.51" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="135.38" y="108.64" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-12" x="137.2" y="108.51" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="123.48" y="108.51" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="125.02" y="108.64" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="126.84" y="108.51" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="185.33" y="37.59" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="186.87" y="37.72" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="188.69" y="37.59" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="185.33" y="43.54" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="186.87" y="43.66" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="188.69" y="43.54" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="185.33" y="49.49" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="186.87" y="49.61" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="188.69" y="49.49" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="60.99" y="89.43" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="62.54" y="89.55" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-12" x="64.36" y="89.43" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="60.99" y="64.42" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="62.54" y="64.55" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-12" x="64.36" y="64.42" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="60.99" y="33.41" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="62.54" y="33.53" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="64.36" y="33.41" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="60.99" y="39.35" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="62.54" y="39.48" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="64.36" y="39.35" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="60.99" y="45.3" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="62.54" y="45.43" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="64.36" y="45.3" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="60.99" y="83.55" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="62.54" y="83.67" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="64.36" y="83.55" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="81.83" y="216.16" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(-131.29 303.35) rotate(-90)"/>
+      <rect class="cls-5" x="83.37" y="216.29" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(-131.29 303.36) rotate(-90)"/>
+      <rect class="cls-26" x="85.19" y="216.16" width="1.68" height="2.32" transform="translate(-131.29 303.35) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="87.67" y="216.16" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(-125.45 309.2) rotate(-90)"/>
+      <rect class="cls-5" x="89.21" y="216.29" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(-125.45 309.2) rotate(-90)"/>
+      <rect class="cls-26" x="91.03" y="216.16" width="1.68" height="2.32" transform="translate(-125.45 309.2) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="93.52" y="216.16" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(-119.6 315.04) rotate(-90)"/>
+      <rect class="cls-5" x="95.06" y="216.29" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(-119.6 315.05) rotate(-90)"/>
+      <rect class="cls-26" x="96.88" y="216.16" width="1.68" height="2.32" transform="translate(-119.6 315.04) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="99.36" y="216.16" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(-113.76 320.89) rotate(-90)"/>
+      <rect class="cls-5" x="100.9" y="216.29" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(-113.76 320.89) rotate(-90)"/>
+      <rect class="cls-26" x="102.72" y="216.16" width="1.68" height="2.32" transform="translate(-113.76 320.89) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="173.33" y="195.5" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(164.01 461.26) rotate(-135)"/>
+      <rect class="cls-5" x="174.87" y="195.63" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(164.01 461.26) rotate(-135)"/>
+      <rect class="cls-26" x="176.7" y="195.5" width="1.68" height="2.32" transform="translate(164.01 461.26) rotate(-135)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="159.09" y="228.68" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="160.63" y="228.8" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-26" x="162.45" y="228.68" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="120.05" y="217.94" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(-94.85 343.35) rotate(-90)"/>
+      <rect class="cls-5" x="121.59" y="218.07" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(-94.85 343.35) rotate(-90)"/>
+      <rect class="cls-26" x="123.41" y="217.94" width="1.68" height="2.32" transform="translate(-94.85 343.35) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="126.12" y="217.94" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(-88.77 349.43) rotate(-90)"/>
+      <rect class="cls-5" x="127.67" y="218.07" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(-88.77 349.43) rotate(-90)"/>
+      <rect class="cls-26" x="129.49" y="217.94" width="1.68" height="2.32" transform="translate(-88.77 349.43) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="159.57" y="189.33" width="8.41" height="2.32" rx=".92" ry=".92"/>
+      <rect class="cls-5" x="161.11" y="189.46" width="5.33" height="2.07" rx=".82" ry=".82"/>
+      <rect class="cls-12" x="162.93" y="189.33" width="1.68" height="2.32"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="145.72" y="195.42" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(-95.09 163.59) rotate(-45)"/>
+      <rect class="cls-5" x="147.26" y="195.54" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(-95.09 163.59) rotate(-45)"/>
+      <rect class="cls-12" x="149.08" y="195.42" width="1.68" height="2.32" transform="translate(-95.09 163.59) rotate(-45)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="139.78" y="208.76" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(-65.94 353.91) rotate(-90)"/>
+      <rect class="cls-5" x="141.32" y="208.89" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(-65.94 353.91) rotate(-90)"/>
+      <rect class="cls-12" x="143.15" y="208.76" width="1.68" height="2.32" transform="translate(-65.94 353.91) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="144.95" y="222.3" width="8.41" height="2.32" rx=".92" ry=".92" transform="translate(96.61 486.94) rotate(-135)"/>
+      <rect class="cls-5" x="146.49" y="222.42" width="5.33" height="2.07" rx=".82" ry=".82" transform="translate(96.61 486.94) rotate(-135)"/>
+      <rect class="cls-12" x="148.31" y="222.3" width="1.68" height="2.32" transform="translate(96.61 486.94) rotate(-135)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="186.57" y="68.09" width=".46" height="1.61"/>
+      <rect class="cls-5" x="186.36" y="69.75" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="188.43" y="68.09" width=".46" height="1.61"/>
+      <rect class="cls-5" x="188.21" y="69.75" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="190.28" y="68.09" width=".46" height="1.61"/>
+      <rect class="cls-5" x="190.06" y="69.75" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="192.13" y="68.09" width=".46" height="1.61"/>
+      <rect class="cls-5" x="191.92" y="69.75" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="186.57" y="85.14" width=".46" height="1.61"/>
+      <rect class="cls-5" x="186.36" y="82.65" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="188.43" y="85.14" width=".46" height="1.61"/>
+      <rect class="cls-5" x="188.21" y="82.65" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="190.28" y="85.14" width=".46" height="1.61"/>
+      <rect class="cls-5" x="190.06" y="82.65" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="192.13" y="85.14" width=".46" height="1.61"/>
+      <rect class="cls-5" x="191.92" y="82.65" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <rect class="cls-17" x="185.14" y="71.04" width="9.13" height="12.74" rx="1.72" ry="1.72"/>
+    <g>
+      <rect class="cls-24" x="186.5" y="54.51" width=".46" height="1.61"/>
+      <rect class="cls-5" x="186.28" y="56.16" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="189.23" y="54.51" width=".46" height="1.61"/>
+      <rect class="cls-5" x="189.02" y="56.16" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="191.97" y="54.51" width=".46" height="1.61"/>
+      <rect class="cls-5" x="191.75" y="56.16" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="186.5" y="63.7" width=".46" height="1.61"/>
+      <rect class="cls-5" x="186.28" y="61.22" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="189.23" y="63.7" width=".46" height="1.61"/>
+      <rect class="cls-5" x="189.02" y="61.22" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="191.97" y="63.7" width=".46" height="1.61"/>
+      <rect class="cls-5" x="191.75" y="61.22" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <rect class="cls-17" x="184.82" y="57.48" width="9.4" height="4.93" rx="1.72" ry="1.72"/>
+    <g>
+      <rect class="cls-24" x="62.37" y="69.51" width=".46" height="1.61"/>
+      <rect class="cls-5" x="62.16" y="71.16" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="65.11" y="69.51" width=".46" height="1.61"/>
+      <rect class="cls-5" x="64.89" y="71.16" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="67.84" y="69.51" width=".46" height="1.61"/>
+      <rect class="cls-5" x="67.63" y="71.16" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="62.37" y="78.7" width=".46" height="1.61"/>
+      <rect class="cls-5" x="62.16" y="76.22" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="67.84" y="78.7" width=".46" height="1.61"/>
+      <rect class="cls-5" x="67.63" y="76.22" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <rect class="cls-17" x="60.69" y="72.48" width="9.4" height="4.93" rx="1.72" ry="1.72"/>
+    <rect class="cls-24" x="121.79" y="207.88" width="10.99" height="4.71" rx=".55" ry=".55"/>
+    <rect class="cls-26" x="124.47" y="207.85" width="5.86" height="4.74"/>
+    <rect class="cls-9" x="172.8" y="222.34" width="9.44" height="3.05" rx="1.21" ry="1.21" transform="translate(-106.3 191.09) rotate(-45)"/>
+    <rect class="cls-2" x="88.79" y="5.75" width="3.58" height="5.14"/>
+    <g>
+      <rect class="cls-24" x="83.1" y="224.62" width="5.87" height="2.32" rx=".92" ry=".92" transform="translate(-139.75 311.81) rotate(-90)"/>
+      <rect class="cls-29" x="84.17" y="224.74" width="3.71" height="2.07" rx=".82" ry=".82" transform="translate(-139.75 311.81) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="89.08" y="224.62" width="5.87" height="2.32" rx=".92" ry=".92" transform="translate(-133.77 317.79) rotate(-90)"/>
+      <rect class="cls-29" x="90.16" y="224.74" width="3.71" height="2.07" rx=".82" ry=".82" transform="translate(-133.77 317.79) rotate(-90)"/>
+    </g>
+    <rect class="cls-14" x="63.9" y="53.8" width="3.04" height="4.85"/>
+    <polygon class="cls-26" points="87.96 239.61 87.96 241.01 89.11 241.01 89.11 242.25 90.63 243.81 93.01 243.81 94.57 242.33 94.57 241.09 95.77 241.09 95.77 239.61 87.96 239.61"/>
+    <rect class="cls-3" x="87.86" y="234.92" width="8.03" height="5.59" rx="2.21" ry="2.21"/>
+    <g>
+      <rect class="cls-24" x="123.44" y="227.79" width=".46" height="1.61"/>
+      <rect class="cls-5" x="123.23" y="229.45" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="125.29" y="227.79" width=".46" height="1.61"/>
+      <rect class="cls-5" x="125.08" y="229.45" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="127.15" y="227.79" width=".46" height="1.61"/>
+      <rect class="cls-5" x="126.93" y="229.45" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="129" y="227.79" width=".46" height="1.61"/>
+      <rect class="cls-5" x="128.79" y="229.45" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="130.95" y="227.79" width=".46" height="1.61"/>
+      <rect class="cls-5" x="130.74" y="229.45" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <polygon class="cls-21" points="117.44 250.02 117.59 229.66 120.69 229.66 122.08 231.26 133.33 231.26 134.76 229.62 137.84 229.62 137.84 250.02 117.44 250.02"/>
+    <path class="cls-4" d="M119.32,241.47c0,1.89-.3,3.45,1.26,3.45s1.38-1.14,1.38-3.45"/>
+    <path class="cls-4" d="M133.2,241.71c0,1.89-.3,3.45,1.26,3.45s1.38-1.14,1.38-3.45"/>
+    <path class="cls-20" d="M136.93,229.62s.5,0,.85,0c.28,0,.5-.32.5-.68h.81v3.01h-.69v8.73h.69v2.86h-.63v6.49h-1.65l.12-20.4Z"/>
+    <path class="cls-20" d="M117.77,229.62s-.5,0-.85,0c-.28,0-.5-.32-.5-.68h-.81s0,3.01,0,3.01h.69s0,8.73,0,8.73h-.69s0,2.86,0,2.86h.63s0,6.49,0,6.49h1.64s-.11-20.4-.11-20.4Z"/>
+    <g>
+      <polyline class="cls-21" points="139.09 228.94 139.98 228.94 139.98 227.79 141.48 227.79 141.48 230.35 141.48 230.85 139.09 230.85 139.09 228.94"/>
+      <polyline class="cls-21" points="139.09 231.92 139.98 231.92 139.98 233.07 141.48 233.07 141.48 230.5 141.48 230.01 139.09 230.01 139.09 231.92"/>
+    </g>
+    <g>
+      <polyline class="cls-21" points="139.09 240.67 139.98 240.67 139.98 239.57 141.48 239.57 141.48 242.03 141.48 242.51 139.09 242.51 139.09 240.67"/>
+      <polyline class="cls-21" points="139.09 243.53 139.98 243.53 139.98 244.63 141.48 244.63 141.48 242.18 141.48 241.7 139.09 241.7 139.09 243.53"/>
+    </g>
+    <g>
+      <polyline class="cls-21" points="115.61 228.94 114.72 228.94 114.72 227.79 113.21 227.79 113.21 230.35 113.21 230.85 115.61 230.85 115.61 228.94"/>
+      <polyline class="cls-21" points="115.61 231.92 114.72 231.92 114.72 233.07 113.21 233.07 113.21 230.5 113.21 230.01 115.61 230.01 115.61 231.92"/>
+    </g>
+    <polyline class="cls-1" points="76.86 92.68 93.33 92.68 178.9 92.68"/>
+    <g>
+      <polyline class="cls-21" points="115.61 240.67 114.72 240.67 114.72 239.57 113.21 239.57 113.21 242.03 113.21 242.51 115.61 242.51 115.61 240.67"/>
+      <polyline class="cls-21" points="115.61 243.53 114.72 243.53 114.72 244.63 113.21 244.63 113.21 242.18 113.21 241.7 115.61 241.7 115.61 243.53"/>
+    </g>
+    <polyline class="cls-1" points="52 105.06 76.43 105.06 203.31 105.06"/>
+    <rect class="cls-1" x="76.11" y="22.4" width="103.23" height="82.66" rx="9.16" ry="9.16"/>
+    <g>
+      <rect class="cls-24" x="79.77" y="16.55" width="4.79" height="2.32" rx=".92" ry=".92" transform="translate(99.87 -64.46) rotate(90)"/>
+      <rect class="cls-5" x="80.65" y="16.67" width="3.03" height="2.07" rx=".82" ry=".82" transform="translate(99.87 -64.46) rotate(90)"/>
+      <rect class="cls-26" x="81.69" y="16.55" width=".96" height="2.32" transform="translate(99.87 -64.46) rotate(90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="84.31" y="16.55" width="4.79" height="2.32" rx=".92" ry=".92" transform="translate(104.41 -68.99) rotate(90)"/>
+      <rect class="cls-5" x="85.18" y="16.67" width="3.03" height="2.07" rx=".82" ry=".82" transform="translate(104.41 -68.99) rotate(90)"/>
+      <rect class="cls-26" x="86.22" y="16.55" width=".96" height="2.32" transform="translate(104.41 -68.99) rotate(90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="93.23" y="16.55" width="4.79" height="2.32" rx=".92" ry=".92" transform="translate(113.33 -77.91) rotate(90)"/>
+      <rect class="cls-5" x="94.11" y="16.67" width="3.03" height="2.07" rx=".82" ry=".82" transform="translate(113.33 -77.91) rotate(90)"/>
+      <rect class="cls-26" x="95.14" y="16.55" width=".96" height="2.32" transform="translate(113.33 -77.91) rotate(90)"/>
+    </g>
+    <polygon class="cls-19" points="98.53 11.19 96.78 11.19 96.78 9.66 80.8 9.66 80.8 11.19 79.23 11.19 79.23 15.87 80.8 15.87 80.8 17.71 96.78 17.71 96.78 15.39 98.53 15.39 98.53 11.19"/>
+    <polygon class="cls-30" points="90.63 243.81 89.69 249.68 94.05 249.68 93.01 243.81 90.63 243.81"/>
+    <g>
+      <rect class="cls-24" x="94.66" y="224.62" width="5.87" height="2.32" rx=".92" ry=".92" transform="translate(-128.18 323.38) rotate(-90)"/>
+      <rect class="cls-29" x="95.74" y="224.74" width="3.71" height="2.07" rx=".82" ry=".82" transform="translate(-128.18 323.38) rotate(-90)"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="122.33" y="180.37" width=".46" height="1.61"/>
+      <rect class="cls-5" x="122.12" y="182.02" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="126.09" y="180.37" width=".46" height="1.61"/>
+      <rect class="cls-5" x="125.88" y="182.02" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="129.85" y="180.37" width=".46" height="1.61"/>
+      <rect class="cls-5" x="129.63" y="182.02" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="133.6" y="180.37" width=".46" height="1.61"/>
+      <rect class="cls-5" x="133.39" y="182.02" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="122.13" y="202.74" width=".46" height="1.61"/>
+      <rect class="cls-5" x="121.92" y="200.26" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="125.89" y="202.74" width=".46" height="1.61"/>
+      <rect class="cls-5" x="125.68" y="200.26" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="129.65" y="202.74" width=".46" height="1.61"/>
+      <rect class="cls-5" x="129.43" y="200.26" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <g>
+      <rect class="cls-24" x="133.4" y="202.74" width=".46" height="1.61"/>
+      <rect class="cls-5" x="133.19" y="200.26" width=".89" height="2.44" rx=".35" ry=".35"/>
+    </g>
+    <rect class="cls-17" x="120.11" y="182.37" width="16.04" height="20.01" rx="1.35" ry="1.35"/>
+    <rect class="cls-15" x="110.61" y="90.59" width="34.2" height="7.65" rx="3.03" ry="3.03"/>
+    <rect class="cls-17" x="113.02" y="93.61" width="29.38" height="4.63"/>
+    <polygon class="cls-17" points="176.49 78.83 78.93 78.83 78.93 77.51 78.93 28.97 176.49 28.97 176.49 78.83"/>
+    <rect class="cls-17" x="84.81" y="32.34" width="86.27" height="43.01" rx="3.93" ry="3.93"/>
+    <path class="cls-17" d="M78.93,79.07v7.81c0,4.03,2.73,5.59,5.29,5.59h26.37v1.14h22.72l.27-14.78h-54.65v.24Z"/>
+    <path class="cls-17" d="M176.49,79.07v7.81c0,4.03-2.73,5.59-5.29,5.59s-26.37,0-26.37,0v1.14h-22.72s-.27-14.78-.27-14.78h54.65v.24Z"/>
+    <g>
+      <path class="cls-25" d="M122.74,198.53l.96-.13-.49-.2-.47-.23v-.64l1.74.89v.56l-.65.12.65.33v.57l-1.74.3v-.64l.48-.08.49-.05-.96-.45v-.37Z"/>
+      <path class="cls-25" d="M122.07,196.99c-.07-.08-.1-.18-.1-.28,0-.08.02-.15.07-.21.05-.06.12-.08.2-.08.11,0,.2.04.27.12.07.08.1.17.1.28,0,.08-.02.15-.07.21-.05.06-.11.09-.2.09-.11,0-.21-.04-.27-.12ZM124.47,196.83l-1.7-.29v.61l1.7.28v-.61Z"/>
+      <path class="cls-25" d="M124.47,195.35l-.95-.16c-.1-.02-.17,0-.22.03-.05.04-.07.09-.07.15,0,.08.03.15.09.22.06.06.14.1.25.12l.91.15v.6l-1.73-.29v-.54h.19c-.16-.15-.24-.33-.23-.55,0-.19.07-.34.19-.43.13-.1.33-.12.62-.07l.96.16v.61Z"/>
+      <path class="cls-25" d="M122.89,193.53c-.12-.12-.19-.28-.19-.48s.07-.36.2-.48.31-.18.53-.18c.31,0,.56.08.75.24.19.16.29.39.31.67,0,.1-.01.2-.05.29-.03.09-.09.16-.17.22l.19.06v.54l-2.45-.41v-.61l.87.14ZM123.36,193.56c.09.07.2.11.31.11.08,0,.16-.02.21-.07.06-.05.09-.12.09-.2,0-.11-.04-.2-.12-.28-.08-.08-.19-.12-.33-.12-.1,0-.17.02-.23.07-.06.05-.08.12-.08.2,0,.12.05.21.14.29Z"/>
+      <path class="cls-25" d="M122.74,190.76v-.57l1.73.29v.56h-.19c.08.07.14.17.17.27.04.11.05.21.05.3-.01.2-.08.35-.21.46-.13.11-.3.16-.51.16-.3,0-.55-.09-.76-.28s-.31-.41-.31-.69c0-.23.07-.38.22-.44l-.19-.06ZM123.35,191.49c.08.08.19.12.33.12.09,0,.17-.03.22-.08.05-.05.08-.12.08-.2,0-.11-.04-.21-.13-.29-.09-.08-.2-.12-.32-.12-.09,0-.17.02-.22.07-.06.05-.08.12-.08.21,0,.11.04.2.13.28Z"/>
+      <path class="cls-25" d="M124.47,189.01l-.95-.16c-.1-.02-.17,0-.22.03-.05.04-.07.09-.07.15,0,.08.03.15.09.22.06.06.14.1.25.12l.91.15v.6l-1.73-.29v-.54h.19c-.16-.15-.24-.33-.23-.55,0-.19.07-.34.19-.43.13-.1.33-.12.62-.07l.96.16v.61Z"/>
+      <path class="cls-25" d="M122.02,186.48v-.61l2.45.41v.54h-.19c.08.07.14.16.17.27.04.1.05.21.05.3-.01.2-.08.35-.2.46-.12.11-.29.16-.5.16-.31,0-.57-.09-.78-.28s-.31-.42-.31-.69c0-.21.06-.35.19-.42l-.87-.15ZM123.35,187.28c.08.08.19.12.33.12.1,0,.17-.02.22-.07.05-.05.08-.12.08-.2,0-.11-.04-.21-.13-.28s-.19-.11-.31-.11c-.09,0-.17.02-.23.07-.06.05-.09.11-.09.2,0,.11.04.2.13.28Z"/>
+    </g>
+    <g>
+      <path class="cls-25" d="M129.17,198.05v.21h-.05c.04.23.06.36.06.38,0,.09-.03.17-.1.22-.06.06-.15.08-.24.08h-.97c-.1,0-.19-.03-.25-.1s-.1-.14-.1-.24v-.35h-1.01v-.21h2.66ZM128.96,198.27h-1.25v.3c0,.12.06.18.19.18h.88c.13,0,.19-.06.19-.18,0-.03,0-.13-.02-.3Z"/>
+      <path class="cls-25" d="M128.97,196.82c.13,0,.19.06.19.18v.52c0,.12-.06.18-.19.18h-1.27c-.13,0-.19-.06-.19-.18v-.52c0-.12.06-.18.19-.18h.6l.08.07v.6h.6v-.46h-.3v-.21h.3ZM128.2,197.03h-.5v.46h.5v-.46Z"/>
+      <path class="cls-25" d="M128.97,195.62c.13,0,.19.06.19.18v.49c0,.12-.06.18-.19.18h-.38v-.21h.37v-.43h-.33l-.49.56c-.04.05-.1.08-.18.08h-.28c-.13,0-.19-.06-.19-.18v-.49c0-.12.06-.18.19-.18h.33v.21h-.33v.43h.29l.48-.57c.04-.05.1-.08.18-.08h.31Z"/>
+      <path class="cls-25" d="M127.15,195.05v.22h-.29v-.22h.29ZM129.17,195.05v.21h-1.65v-.21h1.65Z"/>
+      <path class="cls-25" d="M129.6,193.79c.13,0,.19.06.19.18v.51c0,.12-.08.19-.24.19-.02,0-.05,0-.09,0-.04,0-.07,0-.08,0v-.21h.22v-.45h-.44v.35c0,.1-.03.18-.1.24s-.15.1-.25.1h-.97c-.1,0-.18-.03-.24-.08-.06-.06-.1-.13-.1-.22,0-.02.02-.15.06-.38h-.05v-.21h2.09ZM128.97,194.01h-1.25c-.01.17-.02.27-.02.3,0,.12.06.18.19.18h.89c.13,0,.19-.06.19-.18v-.3Z"/>
+      <path class="cls-25" d="M129.17,192.54v.21h-1.45v.47h1.45v.22h-1.65v-.22h.05c-.01-.08-.02-.17-.04-.25-.01-.1-.02-.19-.02-.26,0-.12.06-.18.19-.18h1.48Z"/>
+      <path class="cls-25" d="M128.97,191.31c.13,0,.19.06.19.18v.52c0,.12-.06.18-.19.18h-1.27c-.13,0-.19-.06-.19-.18v-.52c0-.12.06-.18.19-.18h.6l.08.07v.6h.6v-.46h-.3v-.21h.3ZM128.2,191.52h-.5v.46h.5v-.46Z"/>
+      <path class="cls-25" d="M129.17,190.06v.21h-.05c.04.23.06.36.06.38,0,.09-.03.17-.1.22-.06.06-.15.08-.24.08h-.97c-.1,0-.19-.03-.25-.1s-.1-.14-.1-.24v-.35h-1.01v-.21h2.66ZM128.96,190.27h-1.25v.3c0,.12.06.18.19.18h.88c.13,0,.19-.06.19-.18,0-.03,0-.13-.02-.3Z"/>
+      <path class="cls-25" d="M128.81,188.15c.1,0,.19.03.25.1s.1.14.1.24v.57h-2.66v-.22h1.05c-.01-.08-.02-.17-.03-.25-.01-.11-.02-.19-.02-.25,0-.12.06-.18.19-.18h1.12ZM128.78,188.37h-1.06v.47h1.25v-.3c0-.12-.06-.18-.19-.18Z"/>
+      <path class="cls-25" d="M127.51,186.92l1.64.38.64.16v.21l-.64-.16-1.64.39v-.22l1.3-.27-1.3-.27v-.22Z"/>
+      <path class="cls-25" d="M133.35,197.6v.21h-1.45v.47h1.45v.21h-1.45v.47h1.45v.22h-1.65v-.22h.05c-.01-.08-.02-.17-.04-.25-.01-.1-.02-.19-.02-.25s.02-.11.06-.15c-.01-.09-.03-.18-.04-.27-.02-.12-.02-.21-.02-.27,0-.12.06-.18.19-.18h1.48Z"/>
+      <path class="cls-25" d="M131.33,197.02v.22h-.29v-.22h.29ZM133.35,197.03v.21h-1.65v-.21h1.65Z"/>
+      <path class="cls-25" d="M133.35,196.44v.21h-2.66v-.21h2.66Z"/>
+      <path class="cls-25" d="M133.35,195.19v.23l-.84.43h.84v.22h-2.66v-.22h1.69l-.68-.4v-.23h0l.73.46.92-.49Z"/>
+      <path class="cls-25" d="M133.35,194.4v.31c0,.12-.06.18-.19.18h-1.26v.19h-.2v-.19h-.52v-.21h.52v-.28h.2v.28h1.26v-.28h.2Z"/>
+      <path class="cls-25" d="M133.15,193.22c.13,0,.19.06.19.18v.54c0,.12-.06.18-.19.18h-1.27c-.13,0-.19-.06-.19-.18v-.54c0-.12.06-.18.19-.18h1.27ZM133.15,193.43h-1.26v.47h1.26v-.47Z"/>
+      <path class="cls-25" d="M133.35,191.98v.21h-.05c.01.08.02.17.04.26.01.11.02.19.02.25,0,.12-.06.18-.18.18h-.6c-.13,0-.19-.06-.19-.18v-.51h-.5v.46h.28v.21h-.28c-.13,0-.19-.06-.19-.18v-.52c0-.12.06-.18.19-.18h1.46ZM133.14,192.19h-.58v.48h.6v-.48Z"/>
+      <path class="cls-25" d="M133.15,190.78c.13,0,.19.06.19.18v.49c0,.12-.06.18-.19.18h-.38v-.21h.37v-.43h-.33l-.48.56c-.05.05-.1.08-.18.08h-.28c-.13,0-.19-.06-.19-.18v-.49c0-.12.06-.18.19-.18h.33v.21h-.33v.43h.29l.48-.57c.04-.05.1-.08.18-.08h.31Z"/>
+      <path class="cls-25" d="M133.35,189.87v.31c0,.12-.06.18-.19.18h-1.26v.19h-.2v-.19h-.52v-.21h.52v-.28h.2v.28h1.26v-.28h.2Z"/>
+      <path class="cls-25" d="M132.24,188.78v.21h-.34v.4h1.45v.22h-1.65v-.22h.05c-.01-.07-.02-.14-.04-.21-.01-.09-.02-.16-.02-.21,0-.12.06-.18.19-.18h.37Z"/>
+      <path class="cls-25" d="M133.35,187.61v.21h-.05c.01.08.02.17.04.26.01.11.02.19.02.25,0,.12-.06.18-.18.18h-.6c-.13,0-.19-.06-.19-.18v-.51h-.5v.46h.28v.21h-.28c-.13,0-.19-.06-.19-.18v-.52c0-.12.06-.18.19-.18h1.46ZM133.14,187.82h-.58v.48h.6v-.48Z"/>
+      <path class="cls-25" d="M133.35,186.69v.31c0,.12-.06.18-.19.18h-1.26v.19h-.2v-.19h-.52v-.21h.52v-.28h.2v.28h1.26v-.28h.2Z"/>
+    </g>
+    <g class="cls-16">
+      <path class="cls-13" d="M158.87,212.19l-.21.21-2.17-1.34-.03-.09.35-.35-1.21-1.21-.5.5,3.02,3.02-.2.2-3.28-3.28.74-.74s.1-.06.18-.05c.07.01.14.06.21.12l1.24,1.24c.16.16.17.31.02.45-.01.01-.04.03-.07.06s-.05.04-.06.06c.65.39,1.3.79,1.95,1.19Z"/>
+      <path class="cls-13" d="M159.87,210.73c.07.07.11.14.12.21.01.07,0,.13-.05.18l-.62.62s-.11.06-.18.05c-.07-.02-.14-.06-.21-.12l-2.81-2.81c-.07-.07-.11-.14-.12-.21-.01-.07,0-.13.05-.18l.62-.62s.11-.06.18-.05c.07.01.14.05.21.12l2.81,2.81ZM159.65,210.9l-2.76-2.76-.54.54,2.76,2.76.54-.54Z"/>
+      <path class="cls-13" d="M161.55,209.52l-.19.19-2.08-2.08s-.11-.12-.24-.28l1.66,2.39-.04.04-2.39-1.66c.16.13.25.21.28.24l2.08,2.08-.19.19-3.28-3.28.18-.18,2.49,1.77s.05.04.1.09c-.02-.02-.05-.05-.09-.1l-1.77-2.49.18-.18,3.28,3.28Z"/>
+      <path class="cls-13" d="M163,208.07l-.19.19-2.08-2.08s-.11-.12-.24-.28l1.66,2.39-.04.04-2.39-1.66c.16.13.25.21.28.24l2.08,2.08-.18.18-3.28-3.28.18-.18,2.49,1.77s.05.04.1.09c-.02-.02-.05-.05-.09-.1l-1.77-2.49.18-.18,3.28,3.28Z"/>
+    </g>
+    <g class="cls-28">
+      <path class="cls-13" d="M160.88,214.14c-.22-.22-.43-.44-.54-.56h0c.09.22.33,1.11.49,1.67l-.12.12c-.43-.13-1.39-.42-1.64-.52h0c.14.12.41.38.61.58l.49.49-.12.12-1.14-1.14.18-.18c.61.17,1.4.41,1.58.48h0c-.05-.12-.3-1.01-.45-1.62l.18-.18,1.14,1.14-.12.12-.52-.52Z"/>
+      <path class="cls-13" d="M161.25,212.71l-.54.54-.08-.08,1.2-1.2.08.08-.54.54,1.06,1.06-.13.13-1.06-1.06Z"/>
+      <path class="cls-13" d="M162.8,212.21l.53.53-.12.12-1.14-1.14.57-.57c.31-.31.6-.36.78-.18.14.14.12.36-.03.56.19-.14.38-.17.57.02l.04.04c.08.08.18.2.25.21l-.13.13c-.08-.02-.16-.12-.26-.21l-.03-.03c-.19-.19-.34-.19-.65.12l-.39.39ZM162.72,212.13l.38-.38c.28-.28.33-.49.18-.64-.14-.14-.35-.09-.6.16l-.42.42.45.45Z"/>
+      <path class="cls-13" d="M164.52,211.55h0c-.13-.14-.14-.46,0-.93.12-.4.14-.51,0-.65-.12-.12-.31-.13-.53.09s-.24.38-.12.58l-.12.12c-.15-.21-.12-.49.16-.77.3-.3.58-.28.73-.14.17.17.12.32,0,.76-.09.35-.12.59-.07.74l.84-.84.06.1-.95.95Z"/>
+      <path class="cls-13" d="M166.14,208.85c.25.25.47.65.07,1.05s-.78.2-1.04-.07-.45-.66-.06-1.05.78-.19,1.03.07ZM165.3,209.71c.21.21.54.41.84.12s.11-.62-.12-.85c-.21-.21-.53-.41-.83-.11s-.13.61.11.85Z"/>
+      <path class="cls-13" d="M166.92,209.16h0c-.13-.14-.14-.46,0-.93.12-.4.14-.52,0-.65-.12-.12-.31-.13-.53.09s-.24.38-.12.58l-.12.12c-.15-.21-.12-.49.16-.77.3-.3.58-.28.73-.14.17.17.12.32,0,.76-.09.35-.12.59-.07.74l.84-.84.06.1-.95.95Z"/>
+      <path class="cls-13" d="M167.98,206.11l-.64.64c.09.12.25.37.29.46,0-.13.07-.28.24-.45.26-.26.57-.32.8-.09.21.21.24.54-.1.87-.25.25-.53.32-.75.19l.12-.12c.15.08.36.05.56-.15.24-.24.24-.47.05-.66-.16-.16-.38-.18-.61.05-.21.21-.23.36-.2.53l-.14.09c-.1-.19-.34-.54-.45-.69l.76-.76.06.1Z"/>
+      <path class="cls-13" d="M162.36,216.51l-.81.81.48.48.89-.89.06.1-.99.99-1.14-1.14.98-.98.08.08-.85.85.42.42.81-.81.08.08Z"/>
+      <path class="cls-13" d="M163.12,216.08l.19.6-.12.12-.56-1.73.15-.15,1.75.53-.13.13-.6-.19-.67.67ZM163.67,215.37c-.52-.16-.77-.23-.88-.28h0c.05.13.15.43.29.87l.59-.59Z"/>
+      <path class="cls-13" d="M164.53,214.85c.2.1.43.05.69-.21.29-.29.3-.51.17-.63s-.29-.13-.7.16c-.4.28-.62.34-.79.18-.15-.15-.14-.44.2-.78s.65-.35.81-.23l-.13.13c-.16-.09-.36-.06-.61.19-.23.23-.28.43-.15.56s.28.07.62-.17c.53-.37.72-.31.86-.17.17.17.14.48-.23.85-.4.4-.71.38-.89.25l.13-.13Z"/>
+      <path class="cls-13" d="M165.43,212.45l-.54.54-.08-.08,1.2-1.2.08.08-.54.54,1.06,1.06-.12.12-1.06-1.06Z"/>
+      <path class="cls-13" d="M163.72,220.04l.05-2.02-.98.98-.08-.08,1.12-1.12.08.08-.04,2.01,1.05-1.05.06.1-1.18,1.18-.07-.07Z"/>
+      <path class="cls-13" d="M164.23,217.4l.69.69c.3.3.62.14.84-.08.27-.27.38-.54.08-.85l-.69-.69.12-.12.69.69c.36.36.2.73-.13,1.06-.31.31-.71.46-1.04.13l-.7-.7.13-.13Z"/>
+      <path class="cls-13" d="M165.73,215.9l.12-.12.59.59c.04-.22.19-.98.27-1.46l.16-.16-.23,1.2,1.41-.1-.15.15-1.29.09-.08.37.45.45-.12.12-1.14-1.14Z"/>
+      <path class="cls-13" d="M169.01,213.75c.31.31.36.83-.13,1.32-.45.45-.97.45-1.3.12s-.33-.84.14-1.31c.44-.44.95-.46,1.29-.13ZM167.71,215.06c.26.26.71.31,1.1-.08.41-.41.34-.83.07-1.1s-.7-.3-1.08.08c-.41.41-.35.83-.09,1.09Z"/>
+      <path class="cls-13" d="M169.64,212.13l.08.08c-.02.53.15,1.2.38,1.61l-.12.12c-.22-.37-.39-1.08-.38-1.6l-.82.82-.08-.08.95-.95Z"/>
+      <path class="cls-13" d="M170.89,213.02h0c-.13-.14-.14-.46,0-.93.12-.4.14-.52,0-.65-.12-.12-.31-.13-.53.09s-.24.38-.12.58l-.12.12c-.15-.21-.12-.49.16-.77.3-.3.58-.28.72-.14.17.17.12.32,0,.76-.09.35-.12.58-.07.74l.84-.84.06.1-.95.95Z"/>
+      <path class="cls-13" d="M172.71,211.2l-.3-.3-.72.72-.08-.08.03-1.41.12-.12.69.69.2-.2.06.09-.19.19.3.3-.12.12ZM172.01,210.5c-.06-.06-.19-.2-.26-.27.02.14,0,.84,0,1.18l.59-.59-.32-.32Z"/>
+    </g>
+  </g>
+  <g id="TEXT">
+    <path d="M142.13,154.7l-.25.11c-.02-.14.01-.26.09-.33.08-.08.12-.15.15-.2-.04-.03-.06-.05-.07-.07s-.03-.03-.05-.04l.15-.17-.06-.13-.02-.12c.13-.8.35-1.6.68-2.4l-.05-.04h.03s.04-.1.04-.1c.01-.03.03-.05.04-.07.02-.02.02-.06.02-.12l-.11.08-.09-.03c-.02.23-.08.46-.19.71-.18.3-.26.59-.24.86-.02,0-.05.03-.08.06-.04.03-.05.05-.04.07l.06-.03v.03s-.11.06-.11.06c-.03-.23.02-.48.14-.75.1-.15.14-.34.12-.55v-.26s.05.01.07.01c.02,0,.06-.01.1-.03v-.07s.05-.22.05-.22h-.1s-.05-.02-.05-.02v-.03s.06-.17.06-.17l-.02-.05.1-.02.07-.1s0-.03.02-.04h-.07s-.04,0-.04-.01l-.06-.04c.07-.06.11-.14.11-.25v-.03s.05-.03.05-.03v.03s.09,0,.09,0l-.03-.05s0-.08,0-.09c0-.02,0-.04,0-.07l-.05-.11.09-.04v.03s.04-.01.04-.01v-.07s-.07,0-.07,0v-.03s.03-.05.08-.08c.05-.02.08-.05.08-.07,0-.02,0-.05.02-.07.03-.15.04-.31.03-.5l.02-.21-.09.04-.05.06-.06-.04-.02-.05-.06.03v.07s-.07.03-.07.03c0-.13,0-.26.03-.39.03-.13.03-.27.01-.42l-.09.04v.07s-.04.01-.04.01l.03.05s-.03.06-.05.09c-.02.03-.03.07,0,.1l.1.22-.04.15c-.1.22-.15.41-.15.56l-.09.04-.03-.31c.08-.1.09-.21.04-.31l.17-.11-.1-.21s.05-.11.13-.19c-.04.02-.06.02-.07,0l.09-.04c-.02-.05-.02-.11,0-.16v-.03s-.04.01-.04.01l-.03-.05s0-.04.01-.05c.02-.02.02-.03.02-.04,0,0,0-.02,0-.03,0-.01.02-.03.03-.06.03,0,.05.02.06.02.02,0,.04,0,.09,0,.05,0,.09-.03.13-.04l-.05-.11c-.08.04-.14.08-.17.11l.03-.34-.08-.09s.09-.12.18-.26c.08-.14.11-.25.07-.34l-.06-.04c.06-.09.1-.17.13-.24.03-.07.03-.15-.02-.24l.15-.07v-.3s.06-.09.05-.15l-.09.04v-.03s.14-.07.14-.07c-.03,0-.05-.03-.06-.05-.01-.03-.04-.05-.07-.08h.07s.09-.04.09-.04c0-.02-.01-.04-.02-.08,0-.03,0-.07.03-.13l-.06.03s-.07.02-.07,0l.12-.06s0-.03.02-.04v-.03s.02-.08.02-.08h-.03s-.01-.01-.01-.01c-.04.02-.07.02-.07,0,.12-.17.18-.31.17-.44h-.07s-.01-.03-.01-.03c-.01-.08,0-.17.06-.27.05-.1.1-.17.13-.21-.02,0-.05-.02-.08-.09l.08-.07s.02-.05.03-.06c0-.01,0-.03,0-.05l-.02-.12h.03c.06-.04.09-.07.08-.08v-.03c.01-.05.02-.12,0-.2.02-.27.1-.46.22-.56-.03-.23-.01-.48.05-.78.05-.42.15-.82.29-1.21-.06.03-.1.03-.1.01l-.06.03s.05-.08.05-.14c0-.05.02-.1.05-.14v.1s.04.02.08,0c0-.09.05-.18.13-.27.08-.09.1-.18.06-.27l-.06-.13s.01-.04.06-.08c.05-.03.08-.08.11-.13l-.05-.11s0-.06,0-.09c-.1.05-.25.14-.44.27-.19.13-.37.25-.55.35l-.43.2-.02-.05.2-.22-.15.07v.03s-.02,0-.03-.01v-.07s.04-.01.04-.01c-.1.05-.26.15-.48.32v.03s.27-.09.27-.09c0-.02,0-.03,0-.05s.01-.03.03-.06l.09-.04v.03s-.07.14-.07.14l-.11.08-.15.07.07.07h-.03s0,.05-.05.07c-.06-.02-.11-.02-.15,0-.04.02-.07.02-.07,0l.18-.18v-.03c-.18.08-.28.11-.33.12.08-.04.14-.08.19-.12.04-.04.08-.08.11-.12.03-.04.05-.07.07-.1l-.03-.05-.09.04c-.1.11-.25.24-.47.4-.21.15-.43.29-.65.41-.22.1-.37.16-.44.17.06-.09.09-.17.11-.25.02-.07.04-.14.06-.19.03-.05.08-.12.18-.18l-.03-.05s-.05.05-.11.08l-.04-.08s-.03,0-.04-.01v-.03s.14-.07.14-.07v.03s-.04.06-.04.06h.07s.02-.09.05-.14c.03-.05.06-.09.09-.12h.03s.02.04.02.04l.06-.03.04-.08.06-.03-.02-.05-.19.15s0-.03.02-.04c.1-.16.21-.27.34-.35.12-.08.24-.17.33-.28v-.03s-.2.08-.2.08c-.07.07-.29.24-.66.5l-.06-.04-.06.03-.06-.04c.09-.07.19-.18.29-.33l-.02.04-.02-.05h.03s.01.01.01.01c.03,0,.08,0,.17-.04v-.14s.23-.1.23-.1c.07-.07.08-.14.06-.19l.11-.08s.08-.02.1-.02c.14-.07.24-.13.28-.2-.84.43-1.62,1-2.34,1.7-.2.22-.41.38-.63.49v-.03s-.06-.02-.08-.03c-.02-.01-.06,0-.12.02-.02.05-.07.11-.13.16-.06.05-.12.1-.17.15,0-.02,0-.03.02-.04.12-.18.49-.56,1.11-1.14.36-.34.57-.53.62-.56.05-.03.09-.06.12-.07.03-.01.05-.04.05-.09l-.06.03s.03-.02.02-.04h.03c-.06.01-.11.02-.13.02-.06.03-.09.05-.1.08,0,.02-.01.04-.03.06-.02.02-.03.05-.03.1-.04.02-.07.01-.09-.03v-.03s-.09,0-.09,0c-.04.06-.1.12-.18.18-.1.05-.18.07-.23.07l.06-.03c.07-.07.15-.13.25-.18.16-.14.26-.25.29-.33l-.12.06-.9.64.06-.19c.1-.05.31-.21.63-.49l.45-.4-.02-.05h.03s-.01-.04-.01-.04l-.36.2c-.18.08-.35.2-.49.34-.14.14-.3.27-.48.37l.07-.17-.04-.08.21-.1-.02-.12-.37.17.08-.07-.02-.05.02-.04s-.08.03-.11.04c-.03,0-.07,0-.1,0,.03-.04.1-.1.21-.18.11-.08.22-.18.33-.28.11-.11.18-.19.21-.24l-.15.07-.02.04-.12.06-.03-.05s.03-.02.02-.04c.14-.07.27-.08.39-.05.05-.05.09-.08.12-.1.03-.02.06-.06.09-.12.04-.06.05-.09.04-.1s0-.02.03-.03l.21-.1c.08-.04.27-.21.57-.53l.53-.47c.07-.06.16-.11.25-.15.09-.04.15-.1.18-.18.03-.08.05-.13.08-.15s.22-.12.59-.29c0-.04.01-.08.02-.11.01-.03.01-.05,0-.07.32-.32.66-.57,1-.73l.03.05-.05.05.21-.03s.03-.02.02-.04c.09-.08.13-.17.14-.26l-.14.1-.14.03.44-.33c.08-.04.16-.06.23-.07l-.12.06v.07s.09-.04.09-.04l.04-.08.09-.04-.05-.11v-.07s-.04-.01-.04-.01l-.06.03c-.05.05-.12.09-.2.14-.08.05-.15.09-.2.13-.06.04-.11.07-.16.11-.05.03-.07.05-.06.06s0,.02-.02.03v.03s-.01.05-.03.07c-.02.02-.04.04-.08.06l-.06-.04c-.02-.05-.03-.08,0-.09.02,0,.04-.03.05-.06l.05-.05c.16-.08.43-.25.8-.53l.39-.28.02.05h-.03c-.05.06-.1.1-.15.13s-.08.08-.11.13c.03,0,.06.01.08.01.03,0,.08-.02.16-.06.1-.11.24-.21.42-.29l.25-.11s.07-.06.09-.14c-.18.08-.35.12-.51.11l.12-.06c.04-.08.08-.15.13-.21.05-.06.1-.1.17-.13.06.02.12.02.19,0l.08-.14.15-.07-.07-.16c-.06.03-.13.04-.21.03.17-.17.26-.4.27-.71l.06-.03v.03s.09-.07.09-.07c.04-.08.06-.15.06-.19,0-.05.03-.08.07-.1.03,0,.06,0,.1-.02.04-.02.07-.06.1-.11l.05-.05v-.03c-.07-.02-.11-.04-.13-.06-.02-.02-.05-.07-.08-.14.08-.1.14-.25.18-.46.04-.2.07-.41.07-.61l-.05.06-.03-.05c-.06.14-.11.22-.15.23l-.02-.05c.1-.16.15-.31.16-.47l.09-.04.04.08s-.05.07-.05.09c0,.02,0,.04,0,.06l-.02.04.18-.08c-.02-.05-.07-.09-.12-.11l.09-.04v-.33s.05.02.06.02.03.02.03.03c.01-.03.01-.06,0-.1,0-.04-.01-.09-.02-.16,0-.06,0-.11.01-.14.02.05.08.08.15.09v-.03c.06-.12.08-.25.07-.4l-.09.04s0,.04-.03.06c-.03.02-.05.05-.08.07-.03.02-.05.04-.07.05v-.14s.04-.01.04-.01c0-.02-.02-.02-.04-.01l-.03-.05.07-.16.09-.04s.06.04.09.03c.04-.02.07-.05.08-.1.01-.05.01-.09,0-.13l-.07-.07c-.04-.09-.07-.17-.07-.23v-.03s.02-.01.02-.01c0-.02,0-.04.01-.06.02-.02.02-.04,0-.08l.09-.04c.06-.03.09-.05.07-.08s-.02-.05,0-.06c0-.01.01-.03.02-.04,0-.01.01-.04.03-.06-.03,0-.06-.01-.08-.01-.02,0-.04,0-.05-.03l-.09.04c-.16.25-.4.45-.73.6-.21.09-.42.22-.65.37-.15.11-.32.22-.51.34-.3.21-.54.38-.72.53l-.21.1c-.14.07-.3.18-.47.35-.69.56-1.09.86-1.21.92-.08.04-.15.06-.2.06l-.06.03s-.05.07-.05.09c0,.02,0,.04,0,.06-.05,0-.08,0-.09-.03l-.1.11v.03s-.1.06-.13.1l-.03-.05h-.1c-.02.07-.08.13-.18.2l-.04-.08.2-.22c-.08,0-.14,0-.18.02l.41-.32.03.05-.09.04v.03s-.09.02-.09.02v.03s.04-.01.04-.01l-.02.04v.03s.07-.03.07-.03c.03-.05.06-.1.11-.13.05-.03.08-.06.09-.09-.02,0-.04,0-.04-.01l-.06.03v-.03s.05-.1.05-.1l-.06.03v-.03s-.29.19-.29.19l-.02-.05c.16-.09.26-.19.32-.28l-.06-.04h.03s-.02-.07-.02-.07h.04s.18-.07.18-.07l.1-.11h-.07s.12-.17.4-.41c.23-.15.39-.3.5-.46-.03,0-.09.01-.2.06-.07.07-.14.14-.23.19-.09.05-.16.1-.21.15-.1.16-.38.42-.83.78l-.03-.05h.03c.37-.34.59-.54.65-.61l-.22.17c-.21.19-.4.32-.56.39l-.03-.05h-.15s-.12.06-.12.06h-.03s-.04.02-.04,0l.15-.07h.07s-.04-.08-.04-.08l.02-.04c.08-.04.19-.11.33-.2.14-.1.24-.19.3-.29l-.37.17s-.04.05-.08.07v-.03s.09-.11.09-.11v-.07s-.06.03-.06.03c-.01.03-.04.07-.1.11-.05.05-.12.09-.2.13l-.02-.12h-.07c-.02.06-.08.1-.16.14l-.32.11.03.05-.07.1v.03c.05-.02.1-.03.14-.04.04-.01.08-.01.11,0h-.03c-.08.12-.25.26-.51.45l-.12.06c.06-.07.14-.15.23-.22.09-.08.16-.13.21-.18v-.03c-.07.03-.12.04-.16.05-.03,0-.06,0-.07,0s-.03-.01-.05-.03c-.02-.01-.04-.01-.06,0l.39-.37-.03-.05-.09.04v.03s.03.03.03.03c-.01.03-.06.06-.14.1-.02-.05-.04-.09-.03-.12,0-.02,0-.05.02-.07.01-.03.01-.05,0-.07.06-.07.15-.13.25-.18h.04s.03.07.03.07l.06-.03s.04-.05.07-.08c.04-.03.08-.07.13-.11v-.03s-.17.07-.17.07l-.07.1v-.07s0-.03,0-.03l.09-.04v-.07s-.04-.01-.04-.01v-.07s-.12.06-.12.06l.05-.05.25-.11v-.14s-.02.01-.02.01v-.03s-.31.17-.31.17l-.04-.08.06-.03v-.03s-.1.04-.1.04l-.18.18-.02-.12c.09-.07.17-.14.22-.21.05-.08.11-.14.19-.2l-.02-.05-.11.08c-.12.06-.2.08-.23.07.04-.08.16-.19.37-.33l.02.05h.03s.01.01.01.01l-.09.04-.02.04.42-.22s.06-.04.05-.06h-.04s.09-.05.09-.05l.02-.04-.13.03-.06-.04c.14-.07.27-.15.37-.25.1-.1.18-.18.23-.22l.05-.06v-.03s-.17.07-.17.07c-.04.06-.2.18-.47.35l-.02-.05s-.04,0-.04-.01l.12-.06v-.07s.07-.03.07-.03l-.03-.05-.09.04c-.1.05-.18.07-.23.07.17-.12.27-.22.32-.31.05-.09.04-.19-.02-.32l-.09.04c.24-.46.78-.97,1.63-1.54.02-.06.03-.1.01-.14l-.12.06c.22-.1.41-.21.56-.32l-.04-.08c.12-.06.2-.1.23-.14.03-.04.07-.08.13-.13v.03s-.13.1-.13.1l-.05.05v.03s.04-.01.04-.01l.26-.15s0-.04.05-.05l-.04-.08.11-.08c.06.02.11.02.15,0,.02,0,.05-.03.08-.07.03-.04.07-.06.11-.08l-.05-.11c.27-.12.4-.2.4-.22s0-.05,0-.07c0-.02.01-.04.03-.05.03,0,.08,0,.17-.04.1-.05.16-.09.17-.12,0-.04.02-.06.04-.08.02-.02.04-.04.08-.07.04-.03.06-.02.08.01l.09-.04s.08-.1.14-.18c.06-.08.14-.15.25-.19l.18-.08c.06-.03.11-.08.15-.17l.15-.07c.06-.03.1-.06.11-.08v-.03s.04-.06.04-.06c.02,0,.03,0,.04,0,0,0,.02.02.05.03l.06-.03s.02.02.04.01c.07-.06.12-.11.15-.17.02-.05.06-.1.12-.15.05-.05.12-.09.2-.14.08-.05.14-.09.2-.14l.05.11.04-.08v-.03s.05-.03.05-.03l.05-.05s.16-.08.36-.2c.2-.11.35-.21.45-.31l-.04-.08-.12.06c-.04.08-.12.15-.24.21l-.06.03c.06-.14.18-.25.37-.33l.66-.5.46-.38c.35-.27.53-.43.56-.48.05,0,.08,0,.11,0,.03,0,.06-.01.1-.03l.11-.08-.07-.16-.11.08-.06-.13.2-.22v.03c0,.07,0,.14.03.19.02.05.06.09.09.12l.06-.03v.03s.07-.03.07-.03c0-.02-.01-.04-.01-.06,0-.02.01-.04.03-.06.02-.02.04-.05.06-.11l.2-.06c.27-.12.46-.24.58-.37-.01-.08-.01-.16,0-.23.02-.07.03-.14.04-.2,0-.06.03-.09.05-.1.02,0,.03,0,.04.01h.03s-.02-.07-.02-.07l.02-.04-.06-.04s-.03,0-.04-.01c.02-.05.04-.1.06-.14.02-.04.07-.1.16-.19l-.02-.05h.03s.01.01.01.01c0,.02.02.02.04.01l-.06.03.07.23c-.03.1-.03.22-.02.37-.09.07-.15.11-.17.12-.02.02-.03.04-.04.07,0,.02.03.03.06.04.03,0,.06,0,.1-.02l.08-.07.12-.06v-.14s.07.04.07.05.04,0,.1-.03l.41-.32c.38-.26.66-.43.84-.52.08-.04.14-.05.17-.04h-.03c-.07.09-.14.14-.22.18l-.25.11.04.08h.03s-.02.03-.02.03c-.1.11-.19.19-.28.23s-.17.1-.24.17l.06.04.05.11s.05-.07.07-.1c.01-.03.03-.05.06-.08.03-.02.07-.06.12-.1v.23s.08,0,.16-.04v-.14s.17-.07.17-.07c.09-.08.27-.22.55-.42.78-.56,1.22-.86,1.3-.89.25-.11.41-.21.49-.31.08-.09.14-.15.18-.17.08-.04.15-.06.2-.06-.03-.07-.06-.11-.09-.12l-.25.11c-.09.13-.24.25-.46.38-.46.3-.8.5-1.02.6l-.02-.05c.65-.37,1.2-.71,1.66-1.04.46-.33.97-.65,1.55-.96l-.02-.05-.17.04c-.04.07-.12.12-.22.17h-.03s-.04-.07-.04-.07c.22-.1.44-.21.63-.32.2-.11.48-.25.85-.42h.07s-.01-.03-.01-.03h.03s-.01-.04-.01-.04l.02-.04s0-.03.01-.05c.02-.02.05-.05.1-.1l.21-.1v.03s-.25.15-.25.15l.04.08c.8-.41,1.48-.79,2.04-1.14.63-.4,1.49-.87,2.58-1.42v.03s-.03.05-.08.08c-.05.02-.1.06-.16.11l.02.05s.06-.04.05-.06c.06-.03.11-.04.14-.03-.03.04-.07.11-.12.22l.39-.21v.03s.07-.03.07-.03v-.16s-.34.16-.34.16c.04-.02.07-.04.08-.07l.15-.17-.13.03c.12-.06.2-.1.23-.14l.15-.07v.07s.03.08.03.08c.07-.07.13-.12.19-.15v-.03s.08-.04.08-.04l.9-.48v.03s.12-.08.12-.08v.03s0,.07,0,.07l-.09.04-.05.06s0-.03.02-.04v-.03s.02-.01.02-.01v-.03c-.08.07-.1.13-.08.16v.03s.04.02.07,0c.03-.01.06-.02.09,0l-.36.2v-.03s-.11.04-.11.04l-.02.04.52-.17c.05-.05.08-.07.07-.08,0,0,0-.03.01-.05l.08-.07h.07s.01.03.01.03l-.09.04-.05.05c.06-.03.13-.05.2-.06.07-.01.13-.02.18-.02v.03s-.02.08-.02.08l.06.04c.06-.03.11-.05.16-.06s.1-.02.17-.03l-.05-.04v-.03s-.04.01-.04.01l-.02-.05c.07,0,.12,0,.15.01.03.02.07.04.1.07l.08-.07.3-.07c.18-.04.34-.09.49-.16.05,0,.08,0,.09.03l-.06.03c-.07.07-.16.14-.28.2-.12.06-.25.11-.4.15-.14.04-.25.08-.33.12h-.03s.01.04.01.04l.09-.04c.13,0,.59-.14,1.39-.45l.64-.23s0,.03-.02.04c-.06.09-.09.14-.09.16,0,.01-.02.03-.04.04-.21-.03-.63.09-1.24.38l-.42.22v.03s.48-.12.48-.12l.03.05-.32.12-.21.1-.06-.04-.06.03s-.05-.05-.1-.05c0,.05,0,.08,0,.1,0,.02-.06.06-.19.12l-.23.07-.33.18s.02.02.04.01c.15,0,.45-.11.9-.32.18-.08.33-.14.44-.17h-.03s0,.05-.05.07l.02.05-.07.1-.23.07-.34.22v.03c.06,0,.11,0,.15-.02.04-.01.08-.01.11,0-.13.08-.37.2-.69.35l.06.13c-.08.04-.14.08-.17.11h-.03s.01.04.01.04l.18-.08c.13-.04.27-.11.41-.2.14-.1.25-.16.32-.2.07-.03.15-.09.24-.17.21-.18.61-.41,1.21-.69l.49-.23v.07c-.33.17-.49.26-.49.27s-.02.02-.04.03h-.04s-.07.03-.08.06v.03c.04.05.02.09-.04.12h-.07s-.05.06-.05.06c.04-.02.09-.03.13-.03.05,0,.28-.09.69-.28.15-.05.28-.1.4-.15s.2-.08.27-.09l-.06.03c-.12.17-.42.39-.88.67-.21.09-.37.19-.5.29l.06.04h.12c.21-.02.37-.06.5-.12.12-.06.22-.09.29-.1-.14.07-.26.14-.34.22l.06-.03c.07,0,.17-.04.29-.1l.05-.12.17-.11.03.05s.02.02.04.01l.03.05.17-.11s.02.02.04.01c.02,0,.04,0,.07,0l-.05.06v.03s.04-.01.04-.01l.03.05c-.21.09-.34.18-.41.25l.27-.06-.06.03c-.02.06-.07.11-.15.17l.06.04s.03.05.05.04l.04.08c-.1,0-.19,0-.28,0-.09,0-.15-.02-.19-.04l.03.05-.07.1v-.03s-.06.05-.06.05l.04.08c-.14.18-.5.42-1.08.73l-.62.35v.03s.09,0,.09,0v.03c.04.05.05.1.04.15h-.07s-.01-.03-.01-.03l-.12.06.06.04-.18.18.09-.04s.02.02.04.01c-.04.02-.06.04-.05.05h-.03s-.1.13-.1.13l-.05-.11s.03-.02.02-.04c.01-.03.04-.05.07-.08.04-.03.07-.06.1-.1v-.03s-.23.1-.23.1v-.14s-.14.07-.14.07c0,.02,0,.03-.02.04,0,.02.02.02.04.01l.02.05-.02.04c-.02.06-.07.11-.15.17.04.03.06.04.06.05,0,0,.02,0,.04,0v.03s.04.02.06.01c-.12.06-.22.11-.29.17-.28.2-.64.39-1.07.59l-.03-.05.08-.07v-.03s.02-.01.02-.01l-.22.17.07.07-.02.2.06-.03v-.03s.02-.02.01-.03,0-.03.01-.06v-.07s.47-.21.47-.21l.29-.1c.21-.09.39-.21.55-.35l.04.08c-.22.17-.46.31-.73.44l-.38.14v.03s.06.04.09.01c.04-.03.06-.05.08-.06s.04-.01.05,0c.01,0,.04.02.08.05-.37.17-.6.33-.71.49l.7-.42s0,.04-.02.08c-.02.03-.16.14-.43.33-.26.19-.44.3-.55.35.02,0,.03-.02.02-.04,0-.02,0-.04.03-.06.03-.02.06-.06.1-.1.04-.04.08-.08.11-.12-.05,0-.13.02-.23.07l-.04.08-.06.03c-.06-.02-.11-.02-.15,0v.03s-.02.01-.02.01v.03s-.1.08-.1.08h-.03s0-.03,0-.05c.01-.03,0-.06,0-.1l-.06.03.03.05s-.02.05-.03.06c0,.01-.02.04-.03.06-.01.03-.04.05-.08.07-.03,0-.06,0-.1.02l-.06.03s-.07.06-.1.11l-.05-.04v-.03s-.45.17-.45.17l.05.11s.08-.04.1-.06c.03-.02.05-.05.06-.08l.04.08-.23.14v-.03s-.01-.08-.04-.15l-.18.08c-.05.05-.1.08-.13.11-.04.03-.1.06-.18.1l.04.08c.06-.03.11-.06.14-.1h.03s.04-.09.04-.09h.03s.09-.03.15-.02v.03s0,.07,0,.07c-.14.13-.6.41-1.4.84-.4.21-.71.38-.91.52v.03s-.04.06-.04.06l-.23.07-.25.11c-.93.67-1.89,1.3-2.89,1.89-.76.44-1.43.86-1.99,1.25-.26.19-.53.34-.81.47-.28.13-.52.26-.73.4-.07.38-.17.75-.3,1.12-.14.46-.24.88-.3,1.28h-.03s-.06-.03-.06-.03l-.06.03s.02.07,0,.1c-.01.03-.02.06-.02.11l.13-.03-.02.21s.04,0,.04.01h-.03s.04.09.04.09c-.03.15-.08.3-.16.47l-.13.45.03.05s.04,0,.04.01c-.04.02-.07.04-.09.08s-.04.05-.06.06c-.03.1-.05.19-.07.26-.02.07-.02.13,0,.18,0,.05,0,.09,0,.12.2-.09.33-.14.38-.14l-.42.29.03.05.29-.17.46-.21s.02.02.04.01l-.06.03c-.02.06-.04.09-.05.1,0,.01-.02.03-.03.05-.02.02-.06.04-.12.07h-.03c-.1.12-.21.21-.32.28-.12.07-.22.13-.32.2l.13.04.06-.03c.13-.19.54-.47,1.22-.83.26-.14.47-.27.64-.39,1.16-.77,2.67-1.65,4.56-2.63,0,.02,0,.03-.02.04l.04.08-.13.03-.16.14-.13.03.03.05-.02.04c-.08.04-.14.05-.17.04h-.15s-.02.05-.03.06c0,.01,0,.03,0,.05l-.05.06c-.08.04-.15.06-.2.06l.04.08.02-.04s.08,0,.16,0c.08-.02.17-.05.27-.09.06-.03.11-.05.13-.08.03-.02.09-.09.19-.2l.1-.02v.03s.03.03.05.03c.01,0,.06-.01.14-.05l-.05-.11.11-.08c.03.07.09.09.17.05.1-.05.15-.08.14-.1v-.07c.05-.06.16-.13.32-.21,0,.02.02.02.04.01v.07s-.04.01-.04.01c.02.05.05.09.08.09.15-.11.37-.24.68-.38l-.06.03v.03s-.05.03-.05.03c.02.05.02.09-.02.11v.03s-.03.01-.04,0c-.01,0-.04-.01-.06-.02l-.07.1s.03.02.07,0v.03s-.04.05-.04.05c-.25.11-.38.17-.39.16-.01,0-.03-.02-.03-.03v-.03c-.05.02-.08.05-.09.08,0,.04-.02.06-.04.07h-.07s-.03-.05-.03-.05l-.13.03s0,.04-.01.05c-.02.02-.03.04-.05.06-.02.02-.02.04-.01.05l-.05-.11c-.13.15-.31.3-.53.47l-.04-.08-.06.03s-.02-.02-.04-.01v-.03s.02-.01.02-.01h-.03s0,.08,0,.08l-.02.04-.06.03c-.05.05-.07.1-.04.15l.07.07v.07s-.03-.05-.03-.05c-.02,0-.04,0-.04-.01-.02,0-.02.03,0,.07l-.15.17-.02-.05h-.03s-.03.02-.04,0c0,.02.02.05.02.09,0,.04,0,.09-.03.14l.68-.38.55-.25.04-.08.13-.13c.08-.04.12-.07.11-.08h.03s-.02-.14-.02-.14l.02-.04.18-.09c.03-.05.08-.1.16-.14l.14-.03c-.16.08-.31.16-.44.27l.05.11.15-.07-.17.11v.07s.27-.13.27-.13c.05-.05.12-.1.19-.15.07-.06.19-.14.35-.24.16-.11.32-.2.49-.27s.28-.11.36-.1l-.21.1.06.2c-.06.03-.11.06-.14.1-.04-.04-.09-.07-.13-.09-.04-.01-.13,0-.25.06-.03.06-.08.1-.16.14-.23.1-.36.17-.39.2-.04.03-.06.05-.06.08,0,.02-.05.09-.15.2v.03s0,.05-.01.06-.02.02-.04.03v.03s-.05.04-.07.07v-.03s.04-.12.04-.12v-.03s-.17.07-.17.07l.05.11s-.07.09-.24.21l-.37.08.02.05-.05.05-.08.07c-.06-.02-.1-.02-.12-.01-.02,0-.04.03-.04.07,0,.04-.02.06-.04.07-.02,0-.04.02-.06.03l-.09.04.04.08c-.1,0-.2.03-.3.07-.01.03-.02.05-.01.05,0,0,0,.02-.02.03v.03s0,.07,0,.07l.28-.13c.2-.09.44-.24.69-.43.26-.2.52-.35.79-.48h.22c.06-.03.11-.08.14-.15.03-.07.08-.14.14-.21.22-.1.39-.17.49-.19.1-.02.21-.05.32-.08l-.05-.11.15-.07v.03s-.08.04-.08.04l.02.05s.04.01.1-.02l.05.11s-.08.03-.13.04c-.04.01-.09.02-.13.03-.04.01-.07.03-.06.06,0,.03,0,.06.02.07l-.17.11-.25.11s-.1.02-.17.04c.04.09.04.14,0,.16-.04.02-.09.05-.14.1v-.03s-.04.01-.04.01v-.03s.05-.1.05-.1v-.03s.04-.06.04-.06l-.12.06-.05.06-.06.03.06.13s.01.04.02.07c0,.03,0,.06-.01.09-.16.08-.27.11-.33.09l-.24.28.02.05.06-.03c.09-.08.16-.14.22-.17.14-.07.23-.12.26-.15.03-.04.05-.06.04-.07s0-.02,0-.03c0-.01.01-.03.02-.04,0-.01.01-.03.03-.06l.03.05v.07s.05.04.07.09c-.25.11-.43.25-.55.42l.09-.04v.03c.07-.03.11-.06.12-.08l.12-.06.05.11.09-.04-.04-.08.06-.03s.06,0,.1-.02c.04-.02.08-.02.11-.02,0-.05,0-.07.01-.09s0-.03.01-.06c0-.02.02-.05.05-.09h.03s.06-.04.06-.04l.05-.05-.04.08.03.05.04-.15h.07s.09-.04.09-.04c-.01.03-.02.05-.01.06s0,.02-.02.03l-.02.11s.06-.05.07-.1l.08-.07s.02.02.04.01c-.02.06-.05.09-.08.12s-.06.04-.1.06h-.07s-.06.04-.11.08c-.05.05-.08.08-.08.1,0,.02,0,.05,0,.07,0,.02-.02.05-.05.09l-.02-.05v-.07s0-.03,0-.03l-.17.11c-.26.19-.54.36-.84.52l.03.05h-.03s.01.04.01.04l.81-.5.17-.11.02.05-.06.03v.1s.67-.34.67-.34l.02.05-.28.2c-.16.14-.38.28-.66.43v-.07s.04-.01.04-.01l-.03-.05s-.04.05-.08.07l-.05.05c-.02.06-.04.09-.04.12,0,.02,0,.06,0,.1l.11-.08c.16-.08.26-.11.29-.1-.21.09-.31.19-.32.28l.25-.11-.04.08c-.23.15-.53.32-.91.52v.03s0,.07,0,.07l.23-.14.28-.13s.03.03.06.02c.04,0,.07,0,.1,0l.02.12-.06.03c-.02-.05-.05-.08-.08-.09l-.17.21c-.08.04-.15.06-.2.06l.04.08h.03s-.02.03-.02.03l-.12.06c-.09.08-.23.18-.42.29l-.49.23.03.15c-.63.4-1.23.83-1.79,1.28-.47.37-.83.64-1.08.8-.16.08-.33.18-.48.32-.51.39-1.06.77-1.63,1.15l-1.32.94c-.17.12-.4.27-.7.45-.3.18-.57.35-.8.52s-.37.29-.39.4l-.05.05h.03s.03.04.03.04l.05-.06.13-.03-.06.03v.03s-.04.06-.04.06l-.09.04-.02.11c.08-.04.15-.06.2-.06-.25.16-.35.36-.29.59,0,.17-.07.41-.21.7-.15.3-.23.6-.23.91l-.12.06c-.04.08-.04.15-.02.19.02.05.03.08.01.11l-.06.03s-.07.11-.1.27v.63s-.04.01-.04.01h.03s-.01-.04-.01-.04h-.12s-.01-.04-.01-.04l-.18.08.04.18.09-.04.06.04-.2.13.1.21s.06.05.09.12l-.06.03-.04-.08-.12.06c.02.15,0,.33-.08.56-.15.59-.28.98-.39,1.16,0,.02.02.02.04.01v.03s.04-.01.04-.01l-.02.04c-.02.12-.07.27-.16.47v.03s-.02,0-.03-.01h.03s-.01-.04-.01-.04l-.06.03v.07s0,.03,0,.03l.09-.04s-.01.04-.06.08c-.05.03-.08.06-.09.09-.01.03-.04.06-.07.1l-.02-.12-.05.06-.06.03s-.02.04-.03.05c0,0-.01.02,0,.03l.03.15.08-.07.06.04c-.07.12-.11.25-.12.4,0,.15-.09.29-.25.43.03.18.01.43-.07.74-.08.31-.18.56-.29.74l-.09-.03v.03c-.03.13-.05.24-.05.35l-.06.03.05-.54c0-.31.06-.54.16-.7.02,0,.04,0,.04.01h.07c-.04-.09-.05-.15-.02-.17.03-.02.05-.05.06-.08v-.03s.02-.01.02-.01c-.03,0-.05-.02-.07-.03-.02-.01-.04-.04-.05-.07v-.07s.07-.03.07-.03c.01-.03,0-.06,0-.09s-.02-.08-.02-.12c-.02,0-.03.02-.02.04-.06.14-.12.24-.19.32l-.02.04c.05.11.02.42-.09.93l-.06.03s-.04.06-.07.08c-.04.03-.06.05-.06.06,0,.01,0,.03,0,.05l.08.09h.03s-.03.03-.05.04c-.02,0-.03.02-.02.04l-.06.03v.07s.06-.03.06-.03v.03s.04-.01.04-.01h-.03s.03,0,.03,0v.03s-.11.06-.11.06c-.04.02-.06.05-.07.09-.07.12-.12.3-.16.53-.15.59-.21.98-.17,1.16l.15-.07s.02.03.03.03c.01,0,.06,0,.13,0-.02.05-.04.09-.04.1,0,.01-.01.03-.01.05,0,.02,0,.07,0,.13l.11-.08.05.04h-.03c0,.08-.02.14-.06.21-.06-.02-.11-.01-.15,0h-.03s-.05-.09-.05-.09h-.04c-.08.13-.17.26-.27.37.04.09.06.2.04.34l-.13.52s-.07.02-.07,0h-.04s-.06.02-.06.02c.02.04,0,.11-.05.22-.1.05-.16.05-.18.02l.06-.03v-.03s.09-.01.09-.01v-.03s-.04.01-.04.01l.05-.05-.03-.05-.11.08-.02-.05.05-.06-.02-.12-.08.07.06.04c-.06.14-.1.33-.13.57-.02.24-.05.46-.09.65-.04.19-.1.33-.18.41v-.03s-.07-.02-.09-.05c-.02-.02-.06-.09-.11-.2h-.04s.08-.08.08-.08c.02,0,.03-.02.02-.03s0-.02,0-.03c0-.01.01-.04.01-.09l-.2.12s-.06-.05-.09-.12c.06-.03.1-.06.11-.08v-.03s.02-.08.02-.08l-.03-.05c-.06-.13-.02-.34.11-.64.03-.04.05-.08.05-.12l-.12.06v.03s-.03-.01-.03-.01l-.06.03c0,.2-.04.37-.1.51-.06.14-.11.27-.15.4l.06-.03v.03h.09l-.15.07.11.15c-.06.09-.1.19-.13.29-.08.19-.17.32-.27.39.03.16-.01.32-.11.48l-.09.04v.07s.05-.03.05-.03l-.18.25-.15.4h-.07s-.09.04-.09.04c.02-.07.01-.14-.01-.19.13-.19.2-.33.18-.41l-.06.03-.02-.05h.07s.06-.04.05-.06h.03s-.15-.01-.15-.01v-.19s-.04-.05-.04-.05c0-.02-.02-.04-.03-.05,0-.02,0-.04,0-.07.02-.12.06-.22.12-.31.06-.09.1-.22.12-.38l-.09.04.05-.06c.04-.08.07-.18.09-.29.02-.11.06-.21.12-.3l-.13-.04s.03-.05.06-.08c.03-.02.03-.05.02-.09-.02,0-.04,0-.04-.01l-.05.05c-.08.15-.12.38-.13.68l-.29.17.04-.31-.32.12c.03.05.03.09.02.12-.01.03-.02.06-.02.11,0,.05,0,.1.03.15l-.15.07c.03.27-.03.55-.17.83-.07.16-.12.31-.15.44-.03.13-.03.23,0,.28-.02.12-.06.24-.13.36-.13.3-.19.52-.17.67.02.14,0,.28-.04.41l-.02.11c-.01.14-.07.33-.18.57l-.06.03s-.03.05-.06.06c-.03.01-.05.06-.07.13l.06-.03v.03Z"/>
+    <path d="M158.42,147.7c-.07.02-.1.01-.11,0h.03s.01-.1.01-.1c.02,0,.03-.02.03-.04,0-.02.01-.04.05-.06.04-.02.07-.04.07-.06,0-.02.02-.05.05-.09.03-.04.06-.06.1-.07l-.05-.2s.03-.12.12-.24l.1-.18c.07-.1.13-.17.19-.23.14-.08.22-.21.22-.39l.23-.05.03-.16v-.06s.05-.02.05-.02l.05-.07v-.06s0-.06,0-.06l-.07.02s-.03.04-.04.05c0,.01-.02.02-.03.04,0,.01-.03.02-.06.03s-.05.03-.06.06-.02.07-.06.11c-.04.04-.08.1-.13.18-.05.08-.1.16-.15.23l-.06.04s.02-.08,0-.15c.02,0,.04-.02.06-.03.02-.02.03-.03.04-.05,0-.02.02-.05.04-.07l-.24.03v.03s.14,0,.14,0v.03s-.12.03-.12.03c-.14.2-.24.36-.3.5-.07.02-.11.04-.12.06h-.03c0,.09-.02.15-.04.2-.02.05-.06.1-.12.15l-.04-.02s0-.03.03-.04v-.03s.07-.11.07-.11l-.04-.02-.06-.11h.11s0,.03,0,.03l.07-.02s0-.08.03-.11c.03-.04.05-.08.07-.12.02-.05.03-.09.02-.13h-.03s-.03-.14-.03-.14l.03-.04.04.02s.07.05.11.04l.08-.11-.02-.09-.07.02-.02.07-.09.05-.03-.12c.14-.11.22-.25.25-.4l-.13.03c-.05.07-.08.12-.09.14s-.01.06-.02.13l-.39.27-.16.04v-.06s-.05-.02-.05-.02c.02-.02.04-.07.08-.12.03-.06.07-.13.12-.23.05-.09.06-.18.04-.26.04-.03.08-.05.12-.06.04-.01.08-.02.11-.04.03-.02.06-.06.09-.11.03-.06.05-.14.06-.24,0-.1.03-.2.05-.29.03.01.04.03.05.05,0,.02.01.03.03.04.01,0,.03,0,.05,0l.02-.07.02-.07-.1.02s-.04,0-.04-.02l-.04-.02.17-.16v-.06s-.11-.1-.11-.1c.07-.1.13-.2.18-.32.05-.11.1-.21.13-.27h-.11s-.05-.06-.05-.06c.04-.03.06-.06.06-.09,0-.03.02-.07.06-.12h.03s0-.04,0-.04h.03s0,.12,0,.12c-.02,0-.03.02-.03.04s0,.04-.02.07l.16-.04v-.06c.09-.15.15-.25.16-.31l-.15.1v.03s-.03-.02-.03-.02l-.1.02v-.06c.04-.05.09-.12.12-.18l-.07.02v.03s-.05.05-.05.07h-.03s0,.04-.02.06c-.02.02-.05.03-.09.04v-.03s.03,0,.03,0c.05-.07.07-.15.05-.23.07-.1.15-.18.24-.24.09-.06.14-.12.15-.16h-.03c-.01-.05-.06-.07-.15-.05-.03.09-.07.18-.14.28l-.1.02s0-.08.04-.13v-.03s0-.09,0-.09c.02,0,.08-.07.16-.19.17-.25.32-.5.44-.78l.16-.22h.03s.02.08.02.08h.07s-.01-.04-.01-.04h.03s.04-.14.04-.14h-.11s-.02-.09-.02-.09c.07-.08.11-.14.11-.19,0-.05,0-.11-.03-.19-.04-.15.04-.37.23-.63.11-.13.21-.28.31-.47l.2-.05h.07s.36-.5.36-.5v-.12c-.06.02-.11.02-.13,0l-.07.02c-.03.07-.07.13-.13.18l-.03-.12c.15-.07.22-.14.23-.21-.1-.02-.17-.06-.22-.12-.05-.06-.09-.14-.11-.23.1-.08.14-.19.14-.31h-.03c-.14.21-.24.33-.29.38v-.06c.06-.1.12-.21.19-.32s.14-.23.23-.33v.06s.04-.04.04-.04v.03s-.02.04-.03.05c0,.01-.02.03-.02.05,0,.02,0,.05,0,.09h.03s-.01-.07-.01-.07c.26-.28.39-.58.41-.89l.04-.13.17-.04.03-.04s.03-.02.03-.04l-.12-.06.16-.04-.05-.2s.03-.05.04-.07c0-.02.02-.04.04-.06.02-.02.04-.04.07-.06.03-.03.06-.05.09-.07.03-.02.05-.04.05-.07,0-.03.01-.07.03-.11.28-.27.54-.6.77-.98l.07-.02v.12c-.09.04-.18.14-.28.31-.29.42-.46.71-.49.88l.13-.03-.03-.12.46-.57c.59-.75.93-1.24,1.04-1.47-.03-.03-.05-.08-.07-.14.02-.02.02-.06.01-.09l.16-.04-.05-.2c.09-.08.17-.19.24-.32.06-.13.17-.23.31-.3v-.12c.36-.37.67-.76.94-1.17.05-.07.11-.14.18-.2.07-.06.2-.22.39-.49.07-.18.18-.35.33-.51.06-.05.15-.17.27-.34.31-.36.49-.63.53-.83l.22-.11c.13-.34.37-.69.72-1.06.35-.37.58-.73.68-1.08l-.17.04-.12.09-.21-.16.02-.07.06-.04s.02.07.04.08c.02.02.03.03.04.04.01,0,.03,0,.05,0v-.06c-.12-.06-.19-.15-.22-.29-.04.03-.07.05-.09.05-.02,0-.04.02-.06.04h-.03c-.05-.1-.11-.2-.19-.3-.08-.09-.14-.18-.19-.28l-.09-.38-.1.02-.08-.04s.02-.07,0-.12l-.2-.26c-.07.02-.1.01-.11,0-.02-.08-.02-.13,0-.15l-.23.06v-.12c-.01-.08-.05-.14-.1-.21-.05-.06-.09-.15-.12-.26l.17-.04.06-.04.08.19h.03s.04-.14.04-.14c-.21-.11-.38-.28-.5-.49-.2-.36-.32-.62-.36-.77-.04-.05-.09-.09-.15-.12-.06-.03-.11-.05-.14-.09-.05-.19-.06-.31-.05-.35l-.06.04v.06s-.03-.02-.03-.02c-.02,0-.04,0-.04-.02-.02,0-.04,0-.04-.02l.17-.04c-.01-.06-.03-.09-.06-.11l-.06.04h-.03c-.04-.15-.16-.3-.35-.46l.12-.09v-.09s-.35.21-.35.21v-.09c.13-.07.19-.13.18-.19-.01-.06-.02-.1-.01-.12,0-.02.03-.05.07-.08,0,.02.01.04.03.05.02.02.03.03.04.04.01,0,.03,0,.05,0v.03s.11-.3.11-.3c-.06-.05-.11-.1-.14-.17-.04-.06-.09-.12-.14-.16l.13-.03.06-.04.16-.04.03.12h.03s.03.11.03.11l.16-.04c-.08-.16-.19-.3-.3-.4-.12-.1-.21-.23-.26-.38.01-.04.02-.08.02-.13,0-.04,0-.08,0-.11,0-.03,0-.07,0-.11,0-.04.03-.09.09-.14.03.03.06.06.09.07.03.01.06.02.09.02.04,0,.09.02.15.06.07.03.15.11.24.22.09.11.18.23.26.37.08.13.15.25.22.36l.06-.04s0-.04,0-.08c0-.03.01-.06.03-.08-.16-.1-.28-.28-.33-.53-.09-.1-.23-.22-.4-.36-.31-.25-.5-.43-.55-.54-.01-.06,0-.12.06-.2.05-.07.06-.17.04-.28l-.07.02-.03-.12s.04.03.04.04c0,0,.01.01.04,0v.06s.2-.11.2-.11l.13-.03v.06s-.07.08-.07.08l.16-.04.12.06h.03s.08.03.08.03l-.05.07v.12s.04-.1.03-.16l.26.06s0-.07.01-.09h-.03s.03,0,.03,0c0-.02.01-.04.05-.07.02.08.1.13.25.16l-.1.02v.03s.11-.02.11-.02l.02-.07.06-.04c-.05-.03-.14-.11-.27-.24.02-.02.05-.04.09-.05v-.06s.02,0,.02,0l-.1.02v.03s-.05.04-.05.04l-.04-.02s-.04.02-.06.03c-.02.02-.03.03-.04.05,0,.02,0,.04,0,.05,0,0,0,.03-.02.05-.03-.01-.06-.02-.09-.02-.03,0-.06,0-.08,0,.03-.05.05-.09.04-.13l-.09-.1.06-.04.1-.02h.07s-.03-.1-.03-.1l-.15-.03-.1.02v.06s-.04.07-.04.07l-.05-.05s-.05-.03-.08-.04c-.03-.01-.06-.09-.09-.22h.03s0,.02,0,.02l-.02.07s.05.02.08.03c.02,0,.04.01.04.02,0,.01.02.02.04.04l.1-.02-.05-.2.13-.03s.02.03.04.02l.02.09c0-.06,0-.1,0-.12,0-.02,0-.04.02-.05.02-.02.03-.03.04-.04,0-.01.02-.03.04-.06v.06c.13.1.24.22.35.38l.05.08.1-.02s.02-.06,0-.12l-.08-.04v-.06s.12-.03.12-.03l-.02.07.08-.08c-.14-.09-.22-.2-.25-.34-.02-.1-.02-.2,0-.3l.06-.02.03-.04v.03s-.03.04-.05.04c.34.08.57.33.67.76l.07-.02s0-.03.03-.04c.02,0,.05-.02.09-.05v-.06s0-.07,0-.07c-.02,0-.05-.07-.09-.22-.03-.03-.05-.07-.06-.12-.01-.05-.03-.08-.06-.09-.13.03-.2.04-.2.02l-.05-.05s.04-.11.02-.19c-.03-.03-.05-.08-.07-.14l.13-.03.06-.04v-.03s-.04,0-.04,0v-.03s-.04,0-.04,0l.12-.06c.04.07.09.12.15.13.06.02.13.03.2.04.07.01.15.05.23.11l-.13.03-.03.04c.11.06.21.09.3.11l-.02-.09h-.03s.06-.04.06-.04l.05.05.13-.03-.02-.09.09-.05c.04.16.07.24.1.27.03.02.06.06.1.11l.07-.02.02-.07c-.01-.06-.03-.08-.05-.08-.02,0-.04,0-.04-.02l-.02-.09.07-.02-.05-.05.07-.02c.02.08.05.13.09.15.04.02.08.04.12.05.04.01.08.04.14.09l-.03.16c.06.05.15.08.27.11.12.02.19.05.2.09l-.06.2.17-.04v.03s.05.03.07.06c.02.03.03.06.04.11.01.05.07.08.16.1l.23-.06v-.12s0-.03,0-.03c.02,0,.05,0,.08.04.03.03.05.06.07.08.01.02.03.03.04.04.01,0,.04.01.07.01.03,0,.09,0,.16,0l.07.17v.09s-.05,0-.05-.02c-.09-.1-.14-.17-.15-.21l-.06.02.02.09c0,.1.02.16.06.18.04.02.06.05.07.09.01.06,0,.12-.02.19l.17-.04c.05.23.15.39.27.48.13.09.21.19.26.3l.15-.1.13-.03c.03.13.15.23.35.28v-.09s.09.32.09.32c.03.03.09.08.19.14.09.06.16.16.19.29l.07-.02c.07-.02.1,0,.11.03,0,.04.02.07.04.08.02.02.07.04.17.08-.02.02-.03.04-.04.06,0,.01-.02.02-.03.04,0,.01-.02.03-.02.05,0,.02,0,.05,0,.09.15.05.27.18.37.4.13.34.33.52.62.56v-.03c-.09-.06-.17-.14-.25-.23-.08-.09-.13-.18-.15-.25l.07-.02v.03c.09.04.15.11.21.21.06.1.16.15.3.16l.02-.07.06-.04.07.17.02.24-.36-.04.05.23.3-.07c.01-.25.22-.54.62-.88.27-.23.47-.48.59-.75l.02-.07s-.04,0-.05,0c-.01,0-.04-.03-.07-.06.02,0,.03-.02.03-.04l.11.03.07-.02s.03-.02.03-.04c0-.02,0-.04.02-.07v-.06s-.11.05-.11.05c0-.02-.02-.04-.05-.05-.03-.01-.05-.02-.06-.03-.01,0-.02-.02-.03-.05,0-.03-.03-.06-.06-.09,0,.02,0,.03,0,.05,0,.01-.02.03-.04.04-.02.01-.04.02-.05.03-.01,0-.06.05-.16.13v.09s-.05,0-.05,0c0-.02,0-.03,0-.05,0-.01.02-.03.04-.05l-.07.02c.05-.09.12-.19.21-.28.09-.09.17-.2.24-.32.04-.01.07,0,.07.01l.06-.02c.08.02.14.06.18.09.04.04.1.07.18.1.04-.03.08-.05.12-.08.04-.02.05-.09.02-.2l.03-.04-.07-.14s-.05-.02-.08-.03c-.02,0-.04-.01-.06-.03-.02-.02-.02-.03-.03-.06l.02-.07.05-.07.07-.02.09-.05s.05.05.07.06c.01,0,.03.05.05.13l.13-.03.05.05v.03s.11,0,.11,0l-.03-.12.03-.04-.1.02-.04-.02.1-.02c.09-.2.24-.44.45-.72.36-.51.63-.81.81-.89.18-.08.26-.14.25-.18,0-.04,0-.07.01-.09l.29-.22c.05-.07.12-.21.21-.42l.26-.21c.34-.33.51-.56.53-.71l-.11-.04c.2-.15.34-.24.42-.28l-.03-.14s.08.01.1,0c.02,0,.05,0,.07.01l.1-.02v-.06c-.06.01-.08,0-.09-.01l.07-.02v-.03s.02-.04.02-.04c0-.02.01-.03.06-.04,0,.02.03.03.08.03.05,0,.09,0,.14-.02v-.06s.02,0,.02,0c-.01-.06-.01-.1,0-.12l.2-.05c-.01-.06-.02-.1-.01-.13,0-.03,0-.06.02-.08,0-.02.03-.04.05-.06.03-.02.06-.05.08-.1.02-.05.05-.1.08-.16.03-.06.09-.1.16-.12.08-.02.13-.04.16-.05.03-.02.05-.04.06-.06,0-.02.01-.04.02-.07,0-.02.02-.04.04-.06.02-.01.04-.03.06-.06h.03s.03-.05.04-.05c.01,0,.04-.03.08-.08.05-.05.08-.11.1-.18.02-.07.13-.14.34-.23l.02.09-.16.04s.03.02.07.01l-.09.05c-.03.09-.09.2-.2.32l-.21.29-.02.06.07-.02c.1-.15.22-.28.36-.39.24-.18.4-.38.48-.6l-.1.02s-.04.05-.07.06-.08.03-.15.05l.03-.04-.02-.09c.11-.11.22-.18.31-.23.09-.04.2-.08.31-.1.11-.03.24-.08.38-.15l.04.17c-.06.04-.14.08-.25.12-.11.04-.2.1-.28.16l.19.08c-.32.1-.52.26-.58.48.09,0,.15.01.19.05.03.03.07.05.12.06.14-.09.31-.25.52-.46l1.11-1.18.56-.56.2-.05.07-.14c.09-.18.21-.31.34-.39.13-.07.39-.29.77-.64.29-.31.64-.61,1.04-.89l-.05.07c-.14.11-.24.27-.31.47l-.05.07.07-.02h.07s.02.04.04.04c.03-.17.25-.41.66-.71.02,0,.03-.04.01-.09l.16-.19c.17-.16.35-.38.54-.65l.1-.02s.02.03.04.02l-.33.38c-.13.23-.3.42-.53.55l.02.09-.12.09v.06s-.25.21-.25.21c-.27.31-.43.5-.46.57v.06s-.01.04,0,.09c-.19.09-.38.26-.57.53l-.36.36.03.12-.17.04s0,.04,0,.08c0,.03-.02.06-.05.07-.03.02-.04.04-.03.08-.06.05-.15.1-.28.13,0,.04,0,.06-.02.07l.02.09-.02.07.2-.05s.06-.05.12-.07c.06-.03.12-.14.16-.33l.07-.14.1-.02h.07c.27-.13.45-.33.55-.58l.06-.02s.02.03.04.02v.03s.04,0,.04,0c.02,0,.04-.01.06-.03.02-.01.03-.03.02-.05v-.06s.01-.04.01-.04l.07-.02v.03s.04-.02.03-.04h.03c.16-.23.24-.37.25-.43l.15.03.13-.18.07-.02.02-.07.04.02.13-.03s-.04-.05-.08-.04h-.07s.07-.03.07-.03l.02-.07s.09-.1.17-.16c.16-.12.23-.19.23-.22,0-.03,0-.06.02-.08l.13-.03c.11-.03.22-.11.32-.26.04-.05.08-.1.12-.15.04-.05.07-.09.06-.11l-.13.03v-.03s.09-.02.09-.02v-.03s.03,0,.03,0c.08.02.14.03.18.03.05,0,.13-.02.27-.05.02.08.09.18.21.32,0,.02.02.03.04.02l.13-.03.05.05c-.15.14-.25.3-.3.48-.05.18-.14.33-.28.45l-.1.02h-.11c-.07.09-.12.15-.15.17-.03.02-.06.04-.1.07l.24-.03.05.05c-.12.07-.21.13-.25.2-.04.06-.09.12-.15.17.03.01.05.02.06.03.01,0,.03,0,.05,0,0,.02-.01.04-.05.06-.04.02-.07.03-.1.04l-.16.04.09.07s0,.03-.03.04h-.31s.01.07.01.07l.07-.02v.06s-.17.1-.17.1v.03s.25,0,.25,0c.07-.02.1-.03.09-.05v-.09c.06,0,.12,0,.18-.01.07-.02.1-.01.1,0h.03s0,.06-.05.07c-.13.13-.28.25-.44.35h.11s0,.04-.02.06c-.02.01-.03.03-.04.05,0,.02-.01.04-.02.07,0,.02-.02.05-.04.07l-.1.02v-.03s.14-.13.14-.13l-.2.05c-.06.14-.15.29-.28.45-.12.16-.27.28-.43.36v-.03s.03,0,.03,0l.05-.07v-.12s-.06.02-.06.02c-.04.03-.06.06-.07.08,0,.02-.01.04-.02.05,0,.01-.02.03-.02.05,0,.02.01.13.06.32h-.07s-.22.07-.22.07l.04.33-.25-.03-.07.02v.09s0,.03.03.04.04.02.04.04l.09-.05.13-.03s.01.04.03.05.03.03.04.03c.01,0,.03.02.04.02.01,0,.03,0,.05,0,.03-.09.06-.16.09-.21l-.07-.14-.04-.17c.2-.05.38-.19.56-.44l.16-.19v-.06s-.08.02-.08.02l-.05-.05c.17-.04.29-.1.34-.19s.11-.16.18-.24l.46-.26.02.09c-.12.07-.21.15-.25.24s-.13.17-.25.24v.06s.06-.04.11-.05h.11s.01.06.01.06l-.79.62.05.05v.03s-.14.12-.14.12c-.13.13-.2.26-.22.39-.26.16-.44.31-.52.43h.03s.01.05.01.05c-.07.02-.12.04-.16.07l-.39.27s.02.03.04.02v.06s-.16.16-.16.16l-.13.03.12.06-.1.02c-.09.12-.22.24-.41.34l.02.09c.09-.02.15-.05.19-.09.04-.04.1-.09.19-.14.09-.05.17-.1.23-.13v.03s-.05.07-.05.07l.02.09c-.17.08-.29.2-.37.36l-.1.02v-.03s.05-.04.05-.04c-.04.01-.1,0-.16-.02-.06-.03-.13-.03-.19-.01l-.11.12h.03s.01.05.01.05l-.02.07c-.1.17-.24.32-.41.46v.03s.17-.04.17-.04v.06s.05,0,.05,0c-.12.07-.18.12-.17.16l.04.14c.08-.04.16-.09.24-.16.08-.07.17-.15.29-.24l-.18.29c-.06.13-.16.26-.29.37l.09.1.02.09-.1.02v.06s-.05.02-.05.02c0,.02,0,.03-.03.04v-.06s.01-.04.01-.04l.07-.02-.02-.09h-.11s0,.04-.02.08c-.01.03-.08.14-.2.31h.03s0,.02,0,.02h.03s-.03.03-.03.03c-.19.35-.45.68-.78.98-.23.22-.37.39-.42.51-.05.12-.1.22-.16.28-.05.06-.1.12-.13.17-.04.05-.1.12-.2.2.01.06.01.1,0,.12-.24.06-.46.29-.67.71-.1.17-.19.3-.29.4v-.03c-.19.23-.32.43-.42.62l-.14.31s-.04,0-.05,0c-.01,0-.02-.02-.03-.04h-.03s-.14.16-.3.44c-.15.28-.42.59-.8.92-.68.57-1.06.98-1.16,1.25h-.03s-.03-.11-.03-.11h-.07c-.07.06-.16.14-.26.2-.1.06-.19.15-.25.24l.13-.03s0,.03-.04.04-.06.03-.08.05c-.02.02-.04.04-.06.06-.02.02-.04.03-.06.04-.02.02-.04.04-.05.09l-.05-.05-.1.02c.01.06,0,.11-.04.15-.04.04-.09.09-.16.14-.07.06-.13.15-.19.29l.06-.02-.06.04s-.04.05-.07.08c-.03.03-.05.05-.07.08-.02.03-.04.09-.06.2l.13-.03.08-.23.26-.09v.06c-.1.09-.2.18-.27.27-.07.09-.09.21-.05.36l.13-.03c.01.06.1.16.25.31.42.41.68.63.79.67l-.02.07.07-.02v-.03s.05-.05.05-.05v-.03s-.01-.03,0-.05c0-.01.02-.03.04-.05h.03s.03.11.03.11c-.08.06-.15.17-.2.32v.03c.08,0,.18.06.32.17.38.34.59.58.63.74l.06.11s0,.08,0,.14c-.01.05,0,.13.02.22.03.03.12.05.26.06v-.06s.02,0,.02,0c0,.02.02.03.04.04.02,0,.08.03.15.07l.08.35c.07.09.14.16.23.22.17.14.28.28.31.42-.1.08-.13.17-.12.24.04.16.15.28.33.38,0,.02.02.03.04.02.17.22.34.42.52.59.18.17.34.34.47.51.13.07.21.12.25.15v.18s-.06-.04-.12-.09c-.06-.05-.11-.09-.15-.12-.04-.03-.07-.04-.1-.04l-.06.04c.06.05.11.09.17.13.06.04.11.09.16.16.05.07.09.16.12.28-.06.04-.1.07-.12.1s-.03.05-.05.06c-.02,0-.04,0-.07,0s-.04-.01-.06-.03c-.02-.02-.03-.03-.03-.05h-.03s-.05.08-.05.08v.03s-.01.07-.01.07c.16.08.35.24.57.48.22.23.35.45.4.64h.03s.05.04.05.04h-.03s-.05-.04-.05-.04l-.2.05.04-.13v-.03s-.07.02-.07.02c0,.02,0,.03-.03.04h-.03s0,.13,0,.13l.05.05v.03s-.06.02-.06.02l-.09-.1-.07.02s-.02-.03-.04-.02l-.02.22c-.13.03-.21.06-.22.08l-.07.02.12.06v.06s-.01.06-.01.1c0,.04,0,.09-.02.16l.07-.02.11-.12.1-.02-.03-.14.06-.04c-.01-.06-.03-.08-.05-.08l-.05-.05s.03,0,.04.02l.07-.02.17.11c.12.09.22.23.31.41l-.06.02-.05-.05s-.04-.03-.04-.04c0,0-.02-.02-.04-.02-.02,0-.04-.02-.04-.04l-.16.04s-.05-.05-.06-.11c-.04.03-.07.06-.1.08s-.06.06-.08.1c-.03.04-.08.08-.16.14l.2.11.06.11c.09-.02.14-.02.17,0l.03.14.07-.02-.02-.09.09-.05v.03s.04,0,.04,0v.03s.04,0,.04,0v.06s-.05.02-.05.02v.06s.05,0,.05,0h-.03s.01.06.01.06c-.01.04-.04.07-.08.08-.06-.07-.12-.11-.17-.14-.05-.03-.1-.08-.14-.15l-.13.03s-.05-.05-.07-.06c-.01,0-.03,0-.05,0l-.03.04-.07.02.23.22.09-.05s.02.03.04.02v.15c.07-.02.11-.02.14-.02.02,0,.04.03.05.07v.15s.04,0,.04,0v.03s.04,0,.04,0l.05.05-.1.02v-.06c-.21-.04-.45-.19-.75-.47-.12-.13-.24-.24-.35-.31l-.15-.03-.03.04s-.04,0-.07,0c-.02,0-.06-.02-.12-.05l.07-.02.02-.07.02-.07-.1.02c-.15.04-.25-.01-.28-.15l.07-.02v.03s.04,0,.04,0h-.03s.07,0,.07,0c0,.02.02.03.04.02l-.05-.05v-.03s-.08-.02-.15-.07c-.07-.05-.15-.08-.25-.08,0,.04.03.06.05.06.02,0,.04.02.06.03.01.02.04.03.06.05l-.16.04h.07s-.02.08-.02.08h.07s.05.09.05.09l.07-.02-.03.04c.11.08.22.16.32.24.1.09.22.17.35.24-.02.02-.04.05-.07.08s-.04.05-.04.05c0,0,0,.03.01.04,0,.02.04.02.11,0v-.03s.06-.02.06-.02l.12.09c.15.15.24.23.27.24l.04.02.07-.02.05.05-.03.04s.02.03.04.02c.02,0,.04,0,.04.02h.03s-.03.03-.03.03c.03.12.03.24.02.36,0,.02.01.03.03.04.01,0,.04,0,.09,0,.04-.01.07.01.09.07l-.12.06c-.04-.05-.09-.07-.15-.06,0-.04,0-.06.02-.07v-.06s-.02-.03-.02-.03c-.03-.01-.05-.02-.07-.01l-.16.04s-.02.08-.03.1c0,.02-.03.04-.06.06-.03.02-.07.04-.11.07l-.12-.06.03.12.09.07-.1.02-.14.13c-.15-.17-.35-.31-.57-.44-.23-.13-.43-.32-.61-.59h-.03s.01.06.01.06h-.03s-.01.1-.01.1l.06-.04s.05.05.07.17h-.03s-.03-.05-.05-.06-.05-.01-.08-.03h-.03s.04.3.04.3c.04,0,.06-.04.05-.07l.03-.04.07-.02s0,.07-.04.1v.03s-.04.04-.08.05c0-.02-.02-.03-.04-.02l.02.09h.03s0,.02,0,.02h-.03c-.08.05-.13.08-.15.1l-.07.02c-.05-.03-.12-.05-.19-.08-.08-.02-.14-.06-.2-.1-.01.04-.02.07-.02.08,0,.01,0,.03,0,.05,0,.02-.02.03-.03.04-.01,0-.03.02-.04.04-.06-.07-.13-.12-.21-.15-.08-.03-.18-.04-.32-.03,0,.02.02.03.04.02v.06c.16.03.27.08.33.17l-.13.03s-.06-.01-.11,0l-.07.02c-.37-.12-.6-.35-.69-.69h.07s0,.04,0,.04h.03s-.24-.29-.24-.29h-.03s0,.13,0,.13c.03.01.06.02.11,0v.03s.05.05.05.05l-.07.02v-.03c-.22-.03-.38-.11-.48-.25-.1-.14-.19-.23-.27-.27-.07.02-.11.02-.14.02-.02,0-.05-.02-.08-.06.04-.01.08,0,.11,0l.02-.06c-.12-.03-.22-.09-.28-.16-.07-.08-.13-.16-.2-.26-.07-.1-.15-.19-.24-.29-.72-.58-1.41-1.17-2.09-1.76.02,0,.03-.02.03-.04h.07s0-.04,0-.04l-.09.05-.07.02-.04-.02h.03s-.01-.07-.01-.07c.04,0,.07-.03.09-.05l.06-.04c-.32-.09-.6-.33-.83-.72-.04.03-.06.06-.07.08,0,.02-.02.04-.04.04-.02,0-.04,0-.05,0-.01,0-.03-.02-.06-.03l-.1.02.04-.13.15.03v-.12c-.07-.02-.13-.06-.18-.11-.05-.05-.08-.08-.11-.1-.02,0-.03.02-.03.04h-.03s0,.04,0,.04c-.14.09-.23.2-.29.33-.05.12-.16.25-.31.36l-.05-.05s.02-.04.07-.08c.05-.03.15-.16.31-.38l.17-.32v-.03c-.07-.09-.16-.12-.27-.09-.06.05-.09.09-.09.11,0,.02-.06.07-.15.16l-.02-.09.12-.09.04-.1-.12.06c-.05.07-.12.16-.22.25-.09.09-.17.21-.23.34l.1-.02c.04-.11.11-.2.21-.26.02-.02.05-.04.09-.05l-.06.04c-.38.72-.92,1.4-1.6,2.03-.04.05-.06.1-.07.15,0,.05-.04.09-.07.12l.05.05v.03c-.05.04-.09.08-.1.12-.01.04-.03.09-.05.13-.02.05-.04.1-.05.16l-.13.03.03-.04s.02-.05.02-.07l-.05-.08c.01.06-.04.12-.16.19l.05.08c.04.05.02.14-.04.25l.07-.02c.07-.18.26-.38.55-.59v.06c-.35.33-.61.64-.77.92l-.14-.03s-.03.02-.03.04c-.14.09-.24.18-.3.27-.06.09-.11.15-.16.21-.05.05-.12.11-.22.17v-.06s.01-.04.01-.04c.16-.1.33-.25.5-.47.17-.21.27-.4.3-.55l-.18.13h-.03c-.07.09-.12.17-.15.26-.03.09-.15.2-.37.33l-.07.29h-.03s-.01-.05-.01-.05c-.02,0-.04,0-.04-.02v.15s.02.09.02.09h.03s.01.05.01.05l-.1.02.05-.07v-.03c-.07.03-.12.07-.15.11-.04.04-.08.07-.12.1l.06.11.03.12c-.06.05-.11.11-.15.17-.04.06-.1.12-.18.18l-.03-.12-.08-.04-.1.02s-.01.03-.06.04l.05.2s-.05-.02-.08-.03c-.03,0-.04-.02-.04-.04.02.08.04.12.05.14.01.02.04.03.06.05.07-.1.14-.18.22-.24v.03c-.07.08-.12.15-.15.22-.03.07-.08.13-.15.17-.07.05-.14.09-.22.11-.07.03-.13.06-.17.09h-.03s.02.07.04.09c.01.02.03.02.06.02l.04.02v.03s-.06.06-.06.08c0,.02,0,.04,0,.06,0,.02,0,.03-.03.04l-.1-.13s-.03.04-.04.06c0,.01-.02.03-.03.04,0,.01,0,.04,0,.09s.01.09,0,.14l-.1.02c-.06.02-.08.08-.06.2l.04.02v.1s-.14.03-.14.03c.03-.07.04-.14.02-.22l-.07.02.02.09-.05.1s.02.03.04.02c.02.08,0,.13-.03.16-.04.03-.09.06-.15.08-.06.03-.11.05-.15.08,0,.04-.04.13-.14.28v-.03s0,.04,0,.06c0,.02-.11.14-.32.35l-.29.38s.02.03.04.02v.03s-.01.07-.01.07c-.05.17-.1.3-.16.37-.05.07-.13.14-.23.21s-.15.12-.15.17c0,.05,0,.1,0,.15,0,.05-.11.16-.32.33-.11.13-.17.2-.18.21s-.01.03,0,.05l.1-.02v.06c-.08.1-.19.27-.32.51-.13.23-.24.42-.32.56v.03s-.25-.06-.25-.06c.12-.15.21-.3.26-.44.05-.14.13-.27.24-.38l.04.02v.06s.12,0,.12,0c0-.04,0-.06,0-.08,0-.01.02-.03.04-.05v-.06s.02-.02.01-.04h-.07s-.05-.06-.05-.06c.18-.12.29-.26.32-.41,0-.04,0-.07.01-.09l-.02-.09s.08-.08.15-.11c.06-.03.12-.06.16-.12.05-.05.07-.09.06-.11l-.06-.11h.03s0-.04,0-.04l.06-.04v-.03s-.03.04-.03.04v-.06s-.05,0-.05,0l-.22.39c-.06.12-.12.22-.18.32-.06.09-.11.16-.15.19h-.03s-.08.02-.11,0l-.07.02s-.02.05-.02.08c0,.03,0,.06,0,.1,0,.04-.02.09-.06.14l-.2.05c0,.06-.01.12-.01.17,0,.05,0,.08-.03.1-.02.02-.07.04-.15.08l.02-.07h-.03c-.04.22-.17.47-.4.74-.22.28-.36.54-.42.8-.09.02-.13.05-.14.08s-.01.07-.03.11l.03.12-.2.05v-.03c.1-.13.21-.38.34-.75h-.07s.01.04.01.04c-.07.08-.14.18-.18.32-.05.13-.13.25-.25.33v.06s-.02,0-.02,0l-.03-.12h-.03s0,.04,0,.04h.03s-.06.04-.06.04l-.02.07s.1.03.17.05c.06.02.13.04.2.04l-.14.13-.02.07h-.03s.03.15.03.15h.03s.05.07.05.07l-.07.02s-.04-.02-.06-.03c-.01,0-.03-.02-.04-.02-.01,0-.03-.06-.05-.16l.1-.02s.02-.07,0-.12l-.17.04s-.05.12-.1.22c-.06.11-.08.19-.06.24l-.1.02v-.03s.09-.02.09-.02c-.01-.06-.01-.1,0-.14.02-.04.02-.06.02-.08,0-.02-.03-.04-.09-.07v.06s-.06.11-.12.17c-.05.06-.1.13-.13.2.08.02.13.06.17.11l.07.29-.3.07c0,.2-.06.39-.18.56l-.02.07s-.07-.02-.08-.04l-.1.02-.12.09s0-.07.03-.08.05-.03.06-.04.02-.03.04-.06h-.14s-.05-.05-.05-.05l.02-.07v-.03s-.3.1-.3.1l.02-.07h-.07s-.06.08-.08.11c-.01.04-.04.07-.06.11-.03.04-.08.08-.16.12l-.05-.05-.07.02.02.09s-.02.11-.09.21l-.02-.09-.07.02v.12s.13-.03.13-.03c-.02.02-.04.04-.05.06-.02.01-.06.03-.11.06-.05.02-.15.07-.29.15,0-.02,0-.04,0-.05,0-.01.03-.04.07-.09l.06-.04v-.03s-.05-.02-.06-.02c-.01,0-.09,0-.23,0,.02-.13.05-.23.1-.31.05-.08.08-.16.09-.22l-.13.03s-.06.13-.2.32c-.02.02-.05.04-.09.05-.04,0-.08.03-.12.06-.03.15-.11.3-.23.44-.12.14-.19.3-.21.49l-.13.03c0,.18-.13.33-.38.43l.03.12Z"/>
+    <g>
+      <path class="cls-11" d="M140.27,146.24l-1.03.52-2.77-5.52.52-.26-.28-.55.52-.26-.28-.55.52-.26-.28-.55.52-.26-.28-.55,1.03-.52.28.55.52-.26.28.55.52-.26.28.55.52-.26.28.55.51-.26,2.77,5.52-1.03.52-1.11-2.21-3.09,1.55,1.11,2.21ZM138.61,142.92l3.09-1.55-.83-1.66-.52.26-.28-.55-.52.26-.28-.55-1.03.52.28.55-.52.26.28.55-.52.26.83,1.66Z"/>
+      <path class="cls-11" d="M145.31,139.56l-.52.26,1.66,3.31-1.03.52-3.87-7.72,4.12-2.07.28.55.51-.26.28.55.52-.26,1.11,2.21-.52.26.28.55-.51.26.28.55-1.03.52.28.55.52-.26.28.55.52-.26.28.55.52-.26.28.55.52-.26.55,1.1-1.03.52-.28-.55-.52.26-.28-.55-.52.26-.28-.55-.51.26-.28-.55-.51.26-.28-.55-.52.26-.28-.55ZM143.13,136.51l1.11,2.21,2.58-1.29-.28-.55.52-.26-.55-1.1-.51.26-.28-.55-2.58,1.29Z"/>
+      <path class="cls-11" d="M151.61,140.55l-3.87-7.72,4.12-2.07.28.55.52-.26.28.55.52-.26,2.77,5.52-.52.26.28.55-.52.26.28.55-4.12,2.07ZM149.32,133.41l2.77,5.52,2.58-1.29-.28-.55.52-.26-2.21-4.41-.52.26-.28-.55-2.58,1.29Z"/>
+      <path class="cls-11" d="M157.75,136.08l-.51.26-3.32-6.62,1.03-.52,3.04,6.07.52-.26.28.55,2.06-1.03-.28-.55.52-.26-3.04-6.07,1.03-.52,3.32,6.62-.52.26.28.55-.52.26.28.55-3.09,1.55-.28-.55-.52.26-.28-.55Z"/>
+      <path class="cls-11" d="M163.86,130.26l-.52.26,1.66,3.31-1.03.52-3.88-7.72,4.12-2.07.28.55.51-.26.28.55.52-.26,1.11,2.21-.52.26.28.55-.51.26.28.55-1.03.52.28.55.52-.26.28.55.52-.26.28.55.52-.26.28.55.52-.26.55,1.1-1.03.52-.28-.55-.52.26-.28-.55-.52.26-.28-.55-.51.26-.28-.55-.51.26-.28-.55-.52.26-.28-.55ZM161.69,127.21l1.11,2.21,2.58-1.29-.28-.55.52-.26-.55-1.1-.51.26-.28-.55-2.58,1.29Z"/>
+      <path class="cls-11" d="M167.6,123.55l-.28-.55,3.09-1.55.28.55.52-.26.28.55.52-.26,2.77,5.52-.52.26.28.55-.52.26.28.55-3.09,1.55-.28-.55-.52.26-.28-.55-.51.26-2.77-5.52.52-.26-.28-.55.52-.26ZM170.45,122.81l-2.06,1.03.28.55-.52.26,2.21,4.41.51-.26.28.55,2.06-1.03-.28-.55.52-.26-2.21-4.41-.51.26-.28-.55Z"/>
+      <path class="cls-11" d="M177.38,127.62l-1.03.52-3.87-7.72,1.03-.52.55,1.1.52-.26.28.55.52-.26.28.55,1.03-.52-.28-.55.52-.26-.28-.55.52-.26-.55-1.1,1.03-.52,3.87,7.72-1.03.52-2.49-4.97-.52.26.28.55-.52.26.55,1.1-1.03.52-.55-1.1-.52.26-.28-.55-.52.26,2.49,4.97Z"/>
+      <path class="cls-11" d="M183.57,124.52l-1.03.52-3.88-7.72,1.03-.52.55,1.1.51-.26.28.55.52-.26.28.55,1.03-.52-.28-.55.51-.26-.28-.55.52-.26-.55-1.1,1.03-.52,3.87,7.72-1.03.52-2.49-4.97-.52.26.28.55-.51.26.55,1.1-1.03.52-.55-1.1-.52.26-.28-.55-.51.26,2.49,4.97Z"/>
+    </g>
+  </g>
+</svg>
