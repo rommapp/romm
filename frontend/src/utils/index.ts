@@ -361,6 +361,7 @@ const _EJS_CORES_MAP = {
   "commmodore-128": ["vice_x128"],
   colecovision: ["gearcoleco"],
   doom: ["prboom"],
+  dos: ["dosbox_pure"],
   jaguar: ["virtualjaguar"],
   lynx: ["handy"],
   "atari-lynx-mkii": ["handy"],

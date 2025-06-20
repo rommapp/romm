@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
@@ -20,39 +21,15 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
 const panels = ref<number[]>([]);
-// Use a computed property to reactively update metadataOptions based on heartbeat
-const metadataOptions = computed(() => [
-  {
-    name: "IGDB",
-    value: "igdb",
-    logo_path: "/assets/scrappers/igdb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.IGDB_API_ENABLED,
-  },
-  {
-    name: "Mobygames",
-    value: "moby",
-    logo_path: "/assets/scrappers/moby.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.MOBY_API_ENABLED,
-  },
-  {
-    name: "Screenscraper",
-    value: "ss",
-    logo_path: "/assets/scrappers/ss.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.SS_API_ENABLED,
-  },
-  {
-    name: "RetroAchievements",
-    value: "ra",
-    logo_path: "/assets/scrappers/ra.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
-  },
-]);
-// Use the computed metadataOptions to filter out disabled sources
-const metadataSources = ref(metadataOptions.value.filter((s) => !s.disabled));
-// Since metadataOptions is now a computed property, it will automatically update.
-// Therefore, we only need to watch metadataOptions for changes.
+// Use store getters
+const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
+const metadataSources = ref([...heartbeat.getEnabledMetadataOptions()]);
+
 watch(metadataOptions, (newOptions) => {
-  metadataSources.value = newOptions.filter((option) => !option.disabled);
+  // Remove any sources that are now disabled
+  metadataSources.value = metadataSources.value.filter((s) =>
+    newOptions.some((opt) => opt.value === s.value && !opt.disabled),
+  );
 });
 
 // Adding each new scanned platform to panelIndex to be open by default
@@ -109,7 +86,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
-    apis: [...metadataSources.value.map((s) => s.value)],
+    apis: metadataSources.value.map((s) => s.value),
   });
 }
 
@@ -126,7 +103,7 @@ async function stopScan() {
 <template>
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" md="5" lg="6" class="px-1">
+    <v-col cols="12" md="4" lg="5" class="px-1">
       <!-- TODO: add 'ALL' default option -->
       <v-select
         v-model="platformsToScan"
@@ -160,6 +137,14 @@ async function stopScan() {
               />
             </template>
             <template #append>
+              <missing-from-f-s-icon
+                v-if="item.raw.missing_from_fs"
+                text="Missing platform from filesystem"
+                chip
+                chip-label
+                chipDensity="compact"
+                class="ml-2"
+              />
               <v-chip class="ml-2" size="x-small" label>
                 {{ item.raw.rom_count }}
               </v-chip>
@@ -183,7 +168,7 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col cols="12" md="5" lg="4" class="px-1" :class="{ 'mt-3': smAndDown }">
+    <v-col cols="12" md="4" lg="5" class="px-1" :class="{ 'mt-3': smAndDown }">
       <v-select
         v-model="metadataSources"
         :items="metadataOptions"
@@ -202,8 +187,8 @@ async function stopScan() {
           <v-list-item
             v-bind="props"
             :title="item.raw.name"
-            :subtitle="item.raw.disabled ? t('scan.api-key-missing') : ''"
-            :disabled="item.raw.disabled"
+            :subtitle="item.raw.disabled"
+            :disabled="Boolean(item.raw.disabled)"
           >
             <template #prepend>
               <v-avatar size="25" rounded="1">
@@ -217,7 +202,7 @@ async function stopScan() {
             <v-avatar class="mr-2" size="15" rounded="1">
               <v-img :src="item.raw.logo_path" />
             </v-avatar>
-            {{ item.raw.value }}
+            {{ item.raw.name }}
           </v-chip>
         </template>
       </v-select>
@@ -355,7 +340,7 @@ async function stopScan() {
                 >
                   <template #append-body>
                     <v-chip
-                      v-if="!rom.igdb_id && !rom.moby_id && !rom.ss_id"
+                      v-if="rom.is_unidentified"
                       color="red"
                       size="x-small"
                       label

@@ -359,12 +359,17 @@ def delete_user(request: Request, id: int) -> MessageResponse:
 @protected_route(router.post, "/{id}/ra/refresh", [Scope.ME_WRITE])
 async def refresh_retro_achievements(request: Request, id: int) -> MessageResponse:
     user = db_user_handler.get_user(id)
-    user_progression = await meta_ra_handler.get_user_progression(user.ra_username)
-    db_user_handler.update_user(
-        id,
-        {
-            "ra_progression": user_progression,
-        },
-    )
-
-    return {"msg": "RetroAchievements successfully refreshed"}
+    if user and user.ra_username:
+        user_progression = await meta_ra_handler.get_user_progression(user.ra_username)
+        db_user_handler.update_user(
+            id,
+            {
+                "ra_progression": user_progression,
+            },
+        )
+        return {"msg": "RetroAchievements successfully refreshed"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User does not have a RetroAchievements username set",
+        )

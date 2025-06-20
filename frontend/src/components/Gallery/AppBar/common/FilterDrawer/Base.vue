@@ -2,11 +2,14 @@
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterMatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMatchedBtn.vue";
+import FilterMissingBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterMissingBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
+import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
 import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
@@ -211,6 +214,14 @@ onMounted(async () => {
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
+        <filter-missing-btn
+          class="mt-2"
+          :tabindex="activeFilterDrawer ? 0 : -1"
+        />
+        <filter-verified-btn
+          class="mt-2"
+          :tabindex="activeFilterDrawer ? 0 : -1"
+        />
         <filter-ra-btn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
       </v-list-item>
       <v-list-item
@@ -246,6 +257,14 @@ onMounted(async () => {
                 />
               </template>
               <template #append>
+                <missing-from-f-s-icon
+                  v-if="item.raw.missing_from_fs"
+                  text="Missing platform from filesystem"
+                  chip
+                  chip-label
+                  chipDensity="compact"
+                  class="ml-2"
+                />
                 <v-chip class="ml-2" size="x-small" label>
                   {{ item.raw.rom_count }}
                 </v-chip>

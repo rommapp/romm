@@ -49,6 +49,8 @@
   "show-siblings-desc": "\"Group roms\" オプションが有効な場合、キャラリーに系列数を表示",
   "show-status": "ステータを表示",
   "show-status-desc": "ギャラリーにステータスアイコンを表示 (未プレイ, プレイ中, 完了済, その他)",
+  "show-stats": "統計を表示",
+  "show-stats-desc": "ホームに統計の概要を表示",
   "show-actionbar": "アクションバーを表示",
   "show-actionbar-desc": "ゲームカードに常にアクションバーを表示",
   "show-virtual-collections": "自動生成されたコレクションを表示",

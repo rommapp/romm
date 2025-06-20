@@ -281,10 +281,10 @@ onBeforeUnmount(() => {
               titleOnHover
               pointerOnHover
               withLink
-              showFlags
-              showFav
               transformScale
               showActionBar
+              showChips
+              :showPlatformIcon="false"
               :withBorderPrimary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
