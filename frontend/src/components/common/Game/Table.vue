@@ -3,6 +3,7 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
@@ -207,12 +208,28 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           </v-col>
         </v-row>
         <template #append>
+          <missing-from-f-s-icon
+            v-if="item.missing_from_fs"
+            :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
+            class="mr-1 mb-1 px-1"
+            chip
+            chipDensity="compact"
+          />
+          <v-chip
+            v-if="item.hasheous_id"
+            class="translucent-dark mr-1 mb-1 px-1"
+            density="compact"
+            title="Verified with Hasheous"
+          >
+            <v-icon>mdi-check-decagram</v-icon>
+          </v-chip>
           <v-chip
             v-if="item.siblings.length > 0 && showSiblings"
-            class="translucent-dark ml-4"
-            size="x-small"
+            class="translucent-dark text-secondary mr-1 mb-1 px-1"
+            density="compact"
+            :title="`${item.siblings.length} sibling(s)`"
           >
-            <span class="text-caption">+{{ item.siblings.length }}</span>
+            <v-icon>mdi-card-multiple</v-icon>
           </v-chip>
         </template>
       </v-list-item>
@@ -293,7 +310,9 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
       <v-btn-group density="compact">
         <fav-btn :rom="item" />
         <v-btn
-          :disabled="downloadStore.value.includes(item.id)"
+          :disabled="
+            downloadStore.value.includes(item.id) || item.missing_from_fs
+          "
           download
           variant="text"
           size="small"
@@ -303,6 +322,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-btn>
         <v-btn
           v-if="checkIfEJSEmulationSupported(item.platform_slug)"
+          :disabled="item.missing_from_fs"
           variant="text"
           size="small"
           @click.stop="
@@ -316,6 +336,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-btn>
         <v-btn
           v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
+          :disabled="item.missing_from_fs"
           variant="text"
           size="small"
           @click.stop="

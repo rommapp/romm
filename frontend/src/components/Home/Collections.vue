@@ -50,12 +50,9 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
     </template>
     <template #content>
       <v-row
-        :class="{
-          'flex-nowrap overflow-x-auto': !gridCollections,
-        }"
-        class="py-1"
+        :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
+        class="py-1 overflow-y-hidden"
         no-gutters
-        style="overflow-y: hidden"
       >
         <v-col
           v-for="collection in collections.allCollections"

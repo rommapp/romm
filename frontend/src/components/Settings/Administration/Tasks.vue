@@ -44,6 +44,19 @@ const tasks = computed(() => [
       : "mdi-clock-remove-outline",
     enabled: heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.ENABLED,
   },
+  {
+    title: heartbeatStore.value.SCHEDULER.LAUNCHBOX_METADATA.TITLE,
+    description:
+      heartbeatStore.value.SCHEDULER.LAUNCHBOX_METADATA.MESSAGE +
+      " " +
+      convertCronExperssion(
+        heartbeatStore.value.SCHEDULER.LAUNCHBOX_METADATA.CRON,
+      ),
+    icon: heartbeatStore.value.SCHEDULER.LAUNCHBOX_METADATA.ENABLED
+      ? "mdi-clock-check-outline"
+      : "mdi-clock-remove-outline",
+    enabled: heartbeatStore.value.SCHEDULER.LAUNCHBOX_METADATA.ENABLED,
+  },
 ]);
 
 // Functions

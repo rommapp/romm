@@ -1,0 +1,20 @@
+<?xml version="1.0" standalone="yes"?>
+<LaunchBox>
+  <Platform>
+    <Name>3DO Interactive Multiplayer</Name>
+    <Emulated>true</Emulated>
+    <ReleaseDate>1993-10-04T00:00:00-07:00</ReleaseDate>
+    <Developer>The 3DO Company</Developer>
+    <Manufacturer>Panasonic Corporation, Sanyo Electric Co., Ltd., GoldStar</Manufacturer>
+    <Cpu>32-bit RISC ARM60 @ 12.5 MHz</Cpu>
+    <Memory>2 MB main RAM and 1 MB video RAM</Memory>
+    <Graphics>3DO "CLIO" @ 25 MHz,  3DO "MADAM" @ 25 MHz</Graphics>
+    <Sound>16-bit Stereo, Dolby Surround</Sound>
+    <Display>320x240 and 640x480</Display>
+    <Media>CD-ROM</Media>
+    <MaxControllers>1 (up to 8 if daisy-chained)</MaxControllers>
+    <Notes>The 3DO Interactive Multiplayer (often called simply 3DO) is a video game console originally produced by Panasonic in 1993. Further renditions of the hardware were released in 1994 by Sanyo and Goldstar. The consoles were manufactured according to specifications created by The 3DO Company, and were originally designed by Dave Needle and RJ Mical of New Technology Group. The system was conceived by entrepreneur and Electronic Arts founder Trip Hawkins.</Notes>
+    <Category>Consoles</Category>
+    <UseMameFiles>false</UseMameFiles>
+  </Platform>
+</LaunchBox>

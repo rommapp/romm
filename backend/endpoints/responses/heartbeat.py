@@ -19,6 +19,7 @@ class TaskDict(WatcherDict):
 class SchedulerDict(TypedDict):
     RESCAN: TaskDict
     SWITCH_TITLEDB: TaskDict
+    LAUNCHBOX_METADATA: TaskDict
 
 
 class MetadataSourcesDict(TypedDict):
@@ -28,6 +29,10 @@ class MetadataSourcesDict(TypedDict):
     SS_API_ENABLED: bool
     STEAMGRIDDB_API_ENABLED: bool
     RA_API_ENABLED: bool
+    LAUNCHBOX_API_ENABLED: bool
+    PLAYMATCH_API_ENABLED: bool
+    HASHEOUS_API_ENABLED: bool
+    TGDB_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):

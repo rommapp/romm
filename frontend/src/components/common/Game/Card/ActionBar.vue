@@ -62,7 +62,7 @@ watch(menuOpen, (val) => {
       <v-btn
         class="action-bar-btn-small flex-grow-1"
         :size="computedSize"
-        :disabled="downloadStore.value.includes(rom.id)"
+        :disabled="downloadStore.value.includes(rom.id) || rom.missing_from_fs"
         icon="mdi-download"
         variant="text"
         rounded="0"
@@ -76,6 +76,7 @@ watch(menuOpen, (val) => {
     >
       <v-btn
         v-if="ejsEmulationSupported"
+        :disabled="rom.missing_from_fs"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
         :size="computedSize"
@@ -92,6 +93,7 @@ watch(menuOpen, (val) => {
       />
       <v-btn
         v-if="ruffleEmulationSupported"
+        :disabled="rom.missing_from_fs"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
         :size="computedSize"
@@ -110,6 +112,7 @@ watch(menuOpen, (val) => {
     <v-col v-if="is3DSRom" class="d-flex">
       <v-btn
         @click.prevent
+        :disabled="rom.missing_from_fs"
         class="action-bar-btn-small flex-grow-1"
         :size="computedSize"
         @click="emitter?.emit('showQRCodeDialog', rom)"

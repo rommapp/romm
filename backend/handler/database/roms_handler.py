@@ -193,6 +193,7 @@ class DBRomsHandler(DBBaseHandler):
             Rom.igdb_id.isnot(None),
             Rom.moby_id.isnot(None),
             Rom.ss_id.isnot(None),
+            Rom.launchbox_id.isnot(None),
         )
         if not value:
             predicate = not_(predicate)
@@ -235,8 +236,39 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.join(Rom.platform).filter(predicate)
 
-    def filter_by_ra_only(self, query: Query):
-        return query.filter(Rom.ra_id.isnot(None))
+    def filter_by_has_ra(self, query: Query, value: bool) -> Query:
+        predicate = Rom.ra_id.isnot(None)
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
+    def filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
+        predicate = Rom.missing_from_fs.isnot(False)
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
+    def filter_by_verified(self, query: Query):
+        keys_to_check = [
+            "tosec_match",
+            "mame_arcade_match",
+            "mame_mess_match",
+            "nointro_match",
+            "redump_match",
+            "whdload_match",
+            "ra_match",
+            "fbneo_match",
+        ]
+
+        if ROMM_DB_DRIVER == "postgresql":
+            conditions = " OR ".join(
+                f"(hasheous_metadata->>'{key}')::boolean" for key in keys_to_check
+            )
+            return query.filter(text(conditions))
+        else:
+            return query.filter(
+                or_(*(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check))
+            )
 
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
@@ -362,7 +394,9 @@ class DBRomsHandler(DBBaseHandler):
         favourite: bool | None = None,
         duplicate: bool | None = None,
         playable: bool | None = None,
-        ra_only: bool = False,
+        has_ra: bool | None = None,
+        missing: bool | None = None,
+        verified: bool | None = None,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -403,8 +437,15 @@ class DBRomsHandler(DBBaseHandler):
         if playable is not None:
             query = self.filter_by_playable(query, value=playable)
 
-        if ra_only:
-            query = self.filter_by_ra_only(query)
+        if has_ra is not None:
+            query = self.filter_by_has_ra(query, value=has_ra)
+
+        if missing is not None:
+            query = self.filter_by_missing_from_fs(query, value=missing)
+
+        # TODO: Correctly support true/false values.
+        if verified:
+            query = self.filter_by_verified(query)
 
         if group_by_meta_id:
 
@@ -419,6 +460,9 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
                     Rom.moby_id.isnot(None): build_func("moby", Rom.moby_id),
                     Rom.ss_id.isnot(None): build_func("ss", Rom.ss_id),
+                    Rom.launchbox_id.isnot(None): build_func(
+                        "launchbox", Rom.launchbox_id
+                    ),
                 },
                 else_=build_func("romm", Rom.id),
             )
@@ -575,6 +619,9 @@ class DBRomsHandler(DBBaseHandler):
             favourite=kwargs.pop("favourite", None),
             duplicate=kwargs.pop("duplicate", None),
             playable=kwargs.pop("playable", None),
+            has_ra=kwargs.pop("has_ra", None),
+            missing=kwargs.pop("missing", None),
+            verified=kwargs.pop("verified", None),
             selected_genre=kwargs.pop("selected_genre", None),
             selected_franchise=kwargs.pop("selected_franchise", None),
             selected_collection=kwargs.pop("selected_collection", None),
@@ -674,10 +721,10 @@ class DBRomsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_roms(
+    def mark_missing_roms(
         self, platform_id: int, fs_roms_to_keep: list[str], session: Session = None
     ) -> Sequence[Rom]:
-        purged_roms = (
+        missing_roms = (
             session.scalars(
                 select(Rom)
                 .order_by(Rom.fs_name.asc())
@@ -692,15 +739,16 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
         session.execute(
-            delete(Rom)
+            update(Rom)
             .where(
                 and_(
                     Rom.platform_id == platform_id, Rom.fs_name.not_in(fs_roms_to_keep)
                 )
             )
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
-        return purged_roms
+        return missing_roms
 
     @begin_session
     def add_rom_user(
