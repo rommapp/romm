@@ -71,7 +71,7 @@ def test_get_user(client, access_token, editor_user):
 def test_add_user_from_admin_user(client, access_token, new_user_role):
     response = client.post(
         "/api/users",
-        params={
+        json={
             "username": "new_user",
             "password": "new_user_password",
             "email": "new_user@example.com",
@@ -122,7 +122,7 @@ def test_add_user_from_unauthorized_user(
     ):
         response = client.post(
             "/api/users",
-            params={
+            json={
                 "username": "new_user",
                 "password": "new_user_password",
                 "email": "new_user@example.com",
@@ -136,7 +136,7 @@ def test_add_user_from_unauthorized_user(
 def test_add_user_with_existing_username(client, access_token, admin_user):
     response = client.post(
         "/api/users",
-        params={
+        json={
             "username": admin_user.username,
             "password": "new_user_password",
             "email": "new_user@example.com",
@@ -155,7 +155,7 @@ def test_update_user(client, access_token, editor_user):
 
     response = client.put(
         f"/api/users/{editor_user.id}",
-        params={"username": "editor_user_new_username", "role": "viewer"},
+        data={"username": "editor_user_new_username", "role": "viewer"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
