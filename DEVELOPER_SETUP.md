@@ -53,14 +53,14 @@ Then create the virtual environment
 ```sh
 # Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
 # Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
-poetry sync
+poetry sync --all-extras
 ```
 
 If you are on Arch Linux or another Arch-based distro, you need to run the command as follows:
 
 ```sh
 # https://bbs.archlinux.org/viewtopic.php?id=296542
-CFLAGS="-Wno-error=incompatible-pointer-types" poetry sync
+CFLAGS="-Wno-error=incompatible-pointer-types" poetry sync --all-extras
 ```
 
 #### - Spin up mariadb in docker
@@ -144,4 +144,8 @@ docker exec -i romm-mariadb-dev mariadb -uroot -p<root password> < backend/romm_
 cd backend
 # path or test file can be passed as argument to test only a subset
 poetry run pytest [path/file]
+# the following command will run all tests
+# the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
+# -c specifies the path to a configuration file for pytest.
+poetry run pytest -vv -c ../pytest.ini
 ```
