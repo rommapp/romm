@@ -19,11 +19,7 @@ async function createUser({
   email: string;
   role: string;
 }): Promise<{ data: UserSchema }> {
-  return api.post(
-    "/users",
-    {},
-    { params: { username, password, email, role } },
-  );
+  return api.post("/users", { username, password, email, role });
 }
 
 async function createInviteLink({
@@ -67,18 +63,18 @@ async function updateUser({
     `/users/${id}`,
     {
       avatar: avatar || null,
+      username: attrs.username,
+      password: attrs.password,
+      email: attrs.email,
+      enabled: attrs.enabled,
+      role: attrs.role,
+      ra_username: attrs.ra_username,
     },
     {
       headers: {
-        "Content-Type": avatar ? "multipart/form-data" : "application/json",
-      },
-      params: {
-        username: attrs.username,
-        password: attrs.password,
-        email: attrs.email,
-        enabled: attrs.enabled,
-        role: attrs.role,
-        ra_username: attrs.ra_username,
+        "Content-Type": avatar
+          ? "multipart/form-data"
+          : "application/x-www-form-urlencoded",
       },
     },
   );
