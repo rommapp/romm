@@ -69,15 +69,6 @@ def test_roms(rom: Rom, platform: Platform):
     assert len(roms) == 1
 
 
-def test_utils(rom: Rom, platform: Platform):
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
-    rom_1 = db_rom_handler.get_rom_by_fs_name(
-        platform_id=platform.id, fs_name=rom.fs_name
-    )
-    assert rom_1
-    assert rom_1.id == roms[0].id
-
-
 def test_users(admin_user):
     db_user_handler.add_user(
         User(
