@@ -184,4 +184,8 @@ docker exec -i romm-db-dev mariadb -uroot -p<root password> < backend/romm_test/
 cd backend
 # path or test file can be passed as argument to test only a subset
 poetry run pytest [path/file]
+# or run the following command to run all tests
+# the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
+# -c specifies the path to a configuration file for pytest.
+poetry run pytest -vv -c ../pytest.ini
 ```
