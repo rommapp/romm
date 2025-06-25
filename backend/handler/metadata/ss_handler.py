@@ -429,6 +429,8 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "amiga-cd32": {"id": 134, "name": "Amiga CD"},
     "cpc": {"id": 60, "name": "CPC"},
     "acpc": {"id": 60, "name": "CPC"},  # IGDB
+    "adventure-vision": {"id": 78, "name": "Entex Adventure Vision"},
+    "amstrad-gx4000": {"id": 87, "name": "Amstrad GX4000"},
     "android": {"id": 63, "name": "Android"},
     "apple2": {"id": 86, "name": "Apple II"},
     "appleii": {"id": 86, "name": "Apple II"},  # IGDB
@@ -500,12 +502,14 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "ngc": {"id": 13, "name": "GameCube"},  # IGDB
     "genesis": {"id": 1, "name": "Megadrive"},
     "genesis-slash-megadrive": {"id": 1, "name": "Megadrive"},
+    "hartung": {"id": 103, "name": "Game Master"},
     "intellivision": {"id": 115, "name": "Intellivision"},
     "jaguar": {"id": 27, "name": "Jaguar"},
     "jupiter-ace": {"id": 126, "name": "Jupiter Ace"},
     "linux": {"id": 145, "name": "Linux"},
     "lynx": {"id": 28, "name": "Lynx"},
     "msx": {"id": 113, "name": "MSX"},
+    "msx-turbo": {"id": 118, "name": "MSX Turbo R"},  # IGDB
     "macintosh": {"id": 146, "name": "Mac OS"},
     "mac": {"id": 146, "name": "Mac OS"},  # IGDB
     "ngage": {"id": 30, "name": "N-Gage"},
@@ -563,6 +567,7 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "x1": {"id": 220, "name": "Sharp X1"},  # IGDB
     "sharp-x68000": {"id": 79, "name": "Sharp X68000"},
     "spectravideo": {"id": 218, "name": "Spectravideo"},
+    "sufami-turbo": {"id": 108, "name": "Sufami Turbo"},
     "super-acan": {"id": 100, "name": "Super A'can"},
     "supergrafx": {"id": 105, "name": "PC Engine SuperGrafx"},
     "supervision": {"id": 207, "name": "Watara Supervision"},
@@ -577,6 +582,7 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "turbografx-16-slash-pc-engine-cd": {"id": 114, "name": "PC Engine CD-Rom"},
     "turbo-grafx": {"id": 31, "name": "PC Engine"},
     "turbografx16--1": {"id": 31, "name": "PC Engine"},  # IGDB
+    "uzebox": {"id": 216, "name": "UzeBox"},
     "vsmile": {"id": 120, "name": "V.Smile"},
     "vic-20": {"id": 73, "name": "Vic-20"},
     "vectrex": {"id": 102, "name": "Vectrex"},
