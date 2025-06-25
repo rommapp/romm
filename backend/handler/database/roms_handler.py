@@ -656,19 +656,6 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     @with_details
-    def get_rom_by_fs_name(
-        self,
-        platform_id: int,
-        fs_name: str,
-        query: Query = None,
-        session: Session = None,
-    ) -> Rom | None:
-        return session.scalar(
-            query.filter_by(platform_id=platform_id, fs_name=fs_name).limit(1)
-        )
-
-    @begin_session
-    @with_details
     def get_roms_by_fs_name(
         self,
         platform_id: int,
@@ -687,20 +674,6 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
         return {rom.fs_name: rom for rom in roms}
-
-    @begin_session
-    @with_details
-    def get_rom_by_fs_name_no_tags(
-        self, fs_name_no_tags: str, query: Query = None, session: Session = None
-    ) -> Rom | None:
-        return session.scalar(query.filter_by(fs_name_no_tags=fs_name_no_tags).limit(1))
-
-    @begin_session
-    @with_details
-    def get_rom_by_fs_name_no_ext(
-        self, fs_name_no_ext: str, query: Query = None, session: Session = None
-    ) -> Rom | None:
-        return session.scalar(query.filter_by(fs_name_no_ext=fs_name_no_ext).limit(1))
 
     @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:
