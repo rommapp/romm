@@ -8,6 +8,7 @@ import type { RomUserStatus } from "@/__generated__";
 import { getTextForStatus, getEmojiForStatus } from "@/utils";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
+import { debounce } from "lodash";
 import { ref, watch } from "vue";
 import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
@@ -56,14 +57,14 @@ watch(
 
 watch(
   romUser,
-  () => {
+  debounce(() => {
     if (scopes.value.includes("roms.user.write")) {
       romApi.updateUserRomProps({
         romId: props.rom.id,
         data: romUser.value,
       });
     }
-  },
+  }, 500),
   { deep: true },
 );
 </script>
