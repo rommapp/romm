@@ -325,6 +325,7 @@ watch(
                 v-else
                 :model-value="romUser.note_raw_markdown"
                 :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+                language="en-US"
                 preview-theme="vuepress"
                 code-theme="github"
                 class="py-4 px-6"
@@ -350,6 +351,7 @@ watch(
                     <MdPreview
                       :model-value="note.note_raw_markdown"
                       :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+                      language="en-US"
                       preview-theme="vuepress"
                       code-theme="github"
                       class="py-4 px-6"
