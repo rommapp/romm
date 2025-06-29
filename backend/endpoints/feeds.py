@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, FRONTEND_RESOURCES_PATH
 from decorators.auth import protected_route
