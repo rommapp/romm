@@ -13,7 +13,7 @@
 
 # Versions:
 ARG ALPINE_VERSION=3.22
-ARG NGINX_VERSION=1.27.5
+ARG NGINX_VERSION=1.29.0
 ARG NODE_VERSION=20.19
 ARG PYTHON_VERSION=3.12
 
@@ -129,8 +129,7 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
     chmod 644 ./objs/ngx_http_zip_module.so
 
 
-# TODO: Upgrade Alpine to the same version as the other stages, when a new nginx image is released.
-FROM nginx:${NGINX_VERSION}-alpine3.21 AS production-stage
+FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 # Install required packages and dependencies
