@@ -48,9 +48,13 @@ RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | b
 ENV PATH="$NVM_DIR/versions/node/v18.20.8/bin:$PATH"
 
 # Build and install RAHasher (optional for RA hashes)
-RUN git clone --recursive --branch 1.8.0 --depth 1 https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro
+RUN git clone --recursive --branch 1.8.1 --depth 1 https://github.com/RetroAchievements/RALibretro.git /tmp/RALibretro
 WORKDIR /tmp/RALibretro
 RUN sed -i '22a #include <ctime>' ./src/Util.h \
+    && sed -i '6a #include <unistd.h>' \
+      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c \
     && make HAVE_CHD=1 -f ./Makefile.RAHasher \
     && cp ./bin64/RAHasher /usr/bin/RAHasher
 RUN rm -rf /tmp/RALibretro
