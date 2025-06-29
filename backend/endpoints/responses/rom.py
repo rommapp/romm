@@ -22,32 +22,32 @@ SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(IGDBMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},
     total=False,
 )
 RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(MobyMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},
     total=False,
 )
 RomSSMetadata = TypedDict(  # type: ignore[misc]
     "RomSSMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(SSMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(SSMetadata).items()},
     total=False,
 )
 RomRAMetadata = TypedDict(  # type: ignore[misc]
     "RomRAMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(RAMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(RAMetadata).items()},
     total=False,
 )
 RomLaunchboxMetadata = TypedDict(  # type: ignore[misc]
     "RomLaunchboxMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(LaunchboxMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(LaunchboxMetadata).items()},
     total=False,
 )
 RomHasheousMetadata = TypedDict(  # type: ignore[misc]
     "RomHasheousMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(HasheousMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(HasheousMetadata).items()},
     total=False,
 )
 

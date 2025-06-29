@@ -1,5 +1,6 @@
 import enum
-from typing import Mapping, TypedDict
+from collections.abc import Mapping
+from typing import TypedDict
 
 
 @enum.unique

@@ -1,6 +1,5 @@
 import functools
-from collections.abc import Iterable
-from typing import List, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
@@ -637,7 +636,7 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_char_index(
         self, query: Query, session: Session = None
-    ) -> List[Row[Tuple[str, int]]]:
+    ) -> list[Row[tuple[str, int]]]:
         # Get the row number and first letter for each item
         subquery = query.add_columns(
             func.lower(func.substring(Rom.name, 1, 1)).label("letter"),
