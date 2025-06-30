@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from shutil import rmtree
 from stat import S_IFREG
-from typing import Any, TypeVar
+from typing import Annotated, Any
 from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
@@ -27,7 +27,19 @@ from endpoints.responses.rom import (
 )
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
 from exceptions.fs_exceptions import RomAlreadyExistsException
-from fastapi import HTTPException, Query, Request, UploadFile, status
+from fastapi import (
+    Body,
+    File,
+    Header,
+    HTTPException,
+)
+from fastapi import Path as PathVar
+from fastapi import (
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
@@ -47,6 +59,7 @@ from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile
 from PIL import Image
+from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
 from streaming_form_data import StreamingFormDataParser
@@ -56,38 +69,47 @@ from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
 from utils.router import APIRouter
 
-T = TypeVar("T")
-
 router = APIRouter(
     prefix="/roms",
     tags=["roms"],
 )
 
 
-@protected_route(router.post, "", [Scope.ROMS_WRITE])
-async def add_rom(request: Request):
-    """Upload single rom endpoint
+@protected_route(
+    router.post,
+    "",
+    [Scope.ROMS_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={status.HTTP_400_BAD_REQUEST: {}},
+)
+async def add_rom(
+    request: Request,
+    platform_id: Annotated[
+        int,
+        Header(description="Platform internal id.", ge=1, alias="x-upload-platform"),
+    ],
+    filename: Annotated[
+        str,
+        Header(
+            description="The name of the file being uploaded.",
+            alias="x-upload-filename",
+        ),
+    ],
+) -> Response:
+    """Upload a single rom."""
 
-    Args:
-        request (Request): Fastapi Request object
-
-    Raises:
-        HTTPException: No files were uploaded
-    """
-    platform_id = request.headers.get("x-upload-platform")
-    filename = request.headers.get("x-upload-filename")
     if not platform_id or not filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No platform ID or filename provided",
-        ) from None
+        )
 
-    db_platform = db_platform_handler.get_platform(int(platform_id))
+    db_platform = db_platform_handler.get_platform(platform_id)
     if not db_platform:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Platform not found",
-        ) from None
+        )
 
     platform_fs_slug = db_platform.fs_slug
     roms_path = fs_rom_handler.build_upload_fs_path(platform_fs_slug)
@@ -106,7 +128,7 @@ async def add_rom(request: Request):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"File {filename} already exists",
-        ) from None
+        )
 
     # Create the directory if it doesn't exist
     if not await file_location.parent.exists():
@@ -130,7 +152,7 @@ async def add_rom(request: Request):
             detail="There was an error uploading the file(s)",
         ) from exc
 
-    return Response(status_code=status.HTTP_201_CREATED)
+    return Response()
 
 
 class CustomLimitOffsetParams(LimitOffsetParams):
@@ -139,7 +161,7 @@ class CustomLimitOffsetParams(LimitOffsetParams):
     offset: int = Query(0, ge=0, description="Page offset")
 
 
-class CustomLimitOffsetPage(LimitOffsetPage[T]):
+class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
     char_index: dict[str, int]
     __params_type__ = CustomLimitOffsetParams
 
@@ -147,58 +169,100 @@ class CustomLimitOffsetPage(LimitOffsetPage[T]):
 @protected_route(router.get, "", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
-    platform_id: int | None = None,
-    collection_id: int | None = None,
-    virtual_collection_id: str | None = None,
-    search_term: str | None = None,
-    order_by: str = "name",
-    order_dir: str = "asc",
-    matched: bool | None = None,
-    favourite: bool | None = None,
-    duplicate: bool | None = None,
-    playable: bool | None = None,
-    missing: bool | None = None,
-    has_ra: bool | None = None,
-    verified: bool | None = None,
-    group_by_meta_id: bool = False,
-    selected_genre: str | None = None,
-    selected_franchise: str | None = None,
-    selected_collection: str | None = None,
-    selected_company: str | None = None,
-    selected_age_rating: str | None = None,
-    selected_status: str | None = None,
-    selected_region: str | None = None,
-    selected_language: str | None = None,
+    search_term: Annotated[
+        str | None,
+        Query(description="Search term to filter roms."),
+    ] = None,
+    platform_id: Annotated[
+        int | None,
+        Query(description="Platform internal id.", ge=1),
+    ] = None,
+    collection_id: Annotated[
+        int | None,
+        Query(description="Collection internal id.", ge=1),
+    ] = None,
+    virtual_collection_id: Annotated[
+        str | None,
+        Query(description="Virtual collection internal id."),
+    ] = None,
+    matched: Annotated[
+        bool | None,
+        Query(description="Whether the rom matched a metadata source."),
+    ] = None,
+    favourite: Annotated[
+        bool | None,
+        Query(description="Whether the rom is marked as favourite."),
+    ] = None,
+    duplicate: Annotated[
+        bool | None,
+        Query(description="Whether the rom is marked as duplicate."),
+    ] = None,
+    playable: Annotated[
+        bool | None,
+        Query(description="Whether the rom is playable from the browser."),
+    ] = None,
+    missing: Annotated[
+        bool | None,
+        Query(description="Whether the rom is missing from the filesystem."),
+    ] = None,
+    has_ra: Annotated[
+        bool | None,
+        Query(description="Whether the rom has RetroAchievements data."),
+    ] = None,
+    verified: Annotated[
+        bool | None,
+        Query(
+            description="Whether the rom is verified by Hasheous from the filesystem."
+        ),
+    ] = None,
+    group_by_meta_id: Annotated[
+        bool,
+        Query(
+            description="Whether to group roms by metadata ID (IGDB / Moby / ScreenScraper / RetroAchievements / LaunchBox)."
+        ),
+    ] = False,
+    selected_genre: Annotated[
+        str | None,
+        Query(description="Associated genre."),
+    ] = None,
+    selected_franchise: Annotated[
+        str | None,
+        Query(description="Associated franchise."),
+    ] = None,
+    selected_collection: Annotated[
+        str | None,
+        Query(description="Associated collection."),
+    ] = None,
+    selected_company: Annotated[
+        str | None,
+        Query(description="Associated company."),
+    ] = None,
+    selected_age_rating: Annotated[
+        str | None,
+        Query(description="Associated age rating."),
+    ] = None,
+    selected_status: Annotated[
+        str | None,
+        Query(description="Game status, set by the current user."),
+    ] = None,
+    selected_region: Annotated[
+        str | None,
+        Query(description="Associated region tag."),
+    ] = None,
+    selected_language: Annotated[
+        str | None,
+        Query(description="Associated language tag."),
+    ] = None,
+    order_by: Annotated[
+        str,
+        Query(description="Field to order results by."),
+    ] = "name",
+    order_dir: Annotated[
+        str,
+        Query(description="Order direction, either 'asc' or 'desc'."),
+    ] = "asc",
 ) -> CustomLimitOffsetPage[SimpleRomSchema]:
-    """Get roms endpoint
-
-    Args:
-        request: Fastapi Request object
-        platform_id (int, optional): Platform internal id. Defaults to None.
-        collection_id (int, optional): Collection internal id. Defaults to None.
-        virtual_collection_id (str, optional): Virtual collection internal id. Defaults to None.
-        search_term (str, optional): Search term to filter roms. Defaults to None.
-        order_by (str, optional): Field to order by. Defaults to "name".
-        order_dir (str, optional): Order direction. Defaults to "asc".
-        matched (bool, optional): Filter for matched or unmatched roms. Defaults to None.
-        favourite (bool, optional): Filter for favourite or non-favourite roms. Defaults to None.
-        duplicate (bool, optional): Filter for duplicate or non-duplicate roms. Defaults to None.
-        playable (bool, optional): Filter for playable or non-playable roms. Defaults to None.
-        missing (bool, optional): Filter only roms that are missing from the filesystem. Defaults to False.
-        verified (bool, optional): Filter only roms that are verified by hasheous from the filesystem. Defaults to False.
-        group_by_meta_id (bool, optional): Group roms by igdb/moby/ssrf/launchbox ID. Defaults to False.
-        selected_genre (str, optional): Filter by genre. Defaults to None.
-        selected_franchise (str, optional): Filter by franchise. Defaults to None.
-        selected_collection (str, optional): Filter by collection. Defaults to None.
-        selected_company (str, optional): Filter by company. Defaults to None.
-        selected_age_rating (str, optional): Filter by age rating. Defaults to None.
-        selected_status (str, optional): Filter by status. Defaults to None.
-        selected_region (str, optional): Filter by region tag. Defaults to None.
-        selected_language (str, optional): Filter by language tag. Defaults to None.
-
-    Returns:
-        list[RomSchema | SimpleRomSchema]: List of ROMs stored in the database
-    """
+    """Retrieve roms."""
 
     # Get the base roms query
     query = db_rom_handler.get_roms_query(
@@ -252,17 +316,13 @@ def get_roms(
     router.get,
     "/{id}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
 )
-def get_rom(request: Request, id: int) -> DetailedRomSchema:
-    """Get rom endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-
-    Returns:
-        DetailedRomSchema: Rom stored in the database
-    """
+def get_rom(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+) -> DetailedRomSchema:
+    """Retrieve a rom by ID."""
 
     rom = db_rom_handler.get_rom(id)
 
@@ -276,32 +336,30 @@ def get_rom(request: Request, id: int) -> DetailedRomSchema:
     router.head,
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def head_rom_content(
     request: Request,
-    id: int,
-    file_name: str,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    file_name: Annotated[str, PathVar(description="File name to download")],
+    file_ids: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated list of file ids to download for multi-part roms."
+        ),
+    ] = None,
 ):
-    """Head rom content endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-        file_name (str): File name to download
-        file_ids (list[int]): List of file ids to download for multi-part roms
-
-    Returns:
-        FileResponse: Returns the response with headers
-    """
+    """Retrieve head information for a rom file download."""
 
     rom = db_rom_handler.get_rom(id)
 
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    file_ids = request.query_params.get("file_ids") or ""
-    file_ids = [int(f) for f in file_ids.split(",") if f]
-    files = [f for f in rom.files if f.id in file_ids or not file_ids]
+    files = rom.files
+    if file_ids:
+        file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
+        files = [f for f in rom.files if f.id in file_id_values]
     files.sort(key=lambda x: x.file_name)
 
     # Serve the file directly in development mode for emulatorjs
@@ -344,26 +402,24 @@ async def head_rom_content(
     router.get,
     "/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def get_rom_content(
     request: Request,
-    id: int,
-    file_name: str,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    file_name: Annotated[str, PathVar(description="Zip file output name")],
+    file_ids: Annotated[
+        str | None,
+        Query(
+            description="Comma-separated list of file ids to download for multi-part roms."
+        ),
+    ] = None,
 ):
-    """Download rom endpoint (one single file or multiple zipped files for multi-part roms)
+    """Download a rom.
 
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Rom internal id
-        file_name: Zip file output name
-
-    Returns:
-        Response: Returns a response with headers
-
-    Yields:
-        FileResponse: Returns one file for single file roms
-        FileRedirectResponse: Redirects to the file download path
-        ZipResponse: Returns a response for nginx to serve a Zip file for multi-part roms
+    This endpoint serves the content of the requested rom, as:
+    - A single file for single file roms.
+    - A zipped file for multi-part roms, including a .m3u file if applicable.
     """
 
     current_username = (
@@ -377,9 +433,10 @@ async def get_rom_content(
     # https://muos.dev/help/addcontent#what-about-multi-disc-content
     hidden_folder = str_to_bool(request.query_params.get("hidden_folder", ""))
 
-    file_ids = request.query_params.get("file_ids") or ""
-    file_ids = [int(f) for f in file_ids.split(",") if f]
-    files = [f for f in rom.files if f.id in file_ids or not file_ids]
+    files = rom.files
+    if file_ids:
+        file_id_values = {int(f.strip()) for f in file_ids.split(",") if f.strip()}
+        files = [f for f in rom.files if f.id in file_id_values]
     files.sort(key=lambda x: x.file_name)
 
     log.info(
@@ -495,28 +552,29 @@ async def get_rom_content(
     )
 
 
-@protected_route(router.put, "/{id}", [Scope.ROMS_WRITE])
+@protected_route(
+    router.put,
+    "/{id}",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
 async def update_rom(
     request: Request,
-    id: int,
-    remove_cover: bool = False,
-    artwork: UploadFile | None = None,
-    unmatch_metadata: bool = False,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    artwork: Annotated[
+        UploadFile | None,
+        File(description="Custom artwork to set as cover."),
+    ] = None,
+    remove_cover: Annotated[
+        bool,
+        Query(description="Whether to remove the cover image for this rom."),
+    ] = False,
+    unmatch_metadata: Annotated[
+        bool,
+        Query(description="Whether to remove the metadata matches for this game."),
+    ] = False,
 ) -> DetailedRomSchema:
-    """Update rom endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (Rom): Rom internal id
-        artwork (UploadFile, optional): Custom artwork to set as cover. Defaults to File(None).
-        unmatch_metadata: Remove the metadata matches for this game. Defaults to False.
-
-    Raises:
-        HTTPException: Rom not found in database
-
-    Returns:
-        DetailedRomSchema: Rom stored in the database
-    """
+    """Update a rom."""
 
     data = await request.form()
 
@@ -728,21 +786,29 @@ async def update_rom(
     return DetailedRomSchema.from_orm_with_request(rom, request)
 
 
-@protected_route(router.post, "/{id}/manuals", [Scope.ROMS_WRITE])
-async def add_rom_manuals(request: Request, id: int):
-    """Upload manuals for a rom
+@protected_route(
+    router.post,
+    "/{id}/manuals",
+    [Scope.ROMS_WRITE],
+    status_code=status.HTTP_201_CREATED,
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def add_rom_manuals(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    filename: Annotated[
+        str,
+        Header(
+            description="The name of the file being uploaded.",
+            alias="x-upload-filename",
+        ),
+    ],
+) -> Response:
+    """Upload manuals for a rom."""
 
-    Args:
-        request (Request): Fastapi Request object
-
-    Raises:
-        HTTPException: No files were uploaded
-    """
     rom = db_rom_handler.get_rom(id)
     if not rom:
         raise RomNotFoundInDatabaseException(id)
-
-    filename = request.headers.get("x-upload-filename", "")
 
     manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
     file_location = Path(f"{manuals_path}/{rom.id}.pdf")
@@ -779,31 +845,32 @@ async def add_rom_manuals(request: Request, id: int):
 
     db_rom_handler.update_rom(id, {"path_manual": path_manual})
 
-    return Response(status_code=status.HTTP_201_CREATED)
+    return Response()
 
 
-@protected_route(router.post, "/delete", [Scope.ROMS_WRITE])
+@protected_route(
+    router.post,
+    "/delete",
+    [Scope.ROMS_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
 async def delete_roms(
     request: Request,
+    roms: Annotated[
+        list[int],
+        Body(description="List of rom ids to delete from database."),
+    ],
+    delete_from_fs: Annotated[
+        list[int],
+        Body(
+            description="List of rom ids to delete from filesystem.",
+            default_factory=list,
+        ),
+    ],
 ) -> MessageResponse:
-    """Delete roms endpoint
+    """Delete roms."""
 
-    Args:
-        request (Request): Fastapi Request object.
-            {
-                "roms": List of rom's ids to delete
-            }
-        delete_from_fs (bool, optional): Flag to delete rom from filesystem. Defaults to False.
-
-    Returns:
-        MessageResponse: Standard message response
-    """
-
-    data: dict = await request.json()
-    roms_ids: list = data["roms"]
-    delete_from_fs: list = data["delete_from_fs"]
-
-    for id in roms_ids:
+    for id in roms:
         rom = db_rom_handler.get_rom(id)
 
         if not rom:
@@ -832,11 +899,30 @@ async def delete_roms(
                     status_code=status.HTTP_404_NOT_FOUND, detail=error
                 ) from exc
 
-    return {"msg": f"{len(roms_ids)} roms deleted successfully!"}
+    return {"msg": f"{len(roms)} roms deleted successfully!"}
 
 
-@protected_route(router.put, "/{id}/props", [Scope.ROMS_USER_WRITE])
-async def update_rom_user(request: Request, id: int) -> RomUserSchema:
+@protected_route(
+    router.put,
+    "/{id}/props",
+    [Scope.ROMS_USER_WRITE],
+    responses={status.HTTP_404_NOT_FOUND: {}},
+)
+async def update_rom_user(
+    request: Request,
+    id: Annotated[int, PathVar(description="Rom internal id.", ge=1)],
+    update_last_played: Annotated[
+        bool,
+        Body(description="Whether to update the last played date."),
+    ] = False,
+    remove_last_played: Annotated[
+        bool,
+        Body(description="Whether to remove the last played date."),
+    ] = False,
+) -> RomUserSchema:
+    """Update rom data associated to the current user."""
+
+    # TODO: Migrate to native FastAPI body parsing.
     data = await request.json()
     rom_user_data = data.get("data", {})
 
@@ -868,9 +954,9 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
         if field in rom_user_data
     }
 
-    if data.get("update_last_played", False):
+    if update_last_played:
         cleaned_data.update({"last_played": datetime.now(timezone.utc)})
-    elif data.get("remove_last_played", False):
+    elif remove_last_played:
         cleaned_data.update({"last_played": None})
 
     rom_user = db_rom_handler.update_rom_user(db_rom_user.id, cleaned_data)
@@ -882,11 +968,14 @@ async def update_rom_user(request: Request, id: int) -> RomUserSchema:
     router.get,
     "files/{id}",
     [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def get_romfile(
     request: Request,
-    id: int,
+    id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
 ) -> RomFileSchema:
+    """Retrieve a rom file by ID."""
+
     file = db_rom_handler.get_rom_file_by_id(id)
     if not file:
         raise HTTPException(
@@ -901,22 +990,14 @@ async def get_romfile(
     router.get,
     "files/{id}/content/{file_name}",
     [] if DISABLE_DOWNLOAD_ENDPOINT_AUTH else [Scope.ROMS_READ],
+    responses={status.HTTP_404_NOT_FOUND: {}},
 )
 async def get_romfile_content(
     request: Request,
-    id: int,
-    file_name: str,
+    id: Annotated[int, PathVar(description="Rom file internal id.", ge=1)],
+    file_name: Annotated[str, PathVar(description="File name to download")],
 ):
-    """Download rom file endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): RomFile internal id
-        file_name (str): What to name the file when downloading
-
-    Returns:
-        FileResponse: Returns the response with headers
-    """
+    """Download a rom file."""
 
     current_username = (
         request.user.username if request.user.is_authenticated else "unknown"
