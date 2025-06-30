@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Tuple
+from typing import Any
 
 from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY, ROMM_BASE_URL
 from decorators.auth import oauth
@@ -190,7 +190,7 @@ class AuthHandler:
         )
         return token
 
-    def verify_invite_link_token(self, token: str) -> Tuple[str, str]:
+    def verify_invite_link_token(self, token: str) -> tuple[str, str]:
         """
         Verify the invite link token.
         Args:

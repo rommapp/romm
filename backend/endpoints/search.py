@@ -172,7 +172,7 @@ async def search_cover(
         covers = await meta_sgdb_handler.get_details(search_term=search_term)
     except SGDBInvalidAPIKeyException as err:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str("Invalid SGDB API key")
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid SGDB API key"
         ) from err
 
     return [SearchCoverSchema.model_validate(cover) for cover in covers]

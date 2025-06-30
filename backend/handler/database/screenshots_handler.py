@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from decorators.database import begin_session
 from models.assets import Screenshot
