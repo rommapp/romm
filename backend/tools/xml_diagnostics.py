@@ -64,7 +64,7 @@ def diagnose_xml(filename):
 
         # Try to get context around the error
         try:
-            with open(filename, "r", encoding="utf-8") as f:
+            with open(filename, encoding="utf-8") as f:
                 lines = f.readlines()
                 line_num = e.position[0]
                 start = max(0, line_num - 2)
