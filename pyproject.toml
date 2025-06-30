@@ -21,7 +21,7 @@ dependencies = [
   "colorama ~= 0.4",
   "defusedxml ~= 0.7.1",
   "emoji == 2.10.1",
-  "fastapi == 0.115.6",
+  "fastapi ~= 0.115",
   "fastapi-pagination (>=0.12.34,<0.13.0)",
   "gunicorn == 23.0.0",
   "httpx ~= 0.27",
