@@ -11,18 +11,10 @@ from utils.context import ctx_httpx_client
 
 
 class PlaymatchProvider(str, Enum):
-    """
-    Enum for Playmatch Providers.
-    """
-
     IGDB = "IGDB"
 
 
 class GameMatchType(str, Enum):
-    """
-    Enum for Game Match Types.
-    """
-
     SHA256 = "SHA256"
     SHA1 = "SHA1"
     MD5 = "MD5"
@@ -41,9 +33,7 @@ class PlaymatchExternalMetadata(TypedDict):
 
 
 class PlaymatchRomMatch(TypedDict):
-    provider: PlaymatchProvider
-    provider_game_id: int
-    game_match_type: GameMatchType
+    igdb_id: int | None
 
 
 class PlaymatchHandler:
@@ -53,61 +43,6 @@ class PlaymatchHandler:
 
     def __init__(self):
         self.base_url = "https://playmatch.retrorealm.dev/api"
-
-    async def lookup_rom(self, rom_attrs: dict) -> list[PlaymatchRomMatch]:
-        """
-        Identify a ROM file using Playmatch API.
-
-        :param rom_attrs: A dictionary containing the ROM attributes.
-        :return: A list of PlaymatchRomMatch objects containing the matched ROM information.
-        :raises HTTPException: If the request fails or the service is unavailable.
-        """
-        if not PLAYMATCH_API_ENABLED:
-            return []
-
-        url = f"{self.base_url}/identify/ids"
-
-        try:
-            response = await self._request(
-                url,
-                {
-                    "fileName": rom_attrs["fs_name"],
-                    "fileSize": rom_attrs["fs_size_bytes"],
-                    "md5": rom_attrs["md5_hash"],
-                    "sha1": rom_attrs["sha1_hash"],
-                },
-            )
-        except httpx.HTTPStatusError:
-            # We silently fail if the service is unavailable as this should not block the rest of RomM.
-            return []
-
-        game_match_type = response.get("gameMatchType", None)
-        if game_match_type == GameMatchType.NoMatch:
-            log.debug("No match found for the provided ROM file.")
-            return []
-
-        externalMetadata = response.get("externalMetadata", [])
-
-        if len(externalMetadata) == 0:
-            log.debug("No external metadata found for the matched ROM file.")
-            return []
-
-        rom_matches: list[PlaymatchRomMatch] = []
-
-        for metadata in externalMetadata:
-            provider_name = metadata.get("providerName", None)
-            provider_game_id = metadata.get("providerId", None)
-            if provider_name == PlaymatchProvider.IGDB and provider_game_id is not None:
-                log.debug("Found IGDB match with IGDB ID: %s", provider_game_id)
-                rom_matches.append(
-                    PlaymatchRomMatch(
-                        provider=PlaymatchProvider.IGDB,
-                        provider_game_id=int(provider_game_id),
-                        game_match_type=GameMatchType(game_match_type),
-                    )
-                )
-
-        return rom_matches
 
     async def _request(self, url: str, query: dict, timeout=60) -> dict:
         """
@@ -151,3 +86,54 @@ class PlaymatchHandler:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Playmatch, check your internet connection",
             ) from e
+
+    async def lookup_rom(self, rom_attrs: dict) -> PlaymatchRomMatch:
+        """
+        Identify a ROM file using Playmatch API.
+
+        :param rom_attrs: A dictionary containing the ROM attributes.
+        :return: A PlaymatchRomMatch objects containing the matched ROM information.
+        :raises HTTPException: If the request fails or the service is unavailable.
+        """
+        if not PLAYMATCH_API_ENABLED:
+            return PlaymatchRomMatch(igdb_id=None)
+
+        url = f"{self.base_url}/identify/ids"
+
+        try:
+            response = await self._request(
+                url,
+                {
+                    "fileName": rom_attrs["fs_name"],
+                    "fileSize": rom_attrs["fs_size_bytes"],
+                    "md5": rom_attrs["md5_hash"],
+                    "sha1": rom_attrs["sha1_hash"],
+                },
+            )
+        except httpx.HTTPStatusError:
+            # We silently fail if the service is unavailable as this should not block the rest of RomM.
+            return PlaymatchRomMatch(igdb_id=None)
+
+        game_match_type = response.get("gameMatchType", None)
+        if game_match_type == GameMatchType.NoMatch:
+            log.debug("No match found for the provided ROM file.")
+            return PlaymatchRomMatch(igdb_id=None)
+
+        externalMetadata = response.get("externalMetadata", [])
+
+        if len(externalMetadata) == 0:
+            log.debug("No external metadata found for the matched ROM file.")
+            return PlaymatchRomMatch(igdb_id=None)
+
+        igdb_id = None
+
+        for metadata in externalMetadata:
+            provider_name = metadata.get("providerName", None)
+            provider_game_id = metadata.get("providerId", None)
+            if provider_name == PlaymatchProvider.IGDB and provider_game_id is not None:
+                log.debug(
+                    "Playmatch found IGDB match with IGDB ID: %s", provider_game_id
+                )
+                igdb_id = int(provider_game_id)
+
+        return PlaymatchRomMatch(igdb_id=igdb_id)
