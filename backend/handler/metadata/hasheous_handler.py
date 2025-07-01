@@ -205,7 +205,7 @@ class HasheousHandler(MetadataHandler):
         return HasheousRom(
             hasheous_id=hasheous_game["id"],
             name=hasheous_game.get("name", ""),
-            igdb_id=igdb_id,
+            igdb_id=int(igdb_id) if igdb_id else None,
             tgdb_id=int(tgdb_id) if tgdb_id else None,
             ra_id=int(ra_id) if ra_id else None,
             url_cover=url_cover,
