@@ -75,7 +75,17 @@ const filterToSetFilter: Record<FilterType, Function> = {
   languages: galleryFilterStore.setSelectedFilterLanguage,
 };
 
+function resetGallery() {
+  romsStore.setCurrentPlatform(null);
+  romsStore.setCurrentCollection(null);
+  romsStore.reset();
+  galleryFilterStore.resetFilters();
+  galleryFilterStore.activeFilterDrawer = false;
+}
+
 onMounted(() => {
+  resetGallery();
+
   const {
     search: searchParam,
     filter: filterParam,

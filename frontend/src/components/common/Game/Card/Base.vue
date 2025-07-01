@@ -221,7 +221,11 @@ onBeforeUnmount(() => {
                     "
                   >
                     <div class="pa-2">
-                      {{ rom.name }}
+                      {{
+                        romsStore.isSimpleRom(rom)
+                          ? rom.fs_name_no_tags
+                          : rom.name
+                      }}
                     </div>
                   </div>
                 </v-expand-transition>
