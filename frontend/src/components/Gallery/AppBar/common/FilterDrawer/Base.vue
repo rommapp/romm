@@ -8,7 +8,7 @@ import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
-import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
+import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
@@ -27,12 +27,12 @@ withDefaults(
   defineProps<{
     showPlayablesFilter?: boolean;
     showPlatformsFilter?: boolean;
-    showFilterBar?: boolean;
+    showSearchBar?: boolean;
   }>(),
   {
     showPlayablesFilter: true,
     showPlatformsFilter: false,
-    showFilterBar: false,
+    showSearchBar: false,
   },
 );
 
@@ -82,6 +82,11 @@ const onFilterChange = debounce(() => {
 
   // Update URL with filters
   const url = new URL(window.location.href);
+  if (searchTerm.value) {
+    url.searchParams.set("search", searchTerm.value);
+  } else {
+    url.searchParams.delete("search");
+  }
   if (filterMatched.value) {
     url.searchParams.set("filterMatched", "1");
   } else {
@@ -167,7 +172,8 @@ const onFilterChange = debounce(() => {
   } else {
     url.searchParams.delete("status");
   }
-  history.pushState(null, "", url);
+  // history.pushState(null, "", url);
+  router.replace({ query: Object.fromEntries(url.searchParams.entries()) });
   emitter?.emit("updateDataTablePages", null);
 }, 500);
 
@@ -346,8 +352,6 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterStatus(urlStatus as string);
   }
 
-  nextTick(() => emitter?.emit("filterRoms", null));
-
   watch(
     () => filteredRoms.value,
     async () => setFilters(),
@@ -375,9 +379,9 @@ onMounted(async () => {
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
     <v-list tabindex="-1">
-      <template v-if="showFilterBar && xs">
+      <template v-if="showSearchBar && xs">
         <v-list-item>
-          <filter-text-field :tabindex="activeFilterDrawer ? 0 : -1" />
+          <search-text-field :tabindex="activeFilterDrawer ? 0 : -1" />
         </v-list-item>
       </template>
       <v-list-item>

@@ -19,17 +19,6 @@ const { searchTerm } = storeToRefs(galleryFilterStore);
 
 async function refetchRoms() {
   if (searchTerm.value === null) return;
-
-  // Update URL with search term
-  const url = new URL(window.location.href);
-  if (searchTerm.value) {
-    url.searchParams.set("search", searchTerm.value);
-  } else {
-    url.searchParams.delete("search");
-  }
-  history.pushState(null, "", url);
-
-  romsStore.resetPagination();
   initialSearch.value = true;
   emitter?.emit("filterRoms", null);
 }
@@ -46,14 +35,13 @@ function resetGallery() {
   galleryFilterStore.activeFilterDrawer = false;
 }
 
-onMounted(resetGallery);
+onMounted(() => resetGallery());
 
 watch(
   () => router.currentRoute.value.query,
   (query) => {
     if (query.search !== undefined && query.search !== searchTerm.value) {
       searchTerm.value = query.search as string;
-      romsStore.resetPagination();
       refetchRoms();
     }
   },

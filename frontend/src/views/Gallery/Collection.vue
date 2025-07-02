@@ -196,10 +196,10 @@ onMounted(async () => {
             allRoms.value.length === 0) &&
           collection
         ) {
-          resetGallery();
+          if (currentCollection.value) resetGallery();
           romsStore.setCurrentCollection(collection);
           document.title = `${collection.name}`;
-          await fetchRoms();
+          emitter?.emit("filterRoms", null);
         }
 
         window.addEventListener("scroll", onScroll);
@@ -225,10 +225,10 @@ onMounted(async () => {
             allRoms.value.length === 0) &&
           collection
         ) {
-          resetGallery();
+          if (currentVirtualCollection.value) resetGallery();
           romsStore.setCurrentVirtualCollection(collection);
           document.title = `${collection.name}`;
-          await fetchRoms();
+          emitter?.emit("filterRoms", null);
         }
 
         window.addEventListener("scroll", onScroll);
