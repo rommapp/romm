@@ -20,11 +20,17 @@ const { searchTerm } = storeToRefs(galleryFilterStore);
 const { fetchingRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
-const filterRoms = debounce(() => {
+function filterRoms() {
   // Update URL with search term
-  router.replace({ query: { search: searchTerm.value } });
-  emitter?.emit("filter", null);
-}, 500);
+  const url = new URL(window.location.href);
+  if (searchTerm.value) {
+    url.searchParams.set("search", searchTerm.value);
+  } else {
+    url.searchParams.delete("search");
+  }
+  history.pushState(null, "", url);
+  emitter?.emit("filterRoms", null);
+}
 
 function clearInput() {
   searchTerm.value = null;

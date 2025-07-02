@@ -19,6 +19,8 @@ import { storeToRefs } from "pinia";
 import { inject, nextTick, onMounted, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { debounce } from "lodash";
 
 // Props
 withDefaults(
@@ -36,11 +38,21 @@ withDefaults(
 
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
+const router = useRouter();
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
 const {
+  searchTerm,
   activeFilterDrawer,
+  filterUnmatched,
+  filterMatched,
+  filterFavourites,
+  filterDuplicates,
+  filterPlayables,
+  filterRA,
+  filterMissing,
+  filterVerified,
   selectedGenre,
   filterGenres,
   selectedFranchise,
@@ -63,13 +75,103 @@ const {
 const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("filter", onFilterChange);
 
-async function onFilterChange() {
+const onFilterChange = debounce(() => {
   romsStore.resetPagination();
   romsStore.fetchRoms(galleryFilterStore, false);
+
+  // Update URL with filters
+  const url = new URL(window.location.href);
+  if (filterMatched.value) {
+    url.searchParams.set("filterMatched", "1");
+  } else {
+    url.searchParams.delete("filterMatched");
+  }
+  if (filterUnmatched.value) {
+    url.searchParams.set("filterUnmatched", "1");
+  } else {
+    url.searchParams.delete("filterUnmatched");
+  }
+  if (filterFavourites.value) {
+    url.searchParams.set("filterFavourites", "1");
+  } else {
+    url.searchParams.delete("filterFavourites");
+  }
+  if (filterDuplicates.value) {
+    url.searchParams.set("filterDuplicates", "1");
+  } else {
+    url.searchParams.delete("filterDuplicates");
+  }
+  if (filterPlayables.value) {
+    url.searchParams.set("filterPlayables", "1");
+  } else {
+    url.searchParams.delete("filterPlayables");
+  }
+  if (filterMissing.value) {
+    url.searchParams.set("filterMissing", "1");
+  } else {
+    url.searchParams.delete("filterMissing");
+  }
+  if (filterVerified.value) {
+    url.searchParams.set("filterVerified", "1");
+  } else {
+    url.searchParams.delete("filterVerified");
+  }
+  if (filterRA.value) {
+    url.searchParams.set("filterRA", "1");
+  } else {
+    url.searchParams.delete("filterRA");
+  }
+  if (selectedPlatform.value) {
+    url.searchParams.set("platform", String(selectedPlatform.value.id));
+  } else {
+    url.searchParams.delete("platform");
+  }
+  if (selectedGenre.value) {
+    url.searchParams.set("genre", selectedGenre.value);
+  } else {
+    url.searchParams.delete("genre");
+  }
+  if (selectedFranchise.value) {
+    url.searchParams.set("franchise", selectedFranchise.value);
+  } else {
+    url.searchParams.delete("franchise");
+  }
+  if (selectedCollection.value) {
+    url.searchParams.set("collection", selectedCollection.value);
+  } else {
+    url.searchParams.delete("collection");
+  }
+  if (selectedCompany.value) {
+    url.searchParams.set("company", selectedCompany.value);
+  } else {
+    url.searchParams.delete("company");
+  }
+  if (selectedAgeRating.value) {
+    url.searchParams.set("ageRating", selectedAgeRating.value);
+  } else {
+    url.searchParams.delete("ageRating");
+  }
+  if (selectedRegion.value) {
+    url.searchParams.set("region", selectedRegion.value);
+  } else {
+    url.searchParams.delete("region");
+  }
+  if (selectedLanguage.value) {
+    url.searchParams.set("language", selectedLanguage.value);
+  } else {
+    url.searchParams.delete("language");
+  }
+  if (selectedStatus.value) {
+    url.searchParams.set("status", selectedStatus.value);
+  } else {
+    url.searchParams.delete("status");
+  }
+  history.pushState(null, "", url);
   emitter?.emit("updateDataTablePages", null);
-}
+}, 500);
+
+emitter?.on("filterRoms", onFilterChange);
 
 const filters = [
   {
@@ -117,7 +219,7 @@ const filters = [
 // Functions
 function resetFilters() {
   galleryFilterStore.resetFilters();
-  nextTick(() => emitter?.emit("filter", null));
+  nextTick(() => emitter?.emit("filterRoms", null));
 }
 
 function setFilters() {
@@ -163,6 +265,89 @@ function setFilters() {
 }
 
 onMounted(async () => {
+  const {
+    search: urlSearch,
+    filterMatched: urlFilteredMatch,
+    filterUnmatched: urlFilteredUnmatched,
+    filterFavourites: urlFilteredFavourites,
+    filterDuplicates: urlFilteredDuplicates,
+    filterPlayables: urlFilteredPlayables,
+    filterMissing: urlFilteredMissing,
+    filterVerified: urlFilteredVerified,
+    filterRa: urlFilteredRa,
+    platform: urlPlatform,
+    genre: urlGenre,
+    franchise: urlFranchise,
+    collection: urlCollection,
+    company: urlCompany,
+    ageRating: urlAgeRating,
+    region: urlRegion,
+    language: urlLanguage,
+    status: urlStatus,
+  } = router.currentRoute.value.query;
+
+  // Check if search term is set in the URL (empty string is ok)
+  if (urlSearch !== undefined && urlSearch !== searchTerm.value) {
+    searchTerm.value = urlSearch as string;
+    romsStore.resetPagination();
+  }
+
+  // Check for query params to set filters
+  if (urlFilteredMatch !== undefined) {
+    galleryFilterStore.setFilterMatched(true);
+  }
+  if (urlFilteredUnmatched !== undefined) {
+    galleryFilterStore.setFilterUnmatched(true);
+  }
+  if (urlFilteredFavourites !== undefined) {
+    galleryFilterStore.setFilterFavourites(true);
+  }
+  if (urlFilteredDuplicates !== undefined) {
+    galleryFilterStore.setFilterDuplicates(true);
+  }
+  if (urlFilteredPlayables !== undefined) {
+    galleryFilterStore.setFilterPlayables(true);
+  }
+  if (urlFilteredMissing !== undefined) {
+    galleryFilterStore.setFilterMissing(true);
+  }
+  if (urlFilteredVerified !== undefined) {
+    galleryFilterStore.setFilterVerified(true);
+  }
+  if (urlFilteredRa !== undefined) {
+    galleryFilterStore.setFilterRA(true);
+  }
+  if (urlPlatform !== undefined) {
+    const platform = platformsStore.get(Number(urlPlatform));
+    if (platform) galleryFilterStore.setSelectedFilterPlatform(platform);
+  }
+  if (urlGenre !== undefined) {
+    galleryFilterStore.setSelectedFilterGenre(urlGenre as string);
+  }
+  if (urlFranchise !== undefined) {
+    galleryFilterStore.setSelectedFilterFranchise(urlFranchise as string);
+  }
+  if (urlCollection !== undefined) {
+    galleryFilterStore.setSelectedFilterCollection(urlCollection as string);
+  }
+  if (urlCompany !== undefined) {
+    galleryFilterStore.setSelectedFilterCompany(urlCompany as string);
+  }
+  if (urlAgeRating !== undefined) {
+    galleryFilterStore.setSelectedFilterAgeRating(urlAgeRating as string);
+  }
+  if (urlRegion !== undefined) {
+    galleryFilterStore.setSelectedFilterRegion(urlRegion as string);
+  }
+  if (urlLanguage !== undefined) {
+    galleryFilterStore.setSelectedFilterLanguage(urlLanguage as string);
+  }
+  if (urlStatus !== undefined) {
+    galleryFilterStore.setSelectedFilterStatus(urlStatus as string);
+  }
+
+  nextTick(() => emitter?.emit("filterRoms", null));
+
   watch(
     () => filteredRoms.value,
     async () => setFilters(),
@@ -238,7 +423,9 @@ onMounted(async () => {
           variant="outlined"
           density="comfortable"
           :items="filterPlatforms"
-          @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+          @update:model-value="
+            nextTick(() => emitter?.emit('filterRoms', null))
+          "
         >
           <template #item="{ props, item }">
             <v-list-item
@@ -299,7 +486,9 @@ onMounted(async () => {
           variant="solo-filled"
           density="comfortable"
           :items="filter.items.value"
-          @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+          @update:model-value="
+            nextTick(() => emitter?.emit('filterRoms', null))
+          "
         />
       </v-list-item>
       <v-list-item

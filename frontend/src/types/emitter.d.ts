@@ -72,7 +72,7 @@ export type Events = {
     scrim: boolean;
   };
   openFabMenu: boolean;
-  filter: null;
+  filterRoms: null;
   firmwareDrawerShow: null;
   updateDataTablePages: null;
   sortBarShow: null;
