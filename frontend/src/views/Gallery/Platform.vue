@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!fetchingRoms" />
+        <empty-game v-if="allPlatforms.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>

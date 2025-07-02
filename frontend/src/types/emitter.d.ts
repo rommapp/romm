@@ -74,7 +74,6 @@ export type Events = {
   openFabMenu: boolean;
   filterRoms: null;
   firmwareDrawerShow: null;
-  updateDataTablePages: null;
   sortBarShow: null;
   showQRCodeDialog: SimpleRom;
   selectSaveDialog: DetailedRom;

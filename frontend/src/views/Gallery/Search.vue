@@ -144,6 +144,7 @@ function onScroll() {
 }
 
 onMounted(async () => {
+  emitter?.emit("filterRoms", null);
   scrolledToTop.value = true;
   window.addEventListener("scroll", onScroll);
 });
