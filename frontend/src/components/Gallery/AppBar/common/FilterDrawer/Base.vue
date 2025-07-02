@@ -76,43 +76,49 @@ const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
-const onFilterChange = debounce(() => {
-  romsStore.resetPagination();
-  romsStore.fetchRoms(galleryFilterStore, false);
+const onFilterChange = debounce(
+  () => {
+    romsStore.resetPagination();
+    romsStore.fetchRoms(galleryFilterStore, false);
 
-  const url = new URL(window.location.href);
+    const url = new URL(window.location.href);
 
-  // Update URL with filters
-  Object.entries({
-    search: searchTerm.value,
-    filterMatched: filterMatched.value ? "1" : null,
-    filterUnmatched: filterUnmatched.value ? "1" : null,
-    filterFavourites: filterFavourites.value ? "1" : null,
-    filterDuplicates: filterDuplicates.value ? "1" : null,
-    filterPlayables: filterPlayables.value ? "1" : null,
-    filterMissing: filterMissing.value ? "1" : null,
-    filterVerified: filterVerified.value ? "1" : null,
-    filterRA: filterRA.value ? "1" : null,
-    platform: selectedPlatform.value ? String(selectedPlatform.value.id) : null,
-    genre: selectedGenre.value,
-    franchise: selectedFranchise.value,
-    collection: selectedCollection.value,
-    company: selectedCompany.value,
-    ageRating: selectedAgeRating.value,
-    region: selectedRegion.value,
-    language: selectedLanguage.value,
-    status: selectedStatus.value,
-  }).forEach(([key, value]) => {
-    if (value) {
-      url.searchParams.set(key, value);
-    } else {
-      url.searchParams.delete(key);
-    }
-  });
-  router.replace({ query: Object.fromEntries(url.searchParams.entries()) });
-
-  emitter?.emit("updateDataTablePages", null);
-}, 500);
+    // Update URL with filters
+    Object.entries({
+      search: searchTerm.value,
+      filterMatched: filterMatched.value ? "1" : null,
+      filterUnmatched: filterUnmatched.value ? "1" : null,
+      filterFavourites: filterFavourites.value ? "1" : null,
+      filterDuplicates: filterDuplicates.value ? "1" : null,
+      filterPlayables: filterPlayables.value ? "1" : null,
+      filterMissing: filterMissing.value ? "1" : null,
+      filterVerified: filterVerified.value ? "1" : null,
+      filterRA: filterRA.value ? "1" : null,
+      platform: selectedPlatform.value
+        ? String(selectedPlatform.value.id)
+        : null,
+      genre: selectedGenre.value,
+      franchise: selectedFranchise.value,
+      collection: selectedCollection.value,
+      company: selectedCompany.value,
+      ageRating: selectedAgeRating.value,
+      region: selectedRegion.value,
+      language: selectedLanguage.value,
+      status: selectedStatus.value,
+    }).forEach(([key, value]) => {
+      if (value) {
+        url.searchParams.set(key, value);
+      } else {
+        url.searchParams.delete(key);
+      }
+    });
+    router.replace({ query: Object.fromEntries(url.searchParams.entries()) });
+    // If leading and trailing options are true, this is invoked on the trailing edge of
+    // the timeout only if the the function is invoked more than once during the wait
+  },
+  500,
+  { leading: true, trailing: true },
+);
 
 emitter?.on("filterRoms", onFilterChange);
 
