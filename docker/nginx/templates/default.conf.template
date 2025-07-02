@@ -2,7 +2,7 @@
 # by using `envsubst` to replace the environment variables in the template with
 # their actual values.
 
-# Helper to get scheme regardless if we are behind a prox or not
+# Helper to get scheme regardless if we are behind a proxy or not
 map $http_x_forwarded_proto $forwardscheme {
     default $scheme;
     https https;
