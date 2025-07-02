@@ -13,7 +13,7 @@ const { filterVerified } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 function setVerified() {
   galleryFilterStore.switchFilterVerified();
-  emitter?.emit("filter", null);
+  emitter?.emit("filterRoms", null);
 }
 </script>
 

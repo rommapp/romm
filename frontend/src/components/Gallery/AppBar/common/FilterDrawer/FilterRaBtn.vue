@@ -18,7 +18,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 // Functions
 function setRA() {
   galleryFilterStore.switchFilterRA();
-  emitter?.emit("filter", null);
+  emitter?.emit("filterRoms", null);
 }
 </script>
 
