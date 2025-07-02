@@ -80,100 +80,37 @@ const onFilterChange = debounce(() => {
   romsStore.resetPagination();
   romsStore.fetchRoms(galleryFilterStore, false);
 
-  // Update URL with filters
   const url = new URL(window.location.href);
-  if (searchTerm.value) {
-    url.searchParams.set("search", searchTerm.value);
-  } else {
-    url.searchParams.delete("search");
-  }
-  if (filterMatched.value) {
-    url.searchParams.set("filterMatched", "1");
-  } else {
-    url.searchParams.delete("filterMatched");
-  }
-  if (filterUnmatched.value) {
-    url.searchParams.set("filterUnmatched", "1");
-  } else {
-    url.searchParams.delete("filterUnmatched");
-  }
-  if (filterFavourites.value) {
-    url.searchParams.set("filterFavourites", "1");
-  } else {
-    url.searchParams.delete("filterFavourites");
-  }
-  if (filterDuplicates.value) {
-    url.searchParams.set("filterDuplicates", "1");
-  } else {
-    url.searchParams.delete("filterDuplicates");
-  }
-  if (filterPlayables.value) {
-    url.searchParams.set("filterPlayables", "1");
-  } else {
-    url.searchParams.delete("filterPlayables");
-  }
-  if (filterMissing.value) {
-    url.searchParams.set("filterMissing", "1");
-  } else {
-    url.searchParams.delete("filterMissing");
-  }
-  if (filterVerified.value) {
-    url.searchParams.set("filterVerified", "1");
-  } else {
-    url.searchParams.delete("filterVerified");
-  }
-  if (filterRA.value) {
-    url.searchParams.set("filterRA", "1");
-  } else {
-    url.searchParams.delete("filterRA");
-  }
-  if (selectedPlatform.value) {
-    url.searchParams.set("platform", String(selectedPlatform.value.id));
-  } else {
-    url.searchParams.delete("platform");
-  }
-  if (selectedGenre.value) {
-    url.searchParams.set("genre", selectedGenre.value);
-  } else {
-    url.searchParams.delete("genre");
-  }
-  if (selectedFranchise.value) {
-    url.searchParams.set("franchise", selectedFranchise.value);
-  } else {
-    url.searchParams.delete("franchise");
-  }
-  if (selectedCollection.value) {
-    url.searchParams.set("collection", selectedCollection.value);
-  } else {
-    url.searchParams.delete("collection");
-  }
-  if (selectedCompany.value) {
-    url.searchParams.set("company", selectedCompany.value);
-  } else {
-    url.searchParams.delete("company");
-  }
-  if (selectedAgeRating.value) {
-    url.searchParams.set("ageRating", selectedAgeRating.value);
-  } else {
-    url.searchParams.delete("ageRating");
-  }
-  if (selectedRegion.value) {
-    url.searchParams.set("region", selectedRegion.value);
-  } else {
-    url.searchParams.delete("region");
-  }
-  if (selectedLanguage.value) {
-    url.searchParams.set("language", selectedLanguage.value);
-  } else {
-    url.searchParams.delete("language");
-  }
-  if (selectedStatus.value) {
-    url.searchParams.set("status", selectedStatus.value);
-  } else {
-    url.searchParams.delete("status");
-  }
-  // history.pushState(null, "", url);
+
+  // Update URL with filters
+  Object.entries({
+    search: searchTerm.value,
+    filterMatched: filterMatched.value ? "1" : null,
+    filterUnmatched: filterUnmatched.value ? "1" : null,
+    filterFavourites: filterFavourites.value ? "1" : null,
+    filterDuplicates: filterDuplicates.value ? "1" : null,
+    filterPlayables: filterPlayables.value ? "1" : null,
+    filterMissing: filterMissing.value ? "1" : null,
+    filterVerified: filterVerified.value ? "1" : null,
+    filterRA: filterRA.value ? "1" : null,
+    platform: selectedPlatform.value ? String(selectedPlatform.value.id) : null,
+    genre: selectedGenre.value,
+    franchise: selectedFranchise.value,
+    collection: selectedCollection.value,
+    company: selectedCompany.value,
+    ageRating: selectedAgeRating.value,
+    region: selectedRegion.value,
+    language: selectedLanguage.value,
+    status: selectedStatus.value,
+  }).forEach(([key, value]) => {
+    if (value) {
+      url.searchParams.set(key, value);
+    } else {
+      url.searchParams.delete(key);
+    }
+  });
   router.replace({ query: Object.fromEntries(url.searchParams.entries()) });
+
   emitter?.emit("updateDataTablePages", null);
 }, 500);
 
@@ -280,7 +217,7 @@ onMounted(async () => {
     filterPlayables: urlFilteredPlayables,
     filterMissing: urlFilteredMissing,
     filterVerified: urlFilteredVerified,
-    filterRa: urlFilteredRa,
+    filterRA: urlFilteredRa,
     platform: urlPlatform,
     genre: urlGenre,
     franchise: urlFranchise,
