@@ -88,7 +88,7 @@ RUN apk add --no-cache \
     7zip \
     wget
 
-ARG EMULATORJS_VERSION=4.2.1
+ARG EMULATORJS_VERSION=4.2.2
 RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
     rm -rf "${EMULATORJS_VERSION}.7z";
