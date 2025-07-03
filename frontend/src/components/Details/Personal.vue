@@ -378,10 +378,26 @@ watch(
 }
 .md-editor-preview {
   word-break: break-word !important;
+
+  blockquote {
+    border-left-color: rgba(var(--v-theme-secondary));
+  }
+
+  .md-editor-code-flag {
+    visibility: hidden;
+  }
+
+  .md-editor-admonition {
+    border-color: rgba(var(--v-theme-secondary));
+    background-color: rgba(var(--v-theme-toplayer)) !important;
+  }
+
+  .md-editor-code summary,
+  .md-editor-code code {
+    background-color: rgba(var(--v-theme-toplayer)) !important;
+  }
 }
-.md-editor-code-flag {
-  visibility: hidden;
-}
+
 .vuepress-theme pre code {
   background-color: #0d1117;
 }
