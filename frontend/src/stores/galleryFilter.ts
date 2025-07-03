@@ -186,6 +186,8 @@ export default defineStore("galleryFilter", {
       this.selectedCollection = null;
       this.selectedCompany = null;
       this.selectedAgeRating = null;
+      this.selectedRegion = null;
+      this.selectedLanguage = null;
       this.selectedStatus = null;
       this.disableFilterUnmatched();
       this.disableFilterMatched();

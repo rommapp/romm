@@ -836,7 +836,7 @@ async def add_rom_manuals(
         await cleanup_partial_file()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="There was an error uploading the file(s)",
+            detail="There was an error uploading the manual",
         ) from exc
 
     path_manual = await fs_resource_handler.get_manual(
