@@ -374,8 +374,10 @@ watch(
 }
 .md-editor,
 .md-preview {
-  word-break: break-word !important;
   line-height: 1.25 !important;
+}
+.md-editor-preview {
+  word-break: break-word !important;
 }
 .vuepress-theme pre code {
   background-color: #0d1117;
