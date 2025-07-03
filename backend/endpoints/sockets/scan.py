@@ -498,7 +498,7 @@ async def scan_platforms(
 
 
 @socket_handler.socket_server.on("scan")  # type: ignore
-async def scan_handler(_sid: str, options: dict):
+async def scan_handler(_sid: str, options: dict[str, Any]):
     """Scan socket endpoint
 
     Args:
