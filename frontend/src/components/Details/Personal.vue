@@ -379,6 +379,9 @@ watch(
 .md-editor-preview {
   word-break: break-word !important;
 }
+.md-editor-code-flag {
+  visibility: hidden;
+}
 .vuepress-theme pre code {
   background-color: #0d1117;
 }
