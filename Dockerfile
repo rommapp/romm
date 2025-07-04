@@ -67,8 +67,8 @@ RUN npm install
 # Set working directory
 WORKDIR /app
 
-# Install Python 3.12
-RUN pyenv install 3.12 && pyenv global 3.12
+# Install Python 3.13
+RUN pyenv install 3.13 && pyenv global 3.13
 
 # Install pipx and poetry for the non-root user
 RUN pip3 install pipx poetry \

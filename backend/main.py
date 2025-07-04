@@ -54,7 +54,7 @@ logging.config.dictConfig(LOGGING_CONFIG)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     async with initialize_context():
         app.state.aiohttp_session = ctx_aiohttp_session.get()
         app.state.httpx_client = ctx_httpx_client.get()
