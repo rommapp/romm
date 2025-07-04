@@ -220,7 +220,7 @@ name = "brotlicffi"
 version = "1.1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi" },
+    { name = "cffi", marker = "platform_python_implementation == 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/95/9d/70caa61192f570fcf0352766331b735afa931b4c6bc9a348a0925cc13288/brotlicffi-1.1.0.0.tar.gz", hash = "sha256:b77827a689905143f87915310b93b273ab17888fd43ef350d4832c4a71083c13", size = 465192, upload-time = "2023-09-14T14:22:40.707Z" }
 wheels = [
@@ -1609,7 +1609,7 @@ dependencies = [
     { name = "watchdog" },
     { name = "websockets" },
     { name = "yarl" },
-    { name = "zipfile-deflate64" },
+    { name = "zipfile-inflate64" },
 ]
 
 [package.optional-dependencies]
@@ -1685,7 +1685,7 @@ requires-dist = [
     { name = "watchdog", specifier = "~=4.0" },
     { name = "websockets", specifier = "==12.0" },
     { name = "yarl", specifier = "~=1.14" },
-    { name = "zipfile-deflate64", specifier = "~=0.2" },
+    { name = "zipfile-inflate64", specifier = ">=0.1" },
 ]
 provides-extras = ["dev", "test"]
 
@@ -2278,7 +2278,12 @@ wheels = [
 ]
 
 [[package]]
-name = "zipfile-deflate64"
-version = "0.2.0"
+name = "zipfile-inflate64"
+version = "0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/03/1b/f397f821b48156ee94c5ca7ad82dc5cdb73cbcbc4377b9c1b21556f3ce8c/zipfile-deflate64-0.2.0.tar.gz", hash = "sha256:875a3299de102edf1c17f8cafcc528b1ca80b62dc4814b9cb56867ec59fbfd18", size = 62896, upload-time = "2022-01-05T09:24:39.575Z" }
+dependencies = [
+    { name = "inflate64" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/85/c0/0be1a9e4c4cc2a4fd8c361ce10c19a0d091a905a0ad38b8a6f9914dbfcb9/zipfile_inflate64-0.1-py3-none-any.whl", hash = "sha256:b444f3aea904061d702edbed58f952e544a19dcf20f2ed84bd889cf446b87b7d", size = 5051, upload-time = "2022-11-13T06:15:57.659Z" },
+]

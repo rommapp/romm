@@ -38,19 +38,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libmariadb3 libmariadb-dev
 
-      - name: Install poetry
-        run: |
-          pipx install poetry
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: "poetry"
+      - name: Install python
+        run: |
+          uv python install 3.13
 
       - name: Install dependencies
         run: |
-          poetry sync --extras test
+          uv sync --all-extras
 
       - name: Initiate database
         run: |
@@ -62,7 +59,7 @@ jobs:
           DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
         run: |
           cd backend
-          poetry run pytest -vv --maxfail=10 --junitxml=pytest-report.xml .
+          uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml .
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action/composite@v2
