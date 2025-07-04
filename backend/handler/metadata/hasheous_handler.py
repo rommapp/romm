@@ -58,7 +58,6 @@ class HasheousHandler(MetadataHandler):
         method: str = "POST",
         params: dict | None = None,
         data: dict | None = None,
-        timeout: int = 120,
     ) -> dict:
         httpx_client = ctx_httpx_client.get()
 
@@ -69,12 +68,11 @@ class HasheousHandler(MetadataHandler):
 
         try:
             log.debug(
-                "API request: Method=%s, URL=%s, Params=%s, Data=%s, Timeout=%s",
+                "API request: Method=%s, URL=%s, Params=%s, Data=%s",
                 method,
                 url,
                 params,
                 data,
-                timeout,
             )
 
             # Prepare request kwargs
@@ -86,7 +84,7 @@ class HasheousHandler(MetadataHandler):
                     "User-Agent": f"RomM/{get_version()}",
                     # "X-Client-API-Key": self.app_api_key,
                 },
-                "timeout": timeout,
+                "timeout": 120,
             }
 
             # Add method-specific parameters
