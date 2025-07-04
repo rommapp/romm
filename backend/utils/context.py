@@ -14,9 +14,7 @@ ctx_httpx_client: ContextVar[httpx.AsyncClient] = ContextVar("httpx_client")
 
 
 @asynccontextmanager
-async def set_context_var(
-    var: ContextVar[_T], value: _T
-) -> AsyncGenerator[Token[_T], None]:
+async def set_context_var(var: ContextVar[_T], value: _T) -> AsyncGenerator[Token[_T]]:
     """Temporarily set a context variables."""
     token = var.set(value)
     yield token
@@ -24,7 +22,7 @@ async def set_context_var(
 
 
 @asynccontextmanager
-async def initialize_context() -> AsyncGenerator[None, None]:
+async def initialize_context() -> AsyncGenerator[None]:
     """Initialize context variables."""
     async with (
         aiohttp.ClientSession() as aiohttp_session,

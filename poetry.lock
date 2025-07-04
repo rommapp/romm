@@ -182,7 +182,6 @@ files = [
 [package.dependencies]
 idna = ">=2.8"
 sniffio = ">=1.1"
-typing_extensions = {version = ">=4.5", markers = "python_version < \"3.13\""}
 
 [package.extras]
 doc = ["Sphinx (>=7.4,<8.0)", "packaging", "sphinx-autodoc-typehints (>=1.2.0)", "sphinx_rtd_theme"]
@@ -954,7 +953,7 @@ description = "Lightweight in-process concurrent programming"
 optional = false
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "python_version < \"3.14\" and (platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\")"
+markers = "python_version == \"3.13\" and (platform_machine == \"aarch64\" or platform_machine == \"ppc64le\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"AMD64\" or platform_machine == \"win32\" or platform_machine == \"WIN32\")"
 files = [
     {file = "greenlet-3.1.1-cp310-cp310-macosx_11_0_universal2.whl", hash = "sha256:0bbae94a29c9e5c7e4a2b7f0aae5c17e8e90acbfd3bf6270eeba60c39fce3563"},
     {file = "greenlet-3.1.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0fde093fb93f35ca72a556cf72c92ea3ebfda3d79fc35bb19fbe685853869a83"},
@@ -2287,7 +2286,6 @@ files = [
 
 [package.dependencies]
 psycopg-c = {version = "3.2.4", optional = true, markers = "implementation_name != \"pypy\" and extra == \"c\""}
-typing-extensions = {version = ">=4.6", markers = "python_version < \"3.13\""}
 tzdata = {version = "*", markers = "sys_platform == \"win32\""}
 
 [package.extras]
@@ -3524,7 +3522,6 @@ files = [
 packaging = ">=20.0"
 python-dateutil = ">=2.0"
 sqlalchemy = ">=1.3.11"
-typing-extensions = {version = ">=4.7,<5", markers = "python_version < \"3.13\""}
 
 [[package]]
 name = "sqlalchemy"
@@ -4454,5 +4451,5 @@ test = ["fakeredis", "pytest", "pytest-asyncio", "pytest-env", "pytest-mock", "p
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.12"
-content-hash = "94c9ec6caf38454d244fccefa6ff4222745d4adf727e11b240dc839385f94986"
+python-versions = "^3.13"
+content-hash = "04d856c636fd06d52c2704d9b2d649442c6a61e3e0efde0c365e0be631a2906a"
