@@ -39,10 +39,10 @@ for lang_dir in lang_dirs:
         en_file_path = os.path.join(en_dir, filename)
         lang_file_path = os.path.join(lang_dir, filename)
 
-        with open(en_file_path, "r", encoding="utf-8") as f:
+        with open(en_file_path, encoding="utf-8") as f:
             en_data = json.load(f)
 
-        with open(lang_file_path, "r", encoding="utf-8") as f:
+        with open(lang_file_path, encoding="utf-8") as f:
             lang_data = json.load(f)
 
         missing_keys = []
