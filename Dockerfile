@@ -63,16 +63,13 @@ RUN npm install
 WORKDIR /app
 
 # Install uv for the non-root user
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Make uv available to all users
-ENV PATH="/usr/local/bin:$HOME/.local/bin:${PATH}"
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
 
 # Copy project files (including pyproject.toml and uv.lock)
 COPY pyproject.toml uv.lock* .python-version /app/
 
 # Install Python and project dependencies
-RUN uv install python 3.13
+RUN uv python install 3.13
 RUN uv sync --all-extras
 
 # Copy entrypoint script
