@@ -40,7 +40,7 @@ RUN apk add --no-cache \
     mariadb-connector-c-dev \
     musl-dev
 
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
 
 WORKDIR /src
 
