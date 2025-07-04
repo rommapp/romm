@@ -20,8 +20,8 @@ trap handle_termination SIGTERM SIGINT
 
 # Start all services in the background
 cd /app/backend
-poetry run python main.py &
-OBJC_DISABLE_INITIALIZE_FORK_SAFETY=1 poetry run python worker.py &
+uv run python main.py &
+OBJC_DISABLE_INITIALIZE_FORK_SAFETY=1 uv run python worker.py &
 
 # Start the frontend dev server
 cd /app/frontend

@@ -54,7 +54,7 @@ dependencies = [
   "watchdog ~= 4.0",
   "websockets == 12.0",
   "yarl ~= 1.14",
-  "zipfile-deflate64 ~= 0.2",
+  "zipfile-inflate64>=0.1",
 ]
 
 [project.optional-dependencies]

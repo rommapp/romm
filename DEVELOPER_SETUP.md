@@ -64,7 +64,7 @@ cp env.template .env
 
 ```sh
 # https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux):
-sudo apt install libmariadb3 libmariadb-dev libpq-dev pipx
+sudo apt install libmariadb3 libmariadb-dev libpq-dev
 
 # Build and configure RAHasher (optional)
 # This is only required to calculate RA hashes
@@ -80,34 +80,27 @@ cp ./bin64/RAHasher /usr/bin/RAHasher
 
 #### - Install python dependencies
 
-You'll need poetry installed
+You'll need uv installed
 
-<https://python-poetry.org/docs/#installing-with-the-official-installer>
-
-```sh
-pipx install poetry
-```
-
-Then create the virtual environment
+<https://docs.astral.sh/uv/getting-started/installation/>
 
 ```sh
-# Fix disable parallel installation stuck: $> poetry config experimental.new-installer false
-# Fix Loading macOS/linux stuck: $> export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring
-poetry sync --all-extras
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-If you are on Arch Linux or another Arch-based distro, you need to run the command as follows:
+Then create the virtual environment and install the dependencies using Poetry:
 
-```sh
-# https://bbs.archlinux.org/viewtopic.php?id=296542
-CFLAGS="-Wno-error=incompatible-pointer-types" poetry sync --all-extras
-```
+````sh
+uv venv
+source .venv/bin/activate
+uv sync --all-extras --dev
+``
 
 #### - Spin up the database and other services
 
 ```sh
 docker compose up -d
-```
+````
 
 #### - Run the backend
 
@@ -115,14 +108,14 @@ docker compose up -d
 
 ```sh
 cd backend
-poetry run python3 main.py
+uv run python3 main.py
 ```
 
 #### - Start a worker
 
 ```sh
 cd backend
-poetry run python3 worker.py
+uv run python3 worker.py
 ```
 
 ### Setting up the frontend
@@ -183,9 +176,9 @@ docker exec -i romm-db-dev mariadb -uroot -p<root password> < backend/romm_test/
 ```sh
 cd backend
 # path or test file can be passed as argument to test only a subset
-poetry run pytest [path/file]
+uv run pytest [path/file]
 # or run the following command to run all tests
 # the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
 # -c specifies the path to a configuration file for pytest.
-poetry run pytest -vv -c ../pytest.ini
+uv run pytest -vv -c ../pytest.ini
 ```
