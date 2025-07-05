@@ -167,7 +167,9 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
 class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = (
-            "https://beta.hasheous.org/" if DEV_MODE else "https://hasheous.org/api/v1"
+            "https://beta.hasheous.org/api/v1"
+            if DEV_MODE
+            else "https://hasheous.org/api/v1"
         )
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
