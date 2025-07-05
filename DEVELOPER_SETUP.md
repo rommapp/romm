@@ -88,7 +88,7 @@ You'll need uv installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Then create the virtual environment and install the dependencies using Poetry:
+Then create the virtual environment and install the dependencies using uv:
 
 ````sh
 uv venv
