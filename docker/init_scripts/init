@@ -88,9 +88,8 @@ start_bin_gunicorn() {
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
-		--worker-class uvicorn.workers.UvicornWorker \
+		--worker-class uvicorn_worker.UvicornWorker \
 		--workers "${WEB_CONCURRENCY:-${DEFAULT_WEB_CONCURRENCY:-1}}" \
-		--error-logfile - \
 		--error-logfile - \
 		--log-config /etc/gunicorn/logging.conf \
 		main:app &
