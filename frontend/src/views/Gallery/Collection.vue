@@ -199,7 +199,7 @@ onMounted(async () => {
           if (currentCollection.value) resetGallery();
           romsStore.setCurrentCollection(collection);
           document.title = `${collection.name}`;
-          emitter?.emit("filterRoms", null);
+          await fetchRoms();
         }
 
         window.addEventListener("scroll", onScroll);
@@ -228,7 +228,7 @@ onMounted(async () => {
           if (currentVirtualCollection.value) resetGallery();
           romsStore.setCurrentVirtualCollection(collection);
           document.title = `${collection.name}`;
-          emitter?.emit("filterRoms", null);
+          await fetchRoms();
         }
 
         window.addEventListener("scroll", onScroll);
@@ -242,8 +242,6 @@ onBeforeRouteUpdate(async (to, from) => {
   // Triggers when change param of the same route
   // Reset store if switching to another collection
   if (to.path === from.path) return true;
-
-  resetGallery();
 
   const routeCollectionId = to.params.collection;
 
@@ -261,6 +259,7 @@ onBeforeRouteUpdate(async (to, from) => {
             allRoms.value.length === 0) &&
           collection
         ) {
+          if (currentCollection.value) resetGallery();
           romsStore.setCurrentCollection(collection);
           document.title = `${collection.name}`;
           await fetchRoms();

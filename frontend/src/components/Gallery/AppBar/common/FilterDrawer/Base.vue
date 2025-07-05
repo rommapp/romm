@@ -82,7 +82,6 @@ const onFilterChange = debounce(
     romsStore.fetchRoms(galleryFilterStore, false);
 
     const url = new URL(window.location.href);
-
     // Update URL with filters
     Object.entries({
       search: searchTerm.value,
@@ -113,10 +112,10 @@ const onFilterChange = debounce(
       }
     });
     router.replace({ query: Object.fromEntries(url.searchParams.entries()) });
-    // If leading and trailing options are true, this is invoked on the trailing edge of
-    // the timeout only if the the function is invoked more than once during the wait
   },
   500,
+  // If leading and trailing options are true, this is invoked on the trailing edge of
+  // the timeout only if the the function is invoked more than once during the wait
   { leading: true, trailing: true },
 );
 
