@@ -33,11 +33,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pyenv
-RUN curl -fsSL https://pyenv.run | bash
-ENV PYENV_ROOT="/root/.pyenv"
-ENV PATH="${PYENV_ROOT}/bin:${PYENV_ROOT}/shims:${PATH}"
-
 # Install nvm
 ENV NVM_DIR="/root/.nvm"
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
@@ -67,21 +62,17 @@ RUN npm install
 # Set working directory
 WORKDIR /app
 
-# Install Python 3.13
-RUN pyenv install 3.13 && pyenv global 3.13
+# Install uv for the non-root user
+COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /usr/local/bin/
 
-# Install pipx and poetry for the non-root user
-RUN pip3 install pipx poetry \
-    && python3 -m pipx ensurepath
+# Install Python
+RUN uv python install 3.13
 
-# Make poetry available to all users
-ENV PATH="/usr/local/bin:$HOME/.local/bin:${PATH}"
-
-# Copy project files (including pyproject.toml and poetry.lock)
-COPY pyproject.toml poetry.lock* .python-version /app/
+# Copy project files (including pyproject.toml and uv.lock)
+COPY pyproject.toml uv.lock* .python-version /app/
 
 # Install Python dependencies
-RUN poetry sync --all-extras
+RUN uv sync --all-extras
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh

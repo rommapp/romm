@@ -109,13 +109,12 @@ class PlaymatchHandler:
 
         return rom_matches
 
-    async def _request(self, url: str, query: dict, timeout=60) -> dict:
+    async def _request(self, url: str, query: dict) -> dict:
         """
         Sends a Request to Playmatch API.
 
         :param url: The API endpoint URL.
         :param query: A dictionary containing the query parameters.
-        :param timeout: The timeout for the request in seconds.
         :return: A dictionary with the json result.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
@@ -132,7 +131,7 @@ class PlaymatchHandler:
         log.debug(
             "API request: URL=%s, Timeout=%s",
             url_with_query,
-            timeout,
+            60,
         )
 
         headers = {
@@ -141,7 +140,7 @@ class PlaymatchHandler:
 
         try:
             res = await httpx_client.get(
-                str(url_with_query), headers=headers, timeout=timeout
+                str(url_with_query), headers=headers, timeout=60
             )
             res.raise_for_status()
             return res.json()
