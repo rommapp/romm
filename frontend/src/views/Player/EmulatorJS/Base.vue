@@ -22,7 +22,7 @@ import { getEmptyCoverImage } from "@/utils/covers";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
 
-const EMULATORJS_VERSION = "4.2.2";
+const EMULATORJS_VERSION = "4.2.3";
 
 // Props
 const { t } = useI18n();
