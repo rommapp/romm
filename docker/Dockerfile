@@ -50,7 +50,7 @@ RUN uv sync --no-ansi --no-cache --only main
 
 FROM backend-build AS backend-dev-build
 
-RUN uv sync --no-ansi --no-cache --all-extras
+RUN uv sync --frozen --no-cache --all-extras
 
 
 FROM alpine:${ALPINE_VERSION} AS rahasher-build
