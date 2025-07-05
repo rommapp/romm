@@ -8,7 +8,7 @@
   "homepage": "https://github.com/rommapp/romm",
   "repository": {
     "type": "git",
-    "url": "git+gihub.com/rommapp/romm.git"
+    "url": "git+github.com/rommapp/romm.git"
   },
   "bugs": {
     "url": "https://github.com/rommapp/romm/issues"

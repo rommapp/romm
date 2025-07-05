@@ -1,12 +1,8 @@
-import asyncio
-import http
 import json
 import os
 import time
 from typing import Final, NotRequired, TypedDict
 
-import httpx
-import yarl
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import RAGameListItem
 from anyio import open_file
@@ -15,11 +11,8 @@ from config import (
     RESOURCES_BASE_PATH,
     RETROACHIEVEMENTS_API_KEY,
 )
-from fastapi import HTTPException, status
 from handler.filesystem import fs_resource_handler
-from logger.logger import log
 from models.rom import Rom
-from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
 
@@ -100,63 +93,6 @@ class RAHandler(MetadataHandler):
             if not os.path.exists(file_path)
             else int((time.time() - os.path.getmtime(file_path)) / (24 * 3600))
         )
-
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
-        httpx_client = ctx_httpx_client.get()
-        authorized_url = yarl.URL(url)
-        masked_url = authorized_url.with_query(
-            self._mask_sensitive_values(dict(authorized_url.query))
-        )
-        log.debug(
-            "API request: URL=%s, Timeout=%s",
-            masked_url,
-            request_timeout,
-        )
-        try:
-            res = await httpx_client.get(str(authorized_url), timeout=request_timeout)
-            res.raise_for_status()
-            return res.json()
-        except httpx.NetworkError as exc:
-            log.critical(
-                "Connection error: can't connect to RetroAchievements", exc_info=True
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to RetroAchievements, check your internet connection",
-            ) from exc
-        except httpx.HTTPStatusError as err:
-            if err.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
-                await asyncio.sleep(2)
-            else:
-                # Log the error and return an empty dict if the request fails with a different code
-                log.error(err)
-                return {}
-        except httpx.TimeoutException:
-            # Retry the request once if it times out
-            pass
-
-        try:
-            log.debug(
-                "API request: URL=%s, Timeout=%s",
-                url,
-                request_timeout,
-            )
-            res = await httpx_client.get(url, timeout=request_timeout)
-            res.raise_for_status()
-        except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
-            if (
-                isinstance(err, httpx.HTTPStatusError)
-                and err.response.status_code == http.HTTPStatus.UNAUTHORIZED
-            ):
-                # Sometimes Mobygames returns 401 even with a valid API key
-                return {}
-
-            # Log the error and return an empty dict if the request fails with a different code
-            log.error(err)
-            return {}
-
-        return res.json()
 
     async def _search_rom(self, rom: Rom, ra_hash: str) -> RAGameListItem | None:
         if not rom.platform.ra_id:
@@ -240,7 +176,7 @@ class RAHandler(MetadataHandler):
                             ),
                             badge_id=achievement.get("BadgeName", ""),
                             badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
                             badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
                             badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
                             display_order=achievement.get("DisplayOrder", None),
@@ -253,7 +189,7 @@ class RAHandler(MetadataHandler):
         except KeyError:
             return RAGameRom(ra_id=None)
 
-    async def get_rom_by_id(self, ra_id: int) -> RAGameRom:
+    async def get_rom_by_id(self, rom: Rom, ra_id: int) -> RAGameRom:
         if not ra_id:
             return RAGameRom(ra_id=None)
 
@@ -274,9 +210,9 @@ class RAHandler(MetadataHandler):
                             ),
                             badge_id=achievement.get("BadgeName", ""),
                             badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(0, 0)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
                             badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
-                            badge_path=f"{fs_resource_handler.get_ra_badges_path(0, 0)}/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
                             display_order=achievement.get("DisplayOrder", None),
                             type=achievement.get("type", ""),
                         )

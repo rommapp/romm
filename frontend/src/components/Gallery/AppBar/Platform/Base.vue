@@ -8,8 +8,10 @@ import PlatformInfoDrawer from "@/components/Gallery/AppBar/Platform/PlatformInf
 import storeRoms from "@/stores/roms";
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
+import { useDisplay } from "vuetify";
 
 // Props
+const { xs } = useDisplay();
 const romsStore = storeRoms();
 const navigationStore = storeNavigation();
 const { currentPlatform } = storeToRefs(romsStore);
@@ -17,7 +19,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 </script>
 
 <template>
-  <base-gallery-app-bar :show-playables-filter="false" show-filter-bar>
+  <base-gallery-app-bar :show-playables-filter="false" :show-search-bar="!xs">
     <template #prepend>
       <missing-from-f-s-icon
         v-if="currentPlatform && currentPlatform.missing_from_fs"
@@ -45,7 +47,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
           size="xs"
           class="position-absolute"
           style="bottom: 4px; right: 4px"
-        ></v-icon>
+        />
       </v-btn>
       <firmware-btn />
     </template>

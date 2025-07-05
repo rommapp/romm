@@ -13,9 +13,9 @@
 
 # Versions:
 ARG ALPINE_VERSION=3.22
-ARG NGINX_VERSION=1.27.5
+ARG NGINX_VERSION=1.29.0
 ARG NODE_VERSION=20.19
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.13
 
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS frontend-build
@@ -31,37 +31,31 @@ RUN npm run build
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
 # git is needed to install streaming-form-data fork
-# libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
+# linux-headers is needed to install py7zr
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
     git \
-    libffi-dev \
+    linux-headers \
     libpq-dev \
     mariadb-connector-c-dev \
     musl-dev
 
-RUN pip install poetry
-
-ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_IN_PROJECT=1
+COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /bin/
 
 WORKDIR /src
 
-COPY ./pyproject.toml ./poetry.lock /src/
-RUN poetry install --no-ansi --no-cache --only main
+COPY ./pyproject.toml ./uv.lock /src/
+RUN uv sync --frozen --no-cache
 
 
 FROM backend-build AS backend-dev-build
 
-RUN poetry install --no-ansi --no-cache --all-extras
+RUN uv sync --frozen --no-cache --all-extras
 
 
-# TODO: Upgrade Alpine to the same version as the other stages, when RAHasher is updated to workAdd commentMore actions
-#       with it (seems like Alpine 3.18's g++ v12 is the latest version that works with RAHasher,
-#       while g++ v13 fails to compile it).
-FROM alpine:3.18 AS rahasher-build
+FROM alpine:${ALPINE_VERSION} AS rahasher-build
 
 RUN apk add --no-cache \
     g++ \
@@ -70,12 +64,18 @@ RUN apk add --no-cache \
     make \
     zlib-dev
 
-ARG RALIBRETRO_VERSION=1.8.0
+ARG RALIBRETRO_VERSION=1.8.1
 
-# TODO: Remove `sed` command when RAHasher can be compiled without it.
+# TODO: Remove `sed` command adding "ctime", when RAHasher can be compiled without it.
+# TODO: Remove `sed` command adding "unistd.h", when RAHasher can be compiled without it.
+#       Related pull request: https://github.com/madler/zlib/pull/1022
 RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://github.com/RetroAchievements/RALibretro.git && \
     cd ./RALibretro && \
     sed -i '22a #include <ctime>' ./src/Util.h && \
+    sed -i '6a #include <unistd.h>' \
+      ./src/libchdr/deps/zlib-1.3.1/gzlib.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzread.c \
+      ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
 
@@ -85,7 +85,7 @@ RUN apk add --no-cache \
     7zip \
     wget
 
-ARG EMULATORJS_VERSION=4.2.1
+ARG EMULATORJS_VERSION=4.2.2
 RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATORJS_VERSION}/${EMULATORJS_VERSION}.7z" && \
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
     rm -rf "${EMULATORJS_VERSION}.7z";
@@ -126,8 +126,7 @@ RUN git clone https://github.com/evanmiller/mod_zip.git && \
     chmod 644 ./objs/ngx_http_zip_module.so
 
 
-# TODO: Upgrade Alpine to the same version as the other stages, when a new nginx image is released.
-FROM nginx:${NGINX_VERSION}-alpine3.21 AS production-stage
+FROM nginx:${NGINX_VERSION}-alpine${ALPINE_VERSION} AS production-stage
 ARG WEBSERVER_FOLDER=/var/www/html
 
 # Install required packages and dependencies
@@ -146,10 +145,6 @@ COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modul
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
-RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
-    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
-    ln -sf /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
-
 COPY ./backend /backend
 
 # Setup init script and config files

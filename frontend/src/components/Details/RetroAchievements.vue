@@ -16,7 +16,7 @@ const earnedAchievements = ref<
   { id: string; date: string; hardcore: boolean }[]
 >([]);
 const achievementsPercentage = ref(0);
-const achievementsPercentageHardcore = ref(30);
+const achievementsPercentageHardcore = ref(0);
 const showEarned = ref(false);
 const filteredAchievements = ref<RAGameRomAchievement[]>([]);
 

@@ -8,7 +8,7 @@ from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
-from fastapi import Body, Depends, HTTPException, Request, status
+from fastapi import Body, Form, HTTPException, Request, status
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
@@ -31,7 +31,11 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 def add_user(
-    request: Request, username: str, password: str, email: str, role: str
+    request: Request,
+    username: str = Body(..., embed=True),
+    email: str = Body(..., embed=True),
+    password: str = Body(..., embed=True),
+    role: str = Body(..., embed=True),
 ) -> UserSchema:
     """Create user endpoint
 
@@ -219,7 +223,7 @@ def get_user(request: Request, id: int) -> UserSchema:
 
 @protected_route(router.put, "/{id}", [Scope.ME_WRITE])
 async def update_user(
-    request: Request, id: int, form_data: Annotated[UserForm, Depends()]
+    request: Request, id: int, form_data: Annotated[UserForm, Form()]
 ) -> UserSchema:
     """Update user endpoint
 
@@ -359,12 +363,17 @@ def delete_user(request: Request, id: int) -> MessageResponse:
 @protected_route(router.post, "/{id}/ra/refresh", [Scope.ME_WRITE])
 async def refresh_retro_achievements(request: Request, id: int) -> MessageResponse:
     user = db_user_handler.get_user(id)
-    user_progression = await meta_ra_handler.get_user_progression(user.ra_username)
-    db_user_handler.update_user(
-        id,
-        {
-            "ra_progression": user_progression,
-        },
-    )
-
-    return {"msg": "RetroAchievements successfully refreshed"}
+    if user and user.ra_username:
+        user_progression = await meta_ra_handler.get_user_progression(user.ra_username)
+        db_user_handler.update_user(
+            id,
+            {
+                "ra_progression": user_progression,
+            },
+        )
+        return {"msg": "RetroAchievements successfully refreshed"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User does not have a RetroAchievements username set",
+        )

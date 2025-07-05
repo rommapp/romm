@@ -238,14 +238,12 @@ async def _identify_rom(
             badge_url_lock = ach.get("badge_url_lock", None)
             badge_path_lock = ach.get("badge_path_lock", None)
             if badge_url_lock and badge_path_lock:
-                badge_path_lock = f"{fs_resource_handler.get_ra_badges_path(platform.id, _added_rom.id)}/{badge_path_lock}"
                 await fs_resource_handler.store_ra_badge(
                     badge_url_lock, badge_path_lock
                 )
             badge_url = ach.get("badge_url", None)
             badge_path = ach.get("badge_path", None)
             if badge_url and badge_path:
-                badge_path = f"{fs_resource_handler.get_ra_badges_path(platform.id, _added_rom.id)}/{badge_path}"
                 await fs_resource_handler.store_ra_badge(badge_url, badge_path)
 
     path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
@@ -375,7 +373,7 @@ async def _identify_platform(
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
 
-    for fs_roms_batch in batched(fs_roms, 200):
+    for fs_roms_batch in batched(fs_roms, 200, strict=False):
         rom_by_filename_map = db_rom_handler.get_roms_by_fs_name(
             platform_id=platform.id,
             fs_names={fs_rom["fs_name"] for fs_rom in fs_roms_batch},
@@ -500,7 +498,7 @@ async def scan_platforms(
 
 
 @socket_handler.socket_server.on("scan")  # type: ignore
-async def scan_handler(_sid: str, options: dict):
+async def scan_handler(_sid: str, options: dict[str, Any]):
     """Scan socket endpoint
 
     Args:

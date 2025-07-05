@@ -1,18 +1,11 @@
-import asyncio
-import http
-import json
 import re
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
-import httpx
-import pydash
-import yarl
+from adapters.services.mobygames import MobyGamesService
+from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
-from fastapi import HTTPException, status
-from logger.logger import log
 from unidecode import unidecode as uc
-from utils.context import ctx_httpx_client
 
 from .base_hander import (
     PS2_OPL_REGEX,
@@ -59,12 +52,14 @@ class MobyGamesRom(TypedDict):
     moby_metadata: NotRequired[MobyMetadata]
 
 
-def extract_metadata_from_moby_rom(rom: dict) -> MobyMetadata:
+def extract_metadata_from_moby_rom(rom: MobyGame) -> MobyMetadata:
     return MobyMetadata(
         {
             "moby_score": str(rom.get("moby_score", "")),
-            "genres": rom.get("genres.genre_name", []),
-            "alternate_titles": rom.get("alternate_titles.title", []),
+            "genres": [genre["genre_name"] for genre in rom.get("genres", [])],
+            "alternate_titles": [
+                alt["title"] for alt in rom.get("alternate_titles", [])
+            ],
             "platforms": [
                 {
                     "moby_id": p["platform_id"],
@@ -78,104 +73,33 @@ def extract_metadata_from_moby_rom(rom: dict) -> MobyMetadata:
 
 class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.BASE_URL = "https://api.mobygames.com/v1"
-        self.platform_endpoint = f"{self.BASE_URL}/platforms"
-        self.games_endpoint = f"{self.BASE_URL}/games"
+        self.moby_service = MobyGamesService()
 
-    async def _request(self, url: str, timeout: int = 120) -> dict:
-        httpx_client = ctx_httpx_client.get()
-        authorized_url = yarl.URL(url).update_query(api_key=MOBYGAMES_API_KEY)
-        masked_url = authorized_url.with_query(
-            self._mask_sensitive_values(dict(authorized_url.query))
-        )
-
-        log.debug(
-            "API request: URL=%s, Timeout=%s",
-            masked_url,
-            timeout,
-        )
-
-        try:
-            res = await httpx_client.get(str(authorized_url), timeout=timeout)
-            res.raise_for_status()
-            return res.json()
-        except httpx.NetworkError as exc:
-            log.critical("Connection error: can't connect to Mobygames", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to Mobygames, check your internet connection",
-            ) from exc
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == http.HTTPStatus.UNAUTHORIZED:
-                # Sometimes Mobygames returns 401 even with a valid API key
-                log.error(exc)
-                return {}
-            elif exc.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
-                await asyncio.sleep(2)
-            else:
-                # Log the error and return an empty dict if the request fails with a different code
-                log.error(exc)
-                return {}
-        except json.decoder.JSONDecodeError as exc:
-            # Log the error and return an empty list if the response is not valid JSON
-            log.error(exc)
-            return {}
-        except httpx.TimeoutException:
-            log.debug(
-                "Request to URL=%s timed out. Retrying with URL=%s", masked_url, url
-            )
-
-        # Retry the request once if it times out
-        try:
-            log.debug(
-                "API request: URL=%s, Timeout=%s",
-                url,
-                timeout,
-            )
-            res = await httpx_client.get(url, timeout=timeout)
-            res.raise_for_status()
-            return res.json()
-        except (
-            httpx.HTTPStatusError,
-            httpx.TimeoutException,
-            json.decoder.JSONDecodeError,
-        ) as exc:
-            if (
-                isinstance(exc, httpx.HTTPStatusError)
-                and exc.response.status_code == http.HTTPStatus.UNAUTHORIZED
-            ):
-                # Sometimes Mobygames returns 401 even with a valid API key
-                return {}
-
-            # Log the error and return an empty dict if the request fails with a different code
-            log.error(exc)
-            return {}
-
-    async def _search_rom(self, search_term: str, platform_moby_id: int) -> dict | None:
+    async def _search_rom(
+        self, search_term: str, platform_moby_id: int
+    ) -> MobyGame | None:
         if not platform_moby_id:
             return None
 
         search_term = uc(search_term)
-        url = yarl.URL(self.games_endpoint).with_query(
-            platform=[platform_moby_id],
+        roms = await self.moby_service.list_games(
+            platform_ids=[platform_moby_id],
             title=quote(search_term, safe="/ "),
         )
-        roms = (await self._request(str(url))).get("games", [])
+        if not roms:
+            return None
 
-        exact_matches = [
-            rom
-            for rom in roms
+        # Find an exact match.
+        search_term_casefold = search_term.casefold()
+        search_term_normalized = self._normalize_exact_match(search_term)
+        for rom in roms:
             if (
-                rom["title"].lower() == search_term.lower()
-                or (
-                    self._normalize_exact_match(rom["title"])
-                    == self._normalize_exact_match(search_term)
-                )
-            )
-        ]
+                rom["title"].casefold() == search_term_casefold
+                or self._normalize_exact_match(rom["title"]) == search_term_normalized
+            ):
+                return rom
 
-        return pydash.get(exact_matches or roms, "[0]", None)
+        return roms[0]
 
     def get_platform(self, slug: str) -> MobyGamesPlatform:
         platform = MOBYGAMES_PLATFORM_LIST.get(slug, None)
@@ -280,7 +204,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_id": res["game_id"],
             "name": res["title"],
             "summary": res.get("description", ""),
-            "url_cover": pydash.get(res, "sample_cover.image", ""),
+            "url_cover": res.get("sample_cover", {}).get("image", ""),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
@@ -291,18 +215,16 @@ class MobyGamesHandler(MetadataHandler):
         if not MOBY_API_ENABLED:
             return MobyGamesRom(moby_id=None)
 
-        url = yarl.URL(self.games_endpoint).with_query(id=moby_id)
-        roms = (await self._request(str(url))).get("games", [])
-        res = pydash.get(roms, "[0]", None)
-
-        if not res:
+        roms = await self.moby_service.list_games(game_id=moby_id)
+        if not roms:
             return MobyGamesRom(moby_id=None)
 
+        res = roms[0]
         rom = {
             "moby_id": res["game_id"],
             "name": res["title"],
             "summary": res.get("description", None),
-            "url_cover": pydash.get(res, "sample_cover.image", None),
+            "url_cover": res.get("sample_cover", {}).get("image", None),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
@@ -326,10 +248,10 @@ class MobyGamesHandler(MetadataHandler):
             return []
 
         search_term = uc(search_term)
-        url = yarl.URL(self.games_endpoint).with_query(
-            platform=[platform_moby_id], title=quote(search_term, safe="/ ")
+        matched_roms = await self.moby_service.list_games(
+            platform_ids=[platform_moby_id],
+            title=quote(search_term, safe="/ "),
         )
-        matched_roms = (await self._request(str(url))).get("games", [])
 
         return [
             MobyGamesRom(
@@ -339,7 +261,7 @@ class MobyGamesHandler(MetadataHandler):
                         "moby_id": rom["game_id"],
                         "name": rom["title"],
                         "summary": rom.get("description", ""),
-                        "url_cover": pydash.get(rom, "sample_cover.image", ""),
+                        "url_cover": rom.get("sample_cover", {}).get("image", ""),
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])
                         ],
