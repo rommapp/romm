@@ -12,5 +12,6 @@ export type MetadataSourcesDict = {
     LAUNCHBOX_API_ENABLED: boolean;
     PLAYMATCH_API_ENABLED: boolean;
     HASHEOUS_API_ENABLED: boolean;
+    TGDB_API_ENABLED: boolean;
 };
 

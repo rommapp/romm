@@ -1,25 +1,16 @@
 from fastapi import UploadFile
 from fastapi.param_functions import Form
+from pydantic import BaseModel
 
 
-class UserForm:
-    def __init__(
-        self,
-        username: str | None = None,
-        password: str | None = None,
-        email: str | None = None,
-        role: str | None = None,
-        enabled: bool | None = None,
-        avatar: UploadFile | None = None,
-        ra_username: str | None = None,
-    ):
-        self.username = username
-        self.password = password
-        self.email = email
-        self.role = role
-        self.enabled = enabled
-        self.avatar = avatar
-        self.ra_username = ra_username
+class UserForm(BaseModel):
+    username: str | None = None
+    password: str | None = None
+    email: str | None = None
+    role: str | None = None
+    enabled: bool | None = None
+    ra_username: str | None = None
+    avatar: UploadFile | None = None
 
 
 class OAuth2RequestForm:

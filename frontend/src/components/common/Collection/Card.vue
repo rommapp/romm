@@ -178,7 +178,6 @@ onBeforeUnmount(() => {
               <v-img
                 cover
                 :src="firstCover"
-                :lazy-src="firstSmallCover"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
               />
             </div>
@@ -186,7 +185,6 @@ onBeforeUnmount(() => {
               <v-img
                 cover
                 :src="secondCover"
-                :lazy-src="secondSmallCover"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
               />
             </div>
@@ -195,7 +193,6 @@ onBeforeUnmount(() => {
             <v-img
               cover
               :src="src || collection.path_cover_large"
-              :lazy-src="src || collection.path_cover_small?.toString()"
               :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
             />
           </template>

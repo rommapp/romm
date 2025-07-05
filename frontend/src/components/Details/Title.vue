@@ -53,10 +53,6 @@ const hashMatches = computed(() => {
       name: "WHDLoad",
       match: props.rom.hasheous_metadata?.whdload_match,
     },
-    {
-      name: "RetroAchievements",
-      match: props.rom.hasheous_metadata?.ra_match,
-    },
   ].filter((item) => item.match);
 });
 </script>
@@ -216,8 +212,8 @@ const hashMatches = computed(() => {
           class="mr-1"
           title="RetroAchievements ID"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop>
-            <v-avatar class="mr-2" size="25" rounded="1">
+          <v-chip tabindex="-1" class="px-2 mt-1" size="small" @click.stop>
+            <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ra.png" />
             </v-avatar>
             <span>{{ rom.ra_id }}</span>
@@ -250,12 +246,7 @@ const hashMatches = computed(() => {
           <v-avatar class="bg-romm-green" size="30" rounded="0">
             <v-icon>mdi-check-decagram-outline</v-icon>
           </v-avatar>
-          <v-divider
-            class="ml-0 mr-2 border-opacity-25"
-            style="margin-left: 2px"
-            vertical
-          />
-          <span>{{ hash.name }}</span>
+          <span class="ml-2">{{ hash.name }}</span>
         </v-chip>
       </v-col>
     </v-row>

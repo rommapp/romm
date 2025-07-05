@@ -1,6 +1,5 @@
 import functools
-from collections.abc import Iterable
-from typing import List, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
@@ -236,11 +235,39 @@ class DBRomsHandler(DBBaseHandler):
             predicate = not_(predicate)
         return query.join(Rom.platform).filter(predicate)
 
-    def filter_by_ra_only(self, query: Query):
-        return query.filter(Rom.ra_id.isnot(None))
+    def filter_by_has_ra(self, query: Query, value: bool) -> Query:
+        predicate = Rom.ra_id.isnot(None)
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
 
-    def filter_by_missing_from_fs_only(self, query: Query):
-        return query.filter(Rom.missing_from_fs.isnot(False))
+    def filter_by_missing_from_fs(self, query: Query, value: bool) -> Query:
+        predicate = Rom.missing_from_fs.isnot(False)
+        if not value:
+            predicate = not_(predicate)
+        return query.filter(predicate)
+
+    def filter_by_verified(self, query: Query):
+        keys_to_check = [
+            "tosec_match",
+            "mame_arcade_match",
+            "mame_mess_match",
+            "nointro_match",
+            "redump_match",
+            "whdload_match",
+            "ra_match",
+            "fbneo_match",
+        ]
+
+        if ROMM_DB_DRIVER == "postgresql":
+            conditions = " OR ".join(
+                f"(hasheous_metadata->>'{key}')::boolean" for key in keys_to_check
+            )
+            return query.filter(text(conditions))
+        else:
+            return query.filter(
+                or_(*(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check))
+            )
 
     def filter_by_genre(self, query: Query, selected_genre: str):
         if ROMM_DB_DRIVER == "postgresql":
@@ -366,8 +393,9 @@ class DBRomsHandler(DBBaseHandler):
         favourite: bool | None = None,
         duplicate: bool | None = None,
         playable: bool | None = None,
-        ra_only: bool | None = False,
-        missing_only: bool | None = False,
+        has_ra: bool | None = None,
+        missing: bool | None = None,
+        verified: bool | None = None,
         group_by_meta_id: bool = False,
         selected_genre: str | None = None,
         selected_franchise: str | None = None,
@@ -408,11 +436,15 @@ class DBRomsHandler(DBBaseHandler):
         if playable is not None:
             query = self.filter_by_playable(query, value=playable)
 
-        if ra_only:
-            query = self.filter_by_ra_only(query)
+        if has_ra is not None:
+            query = self.filter_by_has_ra(query, value=has_ra)
 
-        if missing_only:
-            query = self.filter_by_missing_from_fs_only(query)
+        if missing is not None:
+            query = self.filter_by_missing_from_fs(query, value=missing)
+
+        # TODO: Correctly support true/false values.
+        if verified:
+            query = self.filter_by_verified(query)
 
         if group_by_meta_id:
 
@@ -586,6 +618,9 @@ class DBRomsHandler(DBBaseHandler):
             favourite=kwargs.pop("favourite", None),
             duplicate=kwargs.pop("duplicate", None),
             playable=kwargs.pop("playable", None),
+            has_ra=kwargs.pop("has_ra", None),
+            missing=kwargs.pop("missing", None),
+            verified=kwargs.pop("verified", None),
             selected_genre=kwargs.pop("selected_genre", None),
             selected_franchise=kwargs.pop("selected_franchise", None),
             selected_collection=kwargs.pop("selected_collection", None),
@@ -601,7 +636,7 @@ class DBRomsHandler(DBBaseHandler):
     @begin_session
     def get_char_index(
         self, query: Query, session: Session = None
-    ) -> List[Row[Tuple[str, int]]]:
+    ) -> list[Row[tuple[str, int]]]:
         # Get the row number and first letter for each item
         subquery = query.add_columns(
             func.lower(func.substring(Rom.name, 1, 1)).label("letter"),
@@ -616,19 +651,6 @@ class DBRomsHandler(DBBaseHandler):
             .group_by(subquery.c.letter)
             .order_by(subquery.c.letter)
             .all()
-        )
-
-    @begin_session
-    @with_details
-    def get_rom_by_fs_name(
-        self,
-        platform_id: int,
-        fs_name: str,
-        query: Query = None,
-        session: Session = None,
-    ) -> Rom | None:
-        return session.scalar(
-            query.filter_by(platform_id=platform_id, fs_name=fs_name).limit(1)
         )
 
     @begin_session
@@ -651,20 +673,6 @@ class DBRomsHandler(DBBaseHandler):
             .all()
         )
         return {rom.fs_name: rom for rom in roms}
-
-    @begin_session
-    @with_details
-    def get_rom_by_fs_name_no_tags(
-        self, fs_name_no_tags: str, query: Query = None, session: Session = None
-    ) -> Rom | None:
-        return session.scalar(query.filter_by(fs_name_no_tags=fs_name_no_tags).limit(1))
-
-    @begin_session
-    @with_details
-    def get_rom_by_fs_name_no_ext(
-        self, fs_name_no_ext: str, query: Query = None, session: Session = None
-    ) -> Rom | None:
-        return session.scalar(query.filter_by(fs_name_no_ext=fs_name_no_ext).limit(1))
 
     @begin_session
     def update_rom(self, id: int, data: dict, session: Session = None) -> Rom:

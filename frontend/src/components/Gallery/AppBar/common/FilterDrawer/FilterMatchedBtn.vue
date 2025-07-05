@@ -13,7 +13,7 @@ const { filterMatched } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 function setUnmatched() {
   galleryFilterStore.switchFilterMatched();
-  emitter?.emit("filter", null);
+  emitter?.emit("filterRoms", null);
 }
 </script>
 

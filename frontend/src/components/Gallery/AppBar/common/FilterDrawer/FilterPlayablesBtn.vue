@@ -18,7 +18,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 // Functions
 function setPlayables() {
   galleryFilterStore.switchFilterPlayables();
-  emitter?.emit("filter", null);
+  emitter?.emit("filterRoms", null);
 }
 </script>
 

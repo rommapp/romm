@@ -65,7 +65,7 @@ function onClosedMenu() {
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridRecentRoms }"
-        class="py-1"
+        class="py-1 overflow-y-hidden"
         no-gutters
       >
         <v-col

@@ -29,8 +29,6 @@ const router = useRouter();
 const {
   filteredRoms,
   selectedRoms,
-  currentPlatform,
-  currentCollection,
   fetchingRoms,
   initialSearch,
   fetchTotalRoms,
@@ -145,17 +143,9 @@ function onScroll() {
   }, 100);
 }
 
-function resetGallery() {
-  romsStore.reset();
-  galleryFilterStore.resetFilters();
-  galleryFilterStore.activeFilterDrawer = false;
-  scrolledToTop.value = true;
-}
-
 onMounted(async () => {
-  currentPlatform.value = null;
-  currentCollection.value = null;
-  resetGallery();
+  emitter?.emit("filterRoms", null);
+  scrolledToTop.value = true;
   window.addEventListener("scroll", onScroll);
 });
 

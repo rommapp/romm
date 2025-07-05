@@ -16,7 +16,7 @@ const { filterDuplicates } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 function setDuplicates() {
   galleryFilterStore.switchFilterDuplicates();
-  emitter?.emit("filter", null);
+  emitter?.emit("filterRoms", null);
 }
 </script>
 
@@ -29,7 +29,7 @@ function setDuplicates() {
     :disabled="fetchTotalRoms > 10000"
   >
     <v-icon :color="filterDuplicates ? 'primary' : ''">
-      mdi-content-duplicate
+      mdi-card-multiple
     </v-icon>
     <span
       class="ml-2"

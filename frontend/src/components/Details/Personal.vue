@@ -8,6 +8,7 @@ import type { RomUserStatus } from "@/__generated__";
 import { getTextForStatus, getEmojiForStatus } from "@/utils";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
+import { debounce } from "lodash";
 import { ref, watch } from "vue";
 import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
@@ -56,14 +57,14 @@ watch(
 
 watch(
   romUser,
-  () => {
+  debounce(() => {
     if (scopes.value.includes("roms.user.write")) {
       romApi.updateUserRomProps({
         romId: props.rom.id,
         data: romUser.value,
       });
     }
-  },
+  }, 500),
   { deep: true },
 );
 </script>
@@ -325,6 +326,7 @@ watch(
                 v-else
                 :model-value="romUser.note_raw_markdown"
                 :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+                language="en-US"
                 preview-theme="vuepress"
                 code-theme="github"
                 class="py-4 px-6"
@@ -350,6 +352,7 @@ watch(
                     <MdPreview
                       :model-value="note.note_raw_markdown"
                       :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+                      language="en-US"
                       preview-theme="vuepress"
                       code-theme="github"
                       class="py-4 px-6"
@@ -371,9 +374,30 @@ watch(
 }
 .md-editor,
 .md-preview {
-  word-break: break-word !important;
   line-height: 1.25 !important;
 }
+.md-editor-preview {
+  word-break: break-word !important;
+
+  blockquote {
+    border-left-color: rgba(var(--v-theme-secondary));
+  }
+
+  .md-editor-code-flag {
+    visibility: hidden;
+  }
+
+  .md-editor-admonition {
+    border-color: rgba(var(--v-theme-secondary));
+    background-color: rgba(var(--v-theme-toplayer)) !important;
+  }
+
+  .md-editor-code summary,
+  .md-editor-code code {
+    background-color: rgba(var(--v-theme-toplayer)) !important;
+  }
+}
+
 .vuepress-theme pre code {
   background-color: #0d1117;
 }

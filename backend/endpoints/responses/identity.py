@@ -8,7 +8,7 @@ from .base import BaseModel
 
 RAProgression = TypedDict(  # type: ignore[misc]
     "RAProgression",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(RAUserProgression).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(RAUserProgression).items()},
     total=False,
 )
 

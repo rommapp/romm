@@ -14,7 +14,7 @@ from typing import IO, Any, Final, Literal, TypedDict
 
 import magic
 import py7zr
-import zipfile_deflate64  # trunk-ignore(ruff/F401): Patches zipfile to support deflate64 compression
+import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
 from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm

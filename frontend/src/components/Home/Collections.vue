@@ -51,7 +51,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
     <template #content>
       <v-row
         :class="{ 'flex-nowrap overflow-x-auto': !gridCollections }"
-        class="py-1"
+        class="py-1 overflow-y-hidden"
         no-gutters
       >
         <v-col
