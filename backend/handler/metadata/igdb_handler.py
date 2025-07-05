@@ -236,7 +236,7 @@ class IGDBHandler(MetadataHandler):
 
         return wrapper
 
-    async def _request(self, url: str, data: str, timeout: int = 120) -> list:
+    async def _request(self, url: str, data: str) -> list:
         httpx_client = ctx_httpx_client.get()
         masked_headers = {}
 
@@ -247,13 +247,13 @@ class IGDBHandler(MetadataHandler):
                 url,
                 masked_headers,
                 f"{data} limit {self.pagination_limit};",
-                timeout,
+                120,
             )
             res = await httpx_client.post(
                 url,
                 content=f"{data} limit {self.pagination_limit};",
                 headers=self.headers,
-                timeout=timeout,
+                timeout=120,
             )
 
             res.raise_for_status()
@@ -301,13 +301,13 @@ class IGDBHandler(MetadataHandler):
                 url,
                 masked_headers,
                 f"{data} limit {self.pagination_limit};",
-                timeout,
+                120,
             )
             res = await httpx_client.post(
                 url,
                 content=f"{data} limit {self.pagination_limit};",
                 headers=self.headers,
-                timeout=timeout,
+                timeout=120,
             )
             res.raise_for_status()
             return res.json()

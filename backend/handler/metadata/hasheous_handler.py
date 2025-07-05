@@ -15,7 +15,6 @@ from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
     IGDBMetadataPlatform,
-    IGDBRelatedGame,
     IGDBRom,
 )
 from .ra_handler import RAGameRom
@@ -82,90 +81,13 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
                 for r in pydash.map_(rom.get("age_ratings", {}), "rating_category")
                 if r in IGDB_AGE_RATINGS
             ],
-            "expansions": [
-                IGDBRelatedGame(
-                    id=e["id"],
-                    slug=e["slug"],
-                    name=e["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
-                        pydash.get(e, "cover.url", "").replace("t_thumb", "t_1080p")
-                    ),
-                    type="expansion",
-                )
-                for e in pydash.map_(rom.get("expansions", {}))
-            ],
-            "dlcs": [
-                IGDBRelatedGame(
-                    id=d["id"],
-                    slug=d["slug"],
-                    name=d["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
-                        pydash.get(d, "cover.url", "").replace("t_thumb", "t_1080p")
-                    ),
-                    type="dlc",
-                )
-                for d in pydash.map_(rom.get("dlcs", {}))
-            ],
-            "remasters": [
-                IGDBRelatedGame(
-                    id=r["id"],
-                    slug=r["slug"],
-                    name=r["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
-                        pydash.get(r, "cover.url", "").replace("t_thumb", "t_1080p")
-                    ),
-                    type="remaster",
-                )
-                for r in pydash.map_(rom.get("remasters", {}))
-            ],
-            "remakes": [
-                IGDBRelatedGame(
-                    id=r["id"],
-                    slug=r["slug"],
-                    name=r["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
-                        pydash.get(r, "cover.url", "").replace("t_thumb", "t_1080p")
-                    ),
-                    type="remake",
-                )
-                for r in pydash.map_(rom.get("remakes", {}))
-            ],
-            "expanded_games": [
-                IGDBRelatedGame(
-                    id=g["id"],
-                    slug=g["slug"],
-                    name=g["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
-                        pydash.get(g, "cover.url", "").replace("t_thumb", "t_1080p")
-                    ),
-                    type="expanded",
-                )
-                for g in pydash.map_(rom.get("expanded_games", {}))
-            ],
-            "ports": [
-                IGDBRelatedGame(
-                    id=p["id"],
-                    slug=p["slug"],
-                    name=p["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
-                        pydash.get(p, "cover.url", "").replace("t_thumb", "t_1080p")
-                    ),
-                    type="port",
-                )
-                for p in pydash.map_(rom.get("ports", {}))
-            ],
-            "similar_games": [
-                IGDBRelatedGame(
-                    id=s["id"],
-                    slug=s["slug"],
-                    name=s["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
-                        pydash.get(s, "cover.url", "").replace("t_thumb", "t_1080p")
-                    ),
-                    type="similar",
-                )
-                for s in pydash.map_(rom.get("similar_games", {}))
-            ],
+            "expansions": [],
+            "dlcs": [],
+            "ports": [],
+            "remakes": [],
+            "remasters": [],
+            "similar_games": [],
+            "expanded_games": [],
         }
     )
 
@@ -174,7 +96,7 @@ class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = (
             "https://beta.hasheous.org/api/v1"
-            if False
+            if DEV_MODE
             else "https://hasheous.org/api/v1"
         )
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
