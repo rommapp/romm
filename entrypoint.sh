@@ -4,16 +4,25 @@ set -e
 echo "Starting entrypoint script..."
 
 # Create symlinks for frontend
-mkdir -p /app/frontend/assets/romm
-ln -sf /app/romm/resources /app/frontend/assets/romm/resources
-ln -sf /app/romm/assets /app/frontend/assets/romm/assets
+for subfolder in assets resources; do
+	if [[ -L /app/frontend/assets/romm/${subfolder} ]]; then
+		target=$(readlink "/app/frontend/assets/romm/${subfolder}")
+
+		# If the target is not the same as ${ROMM_BASE_PATH}/${subfolder}, recreate the symbolic link.
+		if [[ ${target} != "${ROMM_BASE_PATH}/${subfolder}" ]]; then
+			rm "/app/frontend/assets/romm/${subfolder}"
+			ln -s "${ROMM_BASE_PATH}/${subfolder}" "/app/frontend/assets/romm/${subfolder}"
+		fi
+	elif [[ ! -e /app/frontend/assets/romm/${subfolder} ]]; then
+		# Ensure parent directory exists before creating symbolic link
+		mkdir -p "/app/frontend/assets/romm"
+		ln -s "${ROMM_BASE_PATH}/${subfolder}" "/app/frontend/assets/romm/${subfolder}"
+	fi
+done
 
 # Define a signal handler to propagate termination signals
 function handle_termination() {
 	echo "Terminating child processes..."
-	# Cleanup symlinks
-	rm -f /app/frontend/assets/romm/resources
-	rm -f /app/frontend/assets/romm/assets
 	# Kill all background jobs
 	# trunk-ignore(shellcheck)
 	kill -TERM $(jobs -p) 2>/dev/null
