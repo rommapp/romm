@@ -56,6 +56,7 @@ backend/romm_test/logs
 backend/romm_test/config
 .pytest_cache
 /romm_test
+.coverage
 
 # service worker
 frontend/dev-dist

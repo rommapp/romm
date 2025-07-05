@@ -57,7 +57,10 @@ class ScanStats:
 
     def __add__(self, other: Any) -> ScanStats:
         if not isinstance(other, ScanStats):
-            return NotImplemented
+            raise NotImplementedError(
+                f"Addition not implemented between ScanStats and {type(other)}"
+            )
+
         return ScanStats(
             scanned_platforms=self.scanned_platforms + other.scanned_platforms,
             added_platforms=self.added_platforms + other.added_platforms,
