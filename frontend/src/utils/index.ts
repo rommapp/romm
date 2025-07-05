@@ -443,7 +443,7 @@ export function getSupportedEJSCores(platformSlug: string): string[] {
  * @returns True if threads are required, false otherwise.
  */
 export function areThreadsRequiredForEJSCore(core: string): boolean {
-  return ["ppsspp"].includes(core);
+  return ["dosbox_pure", "ppsspp"].includes(core);
 }
 
 const canvas = document.createElement("canvas");
