@@ -1,5 +1,6 @@
 import json
-from typing import NotRequired, TypedDict
+from datetime import datetime
+from typing import Any, NotRequired, TypedDict
 
 import httpx
 import pydash
@@ -46,16 +47,21 @@ class HasheousRom(IGDBRom, RAGameRom):
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
-def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
-    import ipdb
-
-    ipdb.set_trace()
+def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
     return IGDBMetadata(
         {
             "youtube_video_id": list(rom["videos"].values())[0]["video_id"],
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
-            "first_release_date": rom.get("first_release_date", None),
+            "first_release_date": (
+                int(
+                    datetime.fromisoformat(
+                        rom["first_release_date"].replace("Z", "+00:00")
+                    ).timestamp()
+                )
+                if rom.get("first_release_date")
+                else None
+            ),
             "genres": pydash.map_(rom.get("genres", {}), "name"),
             "franchises": pydash.compact(
                 [rom.get("franchise.name", None)]
@@ -168,7 +174,7 @@ class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = (
             "https://beta.hasheous.org/api/v1"
-            if DEV_MODE
+            if False
             else "https://hasheous.org/api/v1"
         )
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
