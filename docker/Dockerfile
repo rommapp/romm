@@ -31,6 +31,7 @@ RUN npm run build
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
 # git is needed to install streaming-form-data fork
+# linux-headers is needed to install py7zr
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
