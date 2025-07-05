@@ -492,8 +492,21 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.hasheous_id)
             )
         ):
-            if hasheous_rom["igdb_id"] is not None:
-                return await meta_hasheous_handler.get_igdb_game(hasheous_rom)
+            (
+                igdb_game,
+                ra_game,
+            ) = await asyncio.gather(
+                meta_hasheous_handler.get_igdb_game(hasheous_rom),
+                meta_hasheous_handler.get_ra_game(hasheous_rom),
+            )
+
+            return HasheousRom(
+                {
+                    **hasheous_rom,
+                    **ra_game,
+                    **igdb_game,
+                }
+            )
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
