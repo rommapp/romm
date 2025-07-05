@@ -63,7 +63,10 @@ RUN npm install
 WORKDIR /app
 
 # Install uv for the non-root user
-RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
+COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /usr/local/bin/
+
+# Install Python
+RUN uv python install 3.13
 
 # Copy project files (including pyproject.toml and uv.lock)
 COPY pyproject.toml uv.lock* .python-version /app/
