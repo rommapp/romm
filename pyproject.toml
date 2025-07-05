@@ -1,14 +1,15 @@
 [project]
 name = "romm"
+version = "0.0.1"
 description = "A beautiful, powerful, self-hosted rom manager"
-license = "GNU AGPLv3"
-readme = "README.md"
 authors = [
   { name = "Zurdi", email = "zurdi@romm.app" },
   { name = "Arcane", email = "arcane@romm.app" },
   { name = "Adamantike", email = "adamantike@romm.app" },
 ]
-requires-python = "^3.13"
+requires-python = ">=3.13"
+readme = "README.md"
+license = "GNU AGPLv3"
 dependencies = [
   "PyYAML == 6.0.1",
   "SQLAlchemy[mariadb-connector,mysql-connector,postgresql-psycopg] ~= 2.0",
@@ -39,7 +40,7 @@ dependencies = [
   "redis ~= 6.2",
   "rq ~= 2.1",
   "rq-scheduler ~= 0.14",
-  "sentry-sdk ~= 2.19",
+  "sentry-sdk ~= 2.32.0",
   "sqlakeyset ~= 2.0",
   "starlette-csrf ~= 3.0",
   "streaming-form-data ~= 1.19",
@@ -53,7 +54,7 @@ dependencies = [
   "watchdog ~= 4.0",
   "websockets == 12.0",
   "yarl ~= 1.14",
-  "zipfile-deflate64 ~= 0.2",
+  "zipfile-inflate64>=0.1",
 ]
 
 [project.optional-dependencies]
@@ -77,6 +78,5 @@ test = [
 Homepage = "https://romm.app/"
 Source = "https://github.com/rommapp/romm"
 
-[tool.poetry]
-package-mode = false
-requires-poetry = ">=2.0"
+[tool.uv]
+package = false

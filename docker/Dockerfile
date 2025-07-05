@@ -31,31 +31,28 @@ RUN npm run build
 FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 
 # git is needed to install streaming-form-data fork
-# libffi-dev is needed to fix poetry dependencies for >= v1.8 on arm64
+# linux-headers is needed to install py7zr
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
     git \
-    libffi-dev \
+    linux-headers \
     libpq-dev \
     mariadb-connector-c-dev \
     musl-dev
 
-RUN pip install poetry
-
-ENV POETRY_NO_INTERACTION=1 \
-    POETRY_VIRTUALENVS_IN_PROJECT=1
+COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /bin/
 
 WORKDIR /src
 
-COPY ./pyproject.toml ./poetry.lock /src/
-RUN poetry install --no-ansi --no-cache --only main
+COPY ./pyproject.toml ./uv.lock /src/
+RUN uv sync --frozen --no-cache
 
 
 FROM backend-build AS backend-dev-build
 
-RUN poetry install --no-ansi --no-cache --all-extras
+RUN uv sync --frozen --no-cache --all-extras
 
 
 FROM alpine:${ALPINE_VERSION} AS rahasher-build
