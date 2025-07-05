@@ -13,7 +13,7 @@ const { filterMissing } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 function setMissing() {
   galleryFilterStore.switchFilterMissing();
-  emitter?.emit("filter", null);
+  emitter?.emit("filterRoms", null);
 }
 </script>
 

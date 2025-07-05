@@ -192,10 +192,10 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             platform
           ) {
-            resetGallery();
+            if (currentPlatform.value) resetGallery();
             romsStore.setCurrentPlatform(platform);
             document.title = `${platform.display_name}`;
-            await fetchRoms();
+            emitter?.emit("filterRoms", null);
           }
 
           window.addEventListener("scroll", onScroll);
@@ -232,7 +232,7 @@ onBeforeRouteUpdate(async (to, from) => {
         ) {
           romsStore.setCurrentPlatform(platform);
           document.title = `${platform.display_name}`;
-          await fetchRoms();
+          emitter?.emit("filterRoms", null);
         } else {
           noPlatformError.value = true;
         }
@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!fetchingRoms" />
+        <empty-game v-if="allPlatforms.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>

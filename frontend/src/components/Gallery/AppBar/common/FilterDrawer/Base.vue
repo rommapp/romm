@@ -8,7 +8,7 @@ import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer
 import FilterPlayablesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterPlayablesBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
 import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterRaBtn.vue";
-import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
+import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
@@ -19,28 +19,40 @@ import { storeToRefs } from "pinia";
 import { inject, nextTick, onMounted, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { debounce } from "lodash";
 
 // Props
 withDefaults(
   defineProps<{
     showPlayablesFilter?: boolean;
     showPlatformsFilter?: boolean;
-    showFilterBar?: boolean;
+    showSearchBar?: boolean;
   }>(),
   {
     showPlayablesFilter: true,
     showPlatformsFilter: false,
-    showFilterBar: false,
+    showSearchBar: false,
   },
 );
 
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
+const router = useRouter();
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
 const {
+  searchTerm,
   activeFilterDrawer,
+  filterUnmatched,
+  filterMatched,
+  filterFavourites,
+  filterDuplicates,
+  filterPlayables,
+  filterRA,
+  filterMissing,
+  filterVerified,
   selectedGenre,
   filterGenres,
   selectedFranchise,
@@ -63,13 +75,52 @@ const {
 const { filteredRoms } = storeToRefs(romsStore);
 const { allPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("filter", onFilterChange);
 
-async function onFilterChange() {
-  romsStore.resetPagination();
-  romsStore.fetchRoms(galleryFilterStore, false);
-  emitter?.emit("updateDataTablePages", null);
-}
+const onFilterChange = debounce(
+  () => {
+    romsStore.resetPagination();
+    romsStore.fetchRoms(galleryFilterStore, false);
+
+    const url = new URL(window.location.href);
+
+    // Update URL with filters
+    Object.entries({
+      search: searchTerm.value,
+      filterMatched: filterMatched.value ? "1" : null,
+      filterUnmatched: filterUnmatched.value ? "1" : null,
+      filterFavourites: filterFavourites.value ? "1" : null,
+      filterDuplicates: filterDuplicates.value ? "1" : null,
+      filterPlayables: filterPlayables.value ? "1" : null,
+      filterMissing: filterMissing.value ? "1" : null,
+      filterVerified: filterVerified.value ? "1" : null,
+      filterRA: filterRA.value ? "1" : null,
+      platform: selectedPlatform.value
+        ? String(selectedPlatform.value.id)
+        : null,
+      genre: selectedGenre.value,
+      franchise: selectedFranchise.value,
+      collection: selectedCollection.value,
+      company: selectedCompany.value,
+      ageRating: selectedAgeRating.value,
+      region: selectedRegion.value,
+      language: selectedLanguage.value,
+      status: selectedStatus.value,
+    }).forEach(([key, value]) => {
+      if (value) {
+        url.searchParams.set(key, value);
+      } else {
+        url.searchParams.delete(key);
+      }
+    });
+    router.replace({ query: Object.fromEntries(url.searchParams.entries()) });
+    // If leading and trailing options are true, this is invoked on the trailing edge of
+    // the timeout only if the the function is invoked more than once during the wait
+  },
+  500,
+  { leading: true, trailing: true },
+);
+
+emitter?.on("filterRoms", onFilterChange);
 
 const filters = [
   {
@@ -117,7 +168,7 @@ const filters = [
 // Functions
 function resetFilters() {
   galleryFilterStore.resetFilters();
-  nextTick(() => emitter?.emit("filter", null));
+  nextTick(() => emitter?.emit("filterRoms", null));
 }
 
 function setFilters() {
@@ -163,6 +214,87 @@ function setFilters() {
 }
 
 onMounted(async () => {
+  const {
+    search: urlSearch,
+    filterMatched: urlFilteredMatch,
+    filterUnmatched: urlFilteredUnmatched,
+    filterFavourites: urlFilteredFavourites,
+    filterDuplicates: urlFilteredDuplicates,
+    filterPlayables: urlFilteredPlayables,
+    filterMissing: urlFilteredMissing,
+    filterVerified: urlFilteredVerified,
+    filterRA: urlFilteredRa,
+    platform: urlPlatform,
+    genre: urlGenre,
+    franchise: urlFranchise,
+    collection: urlCollection,
+    company: urlCompany,
+    ageRating: urlAgeRating,
+    region: urlRegion,
+    language: urlLanguage,
+    status: urlStatus,
+  } = router.currentRoute.value.query;
+
+  // Check if search term is set in the URL (empty string is ok)
+  if (urlSearch !== undefined && urlSearch !== searchTerm.value) {
+    searchTerm.value = urlSearch as string;
+    romsStore.resetPagination();
+  }
+
+  // Check for query params to set filters
+  if (urlFilteredMatch !== undefined) {
+    galleryFilterStore.setFilterMatched(true);
+  }
+  if (urlFilteredUnmatched !== undefined) {
+    galleryFilterStore.setFilterUnmatched(true);
+  }
+  if (urlFilteredFavourites !== undefined) {
+    galleryFilterStore.setFilterFavourites(true);
+  }
+  if (urlFilteredDuplicates !== undefined) {
+    galleryFilterStore.setFilterDuplicates(true);
+  }
+  if (urlFilteredPlayables !== undefined) {
+    galleryFilterStore.setFilterPlayables(true);
+  }
+  if (urlFilteredMissing !== undefined) {
+    galleryFilterStore.setFilterMissing(true);
+  }
+  if (urlFilteredVerified !== undefined) {
+    galleryFilterStore.setFilterVerified(true);
+  }
+  if (urlFilteredRa !== undefined) {
+    galleryFilterStore.setFilterRA(true);
+  }
+  if (urlPlatform !== undefined) {
+    const platform = platformsStore.get(Number(urlPlatform));
+    if (platform) galleryFilterStore.setSelectedFilterPlatform(platform);
+  }
+  if (urlGenre !== undefined) {
+    galleryFilterStore.setSelectedFilterGenre(urlGenre as string);
+  }
+  if (urlFranchise !== undefined) {
+    galleryFilterStore.setSelectedFilterFranchise(urlFranchise as string);
+  }
+  if (urlCollection !== undefined) {
+    galleryFilterStore.setSelectedFilterCollection(urlCollection as string);
+  }
+  if (urlCompany !== undefined) {
+    galleryFilterStore.setSelectedFilterCompany(urlCompany as string);
+  }
+  if (urlAgeRating !== undefined) {
+    galleryFilterStore.setSelectedFilterAgeRating(urlAgeRating as string);
+  }
+  if (urlRegion !== undefined) {
+    galleryFilterStore.setSelectedFilterRegion(urlRegion as string);
+  }
+  if (urlLanguage !== undefined) {
+    galleryFilterStore.setSelectedFilterLanguage(urlLanguage as string);
+  }
+  if (urlStatus !== undefined) {
+    galleryFilterStore.setSelectedFilterStatus(urlStatus as string);
+  }
+
   watch(
     () => filteredRoms.value,
     async () => setFilters(),
@@ -190,9 +322,9 @@ onMounted(async () => {
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
     <v-list tabindex="-1">
-      <template v-if="showFilterBar && xs">
+      <template v-if="showSearchBar && xs">
         <v-list-item>
-          <filter-text-field :tabindex="activeFilterDrawer ? 0 : -1" />
+          <search-text-field :tabindex="activeFilterDrawer ? 0 : -1" />
         </v-list-item>
       </template>
       <v-list-item>
@@ -238,7 +370,9 @@ onMounted(async () => {
           variant="outlined"
           density="comfortable"
           :items="filterPlatforms"
-          @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+          @update:model-value="
+            nextTick(() => emitter?.emit('filterRoms', null))
+          "
         >
           <template #item="{ props, item }">
             <v-list-item
@@ -299,7 +433,9 @@ onMounted(async () => {
           variant="solo-filled"
           density="comfortable"
           :items="filter.items.value"
-          @update:model-value="nextTick(() => emitter?.emit('filter', null))"
+          @update:model-value="
+            nextTick(() => emitter?.emit('filterRoms', null))
+          "
         />
       </v-list-item>
       <v-list-item
