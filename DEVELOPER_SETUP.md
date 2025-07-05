@@ -100,7 +100,7 @@ uv sync --all-extras --dev
 
 ```sh
 docker compose up -d
-````
+```
 
 #### - Run the backend
 
