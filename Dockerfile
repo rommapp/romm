@@ -71,8 +71,7 @@ RUN uv python install 3.13
 # Copy project files (including pyproject.toml and uv.lock)
 COPY pyproject.toml uv.lock* .python-version /app/
 
-# Install Python and project dependencies
-RUN uv python install 3.13
+# Install Python dependencies
 RUN uv sync --all-extras
 
 # Copy entrypoint script
