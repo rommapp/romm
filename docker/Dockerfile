@@ -47,7 +47,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
-RUN uv sync --no-ansi --no-cache --only main
+RUN uv sync --frozen --no-cache
 
 
 FROM backend-build AS backend-dev-build
