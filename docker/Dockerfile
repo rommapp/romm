@@ -37,6 +37,7 @@ FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
 RUN apk add --no-cache \
     gcc \
     git \
+    linux-headers \
     libpq-dev \
     mariadb-connector-c-dev \
     musl-dev
