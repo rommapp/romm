@@ -195,7 +195,7 @@ onMounted(async () => {
             if (currentPlatform.value) resetGallery();
             romsStore.setCurrentPlatform(platform);
             document.title = `${platform.display_name}`;
-            emitter?.emit("filterRoms", null);
+            await fetchRoms();
           }
 
           window.addEventListener("scroll", onScroll);
@@ -211,8 +211,6 @@ onMounted(async () => {
 onBeforeRouteUpdate(async (to, from) => {
   // Avoid unnecessary actions if navigating within the same path
   if (to.path === from.path) return;
-
-  resetGallery();
 
   const routePlatformId = Number(to.params.platform);
 
@@ -230,9 +228,10 @@ onBeforeRouteUpdate(async (to, from) => {
             allRoms.value.length === 0) &&
           platform
         ) {
+          if (currentPlatform.value) resetGallery();
           romsStore.setCurrentPlatform(platform);
           document.title = `${platform.display_name}`;
-          emitter?.emit("filterRoms", null);
+          await fetchRoms();
         } else {
           noPlatformError.value = true;
         }

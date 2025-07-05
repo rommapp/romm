@@ -17,7 +17,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 
-async function refetchRoms() {
+async function fetchRoms() {
   if (searchTerm.value === null) return;
   initialSearch.value = true;
   emitter?.emit("filterRoms", null);
@@ -42,7 +42,7 @@ watch(
   (query) => {
     if (query.search !== undefined && query.search !== searchTerm.value) {
       searchTerm.value = query.search as string;
-      refetchRoms();
+      fetchRoms();
     }
   },
   { deep: true },
@@ -58,8 +58,8 @@ watch(
     rounded="0"
     :label="t('common.search')"
     v-model="searchTerm"
-    @keyup.enter="refetchRoms"
+    @keyup.enter="fetchRoms"
     @click:clear="clearInput"
-    @update:model-value="nextTick(refetchRoms)"
+    @update:model-value="nextTick(fetchRoms)"
   />
 </template>

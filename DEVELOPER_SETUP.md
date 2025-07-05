@@ -25,6 +25,12 @@ touch romm_mock/config/config.yml
 cp env.template .env
 ```
 
+```dotenv
+ROMM_BASE_PATH=/app/romm
+GUNICORN_WORKERS=4
+DEV_MODE=true
+```
+
 #### Build the image
 
 ```sh
