@@ -59,10 +59,10 @@ jobs:
           DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
         run: |
           cd backend
-          uv run pytest -vv --cov-report xml:coverage.xml --maxfail=10 --junitxml=pytest-report.xml .
+          uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml --cov --cov-report xml:coverage.xml --cov-config=.coveragerc .
 
       - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v2
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2
         if: (!cancelled())
         with:
           files: |

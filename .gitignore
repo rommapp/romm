@@ -58,6 +58,7 @@ backend/romm_test/config
 /romm_test
 .coverage
 pytest-report.xml
+coverage.xml
 
 # service worker
 frontend/dev-dist
