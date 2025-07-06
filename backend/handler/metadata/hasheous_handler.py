@@ -1,14 +1,23 @@
 import json
-from typing import NotRequired, TypedDict
+from datetime import datetime
+from typing import Any, NotRequired, TypedDict
 
 import httpx
-from config import HASHEOUS_API_ENABLED
+import pydash
+from config import DEV_MODE, HASHEOUS_API_ENABLED
 from fastapi import HTTPException, status
 from logger.logger import log
 from utils import get_version
 from utils.context import ctx_httpx_client
 
 from .base_hander import MetadataHandler
+from .igdb_handler import (
+    IGDB_AGE_RATINGS,
+    IGDBMetadata,
+    IGDBMetadataPlatform,
+    IGDBRom,
+)
+from .ra_handler import RAGameRom
 
 
 class HasheousMetadata(TypedDict):
@@ -31,26 +40,73 @@ class HasheousPlatform(TypedDict):
     ra_id: NotRequired[int | None]
 
 
-class HasheousRom(TypedDict):
+class HasheousRom(IGDBRom, RAGameRom):
     hasheous_id: int | None
-    name: NotRequired[str]
-    url_cover: NotRequired[str]
-    igdb_id: NotRequired[int | None]
     tgdb_id: NotRequired[int | None]
-    ra_id: NotRequired[int | None]
     hasheous_metadata: NotRequired[HasheousMetadata]
+
+
+def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
+    return IGDBMetadata(
+        {
+            "youtube_video_id": list(rom["videos"].values())[0]["video_id"],
+            "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
+            "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
+            "first_release_date": (
+                int(
+                    datetime.fromisoformat(
+                        rom["first_release_date"].replace("Z", "+00:00")
+                    ).timestamp()
+                )
+                if rom.get("first_release_date")
+                else None
+            ),
+            "genres": pydash.map_(rom.get("genres", {}), "name"),
+            "franchises": pydash.compact(
+                [rom.get("franchise.name", None)]
+                + pydash.map_(rom.get("franchises", {}), "name")
+            ),
+            "alternative_names": pydash.map_(rom.get("alternative_names", {}), "name"),
+            "collections": pydash.map_(rom.get("collections", {}), "name"),
+            "game_modes": pydash.map_(rom.get("game_modes", {}), "name"),
+            "companies": pydash.compact(
+                pydash.map_(rom.get("involved_companies", {}), "company.name")
+            ),
+            "platforms": [
+                IGDBMetadataPlatform(igdb_id=p.get("id", ""), name=p.get("name", ""))
+                for p in pydash.map_(rom.get("platforms", {}))
+            ],
+            "age_ratings": [
+                IGDB_AGE_RATINGS[r]
+                for r in pydash.map_(rom.get("age_ratings", {}), "rating_category")
+                if r in IGDB_AGE_RATINGS
+            ],
+            "expansions": [],
+            "dlcs": [],
+            "ports": [],
+            "remakes": [],
+            "remasters": [],
+            "similar_games": [],
+            "expanded_games": [],
+        }
+    )
 
 
 class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
-        self.BASE_URL = "https://hasheous.org/api/v1"
+        self.BASE_URL = (
+            "https://beta.hasheous.org/api/v1"
+            if DEV_MODE
+            else "https://hasheous.org/api/v1"
+        )
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
-        # self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
-        # self.proxy_igdb_cover_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Cover"
-        # self.app_api_key = (
-        #     "JNoFBA-jEh4HbxuxEHM6MVzydKoAXs9eCcp2dvcg5LRCnpp312voiWmjuaIssSzS"
-        # )
+        self.proxy_igdb_game_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Game"
+        self.proxy_igdb_cover_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Cover"
+        self.proxy_ra_game_endpoint = f"{self.BASE_URL}/MetadataProxy/RA/Game"
+        self.app_api_key = (
+            "JNoFBA-jEh4HbxuxEHM6MVzydKoAXs9eCcp2dvcg5LRCnpp312voiWmjuaIssSzS"
+        )
 
     async def _request(
         self,
@@ -82,7 +138,7 @@ class HasheousHandler(MetadataHandler):
                 "headers": {
                     "Content-Type": "application/json-patch+json",
                     "User-Agent": f"RomM/{get_version()}",
-                    # "X-Client-API-Key": self.app_api_key,
+                    "X-Client-API-Key": self.app_api_key,
                 },
                 "timeout": 120,
             }
@@ -142,7 +198,9 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def get_rom(self, rom_attrs: dict) -> HasheousRom:
-        fallback_rom = HasheousRom(hasheous_id=None)
+        fallback_rom = HasheousRom(
+            hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
+        )
 
         if not HASHEOUS_API_ENABLED:
             return fallback_rom
@@ -219,52 +277,82 @@ class HasheousHandler(MetadataHandler):
             ),
         )
 
-    # Not in use while fibble works on the proxy
-    # async def get_igdb_game(
-    #     self, hasheous_rom: HasheousRom, igdb_id: int
-    # ) -> HasheousRom:
-    #     fallback_rom = HasheousRom(
-    #         hasheous_id=None,
-    #         igdb_id=None,
-    #         tgdb_id=None,
-    #         ra_id=None,
-    #     )
+    async def get_igdb_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
+        fallback_rom = HasheousRom(
+            hasheous_id=None,
+            igdb_id=None,
+            tgdb_id=None,
+            ra_id=None,
+        )
 
-    #     if not HASHEOUS_API_ENABLED:
-    #         return fallback_rom
+        if not HASHEOUS_API_ENABLED:
+            return fallback_rom
 
-    #     if not igdb_id:
-    #         log.warning("No IGDB ID provided for Hasheous IGDB game lookup.")
-    #         return fallback_rom
+        if hasheous_rom["igdb_id"] is None:
+            log.warning("No IGDB ID provided for Hasheous IGDB game lookup.")
+            return fallback_rom
 
-    #     igdb_game = await self._request(
-    #         self.proxy_igdb_game_endpoint,
-    #         params={"Id": igdb_id},
-    #         method="GET",
-    #     )
+        igdb_game = await self._request(
+            self.proxy_igdb_game_endpoint,
+            params={
+                "Id": hasheous_rom["igdb_id"],
+                "expandColumns": "age_ratings, alternative_names, collections, cover, dlcs, expanded_games, franchise, franchises, game_modes, genres, involved_companies, platforms, ports, remakes, screenshots, similar_games, videos",
+            },
+            method="GET",
+        )
 
-    #     if not igdb_game:
-    #         log.warning(f"No Hasheous game found for IGDB ID {igdb_id}.")
-    #         return fallback_rom
+        if not igdb_game:
+            log.warning(
+                f"No Hasheous game found for IGDB ID {hasheous_rom["igdb_id"]}."
+            )
+            return fallback_rom
 
-    #     return HasheousRom(
-    #         {
-    #             **hasheous_rom,
-    #             "slug": igdb_game.get("slug", ""),
-    #             "name": igdb_game.get("name", ""),
-    #             "summary": igdb_game.get("summary", ""),
-    #             "url_cover": self._normalize_cover_url(
-    #                 igdb_game.get("cover", {}).get("url", "")
-    #             ).replace("t_thumb", "t_1080p"),
-    #             "url_screenshots": [
-    #                 self._normalize_cover_url(s.get("url", "")).replace(
-    #                     "t_thumb", "t_720p"
-    #                 )
-    #                 for s in igdb_game.get("screenshots", [])
-    #             ],
-    #             "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
-    #         }
-    #     )
+        return HasheousRom(
+            {
+                **hasheous_rom,
+                "slug": igdb_game.get("slug") or hasheous_rom.get("slug") or "",
+                "name": igdb_game.get("name") or hasheous_rom.get("name") or "",
+                "summary": igdb_game.get("summary", ""),
+                "url_cover": self._normalize_cover_url(
+                    pydash.get(igdb_game, "cover.url", "")
+                ).replace("t_thumb", "t_1080p")
+                or hasheous_rom.get("url_cover", ""),
+                "url_screenshots": [
+                    self._normalize_cover_url(s.get("url", "")).replace(
+                        "t_thumb", "t_720p"
+                    )
+                    for s in igdb_game.get("screenshots", []).values()
+                ],
+                "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
+            }
+        )
+
+    async def get_ra_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
+        fallback_rom = HasheousRom(
+            hasheous_id=None,
+            igdb_id=None,
+            tgdb_id=None,
+            ra_id=None,
+        )
+
+        if not HASHEOUS_API_ENABLED:
+            return fallback_rom
+
+        if hasheous_rom["ra_id"] is None:
+            log.warning("No RA ID provided for Hasheous RA game lookup.")
+            return fallback_rom
+
+        ra_game = await self._request(
+            self.proxy_ra_game_endpoint,
+            params={"Id": hasheous_rom["ra_id"]},
+            method="GET",
+        )
+
+        if not ra_game:
+            log.warning(f"No Hasheous game found for RA ID {hasheous_rom['ra_id']}.")
+            return fallback_rom
+
+        return hasheous_rom
 
 
 class SlugToHasheousId(TypedDict):
