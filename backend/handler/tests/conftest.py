@@ -14,7 +14,7 @@ from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
 from models.user import Role, User
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
@@ -29,22 +29,12 @@ def setup_database():
 @pytest.fixture(autouse=True)
 def clear_database():
     with session.begin() as s:
-        # Check if tables exist before trying to delete
-        inspector = inspect(engine)
-        existing_tables = inspector.get_table_names()
-
-        if "saves" in existing_tables:
-            s.query(Save).delete(synchronize_session="evaluate")
-        if "states" in existing_tables:
-            s.query(State).delete(synchronize_session="evaluate")
-        if "screenshots" in existing_tables:
-            s.query(Screenshot).delete(synchronize_session="evaluate")
-        if "roms" in existing_tables:
-            s.query(Rom).delete(synchronize_session="evaluate")
-        if "platforms" in existing_tables:
-            s.query(Platform).delete(synchronize_session="evaluate")
-        if "users" in existing_tables:
-            s.query(User).delete(synchronize_session="evaluate")
+        s.query(Save).delete(synchronize_session="evaluate")
+        s.query(State).delete(synchronize_session="evaluate")
+        s.query(Screenshot).delete(synchronize_session="evaluate")
+        s.query(Rom).delete(synchronize_session="evaluate")
+        s.query(Platform).delete(synchronize_session="evaluate")
+        s.query(User).delete(synchronize_session="evaluate")
 
 
 @pytest.fixture
