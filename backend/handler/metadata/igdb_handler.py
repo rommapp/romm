@@ -236,7 +236,7 @@ class IGDBHandler(MetadataHandler):
 
         return wrapper
 
-    async def _request(self, url: str, data: str, timeout: int = 120) -> list:
+    async def _request(self, url: str, data: str) -> list:
         httpx_client = ctx_httpx_client.get()
         masked_headers = {}
 
@@ -247,13 +247,13 @@ class IGDBHandler(MetadataHandler):
                 url,
                 masked_headers,
                 f"{data} limit {self.pagination_limit};",
-                timeout,
+                120,
             )
             res = await httpx_client.post(
                 url,
                 content=f"{data} limit {self.pagination_limit};",
                 headers=self.headers,
-                timeout=timeout,
+                timeout=120,
             )
 
             res.raise_for_status()
@@ -301,13 +301,13 @@ class IGDBHandler(MetadataHandler):
                 url,
                 masked_headers,
                 f"{data} limit {self.pagination_limit};",
-                timeout,
+                120,
             )
             res = await httpx_client.post(
                 url,
                 content=f"{data} limit {self.pagination_limit};",
                 headers=self.headers,
-                timeout=timeout,
+                timeout=120,
             )
             res.raise_for_status()
             return res.json()
@@ -539,7 +539,7 @@ class IGDBHandler(MetadataHandler):
             name=rom["name"],
             summary=rom.get("summary", ""),
             url_cover=self._normalize_cover_url(
-                rom.get("cover", {}).get("url", "")
+                pydash.get(rom, "cover.url", "")
             ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
                 self._normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
@@ -568,7 +568,7 @@ class IGDBHandler(MetadataHandler):
             name=rom["name"],
             summary=rom.get("summary", ""),
             url_cover=self._normalize_cover_url(
-                rom.get("cover", {}).get("url", "")
+                pydash.get(rom, "cover.url", "")
             ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
                 self._normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
@@ -610,7 +610,7 @@ class IGDBHandler(MetadataHandler):
             alternative_roms_ids = []
             for rom in alternative_matched_roms:
                 alternative_roms_ids.append(
-                    rom.get("game").get("id", "")
+                    pydash.get(rom, "game.id", "")
                     if "game" in rom.keys()
                     else rom.get("id", "")
                 )
@@ -618,7 +618,7 @@ class IGDBHandler(MetadataHandler):
                 list(
                     map(
                         lambda rom: (
-                            f'id={rom.get("game").get("id", "")}'
+                            f'id={pydash.get(rom, "game.id", "")}'
                             if "game" in rom.keys()
                             else f'id={rom.get("id", "")}'
                         ),
@@ -960,7 +960,6 @@ IGDB_PLATFORM_LIST: list[SlugToIGDB] = [
     {"slug": "atari-st", "name": "Atari ST/STE"},
     {"slug": "tatung-einstein", "name": "Tatung Einstein"},
     {"slug": "amstrad-pcw", "name": "Amstrad PCW"},
-    {"slug": "amstrad-gx4000", "name": "Amstrad GX4000"},
     {"slug": "epoch-super-cassette-vision", "name": "Epoch Super Cassette Vision"},
     {"slug": "atari7800", "name": "Atari 7800"},
     {"slug": "hp3000", "name": "HP 3000"},
