@@ -59,7 +59,7 @@ jobs:
           DB_PORT: ${{ job.services.mariadb.ports['3306'] }}
         run: |
           cd backend
-          uv run pytest -vv --maxfail=10 --junitxml=pytest-report.xml .
+          uv run pytest -vv --cov-report xml:coverage.xml --maxfail=10 --junitxml=pytest-report.xml .
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action/composite@v2
@@ -67,3 +67,9 @@ jobs:
         with:
           files: |
             backend/pytest-report.xml
+
+      - name: Publish coverage report
+        uses: orgoro/coverage@v3.2
+        with:
+          coverageFile: coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
