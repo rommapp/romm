@@ -1,7 +1,7 @@
-import zipfile
-from io import BytesIO
+import os
 from unittest.mock import AsyncMock, patch
 
+import anyio
 import pytest
 from tasks.tasks import RemoteFilePullTask
 from tasks.update_launchbox_metadata import (
@@ -165,23 +165,13 @@ class TestUpdateLaunchboxMetadataTask:
         task,
     ):
         """Test handling of XML elements with empty or missing text"""
-        # Create XML with empty elements
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-            platforms_xml = """<?xml version="1.0" encoding="UTF-8"?>
-<LaunchBox>
-    <Platform>
-        <Name></Name>
-        <PlatformType>Console</PlatformType>
-    </Platform>
-    <Platform>
-        <Name>Valid Platform</Name>
-        <PlatformType></PlatformType>
-    </Platform>
-</LaunchBox>"""
-            zip_file.writestr("Platforms.xml", platforms_xml)
+        test_dir = os.path.dirname(__file__)
+        sample_path = os.path.join(
+            test_dir, "fixtures", "sample_metadata_with_empty_elements.zip"
+        )
 
-        mock_super_run.return_value = zip_buffer.getvalue()
+        async with await anyio.open_file(sample_path, "rb") as f:
+            mock_super_run.return_value = await f.read()
 
         # Create a mock pipeline with async context manager support
         mock_pipe = AsyncMock()
@@ -214,19 +204,13 @@ class TestUpdateLaunchboxMetadataTask:
         task,
     ):
         """Test handling when some XML files are missing from the ZIP"""
-        # Create ZIP with only Platforms.xml
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-            platforms_xml = """<?xml version="1.0" encoding="UTF-8"?>
-<LaunchBox>
-    <Platform>
-        <Name>Test Platform</Name>
-        <PlatformType>Console</PlatformType>
-    </Platform>
-</LaunchBox>"""
-            zip_file.writestr("Platforms.xml", platforms_xml)
+        test_dir = os.path.dirname(__file__)
+        sample_path = os.path.join(
+            test_dir, "fixtures", "sample_metadata_with_empty_elements.zip"
+        )
 
-        mock_super_run.return_value = zip_buffer.getvalue()
+        async with await anyio.open_file(sample_path, "rb") as f:
+            mock_super_run.return_value = await f.read()
 
         # Create a mock pipeline with async context manager support
         mock_pipe = AsyncMock()
