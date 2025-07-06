@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LaunchBox>
+<MameFile>
+    <FileName>mario.zip</FileName>
+    <GameName>mario</GameName>
+    <Description>Super Mario Bros.</Description>
+</MameFile>
+<MameFile>
+    <FileName>pacman.zip</FileName>
+    <GameName>pacman</GameName>
+    <Description>Pac-Man</Description>
+</MameFile>
+</LaunchBox>
