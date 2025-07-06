@@ -3,4 +3,5 @@ from handler.tests.conftest import (  # noqa
     clear_database,
     platform,
     rom,
+    setup_database,
 )
