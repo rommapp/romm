@@ -32,6 +32,7 @@ dependencies = [
   "psycopg[c] ~= 3.2",
   "py7zr == 1.0.0rc2",
   "pydash ~= 7.0",
+  "pytest-cov>=6.2.1",
   "python-dotenv == 1.0.1",
   "python-magic ~= 0.4",
   "python-socketio == 5.11.1",
