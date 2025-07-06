@@ -78,8 +78,6 @@ class TestRetroAchievementsServiceUnit:
 
 
 class TestRetroAchievementsServiceIntegration:
-    """Integration tests using real API calls recorded with VCR."""
-
     @pytest.fixture
     def service(self):
         """Create a RetroAchievementsService instance for integration testing."""
@@ -165,7 +163,7 @@ class TestRetroAchievementsServiceIntegration:
             "adapters.services.retroachievements.ctx_aiohttp_session",
             mock_ctx_aiohttp_session,
         ):
-            result = await service.get_user_completion_progress("Scott", limit=5)
+            result = await service.get_user_completion_progress("arcanecraeda", limit=5)
 
         # Verify response structure
         assert isinstance(result, dict)
