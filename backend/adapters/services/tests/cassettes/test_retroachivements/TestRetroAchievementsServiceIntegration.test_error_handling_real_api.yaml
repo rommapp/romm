@@ -189,4 +189,40 @@ interactions:
       status:
         code: 401
         message: Unauthorized
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetGameExtended.php?i=999999
+    response:
+      body:
+        string: '{"message":"Unauthenticated.","errors":[{"status":419,"code":"unauthorized","title":"Unauthenticated."}]}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b15be73b23a2fc-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 19:02:53 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=CgF%2BzO59bZ5oKDS6MbC%2BzUPVVHdvzoGoXk8sdAPNc03yFGlfsFwnss4vhxt8g3BnaR7DXsFn9RW7S%2FvjyDDrKiuRSXio1oeYSDT%2FtVpm1qTHhA%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        X-Robots-Tag:
+          - all
+      status:
+        code: 401
+        message: Unauthorized
 version: 1

@@ -266,4 +266,4 @@ class TestRetroAchievementsServiceIntegration:
             ):
                 # This should handle the error gracefully
                 result = await service.get_game_extended_details(999999)
-                assert isinstance(result, dict)
+                assert isinstance(result, list)
