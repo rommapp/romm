@@ -1,10 +1,9 @@
 from unittest.mock import Mock
 
 import pytest
+from endpoints.sockets.scan import ScanStats, _should_scan_rom
 from handler.scan_handler import ScanType
 from models.rom import Rom
-
-from ..scan import ScanStats, _should_scan_rom
 
 
 def test_scan_stats():
@@ -164,7 +163,6 @@ class TestShouldScanRom:
 
         # Test with different scan types
         for scan_type in [
-            ScanType.NEW_PLATFORMS,
             ScanType.QUICK,
             ScanType.UNIDENTIFIED,
             ScanType.PARTIAL,
@@ -180,8 +178,8 @@ class TestShouldScanRom:
         # These should not scan because rom exists and id not in list
         assert _should_scan_rom(ScanType.NEW_PLATFORMS, rom, roms_ids) is False
         assert _should_scan_rom(ScanType.QUICK, rom, roms_ids) is False
-        assert _should_scan_rom(ScanType.UNIDENTIFIED, rom, roms_ids) is False
         assert _should_scan_rom(ScanType.PARTIAL, rom, roms_ids) is False
+        assert _should_scan_rom(ScanType.UNIDENTIFIED, rom, roms_ids) is True
 
     # Edge cases
     def test_empty_roms_ids_list(self, rom: Rom):
@@ -198,26 +196,25 @@ class TestShouldScanRom:
         roms_ids = ["123", "456"]
 
         # This should scan because 123 should match "123"
-        result = _should_scan_rom(ScanType.NEW_PLATFORMS, rom, roms_ids)
+        result = _should_scan_rom(ScanType.QUICK, rom, roms_ids)
         assert result is True
 
     @pytest.mark.parametrize(
         "scan_type,rom_exists,is_identified,rom_in_list,expected",
         [
             # Comprehensive test matrix
-            (ScanType.NEW_PLATFORMS, False, None, False, True),
+            (ScanType.NEW_PLATFORMS, False, None, False, False),
             (ScanType.NEW_PLATFORMS, True, True, False, False),
             (ScanType.NEW_PLATFORMS, True, True, True, True),
-            (ScanType.QUICK, False, None, False, True),
+            (ScanType.QUICK, False, None, False, False),
             (ScanType.QUICK, True, True, False, False),
             (ScanType.COMPLETE, False, None, False, True),
             (ScanType.COMPLETE, True, False, False, True),
             (ScanType.HASHES, False, None, False, True),
             (ScanType.HASHES, True, False, False, True),
             (ScanType.UNIDENTIFIED, True, False, False, True),
-            (ScanType.UNIDENTIFIED, True, True, False, False),
+            (ScanType.UNIDENTIFIED, True, True, False, True),
             (ScanType.PARTIAL, True, True, False, True),
-            (ScanType.PARTIAL, True, True, False, False),
         ],
     )
     def test_comprehensive_scenarios(

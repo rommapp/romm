@@ -123,7 +123,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) 
             and (
                 (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
                 or (scan_type == ScanType.PARTIAL and rom.is_identified)
-                or (rom.id in roms_ids)
+                or (str(rom.id) in roms_ids)
             )
         )
     )
