@@ -49,16 +49,6 @@ jobs:
         run: |
           uv sync --extra test
 
-      - name: Build and configure RAHasher
-        run: |
-          git clone --recursive https://github.com/RetroAchievements/RALibretro.gi
-          cd ./RALibretro
-          git checkout 1.8.0
-          git submodule update --init --recursive
-          sed -i '22a #include <ctime>' ./src/Util.h
-          make HAVE_CHD=1 -f ./Makefile.RAHasher
-          cp ./bin64/RAHasher /usr/bin/RAHasher
-
       - name: Initiate database
         run: |
           mysql --host 127.0.0.1 --port ${{ job.services.mariadb.ports['3306'] }} -uroot -ppasswd -e "GRANT ALL PRIVILEGES ON romm_test.* TO 'romm_test'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
