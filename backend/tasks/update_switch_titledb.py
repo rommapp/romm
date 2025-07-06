@@ -35,10 +35,10 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
         relevant_data = {k: v for k, v in index_json.items() if k and v}
 
         async with async_cache.pipeline() as pipe:
-            for data_batch in batched(relevant_data.items(), 2000):
+            for data_batch in batched(relevant_data.items(), 2000, strict=False):
                 titledb_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
                 await pipe.hset(SWITCH_TITLEDB_INDEX_KEY, mapping=titledb_map)
-            for data_batch in batched(relevant_data.items(), 2000):
+            for data_batch in batched(relevant_data.items(), 2000, strict=False):
                 product_map = {
                     v["id"]: json.dumps(v)
                     for v in dict(data_batch).values()
