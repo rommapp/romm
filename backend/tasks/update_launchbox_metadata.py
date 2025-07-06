@@ -1,7 +1,7 @@
 import json
 import zipfile
 from io import BytesIO
-from typing import Final
+from typing import Any, Final
 
 from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
@@ -41,6 +41,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
 
         content = await super().run(force)
         if content is None:
+            log.warning("No content received from launchbox metadata update")
             return
 
         try:
@@ -77,7 +78,7 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                 ctx = ET.iterparse(f, events=("end",))
 
                                 current_game_image_db_id = None
-                                current_game_images = []
+                                current_game_images: list[dict[str, Any]] = []
 
                                 for _, elem in ctx:
                                     if elem.tag == "Game":
@@ -165,6 +166,17 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
                                                 }
                                             )
                                         elem.clear()
+
+                                # Store the last game's images
+                                if current_game_image_db_id is not None:
+                                    await pipe.hset(
+                                        LAUNCHBOX_METADATA_IMAGE_KEY,
+                                        mapping={
+                                            current_game_image_db_id: json.dumps(
+                                                current_game_images
+                                            )
+                                        },
+                                    )
                                 await pipe.execute()
 
                     elif file == "Mame.xml":
