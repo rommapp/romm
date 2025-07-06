@@ -63,7 +63,7 @@ jobs:
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action/composite@v2
-        if: always()
+        if: (!cancelled())
         with:
           files: |
             backend/pytest-report.xml
@@ -71,5 +71,5 @@ jobs:
       - name: Publish coverage report
         uses: orgoro/coverage@v3.2
         with:
-          coverageFile: coverage.xml
+          coverageFile: backend/coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
