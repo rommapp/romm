@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from handler.scan_handler import ScanType
 from tasks.scan_library import ScanLibraryTask, scan_library_task
-from tasks.tasks import PeriodicTask
 
 
 class TestScanLibraryTask:
