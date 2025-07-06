@@ -1,0 +1,4 @@
+[run]
+omit =
+    alembic/*
+    */tests/*
