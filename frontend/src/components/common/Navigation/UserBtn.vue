@@ -6,9 +6,10 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
 // Props
-const navigationStore = storeNavigation();
 const auth = storeAuth();
+const navigationStore = storeNavigation();
 const { user } = storeToRefs(auth);
+const { mainBarCollapsed } = storeToRefs(navigationStore);
 const { smAndDown } = useDisplay();
 </script>
 <template>
@@ -17,7 +18,10 @@ const { smAndDown } = useDisplay();
     @click="navigationStore.switchActiveSettingsDrawer"
     class="pointer"
     :size="smAndDown ? 35 : 40"
-    :class="{ active: navigationStore.activeSettingsDrawer }"
+    :class="{
+      active: navigationStore.activeSettingsDrawer,
+      rounded: !mainBarCollapsed,
+    }"
   >
     <v-img
       :src="
@@ -30,7 +34,9 @@ const { smAndDown } = useDisplay();
 </template>
 <style scoped>
 .v-avatar {
-  transition: filter 0.15s ease-in-out;
+  transition:
+    filter 0.15s ease-in-out,
+    border-radius 0.15s ease-in-out;
 }
 .v-avatar:hover,
 .v-avatar.active {
