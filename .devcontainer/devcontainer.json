@@ -4,9 +4,9 @@
   "service": "romm-dev",
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",
-  "forwardPorts": [8000, 3000, 3306, 6379],
+  "forwardPorts": [5000, 3000, 3306, 6379],
   "portsAttributes": {
-    "8000": {
+    "5000": {
       "label": "Backend API",
       "onAutoForward": "notify"
     },
