@@ -284,7 +284,7 @@ class IGDBHandler(MetadataHandler):
                 return []  # All requests to the IGDB API return a list
 
             # Attempt to force a token refresh if the token is invalid
-            log.warning("Twitch token invalid: fetching a new one...")
+            log.info("Twitch token invalid: fetching a new one...")
             token = await self.twitch_auth._update_twitch_token()
             self.headers["Authorization"] = f"Bearer {token}"
         except json.decoder.JSONDecodeError as exc:
@@ -735,7 +735,7 @@ class TwitchAuth(MetadataHandler):
         # Fetch the token cache
         token = await async_cache.get("romm:twitch_token")
         if not token:
-            log.warning("Twitch token invalid: fetching a new one...")
+            log.info("Twitch token invalid: fetching a new one...")
             return await self._update_twitch_token()
 
         return token

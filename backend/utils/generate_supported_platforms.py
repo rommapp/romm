@@ -6,72 +6,6 @@ from handler.metadata.launchbox_handler import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST
 
-IGDB_SLUG_TO_MOBY_SLUG = {
-    "bbcmicro": "bbc-micro",
-    "astrocade": "bally-astrocade",
-    "blu-ray-player": "blu-ray-disc-player",
-    "amazon-fire-tv": "fire-os",
-    "acpc": "cpc",
-    "appleii": "apple-ii",
-    "apple-iigs": "apple-iigs",
-    "atari2600": "atari-2600",
-    "atari5200": "atari-5200",
-    "atari7800": "atari-7800",
-    "atari8bit": "atari-8-bit",
-    "acorn-archimedes": "acorn-32-bit",
-    "acorn-electron": "electron",
-    "c16": "commodore-16-plus4",
-    "commodore-cdtv": "cdtv",
-    "cpet": "pet",
-    "c-plus-4": "commodore-16-plus4",
-    "dc": "dreamcast",
-    "fm-towns": "fmtowns",
-    "fairchild-channel-f": "channel-f",
-    "game-dot-com": "game-com",
-    "gb": "gameboy",
-    "gbc": "gameboy-color",
-    "gba": "gameboy-advance",
-    "leapster-explorer-slash-leadpad-explorer": "leapfrog-explorer",
-    "mac": "macintosh",
-    "microvision--1": "microvision",
-    "ngc": "gamecube",
-    "nds": "nintendo-ds",
-    "neogeomvs": "neo-geo",
-    "neogeoaes": "neo-geo",
-    "win": "windows",
-    "onlive-game-system": "onlive",
-    "odyssey-2-slash-videopac-g7000": "odyssey-2",
-    "odyssey--1": "odyssey",
-    "pc-8800-series": "pc88",
-    "pc-9800-series": "pc98",
-    "palm-os": "palmos",
-    "philips-cd-i": "cd-i",
-    "ps": "playstation",
-    "ps4--1": "playstation-4",
-    "ps5": "playstation-5",
-    "psvita": "ps-vita",
-    "sega32x": "sega-32x",
-    "segacd": "sega-cd",
-    "g-and-w": "dedicated-handheld",
-    "gamegear": "game-gear",
-    "genesis-slash-megadrive": "genesis",
-    "saturn": "sega-saturn",
-    "x1": "sharp-x1",
-    "sinclair-zx81": "zx81",
-    "trs-80-color-computer": "trs-80-coco",
-    "ti-994a": "ti-994a",
-    "thomson-mo5": "thomson-mo",
-    "turbografx16--1": "turbo-grafx",
-    "turbografx-16-slash-pc-engine-cd": "turbografx-cd",
-    "virtualboy": "virtual-boy",
-    "wiiu": "wii-u",
-    "series-x-s": "xbox-series",
-    "ios": "iphone",
-    "windows-mobile": "windowsphone",
-    "winphone": "windows-phone",
-    "xboxone": "xbox-one",
-}
-
 
 class SupportedPlatform(TypedDict):
     name: str
@@ -88,8 +22,8 @@ if __name__ == "__main__":
     matched_launchbox_ids: list[int] = []
 
     for plt in IGDB_PLATFORM_LIST:
-        moby_slug = plt["slug"] if plt["slug"] in MOBYGAMES_PLATFORM_LIST else None
-        moby_slug = IGDB_SLUG_TO_MOBY_SLUG.get(plt["slug"], moby_slug)
+        moby_platform = MOBYGAMES_PLATFORM_LIST.get(plt["slug"])
+        moby_slug = moby_platform["slug"] if moby_platform else None
 
         ss_platform = SCREENSAVER_PLATFORM_LIST.get(plt["slug"])
         ss_id = ss_platform["id"] if ss_platform else None
