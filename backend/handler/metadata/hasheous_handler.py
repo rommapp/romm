@@ -167,10 +167,7 @@ class HasheousHandler(MetadataHandler):
                 exc.response.status_code,
                 exc.response.text,
             )
-            raise HTTPException(
-                status_code=exc.response.status_code,
-                detail=f"Hasheous API error: {exc.response.text}",
-            ) from exc
+            pass
         except httpx.NetworkError as exc:
             log.critical("Connection error: can't connect to Hasheous")
             raise HTTPException(
