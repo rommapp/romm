@@ -1,18 +1,25 @@
 # uv run python3 -m utils.generate_supported_platforms
 from typing import TypedDict
 
+from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST
 from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
 from handler.metadata.launchbox_handler import LAUNCHBOX_PLATFORM_LIST
 from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST
+from handler.metadata.ra_handler import RA_PLATFORM_LIST
 from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST
+
+# from handler.metadata.tgdb_handler import TGDB_PLATFORM_LIST
 
 
 class SupportedPlatform(TypedDict):
     name: str
+    folder: str
     igdb_slug: str | None
     moby_slug: str | None
     ss_id: int | None
     launchbox_id: int | None
+    hasheous_id: int | None
+    ra_id: int | None
 
 
 if __name__ == "__main__":
@@ -20,6 +27,8 @@ if __name__ == "__main__":
     matched_moby_slugs: list[str] = []
     matched_ss_ids: list[int] = []
     matched_launchbox_ids: list[int] = []
+    matched_hasheous_ids: list[int] = []
+    matched_ra_ids: list[int] = []
 
     for plt in IGDB_PLATFORM_LIST:
         moby_platform = MOBYGAMES_PLATFORM_LIST.get(plt["slug"])
@@ -31,96 +40,194 @@ if __name__ == "__main__":
         launchbox_platform = LAUNCHBOX_PLATFORM_LIST.get(plt["slug"])
         launchbox_id = launchbox_platform["id"] if launchbox_platform else None
 
+        hasheous_platform = HASHEOUS_PLATFORM_LIST.get(plt["slug"])
+        hasheous_id = hasheous_platform["id"] if hasheous_platform else None
+
+        ra_platform = RA_PLATFORM_LIST.get(plt["slug"])
+        ra_id = ra_platform["id"] if ra_platform else None
+
         supported_platforms[plt["name"]] = {
             "name": plt["name"],
+            "folder": plt["slug"],
             "igdb_slug": plt["slug"],
             "moby_slug": moby_slug,
             "ss_id": ss_id,
             "launchbox_id": launchbox_id,
+            "hasheous_id": hasheous_id,
+            "ra_id": ra_id,
         }
+
         if moby_slug:
             matched_moby_slugs.append(moby_slug)
         if ss_id:
             matched_ss_ids.append(ss_id)
         if launchbox_id:
             matched_launchbox_ids.append(launchbox_id)
+        if hasheous_id:
+            matched_hasheous_ids.append(hasheous_id)
+        if ra_id:
+            matched_ra_ids.append(ra_id)
 
     # Now go over the moby ids
-    for slug, pltf in MOBYGAMES_PLATFORM_LIST.items():
+    for slug, mplt in MOBYGAMES_PLATFORM_LIST.items():
+        if mplt["slug"] in matched_moby_slugs:
+            continue
+
+        # If the platform is not in supported_platforms, add it
         if (
-            pltf["name"] not in supported_platforms
-            and pltf["name"].lower() not in supported_platforms
-            and slug not in matched_moby_slugs
+            mplt["name"] not in supported_platforms
+            and mplt["name"].lower() not in supported_platforms
         ):
-            supported_platforms[pltf["name"]] = {
-                "name": pltf["name"],
+            supported_platforms[mplt["name"]] = {
+                "name": mplt["name"],
+                "folder": slug,
                 "igdb_slug": None,
-                "moby_slug": slug,
+                "moby_slug": mplt["slug"],
                 "ss_id": None,
                 "launchbox_id": None,
+                "hasheous_id": None,
+                "ra_id": None,
             }
+        # If the platform is already in supported_platforms, update the moby_slug if it's None
+        elif supported_platforms[mplt["name"]]["moby_slug"] is None:
+            supported_platforms[mplt["name"]]["moby_slug"] = mplt["slug"]
 
     # And the remaining metadata sources
-    for _slug, pltf in SCREENSAVER_PLATFORM_LIST.items():
+    for slug, ssplt in SCREENSAVER_PLATFORM_LIST.items():
+        if ssplt["id"] in matched_ss_ids:
+            continue
+
         if (
-            pltf["name"] not in supported_platforms
-            and pltf["name"].lower() not in supported_platforms
-            and pltf["id"] not in matched_ss_ids
+            ssplt["name"] not in supported_platforms
+            and ssplt["name"].lower() not in supported_platforms
         ):
-            supported_platforms[pltf["name"]] = {
-                "name": pltf["name"],
+            supported_platforms[ssplt["name"]] = {
+                "name": ssplt["name"],
+                "folder": slug,
                 "igdb_slug": None,
                 "moby_slug": None,
-                "ss_id": pltf["id"],
+                "ss_id": ssplt["id"],
                 "launchbox_id": None,
+                "hasheous_id": None,
+                "ra_id": None,
             }
+        elif supported_platforms[ssplt["name"]]["ss_id"] is None:
+            supported_platforms[ssplt["name"]]["ss_id"] = ssplt["id"]
 
-    for _slug, pltf in LAUNCHBOX_PLATFORM_LIST.items():
+    for slug, lbplt in LAUNCHBOX_PLATFORM_LIST.items():
+        if lbplt["id"] in matched_launchbox_ids:
+            continue
+
         if (
-            pltf["name"] not in supported_platforms
-            and pltf["name"].lower() not in supported_platforms
-            and pltf["id"] not in matched_launchbox_ids
+            lbplt["name"] not in supported_platforms
+            and lbplt["name"].lower() not in supported_platforms
         ):
-            supported_platforms[pltf["name"]] = {
-                "name": pltf["name"],
+            supported_platforms[lbplt["name"]] = {
+                "name": lbplt["name"],
+                "folder": slug,
                 "igdb_slug": None,
                 "moby_slug": None,
                 "ss_id": None,
-                "launchbox_id": pltf["id"],
+                "launchbox_id": lbplt["id"],
+                "hasheous_id": None,
+                "ra_id": None,
             }
+        elif supported_platforms[lbplt["name"]]["launchbox_id"] is None:
+            supported_platforms[lbplt["name"]]["launchbox_id"] = lbplt["id"]
+
+    for slug, hsplt in HASHEOUS_PLATFORM_LIST.items():
+        if hsplt["id"] in matched_hasheous_ids:
+            continue
+
+        if (
+            hsplt["name"] not in supported_platforms
+            and hsplt["name"].lower() not in supported_platforms
+        ):
+            supported_platforms[hsplt["name"]] = {
+                "name": hsplt["name"],
+                "folder": slug,
+                "igdb_slug": None,
+                "moby_slug": None,
+                "ss_id": None,
+                "launchbox_id": None,
+                "hasheous_id": hsplt["id"],
+                "ra_id": None,
+            }
+        elif supported_platforms[hsplt["name"]]["hasheous_id"] is None:
+            supported_platforms[hsplt["name"]]["hasheous_id"] = hsplt["id"]
+
+    for slug, raplt in RA_PLATFORM_LIST.items():
+        if raplt["id"] in matched_ra_ids:
+            continue
+
+        if (
+            raplt["name"] not in supported_platforms
+            and raplt["name"].lower() not in supported_platforms
+        ):
+            supported_platforms[raplt["name"]] = {
+                "name": raplt["name"],
+                "folder": slug,
+                "igdb_slug": None,
+                "moby_slug": None,
+                "ss_id": None,
+                "launchbox_id": None,
+                "hasheous_id": None,
+                "ra_id": raplt["id"],
+            }
+        elif supported_platforms[raplt["name"]]["ra_id"] is None:
+            supported_platforms[raplt["name"]]["ra_id"] = raplt["id"]
 
     # Sort platforms by key
     supported_platforms = dict(sorted(supported_platforms.items()))
 
     print(
-        "Below is a list of all supported platforms/systems/consoles and their respective folder names. **The folder name is case-sensitive and must be used exactly as it appears in the list below.**"
+        """<!-- vale off -->
+
+Below is a list of all supported platforms/systems/consoles and their respective folder names. Supported platforms means RomM can fetch metadata from sources for those platforms.
+
+!!! warning
+    For platforms that can be playable in the browser, please check [emulatorjs supported platforms](../../Platforms-and-Players/EmulatorJS-Player.md) and [ruffle player](../../Platforms-and-Players/RuffleRS-Player.md).
+
+**The folder name is case-sensitive and must be used exactly as it appears in the list below.**
+
+|Platform Name|Folder Name|IGDB|ScreenSaver.fr|Mobygames|LaunchBox|Hasheous|RetroAchievements|
+|---|---|---|---|---|---|---|---|"""
     )
-    print("\n")
-    print("|Platform Name|Folder Name|IGDB|Mobygames|ScreenSaver.fr|LaunchBox|")
-    print("|---|---|---|---|")
 
     for platform in supported_platforms.values():
         print(
             f'{platform["name"]} |',
-            f'`{platform["igdb_slug"] or platform["moby_slug"]}` |',
+            f'`{platform["folder"]}` |',
             (
-                f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer">IGDB</a>|'
+                f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer"><img src="../resources/metadata_providers/igdb.png" height="24px" width="24px"></a>|'
                 if platform["igdb_slug"]
                 else " |"
             ),
             (
-                f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer">Mobygames</a>'
-                if platform["moby_slug"]
-                else " |"
-            ),
-            (
-                f'<a href="https://www.screenscraper.fr/systemeinfos.php?plateforme={platform["ss_id"]}" target="_blank" rel="noopener norefer">ScreenSaver.fr</a>'
+                f'<a href="https://www.screenscraper.fr/systemeinfos.php?plateforme={platform["ss_id"]}" target="_blank" rel="noopener norefer"><img src="../resources/metadata_providers/ss.png" height="24px" width="24px"></a>|'
                 if platform["ss_id"]
                 else " |"
             ),
             (
-                f'<a href="https://gamesdb.launchbox-app.com/platforms/games/{platform["launchbox_id"]}" target="_blank" rel="noopener norefer">LaunchBox</a>'
+                f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer"><img src="../resources/metadata_providers/moby.png" height="24px" width="24px"></a>|'
+                if platform["moby_slug"]
+                else " |"
+            ),
+            (
+                f'<a href="https://gamesdb.launchbox-app.com/platforms/games/{platform["launchbox_id"]}" target="_blank" rel="noopener norefer">L<img src="../resources/metadata_providers/launchbox.png" height="24px" width="24px"></a>|'
                 if platform["launchbox_id"]
                 else " |"
             ),
+            (
+                f'<a href="https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id={platform["hasheous_id"]}" target="_blank" rel="noopener norefer">L<img src="../resources/metadata_providers/hasheous.png" height="24px" width="24px"></a>|'
+                if platform["hasheous_id"]
+                else " |"
+            ),
+            (
+                f'<a href="https://retroachievements.org/system/{platform["ra_id"]}/games" target="_blank" rel="noopener norefer">L<img src="../resources/metadata_providers/ra.png" height="24px" width="24px"></a>|'
+                if platform["ra_id"]
+                else " |"
+            ),
         )
+
+    print("\n<!-- vale on -->")

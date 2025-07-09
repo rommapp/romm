@@ -277,7 +277,7 @@ class MobyGamesHandler(MetadataHandler):
 class SlugToMobyId(TypedDict):
     id: int
     name: str
-    slug: NotRequired[str]
+    slug: str
 
 
 MOBYGAMES_PLATFORM_LIST: dict[str, SlugToMobyId] = {
@@ -785,54 +785,73 @@ MOBYGAMES_PLATFORM_LIST: dict[str, SlugToMobyId] = {
     "turbografx-cd": {"id": 45, "name": "TurboGrafx CD", "slug": "turbografx-cd"},
     "turbografx16--1": {"id": 40, "name": "TurboGrafx-16", "slug": "turbo-grafx"},
     "tvos": {"id": 179, "name": "tvOS", "slug": "tvos"},
-    "vectrex": {"id": 37, "name": "Vectrex"},
-    "versatile": {"id": 299, "name": "Versatile"},
-    "vflash": {"id": 189, "name": "V.Flash"},
-    "vic-20": {"id": 43, "name": "VIC-20"},
-    "videobrain": {"id": 214, "name": "VideoBrain"},
-    "videopac-g7400": {"id": 128, "name": "Videopac+ G7400"},
-    "virtual-boy": {"id": 38, "name": "Virtual Boy"},
-    "virtualboy": {"id": 38, "name": "Virtual Boy"},
-    "vis": {"id": 164, "name": "VIS"},
-    "vsmile": {"id": 42, "name": "V.Smile"},
-    "wang2200": {"id": 217, "name": "Wang 2200"},
-    "watchos": {"id": 180, "name": "watchOS"},
-    "webos": {"id": 100, "name": "webOS"},
-    "wii": {"id": 82, "name": "Wii"},
-    "wii-u": {"id": 132, "name": "Wii U"},
-    "wiiu": {"id": 132, "name": "Wii U"},
-    "win": {"id": 3, "name": "Windows"},
-    "win3x": {"id": 5, "name": "Windows 3.x"},
-    "windows": {"id": 3, "name": "Windows"},
-    "windows-apps": {"id": 140, "name": "Windows Apps"},
-    "windows-mobile": {"id": 66, "name": "Windows Mobile"},
-    "windows-phone": {"id": 98, "name": "Windows Phone"},
-    "windowsmobile": {"id": 66, "name": "Windows Mobile"},
-    "winphone": {"id": 98, "name": "Windows Phone"},
-    "wipi": {"id": 260, "name": "WIPI"},
-    "wonderswan": {"id": 48, "name": "WonderSwan"},
-    "wonderswan-color": {"id": 49, "name": "WonderSwan Color"},
-    "x1": {"id": 121, "name": "Sharp X1"},
-    "xavixport": {"id": 191, "name": "XaviXPORT"},
-    "xbox": {"id": 13, "name": "Xbox"},
-    "xbox-one": {"id": 142, "name": "Xbox One"},
-    "xbox-series": {"id": 289, "name": "Xbox Series"},
-    "xbox360": {"id": 69, "name": "Xbox 360"},
-    "xboxcloudgaming": {"id": 293, "name": "Xbox Cloud Gaming"},
-    "xboxone": {"id": 142, "name": "Xbox One"},
-    "xerox-alto": {"id": 254, "name": "Xerox Alto"},
-    "z-machine": {"id": 169, "name": "Z-machine"},
-    "z80": {"id": 227, "name": "Zilog Z80"},
-    "zeebo": {"id": 88, "name": "Zeebo"},
-    "zilog-z8000": {"id": 276, "name": "Zilog Z8000"},
-    "zodiac": {"id": 68, "name": "Zodiac"},
-    "zune": {"id": 211, "name": "Zune"},
-    "zx-spectrum": {"id": 41, "name": "ZX Spectrum"},
-    "zx-spectrum-next": {"id": 280, "name": "ZX Spectrum Next"},
-    "zx80": {"id": 118, "name": "ZX80"},
-    "zx81": {"id": 119, "name": "ZX81"},
+    "vectrex": {"id": 37, "name": "Vectrex", "slug": "vectrex"},
+    "versatile": {"id": 299, "name": "Versatile", "slug": "versatile"},
+    "vflash": {"id": 189, "name": "V.Flash", "slug": "vflash"},
+    "vic-20": {"id": 43, "name": "VIC-20", "slug": "vic-20"},
+    "videobrain": {"id": 214, "name": "VideoBrain", "slug": "videobrain"},
+    "videopac-g7400": {"id": 128, "name": "Videopac+ G7400", "slug": "videopac-g7400"},
+    "virtual-boy": {"id": 38, "name": "Virtual Boy", "slug": "virtual-boy"},
+    "virtualboy": {"id": 38, "name": "Virtual Boy", "slug": "virtual-boy"},
+    "vis": {"id": 164, "name": "VIS", "slug": "vis"},
+    "vsmile": {"id": 42, "name": "V.Smile", "slug": "vsmile"},
+    "wang2200": {"id": 217, "name": "Wang 2200", "slug": "wang2200"},
+    "watchos": {"id": 180, "name": "watchOS", "slug": "watchos"},
+    "webos": {"id": 100, "name": "webOS", "slug": "webos"},
+    "wii": {"id": 82, "name": "Wii", "slug": "wii"},
+    "wii-u": {"id": 132, "name": "Wii U", "slug": "wii-u"},
+    "wiiu": {"id": 132, "name": "Wii U", "slug": "wii-u"},
+    "win": {"id": 3, "name": "Windows", "slug": "windows"},
+    "win3x": {"id": 5, "name": "Windows 3.x", "slug": "win3x"},
+    "windows": {"id": 3, "name": "Windows", "slug": "windows"},
+    "windows-apps": {"id": 140, "name": "Windows Apps", "slug": "windows-apps"},
+    "windows-mobile": {"id": 66, "name": "Windows Mobile", "slug": "windowsmobile"},
+    "windows-phone": {"id": 98, "name": "Windows Phone", "slug": "windows-phone"},
+    "windowsmobile": {"id": 66, "name": "Windows Mobile", "slug": "windowsmobile"},
+    "winphone": {"id": 98, "name": "Windows Phone", "slug": "windows-phone"},
+    "wipi": {"id": 260, "name": "WIPI", "slug": "wipi"},
+    "wonderswan": {"id": 48, "name": "WonderSwan", "slug": "wonderswan"},
+    "wonderswan-color": {
+        "id": 49,
+        "name": "WonderSwan Color",
+        "slug": "wonderswan-color",
+    },
+    "x1": {"id": 121, "name": "Sharp X1", "slug": "sharp-x1"},
+    "xavixport": {"id": 191, "name": "XaviXPORT", "slug": "xavixport"},
+    "xbox": {"id": 13, "name": "Xbox", "slug": "xbox"},
+    "xbox-one": {"id": 142, "name": "Xbox One", "slug": "xbox-one"},
+    "xbox-series": {"id": 289, "name": "Xbox Series", "slug": "xbox-series"},
+    "xbox360": {"id": 69, "name": "Xbox 360", "slug": "xbox360"},
+    "xboxcloudgaming": {
+        "id": 293,
+        "name": "Xbox Cloud Gaming",
+        "slug": "xboxcloudgaming",
+    },
+    "xboxone": {"id": 142, "name": "Xbox One", "slug": "xbox-one"},
+    "xerox-alto": {"id": 254, "name": "Xerox Alto", "slug": "xerox-alto"},
+    "z-machine": {"id": 169, "name": "Z-machine", "slug": "z-machine"},
+    "z80": {"id": 227, "name": "Zilog Z80", "slug": "z80"},
+    "zeebo": {"id": 88, "name": "Zeebo", "slug": "zeebo"},
+    "zilog-z8000": {"id": 276, "name": "Zilog Z8000", "slug": "zilog-z8000"},
+    "zodiac": {"id": 68, "name": "Zodiac", "slug": "zodiac"},
+    "zune": {"id": 211, "name": "Zune", "slug": "zune"},
+    "zx-spectrum": {"id": 41, "name": "ZX Spectrum", "slug": "zx-spectrum"},
+    "zx-spectrum-next": {
+        "id": 280,
+        "name": "ZX Spectrum Next",
+        "slug": "zx-spectrum-next",
+    },
+    "zx80": {"id": 118, "name": "ZX80", "slug": "zx80"},
+    "zx81": {"id": 119, "name": "ZX81", "slug": "zx81"},
 }
 
 
 # Reverse lookup
 MOBY_ID_TO_SLUG = {v["id"]: k for k, v in MOBYGAMES_PLATFORM_LIST.items()}
+
+
+# These platforms are ignored due to lack of data:
+# arb, casiofp, dai, hitachibasicmaster3, hposcilloscope, hpseries80
+
+# Need the IDs for these platforms before we can add them:
+# p2000, visionos
