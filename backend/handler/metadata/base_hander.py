@@ -17,14 +17,18 @@ from tasks.update_switch_titledb import (
 def conditionally_set_cache(
     index_key: str, filename: str, parent_dir: str = os.path.dirname(__file__)
 ) -> None:
-    fixtures_path = os.path.join(parent_dir, "fixtures")
-    if not sync_cache.exists(index_key):
-        index_data = json.loads(open(os.path.join(fixtures_path, filename)).read())
-        with sync_cache.pipeline() as pipe:
-            for data_batch in batched(index_data.items(), 2000):
-                data_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
-                pipe.hset(index_key, mapping=data_map)
-            pipe.execute()
+    try:
+        fixtures_path = os.path.join(parent_dir, "fixtures")
+        if not sync_cache.exists(index_key):
+            index_data = json.loads(open(os.path.join(fixtures_path, filename)).read())
+            with sync_cache.pipeline() as pipe:
+                for data_batch in batched(index_data.items(), 2000, strict=False):
+                    data_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
+                    pipe.hset(index_key, mapping=data_map)
+                pipe.execute()
+    except Exception as e:
+        # Log the error but don't fail - this allows migrations to run even if Redis is not available
+        log.warning(f"Failed to initialize cache for {index_key}: {e}")
 
 
 # These are loaded in cache in update_switch_titledb_task
@@ -34,27 +38,28 @@ SWITCH_PRODUCT_ID_REGEX: Final = re.compile(r"(0100[0-9A-F]{12})")
 
 # No regex needed for MAME
 MAME_XML_KEY: Final = "romm:mame_xml"
-conditionally_set_cache(MAME_XML_KEY, "mame_index.json")
 
 # PS2 OPL
 PS2_OPL_REGEX: Final = re.compile(r"^([A-Z]{4}_\d{3}\.\d{2})\..*$")
 PS2_OPL_KEY: Final = "romm:ps2_opl_index"
-conditionally_set_cache(PS2_OPL_KEY, "ps2_opl_index.json")
 
 # Sony serial codes for PS1, PS2, and PSP
 SONY_SERIAL_REGEX: Final = re.compile(r".*([a-zA-Z]{4}-\d{5}).*$")
 
 PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
-conditionally_set_cache(PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json")
-
 PS2_SERIAL_INDEX_KEY: Final = "romm:ps2_serial_index"
-conditionally_set_cache(PS2_SERIAL_INDEX_KEY, "ps2_serial_index.json")
-
 PSP_SERIAL_INDEX_KEY: Final = "romm:psp_serial_index"
-conditionally_set_cache(PSP_SERIAL_INDEX_KEY, "psp_serial_index.json")
 
 
 class MetadataHandler:
+    def __init__(self):
+        # Initialize cache data lazily when the handler is first instantiated
+        conditionally_set_cache(MAME_XML_KEY, "mame_index.json")
+        conditionally_set_cache(PS2_OPL_KEY, "ps2_opl_index.json")
+        conditionally_set_cache(PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json")
+        conditionally_set_cache(PS2_SERIAL_INDEX_KEY, "ps2_serial_index.json")
+        conditionally_set_cache(PSP_SERIAL_INDEX_KEY, "psp_serial_index.json")
+
     @staticmethod
     def normalize_search_term(search_term: str) -> str:
         return (
