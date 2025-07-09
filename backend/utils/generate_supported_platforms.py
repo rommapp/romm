@@ -185,49 +185,51 @@ if __name__ == "__main__":
 
 Below is a list of all supported platforms/systems/consoles and their respective folder names. Supported platforms means RomM can fetch metadata from sources for those platforms.
 
-!!! warning
-    For platforms that can be playable in the browser, please check [emulatorjs supported platforms](../../Platforms-and-Players/EmulatorJS-Player.md) and [ruffle player](../../Platforms-and-Players/RuffleRS-Player.md).
+!!! info
+    For platforms that can be playable in the browser, please check [emulatorjs supported platforms](./EmulatorJS-Player.md) and [ruffle player](./RuffleRS-Player.md).
 
-**The folder name is case-sensitive and must be used exactly as it appears in the list below.**
+!!! danger
+    **The folder name is case-sensitive and must be used exactly as it appears in the list below.**
 
-|Platform Name|Folder Name|IGDB|ScreenSaver.fr|Mobygames|LaunchBox|Hasheous|RetroAchievements|
-|---|---|---|---|---|---|---|---|"""
+|Platform Name|Folder Name|Metadata Providers|
+|---|---|---|"""
     )
 
     for platform in supported_platforms.values():
         print(
-            f'{platform["name"]} |',
+            f'| {platform["name"]} |',
             f'`{platform["folder"]}` |',
             (
-                f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer"><img src="../resources/metadata_providers/igdb.png" height="24px" width="24px"></a>|'
+                f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer"><img alt="igdb logo" src="../../resources/metadata_providers/igdb.png" height="24px" width="24px"></a>'
                 if platform["igdb_slug"]
-                else " |"
+                else ""
             ),
             (
-                f'<a href="https://www.screenscraper.fr/systemeinfos.php?plateforme={platform["ss_id"]}" target="_blank" rel="noopener norefer"><img src="../resources/metadata_providers/ss.png" height="24px" width="24px"></a>|'
+                f'<a href="https://www.screenscraper.fr/systemeinfos.php?plateforme={platform["ss_id"]}" target="_blank" rel="noopener norefer"><img alt="screenscraper logo" src="../../resources/metadata_providers/ss.png" height="24px" width="24px"></a>'
                 if platform["ss_id"]
-                else " |"
+                else ""
             ),
             (
-                f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer"><img src="../resources/metadata_providers/moby.png" height="24px" width="24px"></a>|'
+                f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer"><img alt="mobygames logo" src="../../resources/metadata_providers/moby.png" height="24px" width="24px"></a>'
                 if platform["moby_slug"]
-                else " |"
+                else ""
             ),
             (
-                f'<a href="https://gamesdb.launchbox-app.com/platforms/games/{platform["launchbox_id"]}" target="_blank" rel="noopener norefer">L<img src="../resources/metadata_providers/launchbox.png" height="24px" width="24px"></a>|'
+                f'<a href="https://gamesdb.launchbox-app.com/platforms/games/{platform["launchbox_id"]}" target="_blank" rel="noopener norefer"><img alt="launchbox logo" src="../../resources/metadata_providers/launchbox.png" height="24px" width="24px"></a>'
                 if platform["launchbox_id"]
-                else " |"
+                else ""
             ),
             (
-                f'<a href="https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id={platform["hasheous_id"]}" target="_blank" rel="noopener norefer">L<img src="../resources/metadata_providers/hasheous.png" height="24px" width="24px"></a>|'
+                f'<a href="https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id={platform["hasheous_id"]}" target="_blank" rel="noopener norefer"><img alt="hasheous logo" src="../../resources/metadata_providers/hasheous.png" height="24px" width="24px"></a>'
                 if platform["hasheous_id"]
-                else " |"
+                else ""
             ),
             (
-                f'<a href="https://retroachievements.org/system/{platform["ra_id"]}/games" target="_blank" rel="noopener norefer">L<img src="../resources/metadata_providers/ra.png" height="24px" width="24px"></a>|'
+                f'<a href="https://retroachievements.org/system/{platform["ra_id"]}/games" target="_blank" rel="noopener norefer"><img alt="retroachivements logo" src="../../resources/metadata_providers/ra.png" height="24px" width="24px"></a>'
                 if platform["ra_id"]
-                else " |"
+                else ""
             ),
+            " |",
         )
 
     print("\n<!-- vale on -->")
