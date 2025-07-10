@@ -119,7 +119,6 @@ class PlaymatchHandler:
             return PlaymatchRomMatch(igdb_id=None)
 
         externalMetadata = response.get("externalMetadata", [])
-
         if len(externalMetadata) == 0:
             log.debug("No external metadata found for the matched ROM file.")
             return PlaymatchRomMatch(igdb_id=None)

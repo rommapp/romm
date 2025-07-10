@@ -49,7 +49,11 @@ class HasheousRom(IGDBRom, RAGameRom):
 def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
     return IGDBMetadata(
         {
-            "youtube_video_id": list(rom["videos"].values())[0]["video_id"],
+            "youtube_video_id": (
+                list(rom["videos"].values())[0]["video_id"]
+                if rom.get("videos")
+                else None
+            ),
             "total_rating": str(round(rom.get("total_rating", 0.0), 2)),
             "aggregated_rating": str(round(rom.get("aggregated_rating", 0.0), 2)),
             "first_release_date": (
@@ -155,7 +159,7 @@ class HasheousHandler(MetadataHandler):
         except httpx.HTTPStatusError as exc:
             # Check if its a 404 error
             if exc.response.status_code == status.HTTP_404_NOT_FOUND:
-                log.warning("Hasheous API returned 404 Not Found")
+                log.debug("Game not found in Hasheous API")
                 return {}
 
             log.error(
@@ -163,10 +167,7 @@ class HasheousHandler(MetadataHandler):
                 exc.response.status_code,
                 exc.response.text,
             )
-            raise HTTPException(
-                status_code=exc.response.status_code,
-                detail=f"Hasheous API error: {exc.response.text}",
-            ) from exc
+            pass
         except httpx.NetworkError as exc:
             log.critical("Connection error: can't connect to Hasheous")
             raise HTTPException(
@@ -302,9 +303,7 @@ class HasheousHandler(MetadataHandler):
         )
 
         if not igdb_game:
-            log.warning(
-                f"No Hasheous game found for IGDB ID {hasheous_rom["igdb_id"]}."
-            )
+            log.debug(f"No Hasheous game found for IGDB ID {hasheous_rom["igdb_id"]}.")
             return fallback_rom
 
         return HasheousRom(
@@ -321,8 +320,9 @@ class HasheousHandler(MetadataHandler):
                     self._normalize_cover_url(s.get("url", "")).replace(
                         "t_thumb", "t_720p"
                     )
-                    for s in igdb_game.get("screenshots", []).values()
-                ],
+                    for s in igdb_game.get("screenshots", [])
+                ]
+                or hasheous_rom.get("url_screenshots", []),
                 "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
             }
         )
@@ -349,7 +349,7 @@ class HasheousHandler(MetadataHandler):
         )
 
         if not ra_game:
-            log.warning(f"No Hasheous game found for RA ID {hasheous_rom['ra_id']}.")
+            log.debug(f"No Hasheous game found for RA ID {hasheous_rom['ra_id']}.")
             return fallback_rom
 
         return hasheous_rom
