@@ -325,7 +325,7 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and not rom.igdb_id)
             )
         ):
-            return await meta_playmatch_handler.lookup_rom(rom_attrs)
+            return await meta_playmatch_handler.lookup_rom(fs_rom["files"])
 
         return PlaymatchRomMatch(igdb_id=None)
 
