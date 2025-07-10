@@ -5,7 +5,7 @@ from typing import Any
 import emoji
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
-from handler.filesystem import fs_asset_handler, fs_firmware_handler, fs_rom_handler
+from handler.filesystem import fs_asset_handler, fs_firmware_handler
 from handler.filesystem.roms_handler import FSRom
 from handler.metadata import (
     meta_hasheous_handler,
@@ -259,13 +259,11 @@ async def scan_rom(
         log.error("No metadata sources provided")
         raise ValueError("No metadata sources provided")
 
-    # Set default properties
     rom_attrs = {
-        "id": rom.id if rom else None,
-        "multi": fs_rom["multi"],
-        "fs_name": fs_rom["fs_name"],
         "platform_id": platform.id,
         "name": fs_rom["fs_name"],
+        "fs_name": fs_rom["fs_name"],
+        "multi": fs_rom["multi"],
         "crc_hash": fs_rom["crc_hash"],
         "md5_hash": fs_rom["md5_hash"],
         "sha1_hash": fs_rom["sha1_hash"],
@@ -274,6 +272,22 @@ async def scan_rom(
         "url_manual": "",
         "url_screenshots": [],
     }
+
+    if rom:
+        rom_attrs.update(
+            {
+                "id": rom.id,
+                "fs_path": rom.fs_path,
+                "fs_name_no_tags": rom.fs_name_no_tags,
+                "fs_name_no_ext": rom.fs_name_no_ext,
+                "fs_extension": rom.fs_extension,
+                "fs_size_bytes": rom.fs_size_bytes,
+                "regions": rom.regions,
+                "revision": rom.revision,
+                "languages": rom.languages,
+                "tags": rom.tags,
+            }
+        )
 
     # Update properties from existing rom if not a complete rescan
     if not newly_added and scan_type != ScanType.COMPLETE:
@@ -298,29 +312,6 @@ async def scan_rom(
                 "url_manual": rom.url_manual,
             }
         )
-
-    # Update properties that don't require metadata
-    filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
-    regs, rev, langs, other_tags = fs_rom_handler.parse_tags(rom_attrs["fs_name"])
-    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
-
-    rom_attrs.update(
-        {
-            "fs_path": roms_path,
-            "fs_name_no_tags": fs_rom_handler.get_file_name_with_no_tags(
-                rom_attrs["fs_name"]
-            ),
-            "fs_name_no_ext": fs_rom_handler.get_file_name_with_no_extension(
-                rom_attrs["fs_name"]
-            ),
-            "fs_extension": fs_rom_handler.parse_file_extension(rom_attrs["fs_name"]),
-            "fs_size_bytes": filesize,
-            "regions": regs,
-            "revision": rev,
-            "languages": langs,
-            "tags": other_tags,
-        }
-    )
 
     async def fetch_playmatch_hash_match() -> PlaymatchRomMatch:
         if (

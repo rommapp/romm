@@ -162,15 +162,33 @@ async def _identify_rom(
 
         return scan_stats
 
+    # Update properties that don't require metadata
+    filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
+    regs, rev, langs, other_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
+    roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
+
     # Create the entry early so we have the ID
     newly_added: bool = rom is None
     if not rom:
         rom = db_rom_handler.add_rom(
             Rom(
-                multi=fs_rom["multi"],
                 fs_name=fs_rom["fs_name"],
+                fs_path=roms_path,
+                fs_name_no_tags=fs_rom_handler.get_file_name_with_no_tags(
+                    fs_rom["fs_name"]
+                ),
+                fs_name_no_ext=fs_rom_handler.get_file_name_with_no_extension(
+                    fs_rom["fs_name"]
+                ),
+                fs_extension=fs_rom_handler.parse_file_extension(fs_rom["fs_name"]),
+                fs_size_bytes=filesize,
+                regions=regs,
+                revision=rev,
+                languages=langs,
+                tags=other_tags,
                 platform_id=platform.id,
                 name=fs_rom["fs_name"],
+                multi=fs_rom["multi"],
                 url_cover="",
                 url_manual="",
                 url_screenshots=[],
