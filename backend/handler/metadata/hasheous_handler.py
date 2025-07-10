@@ -100,7 +100,7 @@ class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = (
             "https://beta.hasheous.org/api/v1"
-            if DEV_MODE
+            if DEV_MODE and False
             else "https://hasheous.org/api/v1"
         )
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
@@ -317,9 +317,7 @@ class HasheousHandler(MetadataHandler):
                 ).replace("t_thumb", "t_1080p")
                 or hasheous_rom.get("url_cover", ""),
                 "url_screenshots": [
-                    self._normalize_cover_url(s.get("url", "")).replace(
-                        "t_thumb", "t_720p"
-                    )
+                    self._normalize_cover_url(s).replace("t_thumb", "t_720p")
                     for s in igdb_game.get("screenshots", [])
                 ]
                 or hasheous_rom.get("url_screenshots", []),
