@@ -90,7 +90,7 @@ class LaunchboxHandler(MetadataHandler):
         self, file_name: str, platform_slug: str
     ) -> dict | None:
         if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
-            log.warning("Fetching the Launchbox Metadata.xml file...")
+            log.info("Fetching the Launchbox Metadata.xml file...")
             await update_launchbox_metadata_task.run(force=True)
 
             if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):

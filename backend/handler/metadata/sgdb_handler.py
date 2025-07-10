@@ -19,7 +19,7 @@ class SGDBBaseHandler(MetadataHandler):
     async def get_details(self, search_term: str) -> list[dict[str, Any]]:
         games = await self.sgdb_service.search_games(term=search_term)
         if not games:
-            log.warning(f"Could not find '{search_term}' on SteamGridDB")
+            log.debug(f"Could not find '{search_term}' on SteamGridDB")
             return []
 
         tasks = [
