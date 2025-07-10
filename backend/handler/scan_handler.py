@@ -259,6 +259,7 @@ async def scan_rom(
         log.error("No metadata sources provided")
         raise ValueError("No metadata sources provided")
 
+    filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
     rom_attrs = {
         "platform_id": platform.id,
         "name": fs_rom["fs_name"],
@@ -268,6 +269,7 @@ async def scan_rom(
         "md5_hash": fs_rom["md5_hash"],
         "sha1_hash": fs_rom["sha1_hash"],
         "ra_hash": fs_rom["ra_hash"],
+        "fs_size_bytes": filesize,
         "url_cover": "",
         "url_manual": "",
         "url_screenshots": [],
@@ -281,7 +283,6 @@ async def scan_rom(
                 "fs_name_no_tags": rom.fs_name_no_tags,
                 "fs_name_no_ext": rom.fs_name_no_ext,
                 "fs_extension": rom.fs_extension,
-                "fs_size_bytes": rom.fs_size_bytes,
                 "regions": rom.regions,
                 "revision": rom.revision,
                 "languages": rom.languages,
