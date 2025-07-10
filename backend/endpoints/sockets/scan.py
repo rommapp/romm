@@ -163,8 +163,9 @@ async def _identify_rom(
         return scan_stats
 
     # Update properties that don't require metadata
-    filesize = sum([file.file_size_bytes for file in fs_rom["files"]])
-    regs, rev, langs, other_tags = fs_rom_handler.parse_tags(fs_rom["fs_name"])
+    fs_regions, fs_revisions, fs_languages, fs_other_tags = fs_rom_handler.parse_tags(
+        fs_rom["fs_name"]
+    )
     roms_path = fs_rom_handler.get_roms_fs_structure(platform.fs_slug)
 
     # Create the entry early so we have the ID
@@ -181,11 +182,10 @@ async def _identify_rom(
                     fs_rom["fs_name"]
                 ),
                 fs_extension=fs_rom_handler.parse_file_extension(fs_rom["fs_name"]),
-                fs_size_bytes=filesize,
-                regions=regs,
-                revision=rev,
-                languages=langs,
-                tags=other_tags,
+                regions=fs_regions,
+                revision=fs_revisions,
+                languages=fs_languages,
+                tags=fs_other_tags,
                 platform_id=platform.id,
                 name=fs_rom["fs_name"],
                 multi=fs_rom["multi"],
