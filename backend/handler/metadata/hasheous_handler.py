@@ -317,8 +317,10 @@ class HasheousHandler(MetadataHandler):
                 ).replace("t_thumb", "t_1080p")
                 or hasheous_rom.get("url_cover", ""),
                 "url_screenshots": [
-                    self._normalize_cover_url(s).replace("t_thumb", "t_720p")
-                    for s in igdb_game.get("screenshots", [])
+                    self._normalize_cover_url(s.get("url", "")).replace(
+                        "t_thumb", "t_720p"
+                    )
+                    for s in pydash.get(igdb_game, "screenshots", {}).values()
                 ]
                 or hasheous_rom.get("url_screenshots", []),
                 "igdb_metadata": extract_metadata_from_igdb_rom(igdb_game),
