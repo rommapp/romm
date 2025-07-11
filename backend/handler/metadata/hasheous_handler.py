@@ -249,7 +249,14 @@ class HasheousHandler(MetadataHandler):
 
         for meta in metadata:
             if meta["source"] == "IGDB":
-                igdb_id = meta["immutableId"]
+                try:
+                    # TEMP: Hasheous is slowly replacing slugs with IDs
+                    igdb_id = int(meta["immutableId"])
+                except (ValueError, TypeError):
+                    log.debug(
+                        f"Found an IGDB slug instead of an ID: {meta['immutableId']}"
+                    )
+                    pass
             elif meta["source"] == "TheGamesDB":
                 tgdb_id = meta["immutableId"]
             elif meta["source"] == "RetroAchievements":
