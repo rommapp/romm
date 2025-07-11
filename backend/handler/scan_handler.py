@@ -14,6 +14,7 @@ from handler.metadata import (
     meta_moby_handler,
     meta_playmatch_handler,
     meta_ra_handler,
+    meta_sgdb_handler,
     meta_ss_handler,
     meta_tgdb_handler,
 )
@@ -23,6 +24,7 @@ from handler.metadata.launchbox_handler import LaunchboxPlatform, LaunchboxRom
 from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
 from handler.metadata.playmatch_handler import PlaymatchRomMatch
 from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
+from handler.metadata.sgdb_handler import SGDBRom
 from handler.metadata.ss_handler import SSPlatform, SSRom
 from handler.metadata.tgdb_handler import TGDBPlatform
 from logger.formatter import BLUE, LIGHTYELLOW
@@ -54,6 +56,7 @@ class MetadataSource:
     LB = "lb"  # Launchbox
     HASHEOUS = "hasheous"  # Hasheous
     TGDB = "tgdb"  # TheGamesDB
+    SGDB = "sgdb"  # SteamGridDB
 
 
 async def _get_main_platform_igdb_id(platform: Platform):
@@ -502,6 +505,21 @@ async def scan_rom(
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
+    async def fetch_sgdb_details() -> SGDBRom:
+        """Fetch SteamGridDB details for the ROM."""
+        if (
+            MetadataSource.SGDB in metadata_sources
+            and newly_added
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.sgdb_id)
+            or (scan_type == ScanType.UNIDENTIFIED and not rom.sgdb_id)
+        ):
+            return await meta_sgdb_handler.get_details_by_name(
+                rom_attrs["fs_name_no_tags"]
+            )
+
+        return SGDBRom(sgdb_id=None)
+
     # Run metadata fetches concurrently
     (
         igdb_handler_rom,
@@ -510,6 +528,7 @@ async def scan_rom(
         ra_handler_rom,
         launchbox_handler_rom,
         hasheous_handler_rom,
+        sgdb_handler_rom,
     ) = await asyncio.gather(
         fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
         fetch_moby_rom(),
@@ -517,6 +536,7 @@ async def scan_rom(
         fetch_ra_rom(hasheous_hash_match),
         fetch_launchbox_rom(platform.slug),
         fetch_hasheous_rom(hasheous_hash_match),
+        fetch_sgdb_details(),
     )
 
     # Only update fields if match is found
@@ -528,6 +548,8 @@ async def scan_rom(
         rom_attrs.update({**moby_handler_rom})
     if ss_handler_rom.get("ss_id"):
         rom_attrs.update({**ss_handler_rom})
+    if sgdb_handler_rom.get("sgdb_id"):
+        rom_attrs.update({**sgdb_handler_rom})
     if hasheous_handler_rom.get("hasheous_id"):
         rom_attrs.update({**hasheous_handler_rom})
     if igdb_handler_rom.get("igdb_id"):
