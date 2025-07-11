@@ -515,7 +515,7 @@ class IGDBHandler(MetadataHandler):
                     "Searching for %s on IGDB without game_Type after splitting semicolon",
                     term,
                 )
-                rom = await self._search_rom(term, platform_igdb_id)
+                rom = await self._search_rom(term.strip(), platform_igdb_id)
                 if rom:
                     break
 

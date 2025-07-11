@@ -273,11 +273,31 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return None
 
+        def is_exact_match(rom: SSGame, search_term: str) -> bool:
+            rom_names = [name.get("text", "").lower() for name in rom.get("noms", [])]
+            search_term_lower = search_term.lower()
+            search_term_normalized = self._normalize_exact_match(search_term)
+
+            return any(
+                (
+                    rom_name.lower() == search_term_lower
+                    or self._normalize_exact_match(rom_name) == search_term_normalized
+                )
+                for rom_name in rom_names
+            )
+
+        print(f"Search term: {search_term}")
         search_term = uc(search_term)
+        print(f"Normalized search term: {search_term}")
         roms = await self.ss_service.search_games(
             term=quote(search_term, safe="/ "),
             system_id=platform_ss_id,
         )
+
+        for rom in roms:
+            if is_exact_match(rom, search_term):
+                return rom
+
         return roms[0] if roms else None
 
     def get_platform(self, slug: str) -> SSPlatform:
@@ -361,8 +381,18 @@ class SSHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
+        print(f"Searching for ROM: {search_term} on platform ID: {platform_ss_id}")
+
         search_term = self.normalize_search_term(search_term)
+        print(f"Normalized search term: {search_term}")
         res = await self._search_rom(search_term, platform_ss_id)
+
+        # Split the search term since igdb struggles with colons
+        if not res and ":" in search_term:
+            for term in search_term.split(":")[::-1]:
+                res = await self._search_rom(term.strip(), platform_ss_id)
+                if res:
+                    break
 
         # Some MAME games have two titles split by a slash
         if not res and "/" in search_term:
