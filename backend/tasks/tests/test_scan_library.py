@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from handler.scan_handler import ScanType
+from handler.scan_handler import MetadataSource, ScanType
 from tasks.scan_library import ScanLibraryTask, scan_library_task
 
 
@@ -25,7 +25,9 @@ class TestScanLibraryTask:
         await task.run()
 
         mock_log.info.assert_any_call("Scheduled library scan started...")
-        mock_scan_platforms.assert_called_once_with([], scan_type=ScanType.UNIDENTIFIED)
+        mock_scan_platforms.assert_called_once_with(
+            [], scan_type=ScanType.UNIDENTIFIED, metadata_sources=[MetadataSource.LB]
+        )
         mock_log.info.assert_any_call("Scheduled library scan done")
 
     @patch("tasks.scan_library.ENABLE_SCHEDULED_RESCAN", False)
