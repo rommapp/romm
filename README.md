@@ -101,7 +101,7 @@ Here are a few projects that we think you might like:
 <div align="center">
   <br />
   <a href="https://news.ycombinator.com/item?id=44247964" target="_blank">
-    <img src=".github/resources/hackernews_badge.svg" alt="hackernews badge">
+    <img src=".github/resources/hackernews_badge.svg" width="250px" alt="hackernews badge">
   </a>
 </div>
 
