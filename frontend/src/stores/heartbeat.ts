@@ -131,6 +131,14 @@ export default defineStore("heartbeat", {
             ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },
+        {
+          name: "SteamGridDB",
+          value: "sgdb",
+          logo_path: "/assets/scrappers/sgdb.png",
+          disabled: !this.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
+            : "",
+        },
       ];
     },
     getEnabledMetadataOptions(): MetadataOption[] {
