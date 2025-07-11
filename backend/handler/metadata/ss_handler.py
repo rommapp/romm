@@ -286,9 +286,7 @@ class SSHandler(MetadataHandler):
                 for rom_name in rom_names
             )
 
-        print(f"Search term: {search_term}")
         search_term = uc(search_term)
-        print(f"Normalized search term: {search_term}")
         roms = await self.ss_service.search_games(
             term=quote(search_term, safe="/ "),
             system_id=platform_ss_id,
@@ -381,10 +379,7 @@ class SSHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
-        print(f"Searching for ROM: {search_term} on platform ID: {platform_ss_id}")
-
         search_term = self.normalize_search_term(search_term)
-        print(f"Normalized search term: {search_term}")
         res = await self._search_rom(search_term, platform_ss_id)
 
         # Split the search term since igdb struggles with colons
