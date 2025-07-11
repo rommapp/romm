@@ -100,7 +100,7 @@ class HasheousHandler(MetadataHandler):
     def __init__(self) -> None:
         self.BASE_URL = (
             "https://beta.hasheous.org/api/v1"
-            if DEV_MODE and False
+            if DEV_MODE
             else "https://hasheous.org/api/v1"
         )
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
@@ -109,7 +109,9 @@ class HasheousHandler(MetadataHandler):
         self.proxy_igdb_cover_endpoint = f"{self.BASE_URL}/MetadataProxy/IGDB/Cover"
         self.proxy_ra_game_endpoint = f"{self.BASE_URL}/MetadataProxy/RA/Game"
         self.app_api_key = (
-            "JNoFBA-jEh4HbxuxEHM6MVzydKoAXs9eCcp2dvcg5LRCnpp312voiWmjuaIssSzS"
+            "UUvh9ef_CddMM4xXO1iqxl9FqEt764v33LU-UiGFc0P34odXjMP9M6MTeE4JZRxZ"
+            if DEV_MODE
+            else "JNoFBA-jEh4HbxuxEHM6MVzydKoAXs9eCcp2dvcg5LRCnpp312voiWmjuaIssSzS"
         )
 
     async def _request(
