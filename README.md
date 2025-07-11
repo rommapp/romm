@@ -1,7 +1,6 @@
 <!-- trunk-ignore-all(markdownlint/MD033) -->
 <!-- trunk-ignore(markdownlint/MD041) -->
 <div align="center">
-
   <img src=".github/resources/isotipo.png" height="180px" width="auto" alt="romm logo">
   <br />
   <img src=".github/resources/logotipo.png" height="45px" width="auto" alt="romm logotype">
@@ -84,7 +83,7 @@ If you have any issues with RomM, please [open an issue](https://github.com/romm
 
 # Project Support
 
-Consider supporting the development of this project on Open Collective.
+Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
 
 [![oc-donate-img]][oc-donate]
 
@@ -98,6 +97,13 @@ Here are a few projects that we think you might like:
 - [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
 - [Retrom](https://github.com/JMBeresford/retrom): A centralized game library/collection management service
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
+
+<div align="center">
+  <br />
+  <a href="https://news.ycombinator.com/item?id=44247964" target="_blank">
+    <img src=".github/resources/hackernews_badge.svg" alt="hackernews badge">
+  </a>
+</div>
 
 <!-- docs links -->
 
