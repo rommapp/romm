@@ -13,6 +13,7 @@ def str_to_bool(value: str) -> bool:
 
 
 ROMM_BASE_URL = os.environ.get("ROMM_BASE_URL", "http://0.0.0.0")
+ROMM_PORT = int(os.environ.get("ROMM_PORT", 8080))
 
 # GUNICORN
 DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
