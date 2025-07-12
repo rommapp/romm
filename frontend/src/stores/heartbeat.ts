@@ -92,11 +92,11 @@ export default defineStore("heartbeat", {
             : "",
         },
         {
-          name: "Mobygames",
-          value: "moby",
-          logo_path: "/assets/scrappers/moby.png",
-          disabled: !this.value.METADATA_SOURCES?.MOBY_API_ENABLED
-            ? i18n.global.t("scan.api-key-missing")
+          name: "Hasheous",
+          value: "hasheous",
+          logo_path: "/assets/scrappers/hasheous.png",
+          disabled: !this.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED
+            ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },
         {
@@ -104,6 +104,14 @@ export default defineStore("heartbeat", {
           value: "ss",
           logo_path: "/assets/scrappers/ss.png",
           disabled: !this.value.METADATA_SOURCES?.SS_API_ENABLED
+            ? i18n.global.t("scan.api-key-missing")
+            : "",
+        },
+        {
+          name: "Mobygames",
+          value: "moby",
+          logo_path: "/assets/scrappers/moby.png",
+          disabled: !this.value.METADATA_SOURCES?.MOBY_API_ENABLED
             ? i18n.global.t("scan.api-key-missing")
             : "",
         },
@@ -120,14 +128,6 @@ export default defineStore("heartbeat", {
           value: "lb",
           logo_path: "/assets/scrappers/launchbox.png",
           disabled: !this.value.METADATA_SOURCES?.LAUNCHBOX_API_ENABLED
-            ? i18n.global.t("scan.disabled-by-admin")
-            : "",
-        },
-        {
-          name: "Hasheous",
-          value: "hasheous",
-          logo_path: "/assets/scrappers/hasheous.png",
-          disabled: !this.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED
             ? i18n.global.t("scan.disabled-by-admin")
             : "",
         },
