@@ -22,7 +22,7 @@ dependencies = [
   "defusedxml ~= 0.7.1",
   "emoji == 2.10.1",
   "fastapi-pagination[sqlalchemy] ~= 0.12",
-  "fastapi[standard] ~= 0.115",
+  "fastapi[standard-no-fastapi-cloud-cli] ~= 0.116",
   "gunicorn == 23.0.0",
   "httpx ~= 0.27",
   "joserfc ~= 0.9",
