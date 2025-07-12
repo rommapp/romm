@@ -134,12 +134,12 @@ class SSRom(TypedDict):
 def build_ss_rom(game: SSGame) -> SSRom:
     name_preferred_regions = ["us", "ss"]
     res_name = ""
-    for name in name_preferred_regions:
+    for region in name_preferred_regions:
         res_name = next(
             (
                 name["text"]
                 for name in game.get("noms", [])
-                if name.get("region") == name
+                if name.get("region") == region
             ),
             "",
         )
