@@ -548,12 +548,12 @@ async def scan_rom(
         rom_attrs.update({**moby_handler_rom})
     if ss_handler_rom.get("ss_id"):
         rom_attrs.update({**ss_handler_rom})
-    if sgdb_handler_rom.get("sgdb_id"):
-        rom_attrs.update({**sgdb_handler_rom})
     if hasheous_handler_rom.get("hasheous_id"):
         rom_attrs.update({**hasheous_handler_rom})
     if igdb_handler_rom.get("igdb_id"):
         rom_attrs.update({**igdb_handler_rom})
+    if sgdb_handler_rom.get("sgdb_id"):
+        rom_attrs.update({**sgdb_handler_rom})
 
     # If not found in any metadata source, we return the rom with the default values
     if (
@@ -563,6 +563,7 @@ async def scan_rom(
         and not ra_handler_rom.get("ra_id")
         and not launchbox_handler_rom.get("launchbox_id")
         and not hasheous_handler_rom.get("hasheous_id")
+        and not sgdb_handler_rom.get("sgdb_id")
     ):
         log.warning(
             emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),

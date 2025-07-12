@@ -82,21 +82,19 @@ class MobyGamesHandler(MetadataHandler):
         if not platform_moby_id:
             return None
 
-        search_term = uc(search_term)
         roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(search_term, safe="/ "),
+            title=quote(uc(search_term), safe="/ "),
         )
         if not roms:
             return None
 
         # Find an exact match.
         search_term_casefold = search_term.casefold()
-        search_term_normalized = self._normalize_exact_match(search_term)
         for rom in roms:
             if (
                 rom["title"].casefold() == search_term_casefold
-                or self._normalize_exact_match(rom["title"]) == search_term_normalized
+                or self.normalize_search_term(rom["title"]) == search_term
             ):
                 return rom
 
@@ -181,20 +179,28 @@ class MobyGamesHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
-        search_term = self.normalize_search_term(search_term)
-        res = await self._search_rom(search_term, platform_moby_id)
+        normalized_search_term = self.normalize_search_term(search_term)
+        res = await self._search_rom(normalized_search_term, platform_moby_id)
 
-        # Split the search term since mobygames search doesn't support special caracters
-        if not res and ":" in search_term:
-            for term in search_term.split(":")[::-1]:
-                res = await self._search_rom(term, platform_moby_id)
-                if res:
-                    break
+        # Moby API doesn't handle some special characters well
+        if not res and (
+            ": " in search_term or " - " in search_term or "/" in search_term
+        ):
+            if ":" in search_term:
+                terms = [
+                    s.strip() for s in search_term.split(":") if len(s.strip()) > 2
+                ]
+            elif " - " in search_term:
+                terms = [
+                    s.strip() for s in search_term.split(" - ") if len(s.strip()) > 2
+                ]
+            else:
+                terms = [
+                    s.strip() for s in search_term.split("/") if len(s.strip()) > 2
+                ]
 
-        # Some MAME games have two titles split by a slash
-        if not res and "/" in search_term:
-            for term in search_term.split("/"):
-                res = await self._search_rom(term.strip(), platform_moby_id)
+            for i in range(len(terms) - 1, -1, -1):
+                res = await self._search_rom(terms[i], platform_moby_id)
                 if res:
                     break
 
