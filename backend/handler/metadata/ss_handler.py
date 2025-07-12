@@ -132,10 +132,20 @@ class SSRom(TypedDict):
 
 
 def build_ss_rom(game: SSGame) -> SSRom:
-    res_name = next(
-        (name["text"] for name in game.get("noms", []) if name.get("region") == "ss"),
-        "",
-    )
+    name_preferred_regions = ["us", "ss"]
+    res_name = ""
+    for name in name_preferred_regions:
+        res_name = next(
+            (
+                name["text"]
+                for name in game.get("noms", [])
+                if name.get("region") == name
+            ),
+            "",
+        )
+        if res_name:
+            break
+
     res_summary = next(
         (
             synopsis["text"]
