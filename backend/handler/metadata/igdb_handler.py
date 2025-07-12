@@ -258,19 +258,19 @@ class IGDBHandler(MetadataHandler):
 
             res.raise_for_status()
             return res.json()
-        except httpx.LocalProtocolError as e:
-            if str(e) == "Illegal header value b'Bearer '":
+        except httpx.LocalProtocolError as exc:
+            if str(exc) == "Illegal header value b'Bearer '":
                 log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail="Invalid IGDB credentials",
-                ) from e
+                ) from exc
             else:
                 log.critical("Connection error: can't connect to IGDB")
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail="Can't connect to IGDB, check your internet connection",
-                ) from e
+                ) from exc
         except httpx.NetworkError as exc:
             log.critical("Connection error: can't connect to IGDB")
             raise HTTPException(
