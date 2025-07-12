@@ -65,7 +65,11 @@ class SGDBBaseHandler(MetadataHandler):
                 or game_name_normalized == search_term
             ):
                 game_details = await self._get_game_covers(
-                    game_id=game["id"], game_name=game["name"]
+                    game_id=game["id"],
+                    game_name=game["name"],
+                    is_nsfw=False,
+                    is_humor=False,
+                    is_epilepsy=False,
                 )
 
                 first_resource = next(
@@ -77,7 +81,14 @@ class SGDBBaseHandler(MetadataHandler):
         log.debug(f"No exact match found for '{game_name}' on SteamGridDB")
         return SGDBRom(sgdb_id=None)
 
-    async def _get_game_covers(self, game_id: int, game_name: str) -> SGDBResult:
+    async def _get_game_covers(
+        self,
+        game_id: int,
+        game_name: str,
+        is_nsfw: bool | None = None,
+        is_humor: bool | None = None,
+        is_epilepsy: bool | None = None,
+    ) -> SGDBResult:
         game_covers = [
             cover
             async for cover in self.sgdb_service.iter_grids_for_game(
@@ -93,6 +104,9 @@ class SGDBBaseHandler(MetadataHandler):
                     SGDBType.STATIC,
                     SGDBType.ANIMATED,
                 ),
+                is_nsfw=is_nsfw,
+                is_humor=is_humor,
+                is_epilepsy=is_epilepsy,
             )
         ]
         if not game_covers:
