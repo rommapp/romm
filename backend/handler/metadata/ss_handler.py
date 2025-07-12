@@ -155,7 +155,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
         "",
     )
 
-    cover_preferred_regions = ["us", "ss"]
+    cover_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     url_cover = ""
     for region in cover_preferred_regions:
         url_cover = next(
@@ -171,7 +171,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if url_cover:
             break
 
-    manual_preferred_regions = ["us", "eu"]
+    manual_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     url_manual: str = ""
     for region in manual_preferred_regions:
         url_manual = next(
