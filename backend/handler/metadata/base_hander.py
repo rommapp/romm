@@ -52,7 +52,7 @@ PS2_SERIAL_INDEX_KEY: Final = "romm:ps2_serial_index"
 PSP_SERIAL_INDEX_KEY: Final = "romm:psp_serial_index"
 
 LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b")
-COMMA_ARTICLE_PATTERN = re.compile(r",\b(a|an|the)\b")
+COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b$")
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 
@@ -61,24 +61,28 @@ CHAR_REMOVAL_TABLE = str.maketrans("_'\"", "   ")
 
 # This caches results to avoid repeated normalization of the same search term
 @lru_cache(maxsize=1024)
-def _normalize_search_term(name: str) -> str:
+def _normalize_search_term(
+    name: str, remove_articles: bool = True, remove_punctuation: bool = True
+) -> str:
     # Single translate operation
     name = name.lower().translate(CHAR_REMOVAL_TABLE)
 
     # Remove articles (combined if possible)
-    name = LEADING_ARTICLE_PATTERN.sub("", name)
-    name = COMMA_ARTICLE_PATTERN.sub("", name)
+    if remove_articles:
+        name = LEADING_ARTICLE_PATTERN.sub("", name)
+        name = COMMA_ARTICLE_PATTERN.sub("", name)
 
     # Remove punctuation and normalize spaces in one step
-    name = NON_WORD_SPACE_PATTERN.sub("", name)
-    name = MULTIPLE_SPACE_PATTERN.sub(" ", name).strip()
+    if remove_punctuation:
+        name = NON_WORD_SPACE_PATTERN.sub("", name)
+        name = MULTIPLE_SPACE_PATTERN.sub(" ", name)
 
     # Unicode normalization and accent removal
     if any(ord(c) > 127 for c in name):  # Only if non-ASCII chars present
         normalized = unicodedata.normalize("NFD", name)
         name = "".join(c for c in normalized if not unicodedata.combining(c))
 
-    return name
+    return name.strip()
 
 
 class MetadataHandler:
@@ -93,8 +97,10 @@ class MetadataHandler:
     def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"
 
-    def normalize_search_term(self, name: str) -> str:
-        return _normalize_search_term(name)
+    def normalize_search_term(
+        self, name: str, remove_articles: bool = True, remove_punctuation: bool = True
+    ) -> str:
+        return _normalize_search_term(name, remove_articles, remove_punctuation)
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)

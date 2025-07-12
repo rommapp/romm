@@ -507,7 +507,6 @@ class IGDBHandler(MetadataHandler):
             rom = await self._search_rom(search_term, platform_igdb_id)
 
         # IGDB search is fuzzy so no need to split the search term by special characters
-
         if not rom:
             return fallback_rom
 

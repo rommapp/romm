@@ -47,17 +47,18 @@ class SGDBBaseHandler(MetadataHandler):
         return list(filter(None, results))
 
     async def get_details_by_name(self, game_name: str) -> SGDBRom:
-        search_term = self.normalize_search_term(game_name)
+        search_term = self.normalize_search_term(game_name, remove_articles=False)
         games = await self.sgdb_service.search_games(term=search_term)
         if not games:
             log.debug(f"Could not find '{search_term}' on SteamGridDB")
             return SGDBRom(sgdb_id=None)
 
         # SGDB search is fuzzy so no need to split the search term by special characters
-
         for game in games:
             game_name_lower = game["name"].lower()
-            game_name_normalized = self.normalize_search_term(game["name"])
+            game_name_normalized = self.normalize_search_term(
+                game["name"], remove_articles=False
+            )
 
             if (
                 game_name_lower == search_term.lower()

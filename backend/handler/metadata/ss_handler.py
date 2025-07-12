@@ -386,7 +386,10 @@ class SSHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
-        normalized_search_term = self.normalize_search_term(search_term)
+        ## SS API requires punctuation to match
+        normalized_search_term = self.normalize_search_term(
+            search_term, remove_punctuation=False
+        )
         res = await self._search_rom(normalized_search_term, platform_ss_id)
 
         # SS API doesn't handle some special characters well
