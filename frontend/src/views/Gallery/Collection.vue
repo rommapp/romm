@@ -196,7 +196,7 @@ onMounted(async () => {
             allRoms.value.length === 0) &&
           collection
         ) {
-          resetGallery();
+          if (currentCollection.value) resetGallery();
           romsStore.setCurrentCollection(collection);
           document.title = `${collection.name}`;
           await fetchRoms();
@@ -225,7 +225,7 @@ onMounted(async () => {
             allRoms.value.length === 0) &&
           collection
         ) {
-          resetGallery();
+          if (currentVirtualCollection.value) resetGallery();
           romsStore.setCurrentVirtualCollection(collection);
           document.title = `${collection.name}`;
           await fetchRoms();
@@ -243,8 +243,6 @@ onBeforeRouteUpdate(async (to, from) => {
   // Reset store if switching to another collection
   if (to.path === from.path) return true;
 
-  resetGallery();
-
   const routeCollectionId = to.params.collection;
 
   watch(
@@ -261,6 +259,7 @@ onBeforeRouteUpdate(async (to, from) => {
             allRoms.value.length === 0) &&
           collection
         ) {
+          if (currentCollection.value) resetGallery();
           romsStore.setCurrentCollection(collection);
           document.title = `${collection.name}`;
           await fetchRoms();
@@ -331,15 +330,13 @@ onBeforeUnmount(() => {
             <game-card
               :key="rom.updated_at"
               :rom="rom"
-              title-on-hover
-              pointer-on-hover
-              with-link
-              show-flags
-              show-fav
-              transform-scale
-              show-action-bar
-              show-platform-icon
-              :with-border-primary="
+              titleOnHover
+              pointerOnHover
+              withLink
+              transformScale
+              showActionBar
+              showChips
+              :withBorderPrimary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
               :sizeActionBar="currentView"
@@ -365,7 +362,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="!fetchingRoms" />
+        <empty-game v-if="allCollections.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>

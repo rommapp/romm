@@ -15,9 +15,6 @@ if TYPE_CHECKING:
     from models.platform import Platform
 
 KNOWN_BIOS_KEY = "romm:known_bios_files"
-conditionally_set_cache(
-    KNOWN_BIOS_KEY, "known_bios_files.json", os.path.dirname(__file__)
-)
 
 
 class Firmware(BaseModel):
@@ -40,6 +37,15 @@ class Firmware(BaseModel):
     sha1_hash: Mapped[str] = mapped_column(String(length=100))
 
     platform: Mapped[Platform] = relationship(lazy="joined", back_populates="firmware")
+
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        conditionally_set_cache(
+            KNOWN_BIOS_KEY, "known_bios_files.json", os.path.dirname(__file__)
+        )
 
     @property
     def platform_slug(self) -> str:

@@ -1,10 +1,10 @@
 import functools
-from typing import Sequence
+from collections.abc import Sequence
 
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
@@ -72,13 +72,13 @@ class DBPlatformsHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_platforms(
+    def mark_missing_platforms(
         self,
         fs_platforms_to_keep: list[str],
         query: Query = None,
         session: Session = None,
     ) -> Sequence[Platform]:
-        purged_platforms = (
+        missing_platforms = (
             session.scalars(
                 select(Platform)
                 .order_by(Platform.name.asc())
@@ -93,8 +93,16 @@ class DBPlatformsHandler(DBBaseHandler):
             .all()
         )
         session.execute(
-            delete(Platform)
+            update(Platform)
             .where(or_(Platform.fs_slug.not_in(fs_platforms_to_keep), Platform.slug.is_(None)))  # type: ignore[attr-defined]
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="fetch")
         )
-        return purged_platforms
+
+        session.execute(
+            update(Rom)
+            .where(Rom.platform_id.in_([p.id for p in missing_platforms]))  # type: ignore[attr-defined]
+            .values(**{"missing_from_fs": True})
+            .execution_options(synchronize_session="fetch")
+        )
+        return missing_platforms

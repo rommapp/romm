@@ -119,7 +119,14 @@ onMounted(() => {
       buffer-opacity="0.6"
       :buffer-value="achievementsPercentage"
       height="32"
-      ><p>{{ Math.ceil(achievementsPercentage) }}%</p></v-progress-linear
+      ><p class="text-shadow">
+        {{
+          Math.max(
+            Math.ceil(achievementsPercentage),
+            Math.ceil(achievementsPercentageHardcore),
+          )
+        }}%
+      </p></v-progress-linear
     >
   </v-list-item>
   <v-chip

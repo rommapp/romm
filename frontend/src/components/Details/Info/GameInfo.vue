@@ -132,6 +132,7 @@ function onFilterClick(filter: FilterType, value: string) {
               class="py-4 px-6"
               :model-value="rom.summary ?? ''"
               :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
+              language="en-US"
               preview-theme="vuepress"
               code-theme="github"
               :readonly="true"

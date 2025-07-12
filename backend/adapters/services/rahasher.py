@@ -1,7 +1,6 @@
 import asyncio
 import re
 
-from handler.metadata.ra_handler import RA_ID_TO_SLUG
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -97,6 +96,8 @@ class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
     async def calculate_hash(self, platform_id: int, file_path: str) -> str:
+        from handler.metadata.ra_handler import RA_ID_TO_SLUG
+
         log.debug(
             f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"
         )

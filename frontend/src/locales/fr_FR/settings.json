@@ -49,6 +49,8 @@
   "show-siblings-desc": "Afficher le nombre de frères et sœurs dans la galerie lorsque l'option \"Grouper les roms\" est activée",
   "show-status": "Afficher le statut",
   "show-status-desc": "Afficher les icônes de statut dans la galerie (en attente, en cours de lecture, terminé, etc.)",
+  "show-stats": "Afficher les statistiques",
+  "show-stats-desc": "Afficher le résumé des statistiques sur la page d'accueil",
   "show-actionbar": "Afficher la barre d'actions",
   "show-actionbar-desc": "Toujours afficher la barre d'actions sur la carte du jeu",
   "show-virtual-collections": "Afficher les collections générées automatiquement",

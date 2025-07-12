@@ -1,12 +1,8 @@
-import asyncio
-import http
 import json
 import os
 import time
 from typing import Final, NotRequired, TypedDict
 
-import httpx
-import yarl
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import RAGameListItem
 from anyio import open_file
@@ -15,10 +11,8 @@ from config import (
     RESOURCES_BASE_PATH,
     RETROACHIEVEMENTS_API_KEY,
 )
-from fastapi import HTTPException, status
-from logger.logger import log
-from models.platform import Platform
-from utils.context import ctx_httpx_client
+from handler.filesystem import fs_resource_handler
+from models.rom import Rom
 
 from .base_hander import MetadataHandler
 
@@ -81,32 +75,12 @@ class RAHandler(MetadataHandler):
         self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes.json"
 
-    def _get_rom_base_path(self, platform_id: int, rom_id: int) -> str:
-        return os.path.join(
-            "roms",
-            str(platform_id),
-            str(rom_id),
-            "retroachievements",
-        )
-
     def _get_hashes_file_path(self, platform_id: int) -> str:
         return os.path.join(
             RESOURCES_BASE_PATH,
             "roms",
             str(platform_id),
             self.HASHES_FILE_NAME,
-        )
-
-    def _get_badges_path(self, platform_id: int, rom_id: int) -> str:
-        return os.path.join(self._get_rom_base_path(platform_id, rom_id), "badges")
-
-    def _create_resources_path(self, platform_id: int, rom_id: int) -> None:
-        os.makedirs(
-            os.path.join(
-                RESOURCES_BASE_PATH,
-                self._get_rom_base_path(platform_id, rom_id),
-            ),
-            exist_ok=True,
         )
 
     def _exists_cache_file(self, platform_id: int) -> bool:
@@ -120,87 +94,29 @@ class RAHandler(MetadataHandler):
             else int((time.time() - os.path.getmtime(file_path)) / (24 * 3600))
         )
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
-        httpx_client = ctx_httpx_client.get()
-        authorized_url = yarl.URL(url)
-        masked_url = authorized_url.with_query(
-            self._mask_sensitive_values(dict(authorized_url.query))
-        )
-        log.debug(
-            "API request: URL=%s, Timeout=%s",
-            masked_url,
-            request_timeout,
-        )
-        try:
-            res = await httpx_client.get(str(authorized_url), timeout=request_timeout)
-            res.raise_for_status()
-            return res.json()
-        except httpx.NetworkError as exc:
-            log.critical(
-                "Connection error: can't connect to RetroAchievements", exc_info=True
-            )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Can't connect to RetroAchievements, check your internet connection",
-            ) from exc
-        except httpx.HTTPStatusError as err:
-            if err.response.status_code == http.HTTPStatus.TOO_MANY_REQUESTS:
-                # Retry after 2 seconds if rate limit hit
-                await asyncio.sleep(2)
-            else:
-                # Log the error and return an empty dict if the request fails with a different code
-                log.error(err)
-                return {}
-        except httpx.TimeoutException:
-            # Retry the request once if it times out
-            pass
-
-        try:
-            log.debug(
-                "API request: URL=%s, Timeout=%s",
-                url,
-                request_timeout,
-            )
-            res = await httpx_client.get(url, timeout=request_timeout)
-            res.raise_for_status()
-        except (httpx.HTTPStatusError, httpx.TimeoutException) as err:
-            if (
-                isinstance(err, httpx.HTTPStatusError)
-                and err.response.status_code == http.HTTPStatus.UNAUTHORIZED
-            ):
-                # Sometimes Mobygames returns 401 even with a valid API key
-                return {}
-
-            # Log the error and return an empty dict if the request fails with a different code
-            log.error(err)
-            return {}
-
-        return res.json()
-
-    async def _search_rom(
-        self, platform: Platform, rom_id: int, hash: str
-    ) -> RAGameListItem | None:
-
-        if not platform.ra_id:
+    async def _search_rom(self, rom: Rom, ra_hash: str) -> RAGameListItem | None:
+        if not rom.platform.ra_id:
             return None
-
-        self._create_resources_path(platform.id, rom_id)
 
         # Fetch all hashes for specific platform
         roms: list[RAGameListItem]
         if (
             REFRESH_RETROACHIEVEMENTS_CACHE_DAYS
-            <= self._days_since_last_cache_file_update(platform.id)
-            or not self._exists_cache_file(platform.id)
+            <= self._days_since_last_cache_file_update(rom.platform.id)
+            or not self._exists_cache_file(rom.platform.id)
         ):
             # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
             roms = await self.ra_service.get_game_list(
-                system_id=platform.ra_id,
+                system_id=rom.platform.ra_id,
                 only_games_with_achievements=True,
                 include_hashes=True,
             )
+            os.makedirs(
+                os.path.dirname(self._get_hashes_file_path(rom.platform.id)),
+                exist_ok=True,
+            )
             async with await open_file(
-                self._get_hashes_file_path(platform.id),
+                self._get_hashes_file_path(rom.platform.id),
                 "w",
                 encoding="utf-8",
             ) as json_file:
@@ -208,20 +124,20 @@ class RAHandler(MetadataHandler):
         else:
             # Read the roms result from the JSON file
             async with await open_file(
-                self._get_hashes_file_path(platform.id),
+                self._get_hashes_file_path(rom.platform.id),
                 "r",
                 encoding="utf-8",
             ) as json_file:
                 roms = json.loads(await json_file.read())
 
-        for rom in roms:
-            if hash in rom.get("Hashes", ()):
-                return rom
+        for r in roms:
+            if ra_hash in r.get("Hashes", ()):
+                return r
 
         return None
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
-        platform = SLUG_TO_RA_ID.get(slug.lower(), None)
+        platform = RA_PLATFORM_LIST.get(slug.lower(), None)
 
         if not platform:
             return RAGamesPlatform(ra_id=None, slug=slug)
@@ -232,19 +148,21 @@ class RAHandler(MetadataHandler):
             name=platform["name"],
         )
 
-    async def get_rom(self, platform: Platform, rom_id: int, hash: str) -> RAGameRom:
-        if not platform.ra_id or not hash:
+    async def get_rom(self, rom: Rom, ra_hash: str) -> RAGameRom:
+        if not rom.platform.ra_id or not ra_hash:
             return RAGameRom(ra_id=None)
 
-        rom = await self._search_rom(platform, rom_id, hash)
+        ra_game_list_item = await self._search_rom(rom, ra_hash)
 
-        if not rom:
+        if not ra_game_list_item:
             return RAGameRom(ra_id=None)
 
         try:
-            rom_details = await self.ra_service.get_game_extended_details(rom["ID"])
+            rom_details = await self.ra_service.get_game_extended_details(
+                ra_game_list_item["ID"]
+            )
             return RAGameRom(
-                ra_id=rom["ID"],
+                ra_id=ra_game_list_item["ID"],
                 ra_metadata=RAMetadata(
                     achievements=[
                         RAGameRomAchievement(
@@ -258,9 +176,43 @@ class RAHandler(MetadataHandler):
                             ),
                             badge_id=achievement.get("BadgeName", ""),
                             badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{self._get_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
                             badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
-                            badge_path=f"{self._get_badges_path(platform.id, rom_id)}/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
+                            display_order=achievement.get("DisplayOrder", None),
+                            type=achievement.get("type", ""),
+                        )
+                        for achievement in rom_details.get("Achievements", {}).values()
+                    ]
+                ),
+            )
+        except KeyError:
+            return RAGameRom(ra_id=None)
+
+    async def get_rom_by_id(self, rom: Rom, ra_id: int) -> RAGameRom:
+        if not ra_id:
+            return RAGameRom(ra_id=None)
+
+        try:
+            rom_details = await self.ra_service.get_game_extended_details(ra_id)
+            return RAGameRom(
+                ra_id=ra_id,
+                ra_metadata=RAMetadata(
+                    achievements=[
+                        RAGameRomAchievement(
+                            ra_id=achievement.get("ID", None),
+                            title=achievement.get("Title", ""),
+                            description=achievement.get("Description", ""),
+                            points=achievement.get("Points", None),
+                            num_awarded=achievement.get("NumAwarded", None),
+                            num_awarded_hardcore=achievement.get(
+                                "NumAwardedHardcore", None
+                            ),
+                            badge_id=achievement.get("BadgeName", ""),
+                            badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
+                            badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
+                            badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
                             display_order=achievement.get("DisplayOrder", None),
                             type=achievement.get("type", ""),
                         )
@@ -316,7 +268,7 @@ class SlugToRAId(TypedDict):
     name: str
 
 
-SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
+RA_PLATFORM_LIST: dict[str, SlugToRAId] = {
     "3do": {"id": 43, "name": "3DO"},
     "cpc": {"id": 37, "name": "Amstrad CPC"},
     "acpc": {"id": 37, "name": "Amstrad CPC"},
@@ -400,4 +352,4 @@ SLUG_TO_RA_ID: dict[str, SlugToRAId] = {
 }
 
 # Reverse lookup
-RA_ID_TO_SLUG = {v["id"]: k for k, v in SLUG_TO_RA_ID.items()}
+RA_ID_TO_SLUG = {v["id"]: k for k, v in RA_PLATFORM_LIST.items()}

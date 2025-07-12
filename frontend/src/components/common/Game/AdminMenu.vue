@@ -134,7 +134,7 @@ async function onScan() {
     platforms: [props.rom.platform_id],
     roms_ids: [props.rom.id],
     type: "quick", // Quick scan so we can filter by selected roms
-    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+    apis: heartbeat.getAllMetadataOptions().map((s) => s.value),
   });
 }
 </script>

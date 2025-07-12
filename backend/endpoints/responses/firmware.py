@@ -20,6 +20,8 @@ class FirmwareSchema(BaseModel):
     md5_hash: str
     sha1_hash: str
 
+    missing_from_fs: bool
+
     created_at: datetime
     updated_at: datetime
 

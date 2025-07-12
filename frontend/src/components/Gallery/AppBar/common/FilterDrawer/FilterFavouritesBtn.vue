@@ -13,7 +13,7 @@ const { filterFavourites } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 function setFavourites() {
   galleryFilterStore.switchFilterFavourites();
-  emitter?.emit("filter", null);
+  emitter?.emit("filterRoms", null);
 }
 </script>
 

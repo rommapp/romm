@@ -55,7 +55,7 @@ async function onScan() {
     platforms: [Number(route.params.platform)],
     roms_ids: romsStore.selectedRoms.map((r) => r.id),
     type: "quick", // Quick scan so we can filter by selected roms
-    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+    apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
   });
 }
 

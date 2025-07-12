@@ -38,7 +38,8 @@ const groupedPlatforms = computed(() => {
   if (!groupBy.value) return null;
   const groups: Record<string, Platform[]> = {};
   for (const platform of filteredPlatforms.value) {
-    const key = platform[groupBy.value] ?? "Other";
+    let key = platform[groupBy.value];
+    if (!key) key = "Other"; // Handles null, undefined, and empty string
     if (!groups[key]) groups[key] = [];
     groups[key].push(platform);
   }
@@ -59,7 +60,7 @@ watch(activePlatformsDrawer, (isOpen) => {
     // Store the currently focused element before opening the drawer
     triggerElement.value = document.activeElement as HTMLElement;
     // Focus the text field when the drawer is opened
-    textFieldRef.value?.focus();
+    // textFieldRef.value?.focus();
   }
 });
 

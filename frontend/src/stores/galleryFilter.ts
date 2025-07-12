@@ -32,6 +32,8 @@ const defaultFilterState = {
   filterDuplicates: false,
   filterPlayables: false,
   filterRA: false,
+  filterMissing: false,
+  filterVerified: false,
   selectedPlatform: null as Platform | null,
   selectedGenre: null as string | null,
   selectedFranchise: null as string | null,
@@ -103,43 +105,57 @@ export default defineStore("galleryFilter", {
     setSelectedFilterStatus(status: string) {
       this.selectedStatus = status;
     },
+    setFilterUnmatched(value: boolean) {
+      this.filterUnmatched = value;
+      this.filterMatched = false;
+    },
     switchFilterUnmatched() {
       this.filterUnmatched = !this.filterUnmatched;
       this.filterMatched = false;
     },
-    disableFilterUnmatched() {
+    setFilterMatched(value: boolean) {
+      this.filterMatched = value;
       this.filterUnmatched = false;
     },
     switchFilterMatched() {
       this.filterMatched = !this.filterMatched;
       this.filterUnmatched = false;
     },
-    disableFilterMatched() {
-      this.filterMatched = false;
+    setFilterFavourites(value: boolean) {
+      this.filterFavourites = value;
     },
     switchFilterFavourites() {
       this.filterFavourites = !this.filterFavourites;
     },
-    disableFilterFavourites() {
-      this.filterFavourites = false;
+    setFilterDuplicates(value: boolean) {
+      this.filterDuplicates = value;
     },
     switchFilterDuplicates() {
       this.filterDuplicates = !this.filterDuplicates;
     },
-    disableFilterDuplicates() {
-      this.filterDuplicates = false;
+    setFilterPlayables(value: boolean) {
+      this.filterPlayables = value;
     },
     switchFilterPlayables() {
       this.filterPlayables = !this.filterPlayables;
     },
-    disableFilterPlayables() {
-      this.filterPlayables = false;
+    setFilterRA(value: boolean) {
+      this.filterRA = value;
     },
     switchFilterRA() {
       this.filterRA = !this.filterRA;
     },
-    disableFilterRA() {
-      this.filterRA = false;
+    setFilterMissing(value: boolean) {
+      this.filterMissing = value;
+    },
+    switchFilterMissing() {
+      this.filterMissing = !this.filterMissing;
+    },
+    setFilterVerified(value: boolean) {
+      this.filterVerified = value;
+    },
+    switchFilterVerified() {
+      this.filterVerified = !this.filterVerified;
     },
     isFiltered() {
       return Boolean(
@@ -149,6 +165,8 @@ export default defineStore("galleryFilter", {
           this.filterDuplicates ||
           this.filterPlayables ||
           this.filterRA ||
+          this.filterMissing ||
+          this.filterVerified ||
           this.selectedPlatform ||
           this.selectedGenre ||
           this.selectedFranchise ||
@@ -170,13 +188,17 @@ export default defineStore("galleryFilter", {
       this.selectedCollection = null;
       this.selectedCompany = null;
       this.selectedAgeRating = null;
+      this.selectedRegion = null;
+      this.selectedLanguage = null;
       this.selectedStatus = null;
-      this.disableFilterUnmatched();
-      this.disableFilterMatched();
-      this.disableFilterFavourites();
-      this.disableFilterDuplicates();
-      this.disableFilterPlayables();
-      this.disableFilterRA();
+      this.filterUnmatched = false;
+      this.filterMatched = false;
+      this.filterFavourites = false;
+      this.filterDuplicates = false;
+      this.filterPlayables = false;
+      this.filterRA = false;
+      this.filterMissing = false;
+      this.filterVerified = false;
     },
   },
 });

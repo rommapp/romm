@@ -30,6 +30,8 @@
   "show-unmatched": "Jeux non identifiés",
   "show-playables": "Afficher les jouables",
   "show-ra": "Afficher les Retroachievements",
+  "show-missing": "Afficher les manquants",
+  "show-verified": "Afficher les vérifiés",
   "status": "Statut",
   "upload-roms": "Télécharger des ROMs"
 }

@@ -2,6 +2,7 @@
 import type { FirmwareSchema } from "@/__generated__";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
 import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import storeAuth from "@/stores/auth";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
@@ -114,6 +115,11 @@ function deleteSelectedFirmware() {
         <v-list-item :tabindex="tabIndex" role="listitem" class="px-0">
           <v-row no-gutters>
             <v-col>
+              <missing-from-f-s-icon
+                v-if="item.missing_from_fs"
+                class="mr-1"
+                text="Missing firmware from filesystem"
+              />
               <span>{{ item.file_name }}</span>
             </v-col>
           </v-row>
@@ -144,7 +150,6 @@ function deleteSelectedFirmware() {
               </v-chip>
             </v-col>
           </v-row>
-          <template> </template>
           <template #append>
             <template v-if="mdAndUp">
               <v-chip size="x-small" tabindex="-1" label>{{

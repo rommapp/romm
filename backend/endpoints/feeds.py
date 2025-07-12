@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, FRONTEND_RESOURCES_PATH
 from decorators.auth import protected_route
@@ -103,7 +103,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         title="RomM Feed",
         longTitle="Custom RomM Feed",
         description="Custom feed from your RomM library",
-        thumbnail="https://raw.githubusercontent.com/rommapp/romm/f2dd425d87ad8e21bf47f8258ae5dcf90f56fbc2/frontend/assets/isotipo.svg",
+        thumbnail="https://raw.githubusercontent.com/rommapp/romm/release/.github/resources/isotipo.svg",
         background="https://raw.githubusercontent.com/rommapp/romm/release/.github/resources/screenshots/gallery.png",
         categories=categories,
     )

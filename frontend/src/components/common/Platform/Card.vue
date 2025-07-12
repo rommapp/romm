@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import type { Platform } from "@/stores/platforms";
 import { ROUTES } from "@/plugins/router";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import VanillaTilt from "vanilla-tilt";
 import { useDisplay } from "vuetify";
 
@@ -62,7 +63,12 @@ onBeforeUnmount(() => {
         "
       >
         <v-card-text>
-          <v-row class="pa-1 justify-center bg-background">
+          <v-row class="pa-1 justify-center align-center bg-background">
+            <missing-from-f-s-icon
+              v-if="platform.missing_from_fs"
+              text="Missing platform from filesystem"
+              :size="15"
+            />
             <div
               :title="platform.display_name"
               class="px-2 text-truncate text-caption"
