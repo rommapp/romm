@@ -2,6 +2,7 @@ import re
 from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
+import pydash
 from adapters.services.mobygames import MobyGamesService
 from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
@@ -204,7 +205,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_id": res["game_id"],
             "name": res["title"],
             "summary": res.get("description", ""),
-            "url_cover": res.get("sample_cover", {}).get("image", ""),
+            "url_cover": pydash.get(res, "sample_cover.image", None),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
@@ -224,7 +225,7 @@ class MobyGamesHandler(MetadataHandler):
             "moby_id": res["game_id"],
             "name": res["title"],
             "summary": res.get("description", None),
-            "url_cover": res.get("sample_cover", {}).get("image", None),
+            "url_cover": pydash.get(res, "sample_cover.image", None),
             "url_screenshots": [s["image"] for s in res.get("sample_screenshots", [])],
             "moby_metadata": extract_metadata_from_moby_rom(res),
         }
@@ -261,7 +262,7 @@ class MobyGamesHandler(MetadataHandler):
                         "moby_id": rom["game_id"],
                         "name": rom["title"],
                         "summary": rom.get("description", ""),
-                        "url_cover": rom.get("sample_cover", {}).get("image", ""),
+                        "url_cover": pydash.get(rom, "sample_cover.image", None),
                         "url_screenshots": [
                             s["image"] for s in rom.get("sample_screenshots", [])
                         ],
