@@ -288,19 +288,12 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def get_igdb_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
-        fallback_rom = HasheousRom(
-            hasheous_id=None,
-            igdb_id=None,
-            tgdb_id=None,
-            ra_id=None,
-        )
-
         if not HASHEOUS_API_ENABLED:
-            return fallback_rom
+            return hasheous_rom
 
         if hasheous_rom["igdb_id"] is None:
             log.warning("No IGDB ID provided for Hasheous IGDB game lookup.")
-            return fallback_rom
+            return hasheous_rom
 
         igdb_game = await self._request(
             self.proxy_igdb_game_endpoint,
@@ -313,7 +306,7 @@ class HasheousHandler(MetadataHandler):
 
         if not igdb_game:
             log.debug(f"No Hasheous game found for IGDB ID {hasheous_rom["igdb_id"]}.")
-            return fallback_rom
+            return hasheous_rom
 
         return HasheousRom(
             {
@@ -321,12 +314,12 @@ class HasheousHandler(MetadataHandler):
                 "slug": igdb_game.get("slug") or hasheous_rom.get("slug") or "",
                 "name": igdb_game.get("name") or hasheous_rom.get("name") or "",
                 "summary": igdb_game.get("summary", ""),
-                "url_cover": self._normalize_cover_url(
+                "url_cover": self.normalize_cover_url(
                     pydash.get(igdb_game, "cover.url", "")
                 ).replace("t_thumb", "t_1080p")
                 or hasheous_rom.get("url_cover", ""),
                 "url_screenshots": [
-                    self._normalize_cover_url(s.get("url", "")).replace(
+                    self.normalize_cover_url(s.get("url", "")).replace(
                         "t_thumb", "t_720p"
                     )
                     for s in pydash.get(igdb_game, "screenshots", {}).values()
@@ -337,19 +330,12 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def get_ra_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
-        fallback_rom = HasheousRom(
-            hasheous_id=None,
-            igdb_id=None,
-            tgdb_id=None,
-            ra_id=None,
-        )
-
         if not HASHEOUS_API_ENABLED:
-            return fallback_rom
+            return hasheous_rom
 
         if hasheous_rom["ra_id"] is None:
             log.warning("No RA ID provided for Hasheous RA game lookup.")
-            return fallback_rom
+            return hasheous_rom
 
         ra_game = await self._request(
             self.proxy_ra_game_endpoint,
@@ -359,7 +345,7 @@ class HasheousHandler(MetadataHandler):
 
         if not ra_game:
             log.debug(f"No Hasheous game found for RA ID {hasheous_rom['ra_id']}.")
-            return fallback_rom
+            return hasheous_rom
 
         return hasheous_rom
 

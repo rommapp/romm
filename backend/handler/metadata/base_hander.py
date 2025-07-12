@@ -2,6 +2,7 @@ import json
 import os
 import re
 import unicodedata
+from functools import lru_cache
 from itertools import batched
 from typing import Final
 
@@ -50,6 +51,35 @@ PS1_SERIAL_INDEX_KEY: Final = "romm:ps1_serial_index"
 PS2_SERIAL_INDEX_KEY: Final = "romm:ps2_serial_index"
 PSP_SERIAL_INDEX_KEY: Final = "romm:psp_serial_index"
 
+LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b")
+COMMA_ARTICLE_PATTERN = re.compile(r",\b(a|an|the)\b")
+NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
+MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
+
+CHAR_REMOVAL_TABLE = str.maketrans("_'\"", "   ")
+
+
+# This caches results to avoid repeated normalization of the same search term
+@lru_cache(maxsize=1024)
+def _normalize_search_term(name: str) -> str:
+    # Single translate operation
+    name = name.lower().translate(CHAR_REMOVAL_TABLE)
+
+    # Remove articles (combined if possible)
+    name = LEADING_ARTICLE_PATTERN.sub("", name)
+    name = COMMA_ARTICLE_PATTERN.sub("", name)
+
+    # Remove punctuation and normalize spaces in one step
+    name = NON_WORD_SPACE_PATTERN.sub("", name)
+    name = MULTIPLE_SPACE_PATTERN.sub(" ", name).strip()
+
+    # Unicode normalization and accent removal
+    if any(ord(c) > 127 for c in name):  # Only if non-ASCII chars present
+        normalized = unicodedata.normalize("NFD", name)
+        name = "".join(c for c in normalized if not unicodedata.combining(c))
+
+    return name
+
 
 class MetadataHandler:
     def __init__(self):
@@ -60,47 +90,11 @@ class MetadataHandler:
         conditionally_set_cache(PS2_SERIAL_INDEX_KEY, "ps2_serial_index.json")
         conditionally_set_cache(PSP_SERIAL_INDEX_KEY, "psp_serial_index.json")
 
-    @staticmethod
-    def normalize_search_term(search_term: str) -> str:
-        return (
-            search_term.replace("\u2122", "")  # Remove trademark symbol
-            .replace("\u00ae", "")  # Remove registered symbol
-            .replace("\u00a9", "")  # Remove copywrite symbol
-            .replace("\u2120", "")  # Remove service mark symbol
-            .strip()  # Remove leading and trailing spaces
-        )
-
-    @staticmethod
-    def _normalize_cover_url(url: str) -> str:
+    def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"
 
-    # This is expensive, so it should be used sparingly
-    @staticmethod
-    def _normalize_exact_match(name: str) -> str:
-        name = (
-            name.lower()  # Convert to lower case,
-            .replace("_", " ")  # Replace underscores with spaces
-            .replace("'", "")  # Remove single quotes
-            .replace('"', "")  # Remove double quotes
-            .strip()  # Remove leading and trailing spaces
-        )
-
-        # Remove leading and trailing articles
-        name = re.sub(r"^(a|an|the)\b", "", name)
-        name = re.sub(r",\b(a|an|the)\b", "", name)
-
-        # Remove special characters and punctuation
-        converted_name = "".join(re.findall(r"\w+", name))
-
-        # Convert to normal form
-        normalized_name = unicodedata.normalize("NFD", converted_name)
-
-        # Remove accents
-        canonical_form = "".join(
-            [c for c in normalized_name if not unicodedata.combining(c)]
-        )
-
-        return canonical_form
+    def normalize_search_term(self, name: str) -> str:
+        return _normalize_search_term(name)
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)

@@ -132,7 +132,7 @@ class SSRom(TypedDict):
 
 
 def build_ss_rom(game: SSGame) -> SSRom:
-    name_preferred_regions = ["us", "ss"]
+    name_preferred_regions = ["us", "wor", "ss"]
     res_name = ""
     for region in name_preferred_regions:
         res_name = next(
@@ -191,7 +191,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
     ss_id = int(game["id"]) if game.get("id") is not None else None
     rom: SSRom = {
         "ss_id": ss_id,
-        "name": res_name,
+        "name": res_name.replace(" : ", ": "),  # Normalize colons
         "summary": res_summary,
         "url_cover": url_cover,
         "url_manual": url_manual,
@@ -285,20 +285,17 @@ class SSHandler(MetadataHandler):
 
         def is_exact_match(rom: SSGame, search_term: str) -> bool:
             rom_names = [name.get("text", "").lower() for name in rom.get("noms", [])]
-            search_term_lower = search_term.lower()
-            search_term_normalized = self._normalize_exact_match(search_term)
 
             return any(
                 (
-                    rom_name.lower() == search_term_lower
-                    or self._normalize_exact_match(rom_name) == search_term_normalized
+                    rom_name.lower() == search_term.lower()
+                    or self.normalize_search_term(rom_name) == search_term
                 )
                 for rom_name in rom_names
             )
 
-        search_term = uc(search_term)
         roms = await self.ss_service.search_games(
-            term=quote(search_term, safe="/ "),
+            term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
         )
 
@@ -389,20 +386,28 @@ class SSHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
-        search_term = self.normalize_search_term(search_term)
-        res = await self._search_rom(search_term, platform_ss_id)
+        normalized_search_term = self.normalize_search_term(search_term)
+        res = await self._search_rom(normalized_search_term, platform_ss_id)
 
-        # Split the search term since igdb struggles with colons
-        if not res and ":" in search_term:
-            for term in search_term.split(":")[::-1]:
-                res = await self._search_rom(term.strip(), platform_ss_id)
-                if res:
-                    break
+        # SS API doesn't handle some special characters well
+        if not res and (
+            ": " in search_term or " - " in search_term or "/" in search_term
+        ):
+            if ": " in search_term:
+                terms = [
+                    s.strip() for s in search_term.split(":") if len(s.strip()) > 2
+                ]
+            elif " - " in search_term:
+                terms = [
+                    s.strip() for s in search_term.split(" - ") if len(s.strip()) > 2
+                ]
+            else:
+                terms = [
+                    s.strip() for s in search_term.split("/") if len(s.strip()) > 2
+                ]
 
-        # Some MAME games have two titles split by a slash
-        if not res and "/" in search_term:
-            for term in search_term.split("/"):
-                res = await self._search_rom(term.strip(), platform_ss_id)
+            for i in range(len(terms) - 1, -1, -1):
+                res = await self._search_rom(terms[i], platform_ss_id)
                 if res:
                     break
 
@@ -437,9 +442,9 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return []
 
-        search_term = uc(search_term)
+        search_term = self.normalize_search_term(search_term)
         matched_roms = await self.ss_service.search_games(
-            term=quote(search_term, safe="/ "),
+            term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
         )
 

@@ -53,16 +53,15 @@ class SGDBBaseHandler(MetadataHandler):
             log.debug(f"Could not find '{search_term}' on SteamGridDB")
             return SGDBRom(sgdb_id=None)
 
-        search_term_lower = search_term.lower()
-        search_term_normalized = self._normalize_exact_match(search_term)
+        # SGDB search is fuzzy so no need to split the search term by special characters
 
         for game in games:
             game_name_lower = game["name"].lower()
-            game_name_normalized = self._normalize_exact_match(game["name"])
+            game_name_normalized = self.normalize_search_term(game["name"])
 
             if (
-                game_name_lower == search_term_lower
-                or game_name_normalized == search_term_normalized
+                game_name_lower == search_term.lower()
+                or game_name_normalized == search_term
             ):
                 game_details = await self._get_game_covers(
                     game_id=game["id"], game_name=game["name"]

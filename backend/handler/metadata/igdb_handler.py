@@ -95,7 +95,7 @@ class IGDBRom(TypedDict):
     igdb_metadata: NotRequired[IGDBMetadata]
 
 
-def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
+def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: dict) -> IGDBMetadata:
     return IGDBMetadata(
         {
             "youtube_video_id": pydash.get(rom, "videos[0].video_id", None),
@@ -125,7 +125,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                     id=e["id"],
                     slug=e["slug"],
                     name=e["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
+                    cover_url=self.normalize_cover_url(
                         pydash.get(e, "cover.url", "").replace("t_thumb", "t_1080p")
                     ),
                     type="expansion",
@@ -137,7 +137,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                     id=d["id"],
                     slug=d["slug"],
                     name=d["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
+                    cover_url=self.normalize_cover_url(
                         pydash.get(d, "cover.url", "").replace("t_thumb", "t_1080p")
                     ),
                     type="dlc",
@@ -149,7 +149,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                     id=r["id"],
                     slug=r["slug"],
                     name=r["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
+                    cover_url=self.normalize_cover_url(
                         pydash.get(r, "cover.url", "").replace("t_thumb", "t_1080p")
                     ),
                     type="remaster",
@@ -161,7 +161,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                     id=r["id"],
                     slug=r["slug"],
                     name=r["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
+                    cover_url=self.normalize_cover_url(
                         pydash.get(r, "cover.url", "").replace("t_thumb", "t_1080p")
                     ),
                     type="remake",
@@ -173,7 +173,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                     id=g["id"],
                     slug=g["slug"],
                     name=g["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
+                    cover_url=self.normalize_cover_url(
                         pydash.get(g, "cover.url", "").replace("t_thumb", "t_1080p")
                     ),
                     type="expanded",
@@ -185,7 +185,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                     id=p["id"],
                     slug=p["slug"],
                     name=p["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
+                    cover_url=self.normalize_cover_url(
                         pydash.get(p, "cover.url", "").replace("t_thumb", "t_1080p")
                     ),
                     type="port",
@@ -197,7 +197,7 @@ def extract_metadata_from_igdb_rom(rom: dict) -> IGDBMetadata:
                     id=s["id"],
                     slug=s["slug"],
                     name=s["name"],
-                    cover_url=MetadataHandler._normalize_cover_url(
+                    cover_url=self.normalize_cover_url(
                         pydash.get(s, "cover.url", "").replace("t_thumb", "t_1080p")
                     ),
                     type="similar",
@@ -322,7 +322,6 @@ class IGDBHandler(MetadataHandler):
         if not platform_igdb_id:
             return None
 
-        search_term = uc(search_term)
         if with_game_type:
             categories = (
                 GameType.EXPANDED_GAME,
@@ -340,7 +339,6 @@ class IGDBHandler(MetadataHandler):
             if rom["slug"].lower() == search_term_lower:
                 return True
 
-            search_term_normalized = self._normalize_exact_match(search_term)
             # Check both the ROM name and alternative names for an exact match.
             rom_names = [rom["name"]] + [
                 alternative_name["name"]
@@ -350,7 +348,7 @@ class IGDBHandler(MetadataHandler):
             return any(
                 (
                     rom_name.lower() == search_term_lower
-                    or self._normalize_exact_match(rom_name) == search_term_normalized
+                    or self.normalize_search_term(rom_name) == search_term
                 )
                 for rom_name in rom_names
             )
@@ -358,7 +356,7 @@ class IGDBHandler(MetadataHandler):
         log.debug("Searching in games endpoint with game_type %s", game_type_filter)
         roms = await self._request(
             self.games_endpoint,
-            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {game_type_filter};',
+            data=f'search "{uc(search_term)}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {game_type_filter};',
         )
         for rom in roms:
             # Return early if an exact match is found.
@@ -410,7 +408,7 @@ class IGDBHandler(MetadataHandler):
                 family_name=pydash.get(platform, "platform_family.name", None),
                 family_slug=pydash.get(platform, "platform_family.slug", None),
                 url=platform.get("url", None),
-                url_logo=self._normalize_cover_url(
+                url_logo=self.normalize_cover_url(
                     pydash.get(platform, "platform_logo.url", "").replace(
                         "t_thumb", "t_1080p"
                     )
@@ -508,27 +506,7 @@ class IGDBHandler(MetadataHandler):
             log.debug("Searching for %s on IGDB without game_type", search_term)
             rom = await self._search_rom(search_term, platform_igdb_id)
 
-        # Split the search term since igdb struggles with colons
-        if not rom and ":" in search_term:
-            for term in search_term.split(":")[::-1]:
-                log.debug(
-                    "Searching for %s on IGDB without game_Type after splitting semicolon",
-                    term,
-                )
-                rom = await self._search_rom(term.strip(), platform_igdb_id)
-                if rom:
-                    break
-
-        # Some MAME games have two titles split by a slash
-        if not rom and "/" in search_term:
-            for term in search_term.split("/"):
-                log.debug(
-                    "Searching for %s on IGDB without game_Type after splitting slash",
-                    term,
-                )
-                rom = await self._search_rom(term.strip(), platform_igdb_id)
-                if rom:
-                    break
+        # IGDB search is fuzzy so no need to split the search term by special characters
 
         if not rom:
             return fallback_rom
@@ -538,14 +516,14 @@ class IGDBHandler(MetadataHandler):
             slug=rom["slug"],
             name=rom["name"],
             summary=rom.get("summary", ""),
-            url_cover=self._normalize_cover_url(
+            url_cover=self.normalize_cover_url(
                 pydash.get(rom, "cover.url", "")
             ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
-                self._normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
+                self.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
                 for s in rom.get("screenshots", [])
             ],
-            igdb_metadata=extract_metadata_from_igdb_rom(rom),
+            igdb_metadata=extract_metadata_from_igdb_rom(self, rom),
         )
 
     @check_twitch_token
@@ -567,14 +545,14 @@ class IGDBHandler(MetadataHandler):
             slug=rom["slug"],
             name=rom["name"],
             summary=rom.get("summary", ""),
-            url_cover=self._normalize_cover_url(
+            url_cover=self.normalize_cover_url(
                 pydash.get(rom, "cover.url", "")
             ).replace("t_thumb", "t_1080p"),
             url_screenshots=[
-                self._normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
+                self.normalize_cover_url(s.get("url", "")).replace("t_thumb", "t_720p")
                 for s in rom.get("screenshots", [])
             ],
-            igdb_metadata=extract_metadata_from_igdb_rom(rom),
+            igdb_metadata=extract_metadata_from_igdb_rom(self, rom),
         )
 
     @check_twitch_token
@@ -595,10 +573,10 @@ class IGDBHandler(MetadataHandler):
         if not platform_igdb_id:
             return []
 
-        search_term = uc(search_term)
+        search_term = self.normalize_search_term(search_term)
         matched_roms = await self._request(
             self.games_endpoint,
-            data=f'search "{search_term}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}];',
+            data=f'search "{uc(search_term)}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}];',
         )
 
         alternative_matched_roms = await self._request(
@@ -651,18 +629,18 @@ class IGDBHandler(MetadataHandler):
                         "slug": rom["slug"],
                         "name": rom["name"],
                         "summary": rom.get("summary", ""),
-                        "url_cover": self._normalize_cover_url(
+                        "url_cover": self.normalize_cover_url(
                             pydash.get(rom, "cover.url", "").replace(
                                 "t_thumb", "t_1080p"
                             )
                         ),
                         "url_screenshots": [
-                            self._normalize_cover_url(s.get("url", "")).replace(  # type: ignore[attr-defined]
+                            self.normalize_cover_url(s.get("url", "")).replace(  # type: ignore[attr-defined]
                                 "t_thumb", "t_720p"
                             )
                             for s in rom.get("screenshots", [])
                         ],
-                        "igdb_metadata": extract_metadata_from_igdb_rom(rom),
+                        "igdb_metadata": extract_metadata_from_igdb_rom(self, rom),
                     }.items()
                     if v
                 }
