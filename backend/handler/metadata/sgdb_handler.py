@@ -46,29 +46,36 @@ class SGDBBaseHandler(MetadataHandler):
 
         return list(filter(None, results))
 
-    async def get_details_by_name(self, search_term: str) -> SGDBRom:
+    async def get_details_by_name(self, game_name: str) -> SGDBRom:
+        search_term = self.normalize_search_term(game_name)
         games = await self.sgdb_service.search_games(term=search_term)
         if not games:
             log.debug(f"Could not find '{search_term}' on SteamGridDB")
             return SGDBRom(sgdb_id=None)
 
-        games = [game for game in games if game["name"].lower() == search_term.lower()]
-        if not games:
-            log.debug(f"No exact match found for '{search_term}' on SteamGridDB")
-            return SGDBRom(sgdb_id=None)
+        search_term_lower = search_term.lower()
+        search_term_normalized = self._normalize_exact_match(search_term)
 
-        first_game = games[0]
-        game_details = await self._get_game_covers(
-            game_id=first_game["id"], game_name=first_game["name"]
-        )
+        for game in games:
+            game_name_lower = game["name"].lower()
+            game_name_normalized = self._normalize_exact_match(game["name"])
 
-        first_resource = next(
-            (res for res in game_details["resources"] if res["url"]), None
-        )
-        if first_resource:
-            return SGDBRom(sgdb_id=first_game["id"], url_cover=first_resource["url"])
+            if (
+                game_name_lower == search_term_lower
+                or game_name_normalized == search_term_normalized
+            ):
+                game_details = await self._get_game_covers(
+                    game_id=game["id"], game_name=game["name"]
+                )
 
-        return SGDBRom(sgdb_id=first_game["id"])
+                first_resource = next(
+                    (res for res in game_details["resources"] if res["url"]), None
+                )
+                if first_resource:
+                    return SGDBRom(sgdb_id=game["id"], url_cover=first_resource["url"])
+
+        log.debug(f"No exact match found for '{game_name}' on SteamGridDB")
+        return SGDBRom(sgdb_id=None)
 
     async def _get_game_covers(self, game_id: int, game_name: str) -> SGDBResult:
         game_covers = [
