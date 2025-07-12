@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import http
+import json
 from typing import Final, cast
 
 import aiohttp
@@ -87,6 +88,9 @@ class ScreenScraperService:
                 # Log the error and return an empty dict if the request fails with a different code
                 log.error(err)
                 return {}
+        except (ValueError, json.JSONDecodeError) as json_err:
+            log.error("Error decoding JSON response from ScreenScraper: %s", json_err)
+            return {}
 
         try:
             log.debug(
@@ -115,6 +119,9 @@ class ScreenScraperService:
                 return {}
 
             log.error(err)
+            return {}
+        except (ValueError, json.JSONDecodeError) as json_err:
+            log.error("Error decoding JSON response from ScreenScraper: %s", json_err)
             return {}
 
         return await res.json()

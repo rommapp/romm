@@ -74,7 +74,7 @@ def _normalize_search_term(
 
     # Remove punctuation and normalize spaces in one step
     if remove_punctuation:
-        name = NON_WORD_SPACE_PATTERN.sub("", name)
+        name = NON_WORD_SPACE_PATTERN.sub(" ", name)
         name = MULTIPLE_SPACE_PATTERN.sub(" ", name)
 
     # Unicode normalization and accent removal

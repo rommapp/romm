@@ -505,21 +505,6 @@ async def scan_rom(
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
-    async def fetch_sgdb_details() -> SGDBRom:
-        """Fetch SteamGridDB details for the ROM."""
-        if (
-            MetadataSource.SGDB in metadata_sources
-            and newly_added
-            or scan_type == ScanType.COMPLETE
-            or (scan_type == ScanType.PARTIAL and not rom.sgdb_id)
-            or (scan_type == ScanType.UNIDENTIFIED and not rom.sgdb_id)
-        ):
-            return await meta_sgdb_handler.get_details_by_name(
-                rom_attrs["fs_name_no_tags"]
-            )
-
-        return SGDBRom(sgdb_id=None)
-
     # Run metadata fetches concurrently
     (
         igdb_handler_rom,
@@ -528,7 +513,6 @@ async def scan_rom(
         ra_handler_rom,
         launchbox_handler_rom,
         hasheous_handler_rom,
-        sgdb_handler_rom,
     ) = await asyncio.gather(
         fetch_igdb_rom(playmatch_hash_match, hasheous_hash_match),
         fetch_moby_rom(),
@@ -536,7 +520,6 @@ async def scan_rom(
         fetch_ra_rom(hasheous_hash_match),
         fetch_launchbox_rom(platform.slug),
         fetch_hasheous_rom(hasheous_hash_match),
-        fetch_sgdb_details(),
     )
 
     # Only update fields if match is found
@@ -552,8 +535,6 @@ async def scan_rom(
         rom_attrs.update({**hasheous_handler_rom})
     if igdb_handler_rom.get("igdb_id"):
         rom_attrs.update({**igdb_handler_rom})
-    if sgdb_handler_rom.get("sgdb_id"):
-        rom_attrs.update({**sgdb_handler_rom})
 
     # If not found in any metadata source, we return the rom with the default values
     if (
@@ -563,13 +544,38 @@ async def scan_rom(
         and not ra_handler_rom.get("ra_id")
         and not launchbox_handler_rom.get("launchbox_id")
         and not hasheous_handler_rom.get("hasheous_id")
-        and not sgdb_handler_rom.get("sgdb_id")
     ):
         log.warning(
             emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),
             extra=LOGGER_MODULE_NAME,
         )
         return Rom(**rom_attrs)
+
+    async def fetch_sgdb_details() -> SGDBRom:
+        """Fetch SteamGridDB details for the ROM."""
+        if (
+            MetadataSource.SGDB in metadata_sources
+            and newly_added
+            or scan_type == ScanType.COMPLETE
+            or (scan_type == ScanType.PARTIAL and not rom.sgdb_id)
+            or (scan_type == ScanType.UNIDENTIFIED and not rom.sgdb_id)
+        ):
+            game_names = [
+                igdb_handler_rom.get("name", None),
+                hasheous_handler_rom.get("name", None),
+                ss_handler_rom.get("name", None),
+                moby_handler_rom.get("name", None),
+                launchbox_handler_rom.get("name", None),
+                rom_attrs["fs_name_no_tags"],
+            ]
+            game_names = [name for name in game_names if name]
+            return await meta_sgdb_handler.get_details_by_names(game_names)
+
+        return SGDBRom(sgdb_id=None)
+
+    sgdb_hander_rom = await fetch_sgdb_details()
+    if sgdb_hander_rom.get("sgdb_id"):
+        rom_attrs.update({**sgdb_hander_rom})
 
     log.info(
         emoji.emojize(
