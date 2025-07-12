@@ -326,7 +326,7 @@ watch(
             <a
               v-if="currentPlatform.ss_id"
               style="text-decoration: none; color: inherit"
-              :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
+              :href="`https://www.screenscraper.fr/gamesinfos.php?plateforme=${currentPlatform.ss_id}`"
               target="_blank"
               class="ml-1"
               :tabindex="tabIndex"
@@ -339,8 +339,9 @@ watch(
               </v-chip>
             </a>
             <a
-              v-if="currentPlatform.moby_id"
+              v-if="currentPlatform.moby_slug"
               style="text-decoration: none; color: inherit"
+              :href="`https://www.mobygames.com/platform/${currentPlatform.moby_slug}`"
               target="_blank"
               class="ml-1"
               :tabindex="tabIndex"
@@ -355,6 +356,7 @@ watch(
             <a
               v-if="currentPlatform.ra_id"
               style="text-decoration: none; color: inherit"
+              :href="`https://retroachievements.org/system/${currentPlatform.ra_id}/games`"
               target="_blank"
               class="ml-1"
               :tabindex="tabIndex"
@@ -369,8 +371,10 @@ watch(
             <a
               v-if="currentPlatform.launchbox_id"
               style="text-decoration: none; color: inherit"
+              :href="`https://gamesdb.launchbox-app.com/platforms/games/${currentPlatform.launchbox_id}`"
               target="_blank"
               class="ml-1"
+              :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="25" rounded="1">
@@ -379,17 +383,21 @@ watch(
                 <span>{{ currentPlatform.launchbox_id }}</span>
               </v-chip>
             </a>
-            <v-chip
+            <a
               v-if="currentPlatform.hasheous_id"
-              class="pl-0 mt-1 ml-1"
-              size="small"
-              @click.stop
+              style="text-decoration: none; color: inherit"
+              :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id=${currentPlatform.hasheous_id}`"
+              target="_blank"
+              class="ml-1"
+              :tabindex="tabIndex"
             >
-              <v-avatar class="mr-2 pa-1" size="30" rounded="0">
-                <v-img src="/assets/scrappers/hasheous.png" />
-              </v-avatar>
-              <span>{{ currentPlatform.hasheous_id }}</span>
-            </v-chip>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="25" rounded="1">
+                  <v-img src="/assets/scrappers/hasheous.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.hasheous_id }}</span>
+              </v-chip>
+            </a>
           </v-col>
         </v-row>
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">

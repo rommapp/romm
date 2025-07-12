@@ -188,22 +188,30 @@ const hashMatches = computed(() => {
             <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
-        <v-chip
+        <a
           v-if="rom.launchbox_id"
-          class="pl-0 mt-1 mr-1"
-          size="small"
-          title="LaunchBox ID"
+          style="text-decoration: none; color: inherit"
+          :href="`https://gamesdb.launchbox-app.com/games/details/${rom.launchbox_id}`"
+          target="_blank"
+          class="mr-1"
         >
-          <v-avatar class="mr-2" size="30" rounded="0">
-            <v-img src="/assets/scrappers/launchbox.png" />
-          </v-avatar>
-          <span>{{ rom.launchbox_id }}</span>
-          <v-divider class="mx-2 border-opacity-25" vertical />
-          <span>{{
-            rom.launchbox_metadata?.community_rating?.toFixed(2)
-          }}</span>
-          <v-icon class="ml-1">mdi-star</v-icon>
-        </v-chip>
+          <v-chip
+            class="pl-0 mt-1"
+            size="small"
+            @click.stop
+            title="LaunchBox ID"
+          >
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/launchbox.png" />
+            </v-avatar>
+            <span>{{ rom.launchbox_id }}</span>
+            <v-divider class="mx-2 border-opacity-25" vertical />
+            <span>{{
+              rom.launchbox_metadata?.community_rating?.toFixed(2)
+            }}</span>
+            <v-icon class="ml-1">mdi-star</v-icon>
+          </v-chip>
+        </a>
         <a
           v-if="rom.ra_id"
           style="text-decoration: none; color: inherit"
@@ -219,14 +227,21 @@ const hashMatches = computed(() => {
             <span>{{ rom.ra_id }}</span>
           </v-chip>
         </a>
-        <span v-if="rom.hasheous_id" class="mr-1">
-          <v-chip class="pl-0 mt-1" size="small">
+        <a
+          v-if="rom.hasheous_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${rom.hasheous_id}`"
+          target="_blank"
+          class="mr-1"
+          title="Hasheous ID"
+        >
+          <v-chip tabindex="-1" class="px-2 mt-1" size="small" @click.stop>
             <v-avatar class="mr-2 pa-1" size="30" rounded="0">
               <v-img src="/assets/scrappers/hasheous.png" />
             </v-avatar>
             <span>{{ rom.hasheous_id }}</span>
           </v-chip>
-        </span>
+        </a>
         <a
           v-if="rom.sgdb_id"
           style="text-decoration: none; color: inherit"
