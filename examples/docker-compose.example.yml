@@ -19,6 +19,7 @@ services:
       - SCREENSCRAPER_USER= # These are the recommended metadata providers
       - SCREENSCRAPER_PASSWORD= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#screenscraper
       - RETROACHIEVEMENTS_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
+      - STEAMGRIDDB_API_KEY= # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
       - HASHEOUS_API_ENABLED=true # https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#hasheous
     volumes:
       - romm_resources:/romm/resources # Resources fetched from IGDB (covers, screenshots, etc.)
