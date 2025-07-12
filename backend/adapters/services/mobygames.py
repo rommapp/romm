@@ -1,5 +1,6 @@
 import asyncio
 import http
+import json
 from collections.abc import Collection
 from typing import Literal, overload
 
@@ -70,6 +71,9 @@ class MobyGamesService:
                 # Log the error and return an empty dict if the request fails with a different code
                 log.error(exc)
                 return {}
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            return {}
 
         # Retry the request once if it times out
         try:
@@ -93,6 +97,9 @@ class MobyGamesService:
                 return {}
 
             log.error(exc)
+            return {}
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
     @overload

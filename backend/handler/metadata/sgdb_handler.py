@@ -81,7 +81,7 @@ class SGDBBaseHandler(MetadataHandler):
                             sgdb_id=game["id"], url_cover=first_resource["url"]
                         )
 
-        log.debug(f"No exact match found for '{game_names}' on SteamGridDB")
+        log.debug(f"No exact match found for '{', '.join(game_names)}' on SteamGridDB")
         return SGDBRom(sgdb_id=None)
 
     async def _get_game_covers(

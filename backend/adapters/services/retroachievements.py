@@ -1,5 +1,6 @@
 import asyncio
 import http
+import json
 from collections.abc import AsyncIterator
 from typing import cast
 
@@ -76,6 +77,9 @@ class RetroAchievementsService:
                 # Log the error and return an empty dict if the request fails with a different code
                 log.error(err)
                 return {}
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            return {}
 
         try:
             log.debug(
@@ -89,6 +93,7 @@ class RetroAchievementsService:
                 timeout=ClientTimeout(total=request_timeout),
             )
             res.raise_for_status()
+            return await res.json()
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
             if (
                 isinstance(err, aiohttp.ClientResponseError)
@@ -98,8 +103,9 @@ class RetroAchievementsService:
 
             log.error(err)
             return {}
-
-        return await res.json()
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            return {}
 
     async def get_game_extended_details(self, game_id: int) -> RAGameExtendedDetails:
         """Retrieve extended metadata about a game, targeted via its unique ID.

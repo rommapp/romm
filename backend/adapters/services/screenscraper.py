@@ -88,8 +88,8 @@ class ScreenScraperService:
                 # Log the error and return an empty dict if the request fails with a different code
                 log.error(err)
                 return {}
-        except (ValueError, json.JSONDecodeError) as json_err:
-            log.error("Error decoding JSON response from ScreenScraper: %s", json_err)
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
         try:
@@ -120,8 +120,8 @@ class ScreenScraperService:
 
             log.error(err)
             return {}
-        except (ValueError, json.JSONDecodeError) as json_err:
-            log.error("Error decoding JSON response from ScreenScraper: %s", json_err)
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
 
         return await res.json()
