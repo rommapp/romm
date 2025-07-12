@@ -98,6 +98,8 @@ class SGDBBaseHandler(MetadataHandler):
         if not game_covers:
             return SGDBResult(name=game_name, resources=[])
 
+        print(f"Covers: {game_covers}")
+
         return SGDBResult(
             name=game_name,
             resources=[
@@ -107,6 +109,10 @@ class SGDBBaseHandler(MetadataHandler):
                     type="animated" if cover["thumb"].endswith(".webm") else "static",
                 )
                 for cover in game_covers
+                if cover["nsfw"] is False
+                and cover["humor"] is False
+                and cover["epilepsy"] is False
+                and cover["language"] == "en"
             ],
         )
 

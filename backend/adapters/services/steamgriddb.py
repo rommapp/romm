@@ -37,27 +37,52 @@ class SteamGridDBService:
     Reference: https://www.steamgriddb.com/api/v2
     """
 
-    def __init__(
-        self,
-        base_url: str | None = None,
-    ) -> None:
-        self.url = yarl.URL(base_url or "https://steamgriddb.com/api/v2")
+    def __init__(self) -> None:
+        self.api_url = yarl.URL("https://steamgriddb.com/api/v2")
+        self.public_url = yarl.URL("https://www.steamgriddb.com/api/public")
 
-    async def _request(self, url: str, request_timeout: int = 120) -> dict:
+    async def _request(
+        self,
+        url: str,
+        method: str = "GET",
+        headers: dict | None = None,
+        json_data: dict | None = None,
+        request_timeout: int = 120,
+    ) -> dict:
         aiohttp_session = ctx_aiohttp_session.get()
         log.debug(
-            "API request: URL=%s, Timeout=%s",
+            "API request: Method=%s, URL=%s, Timeout=%s",
+            method.upper(),
             url,
             request_timeout,
         )
+
+        # Prepare request kwargs
+        request_kwargs = {
+            "middlewares": (auth_middleware,),
+            "timeout": ClientTimeout(total=request_timeout),
+        }
+
+        # Add headers if provided
+        if headers:
+            request_kwargs["headers"] = headers
+
+        # Add JSON data for POST requests
+        if method.upper() == "POST" and json_data:
+            request_kwargs["json"] = json_data
+
         try:
-            res = await aiohttp_session.get(
-                url,
-                middlewares=(auth_middleware,),
-                timeout=ClientTimeout(total=request_timeout),
-            )
+            # Use the appropriate HTTP method
+            if method.upper() == "GET":
+                res = await aiohttp_session.get(url, **request_kwargs)
+            elif method.upper() == "POST":
+                res = await aiohttp_session.post(url, **request_kwargs)
+            else:
+                raise ValueError(f"Unsupported HTTP method: {method}")
+
             res.raise_for_status()
             return await res.json()
+
         except aiohttp.ClientResponseError as exc:
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
                 raise SGDBInvalidAPIKeyException from exc
@@ -90,7 +115,9 @@ class SteamGridDBService:
 
         Reference: https://www.steamgriddb.com/api/v2#tag/GRIDS/operation/getGridsByGameId
         """
-        params: dict[str, list[str]] = {}
+        params: dict[str, list[str]] = {
+            "game_id": [str(game_id)],
+        }
         if styles:
             params["styles"] = [",".join(styles)]
         if dimensions:
@@ -112,8 +139,8 @@ class SteamGridDBService:
         if page_number is not None:
             params["page"] = [str(page_number)]
 
-        url = self.url.joinpath("grids/game", str(game_id)).with_query(**params)
-        response = await self._request(str(url))
+        url = self.public_url.joinpath("search/assets")
+        response = await self._request(str(url), method="POST", json_data=params)
         if not response:
             return SGDBGridList(
                 page=0,
@@ -170,6 +197,6 @@ class SteamGridDBService:
 
         Reference: https://www.steamgriddb.com/api/v2#tag/SEARCH/operation/searchGrids
         """
-        url = self.url.joinpath("search/autocomplete", term)
+        url = self.api_url.joinpath("search/autocomplete", term)
         response = await self._request(str(url))
         return cast(list[SGDBGame], response.get("data", []))

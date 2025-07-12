@@ -60,8 +60,15 @@ class SGDBGrid(TypedDict):
     id: int
     score: int
     style: SGDBStyle
+    nsfw: bool
+    humor: bool
+    language: str
     url: str
     thumb: str
+    lock: bool
+    epilepsy: bool
+    upvotes: int
+    downvotes: int
     tags: list[str]
     author: SGDBGridAuthor
 
