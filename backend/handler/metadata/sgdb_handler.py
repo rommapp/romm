@@ -61,9 +61,6 @@ class SGDBBaseHandler(MetadataHandler):
                     game["name"], remove_articles=False
                 )
 
-                print(f"Checking {game_name_lower} against {search_term.lower()}")
-                print(f"Checking {game_name_normalized} against {search_term}")
-
                 if (
                     game_name_lower == search_term.lower()
                     or game_name_normalized == search_term
