@@ -292,7 +292,7 @@ class HasheousHandler(MetadataHandler):
             return hasheous_rom
 
         if hasheous_rom["igdb_id"] is None:
-            log.warning("No IGDB ID provided for Hasheous IGDB game lookup.")
+            log.info("No IGDB ID provided for Hasheous IGDB game lookup.")
             return hasheous_rom
 
         igdb_game = await self._request(
@@ -334,7 +334,7 @@ class HasheousHandler(MetadataHandler):
             return hasheous_rom
 
         if hasheous_rom["ra_id"] is None:
-            log.warning("No RA ID provided for Hasheous RA game lookup.")
+            log.info("No RA ID provided for Hasheous RA game lookup.")
             return hasheous_rom
 
         ra_game = await self._request(
