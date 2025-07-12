@@ -132,7 +132,7 @@ class SSRom(TypedDict):
 
 
 def build_ss_rom(game: SSGame) -> SSRom:
-    name_preferred_regions = ["us", "wor", "ss"]
+    name_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     res_name = ""
     for region in name_preferred_regions:
         res_name = next(
