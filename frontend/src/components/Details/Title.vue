@@ -227,6 +227,20 @@ const hashMatches = computed(() => {
             <span>{{ rom.hasheous_id }}</span>
           </v-chip>
         </span>
+        <a
+          v-if="rom.sgdb_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://www.steamgriddb.com/game/${rom.sgdb_id}`"
+          target="_blank"
+          class="mr-1"
+        >
+          <v-chip class="pl-0 mt-1" size="small" title="SGDB ID">
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/sgdb.png" />
+            </v-avatar>
+            <span>{{ rom.sgdb_id }}</span>
+          </v-chip>
+        </a>
       </v-col>
     </v-row>
     <v-row
