@@ -12,8 +12,8 @@ import { MdPreview } from "md-editor-v3";
 import { get } from "lodash";
 
 // Props
-const { t } = useI18n();
 defineProps<{ rom: DetailedRom }>();
+const { t } = useI18n();
 const { xs } = useDisplay();
 const theme = useTheme();
 const show = ref(false);
@@ -35,6 +35,46 @@ const filters = [
   },
   { key: "companies", path: "metadatum.companies", name: t("rom.companies") },
 ] as const;
+
+// const metadataSources = computed(() => {
+//   return [
+//     {
+//       name: "IGDB",
+//       isMatch: props.rom.igdb_id,
+//       isCover: props.rom.url_cover?.includes("igdb.com")
+//     },
+//     {
+//       name: "Hasheous",
+//       isMatch: props.rom.hasheous_id,
+//       isCover: false,
+//     },
+//     {
+//       name: "Screenscraper",
+//       isMatch: props.rom.ss_id,
+//       isCover: props.rom.url_cover?.includes("screenscraper.fr")
+//     },
+//     {
+//       name: "RetroAchievements",
+//       isMatch: props.rom.ra_id,
+//       isCover: false,
+//     },
+//     {
+//       name: "Launchbox",
+//       isMatch: props.rom.launchbox_id,
+//       isCover: props.rom.url_cover?.includes("launchbox-app.com")
+//     },
+//     {
+//       name: "TheGamesDB",
+//       isMatch: props.rom.tgdb_id,
+//       isCover: props.rom.url_cover?.includes("thegamesdb.net")
+//     },
+//     {
+//       name: "SteamGridDB",
+//       isMatch: props.rom.sgdb_id,
+//       isCover: props.rom.url_cover?.includes("steamgriddb.com")
+//     }
+//   ]
+// });
 
 // Functions
 function onFilterClick(filter: FilterType, value: string) {
@@ -245,6 +285,59 @@ function onFilterClick(filter: FilterType, value: string) {
           </v-col>
         </v-row>
       </template>
+      <v-row v-if="rom.is_identified">
+        <v-col>
+          Data provided by
+          <a
+            v-if="rom.igdb_id"
+            style="color: inherit"
+            :href="`https://www.igdb.com/games/${rom.slug}`"
+            target="_blank"
+            >IGDB,</a
+          >
+          <a
+            v-if="rom.ss_id"
+            style="color: inherit"
+            :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
+            target="_blank"
+          >
+            ScreenScraper,
+          </a>
+          <a
+            v-if="rom.moby_id"
+            style="color: inherit"
+            :href="`https://www.mobygames.com/game/${rom.moby_id}`"
+            target="_blank"
+          >
+            MobyGames,
+          </a>
+          <a
+            v-if="rom.launchbox_id"
+            style="color: inherit"
+            :href="`https://gamesdb.launchbox-app.com/games/details/${rom.launchbox_id}`"
+            target="_blank"
+          >
+            LaunchBox,
+          </a>
+          <a
+            v-if="rom.ra_id"
+            style="color: inherit"
+            :href="`https://retroachievements.org/game/${rom.ra_id}`"
+            target="_blank"
+            title="RetroAchievements ID"
+          >
+            RetroAchievements,
+          </a>
+          <a
+            v-if="rom.hasheous_id"
+            style="color: inherit"
+            :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${rom.hasheous_id}`"
+            target="_blank"
+          >
+            Hasheous,
+          </a>
+        </v-col>
+      </v-row>
     </v-col>
   </v-row>
 </template>
