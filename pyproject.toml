@@ -29,7 +29,7 @@ dependencies = [
   "passlib[bcrypt] ~= 1.7",
   "pillow ~= 10.3",
   "psycopg[c] ~= 3.2",
-  "py7zr == 1.0.0rc2",
+  "py7zr ~= 1.0",
   "pydash ~= 7.0",
   "pytest-cov>=6.2.1",
   "python-dotenv == 1.0.1",

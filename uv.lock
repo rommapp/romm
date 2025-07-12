@@ -1282,7 +1282,7 @@ wheels = [
 
 [[package]]
 name = "py7zr"
-version = "1.0.0rc2"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "brotli", marker = "platform_python_implementation == 'CPython'" },
@@ -1296,9 +1296,9 @@ dependencies = [
     { name = "pyzstd" },
     { name = "texttable" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6a/26/ab6154c10f240e49a1d0e69516bdf4a242719db590f489be9cf4dc5aceab/py7zr-1.0.0rc2.tar.gz", hash = "sha256:8a62e7c96050eb357ab5a41a7863078931733e235e796468b4d5e22bb0888bf0", size = 4965028, upload-time = "2024-12-23T05:23:00.81Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/97/62/d6f18967875aa60182198a0dd287d3a50d8aea1d844239ea00c016f7be88/py7zr-1.0.0.tar.gz", hash = "sha256:f6bfee81637c9032f6a9f0eb045a4bfc7a7ff4138becfc42d7cb89b54ffbfef1", size = 4965058, upload-time = "2025-06-02T11:03:37.472Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f6/d5/79f5cd3c59eefde2ccfaeff329c96f1b50a7352dfb95fc73579d031b2ba6/py7zr-1.0.0rc2-py3-none-any.whl", hash = "sha256:4eba876d6018ccc7aead07d5f10795151be5b272289078b899f199b27d2dae41", size = 69679, upload-time = "2024-12-23T05:22:58.945Z" },
+    { url = "https://files.pythonhosted.org/packages/73/56/63f27ec4e263a5f7f11a0630515938263fd9ba8227bda94136486b58e45d/py7zr-1.0.0-py3-none-any.whl", hash = "sha256:6f42d2ff34c808e9026ad11b721c13b41b0673cf2b4e8f8fb34f9d65ae143dd1", size = 69677, upload-time = "2025-06-02T11:03:35.082Z" },
 ]
 
 [[package]]
@@ -1778,7 +1778,7 @@ requires-dist = [
     { name = "passlib", extras = ["bcrypt"], specifier = "~=1.7" },
     { name = "pillow", specifier = "~=10.3" },
     { name = "psycopg", extras = ["c"], specifier = "~=3.2" },
-    { name = "py7zr", specifier = "==1.0.0rc2" },
+    { name = "py7zr", specifier = "~=1.0" },
     { name = "pydash", specifier = "~=7.0" },
     { name = "pyinstrument", marker = "extra == 'dev'", specifier = "~=5.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = "~=8.3" },
