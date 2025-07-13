@@ -104,7 +104,7 @@ watch(
     <background-header />
 
     <v-row
-      class="px-5 mb-6"
+      class="px-6 mb-6"
       no-gutters
       :class="{ 'justify-center': smAndDown }"
     >
