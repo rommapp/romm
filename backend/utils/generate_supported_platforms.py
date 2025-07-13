@@ -30,7 +30,7 @@ if __name__ == "__main__":
     matched_hasheous_ids: list[int] = []
     matched_ra_ids: list[int] = []
 
-    for plt in IGDB_PLATFORM_LIST:
+    for plt in IGDB_PLATFORM_LIST.values():
         moby_platform = MOBYGAMES_PLATFORM_LIST.get(plt["slug"])
         moby_slug = moby_platform["slug"] if moby_platform else None
 
