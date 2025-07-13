@@ -327,6 +327,7 @@ class Rom(BaseModel):
             and not self.ss_id
             and not self.ra_id
             and not self.launchbox_id
+            and not self.hasheous_id
         )
 
     @property
@@ -341,6 +342,7 @@ class Rom(BaseModel):
             and bool(self.ss_id)
             and bool(self.ra_id)
             and bool(self.launchbox_id)
+            and bool(self.hasheous_id)
         )
 
     def has_m3u_file(self) -> bool:
