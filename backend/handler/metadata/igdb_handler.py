@@ -407,7 +407,7 @@ class IGDBHandler(MetadataHandler):
         if platform_version:
             return IGDBPlatform(
                 igdb_id=platform_version["id"],
-                slug=slug,
+                slug=platform_version["platform_slug"],
                 name=platform_version["name"],
                 url=platform_version["url"],
                 url_logo=self.normalize_cover_url(platform_version["url_logo"]),
@@ -3442,6 +3442,7 @@ IGDB_AGE_RATINGS: dict[int, IGDBAgeRating] = {
 class SlugToIGDBVersion(TypedDict):
     id: int
     slug: str
+    platform_slug: str
     name: str
     url: str
     url_logo: str
@@ -3454,6 +3455,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Opera GX",
         "url": "https://www.igdb.com/platforms/browser/version/opera-gx",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
+        "platform_slug": "browser",
     },
     "swancrystal": {
         "id": 734,
@@ -3461,6 +3463,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "SwanCrystal",
         "url": "https://www.igdb.com/platforms/wonderswan-color/version/swancrystal",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plp0.jpg",
+        "platform_slug": "wonderswan-color",
     },
     "sega-neptune": {
         "id": 703,
@@ -3468,6 +3471,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Neptune",
         "url": "https://www.igdb.com/platforms/sega32/version/sega-neptune",
         "url_logo": "",
+        "platform_slug": "sega32",
     },
     "initial-version": {
         "id": 200,
@@ -3475,6 +3479,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Initial version",
         "url": "https://www.igdb.com/platforms/pc-50x-family/version/initial-version",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/vckflbrulcehb6qiap6n.jpg",
+        "platform_slug": "pc-50x-family",
     },
     "saba-videoplay": {
         "id": 212,
@@ -3482,6 +3487,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Saba Videoplay",
         "url": "https://www.igdb.com/platforms/fairchild-channel-f/version/saba-videoplay",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8t.jpg",
+        "platform_slug": "fairchild-channel-f",
     },
     "super-famicom-shvc-001": {
         "id": 139,
@@ -3489,6 +3495,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Super Famicom (SHVC-001)",
         "url": "https://www.igdb.com/platforms/snes/version/super-famicom-shvc-001",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/jj75e2f0lzrbvtyw56er.jpg",
+        "platform_slug": "snes",
     },
     "xbox-360-arcade": {
         "id": 3,
@@ -3496,6 +3503,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox 360 Arcade",
         "url": "https://www.igdb.com/platforms/xbox360/version/xbox-360-arcade",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6y.jpg",
+        "platform_slug": "xbox360",
     },
     "kitkat": {
         "id": 12,
@@ -3503,6 +3511,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "KitKat",
         "url": "https://www.igdb.com/platforms/android/version/kitkat",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/kb9wpjpv0t1dthhuypou.jpg",
+        "platform_slug": "android",
     },
     "switch-lite": {
         "id": 282,
@@ -3510,6 +3519,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Switch Lite",
         "url": "https://www.igdb.com/platforms/switch/version/switch-lite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pleu.jpg",
+        "platform_slug": "switch",
     },
     "wii-mini": {
         "id": 283,
@@ -3517,6 +3527,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Wii mini",
         "url": "https://www.igdb.com/platforms/wii/version/wii-mini",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl92.jpg",
+        "platform_slug": "wii",
     },
     "jelly-bean-4-1-x-4-3-x": {
         "id": 11,
@@ -3524,13 +3535,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Jelly Bean 4.1.x-4.3.x",
         "url": "https://www.igdb.com/platforms/android/version/jelly-bean-4-1-x-4-3-x",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/w4okoupqnolhrymeqznd.jpg",
-    },
-    "initial-version-2d30967a-4545-4ff8-b4bb-e82e5038fe16": {
-        "id": 29,
-        "slug": "initial-version-2d30967a-4545-4ff8-b4bb-e82e5038fe16",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/lynx/version/initial-version-2d30967a-4545-4ff8-b4bb-e82e5038fe16",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lz0cuozrdeealg8hfzxg.jpg",
+        "platform_slug": "android",
     },
     "windows-xp": {
         "id": 13,
@@ -3538,27 +3543,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows XP",
         "url": "https://www.igdb.com/platforms/win/version/windows-xp",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/nnr9qxtqzrmh1v0s9x2p.jpg",
-    },
-    "initial-version-4d6e4123-07c6-4367-8d8a-f77760bebcc1": {
-        "id": 24,
-        "slug": "initial-version-4d6e4123-07c6-4367-8d8a-f77760bebcc1",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/atari2600/version/initial-version-4d6e4123-07c6-4367-8d8a-f77760bebcc1",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8l.jpg",
-    },
-    "initial-version-729a252f-e870-487e-a893-c9a2f1139bbd": {
-        "id": 55,
-        "slug": "initial-version-729a252f-e870-487e-a893-c9a2f1139bbd",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/ouya/version/initial-version-729a252f-e870-487e-a893-c9a2f1139bbd",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6k.jpg",
-    },
-    "initial-version-5be55259-43c6-4700-8222-3dda296b2e6f": {
-        "id": 66,
-        "slug": "initial-version-5be55259-43c6-4700-8222-3dda296b2e6f",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/x1/version/initial-version-5be55259-43c6-4700-8222-3dda296b2e6f",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl89.jpg",
+        "platform_slug": "win",
     },
     "web-browser": {
         "id": 86,
@@ -3566,6 +3551,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Web browser",
         "url": "https://www.igdb.com/platforms/browser/version/web-browser",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plal.jpg",
+        "platform_slug": "browser",
     },
     "yosemite": {
         "id": 150,
@@ -3573,6 +3559,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Yosemite",
         "url": "https://www.igdb.com/platforms/mac/version/yosemite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/df1raex6oqgcp56leff4.jpg",
+        "platform_slug": "mac",
     },
     "odisea-mexico-export": {
         "id": 170,
@@ -3580,6 +3567,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Odisea (Mexico Export)",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odisea-mexico-export",
         "url_logo": "",
+        "platform_slug": "odyssey--1",
     },
     "super-nes-cd-rom-system": {
         "id": 174,
@@ -3587,6 +3575,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Super NES CD-ROM System",
         "url": "https://www.igdb.com/platforms/super-nes-cd-rom-system/version/super-nes-cd-rom-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plep.jpg",
+        "platform_slug": "super-nes-cd-rom-system",
     },
     "playstation-5-pro": {
         "id": 724,
@@ -3594,6 +3583,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation 5 Pro",
         "url": "https://www.igdb.com/platforms/ps5/version/playstation-5-pro",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plos.jpg",
+        "platform_slug": "ps5",
     },
     "windows-95": {
         "id": 532,
@@ -3601,6 +3591,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 95",
         "url": "https://www.igdb.com/platforms/win/version/windows-95",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pliq.jpg",
+        "platform_slug": "win",
     },
     "vfd-based-handhelds": {
         "id": 691,
@@ -3608,6 +3599,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "VFD-based handhelds",
         "url": "https://www.igdb.com/platforms/handheld-electronic-lcd/version/vfd-based-handhelds",
         "url_logo": "",
+        "platform_slug": "handheld-electronic-lcd",
     },
     "wonderswan-color": {
         "id": 84,
@@ -3615,13 +3607,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "WonderSwan Color",
         "url": "https://www.igdb.com/platforms/wonderswan/version/wonderswan-color",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7d.jpg",
-    },
-    "initial-version-3ef9ff1e-a867-41d2-88c7-7f420cc834bf": {
-        "id": 56,
-        "slug": "initial-version-3ef9ff1e-a867-41d2-88c7-7f420cc834bf",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/dos/version/initial-version-3ef9ff1e-a867-41d2-88c7-7f420cc834bf",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/sqgw6vespav1buezgjjn.jpg",
+        "platform_slug": "wonderswan",
     },
     "nintendo-dsi-xl": {
         "id": 192,
@@ -3629,13 +3615,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nintendo DSi XL",
         "url": "https://www.igdb.com/platforms/nds/version/nintendo-dsi-xl",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6t.jpg",
-    },
-    "initial-version-25c50fa0-8e30-466f-8758-50b1f7e18793": {
-        "id": 28,
-        "slug": "initial-version-25c50fa0-8e30-466f-8758-50b1f7e18793",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/jaguar/version/initial-version-25c50fa0-8e30-466f-8758-50b1f7e18793",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7y.jpg",
+        "platform_slug": "nds",
     },
     "ique-player": {
         "id": 122,
@@ -3643,6 +3623,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "iQue Player",
         "url": "https://www.igdb.com/platforms/n64/version/ique-player",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl78.jpg",
+        "platform_slug": "n64",
     },
     "psp-1000": {
         "id": 59,
@@ -3650,13 +3631,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PSP-1000",
         "url": "https://www.igdb.com/platforms/psp/version/psp-1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6q.jpg",
-    },
-    "initial-version-37c27703-ddeb-4143-b022-b651fa546464": {
-        "id": 71,
-        "slug": "initial-version-37c27703-ddeb-4143-b022-b651fa546464",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/vc/version/initial-version-37c27703-ddeb-4143-b022-b651fa546464",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plao.jpg",
+        "platform_slug": "psp",
     },
     "amiga-a-2000": {
         "id": 111,
@@ -3664,6 +3639,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Amiga A 2000",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-2000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plng.jpg",
+        "platform_slug": "amiga",
     },
     "xbox-one-s": {
         "id": 180,
@@ -3671,6 +3647,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox One S",
         "url": "https://www.igdb.com/platforms/xboxone/version/xbox-one-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl90.jpg",
+        "platform_slug": "xboxone",
     },
     "nintendo-dsi": {
         "id": 191,
@@ -3678,6 +3655,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nintendo DSi",
         "url": "https://www.igdb.com/platforms/nds/version/nintendo-dsi",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6s.jpg",
+        "platform_slug": "nds",
     },
     "game-boy-advance-sp": {
         "id": 193,
@@ -3685,6 +3663,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Game Boy Advance SP",
         "url": "https://www.igdb.com/platforms/gba/version/game-boy-advance-sp",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7x.jpg",
+        "platform_slug": "gba",
     },
     "stadia": {
         "id": 319,
@@ -3692,6 +3671,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Stadia",
         "url": "https://www.igdb.com/platforms/duplicate-stadia/version/stadia",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaw.jpg",
+        "platform_slug": "duplicate-stadia",
     },
     "froyo-2-2": {
         "id": 7,
@@ -3699,6 +3679,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Froyo 2.2",
         "url": "https://www.igdb.com/platforms/android/version/froyo-2-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/gvskesmuwhvmtzv2zhny.jpg",
+        "platform_slug": "android",
     },
     "honeycomb-3-2": {
         "id": 9,
@@ -3706,13 +3687,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Honeycomb 3.2",
         "url": "https://www.igdb.com/platforms/android/version/honeycomb-3-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/qkdxwfyrcwhqrnj1hljd.jpg",
-    },
-    "initial-version-b404799e-fb33-4e0b-9721-85224a46dd97": {
-        "id": 26,
-        "slug": "initial-version-b404799e-fb33-4e0b-9721-85224a46dd97",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/atari7800/version/initial-version-b404799e-fb33-4e0b-9721-85224a46dd97",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8f.jpg",
+        "platform_slug": "android",
     },
     "atari-400": {
         "id": 27,
@@ -3720,20 +3695,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Atari 400",
         "url": "https://www.igdb.com/platforms/atari8bit/version/atari-400",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plad.jpg",
-    },
-    "initial-version-1a53a258-c792-4df6-b5f6-e616f571b4b0": {
-        "id": 48,
-        "slug": "initial-version-1a53a258-c792-4df6-b5f6-e616f571b4b0",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/msx2/version/initial-version-1a53a258-c792-4df6-b5f6-e616f571b4b0",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8k.jpg",
-    },
-    "initial-version-9ec1965f-e8d3-4f68-9872-b6eb844b01c1": {
-        "id": 61,
-        "slug": "initial-version-9ec1965f-e8d3-4f68-9872-b6eb844b01c1",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/sega32/version/initial-version-9ec1965f-e8d3-4f68-9872-b6eb844b01c1",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7r.jpg",
+        "platform_slug": "atari8bit",
     },
     "zodiac-1": {
         "id": 69,
@@ -3741,6 +3703,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Zodiac 1",
         "url": "https://www.igdb.com/platforms/zod/version/zodiac-1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lfsdnlko80ftakbugceu.jpg",
+        "platform_slug": "zod",
     },
     "sg-1000-ii": {
         "id": 92,
@@ -3748,6 +3711,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "SG-1000 II",
         "url": "https://www.igdb.com/platforms/sg1000/version/sg-1000-ii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/m7lor1sj7g9gnvliwxx8.jpg",
+        "platform_slug": "sg1000",
     },
     "dol-101": {
         "id": 121,
@@ -3755,6 +3719,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "DOL-101",
         "url": "https://www.igdb.com/platforms/ngc/version/dol-101",
         "url_logo": "",
+        "platform_slug": "ngc",
     },
     "panasonic-q": {
         "id": 125,
@@ -3762,6 +3727,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Panasonic Q",
         "url": "https://www.igdb.com/platforms/ngc/version/panasonic-q",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/jtbbevwj5l6q01pkkned.jpg",
+        "platform_slug": "ngc",
     },
     "euzebox": {
         "id": 721,
@@ -3769,6 +3735,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "EUzebox",
         "url": "https://www.igdb.com/platforms/uzebox/version/euzebox",
         "url_logo": "",
+        "platform_slug": "uzebox",
     },
     "windows-98": {
         "id": 533,
@@ -3776,6 +3743,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 98",
         "url": "https://www.igdb.com/platforms/win/version/windows-98",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plir.jpg",
+        "platform_slug": "win",
     },
     "playstation": {
         "id": 57,
@@ -3783,6 +3751,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation",
         "url": "https://www.igdb.com/platforms/ps/version/playstation",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7q.jpg",
+        "platform_slug": "ps",
     },
     "ice-cream-sandwich": {
         "id": 10,
@@ -3790,13 +3759,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Ice Cream Sandwich",
         "url": "https://www.igdb.com/platforms/android/version/ice-cream-sandwich",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fxe5fcitcfmnam128xc1.jpg",
-    },
-    "initial-version-cf5691a3-0bfb-449c-af8d-465fd2a65b1d": {
-        "id": 82,
-        "slug": "initial-version-cf5691a3-0bfb-449c-af8d-465fd2a65b1d",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/neogeoaes/version/initial-version-cf5691a3-0bfb-449c-af8d-465fd2a65b1d",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/hamfdrgnhenxb2d9g8mh.jpg",
+        "platform_slug": "android",
     },
     "puma": {
         "id": 141,
@@ -3804,6 +3767,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Puma",
         "url": "https://www.igdb.com/platforms/mac/version/puma",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/luxugq3uspac6qqbvqwk.jpg",
+        "platform_slug": "mac",
     },
     "playstation-4-slim": {
         "id": 178,
@@ -3811,6 +3775,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation 4 Slim",
         "url": "https://www.igdb.com/platforms/ps4--1/version/playstation-4-slim",
         "url_logo": "",
+        "platform_slug": "ps4--1",
     },
     "tele-ball": {
         "id": 201,
@@ -3818,13 +3783,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "tele-ball",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/tele-ball",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/yjdciw0jagvnmvzhhubs.jpg",
-    },
-    "initial-version-736f469b-b7df-49ab-9be6-5f75ac942ec8": {
-        "id": 37,
-        "slug": "initial-version-736f469b-b7df-49ab-9be6-5f75ac942ec8",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/vic-20/version/initial-version-736f469b-b7df-49ab-9be6-5f75ac942ec8",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8p.jpg",
+        "platform_slug": "ay-3-8500",
     },
     "windows-me": {
         "id": 534,
@@ -3832,6 +3791,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows Me",
         "url": "https://www.igdb.com/platforms/win/version/windows-me",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plis.jpg",
+        "platform_slug": "win",
     },
     "tele-ball-iii": {
         "id": 203,
@@ -3839,6 +3799,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "tele-ball III",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/tele-ball-iii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fzkmxoxkrfwo1by8t9ja.jpg",
+        "platform_slug": "ay-3-8500",
     },
     "fm-towns-car-marty": {
         "id": 709,
@@ -3846,6 +3807,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "FM Towns Car Marty",
         "url": "https://www.igdb.com/platforms/fm-towns/version/fm-towns-car-marty",
         "url_logo": "",
+        "platform_slug": "fm-towns",
     },
     "interton-vc-4000": {
         "id": 196,
@@ -3853,34 +3815,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Interton VC 4000",
         "url": "https://www.igdb.com/platforms/vc-4000/version/interton-vc-4000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/phikgyfmv1fevj2jhzr5.jpg",
-    },
-    "initial-version-071433c7-3175-44f5-9941-30ea1f42ff58": {
-        "id": 21,
-        "slug": "initial-version-071433c7-3175-44f5-9941-30ea1f42ff58",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/appleii/version/initial-version-071433c7-3175-44f5-9941-30ea1f42ff58",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8r.jpg",
-    },
-    "initial-version-e61f84a7-2907-4d65-af7d-4edf75c34dd7": {
-        "id": 25,
-        "slug": "initial-version-e61f84a7-2907-4d65-af7d-4edf75c34dd7",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/atari5200/version/initial-version-e61f84a7-2907-4d65-af7d-4edf75c34dd7",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8g.jpg",
-    },
-    "initial-version-4bf2e43a-2f5c-4e9d-83d3-34db176557e1": {
-        "id": 36,
-        "slug": "initial-version-4bf2e43a-2f5c-4e9d-83d3-34db176557e1",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/c64/version/initial-version-4bf2e43a-2f5c-4e9d-83d3-34db176557e1",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8c.jpg",
-    },
-    "initial-version-94fdf5b4-d4d1-40de-87ee-54f90e15c944": {
-        "id": 78,
-        "slug": "initial-version-94fdf5b4-d4d1-40de-87ee-54f90e15c944",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/xboxone/version/initial-version-94fdf5b4-d4d1-40de-87ee-54f90e15c944",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6a.jpg",
+        "platform_slug": "vc-4000",
     },
     "playstation-portable-street": {
         "id": 279,
@@ -3888,6 +3823,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation Portable Street",
         "url": "https://www.igdb.com/platforms/psp/version/playstation-portable-street",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5y.jpg",
+        "platform_slug": "psp",
     },
     "windows-8": {
         "id": 15,
@@ -3895,6 +3831,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 8",
         "url": "https://www.igdb.com/platforms/win/version/windows-8",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/itdndmarjfphtsppnlfh.jpg",
+        "platform_slug": "win",
     },
     "famicom-titler": {
         "id": 646,
@@ -3902,6 +3839,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Famicom Titler",
         "url": "https://www.igdb.com/platforms/famicom/version/famicom-titler",
         "url_logo": "",
+        "platform_slug": "famicom",
     },
     "tele-ball-ii": {
         "id": 202,
@@ -3909,6 +3847,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "tele-ball II",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/tele-ball-ii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/x42zeitpbuo2ltn7ybb2.jpg",
+        "platform_slug": "ay-3-8500",
     },
     "tele-ball-vii": {
         "id": 204,
@@ -3916,6 +3855,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "tele-ball VII",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/tele-ball-vii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/vs8nzlrcte7l9ep2cqy5.jpg",
+        "platform_slug": "ay-3-8500",
     },
     "n-gage-qd": {
         "id": 118,
@@ -3923,20 +3863,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "N-Gage QD",
         "url": "https://www.igdb.com/platforms/ngage/version/n-gage-qd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl76.jpg",
-    },
-    "initial-version-f668b6cc-cc55-403c-8fcb-66eaae82d89f": {
-        "id": 47,
-        "slug": "initial-version-f668b6cc-cc55-403c-8fcb-66eaae82d89f",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/msx/version/initial-version-f668b6cc-cc55-403c-8fcb-66eaae82d89f",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8j.jpg",
-    },
-    "initial-version-49010d94-2573-43a2-999d-648049f79445": {
-        "id": 46,
-        "slug": "initial-version-49010d94-2573-43a2-999d-648049f79445",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/mobile/version/initial-version-49010d94-2573-43a2-999d-648049f79445",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnd.jpg",
+        "platform_slug": "ngage",
     },
     "snow-leopard": {
         "id": 146,
@@ -3944,6 +3871,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Snow Leopard",
         "url": "https://www.igdb.com/platforms/mac/version/snow-leopard",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/jiy43xitvtxfi16wcdyd.jpg",
+        "platform_slug": "mac",
     },
     "netscape-navigator": {
         "id": 656,
@@ -3951,6 +3879,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Netscape Navigator",
         "url": "https://www.igdb.com/platforms/browser/version/netscape-navigator",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmq.jpg",
+        "platform_slug": "browser",
     },
     "windows-7": {
         "id": 1,
@@ -3958,6 +3887,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 7",
         "url": "https://www.igdb.com/platforms/win/version/windows-7",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pvjzmgepkxhwvgrgmazj.jpg",
+        "platform_slug": "win",
     },
     "marshmallow": {
         "id": 237,
@@ -3965,13 +3895,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Marshmallow",
         "url": "https://www.igdb.com/platforms/android/version/marshmallow",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plai.jpg",
-    },
-    "initial-version-65f6a9f6-778c-4532-836e-c1712835544a": {
-        "id": 76,
-        "slug": "initial-version-65f6a9f6-778c-4532-836e-c1712835544a",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/wonderswan/version/initial-version-65f6a9f6-778c-4532-836e-c1712835544a",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7c.jpg",
+        "platform_slug": "android",
     },
     "odissea-italian-export": {
         "id": 171,
@@ -3979,6 +3903,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Odissea (Italian Export)",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odissea-italian-export",
         "url_logo": "",
+        "platform_slug": "odyssey--1",
     },
     "super-famicom-jr-model-shvc-101": {
         "id": 177,
@@ -3986,6 +3911,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Super Famicom Jr. (Model SHVC-101)",
         "url": "https://www.igdb.com/platforms/snes/version/super-famicom-jr-model-shvc-101",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ifw2tvdkynyxayquiyk4.jpg",
+        "platform_slug": "snes",
     },
     "xbox-one-s-all-digital": {
         "id": 188,
@@ -3993,13 +3919,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox One S All-Digital",
         "url": "https://www.igdb.com/platforms/xboxone/version/xbox-one-s-all-digital",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl95.jpg",
-    },
-    "initial-version-e8ec6a35-4303-4d7a-b1f7-b794a26b70ca": {
-        "id": 72,
-        "slug": "initial-version-e8ec6a35-4303-4d7a-b1f7-b794a26b70ca",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/wii/version/initial-version-e8ec6a35-4303-4d7a-b1f7-b794a26b70ca",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl70.jpg",
+        "platform_slug": "xboxone",
     },
     "android-1-dot-0": {
         "id": 541,
@@ -4007,6 +3927,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Android 1.0",
         "url": "https://www.igdb.com/platforms/android/version/android-1-dot-0",
         "url_logo": "",
+        "platform_slug": "android",
     },
     "super-nintendo-original-european-version": {
         "id": 95,
@@ -4014,6 +3935,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Super Nintendo (original European version)",
         "url": "https://www.igdb.com/platforms/snes/version/super-nintendo-original-european-version",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7k.jpg",
+        "platform_slug": "snes",
     },
     "lion": {
         "id": 147,
@@ -4021,6 +3943,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Lion",
         "url": "https://www.igdb.com/platforms/mac/version/lion",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/yaguodfpr4ucdiakputb.jpg",
+        "platform_slug": "mac",
     },
     "odyssey-export": {
         "id": 167,
@@ -4028,6 +3951,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Odyssey (Export)",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-export",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf5.jpg",
+        "platform_slug": "odyssey--1",
     },
     "odyssey-german-export": {
         "id": 168,
@@ -4035,6 +3959,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Odyssey (German Export)",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-german-export",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf6.jpg",
+        "platform_slug": "odyssey--1",
     },
     "windows-phone-8": {
         "id": 225,
@@ -4042,6 +3967,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows Phone 8",
         "url": "https://www.igdb.com/platforms/winphone/version/windows-phone-8",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ui8kqoijqxolfowolj56.jpg",
+        "platform_slug": "winphone",
     },
     "lollipop": {
         "id": 236,
@@ -4049,6 +3975,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Lollipop",
         "url": "https://www.igdb.com/platforms/android/version/lollipop",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plah.jpg",
+        "platform_slug": "android",
     },
     "pocket-pc-2002": {
         "id": 535,
@@ -4056,6 +3983,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Pocket PC 2002",
         "url": "https://www.igdb.com/platforms/windows-mobile/version/pocket-pc-2002",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pliu.jpg",
+        "platform_slug": "windows-mobile",
     },
     "android-1-dot-1": {
         "id": 542,
@@ -4063,13 +3991,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Android 1.1",
         "url": "https://www.igdb.com/platforms/android/version/android-1-dot-1",
         "url_logo": "",
-    },
-    "initial-version-c99a4073-0ce0-49d1-afcf-4e9ff7cd7ade": {
-        "id": 38,
-        "slug": "initial-version-c99a4073-0ce0-49d1-afcf-4e9ff7cd7ade",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/fds/version/initial-version-c99a4073-0ce0-49d1-afcf-4e9ff7cd7ade",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8b.jpg",
+        "platform_slug": "android",
     },
     "sonoma": {
         "id": 713,
@@ -4077,6 +3999,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sonoma",
         "url": "https://www.igdb.com/platforms/mac/version/sonoma",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo3.jpg",
+        "platform_slug": "mac",
     },
     "itt-odyssee": {
         "id": 169,
@@ -4084,6 +4007,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "ITT Odyssee",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/itt-odyssee",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8y.jpg",
+        "platform_slug": "odyssey--1",
     },
     "gingerbread-2-3-3": {
         "id": 8,
@@ -4091,6 +4015,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Gingerbread 2.3.3",
         "url": "https://www.igdb.com/platforms/android/version/gingerbread-2-3-3",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/iftbsii6snn6geq5hi9n.jpg",
+        "platform_slug": "android",
     },
     "ms-dos": {
         "id": 540,
@@ -4098,6 +4023,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "MS-DOS",
         "url": "https://www.igdb.com/platforms/dos/version/ms-dos",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plix.jpg",
+        "platform_slug": "dos",
     },
     "android-cupcake": {
         "id": 543,
@@ -4105,13 +4031,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Android Cupcake",
         "url": "https://www.igdb.com/platforms/android/version/android-cupcake",
         "url_logo": "",
-    },
-    "initial-version-d71a6afd-592a-42e8-8e07-1840a9f74687": {
-        "id": 34,
-        "slug": "initial-version-d71a6afd-592a-42e8-8e07-1840a9f74687",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/blackberry/version/initial-version-d71a6afd-592a-42e8-8e07-1840a9f74687",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/bezbkk17hk0uobdkhjcv.jpg",
+        "platform_slug": "android",
     },
     "playstation-vita": {
         "id": 60,
@@ -4119,20 +4039,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation Vita",
         "url": "https://www.igdb.com/platforms/psvita/version/playstation-vita",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6g.jpg",
-    },
-    "initial-version-c9a95eb1-f299-40fe-8ea5-38561de50c23": {
-        "id": 42,
-        "slug": "initial-version-c9a95eb1-f299-40fe-8ea5-38561de50c23",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/intellivision/version/initial-version-c9a95eb1-f299-40fe-8ea5-38561de50c23",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8o.jpg",
-    },
-    "initial-version-7c777fb0-182a-4db6-a04e-ceaa99c240b2": {
-        "id": 43,
-        "slug": "initial-version-7c777fb0-182a-4db6-a04e-ceaa99c240b2",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/ios/version/initial-version-7c777fb0-182a-4db6-a04e-ceaa99c240b2",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6w.jpg",
+        "platform_slug": "psvita",
     },
     "panther": {
         "id": 143,
@@ -4140,6 +4047,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Panther",
         "url": "https://www.igdb.com/platforms/mac/version/panther",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lgboqvrjxbhm9crh0gmk.jpg",
+        "platform_slug": "mac",
     },
     "texas-instruments-ti-99-slash-4": {
         "id": 172,
@@ -4147,6 +4055,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Texas Instruments TI-99/4",
         "url": "https://www.igdb.com/platforms/ti-99/version/texas-instruments-ti-99-slash-4",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plez.jpg",
+        "platform_slug": "ti-99",
     },
     "playstation-3-original": {
         "id": 4,
@@ -4154,6 +4063,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Playstation 3 Original",
         "url": "https://www.igdb.com/platforms/ps3/version/playstation-3-original",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6l.jpg",
+        "platform_slug": "ps3",
     },
     "sega-hikaru": {
         "id": 650,
@@ -4161,6 +4071,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Hikaru",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-hikaru",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmj.jpg",
+        "platform_slug": "arcade",
     },
     "android-donut": {
         "id": 544,
@@ -4168,6 +4079,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Android Donut",
         "url": "https://www.igdb.com/platforms/android/version/android-donut",
         "url_logo": "",
+        "platform_slug": "android",
     },
     "playstation-4-pro": {
         "id": 179,
@@ -4175,6 +4087,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation 4 Pro",
         "url": "https://www.igdb.com/platforms/ps4--1/version/playstation-4-pro",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6f.jpg",
+        "platform_slug": "ps4--1",
     },
     "android-eclair": {
         "id": 545,
@@ -4182,6 +4095,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Android Eclair",
         "url": "https://www.igdb.com/platforms/android/version/android-eclair",
         "url_logo": "",
+        "platform_slug": "android",
     },
     "playstation-portable-slim-and-lite": {
         "id": 276,
@@ -4189,6 +4103,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation Portable Slim & Lite",
         "url": "https://www.igdb.com/platforms/psp/version/playstation-portable-slim-and-lite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5v.jpg",
+        "platform_slug": "psp",
     },
     "android-froyo": {
         "id": 546,
@@ -4196,6 +4111,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Android Froyo",
         "url": "https://www.igdb.com/platforms/android/version/android-froyo",
         "url_logo": "",
+        "platform_slug": "android",
     },
     "playstation-3-slim": {
         "id": 5,
@@ -4203,6 +4119,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Playstation 3 Slim",
         "url": "https://www.igdb.com/platforms/ps3/version/playstation-3-slim",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6m.jpg",
+        "platform_slug": "ps3",
     },
     "playstation-3-super-slim": {
         "id": 6,
@@ -4210,6 +4127,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Playstation 3 Super Slim",
         "url": "https://www.igdb.com/platforms/ps3/version/playstation-3-super-slim",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/tuyy1nrqodtmbqajp4jg.jpg",
+        "platform_slug": "ps3",
     },
     "sg-1000": {
         "id": 91,
@@ -4217,6 +4135,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "SG-1000",
         "url": "https://www.igdb.com/platforms/sg1000/version/sg-1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmn.jpg",
+        "platform_slug": "sg1000",
     },
     "windows-phone-7": {
         "id": 224,
@@ -4224,6 +4143,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows Phone 7",
         "url": "https://www.igdb.com/platforms/winphone/version/windows-phone-7",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/taegabndvbq86z4dumy2.jpg",
+        "platform_slug": "winphone",
     },
     "windows-10-mobile": {
         "id": 227,
@@ -4231,6 +4151,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 10 Mobile",
         "url": "https://www.igdb.com/platforms/winphone/version/windows-10-mobile",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla3.jpg",
+        "platform_slug": "winphone",
     },
     "telstar": {
         "id": 198,
@@ -4238,6 +4159,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Telstar",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/telstar",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/vgsvdiyyzjeayaooi1fy.jpg",
+        "platform_slug": "ay-3-8500",
     },
     "playstation-portable-brite": {
         "id": 277,
@@ -4245,6 +4167,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation Portable Brite",
         "url": "https://www.igdb.com/platforms/psp/version/playstation-portable-brite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5w.jpg",
+        "platform_slug": "psp",
     },
     "meta-quest-2": {
         "id": 593,
@@ -4252,6 +4175,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Meta Quest 2",
         "url": "https://www.igdb.com/platforms/meta-quest-2/version/meta-quest-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll0.jpg",
+        "platform_slug": "meta-quest-2",
     },
     "windows-vista": {
         "id": 14,
@@ -4259,6 +4183,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows Vista",
         "url": "https://www.igdb.com/platforms/win/version/windows-vista",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/z6hjqy9uvneqbd3yh4sm.jpg",
+        "platform_slug": "win",
     },
     "game-boy-light": {
         "id": 182,
@@ -4266,6 +4191,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Game Boy Light",
         "url": "https://www.igdb.com/platforms/gb/version/game-boy-light",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7m.jpg",
+        "platform_slug": "gb",
     },
     "atari-lynx-mkii": {
         "id": 189,
@@ -4273,6 +4199,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Atari Lynx MkII",
         "url": "https://www.igdb.com/platforms/lynx/version/atari-lynx-mkii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl82.jpg",
+        "platform_slug": "lynx",
     },
     "windows-phone-8-dot-1": {
         "id": 226,
@@ -4280,6 +4207,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows Phone 8.1",
         "url": "https://www.igdb.com/platforms/winphone/version/windows-phone-8-dot-1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/gvk8xyyptd40kg3yb8j5.jpg",
+        "platform_slug": "winphone",
     },
     "nougat": {
         "id": 238,
@@ -4287,6 +4215,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nougat",
         "url": "https://www.igdb.com/platforms/android/version/nougat",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaj.jpg",
+        "platform_slug": "android",
     },
     "naomi-2": {
         "id": 651,
@@ -4294,13 +4223,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "NAOMI 2",
         "url": "https://www.igdb.com/platforms/arcade/version/naomi-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm9.jpg",
-    },
-    "initial-version-5bdd02e2-0187-419e-9db1-db42d1a6507c": {
-        "id": 33,
-        "slug": "initial-version-5bdd02e2-0187-419e-9db1-db42d1a6507c",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/bbcmicro/version/initial-version-5bdd02e2-0187-419e-9db1-db42d1a6507c",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl86.jpg",
+        "platform_slug": "arcade",
     },
     "playstation-vita-pch-2000": {
         "id": 274,
@@ -4308,6 +4231,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation Vita (PCH-2000)",
         "url": "https://www.igdb.com/platforms/psvita/version/playstation-vita-pch-2000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5z.jpg",
+        "platform_slug": "psvita",
     },
     "dvd": {
         "id": 355,
@@ -4315,6 +4239,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "DVD",
         "url": "https://www.igdb.com/platforms/dvd-player/version/dvd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbu.jpg",
+        "platform_slug": "dvd-player",
     },
     "lcd-based-handhelds": {
         "id": 551,
@@ -4322,6 +4247,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "LCD-based handhelds",
         "url": "https://www.igdb.com/platforms/handheld-electronic-lcd/version/lcd-based-handhelds",
         "url_logo": "",
+        "platform_slug": "handheld-electronic-lcd",
     },
     "opera": {
         "id": 657,
@@ -4329,13 +4255,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Opera",
         "url": "https://www.igdb.com/platforms/browser/version/opera",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmr.jpg",
-    },
-    "initial-version-62da4d4a-0faa-489f-bab1-a0ec26db72d9": {
-        "id": 16,
-        "slug": "initial-version-62da4d4a-0faa-489f-bab1-a0ec26db72d9",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/dc/version/initial-version-62da4d4a-0faa-489f-bab1-a0ec26db72d9",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7i.jpg",
+        "platform_slug": "browser",
     },
     "blu-ray-disc": {
         "id": 356,
@@ -4343,13 +4263,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Blu-ray Disc",
         "url": "https://www.igdb.com/platforms/blu-ray-player/version/blu-ray-disc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbv.jpg",
-    },
-    "initial-version-8b4019b7-7255-449e-9571-088151f6b335": {
-        "id": 35,
-        "slug": "initial-version-8b4019b7-7255-449e-9571-088151f6b335",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/colecovision/version/initial-version-8b4019b7-7255-449e-9571-088151f6b335",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8n.jpg",
+        "platform_slug": "blu-ray-player",
     },
     "xbox-one-x--1": {
         "id": 185,
@@ -4357,6 +4271,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox One X",
         "url": "https://www.igdb.com/platforms/xboxone/version/xbox-one-x--1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fckqj8d3as6tug4fg3x4.jpg",
+        "platform_slug": "xboxone",
     },
     "playstation-tv": {
         "id": 275,
@@ -4364,6 +4279,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation TV",
         "url": "https://www.igdb.com/platforms/psvita/version/playstation-tv",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6h.jpg",
+        "platform_slug": "psvita",
     },
     "xbox-series-s": {
         "id": 489,
@@ -4371,6 +4287,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox Series S",
         "url": "https://www.igdb.com/platforms/series-x-s/version/xbox-series-s",
         "url_logo": "",
+        "platform_slug": "series-x-s",
     },
     "sinclair-ql": {
         "id": 524,
@@ -4378,6 +4295,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sinclair QL",
         "url": "https://www.igdb.com/platforms/sinclair-ql/version/sinclair-ql",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plih.jpg",
+        "platform_slug": "sinclair-ql",
     },
     "vivaldi": {
         "id": 662,
@@ -4385,20 +4303,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Vivaldi",
         "url": "https://www.igdb.com/platforms/browser/version/vivaldi",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmw.jpg",
-    },
-    "initial-version-3c3779b9-d6d6-4bbf-bab6-b815fe4412ec": {
-        "id": 81,
-        "slug": "initial-version-3c3779b9-d6d6-4bbf-bab6-b815fe4412ec",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/neogeomvs/version/initial-version-3c3779b9-d6d6-4bbf-bab6-b815fe4412ec",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/cbhfilmhdgwdql8nzsy0.jpg",
-    },
-    "initial-version-87dfdafa-bcbc-466c-8286-cc8cccf4daa3": {
-        "id": 54,
-        "slug": "initial-version-87dfdafa-bcbc-466c-8286-cc8cccf4daa3",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/ngc/version/initial-version-87dfdafa-bcbc-466c-8286-cc8cccf4daa3",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7a.jpg",
+        "platform_slug": "browser",
     },
     "game-boy-pocket": {
         "id": 181,
@@ -4406,6 +4311,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Game Boy Pocket",
         "url": "https://www.igdb.com/platforms/gb/version/game-boy-pocket",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7o.jpg",
+        "platform_slug": "gb",
     },
     "google-stadia-founders-edition": {
         "id": 285,
@@ -4413,13 +4319,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Google Stadia: Founder's Edition",
         "url": "https://www.igdb.com/platforms/stadia/version/google-stadia-founders-edition",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl94.jpg",
-    },
-    "initial-version-6835ddec-db2a-4da6-8f89-7d8e63f7e293": {
-        "id": 17,
-        "slug": "initial-version-6835ddec-db2a-4da6-8f89-7d8e63f7e293",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/ps4--1/version/initial-version-6835ddec-db2a-4da6-8f89-7d8e63f7e293",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6e.jpg",
+        "platform_slug": "stadia",
     },
     "feature-phone": {
         "id": 514,
@@ -4427,6 +4327,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Feature phone",
         "url": "https://www.igdb.com/platforms/mobile/version/feature-phone",
         "url_logo": "",
+        "platform_slug": "mobile",
     },
     "sega-mega-drive-2-slash-genesis": {
         "id": 628,
@@ -4434,6 +4335,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Mega Drive 2/Genesis",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-drive-2-slash-genesis",
         "url_logo": "",
+        "platform_slug": "genesis-slash-megadrive",
     },
     "xbox-360-s": {
         "id": 495,
@@ -4441,6 +4343,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox 360 S",
         "url": "https://www.igdb.com/platforms/xbox360/version/xbox-360-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plha.jpg",
+        "platform_slug": "xbox360",
     },
     "sears-hockey-pong": {
         "id": 510,
@@ -4448,13 +4351,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sears Hockey-Pong",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/sears-hockey-pong",
         "url_logo": "",
-    },
-    "initial-version-4a139f68-37d5-4cda-977a-77d29be274dd": {
-        "id": 80,
-        "slug": "initial-version-4a139f68-37d5-4cda-977a-77d29be274dd",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/sega-cd/version/initial-version-4a139f68-37d5-4cda-977a-77d29be274dd",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7w.jpg",
+        "platform_slug": "ay-3-8500",
     },
     "tele-cassetten-game": {
         "id": 205,
@@ -4462,6 +4359,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Tele-Cassetten-Game",
         "url": "https://www.igdb.com/platforms/pc-50x-family/version/tele-cassetten-game",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/dpwrkxrjkuxwqroqwjsw.jpg",
+        "platform_slug": "pc-50x-family",
     },
     "advanced-pico-beena": {
         "id": 726,
@@ -4469,6 +4367,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Advanced Pico Beena",
         "url": "https://www.igdb.com/platforms/advanced-pico-beena/version/advanced-pico-beena",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plou.jpg",
+        "platform_slug": "advanced-pico-beena",
     },
     "10": {
         "id": 526,
@@ -4476,6 +4375,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "10",
         "url": "https://www.igdb.com/platforms/android/version/10",
         "url_logo": "",
+        "platform_slug": "android",
     },
     "11": {
         "id": 527,
@@ -4483,6 +4383,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "11",
         "url": "https://www.igdb.com/platforms/android/version/11",
         "url_logo": "",
+        "platform_slug": "android",
     },
     "starlight-wii-gaming-station": {
         "id": 730,
@@ -4490,6 +4391,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Starlight Wii Gaming Station",
         "url": "https://www.igdb.com/platforms/wii/version/starlight-wii-gaming-station",
         "url_logo": "",
+        "platform_slug": "wii",
     },
     "amiga-a-1200": {
         "id": 522,
@@ -4497,6 +4399,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Amiga A 1200",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-1200",
         "url_logo": "",
+        "platform_slug": "amiga",
     },
     "12": {
         "id": 528,
@@ -4504,6 +4407,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "12",
         "url": "https://www.igdb.com/platforms/android/version/12",
         "url_logo": "",
+        "platform_slug": "android",
     },
     "windows-3-dot-0": {
         "id": 531,
@@ -4511,6 +4415,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 3.0",
         "url": "https://www.igdb.com/platforms/win/version/windows-3-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plip.jpg",
+        "platform_slug": "win",
     },
     "beenalite": {
         "id": 727,
@@ -4518,6 +4423,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "BeenaLite",
         "url": "https://www.igdb.com/platforms/advanced-pico-beena/version/beenalite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plov.jpg",
+        "platform_slug": "advanced-pico-beena",
     },
     "windows-mobile-2003": {
         "id": 536,
@@ -4525,6 +4431,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows Mobile 2003",
         "url": "https://www.igdb.com/platforms/windows-mobile/version/windows-mobile-2003",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pliv.jpg",
+        "platform_slug": "windows-mobile",
     },
     "windows-mobile-5-dot-0": {
         "id": 537,
@@ -4532,6 +4439,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows Mobile 5.0",
         "url": "https://www.igdb.com/platforms/windows-mobile/version/windows-mobile-5-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pliw.jpg",
+        "platform_slug": "windows-mobile",
     },
     "windows-mobile-6-dot-0": {
         "id": 538,
@@ -4539,6 +4447,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows Mobile 6.0",
         "url": "https://www.igdb.com/platforms/windows-mobile/version/windows-mobile-6-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkl.jpg",
+        "platform_slug": "windows-mobile",
     },
     "windows-10": {
         "id": 124,
@@ -4546,6 +4455,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 10",
         "url": "https://www.igdb.com/platforms/win/version/windows-10",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/irwvwpl023f8y19tidgq.jpg",
+        "platform_slug": "win",
     },
     "wii-family-edition": {
         "id": 731,
@@ -4553,6 +4463,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Wii Family Edition",
         "url": "https://www.igdb.com/platforms/wii/version/wii-family-edition",
         "url_logo": "",
+        "platform_slug": "wii",
     },
     "big-sur": {
         "id": 599,
@@ -4560,6 +4471,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Big Sur",
         "url": "https://www.igdb.com/platforms/mac/version/big-sur",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plla.jpg",
+        "platform_slug": "mac",
     },
     "cheetah": {
         "id": 45,
@@ -4567,6 +4479,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Cheetah",
         "url": "https://www.igdb.com/platforms/mac/version/cheetah",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/eatvxlflfq0lk8p8sp2c.jpg",
+        "platform_slug": "mac",
     },
     "windows-2-dot-0": {
         "id": 530,
@@ -4574,6 +4487,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 2.0",
         "url": "https://www.igdb.com/platforms/win/version/windows-2-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plio.jpg",
+        "platform_slug": "win",
     },
     "oculus-quest-2": {
         "id": 507,
@@ -4581,6 +4495,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Oculus Quest 2",
         "url": "https://www.igdb.com/platforms/meta-quest-2/version/oculus-quest-2",
         "url_logo": "",
+        "platform_slug": "meta-quest-2",
     },
     "super-famicom-box": {
         "id": 639,
@@ -4588,6 +4503,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Super Famicom Box",
         "url": "https://www.igdb.com/platforms/sfam/version/super-famicom-box",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmm.jpg",
+        "platform_slug": "sfam",
     },
     "nokia-n-gage-classic": {
         "id": 49,
@@ -4595,6 +4511,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nokia N-Gage Classic",
         "url": "https://www.igdb.com/platforms/ngage/version/nokia-n-gage-classic",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl75.jpg",
+        "platform_slug": "ngage",
     },
     "tiger": {
         "id": 144,
@@ -4602,6 +4519,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Tiger",
         "url": "https://www.igdb.com/platforms/mac/version/tiger",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/jp06zemqemczisfaxsgl.jpg",
+        "platform_slug": "mac",
     },
     "turbo-express-slash-pc-engine-gt": {
         "id": 733,
@@ -4609,13 +4527,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Turbo Express/PC Engine GT",
         "url": "https://www.igdb.com/platforms/turbografx16--1/version/turbo-express-slash-pc-engine-gt",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ploz.jpg",
-    },
-    "initial-version-edb2fbbe-ffbe-4e63-a504-4a98114ab7c7": {
-        "id": 52,
-        "slug": "initial-version-edb2fbbe-ffbe-4e63-a504-4a98114ab7c7",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/nds/version/initial-version-edb2fbbe-ffbe-4e63-a504-4a98114ab7c7",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6r.jpg",
+        "platform_slug": "turbografx16--1",
     },
     "amiga-a-3000": {
         "id": 112,
@@ -4623,6 +4535,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Amiga A 3000",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-3000",
         "url_logo": "",
+        "platform_slug": "amiga",
     },
     "monterey": {
         "id": 600,
@@ -4630,6 +4543,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Monterey",
         "url": "https://www.igdb.com/platforms/mac/version/monterey",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll9.jpg",
+        "platform_slug": "mac",
     },
     "pie": {
         "id": 320,
@@ -4637,6 +4551,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Pie",
         "url": "https://www.igdb.com/platforms/android/version/pie",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plax.jpg",
+        "platform_slug": "android",
     },
     "atari-2600-plus": {
         "id": 673,
@@ -4644,6 +4559,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Atari 2600+",
         "url": "https://www.igdb.com/platforms/atari2600/version/atari-2600-plus",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln4.jpg",
+        "platform_slug": "atari2600",
     },
     "amiga-a-3000t": {
         "id": 113,
@@ -4651,6 +4567,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Amiga A 3000T",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-3000t",
         "url_logo": "",
+        "platform_slug": "amiga",
     },
     "amiga-a-500": {
         "id": 19,
@@ -4658,6 +4575,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Amiga A 500",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-500",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plav.jpg",
+        "platform_slug": "amiga",
     },
     "master-system-girl": {
         "id": 632,
@@ -4665,6 +4583,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Master System Girl",
         "url": "https://www.igdb.com/platforms/sms/version/master-system-girl",
         "url_logo": "",
+        "platform_slug": "sms",
     },
     "ventura": {
         "id": 598,
@@ -4672,6 +4591,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Ventura",
         "url": "https://www.igdb.com/platforms/mac/version/ventura",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll5.jpg",
+        "platform_slug": "mac",
     },
     "atari-800": {
         "id": 104,
@@ -4679,6 +4599,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Atari 800",
         "url": "https://www.igdb.com/platforms/atari8bit/version/atari-800",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl68.jpg",
+        "platform_slug": "atari8bit",
     },
     "el-capitan": {
         "id": 151,
@@ -4686,6 +4607,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "El Capitan",
         "url": "https://www.igdb.com/platforms/mac/version/el-capitan",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll8.jpg",
+        "platform_slug": "mac",
     },
     "acetronic-mpu-1000": {
         "id": 213,
@@ -4693,6 +4615,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Acetronic MPU-1000",
         "url": "https://www.igdb.com/platforms/1292-advanced-programmable-video-system/version/acetronic-mpu-1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/yfdqsudagw0av25dawjr.jpg",
+        "platform_slug": "1292-advanced-programmable-video-system",
     },
     "oculus-rift-s": {
         "id": 680,
@@ -4700,6 +4623,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Oculus Rift S",
         "url": "https://www.igdb.com/platforms/oculus-rift/version/oculus-rift-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln9.jpg",
+        "platform_slug": "oculus-rift",
     },
     "xbox-360-original": {
         "id": 83,
@@ -4707,6 +4631,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox 360 Original",
         "url": "https://www.igdb.com/platforms/xbox360/version/xbox-360-original",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6x.jpg",
+        "platform_slug": "xbox360",
     },
     "amiga-a-600": {
         "id": 109,
@@ -4714,6 +4639,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Amiga A 600",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-600",
         "url_logo": "",
+        "platform_slug": "amiga",
     },
     "card-e-reader": {
         "id": 735,
@@ -4721,20 +4647,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Card-e Reader",
         "url": "https://www.igdb.com/platforms/e-reader-slash-card-e-reader/version/card-e-reader",
         "url_logo": "",
-    },
-    "initial-version-04719e9f-bc9e-4b08-982c-50c495215228": {
-        "id": 44,
-        "slug": "initial-version-04719e9f-bc9e-4b08-982c-50c495215228",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/linux/version/initial-version-04719e9f-bc9e-4b08-982c-50c495215228",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plak.jpg",
-    },
-    "initial-version-6ac4b90f-0745-458f-866d-3672aa6ed5eb": {
-        "id": 77,
-        "slug": "initial-version-6ac4b90f-0745-458f-866d-3672aa6ed5eb",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/xbox/version/initial-version-6ac4b90f-0745-458f-866d-3672aa6ed5eb",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7e.jpg",
+        "platform_slug": "e-reader-slash-card-e-reader",
     },
     "sega-alls": {
         "id": 696,
@@ -4742,6 +4655,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega ALLS",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-alls",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnq.jpg",
+        "platform_slug": "arcade",
     },
     "oreo": {
         "id": 239,
@@ -4749,6 +4663,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Oreo",
         "url": "https://www.igdb.com/platforms/android/version/oreo",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plag.jpg",
+        "platform_slug": "android",
     },
     "e-reader-slash-card-e-reader-plus": {
         "id": 732,
@@ -4756,6 +4671,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "e-Reader / Card-e Reader+",
         "url": "https://www.igdb.com/platforms/e-reader-slash-card-e-reader/version/e-reader-slash-card-e-reader-plus",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ploy.jpg",
+        "platform_slug": "e-reader-slash-card-e-reader",
     },
     "mega-pc": {
         "id": 625,
@@ -4763,6 +4679,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Mega PC",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/mega-pc",
         "url_logo": "",
+        "platform_slug": "genesis-slash-megadrive",
     },
     "teradrive": {
         "id": 627,
@@ -4770,6 +4687,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Teradrive",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/teradrive",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm5.jpg",
+        "platform_slug": "genesis-slash-megadrive",
     },
     "sega-mark-iii": {
         "id": 629,
@@ -4777,6 +4695,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Mark III",
         "url": "https://www.igdb.com/platforms/sms/version/sega-mark-iii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm6.jpg",
+        "platform_slug": "sms",
     },
     "microsoft-edge": {
         "id": 661,
@@ -4784,6 +4703,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Microsoft Edge",
         "url": "https://www.igdb.com/platforms/browser/version/microsoft-edge",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmv.jpg",
+        "platform_slug": "browser",
     },
     "amiga-a-1000": {
         "id": 110,
@@ -4791,6 +4711,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Amiga A 1000",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkf.jpg",
+        "platform_slug": "amiga",
     },
     "tlv-k981g-game-vcd-player": {
         "id": 622,
@@ -4798,6 +4719,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "TLV-K981G Game VCD Player",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/tlv-k981g-game-vcd-player",
         "url_logo": "",
+        "platform_slug": "genesis-slash-megadrive",
     },
     "nintendo-super-system": {
         "id": 638,
@@ -4805,6 +4727,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nintendo Super System",
         "url": "https://www.igdb.com/platforms/arcade/version/nintendo-super-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmd.jpg",
+        "platform_slug": "arcade",
     },
     "sega-game-box-9": {
         "id": 631,
@@ -4812,6 +4735,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Game Box 9",
         "url": "https://www.igdb.com/platforms/sms/version/sega-game-box-9",
         "url_logo": "",
+        "platform_slug": "sms",
     },
     "sega-system-e": {
         "id": 634,
@@ -4819,6 +4743,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega System E",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-system-e",
         "url_logo": "",
+        "platform_slug": "arcade",
     },
     "firefox": {
         "id": 660,
@@ -4826,6 +4751,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Firefox",
         "url": "https://www.igdb.com/platforms/browser/version/firefox",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmu.jpg",
+        "platform_slug": "browser",
     },
     "led-based-handheld": {
         "id": 692,
@@ -4833,6 +4759,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "LED-based handheld",
         "url": "https://www.igdb.com/platforms/handheld-electronic-lcd/version/led-based-handheld",
         "url_logo": "",
+        "platform_slug": "handheld-electronic-lcd",
     },
     "mountain-lion": {
         "id": 148,
@@ -4840,6 +4767,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Mountain Lion",
         "url": "https://www.igdb.com/platforms/mac/version/mountain-lion",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/vpprk3kkeloztxesyoiv.jpg",
+        "platform_slug": "mac",
     },
     "mega-play": {
         "id": 636,
@@ -4847,6 +4775,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Mega Play",
         "url": "https://www.igdb.com/platforms/arcade/version/mega-play",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm8.jpg",
+        "platform_slug": "arcade",
     },
     "new-style-super-nes-model-sns-101": {
         "id": 97,
@@ -4854,6 +4783,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "New-Style Super NES (Model SNS-101)",
         "url": "https://www.igdb.com/platforms/snes/version/new-style-super-nes-model-sns-101",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/mr2y5qpyhvj1phm5tivg.jpg",
+        "platform_slug": "snes",
     },
     "super-famicom-jr": {
         "id": 98,
@@ -4861,6 +4791,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Super Famicom Jr.",
         "url": "https://www.igdb.com/platforms/sfam/version/super-famicom-jr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/a9x7xjy4p9sqynrvomcf.jpg",
+        "platform_slug": "sfam",
     },
     "family-computer": {
         "id": 123,
@@ -4868,6 +4799,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Family Computer",
         "url": "https://www.igdb.com/platforms/famicom/version/family-computer",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7p.jpg",
+        "platform_slug": "famicom",
     },
     "my-computer-tv": {
         "id": 645,
@@ -4875,6 +4807,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "My Computer TV",
         "url": "https://www.igdb.com/platforms/famicom/version/my-computer-tv",
         "url_logo": "",
+        "platform_slug": "famicom",
     },
     "mega-tech-system": {
         "id": 635,
@@ -4882,13 +4815,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Mega-Tech System",
         "url": "https://www.igdb.com/platforms/arcade/version/mega-tech-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmk.jpg",
-    },
-    "initial-version-9ef509be-a00a-427e-9b78-93c4a10e04b6": {
-        "id": 22,
-        "slug": "initial-version-9ef509be-a00a-427e-9b78-93c4a10e04b6",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/arcade/version/initial-version-9ef509be-a00a-427e-9b78-93c4a10e04b6",
-        "url_logo": "",
+        "platform_slug": "arcade",
     },
     "famicombox-slash-famicom-station": {
         "id": 648,
@@ -4896,6 +4823,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "FamicomBox/Famicom Station",
         "url": "https://www.igdb.com/platforms/famicom/version/famicombox-slash-famicom-station",
         "url_logo": "",
+        "platform_slug": "famicom",
     },
     "soft-desk-10": {
         "id": 668,
@@ -4903,6 +4831,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Soft Desk 10",
         "url": "https://www.igdb.com/platforms/arcade/version/soft-desk-10",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln0.jpg",
+        "platform_slug": "arcade",
     },
     "sega-titan-video": {
         "id": 669,
@@ -4910,6 +4839,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Titan Video",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-titan-video",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln1.jpg",
+        "platform_slug": "arcade",
     },
     "terebikko-cordless": {
         "id": 698,
@@ -4917,6 +4847,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Terebikko Cordless",
         "url": "https://www.igdb.com/platforms/terebikko-slash-see-n-say-video-phone/version/terebikko-cordless",
         "url_logo": "",
+        "platform_slug": "terebikko-slash-see-n-say-video-phone",
     },
     "mark-iii-soft-desk-10": {
         "id": 665,
@@ -4924,6 +4855,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Mark III Soft Desk 10",
         "url": "https://www.igdb.com/platforms/arcade/version/mark-iii-soft-desk-10",
         "url_logo": "",
+        "platform_slug": "arcade",
     },
     "mark-iii-soft-desk-5": {
         "id": 666,
@@ -4931,6 +4863,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Mark III Soft Desk 5",
         "url": "https://www.igdb.com/platforms/arcade/version/mark-iii-soft-desk-5",
         "url_logo": "",
+        "platform_slug": "arcade",
     },
     "sega-ringedge": {
         "id": 667,
@@ -4938,6 +4871,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega RingEdge",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-ringedge",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmz.jpg",
+        "platform_slug": "arcade",
     },
     "jaguar": {
         "id": 142,
@@ -4945,6 +4879,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Jaguar",
         "url": "https://www.igdb.com/platforms/mac/version/jaguar",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fua8zdpguizpoyzfvkou.jpg",
+        "platform_slug": "mac",
     },
     "sega-master-system-ii": {
         "id": 633,
@@ -4952,6 +4887,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Master System II",
         "url": "https://www.igdb.com/platforms/sms/version/sega-master-system-ii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plme.jpg",
+        "platform_slug": "sms",
     },
     "atomiswave": {
         "id": 652,
@@ -4959,6 +4895,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Atomiswave",
         "url": "https://www.igdb.com/platforms/arcade/version/atomiswave",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plma.jpg",
+        "platform_slug": "arcade",
     },
     "ps-one": {
         "id": 653,
@@ -4966,6 +4903,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PS One",
         "url": "https://www.igdb.com/platforms/ps/version/ps-one",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmb.jpg",
+        "platform_slug": "ps",
     },
     "net-yaroze": {
         "id": 654,
@@ -4973,6 +4911,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Net Yaroze",
         "url": "https://www.igdb.com/platforms/ps/version/net-yaroze",
         "url_logo": "",
+        "platform_slug": "ps",
     },
     "internet-explorer": {
         "id": 655,
@@ -4980,6 +4919,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Internet Explorer",
         "url": "https://www.igdb.com/platforms/browser/version/internet-explorer",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmp.jpg",
+        "platform_slug": "browser",
     },
     "safari": {
         "id": 658,
@@ -4987,6 +4927,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Safari",
         "url": "https://www.igdb.com/platforms/browser/version/safari",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plms.jpg",
+        "platform_slug": "browser",
     },
     "sega-system-1": {
         "id": 649,
@@ -4994,6 +4935,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega System 1",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-system-1",
         "url_logo": "",
+        "platform_slug": "arcade",
     },
     "fm-towns-marty": {
         "id": 707,
@@ -5001,6 +4943,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "FM Towns Marty",
         "url": "https://www.igdb.com/platforms/fm-towns/version/fm-towns-marty",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnz.jpg",
+        "platform_slug": "fm-towns",
     },
     "naomi": {
         "id": 637,
@@ -5008,6 +4951,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "NAOMI",
         "url": "https://www.igdb.com/platforms/arcade/version/naomi",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmf.jpg",
+        "platform_slug": "arcade",
     },
     "triforce": {
         "id": 664,
@@ -5015,6 +4959,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Triforce",
         "url": "https://www.igdb.com/platforms/arcade/version/triforce",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmy.jpg",
+        "platform_slug": "arcade",
     },
     "android-13": {
         "id": 672,
@@ -5022,6 +4967,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Android 13",
         "url": "https://www.igdb.com/platforms/android/version/android-13",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln3.jpg",
+        "platform_slug": "android",
     },
     "original-version": {
         "id": 67,
@@ -5029,6 +4975,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Original version",
         "url": "https://www.igdb.com/platforms/sfam/version/original-version",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7j.jpg",
+        "platform_slug": "sfam",
     },
     "super-nintendo-original-north-american-version": {
         "id": 68,
@@ -5036,6 +4983,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Super Nintendo (original North American version)",
         "url": "https://www.igdb.com/platforms/snes/version/super-nintendo-original-north-american-version",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ob1omu1he33vpulatqzv.jpg",
+        "platform_slug": "snes",
     },
     "nintendo-3ds-xl-slash-ll": {
         "id": 675,
@@ -5043,6 +4991,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nintendo 3DS XL/LL",
         "url": "https://www.igdb.com/platforms/3ds/version/nintendo-3ds-xl-slash-ll",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln5.jpg",
+        "platform_slug": "3ds",
     },
     "nintendo-2ds": {
         "id": 676,
@@ -5050,6 +4999,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nintendo 2DS",
         "url": "https://www.igdb.com/platforms/3ds/version/nintendo-2ds",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln6.jpg",
+        "platform_slug": "3ds",
     },
     "new-nintendo-3ds-xl": {
         "id": 677,
@@ -5057,13 +5007,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "New Nintendo 3DS XL",
         "url": "https://www.igdb.com/platforms/new-nintendo-3ds/version/new-nintendo-3ds-xl",
         "url_logo": "",
-    },
-    "initial-version-831971f0-0222-4373-ba03-1acf8274b991": {
-        "id": 39,
-        "slug": "initial-version-831971f0-0222-4373-ba03-1acf8274b991",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/gb/version/initial-version-831971f0-0222-4373-ba03-1acf8274b991",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7n.jpg",
+        "platform_slug": "new-nintendo-3ds",
     },
     "fm-towns-marty-2": {
         "id": 708,
@@ -5071,27 +5015,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "FM Towns Marty 2",
         "url": "https://www.igdb.com/platforms/fm-towns/version/fm-towns-marty-2",
         "url_logo": "",
-    },
-    "initial-version-d60d8930-94fc-497f-8e0e-92644a02ab6a": {
-        "id": 50,
-        "slug": "initial-version-d60d8930-94fc-497f-8e0e-92644a02ab6a",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/3ds/version/initial-version-d60d8930-94fc-497f-8e0e-92644a02ab6a",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6o.jpg",
-    },
-    "initial-version-4369dd46-1ced-49c7-85f2-7f5c28d72be5": {
-        "id": 51,
-        "slug": "initial-version-4369dd46-1ced-49c7-85f2-7f5c28d72be5",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/n64/version/initial-version-4369dd46-1ced-49c7-85f2-7f5c28d72be5",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl77.jpg",
-    },
-    "initial-version-23584cc8-ba5c-4175-86bf-4b784c45ec52": {
-        "id": 62,
-        "slug": "initial-version-23584cc8-ba5c-4175-86bf-4b784c45ec52",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/gamegear/version/initial-version-23584cc8-ba5c-4175-86bf-4b784c45ec52",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7z.jpg",
+        "platform_slug": "fm-towns",
     },
     "sega-mega-drive-slash-genesis": {
         "id": 64,
@@ -5099,20 +5023,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Mega Drive/Genesis",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-drive-slash-genesis",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl85.jpg",
-    },
-    "initial-version-ed059efd-a8a6-4ded-a209-998137a3f29a": {
-        "id": 65,
-        "slug": "initial-version-ed059efd-a8a6-4ded-a209-998137a3f29a",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/saturn/version/initial-version-ed059efd-a8a6-4ded-a209-998137a3f29a",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/hrmqljpwunky1all3v78.jpg",
-    },
-    "initial-version-cfe9db03-c422-4216-b8de-539d686f3616": {
-        "id": 41,
-        "slug": "initial-version-cfe9db03-c422-4216-b8de-539d686f3616",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/gbc/version/initial-version-cfe9db03-c422-4216-b8de-539d686f3616",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7l.jpg",
+        "platform_slug": "genesis-slash-megadrive",
     },
     "vectrex": {
         "id": 70,
@@ -5120,13 +5031,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Vectrex",
         "url": "https://www.igdb.com/platforms/vectrex/version/vectrex",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8h.jpg",
-    },
-    "initial-version-e3ea39e6-786b-4b95-b574-b90f9b282c58": {
-        "id": 40,
-        "slug": "initial-version-e3ea39e6-786b-4b95-b574-b90f9b282c58",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/gba/version/initial-version-e3ea39e6-786b-4b95-b574-b90f9b282c58",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl73.jpg",
+        "platform_slug": "vectrex",
     },
     "digiblast": {
         "id": 712,
@@ -5134,6 +5039,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Digiblast",
         "url": "https://www.igdb.com/platforms/digiblast/version/digiblast",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo2.jpg",
+        "platform_slug": "digiblast",
     },
     "slimline": {
         "id": 114,
@@ -5141,6 +5047,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Slimline",
         "url": "https://www.igdb.com/platforms/ps2/version/slimline",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl72.jpg",
+        "platform_slug": "ps2",
     },
     "oled-model": {
         "id": 503,
@@ -5148,6 +5055,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "OLED Model",
         "url": "https://www.igdb.com/platforms/switch/version/oled-model",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgu.jpg",
+        "platform_slug": "switch",
     },
     "commodore-64c": {
         "id": 595,
@@ -5155,6 +5063,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Commodore 64C",
         "url": "https://www.igdb.com/platforms/c64/version/commodore-64c",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll3.jpg",
+        "platform_slug": "c64",
     },
     "xbox-360-elite": {
         "id": 2,
@@ -5162,13 +5071,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox 360 Elite",
         "url": "https://www.igdb.com/platforms/xbox360/version/xbox-360-elite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6z.jpg",
-    },
-    "initial-version-8d77ec4c-dc38-4fd8-a59a-5fbfcaea12ae": {
-        "id": 73,
-        "slug": "initial-version-8d77ec4c-dc38-4fd8-a59a-5fbfcaea12ae",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/wiiu/version/initial-version-8d77ec4c-dc38-4fd8-a59a-5fbfcaea12ae",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6n.jpg",
+        "platform_slug": "xbox360",
     },
     "nintendo-ds-lite": {
         "id": 190,
@@ -5176,6 +5079,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nintendo DS Lite",
         "url": "https://www.igdb.com/platforms/nds/version/nintendo-ds-lite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pdn0g4fyks0y1v2ckzws.jpg",
+        "platform_slug": "nds",
     },
     "game-boy-micro": {
         "id": 194,
@@ -5183,6 +5087,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Game Boy Micro",
         "url": "https://www.igdb.com/platforms/gba/version/game-boy-micro",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl74.jpg",
+        "platform_slug": "gba",
     },
     "sega-master-system": {
         "id": 63,
@@ -5190,6 +5095,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Master System",
         "url": "https://www.igdb.com/platforms/sms/version/sega-master-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8a.jpg",
+        "platform_slug": "sms",
     },
     "odyssey-us": {
         "id": 101,
@@ -5197,6 +5103,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Odyssey (US)",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-us",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8u.jpg",
+        "platform_slug": "odyssey--1",
     },
     "texas-instruments-ti-99-slash-4a": {
         "id": 427,
@@ -5204,6 +5111,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Texas Instruments TI-99/4A",
         "url": "https://www.igdb.com/platforms/ti-99/version/texas-instruments-ti-99-slash-4a",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf0.jpg",
+        "platform_slug": "ti-99",
     },
     "amstrad-cpc-6128": {
         "id": 525,
@@ -5211,6 +5119,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Amstrad CPC 6128",
         "url": "https://www.igdb.com/platforms/acpc/version/amstrad-cpc-6128",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnh.jpg",
+        "platform_slug": "acpc",
     },
     "ez-games-video-game-system": {
         "id": 623,
@@ -5218,6 +5127,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "EZ Games Video Game System",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/ez-games-video-game-system",
         "url_logo": "",
+        "platform_slug": "genesis-slash-megadrive",
     },
     "aleck-64": {
         "id": 681,
@@ -5225,6 +5135,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Aleck 64",
         "url": "https://www.igdb.com/platforms/arcade/version/aleck-64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plni.jpg",
+        "platform_slug": "arcade",
     },
     "evercade-vs": {
         "id": 500,
@@ -5232,6 +5143,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Evercade VS",
         "url": "https://www.igdb.com/platforms/evercade/version/evercade-vs",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgm.jpg",
+        "platform_slug": "evercade",
     },
     "sega-mega-jet": {
         "id": 624,
@@ -5239,6 +5151,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Mega Jet",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-jet",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plne.jpg",
+        "platform_slug": "genesis-slash-megadrive",
     },
     "cpc-464": {
         "id": 20,
@@ -5246,6 +5159,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "CPC 464",
         "url": "https://www.igdb.com/platforms/acpc/version/cpc-464",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/nlizydzqnuzvzfdapqoj.jpg",
+        "platform_slug": "acpc",
     },
     "windows-1-dot-0": {
         "id": 529,
@@ -5253,6 +5167,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 1.0",
         "url": "https://www.igdb.com/platforms/win/version/windows-1-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plin.jpg",
+        "platform_slug": "win",
     },
     "handheld-pc": {
         "id": 539,
@@ -5260,6 +5175,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Handheld PC",
         "url": "https://www.igdb.com/platforms/mobile/version/handheld-pc",
         "url_logo": "",
+        "platform_slug": "mobile",
     },
     "evercade-exp": {
         "id": 594,
@@ -5267,6 +5183,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Evercade EXP",
         "url": "https://www.igdb.com/platforms/evercade/version/evercade-exp",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plky.jpg",
+        "platform_slug": "evercade",
     },
     "vt01": {
         "id": 686,
@@ -5274,6 +5191,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "VT01",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt01",
         "url_logo": "",
+        "platform_slug": "plug-and-play",
     },
     "vt09": {
         "id": 687,
@@ -5281,6 +5199,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "VT09",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt09",
         "url_logo": "",
+        "platform_slug": "plug-and-play",
     },
     "sega-nomad": {
         "id": 626,
@@ -5288,6 +5207,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Sega Nomad",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-nomad",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmc.jpg",
+        "platform_slug": "genesis-slash-megadrive",
     },
     "nintendo-vs-system": {
         "id": 640,
@@ -5295,6 +5215,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Nintendo VS. System",
         "url": "https://www.igdb.com/platforms/arcade/version/nintendo-vs-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmi.jpg",
+        "platform_slug": "arcade",
     },
     "vt02": {
         "id": 684,
@@ -5302,6 +5223,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "VT02",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt02",
         "url_logo": "",
+        "platform_slug": "plug-and-play",
     },
     "vt03": {
         "id": 685,
@@ -5309,6 +5231,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "VT03",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt03",
         "url_logo": "",
+        "platform_slug": "plug-and-play",
     },
     "vt32": {
         "id": 688,
@@ -5316,6 +5239,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "VT32",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt32",
         "url_logo": "",
+        "platform_slug": "plug-and-play",
     },
     "master-system-super-compact": {
         "id": 630,
@@ -5323,6 +5247,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Master System Super Compact",
         "url": "https://www.igdb.com/platforms/sms/version/master-system-super-compact",
         "url_logo": "",
+        "platform_slug": "sms",
     },
     "game-television": {
         "id": 644,
@@ -5330,6 +5255,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Game Television",
         "url": "https://www.igdb.com/platforms/nes/version/game-television",
         "url_logo": "",
+        "platform_slug": "nes",
     },
     "twin-famicom": {
         "id": 647,
@@ -5337,6 +5263,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Twin Famicom",
         "url": "https://www.igdb.com/platforms/famicom/version/twin-famicom",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plml.jpg",
+        "platform_slug": "famicom",
     },
     "google-chrome": {
         "id": 659,
@@ -5344,6 +5271,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Google Chrome",
         "url": "https://www.igdb.com/platforms/browser/version/google-chrome",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmt.jpg",
+        "platform_slug": "browser",
     },
     "leopard": {
         "id": 145,
@@ -5351,6 +5279,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Leopard",
         "url": "https://www.igdb.com/platforms/mac/version/leopard",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/db0qv9ovisi8e0isgkby.jpg",
+        "platform_slug": "mac",
     },
     "playchoice-10": {
         "id": 641,
@@ -5358,6 +5287,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayChoice-10",
         "url": "https://www.igdb.com/platforms/arcade/version/playchoice-10",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmg.jpg",
+        "platform_slug": "arcade",
     },
     "xbox-series-x": {
         "id": 284,
@@ -5365,6 +5295,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Xbox Series X",
         "url": "https://www.igdb.com/platforms/series-x-s/version/xbox-series-x",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plfl.jpg",
+        "platform_slug": "series-x-s",
     },
     "520-st": {
         "id": 30,
@@ -5372,13 +5303,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "520 ST",
         "url": "https://www.igdb.com/platforms/atari-st/version/520-st",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla7.jpg",
-    },
-    "initial-version-414585e3-0f93-496a-8a82-d9fd5ab9f5e3": {
-        "id": 58,
-        "slug": "initial-version-414585e3-0f93-496a-8a82-d9fd5ab9f5e3",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/ps2/version/initial-version-414585e3-0f93-496a-8a82-d9fd5ab9f5e3",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl71.jpg",
+        "platform_slug": "atari-st",
     },
     "mavericks": {
         "id": 149,
@@ -5386,6 +5311,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Mavericks",
         "url": "https://www.igdb.com/platforms/mac/version/mavericks",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lsyardp2tldsqglhscqh.jpg",
+        "platform_slug": "mac",
     },
     "playstation-portable-go": {
         "id": 278,
@@ -5393,6 +5319,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "PlayStation Portable Go",
         "url": "https://www.igdb.com/platforms/psp/version/playstation-portable-go",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6p.jpg",
+        "platform_slug": "psp",
     },
     "new-famicom": {
         "id": 642,
@@ -5400,13 +5327,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "New Famicom",
         "url": "https://www.igdb.com/platforms/famicom/version/new-famicom",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnf.jpg",
-    },
-    "initial-version-910b4439-ecb8-404f-8e5f-791e43ccf889": {
-        "id": 53,
-        "slug": "initial-version-910b4439-ecb8-404f-8e5f-791e43ccf889",
-        "name": "Initial version",
-        "url": "https://www.igdb.com/platforms/nes/version/initial-version-910b4439-ecb8-404f-8e5f-791e43ccf889",
-        "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6c.jpg",
+        "platform_slug": "famicom",
     },
     "epoch-cassette-vision": {
         "id": 493,
@@ -5414,6 +5335,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Epoch Cassette Vision",
         "url": "https://www.igdb.com/platforms/epoch-cassette-vision/version/epoch-cassette-vision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plko.jpg",
+        "platform_slug": "epoch-cassette-vision",
     },
     "windows-11": {
         "id": 513,
@@ -5421,6 +5343,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Windows 11",
         "url": "https://www.igdb.com/platforms/win/version/windows-11",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plim.jpg",
+        "platform_slug": "win",
     },
     "new-style-nes": {
         "id": 643,
@@ -5428,6 +5351,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "New-Style NES",
         "url": "https://www.igdb.com/platforms/nes/version/new-style-nes",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmo.jpg",
+        "platform_slug": "nes",
     },
     "zx-spectrum": {
         "id": 79,
@@ -5435,6 +5359,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "ZX Spectrum",
         "url": "https://www.igdb.com/platforms/zxs/version/zx-spectrum",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plab.jpg",
+        "platform_slug": "zxs",
     },
     "audiosonic-pp-1292-advanced-programmable-video-system": {
         "id": 197,
@@ -5442,5 +5367,6 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
         "name": "Audiosonic PP-1292 Advanced Programmable Video System",
         "url": "https://www.igdb.com/platforms/1292-advanced-programmable-video-system/version/audiosonic-pp-1292-advanced-programmable-video-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/f9a4tll5lnyxhlijvxjy.jpg",
+        "platform_slug": "1292-advanced-programmable-video-system",
     },
 }
