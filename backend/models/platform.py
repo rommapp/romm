@@ -62,6 +62,8 @@ class Platform(BaseModel):
             and not self.moby_id
             and not self.ss_id
             and not self.launchbox_id
+            and not self.ra_id
+            and not self.hasheous_id
         )
 
     @property
@@ -75,6 +77,8 @@ class Platform(BaseModel):
             and bool(self.moby_id)
             and bool(self.ss_id)
             and bool(self.launchbox_id)
+            and bool(self.ra_id)
+            and bool(self.hasheous_id)
         )
 
     @cached_property
