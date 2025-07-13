@@ -7,6 +7,7 @@ import pydash
 from config import DEV_MODE, HASHEOUS_API_ENABLED
 from fastapi import HTTPException, status
 from logger.logger import log
+from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
 
@@ -200,7 +201,7 @@ class HasheousHandler(MetadataHandler):
             ra_id=platform["ra_id"],
         )
 
-    async def get_rom(self, rom_attrs: dict) -> HasheousRom:
+    async def lookup_rom(self, files: list[RomFile]) -> HasheousRom:
         fallback_rom = HasheousRom(
             hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
         )
@@ -208,9 +209,20 @@ class HasheousHandler(MetadataHandler):
         if not HASHEOUS_API_ENABLED:
             return fallback_rom
 
-        md5_hash = rom_attrs.get("md5_hash")
-        sha1_hash = rom_attrs.get("sha1_hash")
-        crc_hash = rom_attrs.get("crc_hash")
+        first_file = next(
+            (
+                file
+                for file in files
+                if file.file_size_bytes is not None and file.file_size_bytes > 0
+            ),
+            None,
+        )
+        if first_file is None:
+            return fallback_rom
+
+        md5_hash = first_file.md5_hash
+        sha1_hash = first_file.sha1_hash
+        crc_hash = first_file.crc_hash
 
         if not (md5_hash or sha1_hash or crc_hash):
             log.warning(
