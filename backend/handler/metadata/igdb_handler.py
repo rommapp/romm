@@ -572,7 +572,6 @@ class IGDBHandler(MetadataHandler):
         if not platform_igdb_id:
             return []
 
-        search_term = self.normalize_search_term(search_term)
         matched_roms = await self._request(
             self.games_endpoint,
             data=f'search "{uc(search_term)}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}];',
