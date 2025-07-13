@@ -128,14 +128,6 @@ async def scan_platform(
     hasheous_platform = meta_hasheous_handler.get_platform(platform_attrs["slug"])
     tgdb_platform = meta_tgdb_handler.get_platform(platform_attrs["slug"])
 
-    print(f"IGDB: {igdb_platform['igdb_id']}")
-    print(f"Moby: {moby_platform['moby_id']}")
-    print(f"SS: {ss_platform['ss_id']}")
-    print(f"RA: {ra_platform['ra_id']}")
-    print(f"Launchbox: {launchbox_platform['launchbox_id']}")
-    print(f"Hasheous: {hasheous_platform['hasheous_id']}")
-    print(f"TGDB: {tgdb_platform['tgdb_id']}")
-
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
         {
