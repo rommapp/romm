@@ -77,13 +77,12 @@ const coverImageSource = computed(() => {
   try {
     const hostname = new URL(props.rom.url_cover).hostname;
 
-    if (hostname.includes("igdb.com")) return "IGDB";
-    if (hostname.includes("screenscraper.fr")) return "ScreenScraper";
-    if (hostname.includes("mobygames.com")) return "MobyGames";
-    if (hostname.includes("launchbox-app.com")) return "LaunchBox";
-    if (hostname.includes("retroachievements.org")) return "RetroAchievements";
-    if (hostname.includes("hasheous.org")) return "Hasheous";
-    if (hostname.includes("steamgriddb.com")) return "SteamGridDB";
+    if (hostname == "images.igdb.com") return "IGDB";
+    if (hostname == "screenscraper.fr") return "ScreenScraper";
+    if (hostname == "cdn.mobygames.com") return "MobyGames";
+    if (hostname == "images.launchbox-app.com") return "LaunchBox";
+    if (hostname == "media.retroachievements.org") return "RetroAchievements";
+    if (hostname == "cdn2.steamgriddb.com") return "SteamGridDB";
 
     return null;
   } catch (error) {
