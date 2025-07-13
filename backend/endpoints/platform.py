@@ -65,7 +65,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
 
     now = datetime.now(timezone.utc)
     supported_platforms = []
-    for platform in IGDB_PLATFORM_LIST:
+    for platform in IGDB_PLATFORM_LIST.values():
         platform_id = db_platforms_map.get(platform["name"], -1)
         sup_plat = {
             "id": platform_id,
