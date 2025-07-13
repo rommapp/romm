@@ -254,10 +254,9 @@ class MobyGamesHandler(MetadataHandler):
         if not platform_moby_id:
             return []
 
-        search_term = uc(search_term)
         matched_roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(search_term, safe="/ "),
+            title=quote(uc(search_term), safe="/ "),
         )
 
         return [

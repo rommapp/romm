@@ -52,7 +52,7 @@ class FSPlatformsHandler(FSHandler):
         )
 
         try:
-            platforms = [d for _, d in iter_directories(platforms_dir)]
+            platforms = sorted([d for _, d in iter_directories(platforms_dir)])
             return self._exclude_platforms(cnfg, platforms)
         except IndexError as exc:
             raise FolderStructureNotMatchException from exc

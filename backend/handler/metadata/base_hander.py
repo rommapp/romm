@@ -56,16 +56,14 @@ COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b$")
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 
-CHAR_REMOVAL_TABLE = str.maketrans("_'\"", "   ")
-
 
 # This caches results to avoid repeated normalization of the same search term
 @lru_cache(maxsize=1024)
 def _normalize_search_term(
     name: str, remove_articles: bool = True, remove_punctuation: bool = True
 ) -> str:
-    # Single translate operation
-    name = name.lower().translate(CHAR_REMOVAL_TABLE)
+    # Lower and replace underscores with spaces
+    name = name.lower().replace("_", " ")
 
     # Remove articles (combined if possible)
     if remove_articles:

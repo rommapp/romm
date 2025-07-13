@@ -445,7 +445,6 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return []
 
-        search_term = self.normalize_search_term(search_term)
         matched_roms = await self.ss_service.search_games(
             term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
