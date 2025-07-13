@@ -74,16 +74,21 @@ const dataSources = computed(() => {
 const coverImageSource = computed(() => {
   if (!props.rom.url_cover) return null;
 
-  if (props.rom.url_cover.includes("igdb.com")) return "IGDB";
-  if (props.rom.url_cover.includes("screenscraper.fr")) return "ScreenScraper";
-  if (props.rom.url_cover.includes("mobygames.com")) return "MobyGames";
-  if (props.rom.url_cover.includes("launchbox-app.com")) return "LaunchBox";
-  if (props.rom.url_cover.includes("retroachievements.org"))
-    return "RetroAchievements";
-  if (props.rom.url_cover.includes("hasheous.org")) return "Hasheous";
-  if (props.rom.url_cover.includes("steamgriddb.com")) return "SteamGridDB";
+  try {
+    const hostname = new URL(props.rom.url_cover).hostname;
 
-  return null;
+    if (hostname.includes("igdb.com")) return "IGDB";
+    if (hostname.includes("screenscraper.fr")) return "ScreenScraper";
+    if (hostname.includes("mobygames.com")) return "MobyGames";
+    if (hostname.includes("launchbox-app.com")) return "LaunchBox";
+    if (hostname.includes("retroachievements.org")) return "RetroAchievements";
+    if (hostname.includes("hasheous.org")) return "Hasheous";
+    if (hostname.includes("steamgriddb.com")) return "SteamGridDB";
+
+    return null;
+  } catch (error) {
+    return null;
+  }
 });
 
 // Functions
