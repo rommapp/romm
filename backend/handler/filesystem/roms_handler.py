@@ -135,6 +135,9 @@ def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
                 with z.open(file, "r") as f:
                     while chunk := f.read(FILE_READ_CHUNK_SIZE):
                         yield chunk
+
+                    # We only need to read the first file in the archive
+                    return
     except zipfile.BadZipFile:
         if isinstance(file, Path):
             for chunk in read_basic_file(file):
@@ -158,6 +161,9 @@ def read_tar_file(
                 with f.extractfile(member) as ef:  # type: ignore
                     while chunk := ef.read(FILE_READ_CHUNK_SIZE):
                         yield chunk
+
+                # We only need to read the first file in the archive
+                return
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk
@@ -188,11 +194,13 @@ def process_7z_file(
             on_read=fn_hash_read,
         )
         # Provide a file handler to `SevenZipFile` instead of a file path to deactivate the
-        # "parallel" mode in py7zr, which is needed to deterministically calculate the hashes, by
-        # reading each included file in order, one by one.
+        # "parallel" mode in py7zr, which is needed to deterministically calculate the hashes
         with open(file_path, "rb") as f:
             with py7zr.SevenZipFile(f, mode="r") as archive:
-                archive.extractall(factory=factory)  # nosec B202
+                file_list = archive.getnames()
+                for file in file_list:
+                    archive.extract(file, factory=factory)
+                    break  # We only need to read the first file in the archive
     except (
         Bad7zFile,
         DecompressionError,

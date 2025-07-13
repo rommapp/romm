@@ -83,7 +83,7 @@ const fetchContinuePlayingRoms = async (): Promise<void> => {
       data: { items },
     } = await romApi.getRecentPlayedRoms();
     const filteredItems = items.filter((rom) => rom.rom_user.last_played);
-    romsStore.setContinuePlayedRoms(filteredItems);
+    romsStore.setContinuePlayingRoms(filteredItems);
   } catch (error) {
     console.error("Failed to fetch continue playing ROMs:", error);
   } finally {
