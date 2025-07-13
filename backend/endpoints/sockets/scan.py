@@ -331,9 +331,7 @@ async def _identify_platform(
     if platform and scan_type == ScanType.NEW_PLATFORMS:
         return scan_stats
 
-    scanned_platform = await scan_platform(
-        platform_slug, fs_platforms, metadata_sources=metadata_sources
-    )
+    scanned_platform = await scan_platform(platform_slug, fs_platforms)
     if platform:
         scanned_platform.id = platform.id
         # Keep the existing ids if they exist on the platform
