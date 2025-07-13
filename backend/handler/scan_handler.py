@@ -18,15 +18,14 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.hasheous_handler import HasheousPlatform, HasheousRom
-from handler.metadata.igdb_handler import IGDBPlatform, IGDBRom
-from handler.metadata.launchbox_handler import LaunchboxPlatform, LaunchboxRom
-from handler.metadata.moby_handler import MobyGamesPlatform, MobyGamesRom
+from handler.metadata.hasheous_handler import HasheousRom
+from handler.metadata.igdb_handler import IGDBRom
+from handler.metadata.launchbox_handler import LaunchboxRom
+from handler.metadata.moby_handler import MobyGamesRom
 from handler.metadata.playmatch_handler import PlaymatchRomMatch
-from handler.metadata.ra_handler import RAGameRom, RAGamesPlatform
+from handler.metadata.ra_handler import RAGameRom
 from handler.metadata.sgdb_handler import SGDBRom
-from handler.metadata.ss_handler import SSPlatform, SSRom
-from handler.metadata.tgdb_handler import TGDBPlatform
+from handler.metadata.ss_handler import SSRom
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -81,7 +80,6 @@ async def _get_main_platform_igdb_id(platform: Platform):
 async def scan_platform(
     fs_slug: str,
     fs_platforms: list[str],
-    metadata_sources: list[str] | None = None,
 ) -> Platform:
     """Get platform details
 
@@ -90,16 +88,6 @@ async def scan_platform(
     Returns
         Platform object
     """
-
-    if metadata_sources is None:
-        metadata_sources = [
-            MetadataSource.IGDB,
-            MetadataSource.MOBY,
-            MetadataSource.SS,
-            MetadataSource.RA,
-            MetadataSource.LB,
-        ]
-
     platform_attrs: dict[str, Any] = {}
     platform_attrs["fs_slug"] = fs_slug
 
@@ -131,41 +119,22 @@ async def scan_platform(
             platform_attrs["slug"] = fs_slug
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
-    igdb_platform = (
-        (await meta_igdb_handler.get_platform(platform_attrs["slug"]))
-        if MetadataSource.IGDB in metadata_sources
-        else IGDBPlatform(igdb_id=None, slug=platform_attrs["slug"])
-    )
-    moby_platform = (
-        meta_moby_handler.get_platform(platform_attrs["slug"])
-        if MetadataSource.MOBY in metadata_sources
-        else MobyGamesPlatform(moby_id=None, slug=platform_attrs["slug"])
-    )
-    ss_platform = (
-        meta_ss_handler.get_platform(platform_attrs["slug"])
-        if MetadataSource.SS in metadata_sources
-        else SSPlatform(ss_id=None, slug=platform_attrs["slug"])
-    )
-    ra_platform = (
-        meta_ra_handler.get_platform(platform_attrs["slug"])
-        if MetadataSource.RA in metadata_sources
-        else RAGamesPlatform(ra_id=None, slug=platform_attrs["slug"])
-    )
-    launchbox_platform = (
-        meta_launchbox_handler.get_platform(platform_attrs["slug"])
-        if MetadataSource.LB in metadata_sources
-        else LaunchboxPlatform(launchbox_id=None, slug=platform_attrs["slug"])
-    )
-    hasheous_platform = (
-        meta_hasheous_handler.get_platform(platform_attrs["slug"])
-        if MetadataSource.HASHEOUS in metadata_sources
-        else HasheousPlatform(hasheous_id=None, slug=platform_attrs["slug"])
-    )
-    tgdb_platform = (
-        meta_tgdb_handler.get_platform(platform_attrs["slug"])
-        if MetadataSource.TGDB in metadata_sources
-        else TGDBPlatform(tgdb_id=None, slug=platform_attrs["slug"])
-    )
+
+    igdb_platform = await meta_igdb_handler.get_platform(platform_attrs["slug"])
+    moby_platform = meta_moby_handler.get_platform(platform_attrs["slug"])
+    ss_platform = meta_ss_handler.get_platform(platform_attrs["slug"])
+    ra_platform = meta_ra_handler.get_platform(platform_attrs["slug"])
+    launchbox_platform = meta_launchbox_handler.get_platform(platform_attrs["slug"])
+    hasheous_platform = meta_hasheous_handler.get_platform(platform_attrs["slug"])
+    tgdb_platform = meta_tgdb_handler.get_platform(platform_attrs["slug"])
+
+    print(f"IGDB: {igdb_platform['igdb_id']}")
+    print(f"Moby: {moby_platform['moby_id']}")
+    print(f"SS: {ss_platform['ss_id']}")
+    print(f"RA: {ra_platform['ra_id']}")
+    print(f"Launchbox: {launchbox_platform['launchbox_id']}")
+    print(f"Hasheous: {hasheous_platform['hasheous_id']}")
+    print(f"TGDB: {tgdb_platform['tgdb_id']}")
 
     platform_attrs["name"] = platform_attrs["slug"].replace("-", " ").title()
     platform_attrs.update(
