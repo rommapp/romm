@@ -70,17 +70,6 @@ class Platform(BaseModel):
     def is_identified(self) -> bool:
         return not self.is_unidentified
 
-    @property
-    def is_fully_identified(self) -> bool:
-        return (
-            bool(self.igdb_id)
-            and bool(self.moby_id)
-            and bool(self.ss_id)
-            and bool(self.launchbox_id)
-            and bool(self.ra_id)
-            and bool(self.hasheous_id)
-        )
-
     @cached_property
     def fs_size_bytes(self) -> int:
         from handler.database import db_stats_handler

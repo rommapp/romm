@@ -334,17 +334,6 @@ class Rom(BaseModel):
     def is_identified(self) -> bool:
         return not self.is_unidentified
 
-    @property
-    def is_fully_identified(self) -> bool:
-        return (
-            bool(self.igdb_id)
-            and bool(self.moby_id)
-            and bool(self.ss_id)
-            and bool(self.ra_id)
-            and bool(self.launchbox_id)
-            and bool(self.hasheous_id)
-        )
-
     def has_m3u_file(self) -> bool:
         """
         Check if the ROM has an M3U file associated with it.
