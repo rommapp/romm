@@ -4,7 +4,7 @@ import RDialog from "@/components/common/RDialog.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import type { DetailedRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
@@ -12,7 +12,7 @@ import { MdPreview } from "md-editor-v3";
 import { get } from "lodash";
 
 // Props
-defineProps<{ rom: DetailedRom }>();
+const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const { xs } = useDisplay();
 const theme = useTheme();
@@ -36,45 +36,54 @@ const filters = [
   { key: "companies", path: "metadatum.companies", name: t("rom.companies") },
 ] as const;
 
-// const metadataSources = computed(() => {
-//   return [
-//     {
-//       name: "IGDB",
-//       isMatch: props.rom.igdb_id,
-//       isCover: props.rom.url_cover?.includes("igdb.com")
-//     },
-//     {
-//       name: "Hasheous",
-//       isMatch: props.rom.hasheous_id,
-//       isCover: false,
-//     },
-//     {
-//       name: "Screenscraper",
-//       isMatch: props.rom.ss_id,
-//       isCover: props.rom.url_cover?.includes("screenscraper.fr")
-//     },
-//     {
-//       name: "RetroAchievements",
-//       isMatch: props.rom.ra_id,
-//       isCover: false,
-//     },
-//     {
-//       name: "Launchbox",
-//       isMatch: props.rom.launchbox_id,
-//       isCover: props.rom.url_cover?.includes("launchbox-app.com")
-//     },
-//     {
-//       name: "TheGamesDB",
-//       isMatch: props.rom.tgdb_id,
-//       isCover: props.rom.url_cover?.includes("thegamesdb.net")
-//     },
-//     {
-//       name: "SteamGridDB",
-//       isMatch: props.rom.sgdb_id,
-//       isCover: props.rom.url_cover?.includes("steamgriddb.com")
-//     }
-//   ]
-// });
+const dataSources = computed(() => {
+  return [
+    {
+      name: "IGDB",
+      condition: props.rom.igdb_id,
+      url: `https://www.igdb.com/games/${props.rom.slug}`,
+    },
+    {
+      name: "ScreenScraper",
+      condition: props.rom.ss_id,
+      url: `https://www.screenscraper.fr/gameinfos.php?gameid=${props.rom.ss_id}`,
+    },
+    {
+      name: "MobyGames",
+      condition: props.rom.moby_id,
+      url: `https://www.mobygames.com/game/${props.rom.moby_id}`,
+    },
+    {
+      name: "LaunchBox",
+      condition: props.rom.launchbox_id,
+      url: `https://gamesdb.launchbox-app.com/games/details/${props.rom.launchbox_id}`,
+    },
+    {
+      name: "RetroAchievements",
+      condition: props.rom.ra_id,
+      url: `https://retroachievements.org/game/${props.rom.ra_id}`,
+    },
+    {
+      name: "Hasheous",
+      condition: props.rom.hasheous_id,
+      url: `https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${props.rom.hasheous_id}`,
+    },
+  ].filter((source) => source.condition);
+});
+
+const coverImageSource = computed(() => {
+  if (!props.rom.url_cover) return null;
+
+  if (props.rom.url_cover.includes("igdb.com")) return "IGDB";
+  if (props.rom.url_cover.includes("screenscraper.fr")) return "ScreenScraper";
+  if (props.rom.url_cover.includes("mobygames.com")) return "MobyGames";
+  if (props.rom.url_cover.includes("launchbox-app.com")) return "LaunchBox";
+  if (props.rom.url_cover.includes("retroachievements.org"))
+    return "RetroAchievements";
+  if (props.rom.url_cover.includes("hasheous.org")) return "Hasheous";
+
+  return null;
+});
 
 // Functions
 function onFilterClick(filter: FilterType, value: string) {
@@ -286,56 +295,29 @@ function onFilterClick(filter: FilterType, value: string) {
         </v-row>
       </template>
       <v-row v-if="rom.is_identified">
-        <v-col>
-          Data provided by
-          <a
-            v-if="rom.igdb_id"
-            style="color: inherit"
-            :href="`https://www.igdb.com/games/${rom.slug}`"
-            target="_blank"
-            >IGDB,</a
-          >
-          <a
-            v-if="rom.ss_id"
-            style="color: inherit"
-            :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
-            target="_blank"
-          >
-            ScreenScraper,
-          </a>
-          <a
-            v-if="rom.moby_id"
-            style="color: inherit"
-            :href="`https://www.mobygames.com/game/${rom.moby_id}`"
-            target="_blank"
-          >
-            MobyGames,
-          </a>
-          <a
-            v-if="rom.launchbox_id"
-            style="color: inherit"
-            :href="`https://gamesdb.launchbox-app.com/games/details/${rom.launchbox_id}`"
-            target="_blank"
-          >
-            LaunchBox,
-          </a>
-          <a
-            v-if="rom.ra_id"
-            style="color: inherit"
-            :href="`https://retroachievements.org/game/${rom.ra_id}`"
-            target="_blank"
-            title="RetroAchievements ID"
-          >
-            RetroAchievements,
-          </a>
-          <a
-            v-if="rom.hasheous_id"
-            style="color: inherit"
-            :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${rom.hasheous_id}`"
-            target="_blank"
-          >
-            Hasheous,
-          </a>
+        <v-col class="mt-4 text-right">
+          <div class="text-grey">
+            Data provided by
+            <template v-for="(source, index) in dataSources" :key="source.name">
+              <a
+                v-if="source.condition"
+                style="color: inherit"
+                :href="source.url"
+                target="_blank"
+              >
+                {{ source.name }}
+              </a>
+              <span v-if="source.condition && index < dataSources.length - 1">
+                {{ index === dataSources.length - 2 ? " and " : ", " }}
+              </span> </template
+            >.
+          </div>
+          <div v-if="rom.url_cover && coverImageSource" class="text-grey mt-1">
+            Cover image provided by
+            <a :href="rom.url_cover" target="_blank" style="color: inherit">
+              {{ coverImageSource }}</a
+            >.
+          </div>
         </v-col>
       </v-row>
     </v-col>
