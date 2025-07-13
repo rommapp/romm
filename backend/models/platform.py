@@ -62,20 +62,13 @@ class Platform(BaseModel):
             and not self.moby_id
             and not self.ss_id
             and not self.launchbox_id
+            and not self.ra_id
+            and not self.hasheous_id
         )
 
     @property
     def is_identified(self) -> bool:
         return not self.is_unidentified
-
-    @property
-    def is_fully_identified(self) -> bool:
-        return (
-            bool(self.igdb_id)
-            and bool(self.moby_id)
-            and bool(self.ss_id)
-            and bool(self.launchbox_id)
-        )
 
     @cached_property
     def fs_size_bytes(self) -> int:
