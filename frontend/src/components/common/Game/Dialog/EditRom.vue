@@ -298,7 +298,7 @@ function closeDialog() {
               class="my-2"
             />
             <v-chip
-              :variant="rom.has_manual ? 'flat' : 'tonal'"
+              :variant="rom.path_manual ? 'flat' : 'tonal'"
               label
               size="large"
               class="bg-toplayer px-0"
@@ -306,12 +306,12 @@ function closeDialog() {
               <span
                 class="ml-4"
                 :class="{
-                  'text-romm-red': !rom.has_manual,
-                  'text-romm-green': rom.has_manual,
+                  'text-romm-red': !rom.path_manual,
+                  'text-romm-green': rom.path_manual,
                 }"
                 >{{ t("rom.manual")
                 }}<v-icon class="ml-1">{{
-                  rom.has_manual ? "mdi-check" : "mdi-close"
+                  rom.path_manual ? "mdi-check" : "mdi-close"
                 }}</v-icon></span
               >
               <v-btn
@@ -333,7 +333,7 @@ function closeDialog() {
                 />
               </v-btn>
             </v-chip>
-            <div v-if="rom.has_manual">
+            <div v-if="rom.path_manual">
               <v-label class="text-caption text-wrap">
                 <v-icon size="small" class="text-primary mr-2">
                   mdi-folder-file-outline

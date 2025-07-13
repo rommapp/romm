@@ -221,7 +221,6 @@ class RomSchema(BaseModel):
     path_cover_large: str | None
     url_cover: str | None
 
-    has_manual: bool
     path_manual: str | None
     url_manual: str | None
 

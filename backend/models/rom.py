@@ -5,7 +5,12 @@ from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from config import FRONTEND_RESOURCES_PATH
+from config import (
+    FRONTEND_RESOURCES_PATH,
+    STORE_COVERS_ON_DISK,
+    STORE_RESOURCES_ON_DISK,
+    STORE_SCREENSHOTS_ON_DISK,
+)
 from models.base import BaseModel
 from sqlalchemy import (
     TIMESTAMP,
@@ -244,11 +249,10 @@ class Rom(BaseModel):
         return f"{self.fs_path}/{self.fs_name}"
 
     @cached_property
-    def has_manual(self) -> bool:
-        return bool(self.path_manual)
-
-    @cached_property
     def merged_screenshots(self) -> list[str]:
+        if not STORE_SCREENSHOTS_ON_DISK and self.url_screenshots:
+            return self.url_screenshots
+
         if self.path_screenshots:
             return [f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots]
 
@@ -277,6 +281,9 @@ class Rom(BaseModel):
 
     @property
     def path_cover_small(self) -> str:
+        if not STORE_COVERS_ON_DISK and self.url_cover:
+            return self.url_cover
+
         return (
             f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_s}?ts={self.updated_at}"
             if self.path_cover_s
@@ -285,6 +292,9 @@ class Rom(BaseModel):
 
     @property
     def path_cover_large(self) -> str:
+        if not STORE_COVERS_ON_DISK and self.url_cover:
+            return self.url_cover
+
         return (
             f"{FRONTEND_RESOURCES_PATH}/{self.path_cover_l}?ts={self.updated_at}"
             if self.path_cover_l
@@ -312,10 +322,14 @@ class Rom(BaseModel):
         if self.ra_metadata and "achievements" in self.ra_metadata:
             for achievement in self.ra_metadata.get("achievements", []):
                 achievement["badge_path_lock"] = (
-                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
+                    (f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}")
+                    if STORE_RESOURCES_ON_DISK
+                    else achievement["badge_url_lock"]
                 )
                 achievement["badge_path"] = (
-                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
+                    (f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}")
+                    if STORE_RESOURCES_ON_DISK
+                    else achievement["badge_url"]
                 )
         return self.ra_metadata
 

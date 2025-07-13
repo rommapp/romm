@@ -3,7 +3,13 @@ import shutil
 
 import httpx
 from anyio import Path, open_file
-from config import RESOURCES_BASE_PATH
+from config import (
+    RESOURCES_BASE_PATH,
+    STORE_COVERS_ON_DISK,
+    STORE_MANUALS_ON_DISK,
+    STORE_RESOURCES_ON_DISK,
+    STORE_SCREENSHOTS_ON_DISK,
+)
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -97,7 +103,7 @@ class FSResourcesHandler(FSHandler):
     async def get_cover(
         self, entity: Rom | Collection | None, overwrite: bool, url_cover: str | None
     ) -> tuple[str, str]:
-        if not entity:
+        if not STORE_COVERS_ON_DISK or not entity:
             return "", ""
 
         small_cover_exists = await self.cover_exists(entity, CoverSize.SMALL)
@@ -139,6 +145,7 @@ class FSResourcesHandler(FSHandler):
 
     @staticmethod
     async def build_artwork_path(entity: Rom | Collection | None, file_ext: str):
+        """Builds the artwork path for a given entity."""
         if not entity:
             return "", "", ""
 
@@ -190,7 +197,7 @@ class FSResourcesHandler(FSHandler):
     async def get_rom_screenshots(
         self, rom: Rom | None, url_screenshots: list | None
     ) -> list[str]:
-        if not rom or not url_screenshots:
+        if not STORE_SCREENSHOTS_ON_DISK or not rom or not url_screenshots:
             return []
 
         path_screenshots: list[str] = []
@@ -248,7 +255,7 @@ class FSResourcesHandler(FSHandler):
     async def get_manual(
         self, rom: Rom | None, overwrite: bool, url_manual: str | None
     ) -> str:
-        if not rom:
+        if not STORE_MANUALS_ON_DISK or not rom:
             return ""
 
         manual_exists = await self.manual_exists(rom)
@@ -260,6 +267,9 @@ class FSResourcesHandler(FSHandler):
         return path_manual
 
     async def store_ra_badge(self, url: str, file_path: str) -> None:
+        if not STORE_RESOURCES_ON_DISK:
+            return
+
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url, timeout=120) as response:
@@ -273,7 +283,7 @@ class FSResourcesHandler(FSHandler):
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx.TransportError as exc:
-            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+            log.error(f"Unable to fetch badge at {url}: {str(exc)}")
 
     def get_ra_base_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
