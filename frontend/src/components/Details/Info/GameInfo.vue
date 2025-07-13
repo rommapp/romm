@@ -81,6 +81,7 @@ const coverImageSource = computed(() => {
   if (props.rom.url_cover.includes("retroachievements.org"))
     return "RetroAchievements";
   if (props.rom.url_cover.includes("hasheous.org")) return "Hasheous";
+  if (props.rom.url_cover.includes("steamgriddb.com")) return "SteamGridDB";
 
   return null;
 });
