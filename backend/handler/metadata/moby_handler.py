@@ -13,6 +13,7 @@ from .base_hander import (
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
+    BaseRom,
     MetadataHandler,
 )
 
@@ -44,12 +45,8 @@ class MobyMetadata(TypedDict):
     platforms: list[MobyMetadataPlatform]
 
 
-class MobyGamesRom(TypedDict):
+class MobyGamesRom(BaseRom):
     moby_id: int | None
-    name: NotRequired[str]
-    summary: NotRequired[str]
-    url_cover: NotRequired[str]
-    url_screenshots: NotRequired[list[str]]
     moby_metadata: NotRequired[MobyMetadata]
 
 

@@ -4,7 +4,7 @@ import re
 import unicodedata
 from functools import lru_cache
 from itertools import batched
-from typing import Final
+from typing import Final, NotRequired, TypedDict
 
 from handler.redis_handler import async_cache, sync_cache
 from logger.logger import log
@@ -55,6 +55,14 @@ LEADING_ARTICLE_PATTERN = re.compile(r"^(a|an|the)\b")
 COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b$")
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
+
+
+class BaseRom(TypedDict):
+    name: NotRequired[str]
+    summary: NotRequired[str]
+    url_cover: NotRequired[str]
+    url_screenshots: NotRequired[list[str]]
+    url_manual: NotRequired[str]
 
 
 # This caches results to avoid repeated normalization of the same search term

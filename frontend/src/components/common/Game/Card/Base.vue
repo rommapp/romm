@@ -265,7 +265,7 @@ onBeforeUnmount(() => {
                     />
                     <v-chip
                       v-if="rom.hasheous_id"
-                      class="translucent-dark mr-1 mb-1 px-1"
+                      class="translucent-dark text-white mr-1 mb-1 px-1"
                       density="compact"
                       title="Verified with Hasheous"
                     >
@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
                     </v-chip>
                     <v-chip
                       v-if="rom.siblings.length > 0 && showSiblings"
-                      class="translucent-dark mr-1 mb-1 px-1"
+                      class="translucent-dark text-white mr-1 mb-1 px-1"
                       density="compact"
                       :title="`${rom.siblings.length} sibling(s)`"
                     >
@@ -284,7 +284,7 @@ onBeforeUnmount(() => {
                       text="Favorite"
                       color="secondary"
                       density="compact"
-                      class="translucent-dark mr-1 mb-1 px-1"
+                      class="translucent-dark text-white mr-1 mb-1 px-1"
                     >
                       <v-icon>mdi-star</v-icon>
                     </v-chip>

@@ -173,15 +173,15 @@ class Rom(BaseModel):
         Text, default="", doc="URL to manual stored in ScreenScraper"
     )
 
-    revision: Mapped[str | None] = mapped_column(String(length=100))
-    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-
     path_screenshots: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     url_screenshots: Mapped[list[str] | None] = mapped_column(
         CustomJSON(), default=[], doc="URLs to screenshots stored in IGDB"
     )
+
+    revision: Mapped[str | None] = mapped_column(String(length=100))
+    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
