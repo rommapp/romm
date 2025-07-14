@@ -18,6 +18,7 @@ from .base_hander import (
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
+    BaseRom,
     MetadataHandler,
 )
 
@@ -85,13 +86,9 @@ class IGDBMetadata(TypedDict):
     similar_games: list[IGDBRelatedGame]
 
 
-class IGDBRom(TypedDict):
+class IGDBRom(BaseRom):
     igdb_id: int | None
     slug: NotRequired[str]
-    name: NotRequired[str]
-    summary: NotRequired[str]
-    url_cover: NotRequired[str]
-    url_screenshots: NotRequired[list[str]]
     igdb_metadata: NotRequired[IGDBMetadata]
 
 

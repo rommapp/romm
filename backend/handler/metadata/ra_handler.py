@@ -1,8 +1,10 @@
 import json
 import os
 import time
+from datetime import datetime
 from typing import Final, NotRequired, TypedDict
 
+import pydash
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import RAGameListItem
 from anyio import open_file
@@ -14,7 +16,7 @@ from config import (
 from handler.filesystem import fs_resource_handler
 from models.rom import Rom
 
-from .base_hander import MetadataHandler
+from .base_hander import BaseRom, MetadataHandler
 
 # Used to display the Retroachievements API status in the frontend
 RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY)
@@ -43,11 +45,15 @@ class RAGameRomAchievement(TypedDict):
 
 
 class RAMetadata(TypedDict):
+    first_release_date: int | None
+    genres: list[str]
+    companies: list[str]
     achievements: list[RAGameRomAchievement]
 
 
-class RAGameRom(TypedDict):
+class RAGameRom(BaseRom):
     ra_id: int | None
+    url_manual: NotRequired[str]
     ra_metadata: NotRequired[RAMetadata]
 
 
@@ -161,9 +167,43 @@ class RAHandler(MetadataHandler):
             rom_details = await self.ra_service.get_game_extended_details(
                 ra_game_list_item["ID"]
             )
+
+            try:
+                first_release_date = int(
+                    datetime.strptime(
+                        rom_details["Released"].split()[0], "%Y-%m-%d"
+                    ).timestamp()
+                )
+            except ValueError:
+                first_release_date = None
+
             return RAGameRom(
-                ra_id=ra_game_list_item["ID"],
+                ra_id=rom_details["ID"],
+                name=rom_details.get("Title", ""),
+                url_cover=(
+                    f"https://retorachievements.org{rom_details['ImageTitle']}"
+                    if rom_details.get("ImageTitle")
+                    else ""
+                ),
+                url_manual=rom_details.get("GuideURL") or "",
+                url_screenshots=pydash.compact(
+                    [
+                        (
+                            f"https://retorachievements.org{rom_details['ImageIngame']}"
+                            if rom_details.get("ImageIngame")
+                            else None
+                        )
+                    ]
+                ),
                 ra_metadata=RAMetadata(
+                    first_release_date=first_release_date,
+                    genres=pydash.compact([rom_details.get("Genre", None)]),
+                    companies=pydash.compact(
+                        [
+                            rom_details.get("Publisher", None),
+                            rom_details.get("Developer", None),
+                        ]
+                    ),
                     achievements=[
                         RAGameRomAchievement(
                             ra_id=achievement.get("ID", None),
@@ -183,7 +223,7 @@ class RAHandler(MetadataHandler):
                             type=achievement.get("type", ""),
                         )
                         for achievement in rom_details.get("Achievements", {}).values()
-                    ]
+                    ],
                 ),
             )
         except KeyError:
@@ -195,9 +235,42 @@ class RAHandler(MetadataHandler):
 
         try:
             rom_details = await self.ra_service.get_game_extended_details(ra_id)
+
+            try:
+                first_release_date = int(
+                    datetime.strptime(
+                        rom_details["Released"].split()[0], "%Y-%m-%d"
+                    ).timestamp()
+                )
+            except ValueError:
+                first_release_date = None
             return RAGameRom(
-                ra_id=ra_id,
+                ra_id=rom_details["ID"],
+                name=rom_details.get("Title", ""),
+                url_cover=(
+                    f"https://retorachievements.org{rom_details['ImageTitle']}"
+                    if rom_details.get("ImageTitle")
+                    else ""
+                ),
+                url_manual=rom_details.get("GuideURL") or "",
+                url_screenshots=pydash.compact(
+                    [
+                        (
+                            f"https://retorachievements.org{rom_details['ImageIngame']}"
+                            if rom_details.get("ImageIngame")
+                            else None
+                        )
+                    ]
+                ),
                 ra_metadata=RAMetadata(
+                    first_release_date=first_release_date,
+                    genres=pydash.compact([rom_details.get("Genre", None)]),
+                    companies=pydash.compact(
+                        [
+                            rom_details.get("Publisher", None),
+                            rom_details.get("Developer", None),
+                        ]
+                    ),
                     achievements=[
                         RAGameRomAchievement(
                             ra_id=achievement.get("ID", None),
@@ -217,7 +290,7 @@ class RAHandler(MetadataHandler):
                             type=achievement.get("type", ""),
                         )
                         for achievement in rom_details.get("Achievements", {}).values()
-                    ]
+                    ],
                 ),
             )
         except KeyError:
