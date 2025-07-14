@@ -53,7 +53,6 @@ class RAMetadata(TypedDict):
 
 class RAGameRom(BaseRom):
     ra_id: int | None
-    url_manual: NotRequired[str]
     ra_metadata: NotRequired[RAMetadata]
 
 
@@ -181,7 +180,7 @@ class RAHandler(MetadataHandler):
                 ra_id=rom_details["ID"],
                 name=rom_details.get("Title", ""),
                 url_cover=(
-                    f"https://retorachievements.org{rom_details['ImageTitle']}"
+                    f"https://retroachievements.org{rom_details['ImageTitle']}"
                     if rom_details.get("ImageTitle")
                     else ""
                 ),
@@ -189,7 +188,7 @@ class RAHandler(MetadataHandler):
                 url_screenshots=pydash.compact(
                     [
                         (
-                            f"https://retorachievements.org{rom_details['ImageIngame']}"
+                            f"https://retroachievements.org{rom_details['ImageIngame']}"
                             if rom_details.get("ImageIngame")
                             else None
                         )
@@ -248,7 +247,7 @@ class RAHandler(MetadataHandler):
                 ra_id=rom_details["ID"],
                 name=rom_details.get("Title", ""),
                 url_cover=(
-                    f"https://retorachievements.org{rom_details['ImageTitle']}"
+                    f"https://media.retroachievements.org{rom_details['ImageTitle']}"
                     if rom_details.get("ImageTitle")
                     else ""
                 ),
@@ -256,7 +255,7 @@ class RAHandler(MetadataHandler):
                 url_screenshots=pydash.compact(
                     [
                         (
-                            f"https://retorachievements.org{rom_details['ImageIngame']}"
+                            f"https://media.retroachievements.org{rom_details['ImageIngame']}"
                             if rom_details.get("ImageIngame")
                             else None
                         )
