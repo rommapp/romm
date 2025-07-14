@@ -111,6 +111,7 @@ class ScreenScraperService:
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid ScreenScraper credentials",
                 )
+            return await res.json()
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
             if (
                 isinstance(err, aiohttp.ClientResponseError)
@@ -123,8 +124,6 @@ class ScreenScraperService:
         except json.JSONDecodeError as exc:
             log.error("Error decoding JSON response from ScreenScraper: %s", exc)
             return {}
-
-        return await res.json()
 
     async def get_game_info(
         self,
