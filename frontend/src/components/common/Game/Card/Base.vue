@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
                   >
                     <div class="pa-2">
                       {{
-                        romsStore.isSimpleRom(rom) && rom.is_unidentified
+                        romsStore.isSimpleRom(rom) && rom.name === rom.fs_name
                           ? rom.fs_name_no_tags
                           : rom.name
                       }}
