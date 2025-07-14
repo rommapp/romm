@@ -12,7 +12,7 @@ from tasks.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
     update_launchbox_metadata_task,
 )
 
-from .base_hander import MetadataHandler
+from .base_hander import BaseRom, MetadataHandler
 
 
 class LaunchboxPlatform(TypedDict):
@@ -43,12 +43,8 @@ class LaunchboxMetadata(TypedDict):
     images: list[LaunchboxImage]
 
 
-class LaunchboxRom(TypedDict):
+class LaunchboxRom(BaseRom):
     launchbox_id: int | None
-    name: NotRequired[str]
-    summary: NotRequired[str]
-    url_cover: NotRequired[str]
-    url_screenshots: NotRequired[list[str]]
     launchbox_metadata: NotRequired[LaunchboxMetadata]
 
 

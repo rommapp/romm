@@ -138,8 +138,26 @@ async def scan_platform(
             **moby_platform,
             **ss_platform,
             **igdb_platform,
+            "igdb_id": igdb_platform.get("igdb_id")
+            or hasheous_platform.get("igdb_id")
+            or None,
+            "ra_id": ra_platform.get("ra_id") or hasheous_platform.get("ra_id") or None,
+            "tgdb_id": moby_platform.get("tgdb_id")
+            or hasheous_platform.get("tgdb_id")
+            or None,
+            "name": igdb_platform.get("name")
+            or ss_platform.get("name")
+            or moby_platform.get("name")
+            or ra_platform.get("name")
+            or launchbox_platform.get("name")
+            or hasheous_platform.get("name")
+            or tgdb_platform.get("name")
+            or "",
+            "url_logo": igdb_platform.get("url_logo")
+            or tgdb_platform.get("url_logo")
+            or "",
         }
-    )  # Reverse order
+    )
 
     if (
         platform_attrs["igdb_id"]
@@ -486,16 +504,42 @@ async def scan_rom(
     # Only update fields if match is found
     if launchbox_handler_rom.get("launchbox_id"):
         rom_attrs.update({**launchbox_handler_rom})
-    if ra_handler_rom.get("ra_id"):
-        rom_attrs.update({**ra_handler_rom})
     if hasheous_handler_rom.get("hasheous_id"):
         rom_attrs.update({**hasheous_handler_rom})
+    if ra_handler_rom.get("ra_id"):
+        rom_attrs.update({**ra_handler_rom})
     if moby_handler_rom.get("moby_id"):
         rom_attrs.update({**moby_handler_rom})
     if ss_handler_rom.get("ss_id"):
         rom_attrs.update({**ss_handler_rom})
     if igdb_handler_rom.get("igdb_id"):
         rom_attrs.update({**igdb_handler_rom})
+
+    rom_attrs.update(
+        {
+            "igdb_id": igdb_handler_rom.get("igdb_id")
+            or hasheous_handler_rom.get("igdb_id")
+            or rom_attrs.get("igdb_id")
+            or None,
+            "ss_id": ss_handler_rom.get("ss_id") or rom_attrs.get("ss_id") or None,
+            "moby_id": moby_handler_rom.get("moby_id")
+            or rom_attrs.get("moby_id")
+            or None,
+            "ra_id": ra_handler_rom.get("ra_id")
+            or hasheous_handler_rom.get("ra_id")
+            or rom_attrs.get("ra_id")
+            or None,
+            "launchbox_id": launchbox_handler_rom.get("launchbox_id")
+            or rom_attrs.get("launchbox_id")
+            or None,
+            "hasheous_id": hasheous_handler_rom.get("hasheous_id")
+            or rom_attrs.get("hasheous_id")
+            or None,
+            "tgdb_id": hasheous_handler_rom.get("tgdb_id")
+            or rom_attrs.get("tgdb_id")
+            or None,
+        }
+    )
 
     # If not found in any metadata source, we return the rom with the default values
     if (

@@ -217,7 +217,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           />
           <v-chip
             v-if="item.hasheous_id"
-            class="translucent-dark mr-1 mb-1 px-1"
+            class="translucent-dark text-white mr-1 mb-1 px-1"
             density="compact"
             title="Verified with Hasheous"
           >
@@ -225,7 +225,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           </v-chip>
           <v-chip
             v-if="item.siblings.length > 0 && showSiblings"
-            class="translucent-dark mr-1 mb-1 px-1"
+            class="translucent-dark text-white mr-1 mb-1 px-1"
             density="compact"
             :title="`${item.siblings.length} sibling(s)`"
           >
