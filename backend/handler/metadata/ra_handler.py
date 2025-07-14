@@ -173,7 +173,7 @@ class RAHandler(MetadataHandler):
                         rom_details["Released"].split()[0], "%Y-%m-%d"
                     ).timestamp()
                 )
-            except ValueError:
+            except (ValueError, KeyError, IndexError):
                 first_release_date = None
 
             return RAGameRom(
@@ -241,8 +241,9 @@ class RAHandler(MetadataHandler):
                         rom_details["Released"].split()[0], "%Y-%m-%d"
                     ).timestamp()
                 )
-            except ValueError:
+            except (ValueError, KeyError, IndexError):
                 first_release_date = None
+
             return RAGameRom(
                 ra_id=rom_details["ID"],
                 name=rom_details.get("Title", ""),
