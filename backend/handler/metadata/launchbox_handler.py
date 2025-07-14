@@ -184,13 +184,17 @@ class LaunchboxHandler(MetadataHandler):
     async def get_rom(self, fs_name: str, platform_slug: str) -> LaunchboxRom:
         from handler.filesystem import fs_rom_handler
 
-        if not LAUNCHBOX_API_ENABLED:
-            return LaunchboxRom(launchbox_id=None)
-
-        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = LaunchboxRom(launchbox_id=None)
 
+        if not LAUNCHBOX_API_ENABLED:
+            return fallback_rom
+
+        # We replace " - " with ": " to match Launchbox's naming convention
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
+            " - ", ": "
+        )
         index_entry = await self._get_rom_from_metadata(search_term, platform_slug)
+
         if not index_entry:
             return fallback_rom
 
