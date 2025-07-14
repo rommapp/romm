@@ -152,7 +152,7 @@ async def scan_platform(
             or launchbox_platform.get("name")
             or hasheous_platform.get("name")
             or tgdb_platform.get("name")
-            or "",
+            or platform_attrs["slug"].replace("-", " ").title(),
             "url_logo": igdb_platform.get("url_logo")
             or tgdb_platform.get("url_logo")
             or "",
