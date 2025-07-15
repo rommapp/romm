@@ -71,7 +71,7 @@ def extract_metadata_from_launchbox_rom(
     try:
         first_release_date = int(
             datetime.strptime(
-                index_entry["Released"].split()[0], "%Y-%m-%d"
+                index_entry["ReleaseDate"], "%Y-%m-%dT%H:%M:%S%z"
             ).timestamp()
         )
     except (ValueError, KeyError, IndexError):
