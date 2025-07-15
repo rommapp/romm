@@ -51,11 +51,10 @@ def upgrade():
                     COALESCE(
                         (r.igdb_metadata -> 'companies'),
                         (r.ss_metadata -> 'companies'),
-                        (r.ra_metadata -> 'genres'),
-                        jsonb_build_array(r.launchbox_metadata ->> 'developer'),
-                        jsonb_build_array(r.launchbox_metadata ->> 'publisher'),
+                        (r.ra_metadata -> 'companies'),
+                        (r.launchbox_metadata -> 'companies'),
                         '[]'::jsonb
-                    ) AS genres,
+                    ) AS companies,
 
                     COALESCE(
                         (r.igdb_metadata -> 'game_modes'),
@@ -88,6 +87,11 @@ def upgrade():
                             r.ra_metadata ->> 'first_release_date' ~ '^[0-9]+$'
                         THEN (r.ra_metadata ->> 'first_release_date')::bigint * 1000
 
+                        WHEN r.launchbox_metadata IS NOT NULL AND r.launchbox_metadata ? 'first_release_date' AND
+                            r.launchbox_metadata ->> 'first_release_date' NOT IN ('null', 'None', '') AND
+                            r.launchbox_metadata ->> 'first_release_date' ~ '^[0-9]+$'
+                        THEN (r.launchbox_metadata ->> 'first_release_date')::bigint * 1000
+
                         ELSE NULL
                     END AS first_release_date,
 
@@ -106,6 +110,7 @@ def upgrade():
                         r.igdb_metadata,
                         r.moby_metadata,
                         r.ss_metadata,
+                        r.launchbox_metadata,
                         CASE
                             WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'total_rating' AND
                                 r.igdb_metadata ->> 'total_rating' NOT IN ('null', 'None', '') AND
