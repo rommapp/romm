@@ -51,6 +51,9 @@ class HasheousRom(BaseRom):
     hasheous_metadata: NotRequired[HasheousMetadata]
 
 
+ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {"dc": ["bin", "cue"]}
+
+
 def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
     return IGDBMetadata(
         {
@@ -205,7 +208,7 @@ class HasheousHandler(MetadataHandler):
             ra_id=platform["ra_id"],
         )
 
-    async def lookup_rom(self, files: list[RomFile]) -> HasheousRom:
+    async def lookup_rom(self, platform_slug: str, files: list[RomFile]) -> HasheousRom:
         fallback_rom = HasheousRom(
             hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
         )
@@ -217,7 +220,14 @@ class HasheousHandler(MetadataHandler):
             (
                 file
                 for file in files
-                if file.file_size_bytes is not None and file.file_size_bytes > 0
+                if file.file_size_bytes is not None
+                and file.file_size_bytes > 0
+                and (
+                    file.file_extension
+                    in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[platform_slug]
+                    if platform_slug in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+                    else True
+                )
             ),
             None,
         )

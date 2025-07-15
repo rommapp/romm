@@ -329,7 +329,9 @@ async def scan_rom(
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
         ):
-            return await meta_hasheous_handler.lookup_rom(fs_rom["files"])
+            return await meta_hasheous_handler.lookup_rom(
+                platform.slug, fs_rom["files"]
+            )
 
         return HasheousRom(hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None)
 
