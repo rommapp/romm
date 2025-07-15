@@ -132,9 +132,8 @@ const hashMatches = computed(() => {
           :href="`https://www.igdb.com/games/${rom.slug}`"
           target="_blank"
           class="mr-1"
-          title="IGDB ID"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+          <v-chip class="pl-0 mt-1" size="small" @click.stop title="IGDB ID">
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/igdb.png" />
             </v-avatar>
@@ -203,12 +202,16 @@ const hashMatches = computed(() => {
           target="_blank"
           class="mr-1"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+          <v-chip
+            class="pl-0 mt-1"
+            size="small"
+            @click.stop
+            title="LaunchBox ID"
+          >
             <v-avatar
               class="mr-2"
               size="30"
               rounded="0"
-              title="LaunchBox ID"
               style="background: #185a7c"
             >
               <v-img src="/assets/scrappers/launchbox.png" />
