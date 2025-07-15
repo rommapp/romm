@@ -332,7 +332,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="30" rounded="0">
+                <v-avatar class="mr-2 bg-surface" size="30" rounded="0">
                   <v-img src="/assets/scrappers/ss.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.ss_id }}</span>
@@ -362,7 +362,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip tabindex="-1" class="px-2 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="30" rounded="0">
+                <v-avatar class="mr-2 bg-surface" size="30" rounded="0">
                   <v-img src="/assets/scrappers/ra.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.ra_id }}</span>
@@ -377,7 +377,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="25" rounded="1">
+                <v-avatar class="mr-2 bg-surface" size="25" rounded>
                   <v-img src="/assets/scrappers/launchbox.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.launchbox_id }}</span>
@@ -392,7 +392,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="25" rounded="1">
+                <v-avatar class="mr-2 bg-surface" size="25" rounded>
                   <v-img src="/assets/scrappers/hasheous.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.hasheous_id }}</span>
