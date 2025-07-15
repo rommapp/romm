@@ -87,22 +87,22 @@ def upgrade():
 
                     CASE
                         WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'first_release_date' AND
-                            r.igdb_metadata ->> 'first_release_date' NOT IN ('null', 'None', '') AND
+                            r.igdb_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0') AND
                             r.igdb_metadata ->> 'first_release_date' ~ '^[0-9]+$'
                         THEN (r.igdb_metadata ->> 'first_release_date')::bigint * 1000
 
                         WHEN r.ss_metadata IS NOT NULL AND r.ss_metadata ? 'first_release_date' AND
-                            r.ss_metadata ->> 'first_release_date' NOT IN ('null', 'None', '') AND
+                            r.ss_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0') AND
                             r.ss_metadata ->> 'first_release_date' ~ '^[0-9]+$'
                         THEN (r.ss_metadata ->> 'first_release_date')::bigint * 1000
 
                         WHEN r.ra_metadata IS NOT NULL AND r.ra_metadata ? 'first_release_date' AND
-                            r.ra_metadata ->> 'first_release_date' NOT IN ('null', 'None', '') AND
+                            r.ra_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0') AND
                             r.ra_metadata ->> 'first_release_date' ~ '^[0-9]+$'
                         THEN (r.ra_metadata ->> 'first_release_date')::bigint * 1000
 
                         WHEN r.launchbox_metadata IS NOT NULL AND r.launchbox_metadata ? 'first_release_date' AND
-                            r.launchbox_metadata ->> 'first_release_date' NOT IN ('null', 'None', '') AND
+                            r.launchbox_metadata ->> 'first_release_date' NOT IN ('null', 'None', '0', '0.0') AND
                             r.launchbox_metadata ->> 'first_release_date' ~ '^[0-9]+$'
                         THEN (r.launchbox_metadata ->> 'first_release_date')::bigint * 1000
 
@@ -128,28 +128,28 @@ def upgrade():
                         r.launchbox_metadata,
                         CASE
                             WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'total_rating' AND
-                                r.igdb_metadata ->> 'total_rating' NOT IN ('null', 'None', '') AND
+                                r.igdb_metadata ->> 'total_rating' NOT IN ('null', 'None', '0', '0.0') AND
                                 r.igdb_metadata ->> 'total_rating' ~ '^[0-9]+(\\.[0-9]+)?$'
                             THEN (r.igdb_metadata ->> 'total_rating')::float
                             ELSE NULL
                         END AS igdb_rating,
                         CASE
                             WHEN r.moby_metadata IS NOT NULL AND r.moby_metadata ? 'moby_score' AND
-                                r.moby_metadata ->> 'moby_score' NOT IN ('null', 'None', '') AND
+                                r.moby_metadata ->> 'moby_score' NOT IN ('null', 'None', '0', '0.0') AND
                                 r.moby_metadata ->> 'moby_score' ~ '^[0-9]+(\\.[0-9]+)?$'
                             THEN (r.moby_metadata ->> 'moby_score')::float * 10
                             ELSE NULL
                         END AS moby_rating,
                         CASE
                             WHEN r.ss_metadata IS NOT NULL AND r.ss_metadata ? 'ss_score' AND
-                                r.ss_metadata ->> 'ss_score' NOT IN ('null', 'None', '') AND
+                                r.ss_metadata ->> 'ss_score' NOT IN ('null', 'None', '0', '0.0') AND
                                 r.ss_metadata ->> 'ss_score' ~ '^[0-9]+(\\.[0-9]+)?$'
                             THEN (r.ss_metadata ->> 'ss_score')::float * 10
                             ELSE NULL
                         END AS ss_rating,
                         CASE
                             WHEN r.launchbox_metadata IS NOT NULL AND r.launchbox_metadata ? 'community_rating' AND
-                                r.launchbox_metadata ->> 'community_rating' NOT IN ('null', 'None', '') AND
+                                r.launchbox_metadata ->> 'community_rating' NOT IN ('null', 'None', '0', '0.0') AND
                                 r.launchbox_metadata ->> 'community_rating' ~ '^[0-9]+(\\.[0-9]+)?$'
                             THEN (r.launchbox_metadata ->> 'community_rating')::float * 20
                             ELSE NULL
@@ -224,22 +224,22 @@ def upgrade():
 
                         CASE
                             WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.first_release_date') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0') AND
                                 JSON_UNQUOTE(JSON_EXTRACT(r.igdb_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
                             THEN CAST(JSON_EXTRACT(r.igdb_metadata, '$.first_release_date') AS SIGNED) * 1000
 
                             WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.first_release_date') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0') AND
                                 JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
                             THEN CAST(JSON_EXTRACT(r.ss_metadata, '$.first_release_date') AS SIGNED) * 1000
 
                             WHEN JSON_CONTAINS_PATH(r.ra_metadata, 'one', '$.first_release_date') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(r.ra_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.ra_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0') AND
                                 JSON_UNQUOTE(JSON_EXTRACT(r.ra_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
                             THEN CAST(JSON_EXTRACT(r.ra_metadata, '$.first_release_date') AS SIGNED) * 1000
 
                             WHEN JSON_CONTAINS_PATH(r.launchbox_metadata, 'one', '$.first_release_date') AND
-                                JSON_UNQUOTE(JSON_EXTRACT(r.launchbox_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.launchbox_metadata, '$.first_release_date')) NOT IN ('null', 'None', '0', '0.0') AND
                                 JSON_UNQUOTE(JSON_EXTRACT(r.launchbox_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
                             THEN CAST(JSON_EXTRACT(r.launchbox_metadata, '$.first_release_date') AS SIGNED) * 1000
 
@@ -265,28 +265,28 @@ def upgrade():
                             launchbox_metadata,
                             CASE
                                 WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
-                                    JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '0', '0.0') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
                                 THEN CAST(JSON_EXTRACT(igdb_metadata, '$.total_rating') AS DECIMAL(10,2))
                                 ELSE NULL
                             END AS igdb_rating,
                             CASE
                                 WHEN JSON_CONTAINS_PATH(moby_metadata, 'one', '$.moby_score') AND
-                                    JSON_UNQUOTE(JSON_EXTRACT(moby_metadata, '$.moby_score')) NOT IN ('null', 'None', '') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(moby_metadata, '$.moby_score')) NOT IN ('null', 'None', '0', '0.0') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(moby_metadata, '$.moby_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
                                 THEN CAST(JSON_EXTRACT(moby_metadata, '$.moby_score') AS DECIMAL(10,2)) * 10
                                 ELSE NULL
                             END AS moby_rating,
                             CASE
                                 WHEN JSON_CONTAINS_PATH(ss_metadata, 'one', '$.ss_score') AND
-                                    JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.ss_score')) NOT IN ('null', 'None', '') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.ss_score')) NOT IN ('null', 'None', '0', '0.0') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.ss_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
                                 THEN CAST(JSON_EXTRACT(ss_metadata, '$.ss_score') AS DECIMAL(10,2)) * 10
                                 ELSE NULL
                             END AS ss_rating,
                             CASE
                                 WHEN JSON_CONTAINS_PATH(launchbox_metadata, 'one', '$.community_rating') AND
-                                    JSON_UNQUOTE(JSON_EXTRACT(launchbox_metadata, '$.community_rating')) NOT IN ('null', 'None', '') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(launchbox_metadata, '$.community_rating')) NOT IN ('null', 'None', '0', '0.0') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(launchbox_metadata, '$.community_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
                                 THEN CAST(JSON_EXTRACT(launchbox_metadata, '$.community_rating') AS DECIMAL(10,2)) * 20
                                 ELSE NULL
