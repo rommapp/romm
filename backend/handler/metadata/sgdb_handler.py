@@ -4,6 +4,7 @@ from typing import Final, NotRequired, TypedDict
 from adapters.services.steamgriddb import SteamGridDBService
 from adapters.services.steamgriddb_types import SGDBDimension, SGDBType
 from config import STEAMGRIDDB_API_KEY
+from Levenshtein import distance as levenshtein_distance
 from logger.logger import log
 
 from .base_hander import MetadataHandler
@@ -31,7 +32,7 @@ class SGDBRom(TypedDict):
 class SGDBBaseHandler(MetadataHandler):
     def __init__(self) -> None:
         self.sgdb_service = SteamGridDBService()
-        self.fuzzy_match_threshold: Final = 4
+        self.max_levenshtein_distance: Final = 4
 
     async def get_details(self, search_term: str) -> list[SGDBResult]:
         games = await self.sgdb_service.search_games(term=search_term)
@@ -64,13 +65,9 @@ class SGDBBaseHandler(MetadataHandler):
                     search_term, remove_articles=False
                 )
 
-                # Check if normalized search term is contained in normalized game name
-                # or if they're very similar (allowing for small character differences)
                 if (
-                    search_term_normalized in game_name_normalized
-                    or game_name_normalized in search_term_normalized
-                    or abs(len(game_name_normalized) - len(search_term_normalized))
-                    <= self.fuzzy_match_threshold
+                    levenshtein_distance(game_name_normalized, search_term_normalized)
+                    <= self.max_levenshtein_distance
                 ):
                     game_details = await self._get_game_covers(
                         game_id=game["id"],
