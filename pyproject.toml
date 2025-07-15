@@ -26,6 +26,7 @@ dependencies = [
   "gunicorn == 23.0.0",
   "httpx ~= 0.27",
   "joserfc ~= 0.9",
+  "levenshtein>=0.27.1",
   "passlib[bcrypt] ~= 1.7",
   "pillow ~= 10.3",
   "psycopg[c] ~= 3.2",
