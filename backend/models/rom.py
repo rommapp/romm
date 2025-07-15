@@ -294,9 +294,18 @@ class Rom(BaseModel):
     # # Metadata fields
     @property
     def youtube_video_id(self) -> str | None:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("youtube_video_id", None)
-        return None
+        igdb_video_id = (
+            self.igdb_metadata.get("youtube_video_id", None)
+            if self.igdb_metadata
+            else None
+        )
+        lb_video_id = (
+            self.launchbox_metadata.get("youtube_video_id", None)
+            if self.launchbox_metadata
+            else None
+        )
+
+        return igdb_video_id or lb_video_id
 
     @property
     def alternative_names(self) -> list[str]:

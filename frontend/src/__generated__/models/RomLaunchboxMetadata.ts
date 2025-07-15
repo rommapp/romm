@@ -4,18 +4,17 @@
 /* eslint-disable */
 import type { LaunchboxImage } from './LaunchboxImage';
 export type RomLaunchboxMetadata = {
-    release_date?: string;
+    first_release_date?: (number | null);
     max_players?: number;
     release_type?: string;
     cooperative?: boolean;
-    video_url?: string;
+    youtube_video_id?: string;
     community_rating?: number;
     community_rating_count?: number;
     wikipedia_url?: string;
     esrb?: string;
     genres?: Array<string>;
-    developer?: string;
-    publisher?: string;
+    companies?: Array<string>;
     images?: Array<LaunchboxImage>;
 };
 

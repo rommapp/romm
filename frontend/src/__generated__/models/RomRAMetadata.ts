@@ -4,6 +4,9 @@
 /* eslint-disable */
 import type { RAGameRomAchievement } from './RAGameRomAchievement';
 export type RomRAMetadata = {
+    first_release_date?: (number | null);
+    genres?: Array<string>;
+    companies?: Array<string>;
     achievements?: Array<RAGameRomAchievement>;
 };
 
