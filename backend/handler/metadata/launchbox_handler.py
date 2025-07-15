@@ -48,6 +48,22 @@ class LaunchboxRom(BaseRom):
     launchbox_metadata: NotRequired[LaunchboxMetadata]
 
 
+def extract_video_id_from_youtube_url(url: str | None) -> str:
+    """
+    Extracts the video ID from a YouTube URL.
+    Returns None if the URL is not a valid YouTube URL.
+    """
+    if not url:
+        return ""
+
+    if "youtube.com/watch?v=" in url:
+        return url.split("v=")[-1].split("&")[0]
+    elif "youtu.be/" in url:
+        return url.split("/")[-1].split("?")[0]
+
+    return ""
+
+
 def extract_metadata_from_launchbox_rom(
     index_entry: dict, game_images: list[dict] | None
 ) -> LaunchboxMetadata:
@@ -57,11 +73,11 @@ def extract_metadata_from_launchbox_rom(
             "max_players": int(index_entry.get("MaxPlayers") or 0),
             "release_type": index_entry.get("ReleaseType", ""),
             "cooperative": str_to_bool(index_entry.get("Cooperative") or "false"),
-            "video_url": index_entry.get("VideoURL") or "",
+            "video_url": extract_video_id_from_youtube_url(index_entry.get("VideoURL")),
             "community_rating": float(index_entry.get("CommunityRating") or 0.0),
             "community_rating_count": int(index_entry.get("CommunityRatingCount") or 0),
             "wikipedia_url": index_entry.get("WikipediaURL", ""),
-            "esrb": index_entry.get("ESRB", ""),
+            "esrb": index_entry.get("ESRB", ""),  # TODO: fix this
             "genres": (
                 index_entry["Genres"].split() if index_entry.get("Genres", None) else []
             ),
