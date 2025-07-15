@@ -338,16 +338,86 @@ async function stopScan() {
                   with-link
                   with-filename
                 >
-                  <template #append-body>
+                  <template #append>
                     <v-chip
                       v-if="rom.is_unidentified"
                       color="red"
                       size="x-small"
                       label
-                      >Not identified<v-icon class="ml-1"
-                        >mdi-close</v-icon
-                      ></v-chip
                     >
+                      Not identified
+                      <v-icon class="ml-1">mdi-close</v-icon>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.hasheous_id"
+                      title="Verified with Hasheous"
+                      class="text-white pa-0 mr-1"
+                      size="small"
+                    >
+                      <v-avatar class="bg-romm-green" size="26" rounded="0">
+                        <v-icon>mdi-check-decagram-outline</v-icon>
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.igdb_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="IGDB match"
+                    >
+                      <v-avatar size="26" rounded>
+                        <v-img src="/assets/scrappers/igdb.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.ss_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="ScreenScraper match"
+                    >
+                      <v-avatar size="26" rounded>
+                        <v-img src="/assets/scrappers/ss.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.moby_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="MobyGames match"
+                    >
+                      <v-avatar size="26" rounded>
+                        <v-img src="/assets/scrappers/moby.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.launchbox_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="LaunchBox match"
+                    >
+                      <v-avatar size="26" style="background: #185a7c">
+                        <v-img src="/assets/scrappers/launchbox.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.ra_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="RetroAchievements match"
+                    >
+                      <v-avatar size="26" rounded>
+                        <v-img src="/assets/scrappers/ra.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.hasheous_id"
+                      class="pa-1 mr-1 bg-surface"
+                      size="small"
+                      title="Hasheous match"
+                    >
+                      <v-avatar size="18" rounded>
+                        <v-img src="/assets/scrappers/hasheous.png" />
+                      </v-avatar>
+                    </v-chip>
                   </template>
                 </rom-list-item>
                 <v-list-item
