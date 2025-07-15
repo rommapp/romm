@@ -240,7 +240,6 @@ watch(
             </template>
           </div>
           <platform-icon
-            tabindex="-1"
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
             :fs-slug="currentPlatform.fs_slug"
@@ -316,7 +315,7 @@ watch(
               target="_blank"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/igdb.png" />
                 </v-avatar>
@@ -331,9 +330,12 @@ watch(
               class="ml-1"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
-                  <v-img src="/assets/scrappers/ss.png" />
+                  <v-img
+                    src="/assets/scrappers/ss.png"
+                    style="margin-left: -2px"
+                  />
                 </v-avatar>
                 <span>{{ currentPlatform.ss_id }}</span>
               </v-chip>
@@ -346,7 +348,7 @@ watch(
               class="ml-1"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/moby.png" />
                 </v-avatar>
@@ -361,9 +363,12 @@ watch(
               class="ml-1"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="px-2 mt-1" size="small" @click.stop>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
-                  <v-img src="/assets/scrappers/ra.png" />
+                  <v-img
+                    src="/assets/scrappers/ra.png"
+                    style="margin-left: -2px"
+                  />
                 </v-avatar>
                 <span>{{ currentPlatform.ra_id }}</span>
               </v-chip>
@@ -377,7 +382,12 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="25" rounded="1">
+                <v-avatar
+                  class="mr-2"
+                  size="25"
+                  rounded="0"
+                  style="background: #185a7c"
+                >
                   <v-img src="/assets/scrappers/launchbox.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.launchbox_id }}</span>
@@ -392,7 +402,7 @@ watch(
               :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="25" rounded="1">
+                <v-avatar class="mr-2 bg-surface" size="25" rounded="0">
                   <v-img src="/assets/scrappers/hasheous.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.hasheous_id }}</span>
@@ -404,7 +414,7 @@ watch(
           <v-card-text class="pa-4 d-flex flex-wrap ga-2">
             <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
               <div>
-                <v-chip tabindex="-1" size="small" class="px-0" label>
+                <v-chip size="small" class="px-0" label>
                   <v-chip :tabindex="tabIndex" label>{{ field.label }}</v-chip>
                   <span class="px-2">{{
                     field.format(currentPlatform[field.key]) || "N/A"
