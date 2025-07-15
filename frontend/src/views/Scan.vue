@@ -374,7 +374,7 @@ async function stopScan() {
                       size="small"
                       title="ScreenScraper match"
                     >
-                      <v-avatar size="26" rounded class="bg-surface">
+                      <v-avatar size="26" rounded>
                         <v-img src="/assets/scrappers/ss.png" />
                       </v-avatar>
                     </v-chip>
@@ -394,7 +394,7 @@ async function stopScan() {
                       size="small"
                       title="LaunchBox match"
                     >
-                      <v-avatar size="26" class="bg-surface">
+                      <v-avatar size="26" style="background: #185a7c">
                         <v-img src="/assets/scrappers/launchbox.png" />
                       </v-avatar>
                     </v-chip>
@@ -404,17 +404,17 @@ async function stopScan() {
                       size="small"
                       title="RetroAchievements match"
                     >
-                      <v-avatar size="26" rounded class="bg-surface">
+                      <v-avatar size="26" rounded>
                         <v-img src="/assets/scrappers/ra.png" />
                       </v-avatar>
                     </v-chip>
                     <v-chip
                       v-if="rom.hasheous_id"
-                      class="pa-1 mr-1"
+                      class="pa-1 mr-1 bg-surface"
                       size="small"
                       title="Hasheous match"
                     >
-                      <v-avatar size="18" rounded class="bg-surface">
+                      <v-avatar size="18" rounded>
                         <v-img src="/assets/scrappers/hasheous.png" />
                       </v-avatar>
                     </v-chip>
