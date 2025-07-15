@@ -155,40 +155,47 @@ def upgrade():
                             JSON_EXTRACT(r.igdb_metadata, '$.genres'),
                             JSON_EXTRACT(r.moby_metadata, '$.genres'),
                             JSON_EXTRACT(r.ss_metadata, '$.genres'),
+                            JSON_EXTRACT(r.launchbox_metadata, '$.genres'),
+                            JSON_EXTRACT(r.ra_metadata, '$.genres'),
                             JSON_ARRAY()
                         ) AS genres,
 
-                        CASE
-                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.franchises') THEN JSON_EXTRACT(r.igdb_metadata, '$.franchises')
-                            WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.franchises') THEN JSON_EXTRACT(r.ss_metadata, '$.franchises')
-                            ELSE JSON_ARRAY()
-                        END AS franchises,
+                        COALESCE(
+                            JSON_EXTRACT(r.igdb_metadata, '$.franchises'),
+                            JSON_EXTRACT(r.ss_metadata, '$.franchises'),
+                            JSON_ARRAY()
+                        ) AS franchises,
 
-                        CASE
-                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.collections') THEN JSON_EXTRACT(r.igdb_metadata, '$.collections')
-                            ELSE JSON_ARRAY()
-                        END AS collections,
+                        COALESCE(
+                            JSON_EXTRACT(r.igdb_metadata, '$.collections'),
+                            JSON_ARRAY()
+                        ) AS collections,
 
-                        CASE
-                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.companies') THEN JSON_EXTRACT(r.igdb_metadata, '$.companies')
-                            WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.companies') THEN JSON_EXTRACT(r.ss_metadata, '$.companies')
-                            ELSE JSON_ARRAY()
-                        END AS companies,
+                        COALESCE(
+                            JSON_EXTRACT(r.igdb_metadata, '$.companies'),
+                            JSON_EXTRACT(r.ss_metadata, '$.companies'),
+                            JSON_EXTRACT(r.ra_metadata, '$.companies'),
+                            JSON_EXTRACT(r.launchbox_metadata, '$.companies'),
+                            JSON_ARRAY()
+                        ) AS companies,
 
-                        CASE
-                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.game_modes') THEN JSON_EXTRACT(r.igdb_metadata, '$.game_modes')
-                            WHEN JSON_CONTAINS_PATH(r.ss_metadata, 'one', '$.game_modes') THEN JSON_EXTRACT(r.ss_metadata, '$.game_modes')
-                            ELSE JSON_ARRAY()
-                        END AS game_modes,
+                        COALESCE(
+                            JSON_EXTRACT(r.igdb_metadata, '$.game_modes'),
+                            JSON_EXTRACT(r.ss_metadata, '$.game_modes'),
+                            JSON_ARRAY()
+                        ) AS game_modes,
 
-                        CASE
-                            WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.age_ratings')
-                                AND JSON_LENGTH(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings')) > 0
-                            THEN
-                                JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')
-                            ELSE
-                                JSON_ARRAY()
-                        END AS age_ratings,
+                        COALESCE(
+                            CASE
+                                WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.age_ratings')
+                                    AND JSON_LENGTH(JSON_EXTRACT(r.igdb_metadata, '$.age_ratings')) > 0
+                                THEN
+                                    JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')
+                                ELSE
+                                    JSON_ARRAY(),
+                            JSON_EXTRACT(r.launchbox_metadata, '$.esrb'),
+                            JSON_ARRAY()
+                        ) END AS age_ratings,
 
                         CASE
                             WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.first_release_date') AND
@@ -201,24 +208,35 @@ def upgrade():
                                 JSON_UNQUOTE(JSON_EXTRACT(r.ss_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
                             THEN CAST(JSON_EXTRACT(r.ss_metadata, '$.first_release_date') AS SIGNED) * 1000
 
+                            WHEN JSON_CONTAINS_PATH(r.ra_metadata, 'one', '$.first_release_date') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.ra_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.ra_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
+                            THEN CAST(JSON_EXTRACT(r.ra_metadata, '$.first_release_date') AS SIGNED) * 1000
+
+                            WHEN JSON_CONTAINS_PATH(r.launchbox_metadata, 'one', '$.first_release_date') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.launchbox_metadata, '$.first_release_date')) NOT IN ('null', 'None', '') AND
+                                JSON_UNQUOTE(JSON_EXTRACT(r.launchbox_metadata, '$.first_release_date')) REGEXP '^[0-9]+$'
+                            THEN CAST(JSON_EXTRACT(r.launchbox_metadata, '$.first_release_date') AS SIGNED) * 1000
+
                             ELSE NULL
                         END AS first_release_date,
 
                         CASE
-                            WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL) THEN
-                                (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0)) /
+                            WHEN (igdb_rating IS NOT NULL OR moby_rating IS NOT NULL OR ss_rating IS NOT NULL OR launchbox_rating IS NOT NULL) THEN
+                                (COALESCE(igdb_rating, 0) + COALESCE(moby_rating, 0) + COALESCE(ss_rating, 0) + COALESCE(launchbox_rating, 0)) /
                                 (CASE WHEN igdb_rating IS NOT NULL THEN 1 ELSE 0 END +
                                 CASE WHEN moby_rating IS NOT NULL THEN 1 ELSE 0 END +
-                                CASE WHEN ss_rating IS NOT NULL THEN 1 ELSE 0 END)
+                                CASE WHEN ss_rating IS NOT NULL THEN 1 ELSE 0 END +
+                                CASE WHEN launchbox_rating IS NOT NULL THEN 1 ELSE 0 END)
                             ELSE NULL
                         END AS average_rating
-
                     FROM (
                         SELECT
                             id,
                             igdb_metadata,
                             moby_metadata,
                             ss_metadata,
+                            launchbox_metadata,
                             CASE
                                 WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(igdb_metadata, '$.total_rating')) NOT IN ('null', 'None', '') AND
@@ -240,6 +258,13 @@ def upgrade():
                                 THEN CAST(JSON_EXTRACT(ss_metadata, '$.ss_score') AS DECIMAL(10,2)) * 10
                                 ELSE NULL
                             END AS ss_rating
+                            CASE
+                                WHEN JSON_CONTAINS_PATH(launchbox_metadata, 'one', '$.community_rating') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(launchbox_metadata, '$.community_rating')) NOT IN ('null', 'None', '') AND
+                                    JSON_UNQUOTE(JSON_EXTRACT(launchbox_metadata, '$.community_rating')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
+                                THEN CAST(JSON_EXTRACT(launchbox_metadata, '$.community_rating') AS DECIMAL(10,2)) * 20
+                                ELSE NULL
+                            END AS launchbox_rating
                         FROM roms
                     ) AS r;
                 """
