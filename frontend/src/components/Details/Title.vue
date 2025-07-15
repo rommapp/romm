@@ -183,8 +183,8 @@ const hashMatches = computed(() => {
             @click.stop
             title="ScreenScraper ID"
           >
-            <v-avatar class="mr-2 bg-surface" size="30" rounded="0">
-              <v-img src="/assets/scrappers/ss.png" />
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/ss.png" style="margin-left: -2px" />
             </v-avatar>
             <span>{{ rom.ss_id }}</span>
             <template v-if="rom.ss_metadata?.ss_score">
@@ -205,10 +205,11 @@ const hashMatches = computed(() => {
         >
           <v-chip class="pl-0 mt-1" size="small" @click.stop>
             <v-avatar
-              class="mr-2 bg-surface"
+              class="mr-2"
               size="30"
               rounded="0"
               title="LaunchBox ID"
+              style="background: #185a7c"
             >
               <v-img src="/assets/scrappers/launchbox.png" />
             </v-avatar>
@@ -235,8 +236,8 @@ const hashMatches = computed(() => {
             @click.stop
             title="RetroAchievements ID"
           >
-            <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
-              <v-img src="/assets/scrappers/ra.png" />
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/ra.png" style="margin-left: -2px" />
             </v-avatar>
             <span>{{ rom.ra_id }}</span>
           </v-chip>
