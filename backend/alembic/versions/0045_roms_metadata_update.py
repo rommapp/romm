@@ -63,11 +63,25 @@ def upgrade():
                     ) AS game_modes,
 
                     COALESCE(
-                        jsonb_path_query_array(
-                            r.igdb_metadata,
-                            '$.age_ratings[*].rating'
-                        ),
-                        jsonb_build_array(r.launchbox_metadata ->> 'esrb'),
+                        CASE
+                            WHEN r.igdb_metadata IS NOT NULL
+                                AND r.igdb_metadata ? 'age_ratings'
+                                AND jsonb_array_length(r.igdb_metadata -> 'age_ratings') > 0
+                            THEN
+                                jsonb_path_query_array(r.igdb_metadata, '$.age_ratings[*].rating')
+                            ELSE
+                                '[]'::jsonb
+                        END,
+                        CASE
+                            WHEN r.launchbox_metadata IS NOT NULL
+                                AND r.launchbox_metadata ? 'esrb'
+                                AND r.launchbox_metadata ->> 'esrb' IS NOT NULL
+                                AND r.launchbox_metadata ->> 'esrb' != ''
+                            THEN
+                                jsonb_build_array(r.launchbox_metadata ->> 'esrb')
+                            ELSE
+                                '[]'::jsonb
+                        END,
                         '[]'::jsonb
                     ) AS age_ratings,
 
@@ -110,6 +124,7 @@ def upgrade():
                         r.igdb_metadata,
                         r.moby_metadata,
                         r.ss_metadata,
+                        r.ra_metadata,
                         r.launchbox_metadata,
                         CASE
                             WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'total_rating' AND
@@ -131,13 +146,14 @@ def upgrade():
                                 r.ss_metadata ->> 'ss_score' ~ '^[0-9]+(\\.[0-9]+)?$'
                             THEN (r.ss_metadata ->> 'ss_score')::float * 10
                             ELSE NULL
-                        END AS ss_rating
+                        END AS ss_rating,
                         CASE
                             WHEN r.launchbox_metadata IS NOT NULL AND r.launchbox_metadata ? 'community_rating' AND
                                 r.launchbox_metadata ->> 'community_rating' NOT IN ('null', 'None', '') AND
                                 r.launchbox_metadata ->> 'community_rating' ~ '^[0-9]+(\\.[0-9]+)?$'
                             THEN (r.launchbox_metadata ->> 'community_rating')::float * 20
                             ELSE NULL
+                        END AS launchbox_rating
                     FROM roms r
                 ) AS r;
                 """
@@ -192,10 +208,19 @@ def upgrade():
                                 THEN
                                     JSON_EXTRACT(r.igdb_metadata, '$.age_ratings[*].rating')
                                 ELSE
-                                    JSON_ARRAY(),
-                            JSON_EXTRACT(r.launchbox_metadata, '$.esrb'),
+                                    JSON_ARRAY()
+                            END,
+                            CASE
+                                WHEN JSON_CONTAINS_PATH(r.launchbox_metadata, 'one', '$.esrb')
+                                    AND JSON_EXTRACT(r.launchbox_metadata, '$.esrb') IS NOT NULL
+                                    AND JSON_EXTRACT(r.launchbox_metadata, '$.esrb') != ''
+                                THEN
+                                    JSON_ARRAY(JSON_EXTRACT(r.launchbox_metadata, '$.esrb'))
+                                ELSE
+                                    JSON_ARRAY()
+                            END,
                             JSON_ARRAY()
-                        ) END AS age_ratings,
+                        ) AS age_ratings,
 
                         CASE
                             WHEN JSON_CONTAINS_PATH(r.igdb_metadata, 'one', '$.first_release_date') AND
@@ -236,6 +261,7 @@ def upgrade():
                             igdb_metadata,
                             moby_metadata,
                             ss_metadata,
+                            ra_metadata,
                             launchbox_metadata,
                             CASE
                                 WHEN JSON_CONTAINS_PATH(igdb_metadata, 'one', '$.total_rating') AND
@@ -257,7 +283,7 @@ def upgrade():
                                     JSON_UNQUOTE(JSON_EXTRACT(ss_metadata, '$.ss_score')) REGEXP '^[0-9]+(\\.[0-9]+)?$'
                                 THEN CAST(JSON_EXTRACT(ss_metadata, '$.ss_score') AS DECIMAL(10,2)) * 10
                                 ELSE NULL
-                            END AS ss_rating
+                            END AS ss_rating,
                             CASE
                                 WHEN JSON_CONTAINS_PATH(launchbox_metadata, 'one', '$.community_rating') AND
                                     JSON_UNQUOTE(JSON_EXTRACT(launchbox_metadata, '$.community_rating')) NOT IN ('null', 'None', '') AND
