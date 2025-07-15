@@ -161,9 +161,13 @@ const hashMatches = computed(() => {
               <v-img src="/assets/scrappers/ss.png" />
             </v-avatar>
             <span>{{ rom.ss_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>{{ rom.ss_metadata?.ss_score }}</span>
-            <v-icon class="ml-1">mdi-star</v-icon>
+            <template v-if="rom.ss_metadata?.ss_score">
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>{{
+                (parseFloat(rom.ss_metadata.ss_score) * 10).toFixed(2)
+              }}</span>
+              <v-icon class="ml-1">mdi-star</v-icon>
+            </template>
           </v-chip>
         </a>
         <a
@@ -183,9 +187,13 @@ const hashMatches = computed(() => {
               <v-img src="/assets/scrappers/moby.png" />
             </v-avatar>
             <span>{{ rom.moby_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>{{ rom.moby_metadata?.moby_score }}</span>
-            <v-icon class="ml-1">mdi-star</v-icon>
+            <template v-if="rom.moby_metadata?.moby_score">
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>{{
+                (parseFloat(rom.moby_metadata.moby_score) * 10).toFixed(2)
+              }}</span>
+              <v-icon class="ml-1">mdi-star</v-icon>
+            </template>
           </v-chip>
         </a>
         <a
@@ -205,11 +213,13 @@ const hashMatches = computed(() => {
               <v-img src="/assets/scrappers/launchbox.png" />
             </v-avatar>
             <span>{{ rom.launchbox_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>{{
-              rom.launchbox_metadata?.community_rating?.toFixed(2)
-            }}</span>
-            <v-icon class="ml-1">mdi-star</v-icon>
+            <template v-if="rom.launchbox_metadata?.community_rating">
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>{{
+                (rom.launchbox_metadata.community_rating * 20).toFixed(2)
+              }}</span>
+              <v-icon class="ml-1">mdi-star</v-icon>
+            </template>
           </v-chip>
         </a>
         <a
