@@ -294,21 +294,18 @@ class Rom(BaseModel):
     # # Metadata fields
     @property
     def youtube_video_id(self) -> str | None:
-        if self.igdb_metadata:
-            yt_video_id = self.igdb_metadata.get("youtube_video_id", None)
-            if yt_video_id:
-                return yt_video_id
+        igdb_video_id = (
+            self.igdb_metadata.get("youtube_video_id", None)
+            if self.igdb_metadata
+            else None
+        )
+        lb_video_id = (
+            self.launchbox_metadata.get("youtube_video_id", None)
+            if self.launchbox_metadata
+            else None
+        )
 
-        if self.launchbox_metadata:
-            video_url = self.launchbox_metadata.get("video_url", None)
-            if video_url:
-                # Extract YouTube video ID from the URL
-                if "youtube.com/watch?v=" in video_url:
-                    return video_url.split("v=")[-1].split("&")[0]
-                elif "youtu.be/" in video_url:
-                    return video_url.split("/")[-1]
-
-        return None
+        return igdb_video_id or lb_video_id
 
     @property
     def alternative_names(self) -> list[str]:
