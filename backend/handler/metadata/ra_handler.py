@@ -6,7 +6,10 @@ from typing import Final, NotRequired, TypedDict
 
 import pydash
 from adapters.services.retroachievements import RetroAchievementsService
-from adapters.services.retroachievements_types import RAGameListItem
+from adapters.services.retroachievements_types import (
+    RAGameExtendedDetails,
+    RAGameListItem,
+)
 from anyio import open_file
 from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
@@ -73,6 +76,48 @@ class RAUserGameProgression(TypedDict):
 class RAUserProgression(TypedDict):
     total: int
     results: list[RAUserGameProgression]
+
+
+def extract_metadata_from_rom_details(
+    rom: Rom, rom_details: RAGameExtendedDetails
+) -> RAMetadata:
+    def parse_release_timestamp():
+        release_date_str = rom_details.get("Released")
+        if not release_date_str:
+            return None
+
+        try:
+            # Extract date part (assuming format: "YYYY-MM-DD [additional info]")
+            parsed_date = datetime.strptime(release_date_str.split()[0], "%Y-%m-%d")
+            return int(parsed_date.timestamp())
+        except (AttributeError, ValueError, IndexError):
+            return None
+
+    return RAMetadata(
+        first_release_date=parse_release_timestamp(),
+        genres=pydash.compact([rom_details.get("Genre", None)]),
+        companies=pydash.compact(
+            [rom_details.get("Publisher", None), rom_details.get("Developer", None)]
+        ),
+        achievements=[
+            RAGameRomAchievement(
+                ra_id=achievement.get("ID", None),
+                title=achievement.get("Title", ""),
+                description=achievement.get("Description", ""),
+                points=achievement.get("Points", None),
+                num_awarded=achievement.get("NumAwarded", None),
+                num_awarded_hardcore=achievement.get("NumAwardedHardcore", None),
+                badge_id=achievement.get("BadgeName", ""),
+                badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
+                badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
+                badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
+                badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
+                display_order=achievement.get("DisplayOrder", None),
+                type=achievement.get("type", ""),
+            )
+            for achievement in rom_details.get("Achievements", {}).values()
+        ],
+    )
 
 
 class RAHandler(MetadataHandler):
@@ -167,15 +212,6 @@ class RAHandler(MetadataHandler):
                 ra_game_list_item["ID"]
             )
 
-            try:
-                first_release_date = int(
-                    datetime.strptime(
-                        rom_details["Released"].split()[0], "%Y-%m-%d"
-                    ).timestamp()
-                )
-            except (ValueError, KeyError, IndexError):
-                first_release_date = None
-
             return RAGameRom(
                 ra_id=rom_details["ID"],
                 name=rom_details.get("Title", ""),
@@ -194,36 +230,7 @@ class RAHandler(MetadataHandler):
                         )
                     ]
                 ),
-                ra_metadata=RAMetadata(
-                    first_release_date=first_release_date,
-                    genres=pydash.compact([rom_details.get("Genre", None)]),
-                    companies=pydash.compact(
-                        [
-                            rom_details.get("Publisher", None),
-                            rom_details.get("Developer", None),
-                        ]
-                    ),
-                    achievements=[
-                        RAGameRomAchievement(
-                            ra_id=achievement.get("ID", None),
-                            title=achievement.get("Title", ""),
-                            description=achievement.get("Description", ""),
-                            points=achievement.get("Points", None),
-                            num_awarded=achievement.get("NumAwarded", None),
-                            num_awarded_hardcore=achievement.get(
-                                "NumAwardedHardcore", None
-                            ),
-                            badge_id=achievement.get("BadgeName", ""),
-                            badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
-                            badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
-                            display_order=achievement.get("DisplayOrder", None),
-                            type=achievement.get("type", ""),
-                        )
-                        for achievement in rom_details.get("Achievements", {}).values()
-                    ],
-                ),
+                ra_metadata=extract_metadata_from_rom_details(rom, rom_details),
             )
         except KeyError:
             return RAGameRom(ra_id=None)
@@ -234,16 +241,6 @@ class RAHandler(MetadataHandler):
 
         try:
             rom_details = await self.ra_service.get_game_extended_details(ra_id)
-
-            try:
-                first_release_date = int(
-                    datetime.strptime(
-                        rom_details["Released"].split()[0], "%Y-%m-%d"
-                    ).timestamp()
-                )
-            except (ValueError, KeyError, IndexError):
-                first_release_date = None
-
             return RAGameRom(
                 ra_id=rom_details["ID"],
                 name=rom_details.get("Title", ""),
@@ -262,36 +259,7 @@ class RAHandler(MetadataHandler):
                         )
                     ]
                 ),
-                ra_metadata=RAMetadata(
-                    first_release_date=first_release_date,
-                    genres=pydash.compact([rom_details.get("Genre", None)]),
-                    companies=pydash.compact(
-                        [
-                            rom_details.get("Publisher", None),
-                            rom_details.get("Developer", None),
-                        ]
-                    ),
-                    achievements=[
-                        RAGameRomAchievement(
-                            ra_id=achievement.get("ID", None),
-                            title=achievement.get("Title", ""),
-                            description=achievement.get("Description", ""),
-                            points=achievement.get("Points", None),
-                            num_awarded=achievement.get("NumAwarded", None),
-                            num_awarded_hardcore=achievement.get(
-                                "NumAwardedHardcore", None
-                            ),
-                            badge_id=achievement.get("BadgeName", ""),
-                            badge_url_lock=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_path_lock=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}_lock.png",
-                            badge_url=f"https://media.retroachievements.org/Badge/{achievement.get('BadgeName', '')}.png",
-                            badge_path=f"{fs_resource_handler.get_ra_badges_path(rom.platform.id, rom.id)}/{achievement.get('BadgeName', '')}.png",
-                            display_order=achievement.get("DisplayOrder", None),
-                            type=achievement.get("type", ""),
-                        )
-                        for achievement in rom_details.get("Achievements", {}).values()
-                    ],
-                ),
+                ra_metadata=extract_metadata_from_rom_details(rom, rom_details),
             )
         except KeyError:
             return RAGameRom(ra_id=None)
