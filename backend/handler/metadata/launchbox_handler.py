@@ -77,7 +77,7 @@ def extract_metadata_from_launchbox_rom(
             "community_rating": float(index_entry.get("CommunityRating") or 0.0),
             "community_rating_count": int(index_entry.get("CommunityRatingCount") or 0),
             "wikipedia_url": index_entry.get("WikipediaURL", ""),
-            "esrb": index_entry.get("ESRB", ""),  # TODO: fix this
+            "esrb": index_entry.get("ESRB", "").split(" - ")[0].strip(),
             "genres": (
                 index_entry["Genres"].split() if index_entry.get("Genres", None) else []
             ),

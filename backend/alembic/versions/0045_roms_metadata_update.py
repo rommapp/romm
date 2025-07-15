@@ -37,39 +37,38 @@ def upgrade():
                         '[]'::jsonb
                     ) AS genres,
 
-                    CASE
-                        WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'franchises' THEN r.igdb_metadata -> 'franchises'
-                        WHEN r.ss_metadata IS NOT NULL AND r.ss_metadata ? 'franchises' THEN r.ss_metadata -> 'franchises'
-                        ELSE '[]'::jsonb
-                    END AS franchises,
+                    COALESCE(
+                        (r.igdb_metadata -> 'franchises'),
+                        (r.ss_metadata -> 'franchises'),
+                        '[]'::jsonb
+                    ) AS franchises,
 
-                    CASE
-                        WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'collections' THEN r.igdb_metadata -> 'collections'
-                        ELSE '[]'::jsonb
-                    END AS collections,
+                    COALESCE(
+                        (r.igdb_metadata -> 'collections'),
+                        '[]'::jsonb
+                    ) AS collections,
 
-                    CASE
-                        WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'companies' THEN r.igdb_metadata -> 'companies'
-                        WHEN r.ss_metadata IS NOT NULL AND r.ss_metadata ? 'companies' THEN r.ss_metadata -> 'companies'
-                        WHEN r.ra_metadata IS NOT NULL AND r.ra_metadata ? 'companies' THEN r.ra_metadata -> 'companies'
-                        WHEN r.launchbox_metadata IS NOT NULL AND r.launchbox_metadata ? 'developer' THEN
-                            jsonb_build_array(r.launchbox_metadata ->> 'developer')
-                        WHEN r.launchbox_metadata IS NOT NULL AND r.launchbox_metadata ? 'publisher' THEN
-                            jsonb_build_array(r.launchbox_metadata ->> 'publisher')
-                        ELSE '[]'::jsonb
-                    END AS companies,
+                    COALESCE(
+                        (r.igdb_metadata -> 'companies'),
+                        (r.ss_metadata -> 'companies'),
+                        (r.ra_metadata -> 'genres'),
+                        jsonb_build_array(r.launchbox_metadata ->> 'developer'),
+                        jsonb_build_array(r.launchbox_metadata ->> 'publisher'),
+                        '[]'::jsonb
+                    ) AS genres,
 
-                    CASE
-                        WHEN r.igdb_metadata IS NOT NULL AND r.igdb_metadata ? 'game_modes' THEN r.igdb_metadata -> 'game_modes'
-                        WHEN r.ss_metadata IS NOT NULL AND r.ss_metadata ? 'game_modes' THEN r.ss_metadata -> 'game_modes'
-                        ELSE '[]'::jsonb
-                    END AS game_modes,
+                    COALESCE(
+                        (r.igdb_metadata -> 'game_modes'),
+                        (r.ss_metadata -> 'game_modes'),
+                        '[]'::jsonb
+                    ) AS game_modes,
 
                     COALESCE(
                         jsonb_path_query_array(
                             r.igdb_metadata,
                             '$.age_ratings[*].rating'
                         ),
+                        jsonb_build_array(r.launchbox_metadata ->> 'esrb'),
                         '[]'::jsonb
                     ) AS age_ratings,
 
