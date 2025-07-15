@@ -57,18 +57,27 @@ class SGDBBaseHandler(MetadataHandler):
                 continue
 
             # SGDB search is fuzzy so no need to split the search term by special characters
+            search_term_normalized = self.normalize_search_term(
+                search_term, remove_articles=False
+            )
+
+            # Calculate Levenshtein distances for all games and find the best match
+            game_distances = []
             for game in games:
                 game_name_normalized = self.normalize_search_term(
                     game["name"], remove_articles=False
                 )
-                search_term_normalized = self.normalize_search_term(
-                    search_term, remove_articles=False
+                distance = levenshtein_distance(
+                    game_name_normalized, search_term_normalized
                 )
+                game_distances.append((game, distance))
 
-                if (
-                    levenshtein_distance(game_name_normalized, search_term_normalized)
-                    <= self.max_levenshtein_distance
-                ):
+            # Sort by distance (ascending) to get the best match first
+            game_distances.sort(key=lambda x: x[1])
+
+            # Try the best matches within the threshold
+            for game, distance in game_distances:
+                if distance <= self.max_levenshtein_distance:
                     game_details = await self._get_game_covers(
                         game_id=game["id"],
                         game_name=game["name"],
@@ -78,6 +87,24 @@ class SGDBBaseHandler(MetadataHandler):
                         is_epilepsy=False,
                     )
 
+                    first_resource = next(
+                        (res for res in game_details["resources"] if res["url"]), None
+                    )
+                    if first_resource:
+                        return SGDBRom(
+                            sgdb_id=game["id"], url_cover=first_resource["url"]
+                        )
+                else:
+                    # Since the list is sorted, if this distance exceeds threshold,
+                    # all remaining distances will also exceed it and we will get the first match
+                    game_details = await self._get_game_covers(
+                        game_id=games[0]["id"],
+                        game_name=games[0]["name"],
+                        types=(SGDBType.STATIC,),
+                        is_nsfw=False,
+                        is_humor=False,
+                        is_epilepsy=False,
+                    )
                     first_resource = next(
                         (res for res in game_details["resources"] if res["url"]), None
                     )
