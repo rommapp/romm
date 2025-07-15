@@ -163,7 +163,9 @@ const hashMatches = computed(() => {
             <span>{{ rom.ss_id }}</span>
             <template v-if="rom.ss_metadata?.ss_score">
               <v-divider class="mx-2 border-opacity-25" vertical />
-              <span>{{ parseFloat(rom.ss_metadata.ss_score) * 10 }}</span>
+              <span>{{
+                (parseFloat(rom.ss_metadata.ss_score) * 10).toFixed(2)
+              }}</span>
               <v-icon class="ml-1">mdi-star</v-icon>
             </template>
           </v-chip>
@@ -187,7 +189,9 @@ const hashMatches = computed(() => {
             <span>{{ rom.moby_id }}</span>
             <template v-if="rom.moby_metadata?.moby_score">
               <v-divider class="mx-2 border-opacity-25" vertical />
-              <span>{{ parseFloat(rom.moby_metadata.moby_score) * 10 }}</span>
+              <span>{{
+                (parseFloat(rom.moby_metadata.moby_score) * 10).toFixed(2)
+              }}</span>
               <v-icon class="ml-1">mdi-star</v-icon>
             </template>
           </v-chip>
