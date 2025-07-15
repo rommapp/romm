@@ -31,6 +31,7 @@ class SGDBRom(TypedDict):
 class SGDBBaseHandler(MetadataHandler):
     def __init__(self) -> None:
         self.sgdb_service = SteamGridDBService()
+        self.fuzzy_match_threshold: Final = 4
 
     async def get_details(self, search_term: str) -> list[SGDBResult]:
         games = await self.sgdb_service.search_games(term=search_term)
@@ -56,18 +57,25 @@ class SGDBBaseHandler(MetadataHandler):
 
             # SGDB search is fuzzy so no need to split the search term by special characters
             for game in games:
-                game_name_lower = game["name"].lower()
                 game_name_normalized = self.normalize_search_term(
                     game["name"], remove_articles=False
                 )
+                search_term_normalized = self.normalize_search_term(
+                    search_term, remove_articles=False
+                )
 
+                # Check if normalized search term is contained in normalized game name
+                # or if they're very similar (allowing for small character differences)
                 if (
-                    game_name_lower == search_term.lower()
-                    or game_name_normalized == search_term
+                    search_term_normalized in game_name_normalized
+                    or game_name_normalized in search_term_normalized
+                    or abs(len(game_name_normalized) - len(search_term_normalized))
+                    <= self.fuzzy_match_threshold
                 ):
                     game_details = await self._get_game_covers(
                         game_id=game["id"],
                         game_name=game["name"],
+                        types=(SGDBType.STATIC,),
                         is_nsfw=False,
                         is_humor=False,
                         is_epilepsy=False,
@@ -88,6 +96,14 @@ class SGDBBaseHandler(MetadataHandler):
         self,
         game_id: int,
         game_name: str,
+        dimensions: tuple[SGDBDimension, ...] = (
+            SGDBDimension.STEAM_VERTICAL,
+            SGDBDimension.GOG_GALAXY_TILE,
+            SGDBDimension.GOG_GALAXY_COVER,
+            SGDBDimension.SQUARE_512,
+            SGDBDimension.SQUARE_1024,
+        ),
+        types: tuple[SGDBType, ...] = (SGDBType.STATIC, SGDBType.ANIMATED),
         is_nsfw: bool | None = None,
         is_humor: bool | None = None,
         is_epilepsy: bool | None = None,
@@ -96,17 +112,8 @@ class SGDBBaseHandler(MetadataHandler):
             cover
             async for cover in self.sgdb_service.iter_grids_for_game(
                 game_id=game_id,
-                dimensions=(
-                    SGDBDimension.STEAM_VERTICAL,
-                    SGDBDimension.GOG_GALAXY_TILE,
-                    SGDBDimension.GOG_GALAXY_COVER,
-                    SGDBDimension.SQUARE_512,
-                    SGDBDimension.SQUARE_1024,
-                ),
-                types=(
-                    SGDBType.STATIC,
-                    SGDBType.ANIMATED,
-                ),
+                dimensions=dimensions,
+                types=types,
                 is_nsfw=is_nsfw,
                 is_humor=is_humor,
                 is_epilepsy=is_epilepsy,
