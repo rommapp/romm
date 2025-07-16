@@ -16,11 +16,21 @@ router = APIRouter(
 
 def validate_and_resolve_path(path: str) -> Optional[Path]:
     try:
+        user_path = Path(path)
+
+        # Check for explicit parent directory references
+        if ".." in user_path.parts:
+            return None
+
+        # Check for absolute paths
+        if user_path.is_absolute():
+            return None
+
         base_path = Path(ASSETS_BASE_PATH).resolve()
         requested_path = (base_path / path).resolve()
 
         # Ensure the resolved path is within the base directory
-        if not str(requested_path).startswith(str(base_path)):
+        if not requested_path.is_relative_to(base_path):
             return None
 
         # Check if file exists and is a file (not directory)
