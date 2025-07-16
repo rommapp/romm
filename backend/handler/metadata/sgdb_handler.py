@@ -35,6 +35,9 @@ class SGDBBaseHandler(MetadataHandler):
         self.max_levenshtein_distance: Final = 4
 
     async def get_details(self, search_term: str) -> list[SGDBResult]:
+        if not STEAMGRIDDB_API_ENABLED:
+            return []
+
         games = await self.sgdb_service.search_games(term=search_term)
         if not games:
             log.debug(f"Could not find '{search_term}' on SteamGridDB")
@@ -49,6 +52,9 @@ class SGDBBaseHandler(MetadataHandler):
         return list(filter(None, results))
 
     async def get_details_by_names(self, game_names: list[str]) -> SGDBRom:
+        if not STEAMGRIDDB_API_ENABLED:
+            return SGDBRom(sgdb_id=None)
+
         for game_name in game_names:
             search_term = self.normalize_search_term(game_name, remove_articles=False)
             games = await self.sgdb_service.search_games(term=search_term)
