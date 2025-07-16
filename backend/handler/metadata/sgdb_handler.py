@@ -95,23 +95,7 @@ class SGDBBaseHandler(MetadataHandler):
                             sgdb_id=game["id"], url_cover=first_resource["url"]
                         )
                 else:
-                    # Since the list is sorted, if this distance exceeds threshold,
-                    # all remaining distances will also exceed it and we will get the first match
-                    game_details = await self._get_game_covers(
-                        game_id=games[0]["id"],
-                        game_name=games[0]["name"],
-                        types=(SGDBType.STATIC,),
-                        is_nsfw=False,
-                        is_humor=False,
-                        is_epilepsy=False,
-                    )
-                    first_resource = next(
-                        (res for res in game_details["resources"] if res["url"]), None
-                    )
-                    if first_resource:
-                        return SGDBRom(
-                            sgdb_id=game["id"], url_cover=first_resource["url"]
-                        )
+                    return SGDBRom(sgdb_id=None)
 
         log.debug(f"No exact match found for '{', '.join(game_names)}' on SteamGridDB")
         return SGDBRom(sgdb_id=None)
