@@ -42,7 +42,7 @@
     "socket.io-client": "^4.7.5",
     "vanilla-tilt": "^1.8.1",
     "vue": "^3.4.27",
-    "vue-i18n": "^11.1.2",
+    "vue-i18n": "^11.1.10",
     "vue-router": "^4.3.2",
     "vue3-pdf-app": "^1.0.3",
     "vuetify": "^3.7.18"
