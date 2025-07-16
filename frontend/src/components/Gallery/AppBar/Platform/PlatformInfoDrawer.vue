@@ -401,8 +401,13 @@ watch(
               class="ml-1"
               :tabindex="tabIndex"
             >
-              <v-chip class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2 bg-surface" size="25" rounded="0">
+              <v-chip
+                class="pl-0 mt-1"
+                size="small"
+                @click.stop
+                title="Hasheous ID"
+              >
+                <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
                   <v-img src="/assets/scrappers/hasheous.png" />
                 </v-avatar>
                 <span>{{ currentPlatform.hasheous_id }}</span>
