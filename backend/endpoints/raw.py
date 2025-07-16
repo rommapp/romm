@@ -27,7 +27,7 @@ def validate_and_resolve_path(path: str) -> Optional[Path]:
             return None
 
         base_path = Path(ASSETS_BASE_PATH).resolve()
-        requested_path = (base_path / path).resolve()
+        requested_path = (base_path / user_path).resolve()
 
         # Ensure the resolved path is within the base directory
         if not requested_path.is_relative_to(base_path):
