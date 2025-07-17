@@ -346,7 +346,7 @@ class FSRomsHandler(FSHandler):
         rom_ra_h = ""
 
         # Check if rom is a multi-part rom
-        if os.path.isdir(f"{abs_fs_path}/{rom.full_path}"):
+        if os.path.isdir(f"{abs_fs_path}/{rom.fs_name}"):
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if rom.platform_slug in RA_PLATFORM_LIST.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
@@ -354,7 +354,9 @@ class FSRomsHandler(FSHandler):
                     f"{abs_fs_path}/{rom.fs_name}/*",
                 )
 
-            for f_path, file_name in iter_files(f"{abs_fs_path}/{rom}", recursive=True):
+            for f_path, file_name in iter_files(
+                f"{abs_fs_path}/{rom.fs_name}", recursive=True
+            ):
                 # Check if file is excluded
                 ext = self.parse_file_extension(file_name)
                 if not ext or ext in excluded_file_exts:
@@ -541,10 +543,9 @@ class FSRomsHandler(FSHandler):
         rel_roms_path = self.get_roms_fs_structure(
             platform.fs_slug
         )  # Relative path to roms
-        abs_fs_path = f"{self.base_path}/{rel_roms_path}"  # Absolute path to roms
 
-        fs_single_roms = self.list_files(path=abs_fs_path)
-        fs_multi_roms = self.list_directories(path=abs_fs_path)
+        fs_single_roms = self.list_files(path=rel_roms_path)
+        fs_multi_roms = self.list_directories(path=rel_roms_path)
 
         fs_roms: list[dict] = [
             {"multi": False, "fs_name": rom}
