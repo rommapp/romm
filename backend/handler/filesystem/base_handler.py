@@ -5,6 +5,7 @@ import shutil
 import threading
 from contextlib import contextmanager
 from enum import Enum
+from io import BytesIO
 from pathlib import Path
 from typing import BinaryIO, Optional
 
@@ -264,7 +265,7 @@ class FSHandler:
 
     def write_file(
         self,
-        file: UploadFile | BinaryIO | bytes,
+        file: UploadFile | BinaryIO | BytesIO | bytes,
         path: str,
         filename: Optional[str] = None,
     ) -> None:
@@ -306,8 +307,12 @@ class FSHandler:
                         shutil.copyfileobj(file.file, temp_file)
                     elif isinstance(file, BinaryIO):
                         shutil.copyfileobj(file, temp_file)
-                    else:
+                    elif isinstance(file, BytesIO):
+                        temp_file.write(file.getvalue())
+                    elif isinstance(file, bytes):
                         temp_file.write(file)
+                    else:
+                        raise ValueError("Unsupported file type for writing")
 
     def write_file_streamed(self, path: str, filename: str):
         """
