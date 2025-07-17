@@ -877,7 +877,7 @@ async def delete_roms(
         try:
             fs_resource_handler.remove_directory(rom.fs_resources_path)
         except FileNotFoundError:
-            log.error(
+            log.warning(
                 f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
             )
 

@@ -1,7 +1,6 @@
 import os
 
 from config import LIBRARY_BASE_PATH
-from config.config_manager import Config
 from config.config_manager import config_manager as cm
 
 from .base_handler import FSHandler
@@ -16,12 +15,22 @@ class FSPlatformsHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=LIBRARY_BASE_PATH)
 
-    def _exclude_platforms(self, config: Config, platforms: list):
+    def _exclude_platforms(self, platforms: list):
+        cnfg = cm.get_config()
         return [
             platform
             for platform in platforms
-            if platform not in config.EXCLUDED_PLATFORMS
+            if platform not in cnfg.EXCLUDED_PLATFORMS
         ]
+
+    def get_platforms_directory(self) -> str:
+        cnfg = cm.get_config()
+
+        return (
+            cnfg.ROMS_FOLDER_NAME
+            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            else ""
+        )
 
     def get_plaform_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
@@ -46,12 +55,5 @@ class FSPlatformsHandler(FSHandler):
         Returns:
             List of platform slugs.
         """
-        cnfg = cm.get_config()
-        platforms_dir = (
-            cnfg.ROMS_FOLDER_NAME
-            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else ""
-        )
-        platforms = self.list_directories(path=platforms_dir)
-
-        return self._exclude_platforms(cnfg, platforms)
+        platforms = self.list_directories(path=self.get_platforms_directory())
+        return self._exclude_platforms(platforms)

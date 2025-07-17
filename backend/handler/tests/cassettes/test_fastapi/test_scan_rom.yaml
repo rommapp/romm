@@ -25,12 +25,13 @@ interactions:
     response:
       body:
         string:
-          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
-          1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
-          \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
-          the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
-          Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
-          \ \"Discord\": \"https://discord.gg/igdb\"\n}\n"
+          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"\
+          Tip 1\":   \"Ensure you are sending Authorization and Client-ID as headers.\"\
+          ,\n  \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including\
+          \ the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the\
+          \ App Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":\
+          \    \"https://api-docs.igdb.com/#authentication\",\n  \"Discord\": \"https://discord.gg/igdb\"\
+          \n}\n"
       headers:
         CF-Cache-Status:
           - DYNAMIC
@@ -316,12 +317,13 @@ interactions:
     response:
       body:
         string:
-          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
-          1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
-          \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
-          the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
-          Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
-          \ \"Discord\": \"https://discord.gg/igdb\"\n}\n"
+          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"\
+          Tip 1\":   \"Ensure you are sending Authorization and Client-ID as headers.\"\
+          ,\n  \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including\
+          \ the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the\
+          \ App Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":\
+          \    \"https://api-docs.igdb.com/#authentication\",\n  \"Discord\": \"https://discord.gg/igdb\"\
+          \n}\n"
       headers:
         CF-Cache-Status:
           - DYNAMIC
@@ -578,6 +580,457 @@ interactions:
           - "4"
         x-pool:
           - slow
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: ""
+      headers:
+        accept:
+          - "*/*"
+        accept-encoding:
+          - gzip, deflate, br
+        connection:
+          - keep-alive
+        host:
+          - playmatch.retrorealm.dev
+        user-agent:
+          - RomM/development (https://github.com/rommapp/romm)
+      method: GET
+      uri: https://playmatch.retrorealm.dev/api/identify/ids?fileName=Paper+Mario+(USA).z64&fileSize=1024
+    response:
+      body:
+        string: !!binary |
+          CxKAeyJnYW1lTWF0Y2hUeXBlIjoiTm9NYXRjaCIsImlkIjpudWxsfQM=
+      headers:
+        CF-RAY:
+          - 960c3d22a857aafd-YYZ
+        Cache-Control:
+          - max-age=14400
+        Cf-Cache-Status:
+          - MISS
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Thu, 17 Jul 2025 19:45:17 GMT
+        Last-Modified:
+          - Thu, 17 Jul 2025 19:45:17 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=9JUfCfr%2F7%2FZoqqBJHiB5qF9ziPuJV7qv66gcciJwwpjnQIDhBSttsD7KV6ql0TDbbfq0CWnW5ibxL6AYbn4TJcneoCNXfdt4uLuAW64McLpWmYH94Um5bg%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - accept-encoding
+        X-Ratelimit-Limit:
+          - "20"
+        X-Ratelimit-Remaining:
+          - "19"
+        X-Version:
+          - 0.2.0
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        search "paper mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url,age_ratings.rating_category,videos.video_id;
+        where platforms=[4] & game_type=(10,0,11,8,9); limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer test_token
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "837"
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.28.1
+      method: POST
+      uri: https://api.igdb.com/v4/games
+    response:
+      body:
+        string:
+          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"\
+          Tip 1\":   \"Ensure you are sending Authorization and Client-ID as headers.\"\
+          ,\n  \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including\
+          \ the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the\
+          \ App Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":\
+          \    \"https://api-docs.igdb.com/#authentication\",\n  \"Discord\": \"https://discord.gg/igdb\"\
+          \n}\n"
+      headers:
+        CF-RAY:
+          - 960c3d26bdf4a2b1-YUL
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "434"
+        Content-Type:
+          - application/json
+        Date:
+          - Thu, 17 Jul 2025 19:45:18 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - __cf_bm=_4MCQ4Hoa.vSuVLwJv0Cf13N9AtzMeo6Lsf1youc2AE-1752781518-1.0.1.1-FoQrxg2hkPKfZUzx7eq5qB9.MFXHtGytbxvcpZgBt0.pqLC.qNN8rXv9i90gvuBeba6bhN9x4Qk_KNglqEAqACb73fXFL.JCxRMxzIiT3cs;
+            path=/; expires=Thu, 17-Jul-25 20:15:18 GMT; domain=.igdb.com; HttpOnly; Secure;
+            SameSite=None
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        cf-cache-status:
+          - DYNAMIC
+        via:
+          - 1.1 37504d411c7d230cb5e53aaf2809b804.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - N3ngPHXlPHcEq4A=
+        x-amz-cf-id:
+          - 6jiYssj_TKLwC8HpcE8Zuw9upf-jDgGyMBSiJHSW7aRA5MeNGrHaaQ==
+        x-amz-cf-pop:
+          - YUL62-C2
+        x-amzn-errortype:
+          - AccessDeniedException
+        x-amzn-requestid:
+          - fabb5960-a7d7-4b60-89b5-28f21d32dc7c
+        x-cache:
+          - Error from cloudfront
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: ""
+      headers:
+        accept:
+          - "*/*"
+        accept-encoding:
+          - gzip, deflate, br
+        connection:
+          - keep-alive
+        content-length:
+          - "0"
+        host:
+          - id.twitch.tv
+        user-agent:
+          - python-httpx/0.28.1
+      method: POST
+      uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
+    response:
+      body:
+        string: '{"status":400,"message":"invalid client"}
+
+          '
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "42"
+        Content-Type:
+          - application/json
+        Date:
+          - Thu, 17 Jul 2025 19:45:18 GMT
+        Server:
+          - nginx
+        X-Ctxlog-Logid:
+          - 1-687952ce-39ee3f8949fa125a2e545cfd
+      status:
+        code: 400
+        message: Bad Request
+  - request:
+      body: ""
+      headers:
+        accept:
+          - "*/*"
+        accept-encoding:
+          - gzip, deflate, br
+        connection:
+          - keep-alive
+        host:
+          - playmatch.retrorealm.dev
+        user-agent:
+          - RomM/development (https://github.com/rommapp/romm)
+      method: GET
+      uri: https://playmatch.retrorealm.dev/api/identify/ids?fileName=Paper+Mario+(USA).z64&fileSize=1024
+    response:
+      body:
+        string: !!binary |
+          CxKAeyJnYW1lTWF0Y2hUeXBlIjoiTm9NYXRjaCIsImlkIjpudWxsfQM=
+      headers:
+        Age:
+          - "81"
+        CF-RAY:
+          - 960c3f243a5caaa4-YYZ
+        Cache-Control:
+          - max-age=14400
+        Cf-Cache-Status:
+          - HIT
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Thu, 17 Jul 2025 19:46:39 GMT
+        Last-Modified:
+          - Thu, 17 Jul 2025 19:45:17 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=mjZ4A7YtYFmLhvxBpW6QPl821crHqZZvQpN%2B8KgRa1zLBnsoeewii%2FWWpbQC7wKBCHw7a818u5WLZOYV60b7as%2Far6YDNSodkqsgt%2BNs4w9z%2F2bhZL22Sw%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - accept-encoding
+        X-Ratelimit-Limit:
+          - "20"
+        X-Ratelimit-Remaining:
+          - "19"
+        X-Version:
+          - 0.2.0
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        search "paper mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url,age_ratings.rating_category,videos.video_id;
+        where platforms=[4] & game_type=(10,0,11,8,9); limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer test_token
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "837"
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.28.1
+      method: POST
+      uri: https://api.igdb.com/v4/games
+    response:
+      body:
+        string:
+          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"\
+          Tip 1\":   \"Ensure you are sending Authorization and Client-ID as headers.\"\
+          ,\n  \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including\
+          \ the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the\
+          \ App Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":\
+          \    \"https://api-docs.igdb.com/#authentication\",\n  \"Discord\": \"https://discord.gg/igdb\"\
+          \n}\n"
+      headers:
+        CF-RAY:
+          - 960c3f249c3aa27b-YUL
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "434"
+        Content-Type:
+          - application/json
+        Date:
+          - Thu, 17 Jul 2025 19:46:39 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - __cf_bm=7H47jGLCD7N0QVnBaGY2mcfCEMpUw5gT4iIyHC98cDI-1752781599-1.0.1.1-jMQsIcVHa.ZTNb4pn4Dz_Go2SV8eitqm2On0YIRpRn6fBle0M6lHqlb7lnTRZfW_fqr.YWC1nDlmEWXC6.LIqVtMGu_CnGWwR5Hui7Y.it8;
+            path=/; expires=Thu, 17-Jul-25 20:16:39 GMT; domain=.igdb.com; HttpOnly; Secure;
+            SameSite=None
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        cf-cache-status:
+          - DYNAMIC
+        via:
+          - 1.1 612d3e065148a94cbbe94139733f662e.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - N3ns_HMuPHcEAQg=
+        x-amz-cf-id:
+          - I4eOgzOAu5AWusM-kY-kK46cQZEXmXwW_jDh9a4ZKdwIthmhgvQiLQ==
+        x-amz-cf-pop:
+          - YUL62-C2
+        x-amzn-errortype:
+          - AccessDeniedException
+        x-amzn-requestid:
+          - 7fa35dfa-2106-4321-a52c-0a6f503dc158
+        x-cache:
+          - Error from cloudfront
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: ""
+      headers:
+        accept:
+          - "*/*"
+        accept-encoding:
+          - gzip, deflate, br
+        connection:
+          - keep-alive
+        content-length:
+          - "0"
+        host:
+          - id.twitch.tv
+        user-agent:
+          - python-httpx/0.28.1
+      method: POST
+      uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
+    response:
+      body:
+        string:
+          '{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":5394139,"token_type":"bearer"}
+
+          '
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "93"
+        Content-Type:
+          - application/json
+        Date:
+          - Thu, 17 Jul 2025 19:46:40 GMT
+        Server:
+          - nginx
+        X-Ctxlog-Logid:
+          - 1-6879531f-38f8868819b1d0d937fa2592
+      status:
+        code: 200
+        message: OK
+  - request:
+      body:
+        search "paper mario"; fields id,name,slug,summary,total_rating,aggregated_rating,first_release_date,artworks.url,cover.url,screenshots.url,platforms.id,platforms.name,alternative_names.name,genres.name,franchise.name,franchises.name,collections.name,game_modes.name,involved_companies.company.name,expansions.id,expansions.slug,expansions.name,expansions.cover.url,expanded_games.id,expanded_games.slug,expanded_games.name,expanded_games.cover.url,dlcs.id,dlcs.name,dlcs.slug,dlcs.cover.url,remakes.id,remakes.slug,remakes.name,remakes.cover.url,remasters.id,remasters.slug,remasters.name,remasters.cover.url,ports.id,ports.slug,ports.name,ports.cover.url,similar_games.id,similar_games.slug,similar_games.name,similar_games.cover.url,age_ratings.rating_category,videos.video_id;
+        where platforms=[4] & game_type=(10,0,11,8,9); limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "837"
+        cookie:
+          - __cf_bm=7H47jGLCD7N0QVnBaGY2mcfCEMpUw5gT4iIyHC98cDI-1752781599-1.0.1.1-jMQsIcVHa.ZTNb4pn4Dz_Go2SV8eitqm2On0YIRpRn6fBle0M6lHqlb7lnTRZfW_fqr.YWC1nDlmEWXC6.LIqVtMGu_CnGWwR5Hui7Y.it8
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.28.1
+      method: POST
+      uri: https://api.igdb.com/v4/games
+    response:
+      body:
+        string: !!binary |
+          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
+      headers:
+        CF-RAY:
+          - 960c3f28caa6a27b-YUL
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Thu, 17 Jul 2025 19:46:40 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        cf-cache-status:
+          - DYNAMIC
+        vary:
+          - accept-encoding
+        via:
+          - 1.1 612d3e065148a94cbbe94139733f662e.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - N3ntFGcyvHcEivQ=
+        x-amz-cf-id:
+          - AhhPw2CyDjZIqiw2JWPiolw0Atot5UUlzCGdZVhgnuTGw_8mgRle7w==
+        x-amz-cf-pop:
+          - YUL62-C2
+        x-amzn-remapped-content-length:
+          - "1494"
+        x-amzn-remapped-date:
+          - Thu, 17 Jul 2025 19:46:40 GMT
+        x-amzn-requestid:
+          - 75543cc0-04cd-4593-ac44-ad380649a3d2
+        x-cache:
+          - Miss from cloudfront
+        x-count:
+          - "1"
+        x-pool:
+          - default
       status:
         code: 200
         message: OK

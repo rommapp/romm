@@ -91,6 +91,10 @@ class FSHandler:
         self._locks: dict[str, threading.Lock] = {}
         self._lock_mutex = threading.Lock()
 
+        # Thread-safe directory creation
+        with self._get_file_lock(str(self.base_path)):
+            self.base_path.mkdir(parents=True, exist_ok=True)
+
     def _get_file_lock(self, file_path: str) -> threading.Lock:
         """Get or create a lock for a specific file path."""
         with self._lock_mutex:
@@ -120,9 +124,6 @@ class FSHandler:
 
     def validate_path(self, path: str) -> Path:
         """Validate and normalize path to prevent directory traversal."""
-        if not path:
-            raise ValueError("Empty path")
-
         path_path = Path(path)
 
         # Check for explicit parent directory references
@@ -131,6 +132,7 @@ class FSHandler:
 
         # Check for absolute paths
         if path_path.is_absolute():
+            print("Path path:", path_path)
             raise ValueError("Path must be relative, not absolute")
 
         # Normalize path
