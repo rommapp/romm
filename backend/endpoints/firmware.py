@@ -1,4 +1,4 @@
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
@@ -154,7 +154,7 @@ def head_firmware_content(request: Request, id: int, file_name: str):
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    firmware_path = f"{LIBRARY_BASE_PATH}/{firmware.full_path}"
+    firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
     return FileResponse(
         path=firmware_path,
@@ -192,7 +192,7 @@ def get_firmware_content(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    firmware_path = f"{LIBRARY_BASE_PATH}/{firmware.full_path}"
+    firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
     return FileResponse(path=firmware_path, filename=firmware.file_name)
 
