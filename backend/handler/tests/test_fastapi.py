@@ -5,7 +5,7 @@ from models.rom import Rom, RomFile
 from utils.context import initialize_context
 
 
-@pytest.mark.vcr
+@pytest.mark.vcr(record_mode="all")
 async def test_scan_platform():
     async with initialize_context():
         platform = await scan_platform("n64", ["n64"])
@@ -25,7 +25,7 @@ async def test_scan_platform():
     assert platform.igdb_id is None
 
 
-@pytest.mark.vcr
+@pytest.mark.vcr(record_mode="all")
 async def test_scan_rom():
     platform = Platform(fs_slug="n64", igdb_id=4)
     rom = Rom(

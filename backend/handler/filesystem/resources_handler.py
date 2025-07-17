@@ -49,8 +49,7 @@ class FSResourcesHandler(FSHandler):
         small_size = (small_width, small_height)
         small_img = cover.resize(small_size)
 
-        full_path = self.validate_path(save_path)
-        small_img.save(full_path)
+        small_img.save(save_path)
 
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
@@ -64,12 +63,14 @@ class FSResourcesHandler(FSHandler):
             size: size of the cover
         """
         cover_file = f"{entity.fs_resources_path}/cover"
+        self.make_directory(f"{cover_file}")
+
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url_cover, timeout=120) as response:
                 if response.status_code == 200:
                     with self.write_file_streamed(
-                        path=cover_file, filename="{size.value}.png"
+                        path=cover_file, filename=f"{size.value}.png"
                     ) as f:
                         async for chunk in response.aiter_raw():
                             f.write(chunk)
@@ -78,8 +79,9 @@ class FSResourcesHandler(FSHandler):
 
         if size == CoverSize.SMALL:
             try:
-                with Image.open(cover_file) as img:
-                    self.resize_cover_to_small(img, save_path=cover_file)
+                image_path = self.validate_path(f"{cover_file}/{size.value}.png")
+                with Image.open(image_path) as img:
+                    self.resize_cover_to_small(img, save_path=str(image_path))
             except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None
