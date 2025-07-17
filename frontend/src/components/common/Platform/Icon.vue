@@ -13,11 +13,19 @@ withDefaults(
 
 <template>
   <v-avatar :size="size" :rounded="rounded" :title="name || slug">
-    <v-img :src="`/assets/platforms/${(fsSlug || slug).toLowerCase()}.ico`">
+    <v-img :src="`/assets/platforms/${(fsSlug || slug).toLowerCase()}.svg`">
       <template #error>
-        <v-img :src="`/assets/platforms/${slug.toLowerCase()}.ico`">
+        <v-img :src="`/assets/platforms/${(fsSlug || slug).toLowerCase()}.ico`">
           <template #error>
-            <v-img src="/assets/platforms/default.ico"></v-img>
+            <v-img :src="`/assets/platforms/${slug.toLowerCase()}.svg`">
+              <template #error>
+                <v-img :src="`/assets/platforms/${slug.toLowerCase()}.ico`">
+                  <template #error>
+                    <v-img src="/assets/platforms/default.ico"></v-img>
+                  </template>
+                </v-img>
+              </template>
+            </v-img>
           </template>
         </v-img>
       </template>
