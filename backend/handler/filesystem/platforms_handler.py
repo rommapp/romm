@@ -2,13 +2,12 @@ import os
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
+from exceptions.fs_exceptions import (
+    FolderStructureNotMatchException,
+    PlatformAlreadyExistsException,
+)
 
 from .base_handler import FSHandler
-
-# from exceptions.fs_exceptions import (
-#     FolderStructureNotMatchException,
-#     PlatformAlreadyExistsException,
-# )
 
 
 class FSPlatformsHandler(FSHandler):
@@ -40,14 +39,18 @@ class FSPlatformsHandler(FSHandler):
             else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
         )
 
-    def add_platforms(self, fs_slug: str) -> None:
+    def add_platform(self, fs_slug: str) -> None:
         """Adds platform to the filesystem
 
         Args:
             fs_slug: platform slug
         """
         platform_path = self.get_plaform_fs_structure(fs_slug)
-        self.make_directory(platform_path)
+
+        try:
+            self.make_directory(platform_path)
+        except FileNotFoundError as e:
+            raise PlatformAlreadyExistsException(fs_slug) from e
 
     def get_platforms(self) -> list[str]:
         """Retrieves all platforms from the filesystem.
@@ -55,5 +58,9 @@ class FSPlatformsHandler(FSHandler):
         Returns:
             List of platform slugs.
         """
-        platforms = self.list_directories(path=self.get_platforms_directory())
+        try:
+            platforms = self.list_directories(path=self.get_platforms_directory())
+        except FileNotFoundError as e:
+            raise FolderStructureNotMatchException() from e
+
         return self._exclude_platforms(platforms)

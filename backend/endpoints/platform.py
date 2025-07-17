@@ -38,7 +38,7 @@ async def add_platform(
     """Create a platform."""
 
     try:
-        fs_platform_handler.add_platforms(fs_slug=fs_slug)
+        fs_platform_handler.add_platform(fs_slug=fs_slug)
     except PlatformAlreadyExistsException:
         log.info(f"Detected platform: {hl(fs_slug)}")
 
