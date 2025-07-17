@@ -117,7 +117,7 @@ async def add_rom(
         f"Uploading file to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}[{hl(platform_fs_slug)}]"
     )
 
-    file_location = fs_rom_handler._validate_path(f"{roms_path}/{filename}")
+    file_location = fs_rom_handler.validate_path(f"{roms_path}/{filename}")
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
@@ -524,9 +524,10 @@ async def get_rom_content(
         )
 
     async def create_zip_content(f: RomFile, base_path: str = LIBRARY_BASE_PATH):
+        file_size = fs_rom_handler.get_file_size(f.full_path)
         return ZipContentLine(
             crc32=f.crc_hash,
-            size_bytes=(await Path(LIBRARY_BASE_PATH, f.full_path).stat()).st_size,
+            size_bytes=file_size,
             encoded_location=quote(f"{base_path}/{f.full_path}"),
             filename=f.file_name_for_download(rom, hidden_folder),
         )

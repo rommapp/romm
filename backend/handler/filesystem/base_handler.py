@@ -118,7 +118,7 @@ class FSHandler:
 
         return filename
 
-    def _validate_path(self, path: str) -> Path:
+    def validate_path(self, path: str) -> Path:
         """Validate and normalize path to prevent directory traversal."""
         if not path:
             raise ValueError("Empty path")
@@ -201,7 +201,7 @@ class FSHandler:
         Raises:
             ValueError: If path is invalid or already exists as a file
         """
-        target_directory = self._validate_path(path)
+        target_directory = self.validate_path(path)
 
         # Thread-safe directory creation
         with self._get_file_lock(str(target_directory)):
@@ -225,7 +225,7 @@ class FSHandler:
         Raises:
             ValueError: If path is invalid or not a directory
         """
-        target_directory = self._validate_path(path)
+        target_directory = self.validate_path(path)
 
         # Thread-safe directory creation
         with self._get_file_lock(str(target_directory)):
@@ -248,7 +248,7 @@ class FSHandler:
         Raises:
             ValueError: If path is invalid or not a directory
         """
-        target_directory = self._validate_path(path)
+        target_directory = self.validate_path(path)
 
         # Thread-safe directory removal
         with self._get_file_lock(str(target_directory)):
@@ -282,7 +282,7 @@ class FSHandler:
 
         # Validate and sanitize inputs
         sanitized_filename = self._sanitize_filename(original_filename)
-        target_directory = self._validate_path(path)
+        target_directory = self.validate_path(path)
 
         final_file_path = target_directory / sanitized_filename
 
@@ -295,6 +295,37 @@ class FSHandler:
             with self._atomic_write(final_file_path) as temp_path:
                 with open(temp_path, "wb") as temp_file:
                     shutil.copyfileobj(file.file, temp_file)
+
+    def write_file_streamed(self, path: str, filename: str):
+        """
+        Write file to filesystem using a streamed approach.
+
+        Args:
+            path: Relative path within base directory
+            filename: Name of the file to write
+
+        Returns:
+            File object for writing
+
+        Raises:
+            ValueError: If path or filename is invalid
+        """
+        if not path or not filename:
+            raise ValueError("Path and filename cannot be empty")
+
+        # Validate and sanitize inputs
+        sanitized_filename = self._sanitize_filename(filename)
+        target_directory = self.validate_path(path)
+
+        final_file_path = target_directory / sanitized_filename
+
+        # Thread-safe file operations
+        with self._get_file_lock(str(final_file_path)):
+            # Ensure target directory exists
+            target_directory.mkdir(parents=True, exist_ok=True)
+
+            # Open file for writing
+            return open(final_file_path, "wb")
 
     def read_file(self, file_path: str) -> bytes:
         """
@@ -313,7 +344,7 @@ class FSHandler:
             raise ValueError("File path cannot be empty")
 
         # Validate and normalize path
-        full_path = self._validate_path(file_path)
+        full_path = self.validate_path(file_path)
 
         # Thread-safe file read
         with self._get_file_lock(str(full_path)):
@@ -340,7 +371,7 @@ class FSHandler:
             raise ValueError("File path cannot be empty")
 
         # Validate and normalize path
-        full_path = self._validate_path(file_path)
+        full_path = self.validate_path(file_path)
 
         # Thread-safe file stream
         with self._get_file_lock(str(full_path)):
@@ -365,8 +396,8 @@ class FSHandler:
             raise ValueError("Source and destination paths cannot be empty")
 
         # Validate and normalize paths
-        source_full_path = self._validate_path(source_path)
-        dest_full_path = self._validate_path(dest_path)
+        source_full_path = self.validate_path(source_path)
+        dest_full_path = self.validate_path(dest_path)
 
         # Use locks for both source and destination
         source_lock = self._get_file_lock(str(source_full_path))
@@ -396,7 +427,7 @@ class FSHandler:
             raise ValueError("File path cannot be empty")
 
         # Validate and normalize path
-        full_path = self._validate_path(file_path)
+        full_path = self.validate_path(file_path)
 
         # Thread-safe file removal
         with self._get_file_lock(str(full_path)):
@@ -422,7 +453,7 @@ class FSHandler:
             raise ValueError("Directory cannot be empty")
 
         # Validate and normalize path
-        full_path = self._validate_path(path)
+        full_path = self.validate_path(path)
 
         # Thread-safe directory listing
         with self._get_file_lock(str(full_path)):
@@ -445,7 +476,7 @@ class FSHandler:
             raise ValueError("File path cannot be empty")
 
         # Validate and normalize path
-        full_path = self._validate_path(file_path)
+        full_path = self.validate_path(file_path)
 
         # Thread-safe existence check
         with self._get_file_lock(str(full_path)):
@@ -468,7 +499,7 @@ class FSHandler:
             raise ValueError("File path cannot be empty")
 
         # Validate and normalize path
-        full_path = self._validate_path(file_path)
+        full_path = self.validate_path(file_path)
 
         # Thread-safe file size retrieval
         with self._get_file_lock(str(full_path)):
