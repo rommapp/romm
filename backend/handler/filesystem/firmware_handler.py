@@ -4,8 +4,9 @@ import os
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
-from exceptions.fs_exceptions import (  # FirmwareNotFoundException,
+from exceptions.fs_exceptions import (
     FirmwareAlreadyExistsException,
+    FirmwareNotFoundException,
 )
 from utils.hashing import crc32_to_hex
 
@@ -33,7 +34,12 @@ class FSFirmwareHandler(FSHandler):
             list with all the filesystem firmware for a platform
         """
         firmware_path = self.get_firmware_fs_structure(platform_fs_slug)
-        fs_firmware_files = self.list_files(path=firmware_path)
+        try:
+            fs_firmware_files = self.list_files(path=firmware_path)
+        except FileNotFoundError as e:
+            raise FirmwareNotFoundException(
+                f"Firmware not found for platform {platform_fs_slug}"
+            ) from e
 
         return [f for f in self.exclude_single_files(fs_firmware_files)]
 

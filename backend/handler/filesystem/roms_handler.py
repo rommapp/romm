@@ -17,8 +17,9 @@ import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support 
 from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
-from exceptions.fs_exceptions import (  # RomsNotFoundException
+from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
+    RomsNotFoundException,
 )
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
@@ -540,12 +541,15 @@ class FSRomsHandler(FSHandler):
         Returns:
             list with all the filesystem roms for a platform
         """
-        rel_roms_path = self.get_roms_fs_structure(
-            platform.fs_slug
-        )  # Relative path to roms
+        try:
+            rel_roms_path = self.get_roms_fs_structure(
+                platform.fs_slug
+            )  # Relative path to roms
 
-        fs_single_roms = self.list_files(path=rel_roms_path)
-        fs_multi_roms = self.list_directories(path=rel_roms_path)
+            fs_single_roms = self.list_files(path=rel_roms_path)
+            fs_multi_roms = self.list_directories(path=rel_roms_path)
+        except FileNotFoundError as e:
+            raise RomsNotFoundException(platform=platform.fs_slug) from e
 
         fs_roms: list[dict] = [
             {"multi": False, "fs_name": rom}
