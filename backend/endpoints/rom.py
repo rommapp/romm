@@ -112,18 +112,19 @@ async def add_rom(
         )
 
     platform_fs_slug = db_platform.fs_slug
-    roms_path = fs_rom_handler.build_upload_fs_path(platform_fs_slug)
+    roms_path = fs_rom_handler.get_roms_fs_structure(platform_fs_slug)
     log.info(
         f"Uploading file to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}[{hl(platform_fs_slug)}]"
     )
 
-    file_location = Path(f"{roms_path}/{filename}")
+    file_location = fs_rom_handler._validate_path(f"{roms_path}/{filename}")
+
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
     parser.register(filename, FileTarget(str(file_location)))
 
     # Check if the file already exists
-    if await file_location.exists():
+    if fs_rom_handler.file_exists(str(file_location)):
         log.warning(f" - Skipping {hl(filename)} since the file already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -131,12 +132,11 @@ async def add_rom(
         )
 
     # Create the directory if it doesn't exist
-    if not await file_location.parent.exists():
-        await file_location.parent.mkdir(parents=True, exist_ok=True)
+    fs_rom_handler.make_directory(roms_path)
 
     async def cleanup_partial_file():
-        if await file_location.exists():
-            await file_location.unlink()
+        if file_location.exists():
+            file_location.unlink()
 
     try:
         async for chunk in request.stream():

@@ -1,5 +1,6 @@
 import os
 
+from config import LIBRARY_BASE_PATH
 from config.config_manager import Config
 from config.config_manager import config_manager as cm
 
@@ -13,7 +14,7 @@ from .base_handler import FSHandler
 
 class FSPlatformsHandler(FSHandler):
     def __init__(self) -> None:
-        pass
+        super().__init__(base_path=LIBRARY_BASE_PATH)
 
     def _exclude_platforms(self, config: Config, platforms: list):
         return [

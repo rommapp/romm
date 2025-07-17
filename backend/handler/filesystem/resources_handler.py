@@ -16,6 +16,9 @@ from .base_handler import CoverSize, FSHandler
 
 
 class FSResourcesHandler(FSHandler):
+    def __init__(self) -> None:
+        super().__init__(base_path=RESOURCES_BASE_PATH)
+
     @staticmethod
     async def cover_exists(entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
