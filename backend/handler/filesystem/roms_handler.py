@@ -403,7 +403,7 @@ class FSRomsHandler(FSHandler):
 
                 rom_files.append(
                     self._build_rom_file(
-                        f_path.relative_to(LIBRARY_BASE_PATH),
+                        f_path.relative_to(self.base_path),
                         file_name,
                         file_hash,
                     )
@@ -536,12 +536,12 @@ class FSRomsHandler(FSHandler):
         Args:
             platform: platform where roms belong
         Returns:
-            list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH
+            list with all the filesystem roms for a platform
         """
         rel_roms_path = self.get_roms_fs_structure(
             platform.fs_slug
         )  # Relative path to roms
-        abs_fs_path = f"{LIBRARY_BASE_PATH}/{rel_roms_path}"  # Absolute path to roms
+        abs_fs_path = f"{self.base_path}/{rel_roms_path}"  # Absolute path to roms
 
         fs_single_roms = self.list_files(path=abs_fs_path)
         fs_multi_roms = self.list_directories(path=abs_fs_path)

@@ -30,7 +30,7 @@ class FSFirmwareHandler(FSHandler):
         Args:
             platform: platform where firmware belong
         Returns:
-            list with all the filesystem firmware for a platform found in the LIBRARY_BASE_PATH
+            list with all the filesystem firmware for a platform
         """
         firmware_path = self.get_firmware_fs_structure(platform_fs_slug)
         fs_firmware_files = self.list_files(path=firmware_path)
