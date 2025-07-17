@@ -1,9 +1,7 @@
 import binascii
-import os
 from base64 import b64encode
 from datetime import datetime, timezone
 from io import BytesIO
-from shutil import rmtree
 from stat import S_IFREG
 from typing import Annotated, Any
 from urllib.parse import quote
@@ -14,7 +12,6 @@ from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
-    RESOURCES_BASE_PATH,
     str_to_bool,
 )
 from decorators.auth import protected_route
@@ -134,7 +131,7 @@ async def add_rom(
     # Create the directory if it doesn't exist
     fs_rom_handler.make_directory(roms_path)
 
-    async def cleanup_partial_file():
+    def cleanup_partial_file():
         if file_location.exists():
             file_location.unlink()
 
@@ -143,10 +140,10 @@ async def add_rom(
             parser.data_received(chunk)
     except ClientDisconnect:
         log.error("Client disconnected during upload")
-        await cleanup_partial_file()
+        cleanup_partial_file()
     except Exception as exc:
         log.error("Error uploading files", exc_info=exc)
-        await cleanup_partial_file()
+        cleanup_partial_file()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the file(s)",
@@ -576,7 +573,6 @@ async def update_rom(
     ] = False,
 ) -> DetailedRomSchema:
     """Update a rom."""
-
     data = await request.form()
 
     rom = db_rom_handler.get_rom(id)
@@ -704,26 +700,23 @@ async def update_rom(
             (
                 path_cover_l,
                 path_cover_s,
-                artwork_path,
-            ) = await fs_resource_handler.build_artwork_path(rom, file_ext)
+            ) = fs_resource_handler.build_artwork_path(rom, file_ext)
 
             cleaned_data.update(
                 {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
             )
 
             artwork_content = BytesIO(await artwork.read())
-            file_location_small = Path(f"{artwork_path}/small.{file_ext}")
-            file_location_large = Path(f"{artwork_path}/big.{file_ext}")
             with Image.open(artwork_content) as img:
-                img.save(file_location_large)
-                fs_resource_handler.resize_cover_to_small(
-                    img, save_path=file_location_small
-                )
+                img.save(path_cover_l)
+                fs_resource_handler.resize_cover_to_small(img, save_path=path_cover_s)
 
             cleaned_data.update({"url_cover": ""})
         else:
-            if data.get("url_cover", "") != rom.url_cover or not (
-                await fs_resource_handler.cover_exists(rom, CoverSize.BIG)
+            if data.get(
+                "url_cover", ""
+            ) != rom.url_cover or not fs_resource_handler.cover_exists(
+                rom, CoverSize.BIG
             ):
                 cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
@@ -735,9 +728,9 @@ async def update_rom(
                     {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
                 )
 
-    if data.get("url_manual", "") != rom.url_manual or not (
-        await fs_resource_handler.manual_exists(rom)
-    ):
+    if data.get(
+        "url_manual", ""
+    ) != rom.url_manual or not fs_resource_handler.manual_exists(rom):
         cleaned_data.update({"url_manual": data.get("url_manual", rom.url_manual)})
         path_manual = await fs_resource_handler.get_manual(
             rom=rom,
@@ -811,30 +804,29 @@ async def add_rom_manuals(
     if not rom:
         raise RomNotFoundInDatabaseException(id)
 
-    manuals_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
-    file_location = Path(f"{manuals_path}/{rom.id}.pdf")
-    log.info(f"Uploading {hl(str(file_location))}")
+    manuals_path = f"{rom.fs_resources_path}/manual"
+    file_location = fs_rom_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
+    log.info(f"Uploading manual to {hl(str(file_location))}")
 
-    if not os.path.exists(manuals_path):
-        await Path(manuals_path).mkdir(parents=True, exist_ok=True)
+    fs_rom_handler.make_directory(manuals_path)
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
     parser.register(filename, FileTarget(str(file_location)))
 
-    async def cleanup_partial_file():
-        if await file_location.exists():
-            await file_location.unlink()
+    def cleanup_partial_file():
+        if file_location.exists():
+            file_location.unlink()
 
     try:
         async for chunk in request.stream():
             parser.data_received(chunk)
     except ClientDisconnect:
         log.error("Client disconnected during upload")
-        await cleanup_partial_file()
+        cleanup_partial_file()
     except Exception as exc:
         log.error("Error uploading files", exc_info=exc)
-        await cleanup_partial_file()
+        cleanup_partial_file()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="There was an error uploading the manual",
@@ -883,7 +875,7 @@ async def delete_roms(
         db_rom_handler.delete_rom(id)
 
         try:
-            rmtree(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}")
+            fs_resource_handler.remove_directory(rom.fs_resources_path)
         except FileNotFoundError:
             log.error(
                 f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
@@ -1016,7 +1008,7 @@ async def get_romfile_content(
 
     # Serve the file directly in development mode for emulatorjs
     if DEV_MODE:
-        rom_path = f"{LIBRARY_BASE_PATH}/{file.full_path}"
+        rom_path = fs_rom_handler.validate_path(file.full_path)
         return FileResponse(
             path=rom_path,
             filename=file_name,
