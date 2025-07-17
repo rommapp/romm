@@ -199,10 +199,8 @@ def scan_firmware(
         "platform_id": platform.id,
     }
 
-    file_size = fs_firmware_handler.get_firmware_file_size(
-        firmware_path=firmware_path,
-        file_name=file_name,
-    )
+    file_path = f"{firmware_path}/{file_name}"
+    file_size = fs_firmware_handler.get_file_size(file_path)
 
     firmware_attrs.update(
         {
@@ -623,11 +621,12 @@ async def scan_rom(
     return Rom(**rom_attrs)
 
 
-def _scan_asset(file_name: str, path: str):
-    file_size = fs_asset_handler.get_asset_size(file_name=file_name, asset_path=path)
+def _scan_asset(file_name: str, asset_path: str):
+    file_path = f"{asset_path}/{file_name}"
+    file_size = fs_asset_handler.get_file_size(file_path)
 
     return {
-        "file_path": path,
+        "file_path": asset_path,
         "file_name": file_name,
         "file_name_no_tags": fs_asset_handler.get_file_name_with_no_tags(file_name),
         "file_name_no_ext": fs_asset_handler.get_file_name_with_no_extension(file_name),

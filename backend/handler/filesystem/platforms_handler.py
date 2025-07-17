@@ -1,16 +1,14 @@
 import os
-from pathlib import Path
 
-from config import LIBRARY_BASE_PATH
 from config.config_manager import Config
 from config.config_manager import config_manager as cm
-from exceptions.fs_exceptions import (
-    FolderStructureNotMatchException,
-    PlatformAlreadyExistsException,
-)
-from utils.filesystem import iter_directories
 
 from .base_handler import FSHandler
+
+# from exceptions.fs_exceptions import (
+#     FolderStructureNotMatchException,
+#     PlatformAlreadyExistsException,
+# )
 
 
 class FSPlatformsHandler(FSHandler):
@@ -24,35 +22,35 @@ class FSPlatformsHandler(FSHandler):
             if platform not in config.EXCLUDED_PLATFORMS
         ]
 
-    def add_platforms(self, fs_slug: str) -> None:
+    def get_plaform_fs_structure(self, fs_slug: str) -> str:
         cnfg = cm.get_config()
-        try:
-            (
-                os.mkdir(f"{cnfg.HIGH_PRIO_STRUCTURE_PATH}/{fs_slug}")
-                if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-                else Path(os.path.join(LIBRARY_BASE_PATH, fs_slug, "roms")).mkdir(
-                    parents=True
-                )
-            )
-        except FileExistsError as exc:
-            raise PlatformAlreadyExistsException(fs_slug) from exc
-
-    def get_platforms(self) -> list[str]:
-        """Gets all filesystem platforms
-
-        Returns list with all the filesystem platforms found in the LIBRARY_BASE_PATH.
-        Automatically exclude folders defined in user config.
-        """
-        cnfg = cm.get_config()
-
-        platforms_dir = (
-            cnfg.HIGH_PRIO_STRUCTURE_PATH
+        return (
+            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
             if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
-            else LIBRARY_BASE_PATH
+            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
         )
 
-        try:
-            platforms = sorted([d for _, d in iter_directories(platforms_dir)])
-            return self._exclude_platforms(cnfg, platforms)
-        except IndexError as exc:
-            raise FolderStructureNotMatchException from exc
+    def add_platforms(self, fs_slug: str) -> None:
+        """Adds platform to the filesystem
+
+        Args:
+            fs_slug: platform slug
+        """
+        platform_path = self.get_plaform_fs_structure(fs_slug)
+        self.make_directory(platform_path)
+
+    def get_platforms(self) -> list[str]:
+        """Retrieves all platforms from the filesystem.
+
+        Returns:
+            List of platform slugs.
+        """
+        cnfg = cm.get_config()
+        platforms_dir = (
+            cnfg.ROMS_FOLDER_NAME
+            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            else ""
+        )
+        platforms = self.list_directories(path=platforms_dir)
+
+        return self._exclude_platforms(cnfg, platforms)

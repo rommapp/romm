@@ -891,7 +891,8 @@ async def delete_roms(
         if id in delete_from_fs:
             log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
             try:
-                fs_rom_handler.remove_from_fs(fs_path=rom.fs_path, fs_name=rom.fs_name)
+                file_path = f"{rom.fs_path}/{rom.fs_name}"
+                fs_rom_handler.remove_file(file_path=file_path)
             except FileNotFoundError as exc:
                 error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
                 log.error(error)

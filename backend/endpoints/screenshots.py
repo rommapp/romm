@@ -29,7 +29,7 @@ async def add_screenshot(
         raise RomNotFoundInDatabaseException(rom_id)
 
     current_user = request.user
-    log.info(f"Uploading screenshots to {hl(rom.name, color=BLUE)}")
+    log.info(f"Uploading screenshots to {hl(str(rom.name), color=BLUE)}")
 
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id

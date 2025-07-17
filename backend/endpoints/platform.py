@@ -41,6 +41,7 @@ async def add_platform(
         fs_platform_handler.add_platforms(fs_slug=fs_slug)
     except PlatformAlreadyExistsException:
         log.info(f"Detected platform: {hl(fs_slug)}")
+
     scanned_platform = await scan_platform(fs_slug, [fs_slug])
     return PlatformSchema.model_validate(
         db_platform_handler.add_platform(scanned_platform)

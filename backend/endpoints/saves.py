@@ -243,9 +243,8 @@ async def delete_saves(request: Request) -> list[int]:
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
         try:
-            fs_asset_handler.remove_file(
-                file_name=save.file_name, file_path=save.file_path
-            )
+            file_path = f"{save.file_path}/{save.file_name}"
+            fs_asset_handler.remove_file(file_path=file_path)
         except FileNotFoundError:
             error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
             log.error(error)
@@ -254,10 +253,8 @@ async def delete_saves(request: Request) -> list[int]:
             db_screenshot_handler.delete_screenshot(save.screenshot.id)
 
             try:
-                fs_asset_handler.remove_file(
-                    file_name=save.screenshot.file_name,
-                    file_path=save.screenshot.file_path,
-                )
+                file_path = f"{save.screenshot.file_path}/{save.screenshot.file_name}"
+                fs_asset_handler.remove_file(file_path=file_path)
             except FileNotFoundError:
                 error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
                 log.error(error)

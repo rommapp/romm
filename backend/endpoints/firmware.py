@@ -46,7 +46,7 @@ def add_firmware(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     uploaded_firmware = []
-    firmware_path = fs_firmware_handler.build_upload_file_path(db_platform.fs_slug)
+    firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
 
     for file in files:
         if not file.filename:
@@ -231,9 +231,8 @@ async def delete_firmware(
         if id in delete_from_fs:
             log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
             try:
-                fs_firmware_handler.remove_file(
-                    file_name=firmware.file_name, file_path=firmware.file_path
-                )
+                file_path = f"{firmware.file_path}/{firmware.file_name}"
+                fs_firmware_handler.remove_file(file_path=file_path)
             except FileNotFoundError as exc:
                 error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
                 log.error(error)
