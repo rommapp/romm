@@ -1,10 +1,9 @@
 import os
-import shutil
-import tempfile
-from unittest.mock import Mock, patch
+from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
-from handler.filesystem.assets_handler import FSAssetsHandler
+from handler.filesystem.assets_handler import ASSETS_BASE_PATH, FSAssetsHandler
 from models.user import User
 
 
@@ -12,40 +11,28 @@ class TestFSAssetsHandler:
     """Test suite for FSAssetsHandler class"""
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for testing"""
-        temp_dir = tempfile.mkdtemp()
-        yield temp_dir
-        shutil.rmtree(temp_dir, ignore_errors=True)
+    def handler(self):
+        return FSAssetsHandler()
 
-    @pytest.fixture
-    def handler(self, temp_dir):
-        """Create FSAssetsHandler instance for testing"""
-        with patch("handler.filesystem.assets_handler.ASSETS_BASE_PATH", temp_dir):
-            return FSAssetsHandler()
-
-    def test_init_uses_assets_base_path(self, temp_dir):
+    def test_init_uses_assets_base_path(self, handler: FSAssetsHandler):
         """Test that FSAssetsHandler initializes with ASSETS_BASE_PATH"""
-        from pathlib import Path
+        assert handler.base_path == Path(ASSETS_BASE_PATH).resolve()
 
-        with patch("handler.filesystem.assets_handler.ASSETS_BASE_PATH", temp_dir):
-            handler = FSAssetsHandler()
-            # Use resolve() to handle macOS path resolution consistently
-            assert handler.base_path == Path(temp_dir).resolve()
-
-    def test_user_folder_path(self, handler, editor_user):
+    def test_user_folder_path(self, handler: FSAssetsHandler, editor_user: User):
         """Test user_folder_path method"""
         result = handler.user_folder_path(editor_user)
         expected = os.path.join("users", editor_user.fs_safe_folder_name)
         assert result == expected
 
-    def test_build_avatar_path(self, handler, editor_user):
+    def test_build_avatar_path(self, handler: FSAssetsHandler, editor_user: User):
         """Test build_avatar_path method"""
         result = handler.build_avatar_path(editor_user)
         expected = os.path.join("users", editor_user.fs_safe_folder_name, "profile")
         assert result == expected
 
-    def test_build_saves_file_path_without_emulator(self, handler, editor_user):
+    def test_build_saves_file_path_without_emulator(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test build_saves_file_path method without emulator"""
         platform_fs_slug = "n64"
         rom_id = 456
@@ -63,7 +50,9 @@ class TestFSAssetsHandler:
         )
         assert result == expected
 
-    def test_build_saves_file_path_with_emulator(self, handler, editor_user):
+    def test_build_saves_file_path_with_emulator(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test build_saves_file_path method with emulator"""
         platform_fs_slug = "n64"
         rom_id = 456
@@ -86,7 +75,9 @@ class TestFSAssetsHandler:
         )
         assert result == expected
 
-    def test_build_states_file_path_without_emulator(self, handler, editor_user):
+    def test_build_states_file_path_without_emulator(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test build_states_file_path method without emulator"""
         platform_fs_slug = "snes"
         rom_id = 789
@@ -104,7 +95,9 @@ class TestFSAssetsHandler:
         )
         assert result == expected
 
-    def test_build_states_file_path_with_emulator(self, handler, editor_user):
+    def test_build_states_file_path_with_emulator(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test build_states_file_path method with emulator"""
         platform_fs_slug = "snes"
         rom_id = 789
@@ -127,7 +120,9 @@ class TestFSAssetsHandler:
         )
         assert result == expected
 
-    def test_build_screenshots_file_path(self, handler, editor_user):
+    def test_build_screenshots_file_path(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test build_screenshots_file_path method"""
         platform_fs_slug = "psx"
         rom_id = 101
@@ -145,7 +140,9 @@ class TestFSAssetsHandler:
         )
         assert result == expected
 
-    def test_build_asset_file_path_internal_method(self, handler, editor_user):
+    def test_build_asset_file_path_internal_method(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test _build_asset_file_path internal method"""
         folder = "custom_folder"
         platform_fs_slug = "gba"
@@ -170,7 +167,9 @@ class TestFSAssetsHandler:
         )
         assert result == expected
 
-    def test_build_asset_file_path_without_emulator(self, handler, editor_user):
+    def test_build_asset_file_path_without_emulator(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test _build_asset_file_path internal method without emulator"""
         folder = "custom_folder"
         platform_fs_slug = "gba"
@@ -192,7 +191,9 @@ class TestFSAssetsHandler:
         )
         assert result == expected
 
-    def test_integration_with_real_user_fixture(self, handler, admin_user):
+    def test_integration_with_real_user_fixture(
+        self, handler: FSAssetsHandler, admin_user: User
+    ):
         """Test integration with real user fixture from the project"""
         platform_fs_slug = "n64"
         rom_id = 123
@@ -238,7 +239,9 @@ class TestFSAssetsHandler:
         assert avatar_path.startswith("users/")
         assert "profile" in avatar_path
 
-    def test_paths_are_relative_to_base_path(self, handler, editor_user):
+    def test_paths_are_relative_to_base_path(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test that all generated paths are relative to the base path"""
         platform_fs_slug = "ps1"
         rom_id = 555
@@ -267,7 +270,7 @@ class TestFSAssetsHandler:
             full_path = handler.validate_path(path)
             assert full_path.is_relative_to(handler.base_path)
 
-    def test_different_users_have_different_paths(self, handler):
+    def test_different_users_have_different_paths(self, handler: FSAssetsHandler):
         """Test that different users get different folder paths"""
         user1 = Mock(spec=User)
         user1.id = 1
@@ -284,7 +287,9 @@ class TestFSAssetsHandler:
         assert user1.fs_safe_folder_name in path1
         assert user2.fs_safe_folder_name in path2
 
-    def test_rom_id_conversion_to_string(self, handler, editor_user):
+    def test_rom_id_conversion_to_string(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test that rom_id is properly converted to string in paths"""
         platform_fs_slug = "dc"
         rom_id = 12345
@@ -296,7 +301,9 @@ class TestFSAssetsHandler:
         assert str(rom_id) in saves_path
         assert saves_path.endswith(str(rom_id))
 
-    def test_emulator_parameter_handling(self, handler, editor_user):
+    def test_emulator_parameter_handling(
+        self, handler: FSAssetsHandler, editor_user: User
+    ):
         """Test that emulator parameter is handled consistently"""
         platform_fs_slug = "ps2"
         rom_id = 777
