@@ -97,11 +97,12 @@ const pdfViewerConfig = {
     </button>
   </v-toolbar>
   <vue-pdf-app
+    v-if="rom.path_manual"
     :id-config="pdfViewerConfig"
     :config="{ toolbar: false }"
     :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
     style="height: 100dvh"
-    :pdf="`/assets/romm/resources/${rom.path_manual}`"
+    :pdf="rom.path_manual"
   >
   </vue-pdf-app>
 </template>
