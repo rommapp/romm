@@ -4,7 +4,6 @@ import fnmatch
 import hashlib
 import os
 import re
-import shutil
 import tarfile
 import zipfile
 import zlib
@@ -18,7 +17,9 @@ import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support 
 from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
-from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
+from exceptions.fs_exceptions import (  # RomsNotFoundException
+    RomAlreadyExistsException,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
@@ -28,7 +29,7 @@ from py7zr.exceptions import (
     UnsupportedCompressionMethodError,
 )
 from utils.archive_7zip import CallbackIOFactory
-from utils.filesystem import iter_directories, iter_files
+from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
 
 from .base_handler import (
@@ -232,13 +233,15 @@ DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
 
 class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
-        pass
+        super().__init__(base_path=LIBRARY_BASE_PATH)
 
-    def remove_from_fs(self, fs_path: str, fs_name: str) -> None:
-        try:
-            os.remove(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}")
-        except IsADirectoryError:
-            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}")
+    def get_roms_fs_structure(self, fs_slug: str) -> str:
+        cnfg = cm.get_config()
+        return (
+            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
+            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+        )
 
     def parse_tags(self, fs_name: str) -> tuple:
         rev = ""
@@ -299,7 +302,7 @@ class FSRomsHandler(FSHandler):
         self, rom_path: Path, file_name: str, file_hash: FileHash
     ) -> RomFile:
         # Absolute path to roms
-        abs_file_path = Path(LIBRARY_BASE_PATH, rom_path, file_name)
+        abs_file_path = Path(self.base_path, rom_path, file_name)
 
         path_parts_lower = list(map(str.lower, rom_path.parts))
         matching_category = next(
@@ -328,7 +331,7 @@ class FSRomsHandler(FSHandler):
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
         )  # Relative path to roms
-        abs_fs_path = f"{LIBRARY_BASE_PATH}/{rel_roms_path}"  # Absolute path to roms
+        abs_fs_path = f"{self.base_path}/{rel_roms_path}"  # Absolute path to roms
         rom_files: list[RomFile] = []
 
         # Skip hashing games for platforms that don't have a hash database
@@ -343,7 +346,7 @@ class FSRomsHandler(FSHandler):
         rom_ra_h = ""
 
         # Check if rom is a multi-part rom
-        if os.path.isdir(f"{abs_fs_path}/{rom}"):
+        if os.path.isdir(f"{abs_fs_path}/{rom.full_path}"):
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if rom.platform_slug in RA_PLATFORM_LIST.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
@@ -540,15 +543,8 @@ class FSRomsHandler(FSHandler):
         )  # Relative path to roms
         abs_fs_path = f"{LIBRARY_BASE_PATH}/{rel_roms_path}"  # Absolute path to roms
 
-        try:
-            fs_single_roms = [f for _, f in iter_files(abs_fs_path)]
-        except IndexError as exc:
-            raise RomsNotFoundException(platform.fs_slug) from exc
-
-        try:
-            fs_multi_roms = [d for _, d in iter_directories(abs_fs_path)]
-        except IndexError as exc:
-            raise RomsNotFoundException(platform.fs_slug) from exc
+        fs_single_roms = self.list_files(path=abs_fs_path)
+        fs_multi_roms = self.list_directories(path=abs_fs_path)
 
         fs_roms: list[dict] = [
             {"multi": False, "fs_name": rom}
@@ -574,27 +570,10 @@ class FSRomsHandler(FSHandler):
             key=lambda rom: rom["fs_name"],
         )
 
-    def file_exists(self, fs_path: str, fs_name: str) -> bool:
-        """Check if file exists in filesystem
-
-        Args:
-            path: path to file
-            fs_name: name of file
-        Returns
-            True if file exists in filesystem else False
-        """
-        return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}"))
-
     def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
         if new_name != old_name:
-            if self.file_exists(fs_path=fs_path, fs_name=new_name):
+            file_path = f"{fs_path}/{new_name}"
+            if self.file_exists(file_path=file_path):
                 raise RomAlreadyExistsException(new_name)
 
-            os.rename(
-                f"{LIBRARY_BASE_PATH}/{fs_path}/{old_name}",
-                f"{LIBRARY_BASE_PATH}/{fs_path}/{new_name}",
-            )
-
-    def build_upload_fs_path(self, fs_slug: str) -> str:
-        file_path = self.get_roms_fs_structure(fs_slug)
-        return f"{LIBRARY_BASE_PATH}/{file_path}"
+            self.move_file(f"{fs_path}/{old_name}", f"{fs_path}/{new_name}")

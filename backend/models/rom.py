@@ -6,7 +6,12 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
-from models.base import BaseModel
+from models.base import (
+    FILE_EXTENSION_MAX_LENGTH,
+    FILE_NAME_MAX_LENGTH,
+    FILE_PATH_MAX_LENGTH,
+    BaseModel,
+)
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
@@ -45,8 +50,8 @@ class RomFile(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
-    file_name: Mapped[str] = mapped_column(String(length=450))
-    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    file_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
     file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
     last_modified: Mapped[float | None] = mapped_column(default=None)
     crc_hash: Mapped[str | None] = mapped_column(String(100))
@@ -134,11 +139,11 @@ class Rom(BaseModel):
         Index("idx_roms_tgdb_id", "tgdb_id"),
     )
 
-    fs_name: Mapped[str] = mapped_column(String(length=450))
-    fs_name_no_tags: Mapped[str] = mapped_column(String(length=450))
-    fs_name_no_ext: Mapped[str] = mapped_column(String(length=450))
-    fs_extension: Mapped[str] = mapped_column(String(length=100))
-    fs_path: Mapped[str] = mapped_column(String(length=1000))
+    fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_name_no_tags: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_extension: Mapped[str] = mapped_column(String(length=FILE_EXTENSION_MAX_LENGTH))
+    fs_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
 
     name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))

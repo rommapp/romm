@@ -58,7 +58,9 @@ async def add_state(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading state {hl(stateFile.filename)} for {hl(rom.name, color=BLUE)}")
+    log.info(
+        f"Uploading state {hl(stateFile.filename)} for {hl(str(rom.name), color=BLUE)}"
+    )
 
     states_path = fs_asset_handler.build_states_file_path(
         user=request.user,
@@ -245,9 +247,8 @@ async def delete_states(request: Request) -> list[int]:
         )
 
         try:
-            fs_asset_handler.remove_file(
-                file_name=state.file_name, file_path=state.file_path
-            )
+            file_path = f"{state.file_path}/{state.file_name}"
+            fs_asset_handler.remove_file(file_path=file_path)
         except FileNotFoundError:
             error = f"State file {hl(state.file_name)} not found for platform {hl(state.rom.platform_display_name, color=BLUE)}[{hl(state.rom.platform_slug)}]"
             log.error(error)
@@ -256,10 +257,8 @@ async def delete_states(request: Request) -> list[int]:
             db_screenshot_handler.delete_screenshot(state.screenshot.id)
 
             try:
-                fs_asset_handler.remove_file(
-                    file_name=state.screenshot.file_name,
-                    file_path=state.screenshot.file_path,
-                )
+                file_path = f"{state.screenshot.file_path}/{state.screenshot.file_name}"
+                fs_asset_handler.remove_file(file_path=file_path)
             except FileNotFoundError:
                 error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)

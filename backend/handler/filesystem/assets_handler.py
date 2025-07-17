@@ -1,10 +1,6 @@
 import os
-import shutil
-from pathlib import Path
 
 from config import ASSETS_BASE_PATH
-from fastapi import UploadFile
-from logger.logger import log
 from models.user import User
 
 from .base_handler import FSHandler
@@ -12,27 +8,7 @@ from .base_handler import FSHandler
 
 class FSAssetsHandler(FSHandler):
     def __init__(self) -> None:
-        pass
-
-    def remove_file(self, file_name: str, file_path: str):
-        try:
-            os.remove(os.path.join(ASSETS_BASE_PATH, file_path, file_name))
-        except IsADirectoryError:
-            shutil.rmtree(os.path.join(ASSETS_BASE_PATH, file_path, file_name))
-
-    def write_file(self, file: UploadFile, path: str) -> None:
-        if not file.filename:
-            log.error("No file name provided")
-            return
-
-        Path(os.path.join(ASSETS_BASE_PATH, path)).mkdir(parents=True, exist_ok=True)
-        file_location = os.path.join(ASSETS_BASE_PATH, path, file.filename)
-
-        with open(file_location, "wb") as f:
-            shutil.copyfileobj(file.file, f)
-
-    def get_asset_size(self, file_name: str, asset_path: str) -> int:
-        return os.path.getsize(os.path.join(ASSETS_BASE_PATH, asset_path, file_name))
+        super().__init__(base_path=ASSETS_BASE_PATH)
 
     def user_folder_path(self, user: User):
         return os.path.join("users", user.fs_safe_folder_name)
