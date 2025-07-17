@@ -6,7 +6,7 @@ import threading
 from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import BinaryIO, Optional
 
 from config.config_manager import config_manager as cm
 from fastapi import UploadFile
@@ -199,7 +199,8 @@ class FSHandler:
             path: Relative path within base directory
 
         Raises:
-            ValueError: If path is invalid or already exists as a file
+            ValueError: If path is invalid
+            FileNotFoundError: If path is not a directory
         """
         target_directory = self.validate_path(path)
 
@@ -208,7 +209,7 @@ class FSHandler:
             if not target_directory.exists():
                 target_directory.mkdir(parents=True, exist_ok=True)
             elif not target_directory.is_dir():
-                raise ValueError(
+                raise FileNotFoundError(
                     f"Path already exists and is not a directory: {target_directory}"
                 )
 
@@ -223,14 +224,14 @@ class FSHandler:
             List of directory names in the specified path
 
         Raises:
-            ValueError: If path is invalid or not a directory
+            FileNotFoundError: If path is invalid or not a directory
         """
         target_directory = self.validate_path(path)
 
         # Thread-safe directory creation
         with self._get_file_lock(str(target_directory)):
             if not target_directory.exists() or not target_directory.is_dir():
-                raise ValueError(
+                raise FileNotFoundError(
                     f"Path does not exist or is not a directory: {target_directory}"
                 )
 
@@ -246,21 +247,24 @@ class FSHandler:
             path: Relative path within base directory
 
         Raises:
-            ValueError: If path is invalid or not a directory
+            FileNotFoundError: If path is invalid or not a directory
         """
         target_directory = self.validate_path(path)
 
         # Thread-safe directory removal
         with self._get_file_lock(str(target_directory)):
             if not target_directory.exists() or not target_directory.is_dir():
-                raise ValueError(
+                raise FileNotFoundError(
                     f"Path does not exist or is not a directory: {target_directory}"
                 )
 
             shutil.rmtree(target_directory, ignore_errors=False)
 
     def write_file(
-        self, file: UploadFile, path: str, filename: Optional[str] = None
+        self,
+        file: UploadFile | BinaryIO | bytes,
+        path: str,
+        filename: Optional[str] = None,
     ) -> None:
         """
         Securely write file to filesystem.
@@ -275,7 +279,9 @@ class FSHandler:
             Dictionary with operation result and file info
         """
 
-        original_filename = filename or file.filename
+        original_filename = filename
+        if isinstance(file, UploadFile):
+            original_filename = original_filename or file.filename
 
         if not original_filename:
             raise ValueError("Filename cannot be empty")
@@ -294,7 +300,12 @@ class FSHandler:
             # Write file atomically
             with self._atomic_write(final_file_path) as temp_path:
                 with open(temp_path, "wb") as temp_file:
-                    shutil.copyfileobj(file.file, temp_file)
+                    if isinstance(file, UploadFile):
+                        shutil.copyfileobj(file.file, temp_file)
+                    elif isinstance(file, BinaryIO):
+                        shutil.copyfileobj(file, temp_file)
+                    else:
+                        temp_file.write(file)
 
     def write_file_streamed(self, path: str, filename: str):
         """

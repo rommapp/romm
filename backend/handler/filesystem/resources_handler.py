@@ -15,6 +15,13 @@ class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
 
+    def get_platform_resources_path(self, platform_id: int) -> str:
+        return os.path.join(
+            self.base_path,
+            "roms",
+            str(platform_id),
+        )
+
     def cover_exists(self, entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
 
@@ -121,17 +128,20 @@ class FSResourcesHandler(FSHandler):
 
         return {"path_cover_s": "", "path_cover_l": ""}
 
-    def build_artwork_path(self, entity: Rom | Collection | None, file_ext: str):
-        if not entity:
-            return "", ""
-
+    def build_artwork_path(
+        self, entity: Rom | Collection, file_ext: str
+    ) -> tuple[str, str]:
         path_cover = f"{entity.fs_resources_path}/cover"
-        path_cover_l = f"{path_cover}/{CoverSize.BIG.value}.{file_ext}"
-        path_cover_s = f"{path_cover}/{CoverSize.SMALL.value}.{file_ext}"
+        path_cover_l = self.validate_path(
+            f"{path_cover}/{CoverSize.BIG.value}.{file_ext}"
+        )
+        path_cover_s = self.validate_path(
+            f"{path_cover}/{CoverSize.SMALL.value}.{file_ext}"
+        )
 
         self.make_directory(path_cover)
 
-        return path_cover_l, path_cover_s
+        return str(path_cover_l), str(path_cover_s)
 
     async def _store_screenshot(self, rom: Rom, url_screenhot: str, idx: int):
         """Store roms resources in filesystem
