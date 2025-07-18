@@ -77,7 +77,7 @@ async function goToRandomGame() {
     icon
     :block="block"
     variant="flat"
-    color="background"
+    color="text-white"
     :height="height"
     :class="{ rounded: rounded }"
     class="py-4 bg-background d-flex align-center justify-center"
@@ -86,7 +86,9 @@ async function goToRandomGame() {
     <div class="d-flex flex-column align-center">
       <v-icon>mdi-shuffle-variant</v-icon>
       <v-expand-transition>
-        <span v-if="withTag" class="text-caption text-center"> Random </span>
+        <span v-if="withTag" class="text-caption text-center">
+          {{ $t("common.random") }}
+        </span>
       </v-expand-transition>
     </div>
   </v-btn>

@@ -5,6 +5,7 @@ import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.v
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
+import ContextualRandomBtn from "@/components/Gallery/AppBar/common/ContextualRandomBtn.vue";
 import { calculateMainLayoutWidth } from "@/utils";
 
 // Props
@@ -39,6 +40,7 @@ const { calculatedWidth } = calculateMainLayoutWidth();
     <template #append>
       <selecting-btn />
       <gallery-view-btn />
+      <contextual-random-btn />
       <slot name="append" />
     </template>
   </v-app-bar>
