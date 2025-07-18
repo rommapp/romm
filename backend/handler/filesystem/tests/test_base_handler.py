@@ -1,6 +1,6 @@
+import asyncio
 import shutil
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -404,23 +404,21 @@ class TestFSHandler:
         with pytest.raises(FileNotFoundError, match="File not found"):
             await handler.get_file_size("nonexistent.txt")
 
-    async def test_thread_safety(self, handler: FSHandler):
-        """Test thread safety of file operations"""
+    async def test_async_concurrency(self, handler: FSHandler):
+        """Test async concurrency of file operations"""
 
         async def write_file(filename, content):
             await handler.write_file(content, ".", filename)
 
-        # Test concurrent file writes
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = []
-            for i in range(10):
-                content = f"Content {i}".encode()
-                future = executor.submit(write_file, f"file_{i}.txt", content)
-                futures.append(future)
+        # Test concurrent file writes using asyncio
+        tasks = []
+        for i in range(10):
+            content = f"Content {i}".encode()
+            task = write_file(f"file_{i}.txt", content)
+            tasks.append(task)
 
-            # Wait for all to complete
-            for future in futures:
-                future.result()
+        # Wait for all to complete
+        await asyncio.gather(*tasks)
 
         # Verify all files were written correctly
         for i in range(10):
@@ -443,7 +441,7 @@ class TestFSHandler:
         """Test atomic write rollback on failure"""
 
         # Mock a failure during file write
-        async def failing_move(*args, **kwargs):
+        def failing_move(*args, **kwargs):
             raise OSError("Simulated failure")
 
         with patch("shutil.move", side_effect=failing_move):
@@ -464,16 +462,14 @@ class TestFSHandler:
             await handler.make_directory(dir_name)
             await handler.remove_directory(dir_name)
 
-        # Test concurrent directory operations
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = []
-            for i in range(5):
-                future = executor.submit(create_and_remove_dir, f"test_dir_{i}")
-                futures.append(future)
+        # Test concurrent directory operations using asyncio
+        tasks = []
+        for i in range(5):
+            task = create_and_remove_dir(f"test_dir_{i}")
+            tasks.append(task)
 
-            # Wait for all to complete
-            for future in futures:
-                future.result()
+        # Wait for all to complete
+        await asyncio.gather(*tasks)
 
         # Verify all directories were cleaned up
         dirs = await handler.list_directories(".")

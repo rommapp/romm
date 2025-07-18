@@ -74,7 +74,7 @@ class TestFSFirmwareHandler:
         firmware_path = "n64/bios"
         file_name = "bios1.bin"
 
-        result = handler.calculate_file_hashes(firmware_path, file_name)
+        result = await handler.calculate_file_hashes(firmware_path, file_name)
 
         assert isinstance(result, dict)
         assert "crc_hash" in result
