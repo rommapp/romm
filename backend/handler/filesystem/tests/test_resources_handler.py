@@ -199,7 +199,7 @@ class TestFSResourcesHandler:
             mock_remove.assert_called_once_with(f"{rom.fs_resources_path}/cover")
             assert result == {"path_cover_s": "", "path_cover_l": ""}
 
-    def test_build_artwork_path(self, handler: FSResourcesHandler, rom: Rom):
+    async def test_build_artwork_path(self, handler: FSResourcesHandler, rom: Rom):
         """Test build_artwork_path method"""
         file_ext = "png"
 
@@ -207,7 +207,7 @@ class TestFSResourcesHandler:
             with patch.object(handler, "validate_path") as mock_validate:
                 mock_validate.side_effect = lambda x: Path(x)
 
-                result = handler.build_artwork_path(rom, file_ext)
+                result = await handler.build_artwork_path(rom, file_ext)
 
                 expected_cover_path = f"{rom.fs_resources_path}/cover"
                 expected_big_path = f"{expected_cover_path}/big.{file_ext}"
