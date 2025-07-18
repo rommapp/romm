@@ -256,7 +256,7 @@ class FSResourcesHandler(FSHandler):
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url}: {str(exc)}")
 
-    def get_ra_base_path(self, platform_id: int, rom_id: int) -> str:
+    def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
             "roms",
             str(platform_id),
@@ -265,7 +265,7 @@ class FSResourcesHandler(FSHandler):
         )
 
     def get_ra_badges_path(self, platform_id: int, rom_id: int) -> str:
-        return os.path.join(self.get_ra_base_path(platform_id, rom_id), "badges")
+        return os.path.join(self.get_ra_resources_path(platform_id, rom_id), "badges")
 
     def create_ra_resources_path(self, platform_id: int, rom_id: int) -> None:
-        self.make_directory(self.get_ra_base_path(platform_id, rom_id))
+        self.make_directory(self.get_ra_resources_path(platform_id, rom_id))

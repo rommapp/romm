@@ -337,21 +337,21 @@ class TestFSResourcesHandler:
             # Should call _store_manual regardless of existence
             mock_store.assert_called_once_with(rom, url)
 
-    def test_get_ra_base_path(self, handler: FSResourcesHandler):
-        """Test get_ra_base_path method"""
+    def test_get_ra_resources_path(self, handler: FSResourcesHandler):
+        """Test get_ra_resources_path method"""
         platform_id = 1
         rom_id = 42
 
-        result = handler.get_ra_base_path(platform_id, rom_id)
+        result = handler.get_ra_resources_path(platform_id, rom_id)
         expected = os.path.join("roms", "1", "42", "retroachievements")
         assert result == expected
 
-    def test_get_ra_base_path_different_ids(self, handler: FSResourcesHandler):
-        """Test get_ra_base_path with different IDs"""
+    def test_get_ra_resources_path_different_ids(self, handler: FSResourcesHandler):
+        """Test get_ra_resources_path with different IDs"""
         test_cases = [(1, 1), (42, 123), (999, 456), (10, 999)]
 
         for platform_id, rom_id in test_cases:
-            result = handler.get_ra_base_path(platform_id, rom_id)
+            result = handler.get_ra_resources_path(platform_id, rom_id)
             expected = os.path.join(
                 "roms", str(platform_id), str(rom_id), "retroachievements"
             )
@@ -385,7 +385,7 @@ class TestFSResourcesHandler:
         with patch.object(handler, "make_directory") as mock_make_dir:
             handler.create_ra_resources_path(platform_id, rom_id)
 
-            expected_path = handler.get_ra_base_path(platform_id, rom_id)
+            expected_path = handler.get_ra_resources_path(platform_id, rom_id)
             mock_make_dir.assert_called_once_with(expected_path)
 
     def test_integration_with_base_handler_methods(self, handler: FSResourcesHandler):
@@ -425,7 +425,7 @@ class TestFSResourcesHandler:
         assert platform_path.endswith(f"roms/{platform_id}")
 
         # Test RA base path
-        ra_base = handler.get_ra_base_path(platform_id, rom_id)
+        ra_base = handler.get_ra_resources_path(platform_id, rom_id)
         assert ra_base.startswith(f"roms/{platform_id}/{rom_id}")
 
         # Test RA badges path
@@ -468,7 +468,7 @@ class TestFSResourcesHandler:
         assert "35" in platform_path
 
         # Test RA paths with existing structure
-        ra_base = handler.get_ra_base_path(35, 35)
+        ra_base = handler.get_ra_resources_path(35, 35)
         ra_badges = handler.get_ra_badges_path(35, 35)
 
         assert isinstance(ra_base, str)
