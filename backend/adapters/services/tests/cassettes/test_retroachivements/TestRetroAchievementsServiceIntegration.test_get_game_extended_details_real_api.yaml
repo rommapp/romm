@@ -1,0 +1,145 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetGameExtended.php?i=1
+    response:
+      body:
+        string:
+          '{"ID":1,"Title":"Sonic the Hedgehog","ConsoleID":1,"ForumTopicID":112,"Flags":null,"ImageIcon":"\/Images\/085573.png","ImageTitle":"\/Images\/054993.png","ImageIngame":"\/Images\/000010.png","ImageBoxArt":"\/Images\/112941.png","Publisher":"Sega","Developer":"Sonic
+          Team","Genre":"2D Platforming","Released":"1991-06-11","ReleasedAtGranularity":"day","IsFinal":false,"RichPresencePatch":"cce60593880d25c97797446ed33eaffb","GuideURL":"","Updated":"2025-07-06T16:20:59.000000Z","ConsoleName":"Genesis\/Mega
+          Drive","ParentGameID":null,"NumDistinctPlayers":45785,"NumAchievements":36,"Achievements":{"25":{"ID":25,"NumAwarded":3675,"NumAwardedHardcore":2695,"Title":"Very
+          Close Shave!","Description":"Finish a level with no time to spare","Points":5,"TrueRatio":17,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2022-11-16
+          21:16:21","DateCreated":"2012-11-02 00:03:12","BadgeName":"461384","DisplayOrder":15,"MemAddr":"f5aaeef73193477686252952ca35eb4f","type":null},"23":{"ID":23,"NumAwarded":10143,"NumAwardedHardcore":5400,"Title":"Alright!
+          High Score!","Description":"Score 100,000 points","Points":10,"TrueRatio":20,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-06-07
+          21:11:48","DateCreated":"2012-11-02 00:03:12","BadgeName":"563386","DisplayOrder":12,"MemAddr":"e9c3d89f366b82efe287c2684450b6ff","type":null},"32":{"ID":32,"NumAwarded":7049,"NumAwardedHardcore":4466,"Title":"Zee
+          Almighty Box Smasher","Description":"Obtain Speed Shoes, a shield and invincibility
+          all at once","Points":10,"TrueRatio":24,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-06-07
+          21:11:50","DateCreated":"2012-11-02 00:03:12","BadgeName":"461385","DisplayOrder":14,"MemAddr":"42921aa5239214d35e24609958cc73ac","type":null},"5":{"ID":5,"NumAwarded":6284,"NumAwardedHardcore":3831,"Title":"Pit
+          Stop","Description":"Reach 4 unique checkpoints in one level","Points":10,"TrueRatio":27,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-06-07
+          21:11:53","DateCreated":"2012-11-02 00:03:12","BadgeName":"461380","DisplayOrder":17,"MemAddr":"c7e2f709e7c6cd4d3f4af6196ef88a83","type":null},"129":{"ID":129,"NumAwarded":3517,"NumAwardedHardcore":2453,"Title":"Star
+          Spangled","Description":"Start Star Light Zone Act 1 with a sparkle...","Points":5,"TrueRatio":19,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-06-07
+          21:11:58","DateCreated":"2013-04-04 14:05:09","BadgeName":"461381","DisplayOrder":22,"MemAddr":"f44a18bc23d60615851c97044099bac5","type":null},"4":{"ID":4,"NumAwarded":4560,"NumAwardedHardcore":2306,"Title":"Got
+          Them All","Description":"Collect 6 Chaos Emeralds without using the stage
+          select code","Points":25,"TrueRatio":102,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:35:22","DateCreated":"2012-11-02 00:03:12","BadgeName":"461376","DisplayOrder":23,"MemAddr":"33e7ce1e65bed6024837e8337a91dd07","type":null},"38":{"ID":38,"NumAwarded":2576,"NumAwardedHardcore":1866,"Title":"Under-achiever","Description":"Complete
+          Green Hill Zone with no more than 1,000 points","Points":25,"TrueRatio":122,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:35:35","DateCreated":"2012-11-02 14:26:38","BadgeName":"563396","DisplayOrder":18,"MemAddr":"7ce46542ee687ca7b4d7a66bb53a5b08","type":null},"21":{"ID":21,"NumAwarded":5560,"NumAwardedHardcore":2932,"Title":"Take
+          Out the Trash","Description":"Defeat Dr. Robotnik in the Final Zone (no stage
+          select code)","Points":10,"TrueRatio":33,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:35:46","DateCreated":"2012-11-02 00:03:12","BadgeName":"250337","DisplayOrder":8,"MemAddr":"98510badbdde5fcb641c47127e34eca9","type":"win_condition"},"17":{"ID":17,"NumAwarded":6403,"NumAwardedHardcore":3405,"Title":"Shooting
+          Star","Description":"Get to Star Light Zone (no stage select code)","Points":10,"TrueRatio":29,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:35:59","DateCreated":"2012-11-02 00:03:12","BadgeName":"250340","DisplayOrder":5,"MemAddr":"e06b25d7d8b8464e5ac8e7e870503199","type":"progression"},"19":{"ID":19,"NumAwarded":6106,"NumAwardedHardcore":3263,"Title":"Watch
+          Your Back","Description":"Get to Scrap Brain Zone (no stage select code)","Points":10,"TrueRatio":30,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:35:59","DateCreated":"2012-11-02 00:03:12","BadgeName":"250331","DisplayOrder":6,"MemAddr":"04aa1c3f851e4d31fee0e70eb0b903f2","type":"progression"},"20":{"ID":20,"NumAwarded":5613,"NumAwardedHardcore":2992,"Title":"The
+          Final Encounter","Description":"Reach the Final Zone (no stage select code)","Points":10,"TrueRatio":32,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:36:00","DateCreated":"2012-11-02 00:03:12","BadgeName":"250335","DisplayOrder":7,"MemAddr":"4a8cc5fa42ee1a20897c5e39bc8bdd69","type":"progression"},"18":{"ID":18,"NumAwarded":10729,"NumAwardedHardcore":5844,"Title":"Love
+          Those Springs","Description":"Get to Spring Yard Zone (no stage select code)","Points":10,"TrueRatio":19,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:36:15","DateCreated":"2012-11-02 00:03:12","BadgeName":"250345","DisplayOrder":3,"MemAddr":"0815b3ee5fdd120fa12036effa9807fe","type":"progression"},"15":{"ID":15,"NumAwarded":8465,"NumAwardedHardcore":4597,"Title":"Don''t
+          Get Lost","Description":"Get to Labyrinth Zone (no stage select code)","Points":10,"TrueRatio":23,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:36:17","DateCreated":"2012-11-02 00:03:12","BadgeName":"461375","DisplayOrder":4,"MemAddr":"5e924d8e4db5a22c8318150dd0d332df","type":"progression"},"16":{"ID":16,"NumAwarded":22222,"NumAwardedHardcore":11618,"Title":"The
+          Floor is Lava","Description":"Get to Marble Zone (no stage select code)","Points":5,"TrueRatio":6,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:36:33","DateCreated":"2012-11-02 00:03:12","BadgeName":"250334","DisplayOrder":2,"MemAddr":"055aa4ac1f8d0df1d44feee95393ed44","type":"progression"},"9":{"ID":9,"NumAwarded":40968,"NumAwardedHardcore":18588,"Title":"That
+          Was Easy","Description":"Complete the first act in Green Hill Zone","Points":3,"TrueRatio":3,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-08-08
+          00:36:59","DateCreated":"2012-11-02 00:03:12","BadgeName":"250336","DisplayOrder":1,"MemAddr":"22c9d5e2cd7571df18a1a1b43dfe1fea","type":"progression"},"2":{"ID":2,"NumAwarded":45493,"NumAwardedHardcore":20011,"Title":"Amateur
+          Collector","Description":"Collect 20 rings","Points":2,"TrueRatio":2,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-09-30
+          02:00:48","DateCreated":"2012-11-02 00:03:12","BadgeName":"250352","DisplayOrder":9,"MemAddr":"fe065a20bb74f29c3a895879b33b762e","type":null},"1":{"ID":1,"NumAwarded":19144,"NumAwardedHardcore":9982,"Title":"Ring
+          Collector","Description":"Collect 100 rings","Points":5,"TrueRatio":7,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-09-30
+          02:00:49","DateCreated":"2012-11-02 00:03:12","BadgeName":"250341","DisplayOrder":10,"MemAddr":"241b985197a1369756243b515d5448f2","type":null},"3":{"ID":3,"NumAwarded":4029,"NumAwardedHardcore":2574,"Title":"Pro
+          Collector","Description":"Collect 200 rings","Points":10,"TrueRatio":37,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-09-30
+          02:00:51","DateCreated":"2012-11-02 00:03:12","BadgeName":"250342","DisplayOrder":11,"MemAddr":"3a2e18951ad094295b1096a07d5dd9c9","type":null},"6":{"ID":6,"NumAwarded":9306,"NumAwardedHardcore":5768,"Title":"Super
+          Speed!","Description":"Get 50 rings in the first 25 seconds of a level","Points":10,"TrueRatio":19,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-09-30
+          02:03:20","DateCreated":"2012-11-02 00:03:12","BadgeName":"461382","DisplayOrder":13,"MemAddr":"09d8c57d67acdbf36ec20b782d959ba2","type":null},"130":{"ID":130,"NumAwarded":8419,"NumAwardedHardcore":5243,"Title":"Green
+          Life","Description":"Get an extra life on Green Hill Zone Act 2","Points":5,"TrueRatio":10,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-09-30
+          02:03:22","DateCreated":"2013-04-04 20:06:58","BadgeName":"461377","DisplayOrder":16,"MemAddr":"4a64f14efae27d3dfed850fdd087d6aa","type":null},"24":{"ID":24,"NumAwarded":4596,"NumAwardedHardcore":3214,"Title":"Bouncing
+          Combo Master","Description":"Chain bounces and earn 10,000 per impact in Marble
+          Zone Act 2","Points":10,"TrueRatio":31,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2023-09-30
+          02:04:19","DateCreated":"2012-11-02 00:03:12","BadgeName":"461373","DisplayOrder":20,"MemAddr":"95c803d38fe84c5f651271135429dbe4","type":null},"8":{"ID":8,"NumAwarded":4772,"NumAwardedHardcore":2974,"Title":"Oxygenated
+          Hedgehog","Description":"Catch your breath at the last possible second in
+          Labyrinth Zone!","Points":5,"TrueRatio":16,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2024-05-21
+          01:10:33","DateCreated":"2012-11-02 00:03:12","BadgeName":"461379","DisplayOrder":21,"MemAddr":"8eea490ef743fee610ae13ffcfa90db8","type":null},"436745":{"ID":436745,"NumAwarded":1799,"NumAwardedHardcore":1263,"Title":"What
+          Goes Up","Description":"Collect all 5 hidden Emblems in Green Hill Zone Act
+          1 before the victory fanfare","Points":2,"TrueRatio":13,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:50","DateCreated":"2024-06-08 21:27:35","BadgeName":"563397","DisplayOrder":26,"MemAddr":"f0efe02baf522ee23fd7329696536a11","type":null},"437742":{"ID":437742,"NumAwarded":1142,"NumAwardedHardcore":631,"Title":"South
+          Island Champion","Description":"Complete all acts without dying [No Level
+          Select]","Points":25,"TrueRatio":333,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:50","DateCreated":"2024-06-12 09:34:57","BadgeName":"493755","DisplayOrder":25,"MemAddr":"6de58f27abcd123d6369b61333e48c7d","type":null},"436746":{"ID":436746,"NumAwarded":1378,"NumAwardedHardcore":968,"Title":"Must
+          Come Down","Description":"Collect all 5 hidden Emblems in Green Hill Zone
+          Act 2 before the victory fanfare","Points":3,"TrueRatio":26,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:51","DateCreated":"2024-06-08 21:27:35","BadgeName":"563391","DisplayOrder":27,"MemAddr":"499da199fa3e3864153310e7b83367c6","type":null},"436747":{"ID":436747,"NumAwarded":1574,"NumAwardedHardcore":1097,"Title":"Yet
+          My Feet Don''t Touch The Ground","Description":"Collect all 5 hidden Emblems
+          in Marble Zone Act 1 before the victory fanfare","Points":2,"TrueRatio":15,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:51","DateCreated":"2024-06-08 21:27:36","BadgeName":"563398","DisplayOrder":28,"MemAddr":"a72908dcd1199ffc1267d728a0c01dc8","type":null},"436748":{"ID":436748,"NumAwarded":1394,"NumAwardedHardcore":965,"Title":"Seein''
+          The World","Description":"Collect all 5 hidden Emblems in Marble Zone Act
+          2 before the victory fanfare","Points":3,"TrueRatio":26,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:51","DateCreated":"2024-06-08 21:27:36","BadgeName":"563393","DisplayOrder":29,"MemAddr":"59482fcd2f2b045625cb70a00861f86e","type":null},"436749":{"ID":436749,"NumAwarded":1232,"NumAwardedHardcore":865,"Title":"Spinnin''
+          Upside Down","Description":"Collect all 5 hidden Emblems in Spring Yard Zone
+          Act 1 before the victory fanfare","Points":2,"TrueRatio":19,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:51","DateCreated":"2024-06-08 21:27:36","BadgeName":"563394","DisplayOrder":30,"MemAddr":"22ef5dc2eeb72d27cb07de7974098018","type":null},"436750":{"ID":436750,"NumAwarded":1137,"NumAwardedHardcore":799,"Title":"A
+          Mighty Crash Without A Sound","Description":"Collect all 5 hidden Emblems
+          in Spring Yard Zone Act 2 before the victory fanfare","Points":2,"TrueRatio":21,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:52","DateCreated":"2024-06-08 21:27:36","BadgeName":"563387","DisplayOrder":31,"MemAddr":"82dd37ca85139444880f356cbbd57c64","type":null},"436751":{"ID":436751,"NumAwarded":1332,"NumAwardedHardcore":906,"Title":"I
+          Can Feel Your Every Rage","Description":"Collect all 5 hidden Emblems in Labyrinth
+          Zone Act 1 before the victory fanfare","Points":3,"TrueRatio":28,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:52","DateCreated":"2024-06-08 21:27:36","BadgeName":"563389","DisplayOrder":32,"MemAddr":"16f3ab506f2b8ffabadaaf1e263820be","type":null},"436752":{"ID":436752,"NumAwarded":1155,"NumAwardedHardcore":796,"Title":"Step
+          Aside, I''ll Turn The Page","Description":"Collect all 5 hidden Emblems in
+          Labyrinth Zone Act 2 before the victory fanfare","Points":2,"TrueRatio":21,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:52","DateCreated":"2024-06-08 21:27:36","BadgeName":"563395","DisplayOrder":33,"MemAddr":"28d49ecc7a192eeab1329a678cdf0576","type":null},"436753":{"ID":436753,"NumAwarded":1120,"NumAwardedHardcore":761,"Title":"Breaking
+          Through Your Crazy Maze","Description":"Collect all 5 hidden Emblems in Star
+          Light Zone Act 1 before the victory fanfare","Points":2,"TrueRatio":22,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:52","DateCreated":"2024-06-08 21:27:36","BadgeName":"563388","DisplayOrder":34,"MemAddr":"b6e4c9f95c99e1c1b430ff73800f1a38","type":null},"436754":{"ID":436754,"NumAwarded":1119,"NumAwardedHardcore":767,"Title":"My
+          Eyes On You","Description":"Collect all 5 hidden Emblems in Scrap Brain Zone
+          Act 1 before the victory fanfare","Points":2,"TrueRatio":22,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:52","DateCreated":"2024-06-08 21:27:41","BadgeName":"563392","DisplayOrder":36,"MemAddr":"7171db13ffa151efac5f9ad9db908c48","type":null},"436756":{"ID":436756,"NumAwarded":1151,"NumAwardedHardcore":787,"Title":"Like
+          A Laser Beam","Description":"Collect all 5 hidden Emblems in Star Light Zone
+          Act 2 before the victory fanfare","Points":2,"TrueRatio":21,"Author":"BahamutVoid","AuthorULID":"01BBTVE5AZBPH91V56GTZ65WPG","DateModified":"2024-06-12
+          23:03:52","DateCreated":"2024-06-08 21:27:54","BadgeName":"563390","DisplayOrder":35,"MemAddr":"1622c06f7329f91e92e069ebacc37f1d","type":null},"22":{"ID":22,"NumAwarded":4000,"NumAwardedHardcore":2172,"Title":"Complete
+          Victory","Description":"Complete the game with all 6 Chaos Emeralds without
+          using the stage select code","Points":25,"TrueRatio":107,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2024-06-21
+          17:50:31","DateCreated":"2012-11-02 00:03:12","BadgeName":"461374","DisplayOrder":24,"MemAddr":"79159a543727320cf4fdb1b905951118","type":null},"60":{"ID":60,"NumAwarded":3588,"NumAwardedHardcore":2487,"Title":"Lava
+          Speed","Description":"Complete Act 1 of Marble Zone within 90 seconds","Points":25,"TrueRatio":95,"Author":"Scott","AuthorULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","DateModified":"2024-09-15
+          21:05:28","DateCreated":"2012-12-16 03:56:04","BadgeName":"461378","DisplayOrder":19,"MemAddr":"9327b4556851e1a9acfdf678b454ad79","type":null}},"Claims":[{"User":"Scott","ULID":"0178KDFZ3GDQSVWG8VX5XGQAJ7","SetType":0,"GameID":1,"ClaimType":0,"Created":"2012-11-02
+          00:00:00","Expiration":"2012-11-02 00:00:00"},{"User":"Bob","ULID":"017CHJZ66RNQF3JJS0KFXH810C","SetType":1,"GameID":1,"ClaimType":0,"Created":"2012-12-16
+          00:00:00","Expiration":"2012-12-16 00:00:00"},{"User":"BahamutVoid","ULID":"01BBTVE5AZBPH91V56GTZ65WPG","SetType":1,"GameID":1,"ClaimType":0,"Created":"2024-06-08
+          21:27:26","Expiration":"2024-06-10 19:09:44"},{"User":"BahamutVoid","ULID":"01BBTVE5AZBPH91V56GTZ65WPG","SetType":1,"GameID":1,"ClaimType":0,"Created":"2024-06-12
+          09:34:21","Expiration":"2024-06-12 09:35:15"}],"NumDistinctPlayersCasual":45785,"NumDistinctPlayersHardcore":45785}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b0b5c6cd0d36b7-YYZ
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 17:09:28 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=1%2FG9aRezlimCAHiStqOeqxvOBRRZWse%2Fz%2BIUSQcV%2FyElkpfJ1quugJfvOl%2F74%2FFziSXNE4UUdQXIw1mCJMbVHrJ2Pbj5%2FDHI57ks8fpNDyz6CQ%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Accept-Encoding
+        X-Cache:
+          - MISS
+        X-Content-Type-Options:
+          - nosniff
+        X-Frame-Options:
+          - SAMEORIGIN
+        X-Robots-Tag:
+          - all
+      status:
+        code: 200
+        message: OK
+version: 1
