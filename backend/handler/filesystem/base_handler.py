@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import BinaryIO
 
 from anyio import open_file
 from config.config_manager import config_manager as cm
@@ -177,7 +177,7 @@ class FSHandler:
     def exclude_single_files(self, files: list[str]) -> list[str]:
         excluded_extensions = cm.get_config().EXCLUDED_SINGLE_EXT
         excluded_names = cm.get_config().EXCLUDED_SINGLE_FILES
-        excluded_files: list = []
+        excluded_files: list[str] = []
 
         for file_name in files:
             # Split the file name to get the extension.
@@ -270,7 +270,7 @@ class FSHandler:
         self,
         file: UploadFile | BinaryIO | BytesIO | bytes,
         path: str,
-        filename: Optional[str] = None,
+        filename: str | None = None,
     ) -> None:
         """
         Securely write file to filesystem.
