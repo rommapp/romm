@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from config.config_manager import LIBRARY_BASE_PATH, Config
+from exceptions.fs_exceptions import FirmwareNotFoundException
 from handler.filesystem.firmware_handler import FSFirmwareHandler
 from utils.hashing import crc32_to_hex
 
@@ -62,7 +63,7 @@ class TestFSFirmwareHandler:
         with patch(
             "handler.filesystem.firmware_handler.cm.get_config", return_value=config
         ):
-            with pytest.raises(FileNotFoundError):
+            with pytest.raises(FirmwareNotFoundException):
                 handler.get_firmware(platform_fs_slug)
 
     def test_calculate_file_hashes(self, handler: FSFirmwareHandler):
@@ -127,7 +128,7 @@ class TestFSFirmwareHandler:
 
         # Should not call any file operations
         with patch.object(handler, "file_exists") as mock_exists:
-            with patch.object(handler, "move_file") as mock_move:
+            with patch.object(handler, "move_file_or_folder") as mock_move:
                 handler.rename_file(old_name, new_name, file_path)
 
                 mock_exists.assert_not_called()
@@ -139,7 +140,7 @@ class TestFSFirmwareHandler:
         assert hasattr(handler, "validate_path")
         assert hasattr(handler, "list_files")
         assert hasattr(handler, "file_exists")
-        assert hasattr(handler, "move_file")
+        assert hasattr(handler, "move_file_or_folder")
         assert hasattr(handler, "stream_file")
         assert hasattr(handler, "exclude_single_files")
 

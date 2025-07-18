@@ -229,7 +229,7 @@ class TestFSPlatformsHandler:
         assert hasattr(handler, "list_directories")
         assert hasattr(handler, "make_directory")
         assert hasattr(handler, "file_exists")
-        assert hasattr(handler, "move_file")
+        assert hasattr(handler, "move_file_or_folder")
         assert hasattr(handler, "stream_file")
 
     def test_platform_slug_handling_with_special_characters(
