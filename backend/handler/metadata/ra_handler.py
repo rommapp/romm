@@ -135,9 +135,10 @@ class RAHandler(MetadataHandler):
     def _days_since_last_cache_file_update(self, platform_id: int) -> int:
         file_path = self._get_hashes_file_path(platform_id)
         if not fs_resource_handler.file_exists(file_path):
-            return 0
+            return REFRESH_RETROACHIEVEMENTS_CACHE_DAYS + 1
 
-        return int((time.time() - os.path.getmtime(file_path)) / (24 * 3600))
+        full_path = fs_resource_handler.validate_path(file_path)
+        return int((time.time() - os.path.getmtime(full_path)) / (24 * 3600))
 
     async def _search_rom(self, rom: Rom, ra_hash: str) -> RAGameListItem | None:
         if not rom.platform.ra_id:
