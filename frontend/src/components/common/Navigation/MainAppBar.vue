@@ -124,19 +124,19 @@ function collapse() {
       rounded
       class="mt-2"
       block
-      tabindex="6"
-    />
-    <upload-btn
-      :withTag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
       tabindex="7"
     />
 
     <template #append>
+      <upload-btn
+        :withTag="!mainBarCollapsed"
+        rounded
+        class="mt-2 mb-6"
+        block
+        tabindex="8"
+      />
       <v-row no-gutters class="my-2 justify-center">
-        <user-btn tabindex="8" aria-label="Settings menu" />
+        <user-btn tabindex="9" aria-label="Settings menu" />
       </v-row>
     </template>
   </v-navigation-drawer>
