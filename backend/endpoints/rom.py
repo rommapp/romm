@@ -121,7 +121,7 @@ async def add_rom(
     parser.register(filename, FileTarget(str(file_location)))
 
     # Check if the file already exists
-    if fs_rom_handler.file_exists(f"{roms_path}/{filename}"):
+    if await fs_rom_handler.file_exists(f"{roms_path}/{filename}"):
         log.warning(f" - Skipping {hl(filename)} since the file already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -129,7 +129,7 @@ async def add_rom(
         )
 
     # Create the directory if it doesn't exist
-    fs_rom_handler.make_directory(roms_path)
+    await fs_rom_handler.make_directory(roms_path)
 
     def cleanup_partial_file():
         if file_location.exists():
@@ -521,7 +521,7 @@ async def get_rom_content(
         )
 
     async def create_zip_content(f: RomFile, base_path: str = LIBRARY_BASE_PATH):
-        file_size = fs_rom_handler.get_file_size(f.full_path)
+        file_size = await fs_rom_handler.get_file_size(f.full_path)
         return ZipContentLine(
             crc32=f.crc_hash,
             size_bytes=file_size,
@@ -692,7 +692,7 @@ async def update_rom(
     )
 
     if remove_cover:
-        cleaned_data.update(fs_resource_handler.remove_cover(rom))
+        cleaned_data.update(await fs_resource_handler.remove_cover(rom))
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
@@ -700,7 +700,7 @@ async def update_rom(
             (
                 path_cover_l,
                 path_cover_s,
-            ) = fs_resource_handler.build_artwork_path(rom, file_ext)
+            ) = await fs_resource_handler.build_artwork_path(rom, file_ext)
 
             cleaned_data.update(
                 {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
@@ -750,7 +750,7 @@ async def update_rom(
     if should_update_fs:
         try:
             new_fs_name = sanitize_filename(new_fs_name)
-            fs_rom_handler.rename_fs_rom(
+            await fs_rom_handler.rename_fs_rom(
                 old_name=rom.fs_name,
                 new_name=new_fs_name,
                 fs_path=rom.fs_path,
@@ -808,7 +808,7 @@ async def add_rom_manuals(
     file_location = fs_rom_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
     log.info(f"Uploading manual to {hl(str(file_location))}")
 
-    fs_rom_handler.make_directory(manuals_path)
+    await fs_rom_handler.make_directory(manuals_path)
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
@@ -875,7 +875,7 @@ async def delete_roms(
         db_rom_handler.delete_rom(id)
 
         try:
-            fs_resource_handler.remove_directory(rom.fs_resources_path)
+            await fs_resource_handler.remove_directory(rom.fs_resources_path)
         except FileNotFoundError:
             log.warning(
                 f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
@@ -885,7 +885,7 @@ async def delete_roms(
             log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
             try:
                 file_path = f"{rom.fs_path}/{rom.fs_name}"
-                fs_rom_handler.remove_file(file_path=file_path)
+                await fs_rom_handler.remove_file(file_path=file_path)
             except FileNotFoundError as exc:
                 error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
                 log.error(error)

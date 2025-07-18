@@ -4,10 +4,7 @@ import os
 
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
-from exceptions.fs_exceptions import (
-    FirmwareAlreadyExistsException,
-    FirmwareNotFoundException,
-)
+from exceptions.fs_exceptions import FirmwareNotFoundException
 from utils.hashing import crc32_to_hex
 
 from .base_handler import FSHandler
@@ -25,7 +22,7 @@ class FSFirmwareHandler(FSHandler):
             else f"{fs_slug}/{cnfg.FIRMWARE_FOLDER_NAME}"
         )
 
-    def get_firmware(self, platform_fs_slug: str):
+    async def get_firmware(self, platform_fs_slug: str):
         """Gets all filesystem firmware for a platform
 
         Args:
@@ -35,7 +32,7 @@ class FSFirmwareHandler(FSHandler):
         """
         firmware_path = self.get_firmware_fs_structure(platform_fs_slug)
         try:
-            fs_firmware_files = self.list_files(path=firmware_path)
+            fs_firmware_files = await self.list_files(path=firmware_path)
         except FileNotFoundError as e:
             raise FirmwareNotFoundException(
                 f"Firmware not found for platform {platform_fs_slug}"
@@ -43,15 +40,15 @@ class FSFirmwareHandler(FSHandler):
 
         return [f for f in self.exclude_single_files(fs_firmware_files)]
 
-    def calculate_file_hashes(self, firmware_path: str, file_name: str):
+    async def calculate_file_hashes(self, firmware_path: str, file_name: str):
         file_path = f"{firmware_path}/{file_name}"
-        with self.stream_file(file_path=file_path) as f:
+        async with await self.stream_file(file_path=file_path) as f:
             crc_c = 0
             md5_h = hashlib.md5(usedforsecurity=False)
             sha1_h = hashlib.sha1(usedforsecurity=False)
 
             # Read in chunks to avoid memory issues
-            while chunk := f.read(8192):
+            while chunk := await f.read(8192):
                 md5_h.update(chunk)
                 sha1_h.update(chunk)
                 crc_c = binascii.crc32(chunk, crc_c)
@@ -61,14 +58,3 @@ class FSFirmwareHandler(FSHandler):
                 "md5_hash": md5_h.hexdigest(),
                 "sha1_hash": sha1_h.hexdigest(),
             }
-
-    def rename_file(self, old_name: str, new_name: str, file_path: str):
-        if new_name != old_name:
-            file_path = f"{file_path}/{new_name}"
-            if self.file_exists(file_path=file_path):
-                raise FirmwareAlreadyExistsException(new_name)
-
-            self.move_file_or_folder(
-                source_path=f"{file_path}/{old_name}",
-                dest_path=f"{file_path}/{new_name}",
-            )

@@ -39,7 +39,7 @@ class FSPlatformsHandler(FSHandler):
             else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
         )
 
-    def add_platform(self, fs_slug: str) -> None:
+    async def add_platform(self, fs_slug: str) -> None:
         """Adds platform to the filesystem
 
         Args:
@@ -48,18 +48,18 @@ class FSPlatformsHandler(FSHandler):
         platform_path = self.get_plaform_fs_structure(fs_slug)
 
         try:
-            self.make_directory(platform_path)
+            await self.make_directory(platform_path)
         except FileNotFoundError as e:
             raise PlatformAlreadyExistsException(fs_slug) from e
 
-    def get_platforms(self) -> list[str]:
+    async def get_platforms(self) -> list[str]:
         """Retrieves all platforms from the filesystem.
 
         Returns:
             List of platform slugs.
         """
         try:
-            platforms = self.list_directories(path=self.get_platforms_directory())
+            platforms = await self.list_directories(path=self.get_platforms_directory())
         except FileNotFoundError as e:
             raise FolderStructureNotMatchException() from e
 

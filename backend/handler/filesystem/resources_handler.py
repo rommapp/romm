@@ -59,17 +59,17 @@ class FSResourcesHandler(FSHandler):
             size: size of the cover
         """
         cover_file = f"{entity.fs_resources_path}/cover"
-        self.make_directory(f"{cover_file}")
+        await self.make_directory(f"{cover_file}")
 
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url_cover, timeout=120) as response:
                 if response.status_code == 200:
-                    with self.write_file_streamed(
+                    async with await self.write_file_streamed(
                         path=cover_file, filename=f"{size.value}.png"
                     ) as f:
                         async for chunk in response.aiter_raw():
-                            f.write(chunk)
+                            await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
 
@@ -118,15 +118,15 @@ class FSResourcesHandler(FSHandler):
 
         return path_cover_s, path_cover_l
 
-    def remove_cover(self, entity: Rom | Collection | None):
+    async def remove_cover(self, entity: Rom | Collection | None):
         if not entity:
             return {"path_cover_s": "", "path_cover_l": ""}
 
-        self.remove_directory(f"{entity.fs_resources_path}/cover")
+        await self.remove_directory(f"{entity.fs_resources_path}/cover")
 
         return {"path_cover_s": "", "path_cover_l": ""}
 
-    def build_artwork_path(
+    async def build_artwork_path(
         self, entity: Rom | Collection, file_ext: str
     ) -> tuple[str, str]:
         path_cover = f"{entity.fs_resources_path}/cover"
@@ -137,7 +137,7 @@ class FSResourcesHandler(FSHandler):
             f"{path_cover}/{CoverSize.SMALL.value}.{file_ext}"
         )
 
-        self.make_directory(path_cover)
+        await self.make_directory(path_cover)
 
         return str(path_cover_l), str(path_cover_s)
 
@@ -156,11 +156,11 @@ class FSResourcesHandler(FSHandler):
                 "GET", url_screenhot, timeout=120
             ) as response:
                 if response.status_code == 200:
-                    with self.write_file_streamed(
+                    async with await self.write_file_streamed(
                         path=screenshot_path, filename=f"{idx}.jpg"
                     ) as f:
                         async for chunk in response.aiter_raw():
-                            f.write(chunk)
+                            await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
             return None
@@ -207,11 +207,11 @@ class FSResourcesHandler(FSHandler):
         try:
             async with httpx_client.stream("GET", url_manual, timeout=120) as response:
                 if response.status_code == 200:
-                    with self.write_file_streamed(
+                    async with await self.write_file_streamed(
                         path=manual_path, filename=f"{rom.id}.pdf"
                     ) as f:
                         async for chunk in response.aiter_raw():
-                            f.write(chunk)
+                            await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
             return None
@@ -248,11 +248,11 @@ class FSResourcesHandler(FSHandler):
         try:
             async with httpx_client.stream("GET", url, timeout=120) as response:
                 if response.status_code == 200:
-                    with self.write_file_streamed(
+                    async with await self.write_file_streamed(
                         path=directory, filename=filename
                     ) as f:
                         async for chunk in response.aiter_raw():
-                            f.write(chunk)
+                            await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url}: {str(exc)}")
 
@@ -267,5 +267,5 @@ class FSResourcesHandler(FSHandler):
     def get_ra_badges_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(self.get_ra_resources_path(platform_id, rom_id), "badges")
 
-    def create_ra_resources_path(self, platform_id: int, rom_id: int) -> None:
-        self.make_directory(self.get_ra_resources_path(platform_id, rom_id))
+    async def create_ra_resources_path(self, platform_id: int, rom_id: int) -> None:
+        await self.make_directory(self.get_ra_resources_path(platform_id, rom_id))

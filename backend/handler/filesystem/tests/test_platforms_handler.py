@@ -145,7 +145,9 @@ class TestFSPlatformsHandler:
             result = handler.get_plaform_fs_structure(fs_slug)
             assert result == f"{fs_slug}/{config_custom_folder.ROMS_FOLDER_NAME}"
 
-    def test_add_platform_creates_directory(self, handler: FSPlatformsHandler, config):
+    async def test_add_platform_creates_directory(
+        self, handler: FSPlatformsHandler, config
+    ):
         """Test that add_platform creates the correct directory"""
         fs_slug = "gba"
         expected_path = f"{config.ROMS_FOLDER_NAME}/{fs_slug}"
@@ -155,10 +157,12 @@ class TestFSPlatformsHandler:
         ):
             with patch("os.path.exists", return_value=True):
                 with patch.object(handler, "make_directory") as mock_make_directory:
-                    handler.add_platform(fs_slug)
+                    await handler.add_platform(fs_slug)
                     mock_make_directory.assert_called_once_with(expected_path)
 
-    def test_add_platform_normal_structure(self, handler: FSPlatformsHandler, config):
+    async def test_add_platform_normal_structure(
+        self, handler: FSPlatformsHandler, config
+    ):
         """Test that add_platform creates directory with normal structure"""
         fs_slug = "gba"
         expected_path = f"{fs_slug}/{config.ROMS_FOLDER_NAME}"
@@ -168,21 +172,21 @@ class TestFSPlatformsHandler:
         ):
             with patch("os.path.exists", return_value=False):
                 with patch.object(handler, "make_directory") as mock_make_directory:
-                    handler.add_platform(fs_slug)
+                    await handler.add_platform(fs_slug)
                     mock_make_directory.assert_called_once_with(expected_path)
 
-    def test_get_platforms_returns_existing_platforms(
+    async def test_get_platforms_returns_existing_platforms(
         self, handler: FSPlatformsHandler, config
     ):
         """Test that get_platforms returns existing platforms"""
         with patch(
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
-            result = handler.get_platforms()
+            result = await handler.get_platforms()
             assert "n64" in result
             assert "psx" in result
 
-    def test_get_platforms_excludes_excluded_platforms(
+    async def test_get_platforms_excludes_excluded_platforms(
         self, handler: FSPlatformsHandler, config
     ):
         """Test that get_platforms excludes excluded platforms"""
@@ -190,12 +194,12 @@ class TestFSPlatformsHandler:
             "handler.filesystem.platforms_handler.cm.get_config", return_value=config
         ):
             config.EXCLUDED_PLATFORMS = ["psx"]
-            result = handler.get_platforms()
+            result = await handler.get_platforms()
 
             assert "n64" in result
             assert "psx" not in result
 
-    def test_get_platforms_calls_list_directories_with_correct_path(
+    async def test_get_platforms_calls_list_directories_with_correct_path(
         self, handler: FSPlatformsHandler, config
     ):
         """Test that get_platforms calls list_directories with correct path"""
@@ -206,10 +210,10 @@ class TestFSPlatformsHandler:
                 with patch.object(
                     handler, "list_directories", return_value=[]
                 ) as mock_list:
-                    handler.get_platforms()
+                    await handler.get_platforms()
                     mock_list.assert_called_once_with(path=config.ROMS_FOLDER_NAME)
 
-    def test_get_platforms_calls_list_directories_with_empty_path(
+    async def test_get_platforms_calls_list_directories_with_empty_path(
         self, handler: FSPlatformsHandler, config
     ):
         """Test that get_platforms calls list_directories with empty path for normal structure"""
@@ -219,7 +223,7 @@ class TestFSPlatformsHandler:
             with patch.object(
                 handler, "list_directories", return_value=[]
             ) as mock_list:
-                handler.get_platforms()
+                await handler.get_platforms()
                 mock_list.assert_called_once_with(path="")
 
     def test_integration_with_base_handler_methods(self, handler: FSPlatformsHandler):
@@ -244,7 +248,9 @@ class TestFSPlatformsHandler:
             result = handler.get_plaform_fs_structure(fs_slug)
             assert result == f"{fs_slug}/{config.ROMS_FOLDER_NAME}"
 
-    def test_path_construction_consistency(self, handler: FSPlatformsHandler, config):
+    async def test_path_construction_consistency(
+        self, handler: FSPlatformsHandler, config
+    ):
         """Test that path construction is consistent across methods"""
         fs_slug = "ps2"
 
@@ -255,7 +261,7 @@ class TestFSPlatformsHandler:
             structure_path = handler.get_plaform_fs_structure(fs_slug)
 
             with patch.object(handler, "make_directory") as mock_make_directory:
-                handler.add_platform(fs_slug)
+                await handler.add_platform(fs_slug)
                 mock_make_directory.assert_called_once_with(structure_path)
 
     def test_actual_directory_operations(self, handler: FSPlatformsHandler, config):
@@ -271,7 +277,9 @@ class TestFSPlatformsHandler:
                 result = handler.get_plaform_fs_structure(platform)
                 assert result == expected_path
 
-    def test_edge_cases_and_error_handling(self, handler: FSPlatformsHandler, config):
+    async def test_edge_cases_and_error_handling(
+        self, handler: FSPlatformsHandler, config
+    ):
         """Test edge cases and error handling"""
         # Test with empty platform slug
         with patch(
@@ -282,7 +290,7 @@ class TestFSPlatformsHandler:
 
             # Test adding empty platform
             with patch.object(handler, "make_directory") as mock_make_directory:
-                handler.add_platform("")
+                await handler.add_platform("")
                 mock_make_directory.assert_called_once_with(
                     f"/{config.ROMS_FOLDER_NAME}"
                 )

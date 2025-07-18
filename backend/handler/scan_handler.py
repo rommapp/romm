@@ -186,7 +186,7 @@ async def scan_platform(
     return Platform(**platform_attrs)
 
 
-def scan_firmware(
+async def scan_firmware(
     platform: Platform,
     file_name: str,
     firmware: Firmware | None = None,
@@ -200,7 +200,7 @@ def scan_firmware(
     }
 
     file_path = f"{firmware_path}/{file_name}"
-    file_size = fs_firmware_handler.get_file_size(file_path)
+    file_size = await fs_firmware_handler.get_file_size(file_path)
 
     firmware_attrs.update(
         {
@@ -217,7 +217,7 @@ def scan_firmware(
         }
     )
 
-    file_hashes = fs_firmware_handler.calculate_file_hashes(
+    file_hashes = await fs_firmware_handler.calculate_file_hashes(
         firmware_path=firmware_path,
         file_name=file_name,
     )
@@ -621,9 +621,9 @@ async def scan_rom(
     return Rom(**rom_attrs)
 
 
-def _scan_asset(file_name: str, asset_path: str):
+async def _scan_asset(file_name: str, asset_path: str):
     file_path = f"{asset_path}/{file_name}"
-    file_size = fs_asset_handler.get_file_size(file_path)
+    file_size = await fs_asset_handler.get_file_size(file_path)
 
     return {
         "file_path": asset_path,
@@ -635,7 +635,7 @@ def _scan_asset(file_name: str, asset_path: str):
     }
 
 
-def scan_save(
+async def scan_save(
     file_name: str,
     user: User,
     platform_fs_slug: str,
@@ -645,10 +645,11 @@ def scan_save(
     saves_path = fs_asset_handler.build_saves_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
-    return Save(**_scan_asset(file_name, saves_path))
+    scanned_asset = await _scan_asset(file_name, saves_path)
+    return Save(**scanned_asset)
 
 
-def scan_state(
+async def scan_state(
     file_name: str,
     user: User,
     platform_fs_slug: str,
@@ -658,10 +659,11 @@ def scan_state(
     states_path = fs_asset_handler.build_states_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id, emulator=emulator
     )
-    return State(**_scan_asset(file_name, states_path))
+    scanned_asset = await _scan_asset(file_name, states_path)
+    return State(**scanned_asset)
 
 
-def scan_screenshot(
+async def scan_screenshot(
     file_name: str,
     user: User,
     platform_fs_slug: str,
@@ -670,4 +672,5 @@ def scan_screenshot(
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=user, platform_fs_slug=platform_fs_slug, rom_id=rom_id
     )
-    return Screenshot(**_scan_asset(file_name, screenshots_path))
+    scanned_asset = await _scan_asset(file_name, screenshots_path)
+    return Screenshot(**scanned_asset)
