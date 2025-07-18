@@ -4,7 +4,6 @@ import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
 import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
-import RandomBtn from "@/components/common/Navigation/RandomBtn.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
 import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
@@ -47,7 +46,6 @@ function collapse() {
       </template>
 
       <template #append>
-        <random-btn />
         <upload-btn class="mr-2" />
         <user-btn class="mr-1" />
       </template>
@@ -133,16 +131,9 @@ function collapse() {
       <upload-btn
         :withTag="!mainBarCollapsed"
         rounded
-        class="mt-2"
-        block
-        tabindex="8"
-      />
-      <random-btn
-        :withTag="!mainBarCollapsed"
-        rounded
         class="mt-2 mb-6"
         block
-        tabindex="6"
+        tabindex="8"
       />
       <v-row no-gutters class="my-2 justify-center">
         <user-btn tabindex="9" aria-label="Settings menu" />
