@@ -121,7 +121,7 @@ async def add_rom(
     parser.register(filename, FileTarget(str(file_location)))
 
     # Check if the file already exists
-    if fs_rom_handler.file_exists(str(file_location)):
+    if fs_rom_handler.file_exists(f"{roms_path}/{filename}"):
         log.warning(f" - Skipping {hl(filename)} since the file already exists")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
