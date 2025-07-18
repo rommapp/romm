@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import BinaryIO, Optional
 
 from config.config_manager import config_manager as cm
-from fastapi import UploadFile
 from models.base import FILE_NAME_MAX_LENGTH
+from starlette.datastructures import UploadFile
 from utils.filesystem import iter_directories, iter_files
 
 TAG_REGEX = re.compile(r"\(([^)]+)\)|\[([^]]+)\]")
@@ -273,7 +273,7 @@ class FSHandler:
         Securely write file to filesystem.
 
         Args:
-            file: File object to write (UploadFile)
+            file: File-like object to write
             path: Relative path within base directory
             filename: Optional filename override
             overwrite: Allow overwriting existing files
@@ -282,10 +282,7 @@ class FSHandler:
             Dictionary with operation result and file info
         """
 
-        original_filename = filename
-        if isinstance(file, UploadFile):
-            original_filename = original_filename or file.filename
-
+        original_filename = filename or getattr(file, "filename", None)
         if not original_filename:
             raise ValueError("Filename cannot be empty")
 

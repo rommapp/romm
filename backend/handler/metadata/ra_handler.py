@@ -127,10 +127,7 @@ class RAHandler(MetadataHandler):
         platform_resources_path = fs_resource_handler.get_platform_resources_path(
             platform_id
         )
-        return os.path.join(
-            platform_resources_path,
-            self.HASHES_FILE_NAME,
-        )
+        return os.path.join(platform_resources_path, self.HASHES_FILE_NAME)
 
     def _exists_cache_file(self, platform_id: int) -> bool:
         return fs_resource_handler.file_exists(self._get_hashes_file_path(platform_id))
@@ -160,9 +157,15 @@ class RAHandler(MetadataHandler):
                 include_hashes=True,
             )
 
+            platform_resources_path = fs_resource_handler.get_platform_resources_path(
+                rom.platform.id
+            )
+
             json_file = json.dumps(roms, indent=4)
             fs_resource_handler.write_file(
-                json_file.encode("utf-8"), self._get_hashes_file_path(rom.platform.id)
+                json_file.encode("utf-8"),
+                platform_resources_path,
+                self.HASHES_FILE_NAME,
             )
         else:
             # Read the roms result from the JSON file

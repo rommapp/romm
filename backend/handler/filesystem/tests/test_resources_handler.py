@@ -34,7 +34,7 @@ class TestFSResourcesHandler:
         """Test get_platform_resources_path method"""
         platform_id = 1
         result = handler.get_platform_resources_path(platform_id)
-        expected = os.path.join(handler.base_path, "roms", "1")
+        expected = os.path.join("roms", "1")
         assert result == expected
 
     def test_get_platform_resources_path_different_ids(
@@ -44,7 +44,7 @@ class TestFSResourcesHandler:
         test_ids = [1, 42, 123, 999]
         for platform_id in test_ids:
             result = handler.get_platform_resources_path(platform_id)
-            expected = os.path.join(handler.base_path, "roms", str(platform_id))
+            expected = os.path.join("roms", str(platform_id))
             assert result == expected
 
     def test_cover_exists_no_cover(self, handler: FSResourcesHandler, rom):
