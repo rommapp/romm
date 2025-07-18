@@ -386,7 +386,7 @@ interactions:
     response:
       body:
         string:
-          '{"access_token":"vyzx88dpfr0ve3kypohhawd40j0r5z","expires_in":5391063,"token_type":"bearer"}
+          '{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":5391063,"token_type":"bearer"}
 
           '
       headers:
