@@ -581,4 +581,4 @@ class FSRomsHandler(FSHandler):
             if self.file_exists(file_path=file_path):
                 raise RomAlreadyExistsException(new_name)
 
-            self.move_file(f"{fs_path}/{old_name}", f"{fs_path}/{new_name}")
+            self.move_file_or_folder(f"{fs_path}/{old_name}", f"{fs_path}/{new_name}")

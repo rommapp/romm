@@ -395,7 +395,7 @@ class FSHandler:
 
             return open(full_path, "rb")
 
-    def move_file(self, source_path: str, dest_path: str) -> None:
+    def move_file_or_folder(self, source_path: str, dest_path: str) -> None:
         """
         Move a file from source to destination.
 
@@ -420,8 +420,10 @@ class FSHandler:
 
         # Thread-safe file move
         with source_lock, dest_lock:
-            if not source_full_path.exists() or not source_full_path.is_file():
-                raise FileNotFoundError(f"Source file not found: {source_full_path}")
+            if not source_full_path.exists():
+                raise FileNotFoundError(
+                    f"Source file or folder not found: {source_full_path}"
+                )
 
             # Create destination directory if needed
             dest_full_path.parent.mkdir(parents=True, exist_ok=True)
