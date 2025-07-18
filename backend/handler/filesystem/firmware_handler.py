@@ -68,7 +68,7 @@ class FSFirmwareHandler(FSHandler):
             if self.file_exists(file_path=file_path):
                 raise FirmwareAlreadyExistsException(new_name)
 
-            self.move_file(
+            self.move_file_or_folder(
                 source_path=f"{file_path}/{old_name}",
                 dest_path=f"{file_path}/{new_name}",
             )

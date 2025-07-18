@@ -316,7 +316,7 @@ class TestFSHandler:
         handler.write_file(sample_file_content, ".", "source.txt")
 
         # Move file
-        handler.move_file("source.txt", "destination.txt")
+        handler.move_file_or_folder("source.txt", "destination.txt")
 
         assert not (handler.base_path / "source.txt").exists()
         assert (handler.base_path / "destination.txt").exists()
@@ -330,15 +330,15 @@ class TestFSHandler:
         handler.write_file(sample_file_content, ".", "source.txt")
 
         # Move file to nested path
-        handler.move_file("source.txt", "parent/child/destination.txt")
+        handler.move_file_or_folder("source.txt", "parent/child/destination.txt")
 
         assert not (handler.base_path / "source.txt").exists()
         assert (handler.base_path / "parent" / "child" / "destination.txt").exists()
 
     def test_move_file_nonexistent(self, handler):
         """Test moving nonexistent file"""
-        with pytest.raises(FileNotFoundError, match="Source file not found"):
-            handler.move_file("nonexistent.txt", "destination.txt")
+        with pytest.raises(FileNotFoundError, match="Source file or folder not found"):
+            handler.move_file_or_folder("nonexistent.txt", "destination.txt")
 
     def test_remove_file(self, handler, sample_file_content):
         """Test file removal"""
