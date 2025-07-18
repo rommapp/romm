@@ -1,4 +1,4 @@
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
@@ -20,7 +20,7 @@ router = APIRouter(
 
 
 @protected_route(router.post, "", [Scope.FIRMWARE_WRITE])
-def add_firmware(
+async def add_firmware(
     request: Request,
     platform_id: int,
     files: list[UploadFile] = File(...),  # noqa: B008
@@ -46,7 +46,7 @@ def add_firmware(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
     uploaded_firmware = []
-    firmware_path = fs_firmware_handler.build_upload_file_path(db_platform.fs_slug)
+    firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
 
     for file in files:
         if not file.filename:
@@ -57,13 +57,13 @@ def add_firmware(
             f"Uploading firmware {hl(file.filename)} to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}"
         )
 
-        fs_firmware_handler.write_file(file=file, path=firmware_path)
+        await fs_firmware_handler.write_file(file=file, path=firmware_path)
 
         db_firmware = db_firmware_handler.get_firmware_by_filename(
             platform_id=db_platform.id, file_name=file.filename
         )
         # Scan or update firmware
-        scanned_firmware = scan_firmware(
+        scanned_firmware = await scan_firmware(
             platform=db_platform,
             file_name=file.filename,
             firmware=db_firmware,
@@ -154,7 +154,7 @@ def head_firmware_content(request: Request, id: int, file_name: str):
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    firmware_path = f"{LIBRARY_BASE_PATH}/{firmware.full_path}"
+    firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
     return FileResponse(
         path=firmware_path,
@@ -192,7 +192,7 @@ def get_firmware_content(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    firmware_path = f"{LIBRARY_BASE_PATH}/{firmware.full_path}"
+    firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
     return FileResponse(path=firmware_path, filename=firmware.file_name)
 
@@ -231,9 +231,8 @@ async def delete_firmware(
         if id in delete_from_fs:
             log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
             try:
-                fs_firmware_handler.remove_file(
-                    file_name=firmware.file_name, file_path=firmware.file_path
-                )
+                file_path = f"{firmware.file_path}/{firmware.file_name}"
+                await fs_firmware_handler.remove_file(file_path=file_path)
             except FileNotFoundError as exc:
                 error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
                 log.error(error)
