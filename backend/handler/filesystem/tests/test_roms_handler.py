@@ -368,7 +368,7 @@ class TestFSRomsHandler:
         assert hasattr(handler, "list_files")
         assert hasattr(handler, "list_directories")
         assert hasattr(handler, "file_exists")
-        assert hasattr(handler, "move_file")
+        assert hasattr(handler, "move_file_or_folder")
         assert hasattr(handler, "stream_file")
         assert hasattr(handler, "exclude_single_files")
 
