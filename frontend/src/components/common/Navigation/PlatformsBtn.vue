@@ -27,19 +27,19 @@ const { activePlatformsDrawer } = storeToRefs(navigationStore);
     variant="flat"
     rounded="1"
     :height="height"
-    class="py-4 bg-background custom-btn"
+    class="py-4 bg-background d-flex align-center justify-center"
     :class="{ rounded: rounded }"
     :color="activePlatformsDrawer ? 'toplayer' : 'background'"
     @click="navigationStore.switchActivePlatformsDrawer"
   >
-    <div class="icon-container">
+    <div class="d-flex flex-column align-center">
       <v-icon :color="$route.name == 'platform' ? 'primary' : ''"
         >mdi-controller</v-icon
       >
       <v-expand-transition>
         <span
           v-if="withTag"
-          class="text-caption"
+          class="text-caption text-center"
           :class="{ 'text-primary': $route.name == 'platform' }"
           >Platforms</span
         >
@@ -47,21 +47,3 @@ const { activePlatformsDrawer } = storeToRefs(navigationStore);
     </div>
   </v-btn>
 </template>
-
-<style scoped>
-.custom-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.icon-container span {
-  text-align: center;
-}
-</style>
