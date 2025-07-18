@@ -16,11 +16,7 @@ class FSResourcesHandler(FSHandler):
         super().__init__(base_path=RESOURCES_BASE_PATH)
 
     def get_platform_resources_path(self, platform_id: int) -> str:
-        return os.path.join(
-            self.base_path,
-            "roms",
-            str(platform_id),
-        )
+        return os.path.join("roms", str(platform_id))
 
     def cover_exists(self, entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
