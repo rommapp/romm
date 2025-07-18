@@ -10,10 +10,8 @@ from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
     RAGameListItem,
 )
-from anyio import open_file
 from config import (
     REFRESH_RETROACHIEVEMENTS_CACHE_DAYS,
-    RESOURCES_BASE_PATH,
     RETROACHIEVEMENTS_API_KEY,
 )
 from handler.filesystem import fs_resource_handler
@@ -126,23 +124,23 @@ class RAHandler(MetadataHandler):
         self.HASHES_FILE_NAME = "ra_hashes.json"
 
     def _get_hashes_file_path(self, platform_id: int) -> str:
-        return os.path.join(
-            RESOURCES_BASE_PATH,
-            "roms",
-            str(platform_id),
-            self.HASHES_FILE_NAME,
+        platform_resources_path = fs_resource_handler.get_platform_resources_path(
+            platform_id
+        )
+        return os.path.join(platform_resources_path, self.HASHES_FILE_NAME)
+
+    async def _exists_cache_file(self, platform_id: int) -> bool:
+        return await fs_resource_handler.file_exists(
+            self._get_hashes_file_path(platform_id)
         )
 
-    def _exists_cache_file(self, platform_id: int) -> bool:
-        return os.path.exists(self._get_hashes_file_path(platform_id))
-
-    def _days_since_last_cache_file_update(self, platform_id: int) -> int:
+    async def _days_since_last_cache_file_update(self, platform_id: int) -> int:
         file_path = self._get_hashes_file_path(platform_id)
-        return (
-            0
-            if not os.path.exists(file_path)
-            else int((time.time() - os.path.getmtime(file_path)) / (24 * 3600))
-        )
+        if not await fs_resource_handler.file_exists(file_path):
+            return REFRESH_RETROACHIEVEMENTS_CACHE_DAYS + 1
+
+        full_path = fs_resource_handler.validate_path(file_path)
+        return int((time.time() - os.path.getmtime(full_path)) / (24 * 3600))
 
     async def _search_rom(self, rom: Rom, ra_hash: str) -> RAGameListItem | None:
         if not rom.platform.ra_id:
@@ -152,8 +150,8 @@ class RAHandler(MetadataHandler):
         roms: list[RAGameListItem]
         if (
             REFRESH_RETROACHIEVEMENTS_CACHE_DAYS
-            <= self._days_since_last_cache_file_update(rom.platform.id)
-            or not self._exists_cache_file(rom.platform.id)
+            <= await self._days_since_last_cache_file_update(rom.platform.id)
+            or not await self._exists_cache_file(rom.platform.id)
         ):
             # Write the roms result to a JSON file if older than REFRESH_RETROACHIEVEMENTS_CACHE_DAYS days
             roms = await self.ra_service.get_game_list(
@@ -161,24 +159,23 @@ class RAHandler(MetadataHandler):
                 only_games_with_achievements=True,
                 include_hashes=True,
             )
-            os.makedirs(
-                os.path.dirname(self._get_hashes_file_path(rom.platform.id)),
-                exist_ok=True,
+
+            platform_resources_path = fs_resource_handler.get_platform_resources_path(
+                rom.platform.id
             )
-            async with await open_file(
-                self._get_hashes_file_path(rom.platform.id),
-                "w",
-                encoding="utf-8",
-            ) as json_file:
-                await json_file.write(json.dumps(roms, indent=4))
+
+            json_file = json.dumps(roms, indent=4)
+            await fs_resource_handler.write_file(
+                json_file.encode("utf-8"),
+                platform_resources_path,
+                self.HASHES_FILE_NAME,
+            )
         else:
             # Read the roms result from the JSON file
-            async with await open_file(
-                self._get_hashes_file_path(rom.platform.id),
-                "r",
-                encoding="utf-8",
-            ) as json_file:
-                roms = json.loads(await json_file.read())
+            json_file_bytes = await fs_resource_handler.read_file(
+                self._get_hashes_file_path(rom.platform.id)
+            )
+            roms = json.loads(json_file_bytes.decode("utf-8"))
 
         for r in roms:
             if ra_hash in r.get("Hashes", ()):

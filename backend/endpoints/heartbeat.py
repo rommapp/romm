@@ -35,7 +35,7 @@ router = APIRouter(
 
 
 @router.get("/heartbeat")
-def heartbeat() -> HeartbeatResponse:
+async def heartbeat() -> HeartbeatResponse:
     """Endpoint to set the CSRF token in cache and return all the basic RomM config
 
     Returns:
@@ -66,7 +66,7 @@ def heartbeat() -> HeartbeatResponse:
             "TGDB_API_ENABLED": TGDB_API_ENABLED,
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
         },
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,

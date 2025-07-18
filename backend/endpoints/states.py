@@ -58,7 +58,9 @@ async def add_state(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading state {hl(stateFile.filename)} for {hl(rom.name, color=BLUE)}")
+    log.info(
+        f"Uploading state {hl(stateFile.filename)} for {hl(str(rom.name), color=BLUE)}"
+    )
 
     states_path = fs_asset_handler.build_states_file_path(
         user=request.user,
@@ -67,10 +69,10 @@ async def add_state(
         emulator=emulator,
     )
 
-    fs_asset_handler.write_file(file=stateFile, path=states_path)
+    await fs_asset_handler.write_file(file=stateFile, path=states_path)
 
     # Scan or update state
-    scanned_state = scan_state(
+    scanned_state = await scan_state(
         file_name=stateFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -96,10 +98,10 @@ async def add_state(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
-        fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
 
         # Scan or update screenshot
-        scanned_screenshot = scan_screenshot(
+        scanned_screenshot = await scan_screenshot(
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
@@ -171,7 +173,7 @@ async def update_state(request: Request, id: int) -> StateSchema:
 
     if "stateFile" in data:
         stateFile: UploadFile = data["stateFile"]  # type: ignore
-        fs_asset_handler.write_file(file=stateFile, path=db_state.file_path)
+        await fs_asset_handler.write_file(file=stateFile, path=db_state.file_path)
         db_state = db_state_handler.update_state(
             db_state.id, {"file_size_bytes": stateFile.size}
         )
@@ -184,10 +186,10 @@ async def update_state(request: Request, id: int) -> StateSchema:
             rom_id=db_state.rom.id,
         )
 
-        fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
 
         # Scan or update screenshot
-        scanned_screenshot = scan_screenshot(
+        scanned_screenshot = await scan_screenshot(
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=db_state.rom.platform_slug,
@@ -245,9 +247,8 @@ async def delete_states(request: Request) -> list[int]:
         )
 
         try:
-            fs_asset_handler.remove_file(
-                file_name=state.file_name, file_path=state.file_path
-            )
+            file_path = f"{state.file_path}/{state.file_name}"
+            await fs_asset_handler.remove_file(file_path=file_path)
         except FileNotFoundError:
             error = f"State file {hl(state.file_name)} not found for platform {hl(state.rom.platform_display_name, color=BLUE)}[{hl(state.rom.platform_slug)}]"
             log.error(error)
@@ -256,10 +257,8 @@ async def delete_states(request: Request) -> list[int]:
             db_screenshot_handler.delete_screenshot(state.screenshot.id)
 
             try:
-                fs_asset_handler.remove_file(
-                    file_name=state.screenshot.file_name,
-                    file_path=state.screenshot.file_path,
-                )
+                file_path = f"{state.screenshot.file_path}/{state.screenshot.file_name}"
+                await fs_asset_handler.remove_file(file_path=file_path)
             except FileNotFoundError:
                 error = f"Screenshot file {hl(state.screenshot.file_name)} not found for state {hl(state.file_name)}[{hl(state.rom.platform_slug)}]"
                 log.error(error)
