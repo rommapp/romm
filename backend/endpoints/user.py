@@ -294,10 +294,10 @@ async def update_user(
         file_extension = file.name.split(".")[-1]
         file_name = f"avatar.{file_extension}"
 
-        file_location = f"{user_avatar_path}/{file_name}"
-        fs_asset_handler.write_file(
+        await fs_asset_handler.write_file(
             file=file, path=user_avatar_path, filename=file_name
         )
+        file_location = f"{user_avatar_path}/{file_name}"
         cleaned_data["avatar_path"] = file_location
 
     if cleaned_data:
@@ -320,7 +320,7 @@ async def update_user(
 
 
 @protected_route(router.delete, "/{id}", [Scope.USERS_WRITE])
-def delete_user(request: Request, id: int) -> MessageResponse:
+async def delete_user(request: Request, id: int) -> MessageResponse:
     """Delete user endpoint
 
     Args:
@@ -355,7 +355,7 @@ def delete_user(request: Request, id: int) -> MessageResponse:
     # Remove the user's folder
     user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
     try:
-        fs_asset_handler.remove_directory(user_avatar_path)
+        await fs_asset_handler.remove_directory(user_avatar_path)
     except FileNotFoundError:
         log.warning(f"Couldn't find avatar directory to delete for {user.username}")
 

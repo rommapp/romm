@@ -47,7 +47,7 @@ class TestFSResourcesHandler:
             expected = os.path.join("roms", str(platform_id))
             assert result == expected
 
-    def test_cover_exists_no_cover(self, handler: FSResourcesHandler, rom):
+    def test_cover_exists_no_cover(self, handler: FSResourcesHandler, rom: Rom):
         """Test cover_exists when no cover exists"""
         # Test with non-existent covers
         assert not handler.cover_exists(rom, CoverSize.SMALL)
@@ -106,7 +106,7 @@ class TestFSResourcesHandler:
         mock_image.resize.assert_called_once_with((expected_width, expected_height))
         mock_image.save.assert_called_once_with(save_path)
 
-    def test_get_cover_path_no_cover(self, handler: FSResourcesHandler, rom):
+    def test_get_cover_path_no_cover(self, handler: FSResourcesHandler, rom: Rom):
         """Test _get_cover_path when no cover exists"""
         result_small = handler._get_cover_path(rom, CoverSize.SMALL)
         result_big = handler._get_cover_path(rom, CoverSize.BIG)
@@ -145,7 +145,7 @@ class TestFSResourcesHandler:
         assert result == ("", "")
 
     @pytest.mark.asyncio
-    async def test_get_cover_no_url(self, handler: FSResourcesHandler, rom):
+    async def test_get_cover_no_url(self, handler: FSResourcesHandler, rom: Rom):
         """Test get_cover with no URL"""
         result = await handler.get_cover(rom, False, None)
         # Should return empty strings since no covers exist and no URL provided
@@ -170,7 +170,9 @@ class TestFSResourcesHandler:
                 mock_store.assert_any_call(rom, url, CoverSize.BIG)
 
     @pytest.mark.asyncio
-    async def test_get_cover_with_overwrite(self, handler: FSResourcesHandler, rom):
+    async def test_get_cover_with_overwrite(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
         """Test get_cover with overwrite enabled"""
         url = "http://example.com/cover.png"
 
@@ -182,20 +184,22 @@ class TestFSResourcesHandler:
             mock_store.assert_any_call(rom, url, CoverSize.SMALL)
             mock_store.assert_any_call(rom, url, CoverSize.BIG)
 
-    def test_remove_cover_no_entity(self, handler: FSResourcesHandler):
+    async def test_remove_cover_no_entity(self, handler: FSResourcesHandler):
         """Test remove_cover with no entity"""
-        result = handler.remove_cover(None)
+        result = await handler.remove_cover(None)
         assert result == {"path_cover_s": "", "path_cover_l": ""}
 
-    def test_remove_cover_with_entity(self, handler: FSResourcesHandler, rom):
+    async def test_remove_cover_with_entity(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
         """Test remove_cover with entity"""
         with patch.object(handler, "remove_directory") as mock_remove:
-            result = handler.remove_cover(rom)
+            result = await handler.remove_cover(rom)
 
             mock_remove.assert_called_once_with(f"{rom.fs_resources_path}/cover")
             assert result == {"path_cover_s": "", "path_cover_l": ""}
 
-    def test_build_artwork_path(self, handler: FSResourcesHandler, rom):
+    def test_build_artwork_path(self, handler: FSResourcesHandler, rom: Rom):
         """Test build_artwork_path method"""
         file_ext = "png"
 
@@ -212,7 +216,7 @@ class TestFSResourcesHandler:
                 mock_make_dir.assert_called_once_with(expected_cover_path)
                 assert result == (expected_big_path, expected_small_path)
 
-    def test_build_artwork_path_different_extensions(
+    async def test_build_artwork_path_different_extensions(
         self, handler: FSResourcesHandler, rom
     ):
         """Test build_artwork_path with different file extensions"""
@@ -223,13 +227,13 @@ class TestFSResourcesHandler:
                 with patch.object(handler, "validate_path") as mock_validate:
                     mock_validate.side_effect = lambda x: Path(x)
 
-                    result = handler.build_artwork_path(rom, ext)
+                    result = await handler.build_artwork_path(rom, ext)
 
                     # Check that the extension is properly included
                     assert result[0].endswith(f"big.{ext}")
                     assert result[1].endswith(f"small.{ext}")
 
-    def test_get_screenshot_path(self, handler: FSResourcesHandler, rom):
+    def test_get_screenshot_path(self, handler: FSResourcesHandler, rom: Rom):
         """Test _get_screenshot_path method"""
         idx = "0"
         result = handler._get_screenshot_path(rom, idx)
@@ -256,7 +260,9 @@ class TestFSResourcesHandler:
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_get_rom_screenshots_no_urls(self, handler: FSResourcesHandler, rom):
+    async def test_get_rom_screenshots_no_urls(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
         """Test get_rom_screenshots with no URLs"""
         result = await handler.get_rom_screenshots(rom, None)
         assert result == []
@@ -289,11 +295,11 @@ class TestFSResourcesHandler:
             ]
             assert result == expected_paths
 
-    def test_manual_exists_no_manual(self, handler: FSResourcesHandler, rom):
+    def test_manual_exists_no_manual(self, handler: FSResourcesHandler, rom: Rom):
         """Test manual_exists when no manual exists"""
         assert not handler.manual_exists(rom)
 
-    def test_get_manual_path_no_manual(self, handler: FSResourcesHandler, rom):
+    def test_get_manual_path_no_manual(self, handler: FSResourcesHandler, rom: Rom):
         """Test _get_manual_path when no manual exists"""
         result = handler._get_manual_path(rom)
         assert result == ""
@@ -305,7 +311,7 @@ class TestFSResourcesHandler:
         assert result == ""
 
     @pytest.mark.asyncio
-    async def test_get_manual_no_url(self, handler: FSResourcesHandler, rom):
+    async def test_get_manual_no_url(self, handler: FSResourcesHandler, rom: Rom):
         """Test get_manual with no URL"""
         result = await handler.get_manual(rom, False, None)
         assert result == ""
@@ -327,7 +333,9 @@ class TestFSResourcesHandler:
                 mock_store.assert_called_once_with(rom, url)
 
     @pytest.mark.asyncio
-    async def test_get_manual_with_overwrite(self, handler: FSResourcesHandler, rom):
+    async def test_get_manual_with_overwrite(
+        self, handler: FSResourcesHandler, rom: Rom
+    ):
         """Test get_manual with overwrite enabled"""
         url = "http://example.com/manual.pdf"
 
@@ -377,13 +385,13 @@ class TestFSResourcesHandler:
             )
             assert result == expected
 
-    def test_create_ra_resources_path(self, handler: FSResourcesHandler):
+    async def test_create_ra_resources_path(self, handler: FSResourcesHandler):
         """Test create_ra_resources_path method"""
         platform_id = 1
         rom_id = 42
 
         with patch.object(handler, "make_directory") as mock_make_dir:
-            handler.create_ra_resources_path(platform_id, rom_id)
+            await handler.create_ra_resources_path(platform_id, rom_id)
 
             expected_path = handler.get_ra_resources_path(platform_id, rom_id)
             mock_make_dir.assert_called_once_with(expected_path)
@@ -398,7 +406,7 @@ class TestFSResourcesHandler:
         assert hasattr(handler, "file_exists")
         assert hasattr(handler, "stream_file")
 
-    def test_cover_size_enum_values(self, handler: FSResourcesHandler, rom):
+    def test_cover_size_enum_values(self, handler: FSResourcesHandler, rom: Rom):
         """Test that cover size enum values are handled correctly"""
         # Test that the enum values are used correctly in path construction
         with patch.object(handler, "validate_path") as mock_validate:

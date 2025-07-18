@@ -546,8 +546,8 @@ class FSRomsHandler(FSHandler):
                 platform.fs_slug
             )  # Relative path to roms
 
-            fs_single_roms = self.list_files(path=rel_roms_path)
-            fs_multi_roms = self.list_directories(path=rel_roms_path)
+            fs_single_roms = await self.list_files(path=rel_roms_path)
+            fs_multi_roms = await self.list_directories(path=rel_roms_path)
         except FileNotFoundError as e:
             raise RomsNotFoundException(platform=platform.fs_slug) from e
 
@@ -575,10 +575,12 @@ class FSRomsHandler(FSHandler):
             key=lambda rom: rom["fs_name"],
         )
 
-    def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
+    async def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
         if new_name != old_name:
             file_path = f"{fs_path}/{new_name}"
-            if self.file_exists(file_path=file_path):
+            if await self.file_exists(file_path=file_path):
                 raise RomAlreadyExistsException(new_name)
 
-            self.move_file_or_folder(f"{fs_path}/{old_name}", f"{fs_path}/{new_name}")
+            await self.move_file_or_folder(
+                f"{fs_path}/{old_name}", f"{fs_path}/{new_name}"
+            )

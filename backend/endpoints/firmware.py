@@ -20,7 +20,7 @@ router = APIRouter(
 
 
 @protected_route(router.post, "", [Scope.FIRMWARE_WRITE])
-def add_firmware(
+async def add_firmware(
     request: Request,
     platform_id: int,
     files: list[UploadFile] = File(...),  # noqa: B008
@@ -57,13 +57,13 @@ def add_firmware(
             f"Uploading firmware {hl(file.filename)} to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}"
         )
 
-        fs_firmware_handler.write_file(file=file, path=firmware_path)
+        await fs_firmware_handler.write_file(file=file, path=firmware_path)
 
         db_firmware = db_firmware_handler.get_firmware_by_filename(
             platform_id=db_platform.id, file_name=file.filename
         )
         # Scan or update firmware
-        scanned_firmware = scan_firmware(
+        scanned_firmware = await scan_firmware(
             platform=db_platform,
             file_name=file.filename,
             firmware=db_firmware,
@@ -232,7 +232,7 @@ async def delete_firmware(
             log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
             try:
                 file_path = f"{firmware.file_path}/{firmware.file_name}"
-                fs_firmware_handler.remove_file(file_path=file_path)
+                await fs_firmware_handler.remove_file(file_path=file_path)
             except FileNotFoundError as exc:
                 error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
                 log.error(error)

@@ -315,16 +315,18 @@ class TestFSRomsHandler:
                 assert rom_file.file_size_bytes > 0
                 assert rom_file.last_modified is not None
 
-    def test_rename_fs_rom_same_name(self, handler: FSRomsHandler):
+    async def test_rename_fs_rom_same_name(self, handler: FSRomsHandler):
         """Test rename_fs_rom when old and new names are the same"""
         old_name = "test_rom.n64"
         new_name = "test_rom.n64"
         fs_path = "n64/roms"
 
         # Should not raise any exception
-        handler.rename_fs_rom(old_name, new_name, fs_path)
+        await handler.rename_fs_rom(old_name, new_name, fs_path)
 
-    def test_rename_fs_rom_different_name_target_exists(self, handler: FSRomsHandler):
+    async def test_rename_fs_rom_different_name_target_exists(
+        self, handler: FSRomsHandler
+    ):
         """Test rename_fs_rom when target file already exists"""
         old_name = "Paper Mario (USA).z64"
         new_name = "test_game.n64"  # This file exists
@@ -333,9 +335,9 @@ class TestFSRomsHandler:
         from exceptions.fs_exceptions import RomAlreadyExistsException
 
         with pytest.raises(RomAlreadyExistsException):
-            handler.rename_fs_rom(old_name, new_name, fs_path)
+            await handler.rename_fs_rom(old_name, new_name, fs_path)
 
-    def test_rename_fs_rom_successful_rename(self, handler: FSRomsHandler):
+    async def test_rename_fs_rom_successful_rename(self, handler: FSRomsHandler):
         """Test successful ROM file rename"""
         # Create a test file to rename
         test_file = handler.base_path / "n64/roms/test_rename.n64"
@@ -346,7 +348,7 @@ class TestFSRomsHandler:
         fs_path = "n64/roms"
 
         try:
-            handler.rename_fs_rom(old_name, new_name, fs_path)
+            await handler.rename_fs_rom(old_name, new_name, fs_path)
 
             # Check that old file is gone and new file exists
             old_path = handler.base_path / fs_path / old_name
@@ -372,13 +374,15 @@ class TestFSRomsHandler:
         assert hasattr(handler, "stream_file")
         assert hasattr(handler, "exclude_single_files")
 
-    def test_exclude_single_files_integration(self, handler: FSRomsHandler, config):
+    async def test_exclude_single_files_integration(
+        self, handler: FSRomsHandler, config
+    ):
         """Test that exclude_single_files works with actual ROM files"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
 
             # Get all files in the ROM directory
-            all_files = handler.list_files(path="n64/roms")
+            all_files = await handler.list_files(path="n64/roms")
 
             # Should include .tmp files before exclusion
             assert "excluded_test.tmp" in all_files
@@ -389,28 +393,28 @@ class TestFSRomsHandler:
             assert "excluded_test.tmp" not in filtered_files
             assert "Paper Mario (USA).z64" in filtered_files
 
-    def test_file_operations_with_actual_structure(self, handler: FSRomsHandler):
+    async def test_file_operations_with_actual_structure(self, handler: FSRomsHandler):
         """Test that file operations work with the actual ROM directory structure"""
         # Test that we can list files
-        n64_files = handler.list_files("n64/roms")
+        n64_files = await handler.list_files("n64/roms")
         assert len(n64_files) > 0
 
-        n64_dirs = handler.list_directories("n64/roms")
+        n64_dirs = await handler.list_directories("n64/roms")
         assert len(n64_dirs) > 0
 
         # Test that we can check file existence
-        assert handler.file_exists("n64/roms/Paper Mario (USA).z64")
-        assert handler.file_exists("n64/roms/test_game.n64")
-        assert not handler.file_exists("n64/roms/nonexistent.rom")
+        assert await handler.file_exists("n64/roms/Paper Mario (USA).z64")
+        assert await handler.file_exists("n64/roms/test_game.n64")
+        assert not await handler.file_exists("n64/roms/nonexistent.rom")
 
-    def test_stream_file_with_actual_roms(self, handler: FSRomsHandler):
+    async def test_stream_file_with_actual_roms(self, handler: FSRomsHandler):
         """Test streaming actual ROM files"""
-        with handler.stream_file("n64/roms/Paper Mario (USA).z64") as f:
-            content = f.read()
+        async with await handler.stream_file("n64/roms/Paper Mario (USA).z64") as f:
+            content = await f.read()
             assert len(content) > 0
 
-        with handler.stream_file("n64/roms/test_game.n64") as f:
-            content = f.read()
+        async with await handler.stream_file("n64/roms/test_game.n64") as f:
+            content = await f.read()
             assert len(content) > 0
             assert b"Test N64 ROM" in content
 
@@ -459,13 +463,13 @@ class TestFSRomsHandler:
             assert hashable_path == f"{hashable_platform.fs_slug}/roms"
             assert non_hashable_path == f"{non_hashable_platform.fs_slug}/roms"
 
-    def test_multi_rom_directory_handling(self, handler: FSRomsHandler, config):
+    async def test_multi_rom_directory_handling(self, handler: FSRomsHandler, config):
         """Test handling of multi-ROM directories with actual structure"""
         with pytest.MonkeyPatch.context() as m:
             m.setattr("handler.filesystem.roms_handler.cm.get_config", lambda: config)
 
             # List directories in the ROM path
-            directories = handler.list_directories("n64/roms")
+            directories = await handler.list_directories("n64/roms")
 
             # Should include our multi-ROM directories
             assert "Super Mario 64 (J) (Rev A)" in directories
@@ -530,13 +534,13 @@ class TestFSRomsHandler:
             if test_file.exists():
                 test_file.unlink()
 
-    def test_compressed_file_handling(self, handler: FSRomsHandler):
+    async def test_compressed_file_handling(self, handler: FSRomsHandler):
         """Test handling of compressed ROM files"""
         # Test with the ZIP file
-        psx_files = handler.list_files("psx/roms")
+        psx_files = await handler.list_files("psx/roms")
         assert "PaRappa the Rapper.zip" in psx_files
 
         # Verify we can stream the compressed file
-        with handler.stream_file("psx/roms/PaRappa the Rapper.zip") as f:
-            content = f.read()
+        async with await handler.stream_file("psx/roms/PaRappa the Rapper.zip") as f:
+            content = await f.read()
             assert len(content) > 0

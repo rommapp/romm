@@ -64,7 +64,7 @@ async def add_collection(
         (
             path_cover_l,
             path_cover_s,
-        ) = fs_resource_handler.build_artwork_path(_added_collection, file_ext)
+        ) = await fs_resource_handler.build_artwork_path(_added_collection, file_ext)
 
         artwork_content = BytesIO(await artwork.read())
         with Image.open(artwork_content) as img:
@@ -209,7 +209,7 @@ async def update_collection(
     }
 
     if remove_cover:
-        cleaned_data.update(fs_resource_handler.remove_cover(collection))
+        cleaned_data.update(await fs_resource_handler.remove_cover(collection))
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
@@ -217,7 +217,7 @@ async def update_collection(
             (
                 path_cover_l,
                 path_cover_s,
-            ) = fs_resource_handler.build_artwork_path(collection, file_ext)
+            ) = await fs_resource_handler.build_artwork_path(collection, file_ext)
 
             cleaned_data["path_cover_l"] = path_cover_l
             cleaned_data["path_cover_s"] = path_cover_s
@@ -279,7 +279,7 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
     db_collection_handler.delete_collection(id)
 
     try:
-        fs_resource_handler.remove_directory(collection.fs_resources_path)
+        await fs_resource_handler.remove_directory(collection.fs_resources_path)
     except FileNotFoundError:
         log.error(
             f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"

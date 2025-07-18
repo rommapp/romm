@@ -1,14 +1,15 @@
+import asyncio
 import fnmatch
 import os
 import re
 import shutil
-import threading
-from contextlib import contextmanager
+from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from typing import BinaryIO, Optional
 
+from anyio import open_file
 from config.config_manager import config_manager as cm
 from models.base import FILE_NAME_MAX_LENGTH
 from starlette.datastructures import UploadFile
@@ -89,18 +90,17 @@ class Asset(Enum):
 class FSHandler:
     def __init__(self, base_path: str):
         self.base_path = Path(base_path).resolve()
-        self._locks: dict[str, threading.Lock] = {}
-        self._lock_mutex = threading.Lock()
+        self._locks: dict[str, asyncio.Lock] = {}
+        self._lock_mutex = asyncio.Lock()
 
-        # Thread-safe directory creation
-        with self._get_file_lock(str(self.base_path)):
-            self.base_path.mkdir(parents=True, exist_ok=True)
+        # Create base directory synchronously during initialization
+        self.base_path.mkdir(parents=True, exist_ok=True)
 
-    def _get_file_lock(self, file_path: str) -> threading.Lock:
+    async def _get_file_lock(self, file_path: str) -> asyncio.Lock:
         """Get or create a lock for a specific file path."""
-        with self._lock_mutex:
+        async with self._lock_mutex:
             if file_path not in self._locks:
-                self._locks[file_path] = threading.Lock()
+                self._locks[file_path] = asyncio.Lock()
             return self._locks[file_path]
 
     def _sanitize_filename(self, filename: str) -> str:
@@ -145,8 +145,8 @@ class FSHandler:
 
         return full_path
 
-    @contextmanager
-    def _atomic_write(self, target_path: Path):
+    @asynccontextmanager
+    async def _atomic_write(self, target_path: Path):
         """Context manager for atomic file writing."""
         temp_path = None
         try:
@@ -195,7 +195,7 @@ class FSHandler:
         # Return files that are not in the filtered list.
         return [f for f in files if f not in excluded_files]
 
-    def make_directory(self, path: str) -> None:
+    async def make_directory(self, path: str) -> None:
         """
         Create a directory at the specified path.
         Args:
@@ -207,16 +207,17 @@ class FSHandler:
         """
         target_directory = self.validate_path(path)
 
-        # Thread-safe directory creation
-        with self._get_file_lock(str(target_directory)):
+        # Async thread-safe directory creation
+        lock = await self._get_file_lock(str(target_directory))
+        async with lock:
             if not target_directory.exists():
                 target_directory.mkdir(parents=True, exist_ok=True)
             elif not target_directory.is_dir():
                 raise FileNotFoundError(
-                    f"Path already exists and is not a directory: {target_directory}"
+                    f"Path already exists and is not a directory: {str(target_directory)}"
                 )
 
-    def list_directories(self, path: str) -> list[str]:
+    async def list_directories(self, path: str) -> list[str]:
         """
         List all directories in a given path.
 
@@ -231,18 +232,19 @@ class FSHandler:
         """
         target_directory = self.validate_path(path)
 
-        # Thread-safe directory creation
-        with self._get_file_lock(str(target_directory)):
+        # Async thread-safe directory listing
+        lock = await self._get_file_lock(str(target_directory))
+        async with lock:
             if not target_directory.exists() or not target_directory.is_dir():
                 raise FileNotFoundError(
-                    f"Path does not exist or is not a directory: {target_directory}"
+                    f"Path does not exist or is not a directory: {str(target_directory)}"
                 )
 
             return [
                 d for _, d in iter_directories(str(target_directory), recursive=False)
             ]
 
-    def remove_directory(self, path: str) -> None:
+    async def remove_directory(self, path: str) -> None:
         """
         Remove a directory and all its contents.
 
@@ -254,16 +256,17 @@ class FSHandler:
         """
         target_directory = self.validate_path(path)
 
-        # Thread-safe directory removal
-        with self._get_file_lock(str(target_directory)):
+        # Async thread-safe directory removal
+        lock = await self._get_file_lock(str(target_directory))
+        async with lock:
             if not target_directory.exists() or not target_directory.is_dir():
                 raise FileNotFoundError(
-                    f"Path does not exist or is not a directory: {target_directory}"
+                    f"Path does not exist or is not a directory: {str(target_directory)}"
                 )
 
             shutil.rmtree(target_directory, ignore_errors=False)
 
-    def write_file(
+    async def write_file(
         self,
         file: UploadFile | BinaryIO | BytesIO | bytes,
         path: str,
@@ -276,7 +279,6 @@ class FSHandler:
             file: File-like object to write
             path: Relative path within base directory
             filename: Optional filename override
-            overwrite: Allow overwriting existing files
 
         Returns:
             Dictionary with operation result and file info
@@ -292,26 +294,29 @@ class FSHandler:
 
         final_file_path = target_directory / sanitized_filename
 
-        # Thread-safe file operations
-        with self._get_file_lock(str(final_file_path)):
+        # Async thread-safe file operations
+        lock = await self._get_file_lock(str(final_file_path))
+        async with lock:
             # Ensure target directory exists
             target_directory.mkdir(parents=True, exist_ok=True)
 
             # Write file atomically
-            with self._atomic_write(final_file_path) as temp_path:
-                with open(temp_path, "wb") as temp_file:
+            async with self._atomic_write(final_file_path) as temp_path:
+                async with await open_file(temp_path, "wb") as temp_file:
                     if isinstance(file, UploadFile):
-                        shutil.copyfileobj(file.file, temp_file)
+                        while chunk := file.file.read(8192):
+                            await temp_file.write(chunk)
                     elif isinstance(file, BinaryIO):
-                        shutil.copyfileobj(file, temp_file)
+                        while chunk := file.read(8192):
+                            await temp_file.write(chunk)
                     elif isinstance(file, BytesIO):
-                        temp_file.write(file.getvalue())
+                        await temp_file.write(file.getvalue())
                     elif isinstance(file, bytes):
-                        temp_file.write(file)
+                        await temp_file.write(file)
                     else:
                         raise ValueError("Unsupported file type for writing")
 
-    def write_file_streamed(self, path: str, filename: str):
+    async def write_file_streamed(self, path: str, filename: str):
         """
         Write file to filesystem using a streamed approach.
 
@@ -334,15 +339,16 @@ class FSHandler:
 
         final_file_path = target_directory / sanitized_filename
 
-        # Thread-safe file operations
-        with self._get_file_lock(str(final_file_path)):
+        # Async thread-safe file operations
+        lock = await self._get_file_lock(str(final_file_path))
+        async with lock:
             # Ensure target directory exists
             target_directory.mkdir(parents=True, exist_ok=True)
 
             # Open file for writing
-            return open(final_file_path, "wb")
+            return await open_file(final_file_path, "wb")
 
-    def read_file(self, file_path: str) -> bytes:
+    async def read_file(self, file_path: str) -> bytes:
         """
         Read file from filesystem.
 
@@ -361,15 +367,16 @@ class FSHandler:
         # Validate and normalize path
         full_path = self.validate_path(file_path)
 
-        # Thread-safe file read
-        with self._get_file_lock(str(full_path)):
+        # Async thread-safe file read
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
             if not full_path.exists() or not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
-            with open(full_path, "rb") as f:
-                return f.read()
+            async with await open_file(full_path, "rb") as f:
+                return await f.read()
 
-    def stream_file(self, file_path: str):
+    async def stream_file(self, file_path: str):
         """
         Stream file from filesystem.
 
@@ -388,14 +395,15 @@ class FSHandler:
         # Validate and normalize path
         full_path = self.validate_path(file_path)
 
-        # Thread-safe file stream
-        with self._get_file_lock(str(full_path)):
+        # Async thread-safe file stream
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
             if not full_path.exists() or not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
-            return open(full_path, "rb")
+            return await open_file(full_path, "rb")
 
-    def move_file_or_folder(self, source_path: str, dest_path: str) -> None:
+    async def move_file_or_folder(self, source_path: str, dest_path: str) -> None:
         """
         Move a file from source to destination.
 
@@ -415,11 +423,11 @@ class FSHandler:
         dest_full_path = self.validate_path(dest_path)
 
         # Use locks for both source and destination
-        source_lock = self._get_file_lock(str(source_full_path))
-        dest_lock = self._get_file_lock(str(dest_full_path))
+        source_lock = await self._get_file_lock(str(source_full_path))
+        dest_lock = await self._get_file_lock(str(dest_full_path))
 
-        # Thread-safe file move
-        with source_lock, dest_lock:
+        # Async thread-safe file move
+        async with source_lock, dest_lock:
             if not source_full_path.exists():
                 raise FileNotFoundError(
                     f"Source file or folder not found: {source_full_path}"
@@ -430,7 +438,7 @@ class FSHandler:
 
             shutil.move(str(source_full_path), str(dest_full_path))
 
-    def remove_file(self, file_path: str) -> None:
+    async def remove_file(self, file_path: str) -> None:
         """
         Remove a file from the filesystem.
 
@@ -446,14 +454,15 @@ class FSHandler:
         # Validate and normalize path
         full_path = self.validate_path(file_path)
 
-        # Thread-safe file removal
-        with self._get_file_lock(str(full_path)):
+        # Async thread-safe file removal
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
             if not full_path.exists():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
             full_path.unlink()
 
-    def list_files(self, path: str) -> list[str]:
+    async def list_files(self, path: str) -> list[str]:
         """
         List all files in a directory.
 
@@ -472,14 +481,15 @@ class FSHandler:
         # Validate and normalize path
         full_path = self.validate_path(path)
 
-        # Thread-safe directory listing
-        with self._get_file_lock(str(full_path)):
+        # Async thread-safe directory listing
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
             if not full_path.exists() or not full_path.is_dir():
                 raise FileNotFoundError(f"Directory not found: {full_path}")
 
             return [f for _, f in iter_files(str(full_path), recursive=False)]
 
-    def file_exists(self, file_path: str) -> bool:
+    async def file_exists(self, file_path: str) -> bool:
         """
         Check if a file exists.
 
@@ -495,11 +505,12 @@ class FSHandler:
         # Validate and normalize path
         full_path = self.validate_path(file_path)
 
-        # Thread-safe existence check
-        with self._get_file_lock(str(full_path)):
+        # Async thread-safe existence check
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
             return full_path.exists() and full_path.is_file()
 
-    def get_file_size(self, file_path: str) -> int:
+    async def get_file_size(self, file_path: str) -> int:
         """
         Get the size of a file.
 
@@ -518,8 +529,9 @@ class FSHandler:
         # Validate and normalize path
         full_path = self.validate_path(file_path)
 
-        # Thread-safe file size retrieval
-        with self._get_file_lock(str(full_path)):
+        # Async thread-safe file size retrieval
+        lock = await self._get_file_lock(str(full_path))
+        async with lock:
             if not full_path.exists() or not full_path.is_file():
                 raise FileNotFoundError(f"File not found: {full_path}")
 
