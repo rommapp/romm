@@ -474,6 +474,7 @@ async def scan_platforms(
             for s in platform_ids
             if (platform := db_platform_handler.get_platform(s)) is not None
         ] or fs_platforms
+        platform_list = sorted(platform_list)
 
         if len(platform_list) == 0:
             log.warning(
