@@ -255,8 +255,6 @@ async def auth_openid(request: Request):
     potential_user, _userinfo = (
         await oidc_handler.get_current_active_user_from_openid_token(token)
     )
-    if not potential_user:
-        raise AuthCredentialsException
 
     if not potential_user:
         raise AuthCredentialsException
