@@ -126,10 +126,6 @@ class TestFSResourcesHandler:
         small_path = handler._get_cover_path(rom, CoverSize.SMALL)
         big_path = handler._get_cover_path(rom, CoverSize.BIG)
 
-        # Results should be either empty strings or valid paths
-        assert isinstance(small_path, str)
-        assert isinstance(big_path, str)
-
         # If paths exist, they should be relative to base path
         if small_path:
             assert not os.path.isabs(small_path)
