@@ -7,75 +7,107 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { ref, watch, computed } from "vue";
-import { isNull } from "lodash";
 
-// Props
 const { t } = useI18n();
-const navigationStore = storeNavigation();
 const { mdAndUp, smAndDown } = useDisplay();
+
+const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
-const tabIndex = computed(() => (activePlatformsDrawer.value ? 0 : -1));
-const storedPlatformsGroupBy = localStorage.getItem(
-  "settings.platformsGroupBy",
-);
-const virtualCollectionTypeRef = ref(
-  isNull(storedPlatformsGroupBy) ? null : storedPlatformsGroupBy,
-);
-const allowedGroupBy = ["family_name", "generation", "category"];
-const groupBy = ref<"family_name" | "generation" | "category" | null>(
-  allowedGroupBy.includes(virtualCollectionTypeRef.value as string)
-    ? (virtualCollectionTypeRef.value as
-        | "family_name"
-        | "generation"
-        | "category")
-    : null,
-);
 
-// Functions
-const groupedPlatforms = computed(() => {
+const ALLOWED_GROUP_BY = ["family_name", "generation", "category"] as const;
+type GroupByType = (typeof ALLOWED_GROUP_BY)[number] | null;
+
+const textFieldRef = ref();
+const triggerElement = ref<HTMLElement | null>(null);
+const openPanels = ref<number[]>([]);
+
+const initializeGroupBy = (): GroupByType => {
+  const stored = localStorage.getItem("settings.platformsGroupBy");
+  return stored && ALLOWED_GROUP_BY.includes(stored as any)
+    ? (stored as GroupByType)
+    : null;
+};
+
+const groupBy = ref<GroupByType>(initializeGroupBy());
+
+const tabIndex = computed(() => (activePlatformsDrawer.value ? 0 : -1));
+
+const sortedGroupedPlatforms = computed(() => {
   if (!groupBy.value) return null;
+
   const groups: Record<string, Platform[]> = {};
-  for (const platform of filteredPlatforms.value) {
-    const key = platform[groupBy.value] ?? "Other";
+
+  // Group platforms
+  filteredPlatforms.value.forEach((platform) => {
+    let key = platform[groupBy.value!] || "Other";
+    if (groupBy.value === "generation" && key === -1) key = "Other";
+
     if (!groups[key]) groups[key] = [];
     groups[key].push(platform);
-  }
-  return groups;
+  });
+
+  // Sort platforms within groups and return sorted entries
+  return Object.entries(groups)
+    .map(
+      ([groupName, platforms]) =>
+        [
+          groupName,
+          platforms.sort((a, b) =>
+            a.display_name.localeCompare(b.display_name),
+          ),
+        ] as [string, Platform[]],
+    )
+    .sort(([a], [b]) => {
+      if (a === "Other") return 1;
+      if (b === "Other") return -1;
+      return a.localeCompare(b);
+    });
 });
 
-// Functions
-function clear() {
-  filterText.value = "";
-}
+const getGroupTitle = (group: string): string => {
+  if (groupBy.value === "generation" && group !== "Other") {
+    return `Gen ${group}`;
+  }
+  if (groupBy.value === "category" && group === "Portable Console") {
+    return "Handheld Console";
+  }
+  return group;
+};
 
-// Ref to store the element that triggered the drawer
-const triggerElement = ref<HTMLElement | null>(null);
-// Watch for changes in the navigation drawer state
-const textFieldRef = ref();
+watch(
+  sortedGroupedPlatforms,
+  (newGroups) => {
+    if (newGroups) {
+      openPanels.value = newGroups.map((_, index) => index);
+    }
+  },
+  { immediate: true },
+);
+
 watch(activePlatformsDrawer, (isOpen) => {
   if (isOpen) {
-    // Store the currently focused element before opening the drawer
     triggerElement.value = document.activeElement as HTMLElement;
-    // Focus the text field when the drawer is opened
-    textFieldRef.value?.focus();
   }
 });
 
-function onClose() {
+const clear = () => {
+  filterText.value = "";
+};
+
+const onClose = () => {
   activePlatformsDrawer.value = false;
-  // Focus the element that triggered the drawer
   triggerElement.value?.focus();
-}
+};
 </script>
+
 <template>
   <v-navigation-drawer
+    v-model="activePlatformsDrawer"
     mobile
     :location="smAndDown ? 'bottom' : 'left'"
-    @update:model-value="clear"
     width="500"
-    v-model="activePlatformsDrawer"
     :class="{
       'my-2': mdAndUp || (smAndDown && activePlatformsDrawer),
       'ml-2': (mdAndUp && activePlatformsDrawer) || smAndDown,
@@ -85,78 +117,71 @@ function onClose() {
     class="bg-surface pa-1"
     rounded
     :border="0"
+    @update:model-value="clear"
     @keydown.esc="onClose"
   >
     <template #prepend>
       <v-text-field
         ref="textFieldRef"
-        aria-label="Search platform"
-        :tabindex="tabIndex"
         v-model="filterText"
-        prepend-inner-icon="mdi-filter-outline"
-        clearable
-        hide-details
-        @click:clear="clear"
-        @update:model-value=""
-        single-line
         :label="t('platform.search-platform')"
+        :tabindex="tabIndex"
+        aria-label="Search platform"
+        prepend-inner-icon="mdi-filter-outline"
         variant="solo-filled"
         density="compact"
-      ></v-text-field>
+        single-line
+        hide-details
+        clearable
+        @click:clear="clear"
+      />
     </template>
-    <template v-if="groupedPlatforms">
-      <v-expansion-panels
+
+    <!-- Grouped view -->
+    <v-expansion-panels
+      v-if="sortedGroupedPlatforms"
+      v-model="openPanels"
+      class="mt-2"
+      multiple
+      flat
+      variant="accordion"
+      tabindex="-1"
+    >
+      <v-expansion-panel
+        v-for="[group, platforms] in sortedGroupedPlatforms"
+        :key="group"
         tabindex="-1"
-        class="mt-2"
-        multiple
-        flat
-        variant="accordion"
       >
-        <v-expansion-panel
-          v-for="[group, platforms] in Object.entries(groupedPlatforms).sort(
-            (a, b) => a[0].localeCompare(b[0]),
-          )"
-          :key="group"
-          tabindex="-1"
-        >
-          <v-expansion-panel-title :tabindex="tabIndex" color="toplayer" static>
-            <!-- Specifically asked by Dan :P -->
-            {{
-              groupBy === "generation" && group !== "Other"
-                ? `Gen ${group}`
-                : groupBy === "category" && group === "Portable Console"
-                  ? "Handheld Console"
-                  : group
-            }}
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <v-list tabindex="-1" lines="two" class="py-1 px-0">
-              <platform-list-item
-                v-for="platform in platforms"
-                :key="platform.slug"
-                :platform="platform"
-                :tabindex="tabIndex"
-                role="listitem"
-                :aria-label="`${platform.display_name} with ${platform.rom_count} games`"
-                withLink
-              />
-            </v-list>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
-    </template>
-    <template v-else>
-      <v-list tabindex="-1" lines="two" class="py-1 px-0">
-        <platform-list-item
-          v-for="platform in filteredPlatforms"
-          :key="platform.slug"
-          :platform="platform"
-          :tabindex="tabIndex"
-          role="listitem"
-          :aria-label="`${platform.display_name} with ${platform.rom_count} games`"
-          withLink
-        />
-      </v-list>
-    </template>
+        <v-expansion-panel-title :tabindex="tabIndex" color="toplayer" static>
+          {{ getGroupTitle(group) }}
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <v-list tabindex="-1" lines="two" class="py-1 px-0">
+            <platform-list-item
+              v-for="platform in platforms"
+              :key="platform.slug"
+              :platform="platform"
+              :tabindex="tabIndex"
+              :aria-label="`${platform.display_name} with ${platform.rom_count} games`"
+              role="listitem"
+              with-link
+            />
+          </v-list>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
+
+    <!-- Flat list view -->
+    <v-list v-else tabindex="-1" lines="two" class="py-1 px-0">
+      <platform-list-item
+        v-for="platform in filteredPlatforms"
+        :key="platform.slug"
+        :platform="platform"
+        :tabindex="tabIndex"
+        :aria-label="`${platform.display_name} with ${platform.rom_count} games`"
+        role="listitem"
+        with-link
+      />
+    </v-list>
   </v-navigation-drawer>
 </template>

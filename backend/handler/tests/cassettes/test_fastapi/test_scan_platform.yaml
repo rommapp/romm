@@ -277,7 +277,7 @@ interactions:
     response:
       body:
         string:
-          '{"access_token":"2gqi94oorguwsrvn55s325mxth1t30","expires_in":5390596,"token_type":"bearer"}
+          '{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":5390596,"token_type":"bearer"}
 
           '
       headers:
@@ -306,7 +306,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer 2gqi94oorguwsrvn55s325mxth1t30
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:
@@ -376,7 +376,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer 2gqi94oorguwsrvn55s325mxth1t30
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:

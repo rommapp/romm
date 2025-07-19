@@ -68,6 +68,16 @@ async function deleteRoms() {
       }
       romsStore.resetSelection();
       romsStore.remove(roms.value);
+      romsStore.setRecentRoms(
+        romsStore.recentRoms.filter(
+          (r) => !roms.value.some((rom) => rom.id === r.id),
+        ),
+      );
+      romsStore.setContinuePlayingRoms(
+        romsStore.continuePlayingRoms.filter(
+          (r) => !roms.value.some((rom) => rom.id === r.id),
+        ),
+      );
       emitter?.emit("refreshDrawer", null);
       closeDialog();
       if (route.name == "rom") {

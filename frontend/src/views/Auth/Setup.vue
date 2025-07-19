@@ -49,6 +49,12 @@ const metadataOptions = computed(() => [
     logo_path: "/assets/scrappers/ra.png",
     disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
   },
+  {
+    name: "Hasheous",
+    value: "hasheous",
+    logo_path: "/assets/scrappers/hasheous.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
+  },
 ]);
 const defaultAdminUser = ref({
   username: "",

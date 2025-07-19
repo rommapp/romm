@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
-withDefaults(defineProps<{ size?: number }>(), {
+withDefaults(defineProps<{ size?: number; avatar?: boolean }>(), {
   size: 40,
+  avatar: true,
 });
 
 const logos = {
-  xbox: { path: "romm_logo_xbox_one_circle.svg", weight: 0.945 },
-  ps2: { path: "romm_logo_ps2_circle.svg", weight: 0.05 },
-  snes: { path: "romm_logo_snes_circle.svg", weight: 0.005 },
+  xbox: { path: "romm_logo_xbox_one_square.svg", weight: 0.945 },
+  ps2: { path: "romm_logo_ps2_square.svg", weight: 0.05 },
+  snes: { path: "romm_logo_snes_square.svg", weight: 0.005 },
 };
 
 const getRandomLogo = () => {
@@ -28,14 +29,19 @@ const randomLogo = ref<string>(getRandomLogo());
 </script>
 
 <template>
-  <v-avatar :size="size">
+  <v-avatar
+    :size="size"
+    :class="{ 'rounded-circle': avatar, rounded: !avatar }"
+  >
     <img :src="`/assets/logos/${randomLogo}`" alt="Romm Logo" :width="size" />
   </v-avatar>
 </template>
 
 <style scoped>
 .v-avatar {
-  transition: filter 0.15s ease-in-out;
+  transition:
+    filter 0.15s ease-in-out,
+    border-radius 0.15s ease-in-out;
 }
 .v-avatar:hover,
 .v-avatar.active {

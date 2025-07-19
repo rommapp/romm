@@ -5,16 +5,17 @@ import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
-import { computed } from "vue";
+import { useDisplay } from "vuetify";
 
 // Props
+const { xs } = useDisplay();
 const navigationStore = storeNavigation();
 const romsStore = storeRoms();
 const { currentCollection } = storeToRefs(romsStore);
 </script>
 
 <template>
-  <base-gallery-app-bar show-platforms-filter show-filter-bar>
+  <base-gallery-app-bar show-platforms-filter :show-search-bar="!xs">
     <template #prepend>
       <r-avatar
         v-if="currentCollection"

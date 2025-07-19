@@ -31,32 +31,14 @@ const auth = storeAuth();
     color="background"
     :height="height"
     :class="{ rounded: rounded }"
-    class="bg-background custom-btn"
+    class="bg-background d-flex align-center justify-center"
     @click="emitter?.emit('showUploadRomDialog', null)"
   >
-    <div class="icon-container">
+    <div class="d-flex flex-column align-center">
       <v-icon>mdi-cloud-upload-outline</v-icon>
       <v-expand-transition>
-        <span v-if="withTag" class="text-caption">Upload</span>
+        <span v-if="withTag" class="text-caption text-center">Upload</span>
       </v-expand-transition>
     </div>
   </v-btn>
 </template>
-
-<style scoped>
-.custom-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.icon-container span {
-  text-align: center;
-}
-</style>

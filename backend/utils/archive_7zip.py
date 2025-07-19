@@ -1,4 +1,4 @@
-from typing import Callable
+from collections.abc import Callable
 
 from py7zr import Py7zIO, WriterFactory
 

@@ -112,25 +112,31 @@ async def search_rom(
     merged_dict: dict[str, dict] = {}
 
     for igdb_rom in igdb_matched_roms:
-        merged_dict[igdb_rom["name"]] = {
-            **igdb_rom,
-            "igdb_url_cover": igdb_rom.pop("url_cover", ""),
-            **merged_dict.get(igdb_rom.get("name", ""), {}),
-        }
+        igdb_name = igdb_rom.get("name", "")
+        if igdb_name:
+            merged_dict[igdb_name] = {
+                **igdb_rom,
+                "igdb_url_cover": igdb_rom.pop("url_cover", ""),
+                **merged_dict.get(igdb_name, {}),
+            }
 
     for moby_rom in moby_matched_roms:
-        merged_dict[moby_rom["name"]] = {  # type: ignore
-            **moby_rom,
-            "moby_url_cover": moby_rom.pop("url_cover", ""),
-            **merged_dict.get(moby_rom.get("name", ""), {}),
-        }
+        moby_name = moby_rom.get("name", "")
+        if moby_name:
+            merged_dict[moby_name] = {  # type: ignore
+                **moby_rom,
+                "moby_url_cover": moby_rom.pop("url_cover", ""),
+                **merged_dict.get(moby_name, {}),
+            }
 
     for ss_rom in ss_matched_roms:
-        merged_dict[ss_rom["name"]] = {
-            **ss_rom,
-            "ss_url_cover": ss_rom.pop("url_cover", ""),
-            **merged_dict.get(ss_rom.get("name", ""), {}),
-        }
+        ss_name = ss_rom.get("name", "")
+        if ss_name:
+            merged_dict[ss_name] = {
+                **ss_rom,
+                "ss_url_cover": ss_rom.pop("url_cover", ""),
+                **merged_dict.get(ss_name, {}),
+            }
 
     matched_roms = [
         {
@@ -172,7 +178,7 @@ async def search_cover(
         covers = await meta_sgdb_handler.get_details(search_term=search_term)
     except SGDBInvalidAPIKeyException as err:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail=str("Invalid SGDB API key")
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid SGDB API key"
         ) from err
 
     return [SearchCoverSchema.model_validate(cover) for cover in covers]

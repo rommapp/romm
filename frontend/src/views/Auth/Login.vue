@@ -30,6 +30,7 @@ const {
 const forgotMode = ref(false);
 const forgotUser = ref("");
 const sendingReset = ref(false);
+const validForm = ref(false);
 
 // Functions
 async function login() {
@@ -106,13 +107,18 @@ async function loginOIDC() {
         no-gutters
       >
         <v-col cols="10">
-          <v-form v-if="!loginDisabled" @submit.prevent="login">
+          <v-form
+            v-model="validForm"
+            v-if="!loginDisabled"
+            @submit.prevent="login"
+          >
             <v-text-field
               v-model="username"
               :label="t('login.username')"
               type="text"
-              required
-              autocomplete="on"
+              :rules="[(value: string) => !!value || t('common.required')]"
+              autocomplete="username"
+              name="username"
               prepend-inner-icon="mdi-account"
               variant="underlined"
             />
@@ -120,8 +126,9 @@ async function loginOIDC() {
               v-model="password"
               :label="t('login.password')"
               :type="visiblePassword ? 'text' : 'password'"
-              required
-              autocomplete="on"
+              :rules="[(value: string) => !!value || t('common.required')]"
+              autocomplete="current-password"
+              name="password"
               prepend-inner-icon="mdi-lock"
               :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
               @click:append-inner="visiblePassword = !visiblePassword"
@@ -133,7 +140,7 @@ async function loginOIDC() {
               variant="text"
               block
               :loading="loggingIn"
-              :disabled="loggingIn || !username || !password || loggingInOIDC"
+              :disabled="loggingIn || loggingInOIDC || !validForm"
             >
               <template #prepend>
                 <v-icon>mdi-login</v-icon>

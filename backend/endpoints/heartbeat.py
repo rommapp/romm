@@ -4,12 +4,18 @@ from config import (
     DISABLE_USERPASS_LOGIN,
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     ENABLE_SCHEDULED_RESCAN,
+    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
+    HASHEOUS_API_ENABLED,
+    LAUNCHBOX_API_ENABLED,
     OIDC_ENABLED,
     OIDC_PROVIDER,
+    PLAYMATCH_API_ENABLED,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCHEDULED_RESCAN_CRON,
+    SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
+    TGDB_API_ENABLED,
     UPLOAD_TIMEOUT,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
@@ -29,7 +35,7 @@ router = APIRouter(
 
 
 @router.get("/heartbeat")
-def heartbeat() -> HeartbeatResponse:
+async def heartbeat() -> HeartbeatResponse:
     """Endpoint to set the CSRF token in cache and return all the basic RomM config
 
     Returns:
@@ -45,15 +51,22 @@ def heartbeat() -> HeartbeatResponse:
             "ANY_SOURCE_ENABLED": IGDB_API_ENABLED
             or SS_API_ENABLED
             or MOBY_API_ENABLED
-            or RA_API_ENABLED,
+            or RA_API_ENABLED
+            or LAUNCHBOX_API_ENABLED
+            or HASHEOUS_API_ENABLED
+            or TGDB_API_ENABLED,
             "IGDB_API_ENABLED": IGDB_API_ENABLED,
             "SS_API_ENABLED": SS_API_ENABLED,
             "MOBY_API_ENABLED": MOBY_API_ENABLED,
             "STEAMGRIDDB_API_ENABLED": STEAMGRIDDB_API_ENABLED,
             "RA_API_ENABLED": RA_API_ENABLED,
+            "LAUNCHBOX_API_ENABLED": LAUNCHBOX_API_ENABLED,
+            "HASHEOUS_API_ENABLED": HASHEOUS_API_ENABLED,
+            "PLAYMATCH_API_ENABLED": PLAYMATCH_API_ENABLED,
+            "TGDB_API_ENABLED": TGDB_API_ENABLED,
         },
         "FILESYSTEM": {
-            "FS_PLATFORMS": fs_platform_handler.get_platforms(),
+            "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
         },
         "WATCHER": {
             "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
@@ -72,6 +85,12 @@ def heartbeat() -> HeartbeatResponse:
                 "CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
                 "TITLE": "Scheduled Switch TitleDB update",
                 "MESSAGE": "Updates the Nintendo Switch TitleDB file",
+            },
+            "LAUNCHBOX_METADATA": {
+                "ENABLED": ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+                "CRON": SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
+                "TITLE": "Scheduled LaunchBox metadata update",
+                "MESSAGE": "Updates the LaunchBox metadata store",
             },
         },
         "EMULATION": {

@@ -3,11 +3,6 @@ import re
 from collections.abc import Iterator
 from pathlib import Path
 
-from anyio import Path as AnyIOPath
-
-# Type alias for a path that can be either a `pathlib.Path` or an `anyio.Path`.
-AnyPath = Path | AnyIOPath
-
 
 def iter_files(path: str, recursive: bool = False) -> Iterator[tuple[Path, str]]:
     """List files in a directory.
@@ -36,10 +31,10 @@ def iter_directories(path: str, recursive: bool = False) -> Iterator[tuple[Path,
 
 
 INVALID_CHARS_HYPHENS = re.compile(r"[\\/:|]")
-INVALUD_CHARS_EMPTY = re.compile(r'[*?"<>]')
+INVALID_CHARS_EMPTY = re.compile(r'[*?"<>]')
 
 
-def sanitize_filename(filename):
+def sanitize_filename(filename: str) -> str:
     """
     Replace invalid characters in the filename to make it valid across common filesystems
 
@@ -53,7 +48,7 @@ def sanitize_filename(filename):
     sanitized_filename = INVALID_CHARS_HYPHENS.sub("-", filename)
 
     # Remove other invalid characters
-    sanitized_filename = INVALUD_CHARS_EMPTY.sub("", sanitized_filename)
+    sanitized_filename = INVALID_CHARS_EMPTY.sub("", sanitized_filename)
 
     # Ensure null bytes are not included (ZFS allows any characters except null bytes)
     sanitized_filename = sanitized_filename.replace("\0", "")

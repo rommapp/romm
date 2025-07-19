@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import FirmwareBtn from "@/components/Gallery/AppBar/Platform/FirmwareBtn.vue";
 import FirmwareDrawer from "@/components/Gallery/AppBar/Platform/FirmwareDrawer.vue";
 import PlatformInfoDrawer from "@/components/Gallery/AppBar/Platform/PlatformInfoDrawer.vue";
 import storeRoms from "@/stores/roms";
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
+import { useDisplay } from "vuetify";
 
 // Props
+const { xs } = useDisplay();
 const romsStore = storeRoms();
 const navigationStore = storeNavigation();
 const { currentPlatform } = storeToRefs(romsStore);
@@ -16,8 +19,14 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
 </script>
 
 <template>
-  <base-gallery-app-bar :show-playables-filter="false" show-filter-bar>
+  <base-gallery-app-bar :show-playables-filter="false" :show-search-bar="!xs">
     <template #prepend>
+      <missing-from-f-s-icon
+        v-if="currentPlatform && currentPlatform.missing_from_fs"
+        text="Missing platform from filesystem"
+        class="mx-2"
+        :size="18"
+      />
       <v-btn
         v-if="currentPlatform"
         variant="text"
@@ -38,7 +47,7 @@ const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
           size="xs"
           class="position-absolute"
           style="bottom: 4px; right: 4px"
-        ></v-icon>
+        />
       </v-btn>
       <firmware-btn />
     </template>

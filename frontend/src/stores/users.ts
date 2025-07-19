@@ -1,11 +1,30 @@
 import { defineStore } from "pinia";
 import type { UserSchema } from "@/__generated__";
+import i18n from "@/locales";
 
 export type User = UserSchema;
+
+const asciiOnly = (v: string) =>
+  /* trunk-ignore(eslint/no-control-regex) */
+  /^[\u0000-\u007F]*$/.test(v) || i18n.global.t("common.ascii-only");
 
 export default defineStore("users", {
   state: () => ({
     allUsers: [] as User[],
+    nameRules: [
+      (v: string) => !!v || i18n.global.t("common.required"),
+      asciiOnly,
+    ],
+    passwordRules: [
+      (v: string) => !!v || i18n.global.t("common.required"),
+      asciiOnly,
+    ],
+    emailRules: [
+      (v: string) => !!v || i18n.global.t("common.required"),
+      (v: string) =>
+        /.+@.+\..+/.test(v) || i18n.global.t("common.invalid-email"),
+      asciiOnly,
+    ],
   }),
 
   getters: {

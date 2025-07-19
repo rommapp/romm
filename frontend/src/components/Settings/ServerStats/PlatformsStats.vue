@@ -14,7 +14,7 @@ const props = defineProps<{
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
-const orderBy = ref("name");
+const orderBy = ref<"name" | "size" | "count">("name");
 
 // Functions
 const sortedPlatforms = computed(() => {
@@ -23,6 +23,9 @@ const sortedPlatforms = computed(() => {
     return platforms.sort(
       (a, b) => Number(b.fs_size_bytes) - Number(a.fs_size_bytes),
     );
+  }
+  if (orderBy.value === "count") {
+    return platforms.sort((a, b) => b.rom_count - a.rom_count);
   }
   // Default to name
   return platforms.sort((a, b) =>
@@ -57,6 +60,7 @@ function getPlatformPercentage(
             :items="[
               { title: 'Name', value: 'name' },
               { title: 'Size', value: 'size' },
+              { title: 'Count', value: 'count' },
             ]"
             label="Order by"
             variant="outlined"

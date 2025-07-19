@@ -1,6 +1,7 @@
 import time
 from collections import namedtuple
 
+from config import SESSION_MAX_AGE_SECONDS
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
@@ -37,7 +38,7 @@ class SessionMiddleware:
         app: ASGIApp,
         secret_key: str | Secret | SecretKey,
         session_cookie: str = "session",
-        max_age: int = 14 * 24 * 60 * 60,  # 14 days, in seconds
+        max_age: int = SESSION_MAX_AGE_SECONDS,
         same_site: str = "lax",
         https_only: bool = False,
         jwt_alg: str = "HS256",
