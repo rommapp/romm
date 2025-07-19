@@ -55,7 +55,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile
-from PIL import Image
 from pydantic import BaseModel
 from starlette.requests import ClientDisconnect
 from starlette.responses import FileResponse
@@ -697,47 +696,52 @@ async def update_rom(
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = artwork.filename.split(".")[-1]
+            artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
                 path_cover_s,
-            ) = await fs_resource_handler.build_artwork_path(rom, file_ext)
+            ) = await fs_resource_handler.store_artwork(rom, artwork_content, file_ext)
 
             cleaned_data.update(
-                {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+                {
+                    "url_cover": "",
+                    "path_cover_s": path_cover_s,
+                    "path_cover_l": path_cover_l,
+                }
             )
-
-            artwork_content = BytesIO(await artwork.read())
-            with Image.open(artwork_content) as img:
-                img.save(path_cover_l)
-                fs_resource_handler.resize_cover_to_small(img, save_path=path_cover_s)
-
-            cleaned_data.update({"url_cover": ""})
         else:
             if data.get(
                 "url_cover", ""
             ) != rom.url_cover or not fs_resource_handler.cover_exists(
                 rom, CoverSize.BIG
             ):
-                cleaned_data.update({"url_cover": data.get("url_cover", rom.url_cover)})
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=rom,
                     overwrite=True,
                     url_cover=str(data.get("url_cover") or ""),
                 )
                 cleaned_data.update(
-                    {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+                    {
+                        "url_cover": data.get("url_cover", rom.url_cover),
+                        "path_cover_s": path_cover_s,
+                        "path_cover_l": path_cover_l,
+                    }
                 )
 
     if data.get(
         "url_manual", ""
     ) != rom.url_manual or not fs_resource_handler.manual_exists(rom):
-        cleaned_data.update({"url_manual": data.get("url_manual", rom.url_manual)})
         path_manual = await fs_resource_handler.get_manual(
             rom=rom,
             overwrite=True,
             url_manual=str(data.get("url_manual") or ""),
         )
-        cleaned_data.update({"path_manual": path_manual})
+        cleaned_data.update(
+            {
+                "url_manual": data.get("url_manual", rom.url_manual),
+                "path_manual": path_manual,
+            }
+        )
 
     log.debug(
         f"Updating {hl(cleaned_data.get('name', ''), color=BLUE)} [{hl(cleaned_data.get('fs_name', ''))}] with data {cleaned_data}"
@@ -836,7 +840,12 @@ async def add_rom_manuals(
         rom=rom, overwrite=False, url_manual=None
     )
 
-    db_rom_handler.update_rom(id, {"path_manual": path_manual})
+    db_rom_handler.update_rom(
+        id,
+        {
+            "path_manual": path_manual,
+        },
+    )
 
     return Response()
 
