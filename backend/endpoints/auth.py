@@ -204,6 +204,20 @@ async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResp
 
 
 # OIDC login and callback endpoints
+def _validate_redirect_url(redirect_url: str | None) -> str:
+    if not redirect_url:
+        return "/"
+
+    if any(char in redirect_url for char in ["\0", "\r", "\n", "\t"]):
+        return "/"
+
+    # For relative URLs, prevent directory traversal
+    if redirect_url.startswith("/") and ".." in redirect_url:
+        return "/"
+
+    return redirect_url
+
+
 @router.get("/login/openid")
 async def login_via_openid(request: Request):
     """OIDC login endpoint
@@ -229,11 +243,12 @@ async def login_via_openid(request: Request):
 
 
 @router.get("/oauth/openid")
-async def auth_openid(request: Request):
+async def auth_openid(request: Request, redirect_url: str | None = None):
     """OIDC callback endpoint
 
     Args:
         request (Request): Fastapi Request object
+        redirect_url (str | None): Optional URL to redirect to after successful authentication
 
     Raises:
         OIDCDisabledException: OAuth is disabled
@@ -242,7 +257,7 @@ async def auth_openid(request: Request):
         UserDisabledException: Auth is disabled
 
     Returns:
-        RedirectResponse: Redirect to home page
+        RedirectResponse: Redirect to specified URL or home page
     """
 
     if not OIDC_ENABLED:
@@ -270,7 +285,8 @@ async def auth_openid(request: Request):
         potential_user.id, {"last_login": now, "last_active": now}
     )
 
-    return RedirectResponse(url="/")
+    redirect_to = _validate_redirect_url(redirect_url)
+    return RedirectResponse(url=redirect_to)
 
 
 @router.post("/forgot-password")
