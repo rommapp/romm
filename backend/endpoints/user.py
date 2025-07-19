@@ -286,16 +286,13 @@ async def update_user(
     if form_data.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username  # type: ignore[assignment]
 
-    if form_data.avatar is not None:
-        file = form_data.avatar.file
-
+    if form_data.avatar is not None and form_data.avatar.filename is not None:
         user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
-
-        file_extension = file.name.split(".")[-1]
+        file_extension = form_data.avatar.filename.split(".")[-1]
         file_name = f"avatar.{file_extension}"
 
         await fs_asset_handler.write_file(
-            file=file, path=user_avatar_path, filename=file_name
+            file=form_data.avatar.file, path=user_avatar_path, filename=file_name
         )
         file_location = f"{user_avatar_path}/{file_name}"
         cleaned_data["avatar_path"] = file_location
