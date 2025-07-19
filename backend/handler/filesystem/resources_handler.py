@@ -164,8 +164,8 @@ class FSResourcesHandler(FSHandler):
             )
             return None, None
 
-        return str(path_cover_s.relative_to(self.base_path)), str(
-            path_cover_l.relative_to(self.base_path)
+        return str(path_cover_l.relative_to(self.base_path)), str(
+            path_cover_s.relative_to(self.base_path)
         )
 
     async def _store_screenshot(self, rom: Rom, url_screenhot: str, idx: int):
