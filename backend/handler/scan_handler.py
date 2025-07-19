@@ -67,9 +67,8 @@ async def _get_main_platform_igdb_id(platform: Platform):
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
         else:
-            main_platform_igdb_id = (
-                await meta_igdb_handler.get_platform(main_platform_slug)
-            )["igdb_id"]
+            main_platform = await meta_igdb_handler.get_platform(main_platform_slug)
+            main_platform_igdb_id = main_platform["igdb_id"]
             if not main_platform_igdb_id:
                 main_platform_igdb_id = platform.igdb_id
     else:
