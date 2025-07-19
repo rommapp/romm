@@ -410,6 +410,22 @@ class IGDBHandler(MetadataHandler):
 
         platform_version = IGDB_PLATFORM_VERSIONS.get(slug, None)
         if platform_version:
+            main_platform = IGDB_PLATFORM_LIST.get(
+                platform_version["platform_slug"], None
+            )
+            if main_platform:
+                return IGDBPlatform(
+                    igdb_id=platform_version["id"],
+                    slug=platform_version["platform_slug"],
+                    name=platform_version["name"],
+                    category=main_platform["category"],
+                    generation=main_platform["generation"],
+                    family_name=main_platform["family_name"],
+                    family_slug=main_platform["family_slug"],
+                    url=platform_version["url"],
+                    url_logo=self.normalize_cover_url(platform_version["url_logo"]),
+                )
+
             return IGDBPlatform(
                 igdb_id=platform_version["id"],
                 slug=platform_version["platform_slug"],
@@ -3287,8 +3303,8 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "name": "Nintendo 64",
         "category": "Console",
         "generation": 5,
-        "family_name": "",
-        "family_slug": "",
+        "family_name": "Nintendo",
+        "family_slug": "nintendo",
         "url": "https://www.igdb.com/platforms/n64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl78.jpg",
     },
