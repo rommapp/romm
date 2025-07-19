@@ -18,7 +18,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
-from PIL import Image
 from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
@@ -61,15 +60,13 @@ async def add_collection(
 
     if artwork is not None and artwork.filename is not None:
         file_ext = artwork.filename.split(".")[-1]
+        artwork_content = BytesIO(await artwork.read())
         (
             path_cover_l,
             path_cover_s,
-        ) = await fs_resource_handler.build_artwork_path(_added_collection, file_ext)
-
-        artwork_content = BytesIO(await artwork.read())
-        with Image.open(artwork_content) as img:
-            img.save(path_cover_l)
-            fs_resource_handler.resize_cover_to_small(img, save_path=path_cover_s)
+        ) = await fs_resource_handler.store_artwork(
+            _added_collection, artwork_content, file_ext
+        )
     else:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
             entity=_added_collection,
@@ -214,36 +211,38 @@ async def update_collection(
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = artwork.filename.split(".")[-1]
+            artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
                 path_cover_s,
-            ) = await fs_resource_handler.build_artwork_path(collection, file_ext)
+            ) = await fs_resource_handler.store_artwork(
+                collection, artwork_content, file_ext
+            )
 
-            cleaned_data["path_cover_l"] = path_cover_l
-            cleaned_data["path_cover_s"] = path_cover_s
-
-            artwork_content = BytesIO(await artwork.read())
-            with Image.open(artwork_content) as img:
-                img.save(path_cover_l)
-                fs_resource_handler.resize_cover_to_small(img, save_path=path_cover_s)
-
-            cleaned_data.update({"url_cover": ""})
+            cleaned_data.update(
+                {
+                    "url_cover": "",
+                    "path_cover_s": path_cover_s,
+                    "path_cover_l": path_cover_l,
+                }
+            )
         else:
             if data.get(
                 "url_cover", ""
             ) != collection.url_cover or not fs_resource_handler.cover_exists(
                 collection, CoverSize.BIG
             ):
-                cleaned_data.update(
-                    {"url_cover": data.get("url_cover", collection.url_cover)}
-                )
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=collection,
                     overwrite=True,
                     url_cover=data.get("url_cover", ""),  # type: ignore
                 )
                 cleaned_data.update(
-                    {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+                    {
+                        "url_cover": data.get("url_cover", collection.url_cover),
+                        "path_cover_s": path_cover_s,
+                        "path_cover_l": path_cover_l,
+                    }
                 )
 
     updated_collection = db_collection_handler.update_collection(

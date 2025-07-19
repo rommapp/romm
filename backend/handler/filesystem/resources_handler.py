@@ -1,4 +1,6 @@
 import os
+from io import BytesIO
+from pathlib import Path
 
 import httpx
 from config import RESOURCES_BASE_PATH
@@ -82,7 +84,7 @@ class FSResourcesHandler(FSHandler):
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None
 
-    def _get_cover_path(self, entity: Rom | Collection, size: CoverSize) -> str:
+    def _get_cover_path(self, entity: Rom | Collection, size: CoverSize) -> str | None:
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -92,28 +94,33 @@ class FSResourcesHandler(FSHandler):
         full_path = self.validate_path(f"{entity.fs_resources_path}/cover")
         for matched_file in full_path.glob(f"{size.value}.*"):
             return str(matched_file.relative_to(self.base_path))
-        return ""
+
+        return None
 
     async def get_cover(
         self, entity: Rom | Collection | None, overwrite: bool, url_cover: str | None
-    ) -> tuple[str, str]:
+    ) -> tuple[str | None, str | None]:
         if not entity:
-            return "", ""
+            return None, None
 
         small_cover_exists = self.cover_exists(entity, CoverSize.SMALL)
         if url_cover and (overwrite or not small_cover_exists):
             await self._store_cover(entity, url_cover, CoverSize.SMALL)
             small_cover_exists = self.cover_exists(entity, CoverSize.SMALL)
+
         path_cover_s = (
-            self._get_cover_path(entity, CoverSize.SMALL) if small_cover_exists else ""
+            self._get_cover_path(entity, CoverSize.SMALL)
+            if small_cover_exists
+            else None
         )
 
         big_cover_exists = self.cover_exists(entity, CoverSize.BIG)
         if url_cover and (overwrite or not big_cover_exists):
             await self._store_cover(entity, url_cover, CoverSize.BIG)
             big_cover_exists = self.cover_exists(entity, CoverSize.BIG)
+
         path_cover_l = (
-            self._get_cover_path(entity, CoverSize.BIG) if big_cover_exists else ""
+            self._get_cover_path(entity, CoverSize.BIG) if big_cover_exists else None
         )
 
         return path_cover_s, path_cover_l
@@ -126,9 +133,9 @@ class FSResourcesHandler(FSHandler):
 
         return {"path_cover_s": "", "path_cover_l": ""}
 
-    async def build_artwork_path(
+    async def _build_artwork_path(
         self, entity: Rom | Collection, file_ext: str
-    ) -> tuple[str, str]:
+    ) -> tuple[Path, Path]:
         path_cover = f"{entity.fs_resources_path}/cover"
         path_cover_l = self.validate_path(
             f"{path_cover}/{CoverSize.BIG.value}.{file_ext}"
@@ -139,7 +146,27 @@ class FSResourcesHandler(FSHandler):
 
         await self.make_directory(path_cover)
 
-        return str(path_cover_l), str(path_cover_s)
+        return path_cover_l, path_cover_s
+
+    async def store_artwork(
+        self, entity: Rom | Collection, artwork: BytesIO, file_ext: str
+    ) -> tuple[str | None, str | None]:
+        """Store artwork in filesystem and return paths."""
+        path_cover_l, path_cover_s = await self._build_artwork_path(entity, file_ext)
+
+        try:
+            with Image.open(artwork) as img:
+                img.save(path_cover_l)
+                self.resize_cover_to_small(img, save_path=str(path_cover_s))
+        except UnidentifiedImageError as exc:
+            log.error(
+                f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"
+            )
+            return None, None
+
+        return str(path_cover_s.relative_to(self.base_path)), str(
+            path_cover_l.relative_to(self.base_path)
+        )
 
     async def _store_screenshot(self, rom: Rom, url_screenhot: str, idx: int):
         """Store roms resources in filesystem
@@ -216,7 +243,7 @@ class FSResourcesHandler(FSHandler):
             log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
             return None
 
-    def _get_manual_path(self, rom: Rom) -> str:
+    def _get_manual_path(self, rom: Rom) -> str | None:
         """Returns rom manual filesystem path adapted to frontend folder structure
 
         Args:
@@ -225,20 +252,21 @@ class FSResourcesHandler(FSHandler):
         full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
         for matched_file in full_path.glob(f"{rom.id}.pdf"):
             return str(matched_file.relative_to(self.base_path))
-        return ""
+
+        return None
 
     async def get_manual(
         self, rom: Rom | None, overwrite: bool, url_manual: str | None
-    ) -> str:
+    ) -> str | None:
         if not rom:
-            return ""
+            return None
 
         manual_exists = self.manual_exists(rom)
         if url_manual and (overwrite or not manual_exists):
             await self._store_manual(rom, url_manual)
             manual_exists = self.manual_exists(rom)
 
-        path_manual = self._get_manual_path(rom) if manual_exists else ""
+        path_manual = self._get_manual_path(rom) if manual_exists else None
         return path_manual
 
     async def store_ra_badge(self, url: str, path: str) -> None:
