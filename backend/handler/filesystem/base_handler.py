@@ -133,7 +133,6 @@ class FSHandler:
 
         # Check for absolute paths
         if path_path.is_absolute():
-            print("Path path:", path_path)
             raise ValueError("Path must be relative, not absolute")
 
         # Normalize path

@@ -111,8 +111,8 @@ class TestFSResourcesHandler:
         result_small = handler._get_cover_path(rom, CoverSize.SMALL)
         result_big = handler._get_cover_path(rom, CoverSize.BIG)
 
-        assert result_small == ""
-        assert result_big == ""
+        assert result_small is None
+        assert result_big is None
 
     def test_get_cover_path_with_existing_cover(self, handler: FSResourcesHandler):
         """Test _get_cover_path with existing cover files"""
@@ -126,10 +126,6 @@ class TestFSResourcesHandler:
         small_path = handler._get_cover_path(rom, CoverSize.SMALL)
         big_path = handler._get_cover_path(rom, CoverSize.BIG)
 
-        # Results should be either empty strings or valid paths
-        assert isinstance(small_path, str)
-        assert isinstance(big_path, str)
-
         # If paths exist, they should be relative to base path
         if small_path:
             assert not os.path.isabs(small_path)
@@ -142,14 +138,14 @@ class TestFSResourcesHandler:
     async def test_get_cover_no_entity(self, handler: FSResourcesHandler):
         """Test get_cover with no entity"""
         result = await handler.get_cover(None, False, "http://example.com/cover.png")
-        assert result == ("", "")
+        assert result == (None, None)
 
     @pytest.mark.asyncio
     async def test_get_cover_no_url(self, handler: FSResourcesHandler, rom: Rom):
         """Test get_cover with no URL"""
         result = await handler.get_cover(rom, False, None)
         # Should return empty strings since no covers exist and no URL provided
-        assert result == ("", "")
+        assert result == (None, None)
 
     @pytest.mark.asyncio
     async def test_get_cover_with_url_no_overwrite(
@@ -207,14 +203,17 @@ class TestFSResourcesHandler:
             with patch.object(handler, "validate_path") as mock_validate:
                 mock_validate.side_effect = lambda x: Path(x)
 
-                result = await handler.build_artwork_path(rom, file_ext)
+                path_cover_l, path_cover_s = await handler._build_artwork_path(
+                    rom, file_ext
+                )
 
                 expected_cover_path = f"{rom.fs_resources_path}/cover"
                 expected_big_path = f"{expected_cover_path}/big.{file_ext}"
                 expected_small_path = f"{expected_cover_path}/small.{file_ext}"
 
                 mock_make_dir.assert_called_once_with(expected_cover_path)
-                assert result == (expected_big_path, expected_small_path)
+                assert str(path_cover_l) == expected_big_path
+                assert str(path_cover_s) == expected_small_path
 
     async def test_build_artwork_path_different_extensions(
         self, handler: FSResourcesHandler, rom
@@ -227,11 +226,13 @@ class TestFSResourcesHandler:
                 with patch.object(handler, "validate_path") as mock_validate:
                     mock_validate.side_effect = lambda x: Path(x)
 
-                    result = await handler.build_artwork_path(rom, ext)
+                    path_cover_l, path_cover_s = await handler._build_artwork_path(
+                        rom, ext
+                    )
 
                     # Check that the extension is properly included
-                    assert result[0].endswith(f"big.{ext}")
-                    assert result[1].endswith(f"small.{ext}")
+                    assert str(path_cover_l).endswith(f"big.{ext}")
+                    assert str(path_cover_s).endswith(f"small.{ext}")
 
     def test_get_screenshot_path(self, handler: FSResourcesHandler, rom: Rom):
         """Test _get_screenshot_path method"""
@@ -302,19 +303,19 @@ class TestFSResourcesHandler:
     def test_get_manual_path_no_manual(self, handler: FSResourcesHandler, rom: Rom):
         """Test _get_manual_path when no manual exists"""
         result = handler._get_manual_path(rom)
-        assert result == ""
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_manual_no_rom(self, handler: FSResourcesHandler):
         """Test get_manual with no ROM"""
         result = await handler.get_manual(None, False, "http://example.com/manual.pdf")
-        assert result == ""
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_manual_no_url(self, handler: FSResourcesHandler, rom: Rom):
         """Test get_manual with no URL"""
         result = await handler.get_manual(rom, False, None)
-        assert result == ""
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_get_manual_with_url_no_overwrite(

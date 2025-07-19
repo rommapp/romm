@@ -389,7 +389,6 @@ class IGDBHandler(MetadataHandler):
     #         self.platform_endpoint,
     #         f'fields {",".join(self.platforms_fields)}; limit 500;',
     #     )
-    #     print(platforms)
 
     @check_twitch_token
     async def get_platform(self, slug: str) -> IGDBPlatform:
