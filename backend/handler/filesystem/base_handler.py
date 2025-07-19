@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
+from tempfile import SpooledTemporaryFile
 from typing import BinaryIO
 
 from anyio import open_file
@@ -267,7 +268,7 @@ class FSHandler:
 
     async def write_file(
         self,
-        file: UploadFile | BinaryIO | BytesIO | bytes,
+        file: UploadFile | BinaryIO | BytesIO | bytes | SpooledTemporaryFile,
         path: str,
         filename: str | None = None,
     ) -> None:
@@ -305,7 +306,10 @@ class FSHandler:
                     if isinstance(file, UploadFile):
                         while chunk := file.file.read(8192):
                             await temp_file.write(chunk)
-                    elif isinstance(file, BinaryIO):
+                    elif isinstance(file, BinaryIO) or isinstance(
+                        file, SpooledTemporaryFile
+                    ):
+                        file.seek(0)
                         while chunk := file.read(8192):
                             await temp_file.write(chunk)
                     elif isinstance(file, BytesIO):
