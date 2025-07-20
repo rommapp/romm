@@ -104,8 +104,8 @@ Here are a few projects that we think you might like:
     <a href="https://news.ycombinator.com/item?id=44247964" target="_blank">
       <img src=".github/resources/hackernews_badge.svg" width="250px" alt="hackernews badge">
     </a>
-    <a href="https://app.aikido.dev/audit-report/external/NzayAUgNoqiMuiy7p7yNvI0U/request" target="_blank" style="background: #6551f3; border-radius: 8px; padding: 10px 12px 3px;">
-      <img src=".github/resources/aikido-badge.svg" alt="Aikido Security Audit Report" height="40" />    
+    <a href="https://app.aikido.dev/audit-report/external/NzayAUgNoqiMuiy7p7yNvI0U/request" target="_blank">
+      <img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" />
     </a>
   </div>
 </div>
