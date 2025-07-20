@@ -25,7 +25,7 @@ dependencies = [
   "fastapi[standard-no-fastapi-cloud-cli] ~= 0.116",
   "gunicorn == 23.0.0",
   "httpx ~= 0.27",
-  "joserfc ~= 0.9",
+  "joserfc ~= 1.2",
   "levenshtein>=0.27.1",
   "passlib[bcrypt] ~= 1.7",
   "pillow ~= 10.3",
