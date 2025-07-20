@@ -18,7 +18,15 @@ from logger.logger import log
 from rq.job import Job
 from tasks.tasks import tasks_scheduler
 from utils import get_version
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import (
+    DirCreatedEvent,
+    DirDeletedEvent,
+    FileCreatedEvent,
+    FileDeletedEvent,
+    FileSystemEvent,
+    FileSystemEventHandler,
+    FileSystemMovedEvent,
+)
 from watchdog.observers import Observer
 
 sentry_sdk.init(
@@ -36,7 +44,7 @@ path = (
 class EventHandler(FileSystemEventHandler):
     """Filesystem event handler"""
 
-    def on_any_event(self, event):
+    def on_any_event(self, event: FileSystemEvent) -> None:
         """Catch-all event handler.
 
         Args:
@@ -45,15 +53,13 @@ class EventHandler(FileSystemEventHandler):
         if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
             return
 
+        src_path = os.fsdecode(event.src_path)
+
         # Ignore .DS_Store files
-        if event.src_path.endswith(".DS_Store"):
+        if src_path.endswith(".DS_Store"):
             return
 
-        # Ignore some event types
-        if event.event_type in ["modified", "opened", "closed"]:
-            return
-
-        event_src = event.src_path.split(path)[-1]
+        event_src = src_path.split(path)[-1]
         fs_slug = event_src.split("/")[1]
         db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
 
@@ -92,7 +98,18 @@ class EventHandler(FileSystemEventHandler):
 
 if __name__ == "__main__":
     observer = Observer()
-    observer.schedule(EventHandler(), path, recursive=True)
+    observer.schedule(
+        EventHandler(),
+        path,
+        recursive=True,
+        event_filter=[
+            DirCreatedEvent,
+            DirDeletedEvent,
+            FileCreatedEvent,
+            FileDeletedEvent,
+            FileSystemMovedEvent,
+        ],
+    )
     observer.start()
 
     log.info(f"Watching {hl(path)} for changes")

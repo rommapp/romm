@@ -10,15 +10,15 @@ import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue"
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
-import navigationStore from "@/stores/navigation";
+import storeNavigation from "@/stores/navigation";
 import storePlaying from "@/stores/playing";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
 // Props
 const { smAndDown } = useDisplay();
-const storeNavigation = navigationStore();
-const { mainBarCollapsed } = storeToRefs(storeNavigation);
+const navigationStore = storeNavigation();
+const { mainBarCollapsed } = storeToRefs(navigationStore);
 const playingStore = storePlaying();
 const { playing, fullScreen } = storeToRefs(playingStore);
 
@@ -69,8 +69,8 @@ function collapse() {
     v-if="!smAndDown && (!playing || (playing && !fullScreen))"
     permanent
     rail
-    :rail-width="mainBarCollapsed ? 60 : 100"
-    class="bg-background px-2 py-1"
+    :rail-width="mainBarCollapsed ? 60 : 90"
+    class="bg-background pl-2 py-1"
     :border="0"
   >
     <template #prepend>
@@ -124,19 +124,19 @@ function collapse() {
       rounded
       class="mt-2"
       block
-      tabindex="6"
-    />
-    <upload-btn
-      :withTag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
       tabindex="7"
     />
 
     <template #append>
+      <upload-btn
+        :withTag="!mainBarCollapsed"
+        rounded
+        class="mt-2 mb-6"
+        block
+        tabindex="8"
+      />
       <v-row no-gutters class="my-2 justify-center">
-        <user-btn tabindex="8" aria-label="Settings menu" />
+        <user-btn tabindex="9" aria-label="Settings menu" />
       </v-row>
     </template>
   </v-navigation-drawer>

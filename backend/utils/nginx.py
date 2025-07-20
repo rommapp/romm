@@ -3,8 +3,8 @@ from collections.abc import Collection
 from typing import Any
 from urllib.parse import quote
 
+from anyio import Path
 from fastapi.responses import Response
-from utils.filesystem import AnyPath
 
 
 @dataclasses.dataclass(frozen=True)
@@ -55,7 +55,7 @@ class FileRedirectResponse(Response):
     """Response class for serving a file download by using the X-Accel-Redirect header."""
 
     def __init__(
-        self, *, download_path: AnyPath, filename: str | None = None, **kwargs: Any
+        self, *, download_path: Path, filename: str | None = None, **kwargs: Any
     ):
         """
         Arguments:

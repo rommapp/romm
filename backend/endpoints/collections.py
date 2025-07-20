@@ -1,9 +1,6 @@
 import json
 from io import BytesIO
-from shutil import rmtree
 
-from anyio import Path
-from config import RESOURCES_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.collection import CollectionSchema, VirtualCollectionSchema
@@ -21,7 +18,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
-from PIL import Image
 from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
@@ -64,20 +60,13 @@ async def add_collection(
 
     if artwork is not None and artwork.filename is not None:
         file_ext = artwork.filename.split(".")[-1]
+        artwork_content = BytesIO(await artwork.read())
         (
             path_cover_l,
             path_cover_s,
-            artwork_path,
-        ) = await fs_resource_handler.build_artwork_path(_added_collection, file_ext)
-
-        artwork_content = BytesIO(await artwork.read())
-        file_location_small = Path(f"{artwork_path}/small.{file_ext}")
-        file_location_large = Path(f"{artwork_path}/big.{file_ext}")
-        with Image.open(artwork_content) as img:
-            img.save(file_location_large)
-            fs_resource_handler.resize_cover_to_small(
-                img, save_path=file_location_small
-            )
+        ) = await fs_resource_handler.store_artwork(
+            _added_collection, artwork_content, file_ext
+        )
     else:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
             entity=_added_collection,
@@ -217,44 +206,43 @@ async def update_collection(
     }
 
     if remove_cover:
-        cleaned_data.update(fs_resource_handler.remove_cover(collection))
+        cleaned_data.update(await fs_resource_handler.remove_cover(collection))
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = artwork.filename.split(".")[-1]
+            artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
                 path_cover_s,
-                artwork_path,
-            ) = await fs_resource_handler.build_artwork_path(collection, file_ext)
+            ) = await fs_resource_handler.store_artwork(
+                collection, artwork_content, file_ext
+            )
 
-            cleaned_data["path_cover_l"] = path_cover_l
-            cleaned_data["path_cover_s"] = path_cover_s
-
-            artwork_content = BytesIO(await artwork.read())
-            file_location_small = Path(f"{artwork_path}/small.{file_ext}")
-            file_location_large = Path(f"{artwork_path}/big.{file_ext}")
-            with Image.open(artwork_content) as img:
-                img.save(file_location_large)
-                fs_resource_handler.resize_cover_to_small(
-                    img, save_path=file_location_small
-                )
-
-            cleaned_data.update({"url_cover": ""})
+            cleaned_data.update(
+                {
+                    "url_cover": "",
+                    "path_cover_s": path_cover_s,
+                    "path_cover_l": path_cover_l,
+                }
+            )
         else:
-            if data.get("url_cover", "") != collection.url_cover or not (
-                await fs_resource_handler.cover_exists(collection, CoverSize.BIG)
+            if data.get(
+                "url_cover", ""
+            ) != collection.url_cover or not fs_resource_handler.cover_exists(
+                collection, CoverSize.BIG
             ):
-                cleaned_data.update(
-                    {"url_cover": data.get("url_cover", collection.url_cover)}
-                )
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=collection,
                     overwrite=True,
                     url_cover=data.get("url_cover", ""),  # type: ignore
                 )
                 cleaned_data.update(
-                    {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+                    {
+                        "url_cover": data.get("url_cover", collection.url_cover),
+                        "path_cover_s": path_cover_s,
+                        "path_cover_l": path_cover_l,
+                    }
                 )
 
     updated_collection = db_collection_handler.update_collection(
@@ -290,7 +278,7 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
     db_collection_handler.delete_collection(id)
 
     try:
-        rmtree(f"{RESOURCES_BASE_PATH}/{collection.fs_resources_path}")
+        await fs_resource_handler.remove_directory(collection.fs_resources_path)
     except FileNotFoundError:
         log.error(
             f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"

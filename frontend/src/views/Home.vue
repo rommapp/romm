@@ -2,6 +2,7 @@
 import { onMounted, ref, computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import Stats from "@/components/Home/Stats.vue";
 import Collections from "@/components/Home/Collections.vue";
 import VirtualCollections from "@/components/Home/VirtualCollections.vue";
 import Platforms from "@/components/Home/Platforms.vue";
@@ -28,6 +29,7 @@ function getSettingValue(key: string, defaultValue: boolean = true): boolean {
   return stored === null ? defaultValue : stored === "true";
 }
 
+const showStats = getSettingValue("showStats");
 const showRecentRoms = getSettingValue("showRecentRoms");
 const showContinuePlaying = getSettingValue("showContinuePlaying");
 const showPlatforms = getSettingValue("showPlatforms");
@@ -81,7 +83,7 @@ const fetchContinuePlayingRoms = async (): Promise<void> => {
       data: { items },
     } = await romApi.getRecentPlayedRoms();
     const filteredItems = items.filter((rom) => rom.rom_user.last_played);
-    romsStore.setContinuePlayedRoms(filteredItems);
+    romsStore.setContinuePlayingRoms(filteredItems);
   } catch (error) {
     console.error("Failed to fetch continue playing ROMs:", error);
   } finally {
@@ -95,32 +97,38 @@ onMounted(async () => {
 </script>
 
 <template>
-  <RecentSkeletonLoader
-    v-if="showRecentSkeleton"
-    :title="t('home.recently-added')"
-    class="ma-2"
-  />
-  <RecentAdded
-    v-else-if="recentRoms.length > 0 && showRecentRoms"
-    class="ma-2"
-  />
-  <RecentSkeletonLoader
-    v-if="showContinuePlayingSkeleton"
-    :title="t('home.continue-playing')"
-    class="ma-2"
-  />
-  <ContinuePlaying
-    v-else-if="recentPlayedRoms.length > 0 && showContinuePlaying"
-    class="ma-2"
-  />
-  <Platforms v-if="filledPlatforms.length > 0 && showPlatforms" class="ma-2" />
-  <Collections
-    v-if="allCollections.length > 0 && showCollections"
-    class="ma-2"
-  />
-  <VirtualCollections
-    v-if="virtualCollections.length > 0 && showVirtualCollections"
-    class="ma-2"
-  />
-  <EmptyHome v-if="isEmpty" class="ma-2" />
+  <template v-if="!isEmpty">
+    <stats v-if="showStats" />
+    <recent-skeleton-loader
+      v-if="showRecentSkeleton"
+      :title="t('home.recently-added')"
+      class="ma-2"
+    />
+    <recent-added
+      v-else-if="recentRoms.length > 0 && showRecentRoms"
+      class="ma-2"
+    />
+    <recent-skeleton-loader
+      v-if="showContinuePlayingSkeleton"
+      :title="t('home.continue-playing')"
+      class="ma-2"
+    />
+    <continue-playing
+      v-else-if="recentPlayedRoms.length > 0 && showContinuePlaying"
+      class="ma-2"
+    />
+    <platforms
+      v-if="filledPlatforms.length > 0 && showPlatforms"
+      class="ma-2"
+    />
+    <collections
+      v-if="allCollections.length > 0 && showCollections"
+      class="ma-2"
+    />
+    <virtual-collections
+      v-if="virtualCollections.length > 0 && showVirtualCollections"
+      class="ma-2"
+    />
+  </template>
+  <empty-home v-else />
 </template>

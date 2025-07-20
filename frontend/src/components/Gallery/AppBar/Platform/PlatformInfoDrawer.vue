@@ -130,7 +130,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: [romsStore.currentPlatform?.id],
     type: "quick",
-    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+    apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
   });
 }
 
@@ -193,7 +193,7 @@ watch(
     location="left"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'mr-2': activePlatformInfoDrawer,
+      'ml-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
     }"
     class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
@@ -240,7 +240,6 @@ watch(
             </template>
           </div>
           <platform-icon
-            tabindex="-1"
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
             :fs-slug="currentPlatform.fs_slug"
@@ -304,11 +303,7 @@ watch(
           </div>
         </div>
         <v-row
-          v-if="
-            currentPlatform.igdb_id ||
-            currentPlatform.moby_id ||
-            currentPlatform.ss_id
-          "
+          v-if="currentPlatform.is_identified"
           class="text-white text-shadow mt-2 text-center"
           no-gutters
         >
@@ -320,7 +315,7 @@ watch(
               target="_blank"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/igdb.png" />
                 </v-avatar>
@@ -330,28 +325,30 @@ watch(
             <a
               v-if="currentPlatform.ss_id"
               style="text-decoration: none; color: inherit"
-              :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
+              :href="`https://www.screenscraper.fr/gamesinfos.php?plateforme=${currentPlatform.ss_id}`"
               target="_blank"
-              :class="{
-                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
-              }"
+              class="ml-1"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
-                  <v-img src="/assets/scrappers/ss.png" />
+                  <v-img
+                    src="/assets/scrappers/ss.png"
+                    style="margin-left: -2px"
+                  />
                 </v-avatar>
                 <span>{{ currentPlatform.ss_id }}</span>
               </v-chip>
             </a>
             <a
-              v-if="currentPlatform.moby_id"
+              v-if="currentPlatform.moby_slug"
               style="text-decoration: none; color: inherit"
+              :href="`https://www.mobygames.com/platform/${currentPlatform.moby_slug}`"
               target="_blank"
-              :class="{ 'ml-1': currentPlatform.igdb_id }"
+              class="ml-1"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
                   <v-img src="/assets/scrappers/moby.png" />
                 </v-avatar>
@@ -361,20 +358,59 @@ watch(
             <a
               v-if="currentPlatform.ra_id"
               style="text-decoration: none; color: inherit"
+              :href="`https://retroachievements.org/system/${currentPlatform.ra_id}/games`"
               target="_blank"
-              :class="{
-                'ml-1':
-                  currentPlatform.ra_id ||
-                  currentPlatform.ss_id ||
-                  currentPlatform.moby_id,
-              }"
+              class="ml-1"
               :tabindex="tabIndex"
             >
-              <v-chip tabindex="-1" class="pl-0 mt-1" size="small" @click.stop>
-                <v-avatar class="mr-2" size="25" rounded="1">
-                  <v-img src="/assets/scrappers/ra.png" />
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img
+                    src="/assets/scrappers/ra.png"
+                    style="margin-left: -2px"
+                  />
                 </v-avatar>
                 <span>{{ currentPlatform.ra_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.launchbox_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://gamesdb.launchbox-app.com/platforms/games/${currentPlatform.launchbox_id}`"
+              target="_blank"
+              class="ml-1"
+              :tabindex="tabIndex"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar
+                  class="mr-2"
+                  size="25"
+                  rounded="0"
+                  style="background: #185a7c"
+                >
+                  <v-img src="/assets/scrappers/launchbox.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.launchbox_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.hasheous_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id=${currentPlatform.hasheous_id}`"
+              target="_blank"
+              class="ml-1"
+              :tabindex="tabIndex"
+            >
+              <v-chip
+                class="pl-0 mt-1"
+                size="small"
+                @click.stop
+                title="Hasheous ID"
+              >
+                <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/hasheous.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.hasheous_id }}</span>
               </v-chip>
             </a>
           </v-col>
@@ -383,7 +419,7 @@ watch(
           <v-card-text class="pa-4 d-flex flex-wrap ga-2">
             <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
               <div>
-                <v-chip tabindex="-1" size="small" class="px-0" label>
+                <v-chip size="small" class="px-0" label>
                   <v-chip :tabindex="tabIndex" label>{{ field.label }}</v-chip>
                   <span class="px-2">{{
                     field.format(currentPlatform[field.key]) || "N/A"

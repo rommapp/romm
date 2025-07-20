@@ -7,7 +7,9 @@ from typing import NotRequired, TypedDict, get_type_hints
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
 from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
+from handler.metadata.hasheous_handler import HasheousMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
+from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
@@ -20,22 +22,32 @@ SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(IGDBMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(MobyMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 RomSSMetadata = TypedDict(  # type: ignore[misc]
     "RomSSMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(SSMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(SSMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 RomRAMetadata = TypedDict(  # type: ignore[misc]
     "RomRAMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(RAMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(RAMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomLaunchboxMetadata = TypedDict(  # type: ignore[misc]
+    "RomLaunchboxMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(LaunchboxMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomHasheousMetadata = TypedDict(  # type: ignore[misc]
+    "RomHasheousMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(HasheousMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 
@@ -173,6 +185,9 @@ class RomSchema(BaseModel):
     moby_id: int | None
     ss_id: int | None
     ra_id: int | None
+    launchbox_id: int | None
+    hasheous_id: int | None
+    tgdb_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -199,6 +214,8 @@ class RomSchema(BaseModel):
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
     ss_metadata: RomSSMetadata | None
+    launchbox_metadata: RomLaunchboxMetadata | None
+    hasheous_metadata: RomHasheousMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None
@@ -209,6 +226,7 @@ class RomSchema(BaseModel):
     url_manual: str | None
 
     is_unidentified: bool
+    is_identified: bool
 
     revision: str | None
     regions: list[str]
@@ -224,6 +242,8 @@ class RomSchema(BaseModel):
     full_path: str
     created_at: datetime
     updated_at: datetime
+
+    missing_from_fs: bool
 
     class Config:
         from_attributes = True

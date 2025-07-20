@@ -27,9 +27,9 @@ def test_platforms():
     assert platform is not None
     assert platform.name == "test_platform"
 
-    db_platform_handler.purge_platforms([])
+    db_platform_handler.mark_missing_platforms([])
     platforms = db_platform_handler.get_platforms()
-    assert len(platforms) == 0
+    assert len(platforms) == 1
 
 
 def test_roms(rom: Rom, platform: Platform):
@@ -63,19 +63,10 @@ def test_roms(rom: Rom, platform: Platform):
     roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
     assert len(roms) == 1
 
-    db_rom_handler.purge_roms(rom_2.platform_id, [])
+    db_rom_handler.mark_missing_roms(rom_2.platform_id, [])
 
     roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
-    assert len(roms) == 0
-
-
-def test_utils(rom: Rom, platform: Platform):
-    roms = db_rom_handler.get_roms_scalar(platform_id=platform.id)
-    rom_1 = db_rom_handler.get_rom_by_fs_name(
-        platform_id=platform.id, fs_name=rom.fs_name
-    )
-    assert rom_1
-    assert rom_1.id == roms[0].id
+    assert len(roms) == 1
 
 
 def test_users(admin_user):

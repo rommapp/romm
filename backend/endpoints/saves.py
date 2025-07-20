@@ -58,7 +58,9 @@ async def add_save(
     if not rom:
         raise RomNotFoundInDatabaseException(rom_id)
 
-    log.info(f"Uploading save {hl(saveFile.filename)} for {hl(rom.name, color=BLUE)}")
+    log.info(
+        f"Uploading save {hl(saveFile.filename)} for {hl(str(rom.name), color=BLUE)}"
+    )
 
     saves_path = fs_asset_handler.build_saves_file_path(
         user=request.user,
@@ -67,10 +69,10 @@ async def add_save(
         emulator=emulator,
     )
 
-    fs_asset_handler.write_file(file=saveFile, path=saves_path)
+    await fs_asset_handler.write_file(file=saveFile, path=saves_path)
 
     # Scan or update save
-    scanned_save = scan_save(
+    scanned_save = await scan_save(
         file_name=saveFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform.fs_slug,
@@ -96,10 +98,10 @@ async def add_save(
             user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
         )
 
-        fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
 
         # Scan or update screenshot
-        scanned_screenshot = scan_screenshot(
+        scanned_screenshot = await scan_screenshot(
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=rom.platform_slug,
@@ -169,7 +171,7 @@ async def update_save(request: Request, id: int) -> SaveSchema:
 
     if "saveFile" in data:
         saveFile: UploadFile = data["saveFile"]  # type: ignore
-        fs_asset_handler.write_file(file=saveFile, path=db_save.file_path)
+        await fs_asset_handler.write_file(file=saveFile, path=db_save.file_path)
         db_save = db_save_handler.update_save(
             db_save.id, {"file_size_bytes": saveFile.size}
         )
@@ -182,10 +184,10 @@ async def update_save(request: Request, id: int) -> SaveSchema:
             rom_id=db_save.rom.id,
         )
 
-        fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+        await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
 
         # Scan or update screenshot
-        scanned_screenshot = scan_screenshot(
+        scanned_screenshot = await scan_screenshot(
             file_name=screenshotFile.filename,
             user=request.user,
             platform_fs_slug=db_save.rom.platform_slug,
@@ -241,9 +243,8 @@ async def delete_saves(request: Request) -> list[int]:
             f"Deleting save {hl(save.file_name)} [{save.rom.platform_slug}] from filesystem"
         )
         try:
-            fs_asset_handler.remove_file(
-                file_name=save.file_name, file_path=save.file_path
-            )
+            file_path = f"{save.file_path}/{save.file_name}"
+            await fs_asset_handler.remove_file(file_path=file_path)
         except FileNotFoundError:
             error = f"Save file {hl(save.file_name)} not found for platform {hl(save.rom.platform_display_name, color=BLUE)}[{hl(save.rom.platform_slug)}]"
             log.error(error)
@@ -252,10 +253,8 @@ async def delete_saves(request: Request) -> list[int]:
             db_screenshot_handler.delete_screenshot(save.screenshot.id)
 
             try:
-                fs_asset_handler.remove_file(
-                    file_name=save.screenshot.file_name,
-                    file_path=save.screenshot.file_path,
-                )
+                file_path = f"{save.screenshot.file_path}/{save.screenshot.file_name}"
+                await fs_asset_handler.remove_file(file_path=file_path)
             except FileNotFoundError:
                 error = f"Screenshot file {hl(save.screenshot.file_name)} not found for save {hl(save.file_name)}[{hl(save.rom.platform_slug)}]"
                 log.error(error)

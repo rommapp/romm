@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Tuple
+from typing import Any
 
 from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY, ROMM_BASE_URL
 from decorators.auth import oauth
@@ -9,7 +9,7 @@ from fastapi import HTTPException, status
 from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
 from handler.redis_handler import redis_client
 from joserfc import jwt
-from joserfc.errors import BadSignatureError
+from joserfc.errors import BadSignatureError, DecodeError
 from joserfc.jwk import OctKey
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
@@ -109,7 +109,7 @@ class AuthHandler:
 
         try:
             payload = jwt.decode(token, ROMM_AUTH_SECRET_KEY, algorithms=[ALGORITHM])
-        except (BadSignatureError, ValueError) as exc:
+        except (BadSignatureError, DecodeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail="Invalid token") from exc
 
         if payload.claims.get("type") != TokenPurpose.RESET:
@@ -190,7 +190,7 @@ class AuthHandler:
         )
         return token
 
-    def verify_invite_link_token(self, token: str) -> Tuple[str, str]:
+    def verify_invite_link_token(self, token: str) -> tuple[str, str]:
         """
         Verify the invite link token.
         Args:
@@ -200,7 +200,7 @@ class AuthHandler:
         """
         try:
             payload = jwt.decode(token, OctKey.import_key(ROMM_AUTH_SECRET_KEY))
-        except (BadSignatureError, ValueError) as exc:
+        except (BadSignatureError, DecodeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail="Invalid token") from exc
 
         if payload.claims.get("type") != TokenPurpose.INVITE:
@@ -247,7 +247,7 @@ class OAuthHandler:
 
         try:
             payload = jwt.decode(token, OctKey.import_key(ROMM_AUTH_SECRET_KEY))
-        except (BadSignatureError, ValueError) as exc:
+        except (BadSignatureError, DecodeError, ValueError) as exc:
             raise OAuthCredentialsException from exc
 
         issuer = payload.claims.get("iss")
