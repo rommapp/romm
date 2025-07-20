@@ -798,14 +798,14 @@ wheels = [
 
 [[package]]
 name = "joserfc"
-version = "0.12.0"
+version = "1.2.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/ff/2393f2e98c9542bab1eaf1de3c338fb74725ac533c1e2537895b9bc7701f/joserfc-0.12.0.tar.gz", hash = "sha256:86625aef30bb9857f8c2f4320ea2ad4342a29319a66189cb743547c74a88b1ec", size = 168670, upload-time = "2024-06-15T04:37:37.788Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/00/f2/69000edacf874ea26f331398d28b0d9f58e40f2cb24851666359abf161fb/joserfc-1.2.2.tar.gz", hash = "sha256:0d2a84feecef96168635fd9bf288363fc75b4afef3d99691f77833c8e025d200", size = 192865, upload-time = "2025-07-14T02:57:48.661Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/d5/a55bfeac4b01da5b98b3da0984003e4c7f3f0168ca1962c984c770f50b6a/joserfc-0.12.0-py3-none-any.whl", hash = "sha256:210f21ec1c3d08c9a0d9969d7825d2020f365ad6b3a0d6c6c0b638704f96a5b0", size = 60520, upload-time = "2024-06-15T04:37:36.259Z" },
+    { url = "https://files.pythonhosted.org/packages/11/7a/95ba6c5b478dee3528007e480706b39fcf782a270949855868c07a645203/joserfc-1.2.2-py3-none-any.whl", hash = "sha256:630cc36b2f11f749980401b0cd7305fab5735ee11d830d919bc207305d011358", size = 73275, upload-time = "2025-07-14T02:57:47.538Z" },
 ]
 
 [[package]]
@@ -1822,7 +1822,7 @@ requires-dist = [
     { name = "httpx", specifier = "~=0.27" },
     { name = "ipdb", marker = "extra == 'dev'", specifier = "~=0.13" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = "~=6.29" },
-    { name = "joserfc", specifier = "~=0.9" },
+    { name = "joserfc", specifier = "~=1.2" },
     { name = "levenshtein", specifier = ">=0.27.1" },
     { name = "memray", marker = "extra == 'dev'", specifier = "~=1.15" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "~=1.13" },
