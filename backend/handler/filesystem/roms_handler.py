@@ -332,7 +332,7 @@ class FSRomsHandler(FSHandler):
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
         )  # Relative path to roms
-        abs_fs_path = f"{self.base_path}/{rel_roms_path}"  # Absolute path to roms
+        abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to roms
         rom_files: list[RomFile] = []
 
         # Skip hashing games for platforms that don't have a hash database

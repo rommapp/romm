@@ -417,7 +417,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer vyzx88dpfr0ve3kypohhawd40j0r5z
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:
@@ -516,7 +516,7 @@ interactions:
         accept-encoding:
           - gzip, deflate, br
         authorization:
-          - Bearer vyzx88dpfr0ve3kypohhawd40j0r5z
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         client-id:
           - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
         connection:
