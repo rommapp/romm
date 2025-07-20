@@ -630,7 +630,7 @@ export function calculateMainLayoutWidth() {
       ? "calc(100% - 16px) !important"
       : mainBarCollapsed.value
         ? "calc(100% - 76px) !important"
-        : "calc(100% - 116px) !important";
+        : "calc(100% - 106px) !important";
   });
 
   return { calculatedWidth };
