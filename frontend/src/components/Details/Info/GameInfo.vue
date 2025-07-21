@@ -20,20 +20,20 @@ const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
 const filters = [
-  { key: "regions", path: "regions", name: t("rom.regions") },
-  { key: "languages", path: "languages", name: t("rom.languages") },
-  { key: "genres", path: "metadatum.genres", name: t("rom.genres") },
+  { key: "region", path: "regions", name: t("rom.regions") },
+  { key: "language", path: "languages", name: t("rom.languages") },
+  { key: "genre", path: "metadatum.genres", name: t("rom.genres") },
   {
-    key: "franchises",
+    key: "franchise",
     path: "metadatum.franchises",
     name: t("rom.franchises"),
   },
   {
-    key: "collections",
+    key: "collection",
     path: "metadatum.collections",
     name: t("rom.collections"),
   },
-  { key: "companies", path: "metadatum.companies", name: t("rom.companies") },
+  { key: "company", path: "metadatum.companies", name: t("rom.companies") },
 ] as const;
 
 const dataSources = computed(() => {
@@ -94,7 +94,7 @@ const coverImageSource = computed(() => {
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "search",
-    query: { search: "", filter, value },
+    query: { [filter]: value },
   });
 }
 </script>
@@ -170,7 +170,7 @@ function onFilterClick(filter: FilterType, value: string) {
             <v-img
               v-for="value in rom.igdb_metadata.age_ratings"
               :key="value.rating"
-              @click="onFilterClick('age_ratings', value.rating)"
+              @click="onFilterClick('ageRating', value.rating)"
               :src="value.rating_cover_url"
               height="50"
               width="50"

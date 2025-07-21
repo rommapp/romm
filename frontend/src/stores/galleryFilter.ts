@@ -5,14 +5,14 @@ import { defineStore } from "pinia";
 export type Platform = PlatformSchema;
 
 export type FilterType =
-  | "genres"
-  | "franchises"
-  | "collections"
-  | "companies"
-  | "age_ratings"
+  | "genre"
+  | "franchise"
+  | "collection"
+  | "company"
+  | "ageRating"
   | "status"
-  | "regions"
-  | "languages";
+  | "region"
+  | "language";
 
 const defaultFilterState = {
   activeFilterDrawer: false,
