@@ -1,4 +1,3 @@
-from config import YOUTUBE_BASE_URL
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
@@ -37,7 +36,6 @@ def get_config() -> ConfigResponse:
             EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
             PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
             PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
-            YOUTUBE_BASE_URL=YOUTUBE_BASE_URL,
         )
     except ConfigNotReadableException as exc:
         log.critical(exc.message)
