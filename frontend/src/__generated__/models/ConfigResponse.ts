@@ -11,5 +11,6 @@ export type ConfigResponse = {
     EXCLUDED_MULTI_PARTS_FILES: Array<string>;
     PLATFORMS_BINDING: Record<string, string>;
     PLATFORMS_VERSIONS: Record<string, string>;
+    YOUTUBE_BASE_URL: string;
 };
 

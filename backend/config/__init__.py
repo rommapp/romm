@@ -163,6 +163,11 @@ LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO").upper()
 FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
 NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
 
+# YOUTUBE
+YOUTUBE_BASE_URL: Final = os.environ.get(
+    "YOUTUBE_BASE_URL", "https://www.youtube.com"
+).rstrip("/")
+
 # SENTRY
 SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)
 

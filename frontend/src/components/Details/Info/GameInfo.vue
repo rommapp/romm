@@ -10,6 +10,8 @@ import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { MdPreview } from "md-editor-v3";
 import { get } from "lodash";
+import storeConfig from "@/stores/config";
+import { storeToRefs } from "pinia";
 
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
@@ -19,6 +21,8 @@ const theme = useTheme();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
+const configStore = storeConfig();
+const { config } = storeToRefs(configStore);
 const filters = [
   { key: "region", path: "regions", name: t("rom.regions") },
   { key: "language", path: "languages", name: t("rom.languages") },
@@ -224,7 +228,7 @@ function onFilterClick(filter: FilterType, value: string) {
                 <iframe
                   height="100%"
                   width="100%"
-                  :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
+                  :src="`${config.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
                   title="YouTube video player"
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -273,7 +277,7 @@ function onFilterClick(filter: FilterType, value: string) {
                     <iframe
                       height="100%"
                       width="100%"
-                      :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
+                      :src="`${config.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
                       title="YouTube video player"
                       frameborder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
