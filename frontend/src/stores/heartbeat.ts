@@ -3,7 +3,7 @@ import { defineStore } from "pinia";
 import i18n from "@/locales";
 
 export type Heartbeat = HeartbeatResponse;
-type MetadataOption = {
+export type MetadataOption = {
   name: string;
   value: string;
   logo_path: string;
