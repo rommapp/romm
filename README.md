@@ -39,7 +39,7 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 ## Features
 
-- Scans and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
+- Scan and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
 - Fetch custom artwork from [SteamGridDB][steamgriddb-api]
 - Display your achievements from [Retroachievements][retroachievements-api]
 - Metadata available for [400+ platforms][docs-supported-platforms]
