@@ -24,7 +24,6 @@ const unmatchedCoverImage = computed(() =>
     id="background-header"
     elevation="0"
     rounded="0"
-    class="ml-2"
     :key="currentRom.updated_at"
     v-if="currentRom"
   >
