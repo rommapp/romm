@@ -74,8 +74,9 @@ if __name__ == "__main__":
             continue
 
         # If the platform is not in supported_platforms, add it
-        if slug.lower() not in supported_platforms:
-            supported_platforms[slug.lower()] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": mplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -86,16 +87,17 @@ if __name__ == "__main__":
                 "ra_id": None,
             }
         # If the platform is already in supported_platforms, update the moby_slug if it's None
-        elif supported_platforms[slug.lower()]["moby_slug"] is None:
-            supported_platforms[slug.lower()]["moby_slug"] = mplt["slug"]
+        elif supported_platforms[slug_lower]["moby_slug"] is None:
+            supported_platforms[slug_lower]["moby_slug"] = mplt["slug"]
 
     # And the remaining metadata sources
     for slug, ssplt in SCREENSAVER_PLATFORM_LIST.items():
         if ssplt["id"] in matched_ss_ids:
             continue
 
-        if slug.lower() not in supported_platforms:
-            supported_platforms[slug.lower()] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": ssplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -105,15 +107,16 @@ if __name__ == "__main__":
                 "hasheous_id": None,
                 "ra_id": None,
             }
-        elif supported_platforms[slug.lower()]["ss_id"] is None:
-            supported_platforms[slug.lower()]["ss_id"] = ssplt["id"]
+        elif supported_platforms[slug_lower]["ss_id"] is None:
+            supported_platforms[slug_lower]["ss_id"] = ssplt["id"]
 
     for slug, lbplt in LAUNCHBOX_PLATFORM_LIST.items():
         if lbplt["id"] in matched_launchbox_ids:
             continue
 
-        if slug.lower() not in supported_platforms:
-            supported_platforms[slug.lower()] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": lbplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -123,15 +126,16 @@ if __name__ == "__main__":
                 "hasheous_id": None,
                 "ra_id": None,
             }
-        elif supported_platforms[slug.lower()]["launchbox_id"] is None:
-            supported_platforms[slug.lower()]["launchbox_id"] = lbplt["id"]
+        elif supported_platforms[slug_lower]["launchbox_id"] is None:
+            supported_platforms[slug_lower]["launchbox_id"] = lbplt["id"]
 
     for slug, hsplt in HASHEOUS_PLATFORM_LIST.items():
         if hsplt["id"] in matched_hasheous_ids:
             continue
 
-        if slug.lower() not in supported_platforms:
-            supported_platforms[slug.lower()] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": hsplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -141,15 +145,16 @@ if __name__ == "__main__":
                 "hasheous_id": hsplt["id"],
                 "ra_id": None,
             }
-        elif supported_platforms[slug.lower()]["hasheous_id"] is None:
-            supported_platforms[slug.lower()]["hasheous_id"] = hsplt["id"]
+        elif supported_platforms[slug_lower]["hasheous_id"] is None:
+            supported_platforms[slug_lower]["hasheous_id"] = hsplt["id"]
 
     for slug, raplt in RA_PLATFORM_LIST.items():
         if raplt["id"] in matched_ra_ids:
             continue
 
-        if slug.lower() not in supported_platforms:
-            supported_platforms[slug.lower()] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": raplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -159,8 +164,8 @@ if __name__ == "__main__":
                 "hasheous_id": None,
                 "ra_id": raplt["id"],
             }
-        elif supported_platforms[slug.lower()]["ra_id"] is None:
-            supported_platforms[slug.lower()]["ra_id"] = raplt["id"]
+        elif supported_platforms[slug_lower]["ra_id"] is None:
+            supported_platforms[slug_lower]["ra_id"] = raplt["id"]
 
     # Sort platforms by name field
     supported_platforms = dict(
