@@ -70,7 +70,7 @@ function collapse() {
     permanent
     rail
     :rail-width="mainBarCollapsed ? 60 : 90"
-    class="bg-background pl-2 py-1"
+    class="bg-background px-2 py-1"
     :border="0"
   >
     <template #prepend>
