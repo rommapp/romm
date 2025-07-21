@@ -324,7 +324,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[str, SlugToLaunchboxPlatformName] = {
     "camputers-lynx": {"id": 61, "name": "Camputers Lynx"},
     "casio-loopy": {"id": 114, "name": "Casio Loopy"},
     "casio-pv-1000": {"id": 115, "name": "Casio PV-1000"},
-    "colecoadam": {"id": 117, "name": "Coleco ADAM"},
+    "colecoadam": {"id": 117, "name": "Coleco Adam"},
     "colecovision": {"id": 13, "name": "ColecoVision"},
     "c128": {"id": 118, "name": "Commodore 128"},
     "c64": {"id": 14, "name": "Commodore 64"},
