@@ -17,6 +17,7 @@ from config import (
     SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
     TGDB_API_ENABLED,
     UPLOAD_TIMEOUT,
+    YOUTUBE_BASE_URL,
 )
 from endpoints.responses.heartbeat import HeartbeatResponse
 from handler.database import db_user_handler
@@ -100,6 +101,7 @@ async def heartbeat() -> HeartbeatResponse:
         "FRONTEND": {
             "UPLOAD_TIMEOUT": UPLOAD_TIMEOUT,
             "DISABLE_USERPASS_LOGIN": DISABLE_USERPASS_LOGIN,
+            "YOUTUBE_BASE_URL": YOUTUBE_BASE_URL,
         },
         "OIDC": {
             "ENABLED": OIDC_ENABLED,

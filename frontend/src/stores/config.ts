@@ -19,7 +19,6 @@ const defaultConfig = {
   EXCLUDED_MULTI_PARTS_FILES: [],
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
-  YOUTUBE_BASE_URL: "https://www.youtube.com",
 } as ConfigResponse;
 
 export default defineStore("config", {
