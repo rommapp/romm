@@ -56,7 +56,7 @@ const dataSources = computed(() => {
     {
       name: "LaunchBox",
       condition: props.rom.launchbox_id,
-      url: `https://gamesdb.launchbox-app.com/games/details/${props.rom.launchbox_id}`,
+      url: `https://gamesdb.launchbox-app.com/games/dbid/${props.rom.launchbox_id}`,
     },
     {
       name: "RetroAchievements",
