@@ -1071,7 +1071,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "family_slug": "nintendo",
         "generation": 5,
         "id": 416,
-        "name": "64DD",
+        "name": "Nintendo 64DD",
         "slug": "64dd",
         "url": "https://www.igdb.com/platforms/64dd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plj8.jpg",
