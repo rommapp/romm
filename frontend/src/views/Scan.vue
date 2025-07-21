@@ -3,7 +3,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { ROUTES } from "@/plugins/router";
@@ -21,9 +21,17 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
 const panels = ref<number[]>([]);
-// Use store getters
+
 const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
-const metadataSources = ref([...heartbeat.getEnabledMetadataOptions()]);
+const storedMetadataSources = computed<string[]>(() => {
+  const storedSources = localStorage.getItem("scan.metadataSources");
+  return storedSources ? JSON.parse(storedSources) : [];
+});
+const metadataSources = ref<MetadataOption[]>(
+  metadataOptions.value.filter((m) =>
+    storedMetadataSources.value.includes(m.value),
+  ) || heartbeat.getEnabledMetadataOptions(),
+);
 
 watch(metadataOptions, (newOptions) => {
   // Remove any sources that are now disabled
@@ -82,6 +90,12 @@ async function scan() {
   scanningPlatforms.value = [];
 
   if (!socket.connected) socket.connect();
+
+  // Store the set of acive metadata sources in localstorage
+  localStorage.setItem(
+    "scan.metadataSources",
+    JSON.stringify(metadataSources.value.map((s) => s.value)),
+  );
 
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
