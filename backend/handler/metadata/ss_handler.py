@@ -499,7 +499,7 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "casio-pv-1000": {"id": 74, "name": "PV-1000"},
     "channel-f": {"id": 80, "name": "Channel F"},
     "fairchild-channel-f": {"id": 80, "name": "Channel F"},  # IGDB
-    "colecoadam": {"id": 89, "name": "Adam"},
+    "colecoadam": {"id": 89, "name": "Coleco Adam"},
     "colecovision": {"id": 48, "name": "Colecovision"},
     "colour-genie": {"id": 92, "name": "EG2000 Colour Genie"},
     "c128": {"id": 66, "name": "Commodore 64"},
