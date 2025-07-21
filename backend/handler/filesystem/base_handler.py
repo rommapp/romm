@@ -136,12 +136,21 @@ class FSHandler:
         if path_path.is_absolute():
             raise ValueError("Path must be relative, not absolute")
 
-        # Normalize path
+        # Normalize path without resolving the full path yet
         base_path_obj = Path(self.base_path).resolve()
-        full_path = (base_path_obj / path_path).resolve()
+        full_path = base_path_obj / path_path
 
-        # Ensure path is within base directory
-        full_path.relative_to(base_path_obj)
+        try:
+            if full_path.is_symlink():
+                # For symlinks, ensure the symlink itself is within base directory
+                full_path.relative_to(base_path_obj)
+            else:
+                # For regular files/dirs, ensure resolved path is within base directory
+                full_path.resolve().relative_to(base_path_obj)
+        except ValueError as exc:
+            raise ValueError(
+                f"Path {path} is outside the base directory {self.base_path}"
+            ) from exc
 
         return full_path
 
