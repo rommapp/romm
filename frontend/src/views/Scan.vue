@@ -12,6 +12,8 @@ import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
+const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
+
 // Props
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
@@ -24,7 +26,9 @@ const panels = ref<number[]>([]);
 
 const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
 const storedMetadataSources = computed<string[]>(() => {
-  const storedSources = localStorage.getItem("scan.metadataSources");
+  const storedSources = localStorage.getItem(
+    LOCAL_STORAGE_METADATA_SOURCES_KEY,
+  );
   return storedSources ? JSON.parse(storedSources) : [];
 });
 const metadataSources = ref<MetadataOption[]>(
@@ -91,9 +95,9 @@ async function scan() {
 
   if (!socket.connected) socket.connect();
 
-  // Store the set of acive metadata sources in localstorage
+  // Store selected meta sources in storage
   localStorage.setItem(
-    "scan.metadataSources",
+    LOCAL_STORAGE_METADATA_SOURCES_KEY,
     JSON.stringify(metadataSources.value.map((s) => s.value)),
   );
 
