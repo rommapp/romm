@@ -198,7 +198,7 @@ const hashMatches = computed(() => {
         <a
           v-if="rom.launchbox_id"
           style="text-decoration: none; color: inherit"
-          :href="`https://gamesdb.launchbox-app.com/games/details/${rom.launchbox_id}`"
+          :href="`https://gamesdb.launchbox-app.com/games/dbid/${rom.launchbox_id}`"
           target="_blank"
           class="mr-1"
         >
