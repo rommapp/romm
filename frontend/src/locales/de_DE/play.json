@@ -14,5 +14,7 @@
   "deselect-save": "Speicherstand abwählen",
   "select-state": "Speicherstand auswählen",
   "change-state": "Speicherstand ändern",
-  "deselect-state": "Speicherstand abwählen"
+  "deselect-state": "Speicherstand abwählen",
+  "background-color": "Hintergrundfarbe",
+  "select-background-color": "Hintergrundfarbe auswählen"
 }

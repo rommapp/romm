@@ -14,5 +14,7 @@
   "deselect-save": "Deselectează salvare",
   "select-state": "Selectează stare",
   "change-state": "Schimbă stare",
-  "deselect-state": "Deselectează stare"
+  "deselect-state": "Deselectează stare",
+  "background-color": "Culoare de fundal",
+  "select-background-color": "Selectează culoarea de fundal"
 }
