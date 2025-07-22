@@ -6,7 +6,7 @@ import pydash
 from config import LAUNCHBOX_API_ENABLED, str_to_bool
 from handler.redis_handler import async_cache
 from logger.logger import log
-from tasks.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
+from tasks.scheduled.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,

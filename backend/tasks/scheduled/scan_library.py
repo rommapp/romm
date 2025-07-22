@@ -19,10 +19,12 @@ class ScanLibraryTask(PeriodicTask):
     def __init__(self):
         super().__init__(
             func="tasks.scan_library.scan_library_task.run",
-            description="library scan",
+            description="Rescans the entire library",
             enabled=ENABLE_SCHEDULED_RESCAN,
             cron_string=SCHEDULED_RESCAN_CRON,
         )
+        self.manual_run = False
+        self.title = "Scheduled rescan"
 
     async def run(self):
         if not ENABLE_SCHEDULED_RESCAN:

@@ -6,10 +6,10 @@ from config import (
     SENTRY_DSN,
 )
 from logger.logger import log
-from tasks.scan_library import scan_library_task
+from tasks.scheduled.scan_library import scan_library_task
+from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
+from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
 from tasks.tasks import tasks_scheduler
-from tasks.update_launchbox_metadata import update_launchbox_metadata_task
-from tasks.update_switch_titledb import update_switch_titledb_task
 from utils import get_version
 
 sentry_sdk.init(dsn=SENTRY_DSN, release=f"romm@{get_version()}")

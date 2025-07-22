@@ -15,24 +15,40 @@ def test_heartbeat(client):
     assert response.status_code == 200
 
     heartbeat = response.json()
-    assert heartbeat.get("SYSTEM").get("VERSION") == get_version()
-    assert heartbeat.get("WATCHER").get("ENABLED")
-    assert heartbeat.get("WATCHER").get("TITLE") == "Rescan on filesystem change"
-    assert heartbeat.get("SCHEDULER").get("RESCAN").get("ENABLED")
-    assert heartbeat.get("SCHEDULER").get("RESCAN").get("CRON") == "0 3 * * *"
-    assert heartbeat.get("SCHEDULER").get("RESCAN").get("TITLE") == "Scheduled rescan"
-    assert heartbeat.get("SCHEDULER").get("SWITCH_TITLEDB").get("ENABLED")
-    assert heartbeat.get("SCHEDULER").get("SWITCH_TITLEDB").get("CRON") == "0 4 * * *"
-    assert (
-        heartbeat.get("SCHEDULER").get("SWITCH_TITLEDB").get("TITLE")
-        == "Scheduled Switch TitleDB update"
-    )
-    assert heartbeat.get("SCHEDULER").get("LAUNCHBOX_METADATA").get("ENABLED")
-    assert (
-        heartbeat.get("SCHEDULER").get("LAUNCHBOX_METADATA").get("CRON") == "0 5 * * *"
-    )
-    assert (
-        heartbeat.get("SCHEDULER").get("LAUNCHBOX_METADATA").get("TITLE")
-        == "Scheduled LaunchBox metadata update"
-    )
-    assert heartbeat.get("FRONTEND").get("UPLOAD_TIMEOUT") == 20
+
+    assert "SYSTEM" in heartbeat
+    system = heartbeat["SYSTEM"]
+    assert system["VERSION"] == get_version()
+    assert isinstance(system["SHOW_SETUP_WIZARD"], bool)
+
+    assert "METADATA_SOURCES" in heartbeat
+    metadata = heartbeat["METADATA_SOURCES"]
+    assert isinstance(metadata["ANY_SOURCE_ENABLED"], bool)
+    assert isinstance(metadata["IGDB_API_ENABLED"], bool)
+    assert isinstance(metadata["MOBY_API_ENABLED"], bool)
+    assert isinstance(metadata["SS_API_ENABLED"], bool)
+    assert isinstance(metadata["STEAMGRIDDB_API_ENABLED"], bool)
+    assert isinstance(metadata["RA_API_ENABLED"], bool)
+    assert isinstance(metadata["LAUNCHBOX_API_ENABLED"], bool)
+    assert isinstance(metadata["PLAYMATCH_API_ENABLED"], bool)
+    assert isinstance(metadata["HASHEOUS_API_ENABLED"], bool)
+    assert isinstance(metadata["TGDB_API_ENABLED"], bool)
+
+    assert "FILESYSTEM" in heartbeat
+    filesystem = heartbeat["FILESYSTEM"]
+    assert isinstance(filesystem["FS_PLATFORMS"], list)
+
+    assert "EMULATION" in heartbeat
+    emulation = heartbeat["EMULATION"]
+    assert isinstance(emulation["DISABLE_EMULATOR_JS"], bool)
+    assert isinstance(emulation["DISABLE_RUFFLE_RS"], bool)
+
+    assert "FRONTEND" in heartbeat
+    frontend = heartbeat["FRONTEND"]
+    assert isinstance(frontend["UPLOAD_TIMEOUT"], int)
+    assert isinstance(frontend["DISABLE_USERPASS_LOGIN"], bool)
+
+    assert "OIDC" in heartbeat
+    oidc = heartbeat["OIDC"]
+    assert isinstance(oidc["ENABLED"], bool)
+    assert isinstance(oidc["PROVIDER"], str)
