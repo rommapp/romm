@@ -54,14 +54,14 @@ class TestUpdateSwitchTitleDBTask:
     def test_init(self, task):
         """Test task initialization"""
         assert task.func == "tasks.update_switch_titledb.update_switch_titledb_task.run"
-        assert task.description == "switch titledb update"
+        assert task.description == "Updates the Nintendo Switch TitleDB file"
         assert (
             task.url
             == "https://raw.githubusercontent.com/blawar/titledb/master/US.en.json"
         )
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_switch_titledb.async_cache.pipeline")
+    @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")
     async def test_run_success(
         self,
         mock_async_cache_pipeline,
@@ -103,7 +103,7 @@ class TestUpdateSwitchTitleDBTask:
         assert len(product_calls) > 0
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_switch_titledb.async_cache.pipeline")
+    @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")
     async def test_run_filters_empty_data(
         self,
         mock_async_cache_pipeline,
@@ -135,7 +135,7 @@ class TestUpdateSwitchTitleDBTask:
                     assert key is not None and key != ""
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_switch_titledb.async_cache.pipeline")
+    @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")
     async def test_run_batches_data(
         self,
         mock_async_cache_pipeline,
@@ -177,7 +177,7 @@ class TestUpdateSwitchTitleDBTask:
         mock_super_run.assert_called_once_with(True)
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_switch_titledb.async_cache.pipeline")
+    @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")
     async def test_run_invalid_json(
         self,
         mock_async_cache_pipeline,
@@ -191,7 +191,7 @@ class TestUpdateSwitchTitleDBTask:
             await task.run(force=True)
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_switch_titledb.async_cache.pipeline")
+    @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")
     async def test_run_empty_json(
         self,
         mock_async_cache_pipeline,
@@ -212,7 +212,7 @@ class TestUpdateSwitchTitleDBTask:
         assert mock_pipe.execute.called
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_switch_titledb.async_cache.pipeline")
+    @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")
     async def test_product_id_mapping(
         self,
         mock_async_cache_pipeline,
@@ -248,8 +248,8 @@ class TestUpdateSwitchTitleDBTask:
                     assert data.get("id") == product_id
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_switch_titledb.async_cache.pipeline")
-    @patch("tasks.update_switch_titledb.log")
+    @patch("tasks.scheduled.update_switch_titledb.async_cache.pipeline")
+    @patch("tasks.scheduled.update_switch_titledb.log")
     async def test_completion_log(
         self,
         mock_log,

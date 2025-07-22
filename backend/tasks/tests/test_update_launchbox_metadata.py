@@ -47,7 +47,7 @@ class TestUpdateLaunchboxMetadataTask:
             task.func
             == "tasks.update_launchbox_metadata.update_launchbox_metadata_task.run"
         )
-        assert task.description == "launchbox metadata update"
+        assert task.description == "Updates the LaunchBox metadata store"
         assert task.url == "https://gamesdb.launchbox-app.com/Metadata.zip"
 
     @patch.object(RemoteFilePullTask, "run")
@@ -61,8 +61,8 @@ class TestUpdateLaunchboxMetadataTask:
 
         mock_super_run.assert_called_once_with(True)
 
-    @patch("tasks.update_launchbox_metadata.LAUNCHBOX_API_ENABLED", False)
-    @patch("tasks.update_launchbox_metadata.log")
+    @patch("tasks.scheduled.update_launchbox_metadata.LAUNCHBOX_API_ENABLED", False)
+    @patch("tasks.scheduled.update_launchbox_metadata.log")
     async def test_run_when_launchbox_api_disabled(self, mock_log, task):
         """Test run method when Launchbox API is disabled"""
         await task.run(force=True)
@@ -72,7 +72,7 @@ class TestUpdateLaunchboxMetadataTask:
         )
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_launchbox_metadata.log")
+    @patch("tasks.scheduled.update_launchbox_metadata.log")
     async def test_run_when_content_is_none(self, mock_log, mock_super_run, task):
         """Test run method when super().run() returns None"""
         mock_super_run.return_value = None
@@ -86,7 +86,7 @@ class TestUpdateLaunchboxMetadataTask:
         )
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_launchbox_metadata.log")
+    @patch("tasks.scheduled.update_launchbox_metadata.log")
     async def test_run_with_corrupt_zip_file(
         self, mock_log, mock_super_run, task, corrupt_zip_content
     ):
@@ -100,7 +100,7 @@ class TestUpdateLaunchboxMetadataTask:
         )
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_launchbox_metadata.log")
+    @patch("tasks.scheduled.update_launchbox_metadata.log")
     async def test_run_successful_completion(
         self, mock_log, mock_super_run, task, sample_zip_content
     ):
@@ -114,7 +114,7 @@ class TestUpdateLaunchboxMetadataTask:
         )
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
     async def test_xml_parsing(
         self,
         mock_async_cache_pipeline,
@@ -178,7 +178,7 @@ class TestUpdateLaunchboxMetadataTask:
         assert len(files_calls) == 2
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
     async def test_empty_xml_elements_handling(
         self,
         mock_async_cache_pipeline,
@@ -217,7 +217,7 @@ class TestUpdateLaunchboxMetadataTask:
         assert len(platform_calls) == 1
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
     async def test_missing_xml_files_handling(
         self,
         mock_async_cache_pipeline,
@@ -277,7 +277,7 @@ class TestUpdateLaunchboxMetadataTaskIntegration:
         return UpdateLaunchboxMetadataTask()
 
     @patch.object(RemoteFilePullTask, "run")
-    @patch("tasks.update_launchbox_metadata.async_cache.pipeline")
+    @patch("tasks.scheduled.update_launchbox_metadata.async_cache.pipeline")
     async def test_full_workflow_integration(
         self, mock_async_cache_pipeline, mock_super_run, task, sample_zip_content
     ):
