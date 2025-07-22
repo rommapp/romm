@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Any
 
-from models.collection import Collection
+from models.collection import Collection, SmartCollection
 
 from .base import BaseModel
 
@@ -14,6 +15,8 @@ class BaseCollectionSchema(BaseModel):
     path_cover_large: str | None
     path_covers_small: list[str]
     path_covers_large: list[str]
+    created_at: datetime
+    updated_at: datetime
 
 
 class CollectionSchema(BaseCollectionSchema):
@@ -26,9 +29,6 @@ class CollectionSchema(BaseCollectionSchema):
     is_public: bool
     is_favorite: bool
     is_virtual: bool = False
-
-    created_at: datetime
-    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -51,8 +51,31 @@ class VirtualCollectionSchema(BaseCollectionSchema):
     is_favorite: bool = False
     is_virtual: bool = True
 
-    created_at: datetime
-    updated_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class SmartCollectionSchema(BaseCollectionSchema):
+    name: str
+    description: str = ""
+    rom_ids: set[int] = set()
+    filter_criteria: dict[str, Any]
+    filter_summary: str
+    user_id: int
+    user__username: str
+    is_public: bool
+    is_smart: bool = True
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def for_user(
+        cls, user_id: int, smart_collections: list["SmartCollection"]
+    ) -> list["SmartCollectionSchema"]:
+        """Filter smart collections visible to user and create schemas."""
+        return [
+            cls.model_validate(c)
+            for c in smart_collections
+            if c.user_id == user_id or c.is_public
+        ]

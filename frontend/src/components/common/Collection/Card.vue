@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { Collection, VirtualCollection } from "@/stores/collections";
+import type {
+  Collection,
+  VirtualCollection,
+  SmartCollection,
+} from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
 import { computed, ref, watchEffect, onMounted, onBeforeUnmount } from "vue";
@@ -10,7 +14,7 @@ import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 // Props
 const props = withDefaults(
   defineProps<{
-    collection: Collection | VirtualCollection;
+    collection: Collection | VirtualCollection | SmartCollection;
     transformScale?: boolean;
     showTitle?: boolean;
     titleOnHover?: boolean;
@@ -53,26 +57,35 @@ watchEffect(() => {
     return;
   }
 
-  if (
-    !props.collection.is_virtual &&
+  // Check if it's a regular collection with covers or a smart collection with covers
+  const isRegularOrSmartWithCovers =
+    (!("is_virtual" in props.collection) || !props.collection.is_virtual) &&
     props.collection.path_cover_large &&
-    props.collection.path_cover_small
-  ) {
+    props.collection.path_cover_small;
+
+  if (isRegularOrSmartWithCovers) {
     memoizedCovers.value = {
       large: [
-        props.collection.path_cover_large,
-        props.collection.path_cover_large,
+        props.collection.path_cover_large || "",
+        props.collection.path_cover_large || "",
       ],
       small: [
-        props.collection.path_cover_small,
-        props.collection.path_cover_small,
+        props.collection.path_cover_small || "",
+        props.collection.path_cover_small || "",
       ],
     };
     return;
   }
 
-  const largeCoverUrls = props.collection.path_covers_large || [];
-  const smallCoverUrls = props.collection.path_covers_small || [];
+  // Handle virtual collections which have plural covers arrays
+  const largeCoverUrls =
+    "path_covers_large" in props.collection
+      ? props.collection.path_covers_large || []
+      : [];
+  const smallCoverUrls =
+    "path_covers_small" in props.collection
+      ? props.collection.path_covers_small || []
+      : [];
 
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
@@ -172,7 +185,10 @@ onBeforeUnmount(() => {
           }"
         >
           <template
-            v-if="collection.is_virtual || !collection.path_cover_large"
+            v-if="
+              ('is_virtual' in collection && collection.is_virtual) ||
+              !collection.path_cover_large
+            "
           >
             <div class="split-image first-image">
               <v-img

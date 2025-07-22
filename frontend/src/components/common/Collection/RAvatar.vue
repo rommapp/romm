@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import type { Collection, VirtualCollection } from "@/stores/collections";
+import type {
+  Collection,
+  VirtualCollection,
+  SmartCollection,
+} from "@/stores/collections";
 import storeCollections from "@/stores/collections";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 import { computed, ref, watchEffect } from "vue";
 import { useTheme } from "vuetify";
 
 const props = withDefaults(
-  defineProps<{ collection: Collection | VirtualCollection; size?: number }>(),
+  defineProps<{
+    collection: Collection | VirtualCollection | SmartCollection;
+    size?: number;
+  }>(),
   {
     size: 45,
   },
