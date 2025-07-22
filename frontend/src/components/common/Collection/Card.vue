@@ -119,6 +119,25 @@ const emit = defineEmits(["hover"]);
 
 const tiltCard = ref<TiltHTMLElement | null>(null);
 
+// Determine the correct route for this collection type
+const collectionRoute = computed(() => {
+  if (!props.withLink || !props.collection) return {};
+
+  // Check if it's a smart collection (has filter_criteria property)
+  if ("filter_criteria" in props.collection) {
+    return {
+      name: ROUTES.SMART_COLLECTION,
+      params: { collection: props.collection.id },
+    };
+  }
+
+  // Default to regular collection route for both regular and virtual collections
+  return {
+    name: ROUTES.COLLECTION,
+    params: { collection: props.collection.id },
+  };
+});
+
 onMounted(() => {
   if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
     VanillaTilt.init(tiltCard.value, {
@@ -144,14 +163,7 @@ onBeforeUnmount(() => {
       <v-card
         v-bind="{
           ...hoverProps,
-          ...(withLink && collection
-            ? {
-                to: {
-                  name: ROUTES.COLLECTION,
-                  params: { collection: collection.id },
-                },
-              }
-            : {}),
+          ...collectionRoute,
         }"
         :class="{
           'on-hover': isHovering,

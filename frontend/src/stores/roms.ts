@@ -1,7 +1,11 @@
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
 import romApi from "@/services/api/rom";
-import { type Collection, type VirtualCollection } from "@/stores/collections";
+import {
+  type Collection,
+  type VirtualCollection,
+  type SmartCollection,
+} from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
@@ -17,6 +21,7 @@ const defaultRomsState = {
   currentPlatform: null as Platform | null,
   currentCollection: null as Collection | null,
   currentVirtualCollection: null as VirtualCollection | null,
+  currentSmartCollection: null as SmartCollection | null,
   currentRom: null as DetailedRom | null,
   allRoms: [] as SimpleRom[],
   selectedIDs: new Set<number>(),
@@ -40,6 +45,7 @@ const _romsCacheByID = new Map<number, SimpleRom>();
 const _romsCacheByPlatform = new Map<number, number[]>();
 const _romsCacheByCollection = new Map<number, number[]>();
 const _romsCacheByVirtualCollection = new Map<string, number[]>();
+const _romsCacheBySmartCollection = new Map<number, number[]>();
 
 export default defineStore("roms", {
   state: () => ({ ...defaultRomsState }),
@@ -98,6 +104,17 @@ export default defineStore("roms", {
         }
       }
     },
+    setCurrentSmartCollection(collection: SmartCollection | null) {
+      this.currentSmartCollection = collection;
+      if (collection) {
+        const romIDs = _romsCacheBySmartCollection.get(collection.id);
+        if (romIDs) {
+          this.allRoms = romIDs
+            .filter((id) => _romsCacheByID.has(id))
+            .map((id) => _romsCacheByID.get(id)!) as SimpleRom[];
+        }
+      }
+    },
     fetchRoms(galleryFilter: GalleryFilterStore, concat = true) {
       if (this.fetchingRoms) return Promise.resolve();
       this.fetchingRoms = true;
@@ -112,6 +129,7 @@ export default defineStore("roms", {
               null,
             collectionId: this.currentCollection?.id ?? null,
             virtualCollectionId: this.currentVirtualCollection?.id ?? null,
+            smartCollectionId: this.currentSmartCollection?.id ?? null,
             limit: this.fetchLimit,
             offset: this.fetchOffset,
             orderBy: this.orderBy,
@@ -122,7 +140,7 @@ export default defineStore("roms", {
             if (!concat || this.fetchOffset === 0) {
               this.allRoms = items;
 
-              // Cache the first batch of roms for each platform
+              // Cache the first batch of roms for each context
               if (this.currentPlatform) {
                 _romsCacheByPlatform.set(
                   this.currentPlatform.id,
@@ -138,6 +156,12 @@ export default defineStore("roms", {
               } else if (this.currentVirtualCollection) {
                 _romsCacheByVirtualCollection.set(
                   this.currentVirtualCollection.id,
+                  items.map((rom) => rom.id),
+                );
+                items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
+              } else if (this.currentSmartCollection) {
+                _romsCacheBySmartCollection.set(
+                  this.currentSmartCollection.id,
                   items.map((rom) => rom.id),
                 );
                 items.forEach((rom) => _romsCacheByID.set(rom.id, rom));
@@ -196,11 +220,21 @@ export default defineStore("roms", {
       });
     },
     reset() {
-      Object.assign(this, {
-        ...defaultRomsState,
-        recentRoms: this.recentRoms,
-        continuePlayingRoms: this.continuePlayingRoms,
-      });
+      this.currentPlatform = null;
+      this.currentCollection = null;
+      this.currentVirtualCollection = null;
+      this.currentSmartCollection = null;
+      this.currentRom = null;
+      this.allRoms = [];
+      this.selectedIDs = new Set<number>();
+      this.lastSelectedIndex = -1;
+      this.selectingRoms = false;
+      this.fetchingRoms = false;
+      this.initialSearch = false;
+      this.fetchOffset = 0;
+      this.fetchTotalRoms = 0;
+      this.characterIndex = {};
+      this.selectedCharacter = null;
     },
     resetPagination() {
       this.fetchLimit = 72;

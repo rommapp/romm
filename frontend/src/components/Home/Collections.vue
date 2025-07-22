@@ -14,7 +14,8 @@ import { storeToRefs } from "pinia";
 // Props
 const { t } = useI18n();
 const collections = storeCollections();
-const { allCollectionsUnified } = storeToRefs(collections);
+const { filteredCollections, filteredSmartCollections } =
+  storeToRefs(collections);
 const storedCollections = localStorage.getItem("settings.gridCollections");
 const gridCollections = ref(
   isNull(storedCollections) ? false : storedCollections === "true",
@@ -60,7 +61,10 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
         no-gutters
       >
         <v-col
-          v-for="collection in allCollectionsUnified"
+          v-for="collection in [
+            ...filteredCollections,
+            ...filteredSmartCollections,
+          ]"
           :key="`${'filter_criteria' in collection ? 'smart' : 'regular'}-${collection.id}`"
           class="pa-1"
           :cols="views[0]['size-cols']"
