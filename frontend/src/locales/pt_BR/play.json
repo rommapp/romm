@@ -14,5 +14,7 @@
   "deselect-save": "Desmarcar save",
   "select-state": "Selecionar estado",
   "change-state": "Alterar estado",
-  "deselect-state": "Desmarcar estado"
+  "deselect-state": "Desmarcar estado",
+  "background-color": "Cor de fundo",
+  "select-background-color": "Selecionar cor de fundo"
 }
