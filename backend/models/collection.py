@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint, and_, select
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import CustomJSON
 
@@ -185,90 +185,40 @@ class SmartCollection(BaseModel):
         doc="JSON object containing all filter criteria for the smart collection",
     )
 
-    # Computed ROM IDs based on filter criteria - refreshed when criteria change
-    _computed_rom_ids: Mapped[set[int]] = mapped_column(
-        CustomJSON(), default=set, doc="Computed ROM IDs that match the filter criteria"
-    )
-
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     user: Mapped["User"] = relationship(
         lazy="joined", back_populates="smart_collections"
     )
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._roms_cache = None
+    def get_matching_roms(self) -> list["Rom"]:
+        """Get ROMs that match this smart collection's filter criteria.
 
-    @property
-    def roms(self):
-        """Relationship-like property that returns ROM objects"""
-        if self._roms_cache is None:
-            self._load_roms()
-        return self._roms_cache
-
-    def _load_roms(self):
-        """Load ROM objects from database based on computed ROM IDs"""
-        if not self._computed_rom_ids:
-            self._roms_cache = []
-            return
-
-        # Import inside method to avoid circular imports
-        from handler.database.base_handler import sync_session
-
-        with sync_session() as session:
-            # Import Rom here to avoid circular import issues
-            from models.rom import Rom
-            from sqlalchemy import select
-
-            stmt = select(Rom).where(Rom.id.in_(self._computed_rom_ids))
-            self._roms_cache = list(session.scalars(stmt).all())
-
-    def refresh_roms(self):
-        """Refresh the computed ROM IDs and reload ROM objects"""
+        Returns:
+            list[Rom]: List of ROMs matching the filter criteria
+        """
+        # Import here to avoid circular imports
         from handler.database import db_collection_handler
 
-        computed_roms = db_collection_handler.get_smart_collection_roms(
-            self, self.user_id
-        )
-        self._computed_rom_ids = {r.id for r in computed_roms}
-        self._roms_cache = None  # Clear cache to force reload
-        return computed_roms
+        return list(db_collection_handler.get_smart_collection_roms(self, self.user_id))
 
-    def add_rom(self, rom):
-        """Add a ROM to this smart collection"""
-        from models.rom import Rom
-
-        if isinstance(rom, Rom):
-            self._computed_rom_ids.add(rom.id)
-        else:
-            self._computed_rom_ids.add(int(rom))
-        self._roms_cache = None  # Clear cache
-
-    def remove_rom(self, rom):
-        """Remove a ROM from this smart collection"""
-        from models.rom import Rom
-
-        if isinstance(rom, Rom):
-            self._computed_rom_ids.discard(rom.id)
-        else:
-            self._computed_rom_ids.discard(int(rom))
-        self._roms_cache = None  # Clear cache
+    @property
+    def roms(self) -> list["Rom"]:
+        """Dynamically computed list of ROMs based on filter criteria."""
+        return self.get_matching_roms()
 
     @property
     def user__username(self) -> str:
         return self.user.username
 
     @property
-    def fs_resources_path(self) -> str:
-        return f"smart_collections/{str(self.id)}"
-
-    @property
     def rom_count(self) -> int:
-        return len(self._computed_rom_ids)
+        """Dynamically computed ROM count based on filter criteria."""
+        return len(self.get_matching_roms())
 
     @property
     def rom_ids(self) -> list[int]:
-        return list(self._computed_rom_ids)
+        """Dynamically computed list of ROM IDs based on filter criteria."""
+        return [r.id for r in self.get_matching_roms()]
 
     @property
     def path_cover_small(self) -> str | None:
@@ -280,19 +230,25 @@ class SmartCollection(BaseModel):
 
     @property
     def path_covers_small(self) -> list[str]:
+        roms = self.get_matching_roms()
         return [
             f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
-            for r in self.roms
+            for r in roms
             if r.path_cover_s
         ]
 
     @property
     def path_covers_large(self) -> list[str]:
+        roms = self.get_matching_roms()
         return [
             f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
-            for r in self.roms
+            for r in roms
             if r.path_cover_l
         ]
+
+    @property
+    def filter_summary(self) -> str:
+        return json.dumps(self.filter_criteria)
 
     def __repr__(self) -> str:
         return self.name

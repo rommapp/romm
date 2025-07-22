@@ -18,8 +18,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    """Create smart collections table."""
+    """Create smart collections table (no association table - purely computed)."""
 
+    # Create the smart collections table
     op.create_table(
         "smart_collections",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),

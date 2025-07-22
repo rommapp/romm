@@ -56,6 +56,7 @@ class VirtualCollectionSchema(BaseCollectionSchema):
 
 
 class SmartCollectionSchema(BaseCollectionSchema):
+    id: int
     name: str
     description: str = ""
     rom_ids: set[int] = set()

@@ -141,8 +141,7 @@ class DBCollectionsHandler(DBBaseHandler):
         if user_id is not None:
             # Get user's smart collections and public ones
             query = query.filter(
-                (SmartCollection.user_id == user_id)
-                | (SmartCollection.is_public == True)
+                (SmartCollection.user_id == user_id) | SmartCollection.is_public
             )
 
         return session.scalars(query).unique().all()
@@ -173,7 +172,7 @@ class DBCollectionsHandler(DBBaseHandler):
 
     def get_smart_collection_roms(
         self, smart_collection: SmartCollection, user_id: int | None = None
-    ) -> Sequence[Any]:
+    ) -> Sequence["Rom"]:
         """Get ROMs that match the smart collection's filter criteria."""
         from handler.database import db_rom_handler
 

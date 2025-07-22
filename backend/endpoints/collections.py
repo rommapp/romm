@@ -1,7 +1,7 @@
 import json
 from io import BytesIO
-from typing import Any
 
+from config import str_to_bool
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
 from endpoints.responses.collection import (
@@ -29,11 +29,6 @@ from utils.router import APIRouter
 router = APIRouter(
     prefix="/collections",
     tags=["collections"],
-)
-
-smart_collections_router = APIRouter(
-    prefix="/smart-collections",
-    tags=["smart-collections"],
 )
 
 
@@ -99,6 +94,47 @@ async def add_collection(
     return CollectionSchema.model_validate(created_collection)
 
 
+@protected_route(router.post, "/smart", [Scope.COLLECTIONS_WRITE])
+async def add_smart_collection(request: Request) -> SmartCollectionSchema:
+    """Create smart collection endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        SmartCollectionSchema: Just created smart collection
+    """
+
+    data = await request.form()
+
+    # Parse filter criteria from JSON string
+    try:
+        filter_criteria = json.loads(str(data.get("filter_criteria", "{}")))
+    except json.JSONDecodeError as e:
+        raise ValueError("Invalid JSON for filter_criteria field") from e
+
+    cleaned_data = {
+        "name": str(data.get("name", "")),
+        "description": str(data.get("description", "")),
+        "filter_criteria": filter_criteria,
+        "is_public": str_to_bool(str(data.get("is_public", "false"))),
+        "user_id": request.user.id,
+    }
+
+    db_smart_collection = db_collection_handler.get_smart_collection_by_name(
+        cleaned_data["name"], request.user.id
+    )
+
+    if db_smart_collection:
+        raise CollectionAlreadyExistsException(cleaned_data["name"])
+
+    created_smart_collection = db_collection_handler.add_smart_collection(
+        SmartCollection(**cleaned_data)
+    )
+
+    return SmartCollectionSchema.model_validate(created_smart_collection)
+
+
 @protected_route(router.get, "", [Scope.COLLECTIONS_READ])
 def get_collections(request: Request) -> list[CollectionSchema]:
     """Get collections endpoint
@@ -134,6 +170,24 @@ def get_virtual_collections(
     virtual_collections = db_collection_handler.get_virtual_collections(type, limit)
 
     return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
+
+
+@protected_route(router.get, "/smart", [Scope.COLLECTIONS_READ])
+def get_smart_collections(request: Request) -> list[SmartCollectionSchema]:
+    """Get smart collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[SmartCollectionSchema]: List of smart collections
+    """
+
+    smart_collections = db_collection_handler.get_smart_collections(request.user.id)
+
+    return SmartCollectionSchema.for_user(
+        request.user.id, [s for s in smart_collections]
+    )
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
@@ -172,6 +226,25 @@ def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema
         raise CollectionNotFoundInDatabaseException(id)
 
     return VirtualCollectionSchema.model_validate(virtual_collection)
+
+
+@protected_route(router.get, "/smart/{id}", [Scope.COLLECTIONS_READ])
+def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
+    """Get smart collection endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Smart collection id
+
+    Returns:
+        SmartCollectionSchema: Smart collection
+    """
+
+    smart_collection = db_collection_handler.get_smart_collection(id)
+    if not smart_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    return SmartCollectionSchema.model_validate(smart_collection)
 
 
 @protected_route(router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
@@ -262,6 +335,54 @@ async def update_collection(
     return CollectionSchema.model_validate(updated_collection)
 
 
+@protected_route(router.put, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
+async def update_smart_collection(
+    request: Request,
+    id: int,
+    is_public: bool | None = None,
+) -> SmartCollectionSchema:
+    """Update smart collection endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Smart collection id
+
+    Returns:
+        SmartCollectionSchema: Updated smart collection
+    """
+
+    data = await request.form()
+
+    smart_collection = db_collection_handler.get_smart_collection(id)
+    if not smart_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if smart_collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    # Parse filter criteria if provided
+    filter_criteria = smart_collection.filter_criteria
+    if "filter_criteria" in data:
+        try:
+            filter_criteria = json.loads(str(data["filter_criteria"]))
+        except json.JSONDecodeError as e:
+            raise ValueError("Invalid JSON for filter_criteria field") from e
+
+    cleaned_data = {
+        "name": str(data.get("name", smart_collection.name)),
+        "description": str(data.get("description", smart_collection.description)),
+        "filter_criteria": filter_criteria,
+        "is_public": is_public if is_public is not None else smart_collection.is_public,
+        "user_id": request.user.id,
+    }
+
+    updated_smart_collection = db_collection_handler.update_smart_collection(
+        id, cleaned_data
+    )
+
+    return SmartCollectionSchema.model_validate(updated_smart_collection)
+
+
 @protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
 async def delete_collections(request: Request, id: int) -> MessageResponse:
     """Delete collections endpoint
@@ -297,225 +418,7 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
     return {"msg": f"{collection.name} deleted successfully!"}
 
 
-# Smart Collections Endpoints
-@protected_route(smart_collections_router.post, "", [Scope.COLLECTIONS_WRITE])
-async def add_smart_collection(
-    request: Request,
-    artwork: UploadFile | None = None,
-) -> SmartCollectionSchema:
-    """Create smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        SmartCollectionSchema: Just created smart collection
-    """
-
-    data = await request.form()
-
-    # Parse filter criteria from JSON string
-    try:
-        filter_criteria = json.loads(data.get("filter_criteria", "{}"))
-    except json.JSONDecodeError as e:
-        raise ValueError("Invalid JSON for filter_criteria field") from e
-
-    cleaned_data = {
-        "name": data.get("name", ""),
-        "description": data.get("description", ""),
-        "filter_criteria": filter_criteria,
-        "is_public": data.get("is_public", False),
-        "user_id": request.user.id,
-    }
-
-    db_smart_collection = db_collection_handler.get_smart_collection_by_name(
-        cleaned_data["name"], request.user.id
-    )
-
-    if db_smart_collection:
-        raise CollectionAlreadyExistsException(cleaned_data["name"])
-
-    _added_smart_collection = db_collection_handler.add_smart_collection(
-        SmartCollection(**cleaned_data)
-    )
-
-    # Update the smart collection with the cover path and update database
-    created_smart_collection = db_collection_handler.update_smart_collection(
-        _added_smart_collection.id,
-        {
-            c: getattr(_added_smart_collection, c)
-            for c in inspect(_added_smart_collection).mapper.column_attrs.keys()
-        },
-    )
-
-    return SmartCollectionSchema.model_validate(created_smart_collection)
-
-
-@protected_route(smart_collections_router.get, "", [Scope.COLLECTIONS_READ])
-def get_smart_collections(request: Request) -> list[SmartCollectionSchema]:
-    """Get smart collections endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-
-    Returns:
-        list[SmartCollectionSchema]: List of smart collections
-    """
-
-    smart_collections = db_collection_handler.get_smart_collections(request.user.id)
-
-    return SmartCollectionSchema.for_user(
-        request.user.id, [s for s in smart_collections]
-    )
-
-
-@protected_route(smart_collections_router.get, "/{id}", [Scope.COLLECTIONS_READ])
-def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
-    """Get smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
-
-    Returns:
-        SmartCollectionSchema: Smart collection
-    """
-
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    rom_count = db_collection_handler.get_smart_collection_rom_count(
-        smart_collection, request.user.id
-    )
-
-    return SmartCollectionSchema.model_validate(smart_collection)
-
-
-@protected_route(smart_collections_router.get, "/{id}/roms", [Scope.COLLECTIONS_READ])
-def get_smart_collection_roms(request: Request, id: int) -> dict[str, Any]:
-    """Get ROMs in smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
-
-    Returns:
-        dict: ROMs matching the smart collection criteria
-    """
-    from endpoints.responses.rom import SimpleRomSchema
-
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    roms = db_collection_handler.get_smart_collection_roms(
-        smart_collection, request.user.id
-    )
-
-    return {
-        "items": [SimpleRomSchema.from_orm_with_request(rom, request) for rom in roms],
-        "total": len(roms),
-    }
-
-
-@protected_route(smart_collections_router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
-async def update_smart_collection(
-    request: Request,
-    id: int,
-    remove_cover: bool = False,
-    is_public: bool | None = None,
-    artwork: UploadFile | None = None,
-) -> SmartCollectionSchema:
-    """Update smart collection endpoint
-
-    Args:
-        request (Request): Fastapi Request object
-        id (int): Smart collection id
-
-    Returns:
-        SmartCollectionSchema: Updated smart collection
-    """
-
-    data = await request.form()
-
-    smart_collection = db_collection_handler.get_smart_collection(id)
-    if not smart_collection:
-        raise CollectionNotFoundInDatabaseException(id)
-
-    if smart_collection.user_id != request.user.id:
-        raise CollectionPermissionError(id)
-
-    # Parse filter criteria if provided
-    filter_criteria = smart_collection.filter_criteria
-    if "filter_criteria" in data:
-        try:
-            filter_criteria = json.loads(data["filter_criteria"])
-        except json.JSONDecodeError as e:
-            raise ValueError("Invalid JSON for filter_criteria field") from e
-
-    cleaned_data = {
-        "name": data.get("name", smart_collection.name),
-        "description": data.get("description", smart_collection.description),
-        "filter_criteria": filter_criteria,
-        "is_public": is_public if is_public is not None else smart_collection.is_public,
-        "user_id": request.user.id,
-    }
-
-    if remove_cover:
-        cleaned_data.update(await fs_resource_handler.remove_cover(smart_collection))
-        cleaned_data.update({"url_cover": ""})
-    else:
-        if artwork is not None and artwork.filename is not None:
-            file_ext = artwork.filename.split(".")[-1]
-            artwork_content = BytesIO(await artwork.read())
-            (
-                path_cover_l,
-                path_cover_s,
-            ) = await fs_resource_handler.store_artwork(
-                smart_collection, artwork_content, file_ext
-            )
-
-            cleaned_data.update(
-                {
-                    "url_cover": "",
-                    "path_cover_s": path_cover_s,
-                    "path_cover_l": path_cover_l,
-                }
-            )
-        else:
-            if data.get(
-                "url_cover", ""
-            ) != smart_collection.url_cover or not fs_resource_handler.cover_exists(
-                smart_collection, CoverSize.BIG
-            ):
-                path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
-                    entity=smart_collection,
-                    overwrite=True,
-                    url_cover=data.get("url_cover", ""),
-                )
-                cleaned_data.update(
-                    {
-                        "url_cover": data.get("url_cover", smart_collection.url_cover),
-                        "path_cover_s": path_cover_s,
-                        "path_cover_l": path_cover_l,
-                    }
-                )
-
-    updated_smart_collection = db_collection_handler.update_smart_collection(
-        id, cleaned_data
-    )
-
-    rom_count = db_collection_handler.get_smart_collection_rom_count(
-        updated_smart_collection, request.user.id
-    )
-
-    return SmartCollectionSchema.from_smart_collection(
-        updated_smart_collection, rom_count
-    )
-
-
-@protected_route(smart_collections_router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
+@protected_route(router.delete, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
 async def delete_smart_collection(request: Request, id: int) -> MessageResponse:
     """Delete smart collection endpoint
 
@@ -537,12 +440,5 @@ async def delete_smart_collection(request: Request, id: int) -> MessageResponse:
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)
-
-    try:
-        await fs_resource_handler.remove_directory(smart_collection.fs_resources_path)
-    except FileNotFoundError:
-        log.error(
-            f"Couldn't find resources to delete for {hl(smart_collection.name, color=BLUE)}"
-        )
 
     return {"msg": f"{smart_collection.name} deleted successfully!"}

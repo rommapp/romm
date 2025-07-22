@@ -20,7 +20,7 @@ from utils.database import CustomJSON
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
-    from models.collection import Collection
+    from models.collection import Collection, SmartCollection
     from models.rom import RomUser
 
 
@@ -62,8 +62,8 @@ class User(BaseModel, SimpleUser):
     collections: Mapped[list[Collection]] = relationship(
         lazy="select", back_populates="user"
     )
-    smart_collections: Mapped[list] = relationship(
-        "SmartCollection", lazy="select", back_populates="user"
+    smart_collections: Mapped[list["SmartCollection"]] = relationship(
+        lazy="select", back_populates="user"
     )
 
     @classmethod

@@ -114,19 +114,19 @@ async function deleteCollection({
 async function getSmartCollections(): Promise<{
   data: SmartCollectionSchema[];
 }> {
-  return api.get("/smart-collections");
+  return api.get("/collections/smart");
 }
 
 async function getSmartCollection(
   id: number,
 ): Promise<{ data: SmartCollectionSchema }> {
-  return api.get(`/smart-collections/${id}`);
+  return api.get(`/collections/smart/${id}`);
 }
 
 async function getSmartCollectionRoms(
   id: number,
 ): Promise<{ data: { items: any[]; total: number } }> {
-  return api.get(`/smart-collections/${id}/roms`);
+  return api.get(`/collections/smart/${id}/roms`);
 }
 
 async function createSmartCollection(
@@ -141,7 +141,7 @@ async function createSmartCollection(
   formData.append("is_public", String(params.is_public || false));
   if (params.artwork) formData.append("artwork", params.artwork);
 
-  return api.post("/smart-collections", formData, {
+  return api.post("/collections/smart", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -167,7 +167,7 @@ async function updateSmartCollection(
     formData.append("remove_cover", String(params.remove_cover));
   if (params.artwork) formData.append("artwork", params.artwork);
 
-  return api.put(`/smart-collections/${id}`, formData, {
+  return api.put(`/collections/smart/${id}`, formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },
@@ -183,7 +183,7 @@ async function updateSmartCollection(
 async function deleteSmartCollection(
   id: number,
 ): Promise<{ data: { msg: string } }> {
-  return api.delete(`/smart-collections/${id}`);
+  return api.delete(`/collections/smart/${id}`);
 }
 
 export default {
