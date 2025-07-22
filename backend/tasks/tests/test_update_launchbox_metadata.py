@@ -3,8 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import anyio
 import pytest
-from tasks.tasks import RemoteFilePullTask
-from tasks.update_launchbox_metadata import (
+from tasks.scheduled.update_launchbox_metadata import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
@@ -15,6 +14,7 @@ from tasks.update_launchbox_metadata import (
     UpdateLaunchboxMetadataTask,
     update_launchbox_metadata_task,
 )
+from tasks.tasks import RemoteFilePullTask
 
 
 @pytest.fixture
