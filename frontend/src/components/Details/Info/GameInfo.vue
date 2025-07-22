@@ -4,43 +4,101 @@ import RDialog from "@/components/common/RDialog.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import type { DetailedRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { MdPreview } from "md-editor-v3";
 import { get } from "lodash";
+import storeHeartbeat from "@/stores/heartbeat";
+import { storeToRefs } from "pinia";
 
 // Props
+const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
-defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const theme = useTheme();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
+const heartbeatStore = storeHeartbeat();
+const { value: heartbeat } = storeToRefs(heartbeatStore);
 const filters = [
-  { key: "regions", path: "regions", name: t("rom.regions") },
-  { key: "languages", path: "languages", name: t("rom.languages") },
-  { key: "genres", path: "metadatum.genres", name: t("rom.genres") },
+  { key: "region", path: "regions", name: t("rom.regions") },
+  { key: "language", path: "languages", name: t("rom.languages") },
+  { key: "genre", path: "metadatum.genres", name: t("rom.genres") },
   {
-    key: "franchises",
+    key: "franchise",
     path: "metadatum.franchises",
     name: t("rom.franchises"),
   },
   {
-    key: "collections",
+    key: "collection",
     path: "metadatum.collections",
     name: t("rom.collections"),
   },
-  { key: "companies", path: "metadatum.companies", name: t("rom.companies") },
+  { key: "company", path: "metadatum.companies", name: t("rom.companies") },
 ] as const;
+
+const dataSources = computed(() => {
+  return [
+    {
+      name: "IGDB",
+      condition: props.rom.igdb_id,
+      url: `https://www.igdb.com/games/${props.rom.slug}`,
+    },
+    {
+      name: "ScreenScraper",
+      condition: props.rom.ss_id,
+      url: `https://www.screenscraper.fr/gameinfos.php?gameid=${props.rom.ss_id}`,
+    },
+    {
+      name: "MobyGames",
+      condition: props.rom.moby_id,
+      url: `https://www.mobygames.com/game/${props.rom.moby_id}`,
+    },
+    {
+      name: "LaunchBox",
+      condition: props.rom.launchbox_id,
+      url: `https://gamesdb.launchbox-app.com/games/dbid/${props.rom.launchbox_id}`,
+    },
+    {
+      name: "RetroAchievements",
+      condition: props.rom.ra_id,
+      url: `https://retroachievements.org/game/${props.rom.ra_id}`,
+    },
+    {
+      name: "Hasheous",
+      condition: props.rom.hasheous_id,
+      url: `https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${props.rom.hasheous_id}`,
+    },
+  ].filter((source) => source.condition);
+});
+
+const coverImageSource = computed(() => {
+  if (!props.rom.url_cover) return null;
+
+  try {
+    const hostname = new URL(props.rom.url_cover).hostname;
+
+    if (hostname == "images.igdb.com") return "IGDB";
+    if (hostname == "screenscraper.fr") return "ScreenScraper";
+    if (hostname == "cdn.mobygames.com") return "MobyGames";
+    if (hostname == "images.launchbox-app.com") return "LaunchBox";
+    if (hostname == "media.retroachievements.org") return "RetroAchievements";
+    if (hostname == "cdn2.steamgriddb.com") return "SteamGridDB";
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+});
 
 // Functions
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "search",
-    query: { search: "", filter, value },
+    query: { [filter]: value },
   });
 }
 </script>
@@ -116,7 +174,7 @@ function onFilterClick(filter: FilterType, value: string) {
             <v-img
               v-for="value in rom.igdb_metadata.age_ratings"
               :key="value.rating"
-              @click="onFilterClick('age_ratings', value.rating)"
+              @click="onFilterClick('ageRating', value.rating)"
               :src="value.rating_cover_url"
               height="50"
               width="50"
@@ -170,7 +228,7 @@ function onFilterClick(filter: FilterType, value: string) {
                 <iframe
                   height="100%"
                   width="100%"
-                  :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
+                  :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
                   title="YouTube video player"
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -219,7 +277,7 @@ function onFilterClick(filter: FilterType, value: string) {
                     <iframe
                       height="100%"
                       width="100%"
-                      :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
+                      :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
                       title="YouTube video player"
                       frameborder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -245,6 +303,32 @@ function onFilterClick(filter: FilterType, value: string) {
           </v-col>
         </v-row>
       </template>
+      <v-row v-if="rom.is_identified">
+        <v-col class="mt-4 text-right">
+          <div class="text-grey">
+            Data provided by
+            <template v-for="(source, index) in dataSources" :key="source.name">
+              <a
+                v-if="source.condition"
+                style="color: inherit"
+                :href="source.url"
+                target="_blank"
+              >
+                {{ source.name }}
+              </a>
+              <span v-if="source.condition && index < dataSources.length - 1">
+                {{ index === dataSources.length - 2 ? " and " : ", " }}
+              </span> </template
+            >.
+          </div>
+          <div v-if="rom.url_cover && coverImageSource" class="text-grey mt-1">
+            Cover image provided by
+            <a :href="rom.url_cover" target="_blank" style="color: inherit">
+              {{ coverImageSource }}</a
+            >.
+          </div>
+        </v-col>
+      </v-row>
     </v-col>
   </v-row>
 </template>

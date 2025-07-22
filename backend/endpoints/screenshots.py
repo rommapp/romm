@@ -29,7 +29,7 @@ async def add_screenshot(
         raise RomNotFoundInDatabaseException(rom_id)
 
     current_user = request.user
-    log.info(f"Uploading screenshots to {hl(rom.name, color=BLUE)}")
+    log.info(f"Uploading screenshots to {hl(str(rom.name), color=BLUE)}")
 
     screenshots_path = fs_asset_handler.build_screenshots_file_path(
         user=request.user, platform_fs_slug=rom.platform_slug, rom_id=rom.id
@@ -56,10 +56,10 @@ async def add_screenshot(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Screenshot has no filename"
         )
 
-    fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
+    await fs_asset_handler.write_file(file=screenshotFile, path=screenshots_path)
 
     # Scan or update screenshot
-    scanned_screenshot = scan_screenshot(
+    scanned_screenshot = await scan_screenshot(
         file_name=screenshotFile.filename,
         user=request.user,
         platform_fs_slug=rom.platform_slug,

@@ -122,10 +122,10 @@ onBeforeUnmount(() => {
     color="background"
     :height="height"
     :class="{ rounded: rounded }"
-    class="py-4 bg-background custom-btn"
+    class="py-4 bg-background d-flex align-center justify-center"
     @click="navigationStore.goScan"
   >
-    <div class="icon-container">
+    <div class="d-flex flex-column align-center">
       <v-progress-circular
         v-if="scanning"
         color="primary"
@@ -139,7 +139,7 @@ onBeforeUnmount(() => {
       <v-expand-transition>
         <span
           v-if="withTag"
-          class="text-caption"
+          class="text-caption text-center"
           :class="{ 'text-primary': $route.name == 'scan' }"
           >{{ t("scan.scan") }}</span
         >
@@ -147,21 +147,3 @@ onBeforeUnmount(() => {
     </div>
   </v-btn>
 </template>
-
-<style scoped>
-.custom-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.icon-container span {
-  text-align: center;
-}
-</style>

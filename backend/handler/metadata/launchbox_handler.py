@@ -1,10 +1,12 @@
 import json
+from datetime import datetime
 from typing import NotRequired, TypedDict
 
+import pydash
 from config import LAUNCHBOX_API_ENABLED, str_to_bool
 from handler.redis_handler import async_cache
 from logger.logger import log
-from tasks.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
+from tasks.scheduled.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
     LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
     LAUNCHBOX_METADATA_DATABASE_ID_KEY,
     LAUNCHBOX_METADATA_IMAGE_KEY,
@@ -12,7 +14,7 @@ from tasks.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
     update_launchbox_metadata_task,
 )
 
-from .base_hander import MetadataHandler
+from .base_hander import BaseRom, MetadataHandler
 
 
 class LaunchboxPlatform(TypedDict):
@@ -28,49 +30,75 @@ class LaunchboxImage(TypedDict):
 
 
 class LaunchboxMetadata(TypedDict):
-    release_date: NotRequired[str]
+    first_release_date: int | None
     max_players: NotRequired[int]
     release_type: NotRequired[str]
     cooperative: NotRequired[bool]
-    video_url: NotRequired[str]
+    youtube_video_id: NotRequired[str]
     community_rating: NotRequired[float]
     community_rating_count: NotRequired[int]
     wikipedia_url: NotRequired[str]
     esrb: NotRequired[str]
     genres: NotRequired[list[str]]
-    developer: NotRequired[str]
-    publisher: NotRequired[str]
+    companies: NotRequired[list[str]]
     images: list[LaunchboxImage]
 
 
-class LaunchboxRom(TypedDict):
+class LaunchboxRom(BaseRom):
     launchbox_id: int | None
-    name: NotRequired[str]
-    summary: NotRequired[str]
-    url_cover: NotRequired[str]
-    url_screenshots: NotRequired[list[str]]
     launchbox_metadata: NotRequired[LaunchboxMetadata]
+
+
+def extract_video_id_from_youtube_url(url: str | None) -> str:
+    """
+    Extracts the video ID from a YouTube URL.
+    Returns None if the URL is not a valid YouTube URL.
+    """
+    if not url:
+        return ""
+
+    if "youtube.com/watch?v=" in url:
+        return url.split("v=")[-1].split("&")[0]
+    elif "youtu.be/" in url:
+        return url.split("/")[-1].split("?")[0]
+
+    return ""
 
 
 def extract_metadata_from_launchbox_rom(
     index_entry: dict, game_images: list[dict] | None
 ) -> LaunchboxMetadata:
+    try:
+        first_release_date = int(
+            datetime.strptime(
+                index_entry["ReleaseDate"], "%Y-%m-%dT%H:%M:%S%z"
+            ).timestamp()
+        )
+    except (ValueError, KeyError, IndexError):
+        first_release_date = None
+
     return LaunchboxMetadata(
         {
-            "release_date": index_entry.get("ReleaseDate", ""),
+            "first_release_date": first_release_date,
             "max_players": int(index_entry.get("MaxPlayers") or 0),
             "release_type": index_entry.get("ReleaseType", ""),
             "cooperative": str_to_bool(index_entry.get("Cooperative") or "false"),
-            "video_url": index_entry.get("VideoURL") or "",
+            "youtube_video_id": extract_video_id_from_youtube_url(
+                index_entry.get("VideoURL")
+            ),
             "community_rating": float(index_entry.get("CommunityRating") or 0.0),
             "community_rating_count": int(index_entry.get("CommunityRatingCount") or 0),
             "wikipedia_url": index_entry.get("WikipediaURL", ""),
-            "esrb": index_entry.get("ESRB", ""),
+            "esrb": index_entry.get("ESRB", "").split(" - ")[0].strip(),
             "genres": (
                 index_entry["Genres"].split() if index_entry.get("Genres", None) else []
             ),
-            "developer": index_entry.get("Developer") or "",
-            "publisher": index_entry.get("Publisher") or "",
+            "companies": pydash.compact(
+                [
+                    index_entry.get("Publisher", None),
+                    index_entry.get("Developer", None),
+                ]
+            ),
             "images": [
                 LaunchboxImage(
                     {
@@ -90,7 +118,7 @@ class LaunchboxHandler(MetadataHandler):
         self, file_name: str, platform_slug: str
     ) -> dict | None:
         if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
-            log.warning("Fetching the Launchbox Metadata.xml file...")
+            log.info("Fetching the Launchbox Metadata.xml file...")
             await update_launchbox_metadata_task.run(force=True)
 
             if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
@@ -184,13 +212,17 @@ class LaunchboxHandler(MetadataHandler):
     async def get_rom(self, fs_name: str, platform_slug: str) -> LaunchboxRom:
         from handler.filesystem import fs_rom_handler
 
-        if not LAUNCHBOX_API_ENABLED:
-            return LaunchboxRom(launchbox_id=None)
-
-        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = LaunchboxRom(launchbox_id=None)
 
+        if not LAUNCHBOX_API_ENABLED:
+            return fallback_rom
+
+        # We replace " - " with ": " to match Launchbox's naming convention
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name).replace(
+            " - ", ": "
+        )
         index_entry = await self._get_rom_from_metadata(search_term, platform_slug)
+
         if not index_entry:
             return fallback_rom
 
@@ -292,7 +324,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[str, SlugToLaunchboxPlatformName] = {
     "camputers-lynx": {"id": 61, "name": "Camputers Lynx"},
     "casio-loopy": {"id": 114, "name": "Casio Loopy"},
     "casio-pv-1000": {"id": 115, "name": "Casio PV-1000"},
-    "colecoadam": {"id": 117, "name": "Coleco ADAM"},
+    "colecoadam": {"id": 117, "name": "Coleco Adam"},
     "colecovision": {"id": 13, "name": "ColecoVision"},
     "c128": {"id": 118, "name": "Commodore 128"},
     "c64": {"id": 14, "name": "Commodore 64"},

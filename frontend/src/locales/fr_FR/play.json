@@ -14,5 +14,7 @@
   "deselect-save": "Désélectionner la sauvegarde",
   "select-state": "Sélectionner l'état",
   "change-state": "Changer l'état",
-  "deselect-state": "Désélectionner l'état"
+  "deselect-state": "Désélectionner l'état",
+  "background-color": "Couleur d'arrière-plan",
+  "select-background-color": "Sélectionner la couleur d'arrière-plan"
 }

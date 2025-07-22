@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-from models.base import BaseModel
+from models.base import FILE_PATH_MAX_LENGTH, BaseModel
 from models.rom import Rom
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
@@ -37,7 +37,9 @@ class Platform(BaseModel):
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
-    logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
+    logo_path: Mapped[str | None] = mapped_column(
+        String(length=FILE_PATH_MAX_LENGTH), default=""
+    )
 
     roms: Mapped[list[Rom]] = relationship(lazy="select", back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(
@@ -62,20 +64,13 @@ class Platform(BaseModel):
             and not self.moby_id
             and not self.ss_id
             and not self.launchbox_id
+            and not self.ra_id
+            and not self.hasheous_id
         )
 
     @property
     def is_identified(self) -> bool:
         return not self.is_unidentified
-
-    @property
-    def is_fully_identified(self) -> bool:
-        return (
-            bool(self.igdb_id)
-            and bool(self.moby_id)
-            and bool(self.ss_id)
-            and bool(self.launchbox_id)
-        )
 
     @cached_property
     def fs_size_bytes(self) -> int:

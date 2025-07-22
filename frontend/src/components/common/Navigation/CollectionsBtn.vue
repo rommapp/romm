@@ -26,19 +26,19 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
     :block="block"
     variant="flat"
     :height="height"
-    class="py-4 bg-background custom-btn"
+    class="py-4 bg-background d-flex align-center justify-center"
     :class="{ rounded: rounded }"
     :color="activeCollectionsDrawer ? 'toplayer' : 'background'"
     @click="navigationStore.switchActiveCollectionsDrawer"
   >
-    <div class="icon-container">
+    <div class="d-flex flex-column align-center">
       <v-icon :color="$route.name == 'collection' ? 'primary' : ''"
         >mdi-bookmark-box-multiple</v-icon
       >
       <v-expand-transition>
         <span
           v-if="withTag"
-          class="text-caption"
+          class="text-caption text-center"
           :class="{ 'text-primary': $route.name == 'collection' }"
           >Collections</span
         >
@@ -46,21 +46,3 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
     </div>
   </v-btn>
 </template>
-
-<style scoped>
-.custom-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.icon-container span {
-  text-align: center;
-}
-</style>

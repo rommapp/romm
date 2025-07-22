@@ -14,5 +14,7 @@
   "deselect-save": "セーブデータを解除",
   "select-state": "ステートを選択",
   "change-state": "ステートを変更",
-  "deselect-state": "ステートを解除"
+  "deselect-state": "ステートを解除",
+  "background-color": "背景色",
+  "select-background-color": "背景色を選択"
 }

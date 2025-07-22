@@ -1,3 +1,4 @@
+import json
 from enum import Enum
 from typing import NotRequired, TypedDict
 
@@ -6,6 +7,7 @@ import yarl
 from config import PLAYMATCH_API_ENABLED
 from fastapi import HTTPException, status
 from logger.logger import log
+from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
 
@@ -43,6 +45,7 @@ class PlaymatchHandler:
 
     def __init__(self):
         self.base_url = "https://playmatch.retrorealm.dev/api"
+        self.identify_url = f"{self.base_url}/identify/ids"
 
     async def _request(self, url: str, query: dict) -> dict:
         """
@@ -79,14 +82,17 @@ class PlaymatchHandler:
             )
             res.raise_for_status()
             return res.json()
-        except httpx.HTTPStatusError as e:
+        except httpx.HTTPStatusError as exc:
             log.warning("Connection error: can't connect to Playmatch", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Can't connect to Playmatch, check your internet connection",
-            ) from e
+            ) from exc
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            return {}
 
-    async def lookup_rom(self, rom_attrs: dict) -> PlaymatchRomMatch:
+    async def lookup_rom(self, files: list[RomFile]) -> PlaymatchRomMatch:
         """
         Identify a ROM file using Playmatch API.
 
@@ -97,16 +103,25 @@ class PlaymatchHandler:
         if not PLAYMATCH_API_ENABLED:
             return PlaymatchRomMatch(igdb_id=None)
 
-        url = f"{self.base_url}/identify/ids"
+        first_file = next(
+            (
+                file
+                for file in files
+                if file.file_size_bytes is not None and file.file_size_bytes > 0
+            ),
+            None,
+        )
+        if first_file is None:
+            return PlaymatchRomMatch(igdb_id=None)
 
         try:
             response = await self._request(
-                url,
+                self.identify_url,
                 {
-                    "fileName": rom_attrs["fs_name"],
-                    "fileSize": rom_attrs["fs_size_bytes"],
-                    "md5": rom_attrs["md5_hash"],
-                    "sha1": rom_attrs["sha1_hash"],
+                    "fileName": first_file.file_name,
+                    "fileSize": first_file.file_size_bytes,
+                    "md5": first_file.md5_hash,
+                    "sha1": first_file.sha1_hash,
                 },
             )
         except httpx.HTTPStatusError:
@@ -119,7 +134,6 @@ class PlaymatchHandler:
             return PlaymatchRomMatch(igdb_id=None)
 
         externalMetadata = response.get("externalMetadata", [])
-
         if len(externalMetadata) == 0:
             log.debug("No external metadata found for the matched ROM file.")
             return PlaymatchRomMatch(igdb_id=None)

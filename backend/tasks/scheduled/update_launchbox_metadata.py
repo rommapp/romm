@@ -27,11 +27,13 @@ class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
     def __init__(self):
         super().__init__(
             func="tasks.update_launchbox_metadata.update_launchbox_metadata_task.run",
-            description="launchbox metadata update",
+            description="Updates the LaunchBox metadata store",
             enabled=ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
             cron_string=SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
             url="https://gamesdb.launchbox-app.com/Metadata.zip",
         )
+        self.manual_run = True
+        self.title = "Scheduled LaunchBox metadata update"
 
     @initialize_context()
     async def run(self, force: bool = False) -> None:

@@ -73,7 +73,7 @@ export default defineStore("roms", {
     setRecentRoms(roms: SimpleRom[]) {
       this.recentRoms = roms;
     },
-    setContinuePlayedRoms(roms: SimpleRom[]) {
+    setContinuePlayingRoms(roms: SimpleRom[]) {
       this.continuePlayingRoms = roms;
     },
     setCurrentCollection(collection: Collection | null) {

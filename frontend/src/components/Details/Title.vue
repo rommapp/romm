@@ -132,37 +132,14 @@ const hashMatches = computed(() => {
           :href="`https://www.igdb.com/games/${rom.slug}`"
           target="_blank"
           class="mr-1"
-          title="IGDB ID"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop>
+          <v-chip class="pl-0 mt-1" size="small" @click.stop title="IGDB ID">
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/igdb.png" />
             </v-avatar>
             <span>{{ rom.igdb_id }}</span>
             <v-divider class="mx-2 border-opacity-25" vertical />
             <span>{{ rom.igdb_metadata?.total_rating }}</span>
-            <v-icon class="ml-1">mdi-star</v-icon>
-          </v-chip>
-        </a>
-        <a
-          v-if="rom.ss_id"
-          style="text-decoration: none; color: inherit"
-          :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
-          target="_blank"
-          class="mr-1"
-        >
-          <v-chip
-            class="pl-0 mt-1"
-            size="small"
-            @click.stop
-            title="ScreenScraper ID"
-          >
-            <v-avatar class="mr-2" size="30" rounded="0">
-              <v-img src="/assets/scrappers/ss.png" />
-            </v-avatar>
-            <span>{{ rom.ss_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>{{ rom.ss_metadata?.ss_score }}</span>
             <v-icon class="ml-1">mdi-star</v-icon>
           </v-chip>
         </a>
@@ -183,50 +160,124 @@ const hashMatches = computed(() => {
               <v-img src="/assets/scrappers/moby.png" />
             </v-avatar>
             <span>{{ rom.moby_id }}</span>
-            <v-divider class="mx-2 border-opacity-25" vertical />
-            <span>{{ rom.moby_metadata?.moby_score }}</span>
-            <v-icon class="ml-1">mdi-star</v-icon>
+            <template v-if="rom.moby_metadata?.moby_score">
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>{{
+                (parseFloat(rom.moby_metadata.moby_score) * 10).toFixed(2)
+              }}</span>
+              <v-icon class="ml-1">mdi-star</v-icon>
+            </template>
           </v-chip>
         </a>
-        <v-chip
-          v-if="rom.launchbox_id"
-          class="pl-0 mt-1 mr-1"
-          size="small"
-          title="LaunchBox ID"
+        <a
+          v-if="rom.ss_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://www.screenscraper.fr/gameinfos.php?gameid=${rom.ss_id}`"
+          target="_blank"
+          class="mr-1"
         >
-          <v-avatar class="mr-2" size="30" rounded="0">
-            <v-img src="/assets/scrappers/launchbox.png" />
-          </v-avatar>
-          <span>{{ rom.launchbox_id }}</span>
-          <v-divider class="mx-2 border-opacity-25" vertical />
-          <span>{{
-            rom.launchbox_metadata?.community_rating?.toFixed(2)
-          }}</span>
-          <v-icon class="ml-1">mdi-star</v-icon>
-        </v-chip>
+          <v-chip
+            class="pl-0 mt-1"
+            size="small"
+            @click.stop
+            title="ScreenScraper ID"
+          >
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/ss.png" style="margin-left: -2px" />
+            </v-avatar>
+            <span>{{ rom.ss_id }}</span>
+            <template v-if="rom.ss_metadata?.ss_score">
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>{{
+                (parseFloat(rom.ss_metadata.ss_score) * 10).toFixed(2)
+              }}</span>
+              <v-icon class="ml-1">mdi-star</v-icon>
+            </template>
+          </v-chip>
+        </a>
+        <a
+          v-if="rom.launchbox_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://gamesdb.launchbox-app.com/games/dbid/${rom.launchbox_id}`"
+          target="_blank"
+          class="mr-1"
+        >
+          <v-chip
+            class="pl-0 mt-1"
+            size="small"
+            @click.stop
+            title="LaunchBox ID"
+          >
+            <v-avatar
+              class="mr-2"
+              size="30"
+              rounded="0"
+              style="background: #185a7c"
+            >
+              <v-img src="/assets/scrappers/launchbox.png" />
+            </v-avatar>
+            <span>{{ rom.launchbox_id }}</span>
+            <template v-if="rom.launchbox_metadata?.community_rating">
+              <v-divider class="mx-2 border-opacity-25" vertical />
+              <span>{{
+                (rom.launchbox_metadata.community_rating * 20).toFixed(2)
+              }}</span>
+              <v-icon class="ml-1">mdi-star</v-icon>
+            </template>
+          </v-chip>
+        </a>
         <a
           v-if="rom.ra_id"
           style="text-decoration: none; color: inherit"
           :href="`https://retroachievements.org/game/${rom.ra_id}`"
           target="_blank"
           class="mr-1"
-          title="RetroAchievements ID"
         >
-          <v-chip tabindex="-1" class="px-2 mt-1" size="small" @click.stop>
+          <v-chip
+            class="pl-0 mt-1"
+            size="small"
+            @click.stop
+            title="RetroAchievements ID"
+          >
             <v-avatar class="mr-2" size="30" rounded="0">
-              <v-img src="/assets/scrappers/ra.png" />
+              <v-img src="/assets/scrappers/ra.png" style="margin-left: -2px" />
             </v-avatar>
             <span>{{ rom.ra_id }}</span>
           </v-chip>
         </a>
-        <span v-if="rom.hasheous_id" class="mr-1">
-          <v-chip class="pl-0 mt-1" size="small">
-            <v-avatar class="mr-2 pa-1" size="30" rounded="0">
+        <a
+          v-if="rom.hasheous_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${rom.hasheous_id}`"
+          target="_blank"
+          class="mr-1"
+        >
+          <v-chip
+            class="pl-0 mt-1"
+            size="small"
+            @click.stop
+            title="Hasheous ID"
+          >
+            <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
               <v-img src="/assets/scrappers/hasheous.png" />
             </v-avatar>
             <span>{{ rom.hasheous_id }}</span>
           </v-chip>
-        </span>
+        </a>
+        <a
+          v-if="rom.sgdb_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://www.steamgriddb.com/game/${rom.sgdb_id}`"
+          target="_blank"
+          class="mr-1"
+        >
+          <v-chip class="pl-0 mt-1" size="small" title="SGDB ID">
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/sgdb.png" />
+            </v-avatar>
+            <span>{{ rom.sgdb_id }}</span>
+          </v-chip>
+        </a>
       </v-col>
     </v-row>
     <v-row

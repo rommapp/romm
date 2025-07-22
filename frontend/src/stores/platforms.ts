@@ -58,7 +58,8 @@ export default defineStore("platforms", {
     getAspectRatio(platformId: number): number {
       const platform = this.allPlatforms.find((p) => p.id === platformId);
       return platform && platform.aspect_ratio
-        ? parseFloat(eval(platform.aspect_ratio as string))
+        ? parseInt(platform.aspect_ratio.split("/")[0]) /
+            parseInt(platform.aspect_ratio.split("/")[1])
         : 2 / 3;
     },
     reset() {

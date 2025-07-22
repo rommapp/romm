@@ -17,6 +17,9 @@ ARG NGINX_VERSION=1.29.0
 ARG NODE_VERSION=20.19
 ARG PYTHON_VERSION=3.13
 
+# Alias stages:
+FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS python-alias
+
 
 FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS frontend-build
 WORKDIR /front
@@ -28,7 +31,7 @@ COPY ./frontend ./
 RUN npm run build
 
 
-FROM python:${PYTHON_VERSION}-alpine${ALPINE_VERSION} AS backend-build
+FROM python-alias AS backend-build
 
 # git is needed to install streaming-form-data fork
 # linux-headers is needed to install py7zr
@@ -47,12 +50,12 @@ COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /bin/
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
-RUN uv sync --frozen --no-cache
+RUN uv sync --locked --no-cache
 
 
 FROM backend-build AS backend-dev-build
 
-RUN uv sync --frozen --no-cache --all-extras
+RUN uv sync --locked --no-cache --all-extras
 
 
 FROM alpine:${ALPINE_VERSION} AS rahasher-build
@@ -136,15 +139,28 @@ RUN apk add --no-cache \
     mariadb-connector-c \
     libpq \
     p7zip \
-    python3 \
     tzdata \
     valkey
+
+# Add Python by copying it from the official Docker image. This way, we don't rely on Alpine's
+# Python version, which could not be the same as the one used in the backend build stage.
+# TODO: Replace with a bundled installation of Python using `uv`, when it is supported.
+#       Related issue: https://github.com/astral-sh/uv/issues/7865
+ARG PYTHON_VERSION
+COPY --from=python-alias /usr/lib/* /usr/lib/
+COPY --from=python-alias /usr/local/bin/* /usr/local/bin/
+COPY --from=python-alias /usr/local/include/python${PYTHON_VERSION} /usr/local/include/python${PYTHON_VERSION}
+COPY --from=python-alias /usr/local/lib/libpython* /usr/local/lib/
+COPY --from=python-alias /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 
 COPY ./frontend/assets ${WEBSERVER_FOLDER}/assets
+RUN mkdir -p ${WEBSERVER_FOLDER}/assets/romm && \
+    ln -sf /romm/resources ${WEBSERVER_FOLDER}/assets/romm/resources && \
+    ln -sf /romm/assets ${WEBSERVER_FOLDER}/assets/romm/assets
 COPY ./backend /backend
 
 # Setup init script and config files
@@ -169,8 +185,6 @@ FROM scratch AS slim-image
 COPY --from=production-stage / /
 
 COPY --from=backend-build /src/.venv /src/.venv
-# Fix virtualenv link to python binary
-RUN ln -sf "$(which python)" /src/.venv/bin/python
 
 ENV PATH="/src/.venv/bin:${PATH}"
 
@@ -193,11 +207,7 @@ COPY --from=emulator-stage /ruffle ${WEBSERVER_FOLDER}/assets/ruffle
 
 FROM slim-image AS dev-slim
 COPY --from=backend-dev-build /src/.venv /src/.venv
-# Fix virtualenv link to python binary
-RUN ln -sf "$(which python)" /src/.venv/bin/python
 
 
 FROM full-image AS dev-full
 COPY --from=backend-dev-build /src/.venv /src/.venv
-# Fix virtualenv link to python binary
-RUN ln -sf "$(which python)" /src/.venv/bin/python
