@@ -14,5 +14,7 @@
   "deselect-save": "세이브 선택 해제",
   "select-state": "상태 선택",
   "change-state": "상태 변경",
-  "deselect-state": "상태 선택 해제"
+  "deselect-state": "상태 선택 해제",
+  "background-color": "배경색",
+  "select-background-color": "배경색 선택"
 }

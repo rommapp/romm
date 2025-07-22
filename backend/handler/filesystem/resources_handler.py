@@ -1,11 +1,9 @@
 import os
-import shutil
+from io import BytesIO
+from pathlib import Path
 
 import httpx
-from anyio import Path, open_file
 from config import RESOURCES_BASE_PATH
-from logger.formatter import BLUE
-from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
@@ -16,8 +14,13 @@ from .base_handler import CoverSize, FSHandler
 
 
 class FSResourcesHandler(FSHandler):
-    @staticmethod
-    async def cover_exists(entity: Rom | Collection, size: CoverSize) -> bool:
+    def __init__(self) -> None:
+        super().__init__(base_path=RESOURCES_BASE_PATH)
+
+    def get_platform_resources_path(self, platform_id: int) -> str:
+        return os.path.join("roms", str(platform_id))
+
+    def cover_exists(self, entity: Rom | Collection, size: CoverSize) -> bool:
         """Check if rom cover exists in filesystem
 
         Args:
@@ -27,24 +30,23 @@ class FSResourcesHandler(FSHandler):
         Returns
             True if cover exists in filesystem else False
         """
-        async for _ in Path(
-            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
-        ).glob(f"{size.value}.*"):
-            # At least one file found.
-            return True
+        full_path = self.validate_path(f"{entity.fs_resources_path}/cover")
+        for _ in full_path.glob(f"{size.value}.*"):
+            return True  # At least one file found
         return False
 
-    @staticmethod
-    def resize_cover_to_small(cover: ImageFile.ImageFile, save_path: Path) -> None:
+    def resize_cover_to_small(self, cover: ImageFile.ImageFile, save_path: str) -> None:
         """Resize cover to small size, and save it to filesystem."""
         if cover.height >= 1000:
             ratio = 0.2
         else:
             ratio = 0.4
+
         small_width = int(cover.width * ratio)
         small_height = int(cover.height * ratio)
         small_size = (small_width, small_height)
         small_img = cover.resize(small_size)
+
         small_img.save(save_path)
 
     async def _store_cover(
@@ -58,15 +60,16 @@ class FSResourcesHandler(FSHandler):
             url_cover: url to get the cover
             size: size of the cover
         """
-        cover_path = Path(f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover")
-        cover_file = cover_path / Path(f"{size.value}.png")
+        cover_file = f"{entity.fs_resources_path}/cover"
+        await self.make_directory(f"{cover_file}")
 
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url_cover, timeout=120) as response:
                 if response.status_code == 200:
-                    await cover_path.mkdir(parents=True, exist_ok=True)
-                    async with await cover_file.open("wb") as f:
+                    async with await self.write_file_streamed(
+                        path=cover_file, filename=f"{size.value}.png"
+                    ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx.TransportError as exc:
@@ -74,92 +77,105 @@ class FSResourcesHandler(FSHandler):
 
         if size == CoverSize.SMALL:
             try:
-                with Image.open(cover_file) as img:
-                    self.resize_cover_to_small(img, save_path=cover_file)
+                image_path = self.validate_path(f"{cover_file}/{size.value}.png")
+                with Image.open(image_path) as img:
+                    self.resize_cover_to_small(img, save_path=str(image_path))
             except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None
 
-    @staticmethod
-    async def _get_cover_path(entity: Rom | Collection, size: CoverSize) -> str:
+    def _get_cover_path(self, entity: Rom | Collection, size: CoverSize) -> str | None:
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
             entity: Rom or Collection object
             size: size of the cover
         """
-        async for matched_file in Path(
-            f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
-        ).glob(f"{size.value}.*"):
-            return str(matched_file.relative_to(RESOURCES_BASE_PATH))
-        return ""
+        full_path = self.validate_path(f"{entity.fs_resources_path}/cover")
+        for matched_file in full_path.glob(f"{size.value}.*"):
+            return str(matched_file.relative_to(self.base_path))
+
+        return None
 
     async def get_cover(
         self, entity: Rom | Collection | None, overwrite: bool, url_cover: str | None
-    ) -> tuple[str, str]:
+    ) -> tuple[str | None, str | None]:
         if not entity:
-            return "", ""
+            return None, None
 
-        small_cover_exists = await self.cover_exists(entity, CoverSize.SMALL)
+        small_cover_exists = self.cover_exists(entity, CoverSize.SMALL)
         if url_cover and (overwrite or not small_cover_exists):
             await self._store_cover(entity, url_cover, CoverSize.SMALL)
-            small_cover_exists = await self.cover_exists(entity, CoverSize.SMALL)
+            small_cover_exists = self.cover_exists(entity, CoverSize.SMALL)
+
         path_cover_s = (
-            (await self._get_cover_path(entity, CoverSize.SMALL))
+            self._get_cover_path(entity, CoverSize.SMALL)
             if small_cover_exists
-            else ""
+            else None
         )
 
-        big_cover_exists = await self.cover_exists(entity, CoverSize.BIG)
+        big_cover_exists = self.cover_exists(entity, CoverSize.BIG)
         if url_cover and (overwrite or not big_cover_exists):
             await self._store_cover(entity, url_cover, CoverSize.BIG)
-            big_cover_exists = await self.cover_exists(entity, CoverSize.BIG)
+            big_cover_exists = self.cover_exists(entity, CoverSize.BIG)
+
         path_cover_l = (
-            (await self._get_cover_path(entity, CoverSize.BIG))
-            if big_cover_exists
-            else ""
+            self._get_cover_path(entity, CoverSize.BIG) if big_cover_exists else None
         )
 
         return path_cover_s, path_cover_l
 
-    @staticmethod
-    def remove_cover(entity: Rom | Collection | None):
+    async def remove_cover(self, entity: Rom | Collection | None):
         if not entity:
             return {"path_cover_s": "", "path_cover_l": ""}
 
-        cover_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
-        try:
-            shutil.rmtree(cover_path)
-        except FileNotFoundError:
-            log.warning(
-                f"Couldn't remove cover from '{hl(entity.name or str(entity.id), color=BLUE)}' since '{cover_path}' doesn't exist."
-            )
+        await self.remove_directory(f"{entity.fs_resources_path}/cover")
 
         return {"path_cover_s": "", "path_cover_l": ""}
 
-    @staticmethod
-    async def build_artwork_path(entity: Rom | Collection | None, file_ext: str):
-        if not entity:
-            return "", "", ""
-
+    async def _build_artwork_path(
+        self, entity: Rom | Collection, file_ext: str
+    ) -> tuple[Path, Path]:
         path_cover = f"{entity.fs_resources_path}/cover"
-        path_cover_l = f"{path_cover}/{CoverSize.BIG.value}.{file_ext}"
-        path_cover_s = f"{path_cover}/{CoverSize.SMALL.value}.{file_ext}"
-        artwork_path = f"{RESOURCES_BASE_PATH}/{entity.fs_resources_path}/cover"
-        await Path(artwork_path).mkdir(parents=True, exist_ok=True)
+        path_cover_l = self.validate_path(
+            f"{path_cover}/{CoverSize.BIG.value}.{file_ext}"
+        )
+        path_cover_s = self.validate_path(
+            f"{path_cover}/{CoverSize.SMALL.value}.{file_ext}"
+        )
 
-        return path_cover_l, path_cover_s, artwork_path
+        await self.make_directory(path_cover)
 
-    @staticmethod
-    async def _store_screenshot(rom: Rom, url_screenhot: str, idx: int):
+        return path_cover_l, path_cover_s
+
+    async def store_artwork(
+        self, entity: Rom | Collection, artwork: BytesIO, file_ext: str
+    ) -> tuple[str | None, str | None]:
+        """Store artwork in filesystem and return paths."""
+        path_cover_l, path_cover_s = await self._build_artwork_path(entity, file_ext)
+
+        try:
+            with Image.open(artwork) as img:
+                img.save(path_cover_l)
+                self.resize_cover_to_small(img, save_path=str(path_cover_s))
+        except UnidentifiedImageError as exc:
+            log.error(
+                f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"
+            )
+            return None, None
+
+        return str(path_cover_l.relative_to(self.base_path)), str(
+            path_cover_s.relative_to(self.base_path)
+        )
+
+    async def _store_screenshot(self, rom: Rom, url_screenhot: str, idx: int):
         """Store roms resources in filesystem
 
         Args:
             rom: Rom object
             url_screenhot: URL to get the screenshot
         """
-        screenshot_file = f"{idx}.jpg"
-        screenshot_path = f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/screenshots"
+        screenshot_path = f"{rom.fs_resources_path}/screenshots"
 
         httpx_client = ctx_httpx_client.get()
         try:
@@ -167,9 +183,8 @@ class FSResourcesHandler(FSHandler):
                 "GET", url_screenhot, timeout=120
             ) as response:
                 if response.status_code == 200:
-                    await Path(screenshot_path).mkdir(parents=True, exist_ok=True)
-                    async with await open_file(
-                        f"{screenshot_path}/{screenshot_file}", "wb"
+                    async with await self.write_file_streamed(
+                        path=screenshot_path, filename=f"{idx}.jpg"
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
@@ -177,8 +192,7 @@ class FSResourcesHandler(FSHandler):
             log.error(f"Unable to fetch screenshot at {url_screenhot}: {str(exc)}")
             return None
 
-    @staticmethod
-    def _get_screenshot_path(rom: Rom, idx: str):
+    def _get_screenshot_path(self, rom: Rom, idx: str):
         """Returns rom cover filesystem path adapted to frontend folder structure
 
         Args:
@@ -200,8 +214,7 @@ class FSResourcesHandler(FSHandler):
 
         return path_screenshots
 
-    @staticmethod
-    async def manual_exists(rom: Rom) -> bool:
+    def manual_exists(self, rom: Rom) -> bool:
         """Check if rom manual exists in filesystem
 
         Args:
@@ -209,73 +222,69 @@ class FSResourcesHandler(FSHandler):
         Returns
             True if manual exists in filesystem else False
         """
-        async for _ in Path(
-            f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
-        ).glob(f"{rom.id}.pdf"):
+        full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
+        for _ in full_path.glob(f"{rom.id}.pdf"):
             return True
         return False
 
-    @staticmethod
-    async def _store_manual(rom: Rom, url_manual: str):
-        manual_path = Path(f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual")
-        manual_file = manual_path / Path(f"{rom.id}.pdf")
+    async def _store_manual(self, rom: Rom, url_manual: str):
+        manual_path = f"{rom.fs_resources_path}/manual"
 
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url_manual, timeout=120) as response:
                 if response.status_code == 200:
-                    await manual_path.mkdir(parents=True, exist_ok=True)
-                    async with await manual_file.open("wb") as f:
+                    async with await self.write_file_streamed(
+                        path=manual_path, filename=f"{rom.id}.pdf"
+                    ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch manual at {url_manual}: {str(exc)}")
             return None
 
-    @staticmethod
-    async def _get_manual_path(rom: Rom) -> str:
+    def _get_manual_path(self, rom: Rom) -> str | None:
         """Returns rom manual filesystem path adapted to frontend folder structure
 
         Args:
             rom: Rom object
         """
-        async for matched_file in Path(
-            f"{RESOURCES_BASE_PATH}/{rom.fs_resources_path}/manual"
-        ).glob(f"{rom.id}.pdf"):
-            return str(matched_file.relative_to(RESOURCES_BASE_PATH))
-        return ""
+        full_path = self.validate_path(f"{rom.fs_resources_path}/manual")
+        for matched_file in full_path.glob(f"{rom.id}.pdf"):
+            return str(matched_file.relative_to(self.base_path))
+
+        return None
 
     async def get_manual(
         self, rom: Rom | None, overwrite: bool, url_manual: str | None
-    ) -> str:
+    ) -> str | None:
         if not rom:
-            return ""
+            return None
 
-        manual_exists = await self.manual_exists(rom)
+        manual_exists = self.manual_exists(rom)
         if url_manual and (overwrite or not manual_exists):
             await self._store_manual(rom, url_manual)
-            manual_exists = await self.manual_exists(rom)
-        path_manual = (await self._get_manual_path(rom)) if manual_exists else ""
+            manual_exists = self.manual_exists(rom)
 
+        path_manual = self._get_manual_path(rom) if manual_exists else None
         return path_manual
 
-    async def store_ra_badge(self, url: str, file_path: str) -> None:
+    async def store_ra_badge(self, url: str, path: str) -> None:
         httpx_client = ctx_httpx_client.get()
+        directory, filename = os.path.split(path)
+
         try:
             async with httpx_client.stream("GET", url, timeout=120) as response:
                 if response.status_code == 200:
-                    await Path(f"{RESOURCES_BASE_PATH}/{file_path}").parent.mkdir(
-                        parents=True, exist_ok=True
-                    )
-                    async with await Path(f"{RESOURCES_BASE_PATH}/{file_path}").open(
-                        "wb"
+                    async with await self.write_file_streamed(
+                        path=directory, filename=filename
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url}: {str(exc)}")
 
-    def get_ra_base_path(self, platform_id: int, rom_id: int) -> str:
+    def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
             "roms",
             str(platform_id),
@@ -284,13 +293,7 @@ class FSResourcesHandler(FSHandler):
         )
 
     def get_ra_badges_path(self, platform_id: int, rom_id: int) -> str:
-        return os.path.join(self.get_ra_base_path(platform_id, rom_id), "badges")
+        return os.path.join(self.get_ra_resources_path(platform_id, rom_id), "badges")
 
-    def create_ra_resources_path(self, platform_id: int, rom_id: int) -> None:
-        os.makedirs(
-            os.path.join(
-                RESOURCES_BASE_PATH,
-                self.get_ra_base_path(platform_id, rom_id),
-            ),
-            exist_ok=True,
-        )
+    async def create_ra_resources_path(self, platform_id: int, rom_id: int) -> None:
+        await self.make_directory(self.get_ra_resources_path(platform_id, rom_id))

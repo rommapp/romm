@@ -34,5 +34,6 @@ export type PlatformSchema = {
     is_identified: boolean;
     missing_from_fs: boolean;
     readonly display_name: string;
+    readonly moby_slug: (string | null);
 };
 

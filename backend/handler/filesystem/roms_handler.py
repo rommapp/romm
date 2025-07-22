@@ -4,7 +4,6 @@ import fnmatch
 import hashlib
 import os
 import re
-import shutil
 import tarfile
 import zipfile
 import zlib
@@ -18,7 +17,10 @@ import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support 
 from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
-from exceptions.fs_exceptions import RomAlreadyExistsException, RomsNotFoundException
+from exceptions.fs_exceptions import (
+    RomAlreadyExistsException,
+    RomsNotFoundException,
+)
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
@@ -28,7 +30,7 @@ from py7zr.exceptions import (
     UnsupportedCompressionMethodError,
 )
 from utils.archive_7zip import CallbackIOFactory
-from utils.filesystem import iter_directories, iter_files
+from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
 
 from .base_handler import (
@@ -135,6 +137,9 @@ def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
                 with z.open(file, "r") as f:
                     while chunk := f.read(FILE_READ_CHUNK_SIZE):
                         yield chunk
+
+                    # We only need to read the first file in the archive
+                    return
     except zipfile.BadZipFile:
         if isinstance(file, Path):
             for chunk in read_basic_file(file):
@@ -158,6 +163,9 @@ def read_tar_file(
                 with f.extractfile(member) as ef:  # type: ignore
                     while chunk := ef.read(FILE_READ_CHUNK_SIZE):
                         yield chunk
+
+                # We only need to read the first file in the archive
+                return
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk
@@ -188,11 +196,13 @@ def process_7z_file(
             on_read=fn_hash_read,
         )
         # Provide a file handler to `SevenZipFile` instead of a file path to deactivate the
-        # "parallel" mode in py7zr, which is needed to deterministically calculate the hashes, by
-        # reading each included file in order, one by one.
+        # "parallel" mode in py7zr, which is needed to deterministically calculate the hashes
         with open(file_path, "rb") as f:
             with py7zr.SevenZipFile(f, mode="r") as archive:
-                archive.extractall(factory=factory)  # nosec B202
+                file_list = archive.getnames()
+                for file in file_list:
+                    archive.extract(file, factory=factory)
+                    break  # We only need to read the first file in the archive
     except (
         Bad7zFile,
         DecompressionError,
@@ -224,13 +234,15 @@ DEFAULT_SHA1_H_DIGEST = hashlib.sha1(usedforsecurity=False).digest()
 
 class FSRomsHandler(FSHandler):
     def __init__(self) -> None:
-        pass
+        super().__init__(base_path=LIBRARY_BASE_PATH)
 
-    def remove_from_fs(self, fs_path: str, fs_name: str) -> None:
-        try:
-            os.remove(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}")
-        except IsADirectoryError:
-            shutil.rmtree(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}")
+    def get_roms_fs_structure(self, fs_slug: str) -> str:
+        cnfg = cm.get_config()
+        return (
+            f"{cnfg.ROMS_FOLDER_NAME}/{fs_slug}"
+            if os.path.exists(cnfg.HIGH_PRIO_STRUCTURE_PATH)
+            else f"{fs_slug}/{cnfg.ROMS_FOLDER_NAME}"
+        )
 
     def parse_tags(self, fs_name: str) -> tuple:
         rev = ""
@@ -291,7 +303,7 @@ class FSRomsHandler(FSHandler):
         self, rom_path: Path, file_name: str, file_hash: FileHash
     ) -> RomFile:
         # Absolute path to roms
-        abs_file_path = Path(LIBRARY_BASE_PATH, rom_path, file_name)
+        abs_file_path = Path(self.base_path, rom_path, file_name)
 
         path_parts_lower = list(map(str.lower, rom_path.parts))
         matching_category = next(
@@ -320,7 +332,7 @@ class FSRomsHandler(FSHandler):
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
         )  # Relative path to roms
-        abs_fs_path = f"{LIBRARY_BASE_PATH}/{rel_roms_path}"  # Absolute path to roms
+        abs_fs_path = self.validate_path(rel_roms_path)  # Absolute path to roms
         rom_files: list[RomFile] = []
 
         # Skip hashing games for platforms that don't have a hash database
@@ -335,7 +347,7 @@ class FSRomsHandler(FSHandler):
         rom_ra_h = ""
 
         # Check if rom is a multi-part rom
-        if os.path.isdir(f"{abs_fs_path}/{rom}"):
+        if os.path.isdir(f"{abs_fs_path}/{rom.fs_name}"):
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
             if rom.platform_slug in RA_PLATFORM_LIST.keys():
                 rom_ra_h = await RAHasherService().calculate_hash(
@@ -343,7 +355,9 @@ class FSRomsHandler(FSHandler):
                     f"{abs_fs_path}/{rom.fs_name}/*",
                 )
 
-            for f_path, file_name in iter_files(f"{abs_fs_path}/{rom}", recursive=True):
+            for f_path, file_name in iter_files(
+                f"{abs_fs_path}/{rom.fs_name}", recursive=True
+            ):
                 # Check if file is excluded
                 ext = self.parse_file_extension(file_name)
                 if not ext or ext in excluded_file_exts:
@@ -392,7 +406,7 @@ class FSRomsHandler(FSHandler):
 
                 rom_files.append(
                     self._build_rom_file(
-                        f_path.relative_to(LIBRARY_BASE_PATH),
+                        f_path.relative_to(self.base_path),
                         file_name,
                         file_hash,
                     )
@@ -525,22 +539,17 @@ class FSRomsHandler(FSHandler):
         Args:
             platform: platform where roms belong
         Returns:
-            list with all the filesystem roms for a platform found in the LIBRARY_BASE_PATH
+            list with all the filesystem roms for a platform
         """
-        rel_roms_path = self.get_roms_fs_structure(
-            platform.fs_slug
-        )  # Relative path to roms
-        abs_fs_path = f"{LIBRARY_BASE_PATH}/{rel_roms_path}"  # Absolute path to roms
-
         try:
-            fs_single_roms = [f for _, f in iter_files(abs_fs_path)]
-        except IndexError as exc:
-            raise RomsNotFoundException(platform.fs_slug) from exc
+            rel_roms_path = self.get_roms_fs_structure(
+                platform.fs_slug
+            )  # Relative path to roms
 
-        try:
-            fs_multi_roms = [d for _, d in iter_directories(abs_fs_path)]
-        except IndexError as exc:
-            raise RomsNotFoundException(platform.fs_slug) from exc
+            fs_single_roms = await self.list_files(path=rel_roms_path)
+            fs_multi_roms = await self.list_directories(path=rel_roms_path)
+        except FileNotFoundError as e:
+            raise RomsNotFoundException(platform=platform.fs_slug) from e
 
         fs_roms: list[dict] = [
             {"multi": False, "fs_name": rom}
@@ -566,27 +575,12 @@ class FSRomsHandler(FSHandler):
             key=lambda rom: rom["fs_name"],
         )
 
-    def file_exists(self, fs_path: str, fs_name: str) -> bool:
-        """Check if file exists in filesystem
-
-        Args:
-            path: path to file
-            fs_name: name of file
-        Returns
-            True if file exists in filesystem else False
-        """
-        return bool(os.path.exists(f"{LIBRARY_BASE_PATH}/{fs_path}/{fs_name}"))
-
-    def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
+    async def rename_fs_rom(self, old_name: str, new_name: str, fs_path: str) -> None:
         if new_name != old_name:
-            if self.file_exists(fs_path=fs_path, fs_name=new_name):
+            file_path = f"{fs_path}/{new_name}"
+            if await self.file_exists(file_path=file_path):
                 raise RomAlreadyExistsException(new_name)
 
-            os.rename(
-                f"{LIBRARY_BASE_PATH}/{fs_path}/{old_name}",
-                f"{LIBRARY_BASE_PATH}/{fs_path}/{new_name}",
+            await self.move_file_or_folder(
+                f"{fs_path}/{old_name}", f"{fs_path}/{new_name}"
             )
-
-    def build_upload_fs_path(self, fs_slug: str) -> str:
-        file_path = self.get_roms_fs_structure(fs_slug)
-        return f"{LIBRARY_BASE_PATH}/{file_path}"

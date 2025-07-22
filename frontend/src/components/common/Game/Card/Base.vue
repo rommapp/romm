@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
                   >
                     <div class="pa-2">
                       {{
-                        romsStore.isSimpleRom(rom)
+                        romsStore.isSimpleRom(rom) && rom.name === rom.fs_name
                           ? rom.fs_name_no_tags
                           : rom.name
                       }}
@@ -265,26 +265,26 @@ onBeforeUnmount(() => {
                     />
                     <v-chip
                       v-if="rom.hasheous_id"
-                      class="translucent-dark mr-1 mb-1 px-1"
+                      class="translucent-dark text-white mr-1 mb-1 px-1"
                       density="compact"
                       title="Verified with Hasheous"
                     >
-                      <v-icon>mdi-check-decagram</v-icon>
+                      <v-icon>mdi-check-decagram-outline</v-icon>
                     </v-chip>
                     <v-chip
                       v-if="rom.siblings.length > 0 && showSiblings"
-                      class="translucent-dark text-secondary mr-1 mb-1 px-1"
+                      class="translucent-dark text-white mr-1 mb-1 px-1"
                       density="compact"
                       :title="`${rom.siblings.length} sibling(s)`"
                     >
-                      <v-icon>mdi-card-multiple</v-icon>
+                      <v-icon>mdi-card-multiple-outline</v-icon>
                     </v-chip>
                     <v-chip
                       v-if="collectionsStore.isFav(rom)"
                       text="Favorite"
                       color="secondary"
                       density="compact"
-                      class="translucent-dark mr-1 mb-1 px-1"
+                      class="translucent-dark text-white mr-1 mb-1 px-1"
                     >
                       <v-icon>mdi-star</v-icon>
                     </v-chip>

@@ -6,7 +6,12 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
-from models.base import BaseModel
+from models.base import (
+    FILE_EXTENSION_MAX_LENGTH,
+    FILE_NAME_MAX_LENGTH,
+    FILE_PATH_MAX_LENGTH,
+    BaseModel,
+)
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
@@ -45,8 +50,8 @@ class RomFile(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
-    file_name: Mapped[str] = mapped_column(String(length=450))
-    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    file_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
     file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
     last_modified: Mapped[float | None] = mapped_column(default=None)
     crc_hash: Mapped[str | None] = mapped_column(String(100))
@@ -134,11 +139,11 @@ class Rom(BaseModel):
         Index("idx_roms_tgdb_id", "tgdb_id"),
     )
 
-    fs_name: Mapped[str] = mapped_column(String(length=450))
-    fs_name_no_tags: Mapped[str] = mapped_column(String(length=450))
-    fs_name_no_ext: Mapped[str] = mapped_column(String(length=450))
-    fs_extension: Mapped[str] = mapped_column(String(length=100))
-    fs_path: Mapped[str] = mapped_column(String(length=1000))
+    fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_name_no_tags: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_extension: Mapped[str] = mapped_column(String(length=FILE_EXTENSION_MAX_LENGTH))
+    fs_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
 
     name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))
@@ -173,15 +178,15 @@ class Rom(BaseModel):
         Text, default="", doc="URL to manual stored in ScreenScraper"
     )
 
-    revision: Mapped[str | None] = mapped_column(String(length=100))
-    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-
     path_screenshots: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     url_screenshots: Mapped[list[str] | None] = mapped_column(
         CustomJSON(), default=[], doc="URLs to screenshots stored in IGDB"
     )
+
+    revision: Mapped[str | None] = mapped_column(String(length=100))
+    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
 
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
@@ -294,9 +299,18 @@ class Rom(BaseModel):
     # # Metadata fields
     @property
     def youtube_video_id(self) -> str | None:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("youtube_video_id", None)
-        return None
+        igdb_video_id = (
+            self.igdb_metadata.get("youtube_video_id", None)
+            if self.igdb_metadata
+            else None
+        )
+        lb_video_id = (
+            self.launchbox_metadata.get("youtube_video_id", None)
+            if self.launchbox_metadata
+            else None
+        )
+
+        return igdb_video_id or lb_video_id
 
     @property
     def alternative_names(self) -> list[str]:
@@ -327,21 +341,12 @@ class Rom(BaseModel):
             and not self.ss_id
             and not self.ra_id
             and not self.launchbox_id
+            and not self.hasheous_id
         )
 
     @property
     def is_identified(self) -> bool:
         return not self.is_unidentified
-
-    @property
-    def is_fully_identified(self) -> bool:
-        return (
-            bool(self.igdb_id)
-            and bool(self.moby_id)
-            and bool(self.ss_id)
-            and bool(self.ra_id)
-            and bool(self.launchbox_id)
-        )
 
     def has_m3u_file(self) -> bool:
         """

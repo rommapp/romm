@@ -1,7 +1,6 @@
 <!-- trunk-ignore-all(markdownlint/MD033) -->
 <!-- trunk-ignore(markdownlint/MD041) -->
 <div align="center">
-
   <img src=".github/resources/isotipo.png" height="180px" width="auto" alt="romm logo">
   <br />
   <img src=".github/resources/logotipo.png" height="45px" width="auto" alt="romm logotype">
@@ -40,8 +39,8 @@ RomM (ROM Manager) allows you to scan, enrich, browse and play your game collect
 
 ## Features
 
-- Scans and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
-- Fetch custom arwork from [SteamGridDB][steamgriddb-api]
+- Scan and enhance your game library with metadata from [IGDB][igdb-api], [Screenscraper][screenscraper-api] and [MobyGames][mobygames-api]
+- Fetch custom artwork from [SteamGridDB][steamgriddb-api]
 - Display your achievements from [Retroachievements][retroachievements-api]
 - Metadata available for [400+ platforms][docs-supported-platforms]
 - Play games directly from the browser using [EmulatorJS][docs-emulatorjs] and [RuffleRS][docs-rufflers]
@@ -72,7 +71,7 @@ Here are a few projects maintained by members of our community. Please note that
 - [romm-comm][romm-comm-discord-bot]: Discord Bot by @idio-sync
 - [DeckRommSync][deck-romm-sync]: SteamOS downloader and sync by @PeriBluGaming
 - [RommBrowser][romm-browser]: An electron client for RomM by @smurflabs
-- CasaOS app via the [BigBear App Store][big-bear-casaos]
+- [RomM Android][romm-android]: An Android app for RomM by @mattsays
 
 Join us on Discord, where you can ask questions, submit ideas, get help, showcase your collection, and discuss RomM with other users.
 
@@ -84,7 +83,7 @@ If you have any issues with RomM, please [open an issue](https://github.com/romm
 
 # Project Support
 
-Consider supporting the development of this project on Open Collective.
+Consider supporting the development of this project on Open Collective. All funds will be used to cover the costs of hosting, development, and maintenance of RomM.
 
 [![oc-donate-img]][oc-donate]
 
@@ -98,6 +97,15 @@ Here are a few projects that we think you might like:
 - [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
 - [Retrom](https://github.com/JMBeresford/retrom): A centralized game library/collection management service
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
+
+<div align="center">
+  <br />
+  <div dir="auto">
+    <a href="https://news.ycombinator.com/item?id=44247964" target="_blank"><img src=".github/resources/hackernews_badge.svg" width="250px" alt="hackernews badge"></a>
+    &nbsp;
+    <a href="https://app.aikido.dev/audit-report/external/NzayAUgNoqiMuiy7p7yNvI0U/request" target="_blank"><img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" /></a>
+  </div>
+</div>
 
 <!-- docs links -->
 
@@ -135,9 +143,9 @@ Here are a few projects that we think you might like:
 [mobygames-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#mobygames
 [steamgriddb-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#steamgriddb
 [retroachievements-api]: https://docs.romm.app/latest/Getting-Started/Metadata-Providers/#retroachievements
-[big-bear-casaos]: https://github.com/bigbeartechworld/big-bear-casaos
 [romm-comm-discord-bot]: https://github.com/idio-sync/romm-comm
 [deck-romm-sync]: https://github.com/PeriBluGaming/DeckRommSync-Standalone
 [romm-browser]: https://github.com/smurflabs/RommBrowser/
+[romm-android]: https://github.com/mattsays/romm-android
 [playnite-app]: https://github.com/rommapp/playnite-plugin
 [muos-app]: https://github.com/rommapp/muos-app

@@ -15,6 +15,7 @@ from .base_hander import (
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
+    BaseRom,
     MetadataHandler,
 )
 
@@ -121,21 +122,26 @@ class SSMetadata(TypedDict):
     genres: list[str]
 
 
-class SSRom(TypedDict):
+class SSRom(BaseRom):
     ss_id: int | None
-    name: NotRequired[str]
-    summary: NotRequired[str]
-    url_cover: NotRequired[str]
-    url_manual: NotRequired[str]
-    url_screenshots: NotRequired[list[str]]
     ss_metadata: NotRequired[SSMetadata]
 
 
 def build_ss_rom(game: SSGame) -> SSRom:
-    res_name = next(
-        (name["text"] for name in game.get("noms", []) if name.get("region") == "ss"),
-        "",
-    )
+    name_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
+    res_name = ""
+    for region in name_preferred_regions:
+        res_name = next(
+            (
+                name["text"]
+                for name in game.get("noms", [])
+                if name.get("region") == region
+            ),
+            "",
+        )
+        if res_name:
+            break
+
     res_summary = next(
         (
             synopsis["text"]
@@ -145,7 +151,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
         "",
     )
 
-    cover_preferred_regions = ["us", "ss"]
+    cover_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     url_cover = ""
     for region in cover_preferred_regions:
         url_cover = next(
@@ -161,7 +167,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if url_cover:
             break
 
-    manual_preferred_regions = ["us", "eu"]
+    manual_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     url_manual: str = ""
     for region in manual_preferred_regions:
         url_manual = next(
@@ -181,7 +187,7 @@ def build_ss_rom(game: SSGame) -> SSRom:
     ss_id = int(game["id"]) if game.get("id") is not None else None
     rom: SSRom = {
         "ss_id": ss_id,
-        "name": res_name,
+        "name": res_name.replace(" : ", ": "),  # Normalize colons
         "summary": res_summary,
         "url_cover": url_cover,
         "url_manual": url_manual,
@@ -273,11 +279,26 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return None
 
-        search_term = uc(search_term)
+        def is_exact_match(rom: SSGame, search_term: str) -> bool:
+            rom_names = [name.get("text", "").lower() for name in rom.get("noms", [])]
+
+            return any(
+                (
+                    rom_name.lower() == search_term.lower()
+                    or self.normalize_search_term(rom_name) == search_term
+                )
+                for rom_name in rom_names
+            )
+
         roms = await self.ss_service.search_games(
-            term=quote(search_term, safe="/ "),
+            term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
         )
+
+        for rom in roms:
+            if is_exact_match(rom, search_term):
+                return rom
+
         return roms[0] if roms else None
 
     def get_platform(self, slug: str) -> SSPlatform:
@@ -361,13 +382,31 @@ class SSHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
             fallback_rom = SSRom(ss_id=None, name=search_term)
 
-        search_term = self.normalize_search_term(search_term)
-        res = await self._search_rom(search_term, platform_ss_id)
+        ## SS API requires punctuation to match
+        normalized_search_term = self.normalize_search_term(
+            search_term, remove_punctuation=False
+        )
+        res = await self._search_rom(normalized_search_term, platform_ss_id)
 
-        # Some MAME games have two titles split by a slash
-        if not res and "/" in search_term:
-            for term in search_term.split("/"):
-                res = await self._search_rom(term.strip(), platform_ss_id)
+        # SS API doesn't handle some special characters well
+        if not res and (
+            ": " in search_term or " - " in search_term or "/" in search_term
+        ):
+            if ": " in search_term:
+                terms = [
+                    s.strip() for s in search_term.split(":") if len(s.strip()) > 2
+                ]
+            elif " - " in search_term:
+                terms = [
+                    s.strip() for s in search_term.split(" - ") if len(s.strip()) > 2
+                ]
+            else:
+                terms = [
+                    s.strip() for s in search_term.split("/") if len(s.strip()) > 2
+                ]
+
+            for i in range(len(terms) - 1, -1, -1):
+                res = await self._search_rom(terms[i], platform_ss_id)
                 if res:
                     break
 
@@ -402,9 +441,8 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return []
 
-        search_term = uc(search_term)
         matched_roms = await self.ss_service.search_games(
-            term=quote(search_term, safe="/ "),
+            term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
         )
 
@@ -461,7 +499,7 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "casio-pv-1000": {"id": 74, "name": "PV-1000"},
     "channel-f": {"id": 80, "name": "Channel F"},
     "fairchild-channel-f": {"id": 80, "name": "Channel F"},  # IGDB
-    "colecoadam": {"id": 89, "name": "Adam"},
+    "colecoadam": {"id": 89, "name": "Coleco Adam"},
     "colecovision": {"id": 48, "name": "Colecovision"},
     "colour-genie": {"id": 92, "name": "EG2000 Colour Genie"},
     "c128": {"id": 66, "name": "Commodore 64"},

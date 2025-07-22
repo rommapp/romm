@@ -67,8 +67,10 @@ class SessionMiddleware:
                 )
             ),
         )
-        assert token.claims == {"1": 2}, "wrong crypto setup"
-        assert token.header == {"typ": "JWT", "alg": jwt_alg}, "wrong crypto setup"
+        if token.claims != {"1": 2} or token.header != {"typ": "JWT", "alg": jwt_alg}:
+            raise ValueError(
+                "Invalid crypto setup, check your secret key and algorithm configuration"
+            )
 
         self.session_cookie = session_cookie
         self.max_age = max_age

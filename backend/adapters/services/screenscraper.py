@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import http
+import json
 from typing import Final, cast
 
 import aiohttp
@@ -87,6 +88,9 @@ class ScreenScraperService:
                 # Log the error and return an empty dict if the request fails with a different code
                 log.error(err)
                 return {}
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            return {}
 
         try:
             log.debug(
@@ -107,6 +111,7 @@ class ScreenScraperService:
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid ScreenScraper credentials",
                 )
+            return await res.json()
         except (aiohttp.ClientResponseError, aiohttp.ServerTimeoutError) as err:
             if (
                 isinstance(err, aiohttp.ClientResponseError)
@@ -116,8 +121,9 @@ class ScreenScraperService:
 
             log.error(err)
             return {}
-
-        return await res.json()
+        except json.JSONDecodeError as exc:
+            log.error("Error decoding JSON response from ScreenScraper: %s", exc)
+            return {}
 
     async def get_game_info(
         self,

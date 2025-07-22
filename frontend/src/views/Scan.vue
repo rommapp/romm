@@ -3,7 +3,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import socket from "@/services/socket";
-import storeHeartbeat from "@/stores/heartbeat";
+import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { ROUTES } from "@/plugins/router";
@@ -11,6 +11,8 @@ import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+
+const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 
 // Props
 const { t } = useI18n();
@@ -21,9 +23,19 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<Platform[]>([]);
 const panels = ref<number[]>([]);
-// Use store getters
+
 const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
-const metadataSources = ref([...heartbeat.getEnabledMetadataOptions()]);
+const storedMetadataSources = computed<string[]>(() => {
+  const storedSources = localStorage.getItem(
+    LOCAL_STORAGE_METADATA_SOURCES_KEY,
+  );
+  return storedSources ? JSON.parse(storedSources) : [];
+});
+const metadataSources = ref<MetadataOption[]>(
+  metadataOptions.value.filter((m) =>
+    storedMetadataSources.value.includes(m.value),
+  ) || heartbeat.getEnabledMetadataOptions(),
+);
 
 watch(metadataOptions, (newOptions) => {
   // Remove any sources that are now disabled
@@ -83,6 +95,12 @@ async function scan() {
 
   if (!socket.connected) socket.connect();
 
+  // Store selected meta sources in storage
+  localStorage.setItem(
+    LOCAL_STORAGE_METADATA_SOURCES_KEY,
+    JSON.stringify(metadataSources.value.map((s) => s.value)),
+  );
+
   socket.emit("scan", {
     platforms: platformsToScan.value.map((p) => p.id),
     type: scanType.value,
@@ -103,7 +121,7 @@ async function stopScan() {
 <template>
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
-    <v-col cols="12" md="4" lg="5" class="px-1">
+    <v-col cols="12" md="3" lg="4" class="px-1">
       <!-- TODO: add 'ALL' default option -->
       <v-select
         v-model="platformsToScan"
@@ -168,7 +186,7 @@ async function stopScan() {
     </v-col>
 
     <!-- Source options -->
-    <v-col cols="12" md="4" lg="5" class="px-1" :class="{ 'mt-3': smAndDown }">
+    <v-col cols="12" md="5" lg="6" class="px-1" :class="{ 'mt-3': smAndDown }">
       <v-select
         v-model="metadataSources"
         :items="metadataOptions"
@@ -338,16 +356,86 @@ async function stopScan() {
                   with-link
                   with-filename
                 >
-                  <template #append-body>
+                  <template #append>
                     <v-chip
                       v-if="rom.is_unidentified"
                       color="red"
                       size="x-small"
                       label
-                      >Not identified<v-icon class="ml-1"
-                        >mdi-close</v-icon
-                      ></v-chip
                     >
+                      Not identified
+                      <v-icon class="ml-1">mdi-close</v-icon>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.hasheous_id"
+                      title="Verified with Hasheous"
+                      class="text-white pa-0 mr-1"
+                      size="small"
+                    >
+                      <v-avatar class="bg-romm-green" size="26" rounded="0">
+                        <v-icon>mdi-check-decagram-outline</v-icon>
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.igdb_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="IGDB match"
+                    >
+                      <v-avatar size="26" rounded>
+                        <v-img src="/assets/scrappers/igdb.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.ss_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="ScreenScraper match"
+                    >
+                      <v-avatar size="26" rounded>
+                        <v-img src="/assets/scrappers/ss.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.moby_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="MobyGames match"
+                    >
+                      <v-avatar size="26" rounded>
+                        <v-img src="/assets/scrappers/moby.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.launchbox_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="LaunchBox match"
+                    >
+                      <v-avatar size="26" style="background: #185a7c">
+                        <v-img src="/assets/scrappers/launchbox.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.ra_id"
+                      class="pa-0 mr-1"
+                      size="small"
+                      title="RetroAchievements match"
+                    >
+                      <v-avatar size="26" rounded>
+                        <v-img src="/assets/scrappers/ra.png" />
+                      </v-avatar>
+                    </v-chip>
+                    <v-chip
+                      v-if="rom.hasheous_id"
+                      class="pa-1 mr-1 bg-surface"
+                      size="small"
+                      title="Hasheous match"
+                    >
+                      <v-avatar size="18" rounded>
+                        <v-img src="/assets/scrappers/hasheous.png" />
+                      </v-avatar>
+                    </v-chip>
                   </template>
                 </rom-list-item>
                 <v-list-item
