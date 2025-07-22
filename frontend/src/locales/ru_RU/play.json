@@ -14,5 +14,7 @@
   "deselect-save": "Снять выбор сохранения",
   "select-state": "Выбрать состояние",
   "change-state": "Изменить состояние",
-  "deselect-state": "Снять выбор состояния"
+  "deselect-state": "Снять выбор состояния",
+  "background-color": "Цвет фона",
+  "select-background-color": "Выбрать цвет фона"
 }

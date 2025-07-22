@@ -14,5 +14,7 @@
   "deselect-save": "Deselect save",
   "select-state": "Select state",
   "change-state": "Change state",
-  "deselect-state": "Deselect state"
+  "deselect-state": "Deselect state",
+  "background-color": "Background color",
+  "select-background-color": "Select background color"
 }

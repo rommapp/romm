@@ -10,6 +10,7 @@ import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
 const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
+const DEFAULT_BACKGROUND_COLOR = "#0D1117";
 
 // Props
 const { t } = useI18n();
@@ -18,6 +19,7 @@ const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
+const backgroundColor = ref(DEFAULT_BACKGROUND_COLOR);
 
 declare global {
   interface Window {
@@ -41,7 +43,7 @@ function onPlay() {
     player.load({
       allowFullScreen: true,
       autoplay: "on",
-      backgroundColor: "#0D1117",
+      backgroundColor: backgroundColor.value,
       openUrlMode: "confirm",
       publicPath: "/assets/ruffle/",
       url: getDownloadPath({ rom: rom.value }),
@@ -60,6 +62,15 @@ function onFullScreenChange() {
   localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
+function onBackgroundColorChange() {
+  if (rom.value) {
+    localStorage.setItem(
+      `player:ruffle:${rom.value.id}:backgroundColor`,
+      backgroundColor.value,
+    );
+  }
+}
+
 async function onlyQuit() {
   window.history.back();
 }
@@ -72,6 +83,14 @@ onMounted(async () => {
 
   if (rom.value) {
     document.title = `${rom.value.name} | Play`;
+
+    // Load stored background color for this ROM
+    const storedColor = localStorage.getItem(
+      `player:ruffle:${rom.value.id}:backgroundColor`,
+    );
+    if (storedColor) {
+      backgroundColor.value = storedColor;
+    }
   }
 
   const script = document.createElement("script");
@@ -119,9 +138,35 @@ onMounted(async () => {
           <v-divider class="my-4" />
         </v-col>
       </v-row>
+
+      <!-- Background Color Picker Section -->
+      <v-row v-if="!gameRunning" class="px-3 mb-4" no-gutters>
+        <v-col>
+          <v-card class="py-2 px-4" variant="outlined">
+            <v-row no-gutters>
+              <v-col>
+                <v-card-title class="text-subtitle-1 pa-0 text-uppercase">
+                  <v-icon class="mr-2">mdi-palette</v-icon>
+                  {{ t("play.background-color") }}
+                </v-card-title>
+              </v-col>
+              <v-col class="d-flex justify-end">
+                <input
+                  type="color"
+                  v-model="backgroundColor"
+                  @input="onBackgroundColorChange"
+                  class="color-picker h-100 w-50 text-right"
+                  :title="t('play.select-background-color')"
+                />
+              </v-col>
+            </v-row>
+          </v-card>
+        </v-col>
+      </v-row>
+
       <v-row class="px-3 text-center" no-gutters>
         <v-col>
-          <v-row class="align-center" no-gutters>
+          <v-row class="align-center ga-4" no-gutters>
             <v-col>
               <v-btn
                 block
@@ -142,7 +187,6 @@ onMounted(async () => {
               cols="12"
               :sm="gameRunning ? 12 : 7"
               :xl="gameRunning ? 12 : 9"
-              :class="gameRunning ? 'mt-2' : 'ml-2'"
             >
               <v-btn
                 color="primary"
@@ -156,9 +200,8 @@ onMounted(async () => {
               </v-btn>
             </v-col>
           </v-row>
-          <v-row v-if="!gameRunning" class="align-center" no-gutters>
+          <v-row v-if="!gameRunning" class="align-center ga-4 mt-4" no-gutters>
             <v-btn
-              class="mt-4"
               block
               variant="outlined"
               size="large"
@@ -172,7 +215,6 @@ onMounted(async () => {
               >{{ t("play.back-to-game-details") }}
             </v-btn>
             <v-btn
-              class="mt-4"
               block
               variant="outlined"
               size="large"

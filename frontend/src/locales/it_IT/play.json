@@ -15,5 +15,7 @@
   "deselect-save": "Deseleziona Salvataggio",
   "select-state": "Seleziona Stato",
   "change-state": "Cambia Stato",
-  "deselect-state": "Deseleziona Stato"
+  "deselect-state": "Deseleziona Stato",
+  "background-color": "Colore di sfondo",
+  "select-background-color": "Seleziona colore di sfondo"
 }
