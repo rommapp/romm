@@ -17,8 +17,12 @@ const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
-const { currentPlatform, currentCollection, currentVirtualCollection } =
-  storeToRefs(romsStore);
+const {
+  currentPlatform,
+  currentCollection,
+  currentVirtualCollection,
+  currentSmartCollection,
+} = storeToRefs(romsStore);
 
 const {
   searchTerm,
@@ -42,7 +46,7 @@ const {
 
 async function goToRandomGame() {
   try {
-    const apiParams = {
+    let apiParams = {
       limit: 1,
       offset: 0,
       platformId: currentPlatform.value?.id || null,
@@ -69,6 +73,17 @@ async function goToRandomGame() {
       selectedRegion: selectedRegion.value,
       selectedLanguage: selectedLanguage.value,
     };
+
+    // If we're in a smart collection, apply its filter criteria instead of collection ID
+    if (currentSmartCollection.value) {
+      const criteria = currentSmartCollection.value.filter_criteria;
+      apiParams = {
+        ...apiParams,
+        ...criteria,
+        // Smart collections don't use collectionId
+        collectionId: null,
+      };
+    }
 
     // Get the total count first
     const { data: romsResponse } = await romApi.getRoms(apiParams);

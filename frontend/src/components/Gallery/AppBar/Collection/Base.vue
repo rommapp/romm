@@ -6,23 +6,34 @@ import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { computed } from "vue";
 
 // Props
 const { xs } = useDisplay();
 const navigationStore = storeNavigation();
 const romsStore = storeRoms();
-const { currentCollection } = storeToRefs(romsStore);
+const { currentCollection, currentVirtualCollection, currentSmartCollection } =
+  storeToRefs(romsStore);
+
+// Get the currently active collection (any type)
+const activeCollection = computed(() => {
+  return (
+    currentCollection.value ||
+    currentVirtualCollection.value ||
+    currentSmartCollection.value
+  );
+});
 </script>
 
 <template>
   <base-gallery-app-bar show-platforms-filter :show-search-bar="!xs">
     <template #prepend>
       <r-avatar
-        v-if="currentCollection"
+        v-if="activeCollection"
         @click="navigationStore.switchActiveCollectionInfoDrawer"
         class="collection-icon cursor-pointer"
         :size="45"
-        :collection="currentCollection"
+        :collection="activeCollection"
       />
     </template>
   </base-gallery-app-bar>

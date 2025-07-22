@@ -8,7 +8,7 @@ import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import { ROUTES } from "@/plugins/router";
 
 // Props
-withDefaults(
+const props = withDefaults(
   defineProps<{
     collection: Collection | VirtualCollection | SmartCollection;
     withTitle?: boolean;
@@ -23,20 +23,30 @@ withDefaults(
     withLink: false,
   },
 );
+
+// Determine the correct route for this collection type
+const getCollectionRoute = () => {
+  if (!props.withLink || !props.collection) return {};
+
+  // Check if it's a smart collection (has filter_criteria property)
+  if ("filter_criteria" in props.collection) {
+    return {
+      name: ROUTES.SMART_COLLECTION,
+      params: { collection: props.collection.id },
+    };
+  }
+
+  // Default to regular collection route for both regular and virtual collections
+  return {
+    name: ROUTES.COLLECTION,
+    params: { collection: props.collection.id },
+  };
+};
 </script>
 
 <template>
   <v-list-item
-    v-bind="{
-      ...(withLink && collection
-        ? {
-            to: {
-              name: ROUTES.COLLECTION,
-              params: { collection: collection.id },
-            },
-          }
-        : {}),
-    }"
+    v-bind="getCollectionRoute()"
     :value="collection.id"
     rounded
     density="compact"

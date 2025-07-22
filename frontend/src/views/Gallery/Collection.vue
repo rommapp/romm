@@ -26,7 +26,8 @@ const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const collectionsStore = storeCollections();
-const { allCollections, virtualCollections } = storeToRefs(collectionsStore);
+const { allCollections, virtualCollections, smartCollections } =
+  storeToRefs(collectionsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -35,6 +36,7 @@ const {
   currentPlatform,
   currentCollection,
   currentVirtualCollection,
+  currentSmartCollection,
   fetchingRoms,
   fetchTotalRoms,
 } = storeToRefs(romsStore);
@@ -190,9 +192,9 @@ onMounted(async () => {
           (collection) => collection.id === Number(routeCollectionId),
         );
 
-        // Check if the current platform is different or no ROMs have been loaded
+        // Check if the current collection is different or no ROMs have been loaded
         if (
-          (currentVirtualCollection.value?.id !== routeCollectionId ||
+          (currentCollection.value?.id !== Number(routeCollectionId) ||
             allRoms.value.length === 0) &&
           collection
         ) {
@@ -232,6 +234,34 @@ onMounted(async () => {
         }
 
         window.addEventListener("scroll", onScroll);
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
+
+  watch(
+    () => smartCollections.value,
+    async (collections) => {
+      if (
+        collections.length > 0 &&
+        collections.some(
+          (collection) => collection.id === Number(routeCollectionId),
+        )
+      ) {
+        const collection = collections.find(
+          (collection) => collection.id === Number(routeCollectionId),
+        );
+
+        if (
+          (currentSmartCollection.value?.id !== Number(routeCollectionId) ||
+            allRoms.value.length === 0) &&
+          collection
+        ) {
+          if (currentSmartCollection.value) resetGallery();
+          romsStore.setCurrentSmartCollection(collection);
+          document.title = `${collection.name}`;
+          await fetchRoms();
+        }
       }
     },
     { immediate: true }, // Ensure watcher is triggered immediately
@@ -285,6 +315,29 @@ onBeforeRouteUpdate(async (to, from) => {
         ) {
           romsStore.setCurrentCollection(null);
           romsStore.setCurrentVirtualCollection(collection);
+          document.title = `${collection.name}`;
+          await fetchRoms();
+        }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
+
+  watch(
+    () => smartCollections.value,
+    async (collections) => {
+      if (collections.length > 0) {
+        const collection = collections.find(
+          (collection) => collection.id === Number(routeCollectionId),
+        );
+
+        if (
+          (currentSmartCollection.value?.id !== Number(routeCollectionId) ||
+            allRoms.value.length === 0) &&
+          collection
+        ) {
+          if (currentSmartCollection.value) resetGallery();
+          romsStore.setCurrentSmartCollection(collection);
           document.title = `${collection.name}`;
           await fetchRoms();
         }

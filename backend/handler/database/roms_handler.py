@@ -178,6 +178,18 @@ class DBRomsHandler(DBBaseHandler):
             return query.filter(Rom.id.in_(v_collection.rom_ids))
         return query
 
+    def filter_by_smart_collection_id(
+        self, query: Query, session: Session, smart_collection_id: int
+    ):
+        smart_collection = (
+            session.query(Collection)
+            .filter(Collection.id == smart_collection_id)
+            .one_or_none()
+        )
+        if smart_collection:
+            return query.filter(Rom.id.in_(smart_collection.rom_ids))
+        return query
+
     def filter_by_search_term(self, query: Query, search_term: str):
         return query.filter(
             or_(
@@ -390,6 +402,7 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
+        smart_collection_id: int | None = None,
         search_term: str | None = None,
         matched: bool | None = None,
         favourite: bool | None = None,
@@ -419,6 +432,11 @@ class DBRomsHandler(DBBaseHandler):
         if virtual_collection_id:
             query = self.filter_by_virtual_collection_id(
                 query, session, virtual_collection_id
+            )
+
+        if smart_collection_id:
+            query = self.filter_by_smart_collection_id(
+                query, session, smart_collection_id
             )
 
         if search_term:

@@ -32,14 +32,22 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
     @click="navigationStore.switchActiveCollectionsDrawer"
   >
     <div class="d-flex flex-column align-center">
-      <v-icon :color="$route.name == 'collection' ? 'primary' : ''"
+      <v-icon
+        :color="
+          $route.name == 'collection' || $route.name == 'smart-collection'
+            ? 'primary'
+            : ''
+        "
         >mdi-bookmark-box-multiple</v-icon
       >
       <v-expand-transition>
         <span
           v-if="withTag"
           class="text-caption text-center"
-          :class="{ 'text-primary': $route.name == 'collection' }"
+          :class="{
+            'text-primary':
+              $route.name == 'collection' || $route.name == 'smart-collection',
+          }"
           >Collections</span
         >
       </v-expand-transition>

@@ -24,8 +24,28 @@ const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const romsStore = storeRoms();
 const collectionsStore = storeCollection();
-const { currentCollection } = storeToRefs(romsStore);
+const { currentCollection, currentVirtualCollection, currentSmartCollection } =
+  storeToRefs(romsStore);
 const navigationStore = storeNavigation();
+
+// Get the currently active collection (any type)
+const activeCollection = computed(() => {
+  return (
+    currentCollection.value ||
+    currentVirtualCollection.value ||
+    currentSmartCollection.value
+  );
+});
+
+// Check if the active collection is editable (only regular collections are editable for now)
+const isCollectionEditable = computed(() => {
+  return (
+    currentCollection.value &&
+    currentCollection.value.user__username === auth.user?.username &&
+    auth.scopes.includes("collections.write")
+  );
+});
+
 const imagePreviewUrl = ref<string | undefined>("");
 const removeCover = ref(false);
 const heartbeat = storeHeartbeat();
@@ -130,7 +150,7 @@ async function updateCollection() {
 
 <template>
   <v-navigation-drawer
-    v-if="currentCollection"
+    v-if="activeCollection"
     mobile
     floating
     width="500"
@@ -145,12 +165,7 @@ async function updateCollection() {
       <v-col style="max-width: 240px" cols="12">
         <div class="text-center justify-center align-center">
           <div class="position-absolute append-top-right mr-5">
-            <template
-              v-if="
-                currentCollection.user__username === auth.user?.username &&
-                auth.scopes.includes('collections.write')
-              "
-            >
+            <template v-if="isCollectionEditable">
               <v-btn
                 v-if="!isEditable"
                 :loading="updating"
@@ -182,10 +197,10 @@ async function updateCollection() {
             </template>
           </div>
           <collection-card
-            :key="currentCollection.updated_at"
+            :key="activeCollection.updated_at"
             :show-title="false"
             :with-link="false"
-            :collection="currentCollection"
+            :collection="activeCollection"
             :src="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
@@ -199,7 +214,7 @@ async function updateCollection() {
                   class="translucent-dark"
                   @click="
                     emitter?.emit('showSearchCoverDialog', {
-                      term: currentCollection.name as string,
+                      term: activeCollection.name as string,
                       aspectRatio: null,
                     })
                   "
@@ -240,23 +255,23 @@ async function updateCollection() {
           <div v-if="!isEditable">
             <div>
               <span class="text-h5 font-weight-bold pl-0">{{
-                currentCollection.name
+                activeCollection.name
               }}</span>
             </div>
             <div>
               <span class="text-subtitle-2">{{
-                currentCollection.description
+                activeCollection.description
               }}</span>
             </div>
             <v-chip
               class="mt-4"
               size="small"
-              :color="currentCollection.is_public ? 'primary' : ''"
+              :color="activeCollection.is_public ? 'primary' : ''"
               ><v-icon class="mr-1">{{
-                currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
+                activeCollection.is_public ? "mdi-lock-open" : "mdi-lock"
               }}</v-icon
               >{{
-                currentCollection.is_public
+                activeCollection.is_public
                   ? t("collection.public")
                   : t("collection.private")
               }}</v-chip
@@ -311,11 +326,11 @@ async function updateCollection() {
                 <v-chip size="small" class="mr-2 px-0" label>
                   <v-chip label>{{ field.label }}</v-chip
                   ><span class="px-2">{{
-                    currentCollection[
-                      field.key as keyof typeof currentCollection
+                    activeCollection[
+                      field.key as keyof typeof activeCollection
                     ]?.toString()
-                      ? currentCollection[
-                          field.key as keyof typeof currentCollection
+                      ? activeCollection[
+                          field.key as keyof typeof activeCollection
                         ]
                       : "N/A"
                   }}</span>
@@ -329,7 +344,7 @@ async function updateCollection() {
     <r-section
       v-if="
         auth.scopes.includes('collections.write') &&
-        currentCollection.user__username === auth.user?.username
+        activeCollection.user__username === auth.user?.username
       "
       icon="mdi-alert"
       icon-color="red"
@@ -345,7 +360,7 @@ async function updateCollection() {
             class="text-romm-red bg-toplayer ma-2"
             variant="flat"
             @click="
-              emitter?.emit('showDeleteCollectionDialog', currentCollection)
+              emitter?.emit('showDeleteCollectionDialog', activeCollection)
             "
           >
             <v-icon class="text-romm-red mr-2">mdi-delete</v-icon>
