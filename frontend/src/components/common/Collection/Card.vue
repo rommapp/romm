@@ -131,7 +131,15 @@ const collectionRoute = computed(() => {
     };
   }
 
-  // Default to regular collection route for both regular and virtual collections
+  // Check if it's a virtual collection (has type property)
+  if ("type" in props.collection) {
+    return {
+      name: ROUTES.VIRTUAL_COLLECTION,
+      params: { collection: props.collection.id },
+    };
+  }
+
+  // Default to regular collection route
   return {
     name: ROUTES.COLLECTION,
     params: { collection: props.collection.id },

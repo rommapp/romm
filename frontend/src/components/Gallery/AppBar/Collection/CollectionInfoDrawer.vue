@@ -24,17 +24,12 @@ const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 const romsStore = storeRoms();
 const collectionsStore = storeCollection();
-const { currentCollection, currentVirtualCollection, currentSmartCollection } =
-  storeToRefs(romsStore);
+const { currentCollection, currentSmartCollection } = storeToRefs(romsStore);
 const navigationStore = storeNavigation();
 
 // Get the currently active collection (any type)
 const activeCollection = computed(() => {
-  return (
-    currentCollection.value ||
-    currentVirtualCollection.value ||
-    currentSmartCollection.value
-  );
+  return currentCollection.value || currentSmartCollection.value;
 });
 
 // Check if the active collection is editable (only regular collections are editable for now)
