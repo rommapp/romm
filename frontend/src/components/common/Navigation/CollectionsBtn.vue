@@ -34,7 +34,9 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
     <div class="d-flex flex-column align-center">
       <v-icon
         :color="
-          $route.name == 'collection' || $route.name == 'smart-collection'
+          $route.name == 'collection' ||
+          $route.name == 'virtual-collection' ||
+          $route.name == 'smart-collection'
             ? 'primary'
             : ''
         "
@@ -46,7 +48,9 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
           class="text-caption text-center"
           :class="{
             'text-primary':
-              $route.name == 'collection' || $route.name == 'smart-collection',
+              $route.name == 'collection' ||
+              $route.name == 'virtual-collection' ||
+              $route.name == 'smart-collection',
           }"
           >Collections</span
         >

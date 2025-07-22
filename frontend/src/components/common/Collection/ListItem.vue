@@ -28,18 +28,29 @@ const props = withDefaults(
 const getCollectionRoute = () => {
   if (!props.withLink || !props.collection) return {};
 
-  // Check if it's a smart collection (has filter_criteria property)
   if ("filter_criteria" in props.collection) {
     return {
-      name: ROUTES.SMART_COLLECTION,
-      params: { collection: props.collection.id },
+      to: {
+        name: ROUTES.SMART_COLLECTION,
+        params: { collection: props.collection.id },
+      },
     };
   }
 
-  // Default to regular collection route for both regular and virtual collections
+  if ("type" in props.collection) {
+    return {
+      to: {
+        name: ROUTES.VIRTUAL_COLLECTION,
+        params: { collection: props.collection.id },
+      },
+    };
+  }
+
   return {
-    name: ROUTES.COLLECTION,
-    params: { collection: props.collection.id },
+    to: {
+      name: ROUTES.COLLECTION,
+      params: { collection: props.collection.id },
+    },
   };
 };
 </script>

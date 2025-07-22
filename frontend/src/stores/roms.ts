@@ -120,22 +120,33 @@ export default defineStore("roms", {
       this.fetchingRoms = true;
 
       return new Promise((resolve, reject) => {
+        // Prepare the ROM query parameters
+        let queryParams = {
+          ...galleryFilter.$state,
+          platformId:
+            this.currentPlatform?.id ??
+            galleryFilter.selectedPlatform?.id ??
+            null,
+          collectionId: this.currentCollection?.id ?? null,
+          virtualCollectionId: this.currentVirtualCollection?.id ?? null,
+          limit: this.fetchLimit,
+          offset: this.fetchOffset,
+          orderBy: this.orderBy,
+          orderDir: this.orderDir,
+          groupByMetaId: this._shouldGroupRoms(),
+        };
+
+        // If we're on a smart collection, apply its filter criteria instead of passing collection ID
+        if (this.currentSmartCollection) {
+          const criteria = this.currentSmartCollection.filter_criteria;
+          queryParams = {
+            ...queryParams,
+            ...criteria, // Apply all filter criteria from the smart collection
+          };
+        }
+
         romApi
-          .getRoms({
-            ...galleryFilter.$state,
-            platformId:
-              this.currentPlatform?.id ??
-              galleryFilter.selectedPlatform?.id ??
-              null,
-            collectionId: this.currentCollection?.id ?? null,
-            virtualCollectionId: this.currentVirtualCollection?.id ?? null,
-            smartCollectionId: this.currentSmartCollection?.id ?? null,
-            limit: this.fetchLimit,
-            offset: this.fetchOffset,
-            orderBy: this.orderBy,
-            orderDir: this.orderDir,
-            groupByMetaId: this._shouldGroupRoms(),
-          })
+          .getRoms(queryParams)
           .then(({ data: { items, offset, total, char_index } }) => {
             if (!concat || this.fetchOffset === 0) {
               this.allRoms = items;

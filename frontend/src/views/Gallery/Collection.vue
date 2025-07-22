@@ -177,95 +177,109 @@ function resetGallery() {
 
 onMounted(async () => {
   const routeCollectionId = route.params.collection;
+  const isVirtualCollectionRoute = route.name === "virtual-collection";
+  const isSmartCollectionRoute = route.name === "smart-collection";
+  const isRegularCollectionRoute = route.name === "collection";
   currentPlatform.value = null;
 
-  watch(
-    () => allCollections.value,
-    async (collections) => {
-      if (
-        collections.length > 0 &&
-        collections.some(
-          (collection) => collection.id === Number(routeCollectionId),
-        )
-      ) {
-        const collection = collections.find(
-          (collection) => collection.id === Number(routeCollectionId),
-        );
-
-        // Check if the current collection is different or no ROMs have been loaded
+  // Watch regular collections only if we're on the regular collection route
+  if (isRegularCollectionRoute) {
+    watch(
+      () => allCollections.value,
+      async (collections) => {
         if (
-          (currentCollection.value?.id !== Number(routeCollectionId) ||
-            allRoms.value.length === 0) &&
-          collection
+          collections.length > 0 &&
+          collections.some(
+            (collection) => collection.id === Number(routeCollectionId),
+          )
         ) {
-          if (currentCollection.value) resetGallery();
-          romsStore.setCurrentCollection(collection);
-          document.title = `${collection.name}`;
-          await fetchRoms();
+          const collection = collections.find(
+            (collection) => collection.id === Number(routeCollectionId),
+          );
+
+          // Check if the current collection is different or no ROMs have been loaded
+          if (
+            (currentCollection.value?.id !== Number(routeCollectionId) ||
+              allRoms.value.length === 0) &&
+            collection
+          ) {
+            if (currentCollection.value) resetGallery();
+            romsStore.setCurrentCollection(collection);
+            document.title = `${collection.name}`;
+            await fetchRoms();
+          }
+
+          window.addEventListener("scroll", onScroll);
         }
+      },
+      { immediate: true }, // Ensure watcher is triggered immediately
+    );
+  }
 
-        window.addEventListener("scroll", onScroll);
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
-
-  watch(
-    () => virtualCollections.value,
-    async (collections) => {
-      if (
-        collections.length > 0 &&
-        collections.some((collection) => collection.id === routeCollectionId)
-      ) {
-        const collection = collections.find(
-          (collection) => collection.id === routeCollectionId,
-        );
-
-        // Check if the current platform is different or no ROMs have been loaded
+  // Watch virtual collections only if we're on the virtual collection route
+  if (isVirtualCollectionRoute) {
+    watch(
+      () => virtualCollections.value,
+      async (collections) => {
         if (
-          (currentVirtualCollection.value?.id !== routeCollectionId ||
-            allRoms.value.length === 0) &&
-          collection
+          collections.length > 0 &&
+          collections.some((collection) => collection.id === routeCollectionId)
         ) {
-          if (currentVirtualCollection.value) resetGallery();
-          romsStore.setCurrentVirtualCollection(collection);
-          document.title = `${collection.name}`;
-          await fetchRoms();
+          const collection = collections.find(
+            (collection) => collection.id === routeCollectionId,
+          );
+
+          // Check if the current platform is different or no ROMs have been loaded
+          if (
+            (currentVirtualCollection.value?.id !== routeCollectionId ||
+              allRoms.value.length === 0) &&
+            collection
+          ) {
+            if (currentVirtualCollection.value) resetGallery();
+            romsStore.setCurrentVirtualCollection(collection);
+            document.title = `${collection.name}`;
+            await fetchRoms();
+          }
+
+          window.addEventListener("scroll", onScroll);
         }
+      },
+      { immediate: true }, // Ensure watcher is triggered immediately
+    );
+  }
 
-        window.addEventListener("scroll", onScroll);
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
-
-  watch(
-    () => smartCollections.value,
-    async (collections) => {
-      if (
-        collections.length > 0 &&
-        collections.some(
-          (collection) => collection.id === Number(routeCollectionId),
-        )
-      ) {
-        const collection = collections.find(
-          (collection) => collection.id === Number(routeCollectionId),
-        );
-
+  // Watch smart collections only if we're on the smart collection route
+  if (isSmartCollectionRoute) {
+    watch(
+      () => smartCollections.value,
+      async (collections) => {
         if (
-          (currentSmartCollection.value?.id !== Number(routeCollectionId) ||
-            allRoms.value.length === 0) &&
-          collection
+          collections.length > 0 &&
+          collections.some(
+            (collection) => collection.id === Number(routeCollectionId),
+          )
         ) {
-          if (currentSmartCollection.value) resetGallery();
-          romsStore.setCurrentSmartCollection(collection);
-          document.title = `${collection.name}`;
-          await fetchRoms();
+          const collection = collections.find(
+            (collection) => collection.id === Number(routeCollectionId),
+          );
+
+          if (
+            (currentSmartCollection.value?.id !== Number(routeCollectionId) ||
+              allRoms.value.length === 0) &&
+            collection
+          ) {
+            if (currentSmartCollection.value) resetGallery();
+            romsStore.setCurrentSmartCollection(collection);
+            document.title = `${collection.name}`;
+            await fetchRoms();
+          }
+
+          window.addEventListener("scroll", onScroll);
         }
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
+      },
+      { immediate: true }, // Ensure watcher is triggered immediately
+    );
+  }
 });
 
 onBeforeRouteUpdate(async (to, from) => {
@@ -274,77 +288,91 @@ onBeforeRouteUpdate(async (to, from) => {
   if (to.path === from.path) return true;
 
   const routeCollectionId = to.params.collection;
+  const isVirtualCollectionRoute = to.name === "virtual-collection";
+  const isSmartCollectionRoute = to.name === "smart-collection";
+  const isRegularCollectionRoute = to.name === "collection";
 
-  watch(
-    () => allCollections.value,
-    async (collections) => {
-      if (collections.length > 0) {
-        const collection = collections.find(
-          (collection) => collection.id === Number(routeCollectionId),
-        );
+  // Handle regular collections only if we're on the regular collection route
+  if (isRegularCollectionRoute) {
+    watch(
+      () => allCollections.value,
+      async (collections) => {
+        if (collections.length > 0) {
+          const collection = collections.find(
+            (collection) => collection.id === Number(routeCollectionId),
+          );
 
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
-        if (
-          (currentCollection.value?.id !== Number(routeCollectionId) ||
-            allRoms.value.length === 0) &&
-          collection
-        ) {
-          if (currentCollection.value) resetGallery();
-          romsStore.setCurrentCollection(collection);
-          document.title = `${collection.name}`;
-          await fetchRoms();
+          // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+          if (
+            (currentCollection.value?.id !== Number(routeCollectionId) ||
+              allRoms.value.length === 0) &&
+            collection
+          ) {
+            if (currentCollection.value) resetGallery();
+            romsStore.setCurrentCollection(collection);
+            document.title = `${collection.name}`;
+            await fetchRoms();
+          }
         }
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
+      },
+      { immediate: true }, // Ensure watcher is triggered immediately
+    );
+  }
 
-  watch(
-    () => virtualCollections.value,
-    async (collections) => {
-      if (collections.length > 0) {
-        const collection = collections.find(
-          (collection) => collection.id === routeCollectionId,
-        );
+  // Handle virtual collections only if we're on the virtual collection route
+  if (isVirtualCollectionRoute) {
+    watch(
+      () => virtualCollections.value,
+      async (collections) => {
+        if (collections.length > 0) {
+          const collection = collections.find(
+            (collection) => collection.id === routeCollectionId,
+          );
 
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
-        if (
-          (currentVirtualCollection.value?.id !== routeCollectionId ||
-            allRoms.value.length === 0) &&
-          collection
-        ) {
-          romsStore.setCurrentCollection(null);
-          romsStore.setCurrentVirtualCollection(collection);
-          document.title = `${collection.name}`;
-          await fetchRoms();
+          // Only trigger fetchRoms if switching platforms or ROMs are not loaded
+          if (
+            (currentVirtualCollection.value?.id !== routeCollectionId ||
+              allRoms.value.length === 0) &&
+            collection
+          ) {
+            romsStore.setCurrentCollection(null);
+            romsStore.setCurrentVirtualCollection(collection);
+            document.title = `${collection.name}`;
+            await fetchRoms();
+          }
         }
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
+      },
+      { immediate: true }, // Ensure watcher is triggered immediately
+    );
+  }
 
-  watch(
-    () => smartCollections.value,
-    async (collections) => {
-      if (collections.length > 0) {
-        const collection = collections.find(
-          (collection) => collection.id === Number(routeCollectionId),
-        );
+  // Handle smart collections only if we're on the smart collection route
+  if (isSmartCollectionRoute) {
+    watch(
+      () => smartCollections.value,
+      async (collections) => {
+        if (collections.length > 0) {
+          const collection = collections.find(
+            (collection) => collection.id === Number(routeCollectionId),
+          );
 
-        if (
-          (currentSmartCollection.value?.id !== Number(routeCollectionId) ||
-            allRoms.value.length === 0) &&
-          collection
-        ) {
-          if (currentSmartCollection.value) resetGallery();
-          romsStore.setCurrentSmartCollection(collection);
-          document.title = `${collection.name}`;
-          await fetchRoms();
+          if (
+            (currentSmartCollection.value?.id !== Number(routeCollectionId) ||
+              allRoms.value.length === 0) &&
+            collection
+          ) {
+            if (currentSmartCollection.value) resetGallery();
+            romsStore.setCurrentCollection(null);
+            romsStore.setCurrentVirtualCollection(null);
+            romsStore.setCurrentSmartCollection(collection);
+            document.title = `${collection.name}`;
+            await fetchRoms();
+          }
         }
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
+      },
+      { immediate: true }, // Ensure watcher is triggered immediately
+    );
+  }
 });
 
 onBeforeUnmount(() => {
@@ -415,7 +443,14 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="allCollections.length > 0 && !fetchingRoms" />
+        <empty-game
+          v-if="
+            (allCollections.length > 0 ||
+              virtualCollections.length > 0 ||
+              smartCollections.length > 0) &&
+            !fetchingRoms
+          "
+        />
       </template>
     </template>
   </template>

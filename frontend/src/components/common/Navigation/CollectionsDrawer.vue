@@ -112,7 +112,7 @@ function onClose() {
     <template #prepend>
       <v-text-field
         ref="textFieldRef"
-        aria-label="Search collection"
+        aria-label="Search collections"
         :tabindex="tabIndex"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
