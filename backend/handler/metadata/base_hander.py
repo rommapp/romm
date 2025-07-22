@@ -8,7 +8,7 @@ from typing import Final, NotRequired, TypedDict
 
 from handler.redis_handler import async_cache, sync_cache
 from logger.logger import log
-from tasks.update_switch_titledb import (
+from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
     update_switch_titledb_task,

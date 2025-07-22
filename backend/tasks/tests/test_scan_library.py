@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from handler.scan_handler import MetadataSource, ScanType
-from tasks.scan_library import ScanLibraryTask, scan_library_task
+from tasks.scheduled.scan_library import ScanLibraryTask, scan_library_task
 
 
 class TestScanLibraryTask:

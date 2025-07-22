@@ -15,31 +15,6 @@ const defaultHeartbeat: Heartbeat = {
     VERSION: "0.0.0",
     SHOW_SETUP_WIZARD: false,
   },
-  WATCHER: {
-    ENABLED: false,
-    TITLE: "",
-    MESSAGE: "",
-  },
-  SCHEDULER: {
-    RESCAN: {
-      ENABLED: false,
-      TITLE: "",
-      MESSAGE: "",
-      CRON: "",
-    },
-    SWITCH_TITLEDB: {
-      ENABLED: false,
-      TITLE: "",
-      MESSAGE: "",
-      CRON: "",
-    },
-    LAUNCHBOX_METADATA: {
-      ENABLED: false,
-      TITLE: "",
-      MESSAGE: "",
-      CRON: "",
-    },
-  },
   METADATA_SOURCES: {
     ANY_SOURCE_ENABLED: false,
     IGDB_API_ENABLED: false,

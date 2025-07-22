@@ -19,11 +19,13 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
     def __init__(self):
         super().__init__(
             func="tasks.update_switch_titledb.update_switch_titledb_task.run",
-            description="switch titledb update",
+            description="Updates the Nintendo Switch TitleDB file",
             enabled=ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
             cron_string=SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
             url="https://raw.githubusercontent.com/blawar/titledb/master/US.en.json",
         )
+        self.manual_run = True
+        self.title = "Scheduled Switch TitleDB update"
 
     @initialize_context()
     async def run(self, force: bool = False) -> None:

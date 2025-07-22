@@ -2,13 +2,13 @@ import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from tasks.tasks import RemoteFilePullTask
-from tasks.update_switch_titledb import (
+from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
     UpdateSwitchTitleDBTask,
     update_switch_titledb_task,
 )
+from tasks.tasks import RemoteFilePullTask
 
 
 class TestUpdateSwitchTitleDBTask:

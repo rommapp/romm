@@ -2,19 +2,11 @@ from config import (
     DISABLE_EMULATOR_JS,
     DISABLE_RUFFLE_RS,
     DISABLE_USERPASS_LOGIN,
-    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    ENABLE_SCHEDULED_RESCAN,
-    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
-    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     HASHEOUS_API_ENABLED,
     LAUNCHBOX_API_ENABLED,
     OIDC_ENABLED,
     OIDC_PROVIDER,
     PLAYMATCH_API_ENABLED,
-    RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
-    SCHEDULED_RESCAN_CRON,
-    SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
-    SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
     TGDB_API_ENABLED,
     UPLOAD_TIMEOUT,
 )
@@ -67,31 +59,6 @@ async def heartbeat() -> HeartbeatResponse:
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),
-        },
-        "WATCHER": {
-            "ENABLED": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-            "TITLE": "Rescan on filesystem change",
-            "MESSAGE": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
-        },
-        "SCHEDULER": {
-            "RESCAN": {
-                "ENABLED": ENABLE_SCHEDULED_RESCAN,
-                "CRON": SCHEDULED_RESCAN_CRON,
-                "TITLE": "Scheduled rescan",
-                "MESSAGE": "Rescans the entire library",
-            },
-            "SWITCH_TITLEDB": {
-                "ENABLED": ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,  # noqa
-                "CRON": SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
-                "TITLE": "Scheduled Switch TitleDB update",
-                "MESSAGE": "Updates the Nintendo Switch TitleDB file",
-            },
-            "LAUNCHBOX_METADATA": {
-                "ENABLED": ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
-                "CRON": SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
-                "TITLE": "Scheduled LaunchBox metadata update",
-                "MESSAGE": "Updates the LaunchBox metadata store",
-            },
         },
         "EMULATION": {
             "DISABLE_EMULATOR_JS": DISABLE_EMULATOR_JS,
