@@ -31,8 +31,8 @@ class CleanupOrphanedResourcesTask:
         }
         log.debug(f"Found {len(existing_platforms)} platforms in database")
 
-        for platform_dir in os.listdir(roms_path):
-            platform_path = os.path.join(roms_path, platform_dir)
+        for platform_dir in os.listdir(roms_resources_path):
+            platform_path = os.path.join(roms_resources_path, platform_dir)
             if not os.path.isdir(platform_path):
                 continue
 
