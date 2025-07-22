@@ -126,6 +126,7 @@ app.include_router(raw.router, prefix="/api")
 app.include_router(screenshots.router, prefix="/api")
 app.include_router(firmware.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")
+app.include_router(collections.smart_collections_router, prefix="/api")
 
 app.mount("/ws", socket_handler.socket_app)
 

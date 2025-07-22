@@ -85,6 +85,11 @@ onBeforeMount(async () => {
       });
   }
 
+  // Fetch smart collections
+  await collectionsStore.fetchSmartCollections().catch((error) => {
+    console.error("Failed to fetch smart collections:", error);
+  });
+
   navigationStore.reset();
 });
 </script>

@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
-import storeCollections from "@/stores/collections";
+import storeCollections, {
+  type Collection,
+  type VirtualCollection,
+} from "@/stores/collections";
 import { views } from "@/utils";
 import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
 import { ref } from "vue";
+import { storeToRefs } from "pinia";
 
 // Props
 const { t } = useI18n();
 const collections = storeCollections();
+const { allCollectionsUnified } = storeToRefs(collections);
 const storedCollections = localStorage.getItem("settings.gridCollections");
 const gridCollections = ref(
   isNull(storedCollections) ? false : storedCollections === "true",
@@ -55,8 +60,8 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
         no-gutters
       >
         <v-col
-          v-for="collection in collections.allCollections"
-          :key="collection.name"
+          v-for="collection in allCollectionsUnified"
+          :key="`${'filter_criteria' in collection ? 'smart' : 'regular'}-${collection.id}`"
           class="pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"

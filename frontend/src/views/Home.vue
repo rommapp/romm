@@ -22,7 +22,8 @@ const { recentRoms, continuePlayingRoms: recentPlayedRoms } =
 const platformsStore = storePlatforms();
 const { filledPlatforms } = storeToRefs(platformsStore);
 const collectionsStore = storeCollections();
-const { allCollections, virtualCollections } = storeToRefs(collectionsStore);
+const { allCollections, virtualCollections, smartCollections } =
+  storeToRefs(collectionsStore);
 
 function getSettingValue(key: string, defaultValue: boolean = true): boolean {
   const stored = localStorage.getItem(`settings.${key}`);
@@ -122,7 +123,9 @@ onMounted(async () => {
       class="ma-2"
     />
     <collections
-      v-if="allCollections.length > 0 && showCollections"
+      v-if="
+        allCollections.length + smartCollections.length > 0 && showCollections
+      "
       class="ma-2"
     />
     <virtual-collections

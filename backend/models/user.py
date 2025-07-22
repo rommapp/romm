@@ -62,6 +62,9 @@ class User(BaseModel, SimpleUser):
     collections: Mapped[list[Collection]] = relationship(
         lazy="select", back_populates="user"
     )
+    smart_collections: Mapped[list] = relationship(
+        "SmartCollection", lazy="select", back_populates="user"
+    )
 
     @classmethod
     def kiosk_mode_user(cls) -> User:

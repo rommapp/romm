@@ -7,6 +7,44 @@ export type UpdatedCollection = Collection & {
   url_cover?: string | null;
 };
 
+// Smart Collection types
+export interface SmartCollectionSchema {
+  id: number;
+  name: string;
+  description: string | null;
+  filter_criteria: Record<string, any>;
+  filter_summary: string;
+  rom_count: number;
+  path_cover_small: string | null;
+  path_cover_large: string | null;
+  url_cover: string | null;
+  user_id: number;
+  user__username: string;
+  is_public: boolean;
+  is_smart: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSmartCollectionParams {
+  name: string;
+  description?: string;
+  filter_criteria: Record<string, any>;
+  url_cover?: string;
+  is_public?: boolean;
+  artwork?: File;
+}
+
+export interface UpdateSmartCollectionParams {
+  name?: string;
+  description?: string;
+  filter_criteria?: Record<string, any>;
+  url_cover?: string;
+  is_public?: boolean;
+  remove_cover?: boolean;
+  artwork?: File;
+}
+
 export const collectionApi = api;
 
 async function createCollection({
@@ -72,6 +110,82 @@ async function deleteCollection({
   return api.delete(`/collections/${collection.id}`);
 }
 
+// Smart Collection functions
+async function getSmartCollections(): Promise<{
+  data: SmartCollectionSchema[];
+}> {
+  return api.get("/smart-collections");
+}
+
+async function getSmartCollection(
+  id: number,
+): Promise<{ data: SmartCollectionSchema }> {
+  return api.get(`/smart-collections/${id}`);
+}
+
+async function getSmartCollectionRoms(
+  id: number,
+): Promise<{ data: { items: any[]; total: number } }> {
+  return api.get(`/smart-collections/${id}/roms`);
+}
+
+async function createSmartCollection(
+  params: CreateSmartCollectionParams,
+): Promise<{ data: SmartCollectionSchema }> {
+  const formData = new FormData();
+
+  formData.append("name", params.name);
+  if (params.description) formData.append("description", params.description);
+  formData.append("filter_criteria", JSON.stringify(params.filter_criteria));
+  if (params.url_cover) formData.append("url_cover", params.url_cover);
+  formData.append("is_public", String(params.is_public || false));
+  if (params.artwork) formData.append("artwork", params.artwork);
+
+  return api.post("/smart-collections", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+}
+
+async function updateSmartCollection(
+  id: number,
+  params: UpdateSmartCollectionParams,
+): Promise<{ data: SmartCollectionSchema }> {
+  const formData = new FormData();
+
+  if (params.name) formData.append("name", params.name);
+  if (params.description !== undefined)
+    formData.append("description", params.description);
+  if (params.filter_criteria)
+    formData.append("filter_criteria", JSON.stringify(params.filter_criteria));
+  if (params.url_cover !== undefined)
+    formData.append("url_cover", params.url_cover);
+  if (params.is_public !== undefined)
+    formData.append("is_public", String(params.is_public));
+  if (params.remove_cover)
+    formData.append("remove_cover", String(params.remove_cover));
+  if (params.artwork) formData.append("artwork", params.artwork);
+
+  return api.put(`/smart-collections/${id}`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    params: {
+      ...(params.remove_cover !== undefined && {
+        remove_cover: params.remove_cover,
+      }),
+      ...(params.is_public !== undefined && { is_public: params.is_public }),
+    },
+  });
+}
+
+async function deleteSmartCollection(
+  id: number,
+): Promise<{ data: { msg: string } }> {
+  return api.delete(`/smart-collections/${id}`);
+}
+
 export default {
   createCollection,
   getCollections,
@@ -80,4 +194,11 @@ export default {
   getVirtualCollection,
   updateCollection,
   deleteCollection,
+  // Smart Collection functions
+  getSmartCollections,
+  getSmartCollection,
+  getSmartCollectionRoms,
+  createSmartCollection,
+  updateSmartCollection,
+  deleteSmartCollection,
 };
