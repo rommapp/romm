@@ -21,8 +21,8 @@ class CleanupOrphanedResourcesTask:
 
         removed_count = 0
 
-        roms_path = os.path.join(RESOURCES_BASE_PATH, "roms")
-        if not os.path.exists(RESOURCES_BASE_PATH) or not os.path.exists(roms_path):
+        roms_resources_path = os.path.join(RESOURCES_BASE_PATH, "roms")
+        if not os.path.exists(roms_resources_path):
             log.info("Resources path does not exist, skipping cleanup")
             return
 
