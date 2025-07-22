@@ -154,8 +154,8 @@ onMounted(async () => {
                 <input
                   type="color"
                   v-model="backgroundColor"
-                  @input="onBackgroundColorChange"
-                  class="color-picker h-100 w-50 text-right"
+                  @change="onBackgroundColorChange"
+                  class="h-100 w-50 text-right"
                   :title="t('play.select-background-color')"
                 />
               </v-col>
