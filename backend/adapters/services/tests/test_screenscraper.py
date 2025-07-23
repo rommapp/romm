@@ -523,7 +523,7 @@ class TestScreenScraperServiceUnit:
     @pytest.mark.asyncio
     async def test_search_games_no_results(self, service):
         """Test search_games when no games are found."""
-        mock_response: dict[str, dict] = {"response": {"jeux": [{}]}}
+        mock_response: dict[str, dict] = {"response": {"jeux": []}}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.search_games(term="NonexistentGame")
