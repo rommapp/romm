@@ -1,0 +1,487 @@
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963bb3694d3753ef-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 13:59:52 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ch1dBE3F3onEyQsvqw7uMSOLJPAJUqZQuLoXkvlAAnV97ujBgHHY9aeY1WVBZ1zFpKxvWPeY0WkwRMvUL9OdRm0KKeSWLBLBR%2BBgIfM%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"errors":["Invalid key format"]}'
+      headers:
+        CF-RAY:
+          - 963bb36a1cbea1e0-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "49"
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:59:52 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=okSHvs6tHx%2FRv2pMcOJbM19zLD%2BpTZ2IkZFNgkezH6FxtxFRjJ9vzkVLUIV0PVeIcgk4%2Bm9ULssW3m27ClxhKQ8DhH4stySQwcPyGSsZWPVh"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=i4eosftvg3bhn5j1fus4ajomdd; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 13:59:52 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        WWW-Authenticate:
+          - Bearer
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963bb4038de1a235-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 14:00:17 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=eu0Z14X7u66upRbLT1quhB9e9riOTQ7dXdshXeGWep4Bu6MFzdREIjBS8yyOPGZdLnGp2K53Dns0SniDis4%2FSYhRKFGlQ0pa%2FS9wlAs%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"status":404,"errors":["Game not found"]}'
+      headers:
+        CF-RAY:
+          - 963bb4046a53ab3d-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 14:00:17 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Vh3fPYAnnmgibA6aDJthL7R0mdV6qi%2F7AD7LtZ%2BWL7doKjnNkdeI%2FaEMxIG581WS7CrRnIgLJimyMs47Usr3WQS65kAt8ksFXcocO22gyu1d"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=tkpigi0q5pm95srra031mm08of; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 14:00:17 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 404
+        message: Not Found
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963bb92b8947a217-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 14:03:48 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=8mxiNNz85Kr44gfZgKbwlWYuDE2IvDz4m36bMoAz4ObA%2BDmmAxF8kXFsVkW1djUFbKupjS6NorJHN%2BxVUg46Pl4IoNO3OIHpBvMswBs%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"errors":["Invalid key format"]}'
+      headers:
+        CF-RAY:
+          - 963bb92c5cd636b1-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "49"
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 14:03:48 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ZeTqedMusPeyeJlzc1AsaWcnT2bohu%2FaHoTGXirK7w9%2Fgq3DZlCFeb5%2F4pYklrIkYe7LpIzUdNqD73G6YrP4DIAq4LuK0%2FBIsptN1rIRPqyG"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=l6600cbte3ak61eshc0gf1mj1i; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 14:03:48 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        WWW-Authenticate:
+          - Bearer
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963bb9770d0fab3b-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 14:04:00 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=uvvKly%2FYGFL6vChpDFX3uMcTAsiOeGWEAql%2FZZbZe87Brq3J0klL77pgazlvmgLHfI9tJWE4bcAVF3qE5gwJMV6mdEkM6FZqL3jWpJk%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"status":404,"errors":["Game not found"]}'
+      headers:
+        CF-RAY:
+          - 963bb97848ef53fb-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 14:04:00 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=etAsRH%2FDT3yIDOQxfvpkX0at5cWVwfR1RtiAt25n44lPM9cBKxCykb9FTBUvCoLKKwTcffxA7iTCFe%2FQfsA9ORd2t8suKL53jhvxUgEKc3xu"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=r9ojdsaqa56ekpe294s5pioa7v; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 14:04:00 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 404
+        message: Not Found
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963bbb53bbeda1d8-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 14:05:16 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=KQhQcauvvT5L6prthgAbtFSgLD2GYR018YXcmmDHoBU9UkmQKX9VOKMq9RlfJ1I2Rzy9AI1nRex2QTUTEoSz7dpZOWrJ2o0Rk0%2BDQ28%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"status":404,"errors":["Game not found"]}'
+      headers:
+        CF-RAY:
+          - 963bbb548a625467-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 14:05:16 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Ls7pB5VkDglRzmJm39FkeS9jFm8DleyV1fhgmtKi8VmvlUbQA6pDXIT7uDwImRttih7sW7Rp8PNHfjpFyOrGMe4Ami5KiTdPgfVlxOQVZKI2"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=8isnvjts9e1sn7a3d562d5lgd2; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 14:05:16 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 404
+        message: Not Found
+version: 1

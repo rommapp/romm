@@ -1,0 +1,55 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.mobygames.com/v1/games?format=id&limit=5
+    response:
+      body:
+        string: '{"games":[1,2,3,4,5]}
+
+          '
+      headers:
+        CF-RAY:
+          - 963b8aced955a202-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Security-Policy:
+          - frame-ancestors 'none';
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:32:09 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Ratelimit-Limit:
+          - "720"
+        Ratelimit-Policy:
+          - 1;w=1, 720;w=3600
+        Ratelimit-Remaining:
+          - "311"
+        Ratelimit-Reset:
+          - "1671"
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=7WqR9E5idJevIDcTjt%2F9tbyCEpUuxCRu1EYJXEDPq9H8sAY2WpKuB%2FNsY6GRPrwcG34ZFlJsQUGFSRSDPUWMyR2IqhDl5NLRLIK35js%2B"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - session-www=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxx;
+            HttpOnly; SameSite=Lax; Path=/; Domain=mobygames.com
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Cookie
+        X-Frame-Options:
+          - DENY
+        X-Xss-Protection:
+          - 1; mode=block
+      status:
+        code: 200
+        message: OK
+version: 1

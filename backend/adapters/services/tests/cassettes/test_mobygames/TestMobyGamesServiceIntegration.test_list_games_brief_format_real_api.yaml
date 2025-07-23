@@ -1,0 +1,59 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.mobygames.com/v1/games?format=brief&limit=3
+    response:
+      body:
+        string:
+          '{"games":[{"game_id":1,"moby_url":"https://www.mobygames.com/game/1/the-x-files-game/","title":"The
+          X-Files Game"},{"game_id":2,"moby_url":"https://www.mobygames.com/game/2/who-framed-roger-rabbit/","title":"Who
+          Framed Roger Rabbit"},{"game_id":3,"moby_url":"https://www.mobygames.com/game/3/wing-commander/","title":"Wing
+          Commander"}]}
+
+          '
+      headers:
+        CF-RAY:
+          - 963b8a9f79ca36a0-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Security-Policy:
+          - frame-ancestors 'none';
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:32:01 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Ratelimit-Limit:
+          - "720"
+        Ratelimit-Policy:
+          - 1;w=1, 720;w=3600
+        Ratelimit-Remaining:
+          - "314"
+        Ratelimit-Reset:
+          - "1679"
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=mcmYDbCrD3jPELg2NLm%2BjYkbXdj33QDYigpwtKqeA5jslmTS%2Fn%2BWLh1BovEFmT7XNA%2F6KZdRdXLFbX1dInGwdHUy8bZo%2B9MNYZPzOogS"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - session-www=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxx;
+            HttpOnly; SameSite=Lax; Path=/; Domain=mobygames.com
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Cookie
+        X-Frame-Options:
+          - DENY
+        X-Xss-Protection:
+          - 1; mode=block
+      status:
+        code: 200
+        message: OK
+version: 1

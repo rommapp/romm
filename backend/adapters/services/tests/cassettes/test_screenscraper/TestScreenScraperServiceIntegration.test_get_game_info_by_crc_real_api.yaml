@@ -1,0 +1,38 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.screenscraper.fr/api2/jeuInfos.php?crc=abc123&systemeid=1
+    response:
+      body:
+        string: "Champ crc, md5 ou sha1 erron\xE9  "
+      headers:
+        Access-Control-Allow-Headers:
+          - X-Requested-With
+        Access-Control-Allow-Methods:
+          - GET
+        Access-Control-Allow-Origin:
+          - "*"
+        Cache-Control:
+          - no-cache, must-revalidate
+        Connection:
+          - keep-alive
+        Content-Type:
+          - application/json; charset=utf-8
+        Date:
+          - Wed, 23 Jul 2025 03:46:42 GMT
+        Expires:
+          - "0"
+        Pragma:
+          - no-cache
+        Server:
+          - nginx/1.14.2
+        Set-Cookie:
+          - SESSID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Transfer-Encoding:
+          - chunked
+      status:
+        code: 400
+        message: Bad Request
+version: 1
