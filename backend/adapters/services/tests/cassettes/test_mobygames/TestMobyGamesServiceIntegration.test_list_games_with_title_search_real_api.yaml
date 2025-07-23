@@ -1,0 +1,203 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.mobygames.com/v1/games?title=Sonic&format=normal&limit=5
+    response:
+      body:
+        string:
+          '{"games":[{"alternate_titles":[],"description":"<p>The Sonic &amp;
+          Knuckles Collection contains three games ported from the Sega Genesis:</p>\n<ul>\n<li><a
+          href=\"https://www.mobygames.com/game/6612/sonic-the-hedgehog-3/\">Sonic the
+          Hedgehog 3</a></li>\n<li><a href=\"https://www.mobygames.com/game/6614/sonic-knuckles/\">Sonic
+          &amp; Knuckles</a></li>\n<li><em>Sonic 3 &amp; Knuckles</em> (<em>Sonic the
+          Hedgehog 3</em> running with the <em>Sonic &amp; Knuckles</em> modification
+          enhancement)</li>\n</ul>\n<p>In addition it contains <em>Special Stage Mode</em>,
+          a collection of bonus levels previously available in <em>Sonic &amp; Knuckles</em>
+          as \"Blue Sphere\".</p>","game_id":1156,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":76,"genre_name":"Compilation"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":128,"genre_name":"Behind
+          view"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":17,"genre_name":"Side
+          view"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":21,"genre_name":"Platform"}],"moby_score":7.6,"moby_url":"https://www.mobygames.com/game/1156/sonic-knuckles-collection/","num_votes":17,"official_url":null,"platforms":[{"first_release_date":"1996","platform_id":3,"platform_name":"Windows"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/7129144-sonic-knuckles-collection-windows-front-cover.jpg","platforms":["Windows"],"thumbnail_image":"https://cdn.mobygames.com/e39e215a-abf3-11ed-b83f-02420a000135.webp","width":647},"sample_screenshots":[{"caption":"Knuckles
+          glides acroos the landscape","height":222,"image":"https://cdn.mobygames.com/screenshots/1121053-sonic-knuckles-collection-windows-knuckles-glides-acroos-the-lan.jpg","thumbnail_image":"https://cdn.mobygames.com/88e0c3e8-ab72-11ed-96f9-02420a00019a.webp","width":319},{"caption":"Sonic
+          goes for a run","height":224,"image":"https://cdn.mobygames.com/screenshots/1119841-sonic-knuckles-collection-windows-sonic-goes-for-a-run.jpg","thumbnail_image":"https://cdn.mobygames.com/86800456-ab72-11ed-96f9-02420a00019a.webp","width":320},{"caption":"Special
+          bonus stage","height":224,"image":"https://cdn.mobygames.com/screenshots/1119742-sonic-knuckles-collection-windows-special-bonus-stage.jpg","thumbnail_image":"https://cdn.mobygames.com/864afe82-ab72-11ed-96f9-02420a00019a.webp","width":317},{"caption":"Sonic
+          gets ready to party","height":225,"image":"https://cdn.mobygames.com/screenshots/1119619-sonic-knuckles-collection-windows-sonic-gets-ready-to-party.jpg","thumbnail_image":"https://cdn.mobygames.com/86138c36-ab72-11ed-96f9-02420a00019a.webp","width":320}],"title":"Sonic
+          & Knuckles Collection"},{"alternate_titles":[],"description":"<p>While on
+          vacation, Tails and Sonic come across a recruiting advertisement for the World
+          Grand Prix race. Sonic is not interested at first, but once he notices that
+          Dr. Robotnik will participate he decides to enter. Robotnik is only interested
+          in the race because he''s learned the location of the Chaos Emeralds and now
+          he''ll get a chance to beat Sonic while he gets them. Knuckles finds out that
+          Sonic will participate, so he joins him. Amy overhears Robotnik''s plan, so
+          she will also be racing to get the Chaos Emeralds.</p>\n<p>There are many
+          modes of gameplay in Sonic R:</p>\n<p>Grand Prix: You race against the rest
+          of the characters on each of the circuits, and get a chance to race the level''s
+          boss to unlock some of the extra playable characters.</p>\n<p>Time Attack:
+          Run on one of the tracks as fast as you can, get 5 balloons or tag 4 characters.</p>\n<p>Multi
+          Player: 4 players on a split-screen or over a network. You can race against
+          up to three players or challenge them on a balloon finding game. The screen
+          can be divided horizontally or vertically for 2 player games. </p>","game_id":2899,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":6,"genre_name":"Racing / Driving"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":128,"genre_name":"Behind
+          view"},{"genre_category":"Art Style","genre_category_id":13,"genre_id":57,"genre_name":"Anime
+          / Manga"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":9,"genre_name":"Arcade"}],"moby_score":7.0,"moby_url":"https://www.mobygames.com/game/2899/sonic-r/","num_votes":59,"official_url":null,"platforms":[{"first_release_date":"1997","platform_id":3,"platform_name":"Windows"},{"first_release_date":"1997-10-31","platform_id":23,"platform_name":"SEGA
+          Saturn"}],"sample_cover":{"height":686,"image":"https://cdn.mobygames.com/covers/37033-sonic-r-windows-front-cover.jpg","platforms":["Windows"],"thumbnail_image":"https://cdn.mobygames.com/1b1d2548-ab65-11ed-993c-02420a00017b.webp","width":555},"sample_screenshots":[{"caption":"Title
+          Screen","height":480,"image":"https://cdn.mobygames.com/screenshots/10405548-sonic-r-windows-title-screen.jpg","thumbnail_image":"https://cdn.mobygames.com/ec87b13e-ac0f-11ed-b4f3-02420a000135.webp","width":640},{"caption":"A
+          Waterfall","height":480,"image":"https://cdn.mobygames.com/screenshots/10255167-sonic-r-sega-saturn-a-waterfall.jpg","thumbnail_image":"https://cdn.mobygames.com/a8b9aa8a-ac0e-11ed-8ce3-02420a000131.webp","width":640},{"caption":"Entering
+          a Loop","height":480,"image":"https://cdn.mobygames.com/screenshots/1322722-sonic-r-sega-saturn-entering-a-loop.jpg","thumbnail_image":"https://cdn.mobygames.com/26ae5d0a-ab74-11ed-8d2b-02420a00019e.webp","width":640},{"caption":"Knuckles
+          in a circle of the track, facing the other side, scenery, and a locked (unlockable)
+          door.","height":480,"image":"https://cdn.mobygames.com/screenshots/10406232-sonic-r-windows-knuckles-in-a-circle-of-the-track-facing-the-oth.jpg","thumbnail_image":"https://cdn.mobygames.com/eac27e06-ac0f-11ed-a631-02420a000135.webp","width":640},{"caption":"Main
+          Menu","height":480,"image":"https://cdn.mobygames.com/screenshots/10255137-sonic-r-sega-saturn-main-menu.jpg","thumbnail_image":"https://cdn.mobygames.com/a2eb16e8-ac0e-11ed-8ce3-02420a000131.webp","width":640}],"title":"Sonic
+          R"},{"alternate_titles":[{"description":"Working title","title":"CD Sonic
+          the Hedgehog"},{"description":"In-game title","title":"Sonic the Hedgehog
+          CD"}],"description":"<p>Sonic the Hedgehog and his self-proclaimed girlfriend
+          Amy Rose travel to Never Lake, only to discover the legendary Little Planet
+          there, tied in chains and covered by metal. It appears that Sonic''s archenemy,
+          Dr. Eggman, is using the powers of the planet to manipulate the fabric of
+          time. He created Sonic''s evil counterpart, Metal Sonic, who kidnaps Amy and
+          disappears. Now the brave hedgehog must explore the Little Planet, collect
+          seven jewels capable of altering the passage of time, free Amy, and defeat
+          Metal Sonic along with his master. </p>\n<p><em>Sonic CD</em> is a fast-paced
+          side-scrolling platform action game, similar in gameplay to other installments
+          of the series. Sonic uses his patented spin attacks to destroy the doctor''s
+          minions and collects various items, such as protective rings, shields, and
+          speed shoes. His special attacks include the Spin Dash and the Super Peel
+          Out. A stand-out gameplay feature of this installment is Sonic''s ability
+          to travel to past and future versions of the stages he traverses. Depending
+          on the player''s action in the past version of a level, the future versions
+          (which contain obligatory boss enemies) will change from \"bad\" to \"good\",
+          having more or fewer enemies and obstacles, respectively. </p>\n<p>Time Stones
+          can be collected by completing special stages, in which Sonic has to shoot
+          UFOs within an allotted time limit. The game''s \"good\" ending can be achieved
+          either by collecting all the seven Time Stones or by turning all future level
+          versions into \"good\". The game has features that take advantage of the CD
+          format such as CD audio, video clips, and more levels (over fifty in total).</p>","game_id":3316,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":17,"genre_name":"Side
+          view"},{"genre_category":"Visual Presentation","genre_category_id":12,"genre_id":131,"genre_name":"2D
+          scrolling"},{"genre_category":"Art Style","genre_category_id":13,"genre_id":57,"genre_name":"Anime
+          / Manga"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":21,"genre_name":"Platform"}],"moby_score":8.0,"moby_url":"https://www.mobygames.com/game/3316/sonic-cd/","num_votes":101,"official_url":null,"platforms":[{"first_release_date":"1995","platform_id":3,"platform_name":"Windows"},{"first_release_date":"1993-09-23","platform_id":20,"platform_name":"SEGA
+          CD"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/4219323-sonic-cd-sega-cd-front-cover.jpg","platforms":["SEGA
+          CD"],"thumbnail_image":"https://cdn.mobygames.com/3168cf1a-abaa-11ed-a5ec-02420a00019b.webp","width":473},"sample_screenshots":[{"caption":"Something
+          is wrong with the Little Planet...","height":224,"image":"https://cdn.mobygames.com/screenshots/5361222-sonic-cd-windows-something-is-wrong-with-the-little-planet.png","thumbnail_image":"https://cdn.mobygames.com/43e6cf32-abde-11ed-848a-02420a0001d8.webp","width":320},{"caption":"Good
+          Future","height":240,"image":"https://cdn.mobygames.com/screenshots/482217-sonic-cd-sega-cd-good-future.png","thumbnail_image":"https://cdn.mobygames.com/701f31b4-ab6d-11ed-b721-02420a00019b.webp","width":320},{"caption":"Dr.
+          Robotnik","height":240,"image":"https://cdn.mobygames.com/screenshots/483579-sonic-cd-sega-cd-dr-robotnik.png","thumbnail_image":"https://cdn.mobygames.com/72ef0b3a-ab6d-11ed-be6f-02420a000197.webp","width":320},{"caption":"Title
+          screen","height":224,"image":"https://cdn.mobygames.com/screenshots/5360658-sonic-cd-windows-title-screen.png","thumbnail_image":"https://cdn.mobygames.com/3c6cbeb0-abde-11ed-a48a-02420a0001d0.webp","width":320},{"caption":"The
+          first round of the adventure is called Palmtree Panic.","height":224,"image":"https://cdn.mobygames.com/screenshots/5361426-sonic-cd-windows-the-first-round-of-the-adventure-is-called-palm.png","thumbnail_image":"https://cdn.mobygames.com/46ca1574-abde-11ed-8017-02420a0001d7.webp","width":320}],"title":"Sonic
+          CD"},{"alternate_titles":[{"description":"European title","title":"Sonic 3D:
+          Flickies'' Island"}],"description":"<p>While visiting Flicky Island, Sonic
+          notices that the Flickies, his small, feathered friends that can travel between
+          parallel worlds, were captured and turned into badniks (the robot enemies
+          of Sonic) by Dr. Robotnik in his never-ending quest for the Chaos Emeralds.
+          Seven levels separate Sonic from the final showdown with Robotnik.</p>\n<p><em>Sonic
+          3D</em> was the last Sonic title released for the Mega Drive, the only platforming
+          presence of the blue blur in the Sega Saturn, and one of his rare appearances
+          in Personal Computers. The title, considering the era it was released, is
+          somewhat misleading, as instead of full blown 3D graphics it uses an isometric
+          view where Sonic can move not only forwards and backwards, but also left and
+          right. </p>\n<p>Gameplay is much slower when compared to other games in the
+          series, and the number of badniks is reduced to five in each section. As usual,
+          when Sonic destroys one badnik, an animal leaps free from its insides, but
+          this time Sonic has to pick him up and lead them to an interdimensional ring.
+          While they can be taken one by one, exploring the level with all five allow
+          the player to reach for otherwise inaccessible continue tokens. \nUnlike all
+          other previous games, time isn''t a requirement: if the player completes a
+          level in more than 10 minutes, it would only mean there would be no time bonus
+          at the end. Finally, to collect all seven Chaos Emeralds, Sonic first must
+          find Tails or Knuckles and offer them at least 50 rings.</p>","game_id":3494,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":129,"genre_name":"Diagonal-down"},{"genre_category":"Visual
+          Presentation","genre_category_id":12,"genre_id":25,"genre_name":"Isometric"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":9,"genre_name":"Arcade"}],"moby_score":6.9,"moby_url":"https://www.mobygames.com/game/3494/sonic-3d-blast/","num_votes":100,"official_url":null,"platforms":[{"first_release_date":"2018-05-29","platform_id":1,"platform_name":"Linux"},{"first_release_date":"1997","platform_id":3,"platform_name":"Windows"},{"first_release_date":"1996-11","platform_id":16,"platform_name":"Genesis"},{"first_release_date":"1996-11-20","platform_id":23,"platform_name":"SEGA
+          Saturn"},{"first_release_date":"2018-05-29","platform_id":74,"platform_name":"Macintosh"},{"first_release_date":"2007-11-02","platform_id":82,"platform_name":"Wii"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/4126167-sonic-3d-blast-genesis-front-cover.jpg","platforms":["Genesis"],"thumbnail_image":"https://cdn.mobygames.com/ba95aea6-aba6-11ed-8bb9-02420a000197.webp","width":565},"sample_screenshots":[{"caption":"Tails
+          also unlocks a Special Stage","height":240,"image":"https://cdn.mobygames.com/screenshots/2741317-sonic-3d-blast-windows-tails-also-unlocks-a-special-stage.png","thumbnail_image":"https://cdn.mobygames.com/68b6e744-ab83-11ed-bd13-02420a00019c.webp","width":320},{"caption":"that,
+          in the cannon, is Sonic..","height":224,"image":"https://cdn.mobygames.com/screenshots/362094-sonic-3d-blast-genesis-that-in-the-cannon-is-sonic.png","thumbnail_image":"https://cdn.mobygames.com/7f8e14c2-ab6c-11ed-b042-02420a00019f.webp","width":320},{"caption":"Panic
+          Puppet Zone - ring shower..","height":224,"image":"https://cdn.mobygames.com/screenshots/364951-sonic-3d-blast-genesis-panic-puppet-zone-ring-shower.png","thumbnail_image":"https://cdn.mobygames.com/854b07a8-ab6c-11ed-b042-02420a00019f.webp","width":320},{"caption":"Pause
+          screen, showing off a map and other information","height":240,"image":"https://cdn.mobygames.com/screenshots/3121486-sonic-3d-blast-windows-pause-screen-showing-off-a-map-and-other-.png","thumbnail_image":"https://cdn.mobygames.com/8fc35d12-ab89-11ed-8b6f-02420a00019c.webp","width":320},{"caption":"Second
+          boss","height":240,"image":"https://cdn.mobygames.com/screenshots/2750281-sonic-3d-blast-windows-second-boss.png","thumbnail_image":"https://cdn.mobygames.com/8d210966-ab83-11ed-b042-02420a00019f.webp","width":320}],"title":"Sonic
+          3D Blast"},{"alternate_titles":[{"description":"Updated Edition title","title":"Sonic
+          Adventure International"}],"description":"<p>Yet again Sonic and friends find
+          themselves wrapped up in the schemes of Dr. Robotnik. This time he plans to
+          exploit the power of Chaos, a malevolent being that feeds upon the power of
+          the Chaos Emeralds. In their own way, five heroes will do what they can to
+          save Station Square and, perhaps, the entire world.</p>\n<p>The player can
+          select from which character to play after meeting them with Sonic, and each
+          has its own unique version of each level. Sonic''s levels involve racing through
+          a level as quickly as possible, destroying any robots along the way. Tails
+          can hover over distances, and his levels are similar to Sonic''s except that
+          he must beat an opponent to the finish line. Amy can''t charge up ramps or
+          run as quickly as Sonic and Tails, but she does have a giant hammer she can
+          break obstacles with. The goal of her levels is to avoid being captured by
+          a robot sent after her by Dr. Robotnik. E102 Gamma is a slow, difficult to
+          maneuver robot, but it has guns and missiles that can lock on to several targets
+          at once, chaining together attacks and earning a higher score and more time
+          on the clock. The goal of its levels is to reach a boss enemy and destroy
+          it before time runs out. The final character is Big the Cat, a fisherman searching
+          for his lost frog. Big''s levels are almost entirely devoid of action or fighting;
+          he just fishes. Each character can find items that increase their abilities
+          as the story progresses, such as a ring for Sonic that lets him home along
+          lines of rings, or improved lures for Big. A final chapter wrapping up the
+          story is unlocked after all other characters have been completed.</p>\n<p>Additionally,
+          each of the characters can visit the Chao garden where they can raise baby
+          Chaos. By petting, feeding, and showing animals found in levels to the Chaos
+          they can grow stronger, and optionally be put into races against other Chaos.
+          As well each level in the game has additional objectives that can be completed
+          to acquire extra emblems, although the emblems don''t do anything in this
+          version of the game. Finally, at one time it was possible to go online and
+          download additional levels and bonuses in the game, such as a Christmas theme
+          for Station Square and a level sponsored by AT&amp;T, but since SegaNet shut
+          down this is no longer possible.</p>","game_id":3530,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":128,"genre_name":"Behind
+          view"},{"genre_category":"Art Style","genre_category_id":13,"genre_id":57,"genre_name":"Anime
+          / Manga"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":24,"genre_name":"Metroidvania"}],"moby_score":8.1,"moby_url":"https://www.mobygames.com/game/3530/sonic-adventure/","num_votes":127,"official_url":"http://web.archive.org/web/20000830142357/http://www.sega.co.jp/sonicadv/","platforms":[{"first_release_date":"1998-12-23","platform_id":8,"platform_name":"Dreamcast"},{"first_release_date":"2010-09-15","platform_id":69,"platform_name":"Xbox
+          360"},{"first_release_date":"2010-09-21","platform_id":81,"platform_name":"PlayStation
+          3"}],"sample_cover":{"height":715,"image":"https://cdn.mobygames.com/covers/36438-sonic-adventure-dreamcast-front-cover.jpg","platforms":["Dreamcast"],"thumbnail_image":"https://cdn.mobygames.com/19f9abdc-ab65-11ed-993c-02420a00017b.webp","width":715},"sample_screenshots":[{"caption":"Steep
+          ramp","height":480,"image":"https://cdn.mobygames.com/screenshots/10406629-sonic-adventure-dreamcast-steep-ramp.jpg","thumbnail_image":"https://cdn.mobygames.com/e82e710e-ac0f-11ed-b7c8-02420a000136.webp","width":768},{"caption":"Sonic
+          vs Chaos 0","height":675,"image":"https://cdn.mobygames.com/screenshots/9648175-sonic-adventure-xbox-360-sonic-vs-chaos-0.png","thumbnail_image":"https://cdn.mobygames.com/cf16b9d0-ac08-11ed-a631-02420a000135.webp","width":1200},{"caption":"Character","height":675,"image":"https://cdn.mobygames.com/screenshots/9643778-sonic-adventure-xbox-360-character.png","thumbnail_image":"https://cdn.mobygames.com/cc574494-ac08-11ed-9eb0-02420a000136.webp","width":1200},{"caption":"Aw,
+          Y E A H! This is happening...","height":675,"image":"https://cdn.mobygames.com/screenshots/9648160-sonic-adventure-xbox-360-aw-y-e-a-h-this-is-happening.png","thumbnail_image":"https://cdn.mobygames.com/c95f7eb4-ac08-11ed-a631-02420a000135.webp","width":1200},{"caption":"Title
+          Screen","height":480,"image":"https://cdn.mobygames.com/screenshots/10405243-sonic-adventure-dreamcast-title-screen.jpg","thumbnail_image":"https://cdn.mobygames.com/ed6efa4e-ac0f-11ed-887e-02420a00012e.webp","width":768}],"title":"Sonic
+          Adventure"}]}
+
+          '
+      headers:
+        CF-RAY:
+          - 963b8a678d8fea84-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Security-Policy:
+          - frame-ancestors 'none';
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:31:53 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Ratelimit-Limit:
+          - "720"
+        Ratelimit-Policy:
+          - 1;w=1, 720;w=3600
+        Ratelimit-Remaining:
+          - "319"
+        Ratelimit-Reset:
+          - "1687"
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=gewoHtfpka1EZGloviSxOZNICxd%2B%2BuVobvZ47ImpJ3RGDq0Eupe3k1t2poUK7hCZpD8MnL6vL9UllErtF%2FUZ1HnWHAWZvTqeHkmK7dSl"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - session-www=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxx;
+            HttpOnly; SameSite=Lax; Path=/; Domain=mobygames.com
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Cookie
+        X-Frame-Options:
+          - DENY
+        X-Xss-Protection:
+          - 1; mode=block
+      status:
+        code: 200
+        message: OK
+version: 1

@@ -1,0 +1,158 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.mobygames.com/v1/games?platform=1&format=normal&limit=3
+    response:
+      body:
+        string:
+          '{"games":[{"alternate_titles":[{"description":"Japanese title","title":"\u014czora
+          no Kishi"}],"description":"<p><em>Knights of the Sky</em> is a World War I
+          flight combat sim where you pilot one of 20 different aircraft (each handles
+          differently) as you engage in simple missions or join a full campaign where
+          you will progress through World War I, going on a variety of missions, patrols,
+          and even encounter enemy aces. You can engage balloons and blimps, enemy fighters
+          and bombers, even strafe group targets such as supply trains. If you do really
+          well in the game, one of the enemy aces may drop a note to challenge you to
+          an aerial duel. </p>\n<p>A unique feature of the game is the capability of
+          modem link so you can challenge fellow modem owners to dogfights, something
+          that none of its contemporaries had.</p>","game_id":28,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":3,"genre_name":"Simulation"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":7,"genre_name":"1st-person"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":126,"genre_name":"3rd-person
+          (Other)"},{"genre_category":"Vehicular Themes","genre_category_id":11,"genre_id":19,"genre_name":"Flight
+          / aviation"},{"genre_category":"Vehicular Themes","genre_category_id":11,"genre_id":159,"genre_name":"Vehicular
+          combat"},{"genre_category":"Setting","genre_category_id":10,"genre_id":14,"genre_name":"Historical
+          events"},{"genre_category":"Setting","genre_category_id":10,"genre_id":214,"genre_name":"World
+          War I"}],"moby_score":7.3,"moby_url":"https://www.mobygames.com/game/28/knights-of-the-sky/","num_votes":41,"official_url":null,"platforms":[{"first_release_date":"2016-07-21","platform_id":1,"platform_name":"Linux"},{"first_release_date":"1990","platform_id":2,"platform_name":"DOS"},{"first_release_date":"2016-07-21","platform_id":3,"platform_name":"Windows"},{"first_release_date":"1991","platform_id":19,"platform_name":"Amiga"},{"first_release_date":"1991","platform_id":24,"platform_name":"Atari
+          ST"},{"first_release_date":"2016-07-21","platform_id":74,"platform_name":"Macintosh"},{"first_release_date":"1993-06-12","platform_id":95,"platform_name":"PC-98"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/6872241-knights-of-the-sky-dos-front-cover.jpg","platforms":["DOS"],"thumbnail_image":"https://cdn.mobygames.com/e9addfc4-abf1-11ed-b206-02420a000131.webp","width":686},"sample_screenshots":[{"caption":"Home
+          base desk","height":400,"image":"https://cdn.mobygames.com/screenshots/1714001-knights-of-the-sky-pc-98-home-base-desk.png","thumbnail_image":"https://cdn.mobygames.com/94e90a88-ab77-11ed-ac16-02420a000199.webp","width":640},{"caption":"Title
+          Screen","height":200,"image":"https://cdn.mobygames.com/screenshots/1688400-knights-of-the-sky-dos-title-screen.png","thumbnail_image":"https://cdn.mobygames.com/5a38e728-ab77-11ed-bd13-02420a00019c.webp","width":320},{"caption":"Side
+          View","height":200,"image":"https://cdn.mobygames.com/screenshots/1683785-knights-of-the-sky-dos-side-view.png","thumbnail_image":"https://cdn.mobygames.com/4edf93e0-ab77-11ed-81b6-02420a00019d.webp","width":320},{"caption":"He
+          flies straight into my crosshairs","height":200,"image":"https://cdn.mobygames.com/screenshots/15988514-knights-of-the-sky-atari-st-he-flies-straight-into-my-crosshairs.png","thumbnail_image":"https://cdn.mobygames.com/cd160442-bf22-11ed-9c42-02420a000140.webp","width":320},{"caption":"Title
+          screen","height":400,"image":"https://cdn.mobygames.com/screenshots/1760327-knights-of-the-sky-pc-98-title-screen.png","thumbnail_image":"https://cdn.mobygames.com/ff7a1a90-ab77-11ed-934f-02420a0001a0.webp","width":640}],"title":"Knights
+          of the Sky"},{"alternate_titles":[{"description":"International title","title":"Shadow
+          of the Comet"}],"description":"<p>In 1834, in the small New England fishing
+          village of Illsmouth, the distinguished British scientist Lord Boleskine lost
+          his mind. After studying ancient manuscripts of evil repute, he had travelled
+          to this place to observe the passing of Halley''s comet. What he observed
+          that night, however, turned him into a raving lunatic. Now, 76 years later,
+          Halley''s comet is coming back, and young reporter John T. Parker has travelled
+          to Illsmouth to try to uncover the truth in Boleskine''s wild claims, and
+          see the comet\nfor himself.</p>\n<p><em>Shadow of the Comet</em> is a horror
+          adventure game, inspired by the terrifying writings of <a href=\"https://www.mobygames.com/person/633/h-p-lovecraft/\">H.
+          P. Lovecraft</a>. Contrary to many adventure games from the early 90s, the
+          game has a keyboard driven interface with a system of actions activated either
+          by pressing the corresponding key (L for look, G for get, T for talk, U for
+          use) or selecting them from the menu activated by the TAB key. The CD release
+          was enhanced with a mouse-driven interface. Typical for Infogrames titles
+          (e.g. <a href=\"https://www.mobygames.com/game/1368/eternam/\">Eternam</a>),
+          the game contains vector-based cut scenes with enlarged graphics of the faces
+          of the speakers during dialogues.</p>\n<p>The GOG.com release of this game
+          includes both Floppy and CD versions of the game. The main differences are
+          new graphics, mouse-driven interface and full voice-acting whereas the Floppy
+          version doesn''t feature any voice-acting. The CD version''s launcher screen
+          additionally includes a <em>Museum</em> mini-game where character can walk
+          through a museum and look at various mystical objects and paintings inspired
+          by <a href=\"https://www.mobygames.com/person/633/h-p-lovecraft/\">H. P. Lovecraft</a>.</p>","game_id":132,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":2,"genre_name":"Adventure"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":17,"genre_name":"Side
+          view"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":146,"genre_name":"Graphic
+          adventure"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":30,"genre_name":"Puzzle
+          elements"},{"genre_category":"Interface/Control","genre_category_id":7,"genre_id":168,"genre_name":"Direct
+          control"},{"genre_category":"Narrative Theme/Topic","genre_category_id":8,"genre_id":83,"genre_name":"Horror"},{"genre_category":"Other
+          Attributes","genre_category_id":6,"genre_id":82,"genre_name":"Licensed"}],"moby_score":7.7,"moby_url":"https://www.mobygames.com/game/132/call-of-cthulhu-shadow-of-the-comet/","num_votes":49,"official_url":"http://www.infogrames.net/shadow/","platforms":[{"first_release_date":"2015-07-21","platform_id":1,"platform_name":"Linux"},{"first_release_date":"1993","platform_id":2,"platform_name":"DOS"},{"first_release_date":"2015-07-21","platform_id":3,"platform_name":"Windows"},{"first_release_date":"1995-03-03","platform_id":95,"platform_name":"PC-98"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/4022611-call-of-cthulhu-shadow-of-the-comet-dos-front-cover.jpg","platforms":["DOS"],"thumbnail_image":"https://cdn.mobygames.com/20f0b6b8-aba3-11ed-a519-02420a00019d.webp","width":642},"sample_screenshots":[{"caption":"Doctor
+          Cobble''s house","height":200,"image":"https://cdn.mobygames.com/screenshots/212030-call-of-cthulhu-shadow-of-the-comet-dos-doctor-cobbles-house.png","thumbnail_image":"https://cdn.mobygames.com/43ce164a-ab6b-11ed-8e21-02420a00019b.webp","width":320},{"caption":"Hey,
+          don''t you think this guy looks like George W. Bush? :)","height":400,"image":"https://cdn.mobygames.com/screenshots/16098317-call-of-cthulhu-shadow-of-the-comet-pc-98-hey-dont-you-think-thi.png","thumbnail_image":"https://cdn.mobygames.com/ab361db8-bf71-11ed-9521-02420a000152.webp","width":640},{"caption":"Title","height":200,"image":"https://cdn.mobygames.com/screenshots/194693-call-of-cthulhu-shadow-of-the-comet-dos-title.png","thumbnail_image":"https://cdn.mobygames.com/211ac36e-ab6b-11ed-a5ec-02420a00019b.webp","width":320},{"caption":"Arriving
+          at the sleepy town","height":400,"image":"https://cdn.mobygames.com/screenshots/16098383-call-of-cthulhu-shadow-of-the-comet-pc-98-arriving-at-the-sleepy.png","thumbnail_image":"https://cdn.mobygames.com/b153b0e8-bf71-11ed-9521-02420a000152.webp","width":640},{"caption":"The
+          interface looks similar to Sierra adventures, but it''s keyboard only","height":400,"image":"https://cdn.mobygames.com/screenshots/15650596-call-of-cthulhu-shadow-of-the-comet-pc-98-the-interface-looks-si.png","thumbnail_image":"https://cdn.mobygames.com/359d61aa-bdf1-11ed-b791-02420a0001bb.webp","width":640}],"title":"Call
+          of Cthulhu: Shadow of the Comet"},{"alternate_titles":[{"description":"Simplified
+          Chinese title","title":"Bantiao Ming"},{"description":"Common abbreviation","title":"HL"},{"description":"Cover
+          / in-game title","title":"H\u03bblf-Life"},{"description":"Working title","title":"Quiver"}],"description":"<p>The
+          Black Mesa Research Facility is an ultra-secret laboratory under a government
+          contract to conduct top-secret and extremely volatile experiments. The scientist
+          Gordon Freeman is a Black Mesa employee. One morning, as usual, he pits his
+          way to the research facility for a run-of-the-mill experiment. However, Gordon
+          comes to realize that it might not be as ordinary as he thought. Odd things
+          happen as he makes his way to one of the Black Mesa test chambers. Even stranger
+          things happen when he begins to move the test sample towards the anti-mass
+          spectrometer.</p>\n<p>At that moment, everything goes horribly wrong. Aliens
+          from the dimension Xen suddenly invade the facility, injuring or killing many
+          of the employees. Soon afterwards, marines arrive to contain the situation
+          by killing the aliens as well as the surviving human witnesses. Gordon understands
+          what that means: he will have to fight his way through both aliens and marines
+          to get to the top of the Black Mesa complex and to freedom.</p>\n<p>The story
+          of <em>Half-Life</em> is told entirely in-game: everything is seen through
+          the eyes of the protagonist. Most story elements unfold via scripted sequences,
+          triggered by the player reaching a certain area. If other characters have
+          information to reveal, they address Gordon directly. The Black Mesa complex
+          in the game is made up of both distinct levels which progress in a linear
+          fashion as well as hubs where backtracking may be required to unlock further
+          areas.</p>\n<p>The game''s weapon arsenal mostly consists of realistic weapons
+          like pistols, machine guns and explosives, but there are also futuristic energy
+          weapons developed at Black Mesa as well as organic weapons acquired from the
+          invading aliens. Most weapons feature an alternate firing mode.</p>\n<p>Enemies
+          fall into two categories: aliens and human soldiers. While most of the aliens
+          are not very bright, the humans display some relatively advanced artificial
+          intelligence: they seek cover, retreat when hit and try to drive the player
+          from his cover by throwing grenades. Some of the alien enemies cannot be killed
+          by normal means. The environment must be used against them instead, going
+          with a general tendency of the game to alternate the combat with environmental
+          puzzles. </p>\n<p>As of the 25th Anniversary Update from 17 November 2023,
+          the Steam version of Half-Life includes content from <a href=\"https://www.mobygames.com/game/25393/half-life-uplink/\">Half-Life:
+          Uplink</a> as well as sprays and maps from <a href=\"https://www.mobygames.com/game/58630/half-life-further-data-v1/\">Half-Life:
+          Further Data V.1</a>.</p>","game_id":155,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":7,"genre_name":"1st-person"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":22,"genre_name":"Shooter"},{"genre_category":"Interface/Control","genre_category_id":7,"genre_id":168,"genre_name":"Direct
+          control"},{"genre_category":"Setting","genre_category_id":10,"genre_id":207,"genre_name":"North
+          America"},{"genre_category":"Setting","genre_category_id":10,"genre_id":8,"genre_name":"Sci-fi
+          / futuristic"},{"genre_category":"Other Attributes","genre_category_id":6,"genre_id":223,"genre_name":"Regional
+          differences"}],"moby_score":8.7,"moby_url":"https://www.mobygames.com/game/155/half-life/","num_votes":607,"official_url":null,"platforms":[{"first_release_date":"2013-02-06","platform_id":1,"platform_name":"Linux"},{"first_release_date":"1998-11","platform_id":3,"platform_name":"Windows"},{"first_release_date":"2013-01-25","platform_id":74,"platform_name":"Macintosh"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/4597980-half-life-windows-front-cover.jpg","platforms":["Windows"],"thumbnail_image":"https://cdn.mobygames.com/455b871a-abb9-11ed-aecf-02420a000198.webp","width":661},"sample_screenshots":[{"caption":"Beautiful
+          view outside! Doesn''t look very safe, though...","height":768,"image":"https://cdn.mobygames.com/screenshots/10587038-half-life-windows-beautiful-view-outside-doesnt-look-very-safe-t.jpg","thumbnail_image":"https://cdn.mobygames.com/65e552ce-ac11-11ed-962d-02420a000135.webp","width":1024},{"caption":"Marines
+          incoming in an Osprey","height":360,"image":"https://cdn.mobygames.com/screenshots/12487516-half-life-windows-marines-incoming-in-an-osprey.jpg","thumbnail_image":"https://cdn.mobygames.com/7f1f0270-ac21-11ed-b57a-02420a000130.webp","width":480},{"caption":"The
+          title and main menu","height":800,"image":"https://cdn.mobygames.com/screenshots/16475530-half-life-linux-the-title-and-main-menu.png","thumbnail_image":"https://cdn.mobygames.com/982e3a32-c225-11ed-ab6b-02420a000194.webp","width":1000},{"caption":"Some
+          of the environments seem radioactive, but this is purely a stylistic choice","height":768,"image":"https://cdn.mobygames.com/screenshots/3278622-half-life-windows-some-of-the-environments-seem-radioactive-but-.jpg","thumbnail_image":"https://cdn.mobygames.com/4da4b7de-ab8c-11ed-b6ec-02420a00019b.webp","width":1024},{"caption":"The
+          test chamber","height":600,"image":"https://cdn.mobygames.com/screenshots/10105274-half-life-windows-the-test-chamber.jpg","thumbnail_image":"https://cdn.mobygames.com/33ea9530-ac0d-11ed-902e-02420a00012d.webp","width":800}],"title":"Half-Life"}]}
+
+          '
+      headers:
+        CF-RAY:
+          - 963b8a1e9f10a22e-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Security-Policy:
+          - frame-ancestors 'none';
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:31:41 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Ratelimit-Limit:
+          - "720"
+        Ratelimit-Policy:
+          - 1;w=1, 720;w=3600
+        Ratelimit-Remaining:
+          - "321"
+        Ratelimit-Reset:
+          - "1699"
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=IWsWIvE1hW7HZd%2BZRMeSwQPpiMqRnoTjQg47uzY0Mowq8wqSDs36W91OmXeHSwljKzY5AuNZJ5AaIrB8OicbLvC95l2pNEvreEGh09e8"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - session-www=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxx;
+            HttpOnly; SameSite=Lax; Path=/; Domain=mobygames.com
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Cookie
+        X-Frame-Options:
+          - DENY
+        X-Xss-Protection:
+          - 1; mode=block
+      status:
+        code: 200
+        message: OK
+version: 1
