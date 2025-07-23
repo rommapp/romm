@@ -1,0 +1,101 @@
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/1?limit=5
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963865f18b3ca2af-YUL
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 04:22:42 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/1?limit=5
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=myDfJHMyciw8u%2Bm4SW%2FgXNRZaNUQaPt%2Bj9JxWRpgr2kRjCy1UAGJF0S3EkpmnzdOXcJ4DVDJ%2FyHqsLVjFT1MHq2Q0yQFVTlOWopYXCU%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/1?limit=5
+    response:
+      body:
+        string:
+          '{"success":true,"page":0,"total":14,"limit":5,"data":[{"id":103281,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/bafd5785e9335ccde7bcde6051b5dcf6.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/bafd5785e9335ccde7bcde6051b5dcf6.png","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"duckdicks","steam64":"76561198265411778","avatar":"https:\/\/avatars.steamstatic.com\/834b570adf40c70d7d2379cf0f9332e2534dde13_medium.jpg"}},{"id":318178,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":null,"mime":"image\/jpeg","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/fe80a3e914e35e5ba0157e1a85a3d14f.jpg","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/fe80a3e914e35e5ba0157e1a85a3d14f.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"DebonairTBS","steam64":"76561198008715015","avatar":"https:\/\/avatars.steamstatic.com\/560614290f1bce0865ecfca921bd90ceab6d2507_medium.jpg"}},{"id":92728,"score":0,"style":"alternate","width":920,"height":430,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/da56e25a64be3b08d6027242e1d85606.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/da56e25a64be3b08d6027242e1d85606.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"ZombiJambi","steam64":"76561197965184469","avatar":"https:\/\/avatars.steamstatic.com\/7e56965baf567e68693b40eb170cb4ce75ad68ff_medium.jpg"}},{"id":25987,"score":0,"style":"alternate","width":460,"height":215,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/cffb7924cc48c212e70437f8b32c5831.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/cffb7924cc48c212e70437f8b32c5831.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"TheBoss86","steam64":"76561197988452487","avatar":"https:\/\/avatars.steamstatic.com\/e641aef239f588fc89270581be496fe91afa8c54_medium.jpg"}},{"id":410400,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":"Reuploaded-Template
+          and Art By Castcoder","mime":"image\/jpeg","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/31087231e09099106762217619ccdb6e.jpg","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/31087231e09099106762217619ccdb6e.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"FattestWrestlingFan","steam64":"76561199418084858","avatar":"https:\/\/avatars.steamstatic.com\/bd7fdd4ab203fcd4f0e93a3d2dd43ff4744b97df_medium.jpg"}}]}'
+      headers:
+        CF-RAY:
+          - 963865f26dcaa297-YUL
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 04:22:42 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=IIdVcbFwljMp8P%2FsUYL7SdhgNRM%2FICuC2Pa2G8ohVX8vm8TUZ8zLCVLSbf0qiNjfAlZ0XeiPQ66HDd2M5ABlOSSnA8Enc514ClGRi6c6sAKF"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=dtofqheldo0dcr1a7tlt0tbie3; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 04:22:42 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 200
+        message: OK
+version: 1
