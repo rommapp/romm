@@ -1,0 +1,775 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.screenscraper.fr/api2/jeuInfos.php?gameid=1
+    response:
+      body:
+        string:
+          "{\n\t\"header\" : {\n\t\t\"APIversion\" : \"2.0\",\n\t\t\"dateTime\"\
+          \ : \"2025-07-19\",\n\t\t\"commandRequested\" : \"https://neoclone.screenscraper.fr/api2/jeuInfos.php?gameid=1&devid=zurdi15&devpassword=xTJwoOFjOQG&output=json&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\
+          ,\n\t\t\"success\": \"true\",\n\t\t\"error\": \"\"\n\t},\n\t\"response\" :\
+          \ {\n\t\t\"serveurs\" : {\n\t\t\t\"cpu1\": \"0\",\n\t\t\t\"cpu2\": \"0\",\n\
+          \t\t\t\"cpu3\": \"0\",\n\t\t\t\"cpu4\": \"0\",\n\t\t\t\"threadsmin\": \"3484\"\
+          ,\n\t\t\t\"nbscrapeurs\": \"535\",\n\t\t\t\"apiacces\": \"7207526\",\n\t\t\
+          \t\"closefornomember\": \"0\",\n\t\t\t\"closeforleecher\": \"0\",\n\t\t\t\"\
+          maxthreadfornonmember\": \"256\",\n\t\t\t\"threadfornonmember\": \"31\",\n\
+          \t\t\t\"maxthreadformember\": \"4096\",\n\t\t\t\"threadformember\": \"114\"\
+          \n\t\t},\n\t\t\"ssuser\" : {\n\t\t\t\"id\": \"arcaneasada\",\n\t\t\t\"numid\"\
+          : \"27224648\",\n\t\t\t\"niveau\": \"1\",\n\t\t\t\"contribution\": \"0\",\n\
+          \t\t\t\"uploadsysteme\": \"0\",\n\t\t\t\"uploadinfos\": \"0\",\n\t\t\t\"romasso\"\
+          : \"0\",\n\t\t\t\"uploadmedia\": \"0\",\n\t\t\t\"propositionok\": \"0\",\n\
+          \t\t\t\"propositionko\": \"0\",\n\t\t\t\"quotarefu\": \"0\",\n\t\t\t\"maxthreads\"\
+          : \"1\",\n\t\t\t\"maxdownloadspeed\": \"128\",\n\t\t\t\"requeststoday\": \"\
+          0\",\n\t\t\t\"requestskotoday\": \"0\",\n\t\t\t\"maxrequestspermin\": \"3072\"\
+          ,\n\t\t\t\"maxrequestsperday\": \"20000\",\n\t\t\t\"maxrequestskoperday\"\
+          : \"2000\",\n\t\t\t\"visites\": \"19\",\n\t\t\t\"datedernierevisite\": \"\
+          2025-07-22 04:21:46\",\n\t\t\t\"favregion\": \"\"\n\t\t\t},\n\t\t\"jeu\" :\
+          \ {\n\t\t\t\"id\": \"1\",\n\t\t\t\"romid\": \"\",\n\t\t\t\"notgame\": \"false\"\
+          ,\n\t\t\t\"noms\": [\n\t\t\t\t{\"region\": \"ss\", \"text\": \"Battletoads\"\
+          },\n\t\t\t\t{\"region\": \"wor\", \"text\": \"Battletoads\"}\n\t\t\t],\n\t\
+          \t\t\"cloneof\": \"0\",\n\t\t\t\"systeme\": {\"id\": \"1\", \"text\": \"Megadrive\"\
+          },\n\t\t\t\"editeur\": {\"id\": \"1\", \"text\": \"Tradewest\"},\n\t\t\t\"\
+          developpeur\": {\"id\": \"2\", \"text\": \"Rareware\"},\n\t\t\t\"joueurs\"\
+          : {\"text\": \"1-2\"},\n\t\t\t\"note\": {\"text\": \"14\"},\n\t\t\t\"topstaff\"\
+          : \"0\",\n\t\t\t\"rotation\": \"0\",\n\t\t\t\"synopsis\": [\n\t\t\t\t{ \"\
+          langue\": \"en\", \"text\": \"The Dark Queen has attacked and kidnapped (toadnapped?)\
+          \ your best buddy.. To make matters worse, she nabbed the best looking girl\
+          \ around! So, what will you do? Cry? Whimper? Hide? Call the Starcops? NO!\
+          \ Cause you're a Battletoad! Battletoads don't cry, hide or call for help!\
+          \ And they certainly don't whimper! They get MAD then they get EVEN! So grab\
+          \ your blaster, hop on the Toadster and go get 'em!\\n\\nYou will control\
+          \ a battletoad through various levels. Some are side-scrolling beat-em-ups,\
+          \ other are vertical drops down a shaft, fighting as you go, others have you\
+          \ riding a rocket or surfboard, shooting or avoiding enemies. At the end of\
+          \ each area, there is a boss. In some areas, about half-way through, you may\
+          \ have a mini-boss.\"},\n\t\t\t\t{ \"langue\": \"fr\", \"text\": \"Battletoads\
+          \ sur Megadrive vous met dans la peau de Zitz, crapaud aux pouvoirs qui sortent\
+          \ de l'ordinaire. Votre but : sauver vos deux fr\\u00e8res enlev\\u00e9s par\
+          \ la Reine Noire. D\\u00e9barrassez-vous de vos adversaires \\u00e0 travers\
+          \ diverses phases de jeu passant par la conduite de v\\u00e9hicules, le simple\
+          \ combat rapproch\\u00e9 ou le jeu de plates-formes.\"},\n\t\t\t\t{ \"langue\"\
+          : \"de\", \"text\": \"Die Dunkle K\\u00f6nigin hat deine besten Freunde entf\\\
+          u00fchrt. Auf deiner Reise durch die gef\\u00e4hrliche Umgebung erwarten dich\
+          \ hinterlistige Fallen und gef\\u00e4hrliche Gegner, w\\u00e4hrend du dich\
+          \ durch unterirdische H\\u00f6hlen und gef\\u00e4hrliche Steppen bis hin zum\
+          \ Schattenturm durchk\\u00e4mpfst, in dem dich die Dunkle K\\u00f6nigin pers\\\
+          u00f6nlich erwartet.\"},\n\t\t\t\t{ \"langue\": \"es\", \"text\": \"Cuando\
+          \ la malvada Reina de la Oscuridad secuestra a su mejor amigo y a la Princesa\
+          \ Ang\\u00e9lica, es el momento de volverse loco para despu\\u00e9s desquitarse,\
+          \ as\\u00ed que prepara las armas nucleares porque las vas a necesitar para\
+          \ rescatar a tus amigos y salir con la piel verde intacta.\"},\n\t\t\t\t{\
+          \ \"langue\": \"it\", \"text\": \"La cattiva Regina delle Tenebre rapisce\
+          \ il vostro migliore amico e la bella Principessa Angelica! C'\\u00e8 veramente\
+          \ da IMPAZZIRE e VENDICARSI! Preparate i vostri pugni nucleari perch\\u00e9\
+          \ ne avrete bisogno per salvare i vostri amici e venirne fuori sani e salvi!\"\
+          },\n\t\t\t\t{ \"langue\": \"pt\", \"text\": \"Sapo (\\u00e9 voc\\u00ea mesmo),\
+          \ a Rainha das Trevas acaba de raptar a Princesa Ang\\u00e9lica e Pimple,\
+          \ seu melhor companheiro. A paz acabou e suas encrencas est\\u00e3o apenas\
+          \ come\\u00e7ando.\\nEsperando por voc\\u00ea estar\\u00e3o 12 fases de desfiladeiros\
+          \ intermin\\u00e1veis, t\\u00faneis aterrorizantes, infernos ardentes e muito\
+          \ mais (Sem mencionar em todos os inimigos que habitam estes lugares!). Os\
+          \ combates n\\u00e3o ser\\u00e3o somente em terra firme, voc\\u00ea ter\\\
+          u00e1 a oportunidade de experimentar uma Bicicleta de Corrida, um Jato Turbo\
+          \ e uma Prancha Espacial!!\\nE se preferir uma companhia, chame um outro sapo\
+          \ e fa\\u00e7a uma amea\\u00e7a dupla para a Rainha das Trevas. A situa\\\
+          u00e7\\u00e3o \\u00e9 esta, e apesar de preta voc\\u00ea ter\\u00e1 que fazer\
+          \ alguma coisa a respeito. Agora!!!\"}\n\t\t\t],\n\t\t\t\"classifications\"\
+          : [\n\t\t\t\t{\"type\": \"VRC\", \"text\": \"GA\"}\n\t\t\t],\n\t\t\t\"dates\"\
+          : [\n\t\t\t\t{ \"region\": \"fr\", \"text\": \"1993-03-23\"},\n\t\t\t\t{ \"\
+          region\": \"us\", \"text\": \"1991-07-13\"},\n\t\t\t\t{ \"region\": \"jp\"\
+          , \"text\": \"1993-03-23\"},\n\t\t\t\t{ \"region\": \"eu\", \"text\": \"1993-03-26\"\
+          }\n\t\t\t],\n\t\t\t\"genres\": [\n\t\t\t\t{ \"id\": \"1\",\n\t\t\t\t\"nomcourt\"\
+          : \"0107\",\n\t\t\t\t\"principale\": \"1\",\n\t\t\t\t\"parentid\": \"0\",\n\
+          \t\t\t\t\"noms\": [\n\t\t\t\t\t{ \"langue\": \"en\", \"text\": \"Beat'em Up\"\
+          },\n\t\t\t\t\t{ \"langue\": \"fr\", \"text\": \"Beat'em All\"},\n\t\t\t\t\t\
+          { \"langue\": \"de\", \"text\": \"Beat'em Up\"},\n\t\t\t\t\t{ \"langue\":\
+          \ \"es\", \"text\": \"Beat'em Up\"},\n\t\t\t\t\t{ \"langue\": \"it\", \"text\"\
+          : \"Beat'em All\"},\n\t\t\t\t\t{ \"langue\": \"pt\", \"text\": \"Briga de\
+          \ rua\"}\n\t\t\t\t\t]\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"modes\": [\n\t\t\t\t{\
+          \ \"id\": \"4\",\n\t\t\t\t\"nomcourt\": \"\",\n\t\t\t\t\"principale\": \"\
+          1\",\n\t\t\t\t\"parentid\": \"0\",\n\t\t\t\t\"noms\": [\n\t\t\t\t\t{ \"langue\"\
+          : \"en\", \"text\": \"Single-player\"},\n\t\t\t\t\t{ \"langue\": \"fr\", \"\
+          text\": \"Jouable en solo\"},\n\t\t\t\t\t{ \"langue\": \"de\", \"text\": \"\
+          Einzelspieler\"},\n\t\t\t\t\t{ \"langue\": \"es\", \"text\": \"Jugador individual\"\
+          },\n\t\t\t\t\t{ \"langue\": \"it\", \"text\": \"Giocatore singolo\"},\n\t\t\
+          \t\t\t{ \"langue\": \"pt\", \"text\": \"Jogador individual\"}\n\t\t\t\t\t\
+          ]\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"familles\": [\n\t\t\t\t{ \"id\": \"20297\"\
+          ,\n\t\t\t\t\"nomcourt\": \"\",\n\t\t\t\t\"principale\": \"0\",\n\t\t\t\t\"\
+          parentid\": \"0\",\n\t\t\t\t\"noms\": [\n\t\t\t\t\t{ \"langue\": \"fr\", \"\
+          text\": \"Battletoads\"}\n\t\t\t\t\t]\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"themes\"\
+          : [\n\t\t\t\t{ \"id\": \"3\",\n\t\t\t\t\"nomcourt\": \"\",\n\t\t\t\t\"principale\"\
+          : \"1\",\n\t\t\t\t\"parentid\": \"0\",\n\t\t\t\t\"noms\": [\n\t\t\t\t\t{ \"\
+          langue\": \"fr\", \"text\": \"Animaux\"},\n\t\t\t\t\t{ \"langue\": \"de\"\
+          , \"text\": \"Haustiere\"},\n\t\t\t\t\t{ \"langue\": \"es\", \"text\": \"\
+          Animales\"}\n\t\t\t\t\t]\n\t\t\t\t}\n\t\t\t],\n\t\t\t\"medias\": [\n\t\t\t\
+          \t{\"type\": \"sstitle\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\":\
+          \ \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=sstitle(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"ddf76beb\",\n\t\t\t\t\"\
+          md5\": \"90a26094162b11dc8f914725b5b6e67d\",\n\t\t\t\t\"sha1\": \"c38dc8d5f3af5d72c25c3704a1e02ec23cfede5f\"\
+          ,\n\t\t\t\t\"size\": \"5617\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"\
+          type\": \"ss\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=ss(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"7c994e8a\",\n\t\t\t\t\"\
+          md5\": \"dbe6f3584a023a8988e6fa9ad21908d8\",\n\t\t\t\t\"sha1\": \"bb7198fcce3c7ccf77e1a83577e586ba721bddef\"\
+          ,\n\t\t\t\t\"size\": \"16857\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"\
+          type\": \"fanart\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=fanart\"\
+          ,\n\t\t\t\t\"crc\": \"e2c71d0f\",\n\t\t\t\t\"md5\": \"631016b964745e7f9d390470e3d10ab8\"\
+          ,\n\t\t\t\t\"sha1\": \"fa95c01f527de41e7971883f4ca94913763359f1\",\n\t\t\t\
+          \t\"size\": \"973047\",\n\t\t\t\t\"format\": \"jpg\"},\n\t\t\t\t{\"type\"\
+          : \"video\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaVideoJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=video\"\
+          ,\n\t\t\t\t\"crc\": \"40387683\",\n\t\t\t\t\"md5\": \"1551b6607157aa781e45c5d2394019eb\"\
+          ,\n\t\t\t\t\"sha1\": \"a007fbb781840d6cbc16e7cf93ce8b1eddb8e687\",\n\t\t\t\
+          \t\"size\": \"6655535\",\n\t\t\t\t\"format\": \"mp4\"},\n\t\t\t\t{\"type\"\
+          : \"video-normalized\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaVideoJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=video-normalized\"\
+          ,\n\t\t\t\t\"crc\": \"b6dd91f7\",\n\t\t\t\t\"md5\": \"68983d07332efb381c691326a556bf1d\"\
+          ,\n\t\t\t\t\"sha1\": \"7c4de9deda10dbceec3749d4248dd00bc90eaf4e\",\n\t\t\t\
+          \t\"size\": \"1878898\",\n\t\t\t\t\"format\": \"mp4\"},\n\t\t\t\t{\"type\"\
+          : \"screenmarquee\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=screenmarquee(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"a757a9ee\",\n\t\t\t\t\"\
+          md5\": \"5d7245561ecf710f8cc979cf0700f5fc\",\n\t\t\t\t\"sha1\": \"745e7e3772879bb251319d8706fda2e62e0a29ca\"\
+          ,\n\t\t\t\t\"size\": \"432162\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"screenmarqueesmall\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\
+          \"url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=screenmarqueesmall(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"7f85fc93\",\n\t\t\t\t\"\
+          md5\": \"ce81c0c3dc46a9e8f028f5a76cfcafac\",\n\t\t\t\t\"sha1\": \"4f4f0b8961670ddb264d35a5841e1fa9178b2914\"\
+          ,\n\t\t\t\t\"size\": \"89719\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"\
+          type\": \"manuel\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaManuelJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=manuel(br)\"\
+          ,\n\t\t\t\t\"region\": \"br\",\n\t\t\t\t\"crc\": \"45f85918\",\n\t\t\t\t\"\
+          md5\": \"8266356bc75fbf9de80160dfaf344637\",\n\t\t\t\t\"sha1\": \"68cff0e5da79fea0ceed988b3ddb2280d504dd0a\"\
+          ,\n\t\t\t\t\"size\": \"3005546\",\n\t\t\t\t\"format\": \"pdf\"},\n\t\t\t\t\
+          {\"type\": \"manuel\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaManuelJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=manuel(fr)\"\
+          ,\n\t\t\t\t\"region\": \"fr\",\n\t\t\t\t\"crc\": \"5eaa6741\",\n\t\t\t\t\"\
+          md5\": \"2820e451731c06d70178e5378fbc5348\",\n\t\t\t\t\"sha1\": \"4d90b2cd02ee2a4b293cdbbc64bf86f621877b87\"\
+          ,\n\t\t\t\t\"size\": \"2796200\",\n\t\t\t\t\"format\": \"pdf\"},\n\t\t\t\t\
+          {\"type\": \"manuel\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaManuelJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=manuel(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"08a3c847\",\n\t\t\t\t\"\
+          md5\": \"45606798e8941bccc2f3d908adf28c3e\",\n\t\t\t\t\"sha1\": \"d2eb6608fd725c4f043849f453458a8dcd21f120\"\
+          ,\n\t\t\t\t\"size\": \"5133703\",\n\t\t\t\t\"format\": \"pdf\"},\n\t\t\t\t\
+          {\"type\": \"manuel\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaManuelJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=manuel(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"6139c927\",\n\t\t\t\t\"\
+          md5\": \"1a9776fce40d8d5e3afb4f3cc173129f\",\n\t\t\t\t\"sha1\": \"639e1c10db086d7e0be36c3cecb457bcb2e2f3f5\"\
+          ,\n\t\t\t\t\"size\": \"2483191\",\n\t\t\t\t\"format\": \"pdf\"},\n\t\t\t\t\
+          {\"type\": \"steamgrid\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\":\
+          \ \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=steamgrid\"\
+          ,\n\t\t\t\t\"crc\": \"091457a6\",\n\t\t\t\t\"md5\": \"4f6edca1f6cb9bac62d8fadd128dc817\"\
+          ,\n\t\t\t\t\"sha1\": \"f41419ab4e54e1cff9c26d5d63cb828ee375cc47\",\n\t\t\t\
+          \t\"size\": \"32938\",\n\t\t\t\t\"format\": \"jpg\"},\n\t\t\t\t{\"type\":\
+          \ \"maps\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=maps(Plans(In-GameMap))\"\
+          ,\n\t\t\t\t\"version\": \"In-GameMap\",\n\t\t\t\t\"crc\": \"f002242c\",\n\t\
+          \t\t\t\"md5\": \"418120091fa2fd5e01fa127e2be2747b\",\n\t\t\t\t\"sha1\": \"\
+          0e41b9bce09f88399c24987a9cb7bf2c74ec7ecf\",\n\t\t\t\t\"size\": \"118486\"\
+          ,\n\t\t\t\t\"format\": \"jpg\"},\n\t\t\t\t{\"type\": \"wheel\",\n\t\t\t\t\"\
+          parent\": \"jeu\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=wheel(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"1d7d33ff\",\n\t\t\t\t\"\
+          md5\": \"a74e7b3bf2bc3b74a97a0a96bfcd52f2\",\n\t\t\t\t\"sha1\": \"fa205b072aa0dea362d26716fdafc54ce84ff702\"\
+          ,\n\t\t\t\t\"size\": \"69689\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"\
+          type\": \"wheel\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=wheel(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"e970d5af\",\n\t\t\t\t\"\
+          md5\": \"58bff299678b2e857b8c700f2fc5d9eb\",\n\t\t\t\t\"sha1\": \"a79283e96d16eea9a12e62255ffa9d29ea1a3ebb\"\
+          ,\n\t\t\t\t\"size\": \"265602\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"wheel-carbon\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=wheel-carbon(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"8caab1a9\",\n\t\t\t\t\"\
+          md5\": \"e037dff95ea877800892015825ea25d0\",\n\t\t\t\t\"sha1\": \"e190db495840236ae02fe2cb250c6c190468d1dc\"\
+          ,\n\t\t\t\t\"size\": \"198853\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"wheel-carbon\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=wheel-carbon(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"cbea2dcf\",\n\t\t\t\t\"\
+          md5\": \"834c39a33123e428ca7f34d15dfbfe13\",\n\t\t\t\t\"sha1\": \"59a7c800f75ee1a9de9f1ce79bf65bbee737e460\"\
+          ,\n\t\t\t\t\"size\": \"219591\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"wheel-steel\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=wheel-steel(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"42e226af\",\n\t\t\t\t\"\
+          md5\": \"707cb35881420b0294859c8440333c94\",\n\t\t\t\t\"sha1\": \"5a643a147dd5d9d9cd4df35255c1d5f80aa4c22d\"\
+          ,\n\t\t\t\t\"size\": \"194132\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"wheel-steel\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=wheel-steel(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"0d27311d\",\n\t\t\t\t\"\
+          md5\": \"b2b2443758967416ab74c84e99f14fab\",\n\t\t\t\t\"sha1\": \"2a95ee0f05ea13450e74649ae239d6a9da1fb174\"\
+          ,\n\t\t\t\t\"size\": \"213643\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D(br)\"\
+          ,\n\t\t\t\t\"region\": \"br\",\n\t\t\t\t\"crc\": \"89a6a850\",\n\t\t\t\t\"\
+          md5\": \"f14783603804a0c9cf07705b18b8d966\",\n\t\t\t\t\"sha1\": \"bab2bc4d4ea9dfd08b871560f0e8eed2b8bfa6f4\"\
+          ,\n\t\t\t\t\"size\": \"643493\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"158da78d\",\n\t\t\t\t\"\
+          md5\": \"d931115cba2c348a712b9bb7e46c56b6\",\n\t\t\t\t\"sha1\": \"aa84b394eda103fcfd1a94163283a96b7f757059\"\
+          ,\n\t\t\t\t\"size\": \"418696\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"0d4110f9\",\n\t\t\t\t\"\
+          md5\": \"62754f8a982d598d4abdad30077950c8\",\n\t\t\t\t\"sha1\": \"a111bbcbad535fef762ad37417ec99a550404a1e\"\
+          ,\n\t\t\t\t\"size\": \"449095\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D(ss)\"\
+          ,\n\t\t\t\t\"region\": \"ss\",\n\t\t\t\t\"crc\": \"b69bc1c7\",\n\t\t\t\t\"\
+          md5\": \"5bbd87d55da17687d6930e36460734a1\",\n\t\t\t\t\"sha1\": \"8dbc8a8f1cf28b2db8868b1357937b592961e173\"\
+          ,\n\t\t\t\t\"size\": \"331213\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"2cc57d37\",\n\t\t\t\t\"\
+          md5\": \"b892a42f67cfa56381e8cfc15470a7b0\",\n\t\t\t\t\"sha1\": \"d9a668452f3c6a1935de47602f27c731f8fd315f\"\
+          ,\n\t\t\t\t\"size\": \"700746\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D-side\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-side(br)\"\
+          ,\n\t\t\t\t\"region\": \"br\",\n\t\t\t\t\"crc\": \"4b64f14e\",\n\t\t\t\t\"\
+          md5\": \"db67f58bb07fe6ebe28f14ca070a4c5c\",\n\t\t\t\t\"sha1\": \"f42af90b90f4e419c20868fd76715ef026a04fab\"\
+          ,\n\t\t\t\t\"size\": \"106734\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D-side\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-side(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"d7bfcdc6\",\n\t\t\t\t\"\
+          md5\": \"71a52b35dd7f2981531893fb6431c754\",\n\t\t\t\t\"sha1\": \"f57c1d55ee569cf6e6ff1a4f2e1eb460a1c7e6ad\"\
+          ,\n\t\t\t\t\"size\": \"59777\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"\
+          type\": \"box-2D-side\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-side(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"43f0d646\",\n\t\t\t\t\"\
+          md5\": \"5559883c733232a9fa7d8ca7dc9a4c11\",\n\t\t\t\t\"sha1\": \"1cdc8ebf2b467281021e0c821fc0703a64965ef5\"\
+          ,\n\t\t\t\t\"size\": \"74199\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"\
+          type\": \"box-2D-side\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-side(ss)\"\
+          ,\n\t\t\t\t\"region\": \"ss\",\n\t\t\t\t\"crc\": \"705df4bf\",\n\t\t\t\t\"\
+          md5\": \"d184f24dd7ab94655daa100fa98e9009\",\n\t\t\t\t\"sha1\": \"84a4d630b3c17bee49522e5094b1d66128c92902\"\
+          ,\n\t\t\t\t\"size\": \"48507\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"\
+          type\": \"box-2D-side\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-side(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"d1add4d1\",\n\t\t\t\t\"\
+          md5\": \"d2dd81cc702ee80b4f8cd53f525757db\",\n\t\t\t\t\"sha1\": \"a17f6feb12a43021c3ed003793f4ba7d6504d28d\"\
+          ,\n\t\t\t\t\"size\": \"68485\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"\
+          type\": \"box-2D-back\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-back(br)\"\
+          ,\n\t\t\t\t\"region\": \"br\",\n\t\t\t\t\"crc\": \"140640e2\",\n\t\t\t\t\"\
+          md5\": \"8ddb244d4d89bac1262c42ee6fe0960c\",\n\t\t\t\t\"sha1\": \"59747f9e1b1ab407fc30a080fa83d6da83f99ebd\"\
+          ,\n\t\t\t\t\"size\": \"629992\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D-back\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-back(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"f0357f29\",\n\t\t\t\t\"\
+          md5\": \"4802432668e00760ff160d1c46a82b60\",\n\t\t\t\t\"sha1\": \"fb1ae4a69a82731500b35b3a958b593eb91eb93f\"\
+          ,\n\t\t\t\t\"size\": \"420565\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D-back\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-back(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"4e921238\",\n\t\t\t\t\"\
+          md5\": \"91ab99cfbb4fb05fe78df9c5d73b87b7\",\n\t\t\t\t\"sha1\": \"8f4883baf133f00d20d8202a920a4eaa8e51fd7e\"\
+          ,\n\t\t\t\t\"size\": \"374091\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D-back\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-back(ss)\"\
+          ,\n\t\t\t\t\"region\": \"ss\",\n\t\t\t\t\"crc\": \"64feef27\",\n\t\t\t\t\"\
+          md5\": \"9dd426a788f74754fd4c2fd387d9a6f9\",\n\t\t\t\t\"sha1\": \"7a5d36a0da252acbf94b0400485d4d5e30b2b988\"\
+          ,\n\t\t\t\t\"size\": \"245238\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-2D-back\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-2D-back(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"eb8ed430\",\n\t\t\t\t\"\
+          md5\": \"2076d4b97e31a9db52abed469be3c56a\",\n\t\t\t\t\"sha1\": \"a80f8b7ff5e7993cb07c2987de49bb2f43cbaa75\"\
+          ,\n\t\t\t\t\"size\": \"492930\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-texture\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-texture(br)\"\
+          ,\n\t\t\t\t\"region\": \"br\",\n\t\t\t\t\"crc\": \"9e9a3fbb\",\n\t\t\t\t\"\
+          md5\": \"7c5b2a9a2904d68a3bd58351e31ceefa\",\n\t\t\t\t\"sha1\": \"32c2181b3f0e3cb02bf0f1f55547fa9f867f2e26\"\
+          ,\n\t\t\t\t\"size\": \"1421194\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-texture\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-texture(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"ee52c689\",\n\t\t\t\t\"\
+          md5\": \"0bc905681226cc33e2c0d89b6a022268\",\n\t\t\t\t\"sha1\": \"65318ead086188388f4735729ed82c9ecac89f73\"\
+          ,\n\t\t\t\t\"size\": \"941994\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-texture\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-texture(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"852340d8\",\n\t\t\t\t\"\
+          md5\": \"de667b0a13211a2640663239807384ee\",\n\t\t\t\t\"sha1\": \"b014eb5deb752f3332d3926f3f6efc27b41455ee\"\
+          ,\n\t\t\t\t\"size\": \"955924\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-texture\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-texture(ss)\"\
+          ,\n\t\t\t\t\"region\": \"ss\",\n\t\t\t\t\"crc\": \"93e8091e\",\n\t\t\t\t\"\
+          md5\": \"ecb19b04096b70b12ff2212c4eb9fb70\",\n\t\t\t\t\"sha1\": \"9aa91cd5e8aaa8d1ed56e03a0bf91c938de41b22\"\
+          ,\n\t\t\t\t\"size\": \"636144\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-texture\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-texture(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"34ede8d1\",\n\t\t\t\t\"\
+          md5\": \"eccf0e0c6eaad09caf48accba4a49640\",\n\t\t\t\t\"sha1\": \"287b08f503e56f7cf943c0cd250eb7d50857289b\"\
+          ,\n\t\t\t\t\"size\": \"1306276\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-3D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-3D(br)\"\
+          ,\n\t\t\t\t\"region\": \"br\",\n\t\t\t\t\"crc\": \"bbeaf7f5\",\n\t\t\t\t\"\
+          md5\": \"116d15ba879f4e8525cb48976a4db36c\",\n\t\t\t\t\"sha1\": \"b3b3c808cf90b317160e2e92b94b3af0073e6360\"\
+          ,\n\t\t\t\t\"size\": \"316050\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-3D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-3D(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"85fc0f3b\",\n\t\t\t\t\"\
+          md5\": \"49ccd261568517e8edff7c8709ea6113\",\n\t\t\t\t\"sha1\": \"ffabb3332ada283e38b80e37d49e813b3da75fb5\"\
+          ,\n\t\t\t\t\"size\": \"294215\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-3D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-3D(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"83f18955\",\n\t\t\t\t\"\
+          md5\": \"800ed63a7da2cbdea144ce96cfb678a0\",\n\t\t\t\t\"sha1\": \"e8c0e92060f77d985e980fe379c4a93d0b7cf301\"\
+          ,\n\t\t\t\t\"size\": \"302227\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-3D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-3D(ss)\"\
+          ,\n\t\t\t\t\"region\": \"ss\",\n\t\t\t\t\"crc\": \"63776bb6\",\n\t\t\t\t\"\
+          md5\": \"8fa15f192355f39c31c01d574339fbaf\",\n\t\t\t\t\"sha1\": \"22aeaaff03fc6b44829125e3ded4ad3ef04a047d\"\
+          ,\n\t\t\t\t\"size\": \"277513\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"box-3D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=box-3D(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"ba99757a\",\n\t\t\t\t\"\
+          md5\": \"5e12aaf66a7250544611d556d0daced9\",\n\t\t\t\t\"sha1\": \"2dd36014a54e31da2c586318d481f3cfd9406f84\"\
+          ,\n\t\t\t\t\"size\": \"334608\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"support-texture\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"\
+          url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=support-texture(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"6d8c4829\",\n\t\t\t\t\"\
+          md5\": \"4b7e94dc7f00c65717744122b47f5661\",\n\t\t\t\t\"sha1\": \"ae358928ab5e99c31475ff72323ea69875fa7749\"\
+          ,\n\t\t\t\t\"size\": \"490753\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"support-texture\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"\
+          url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=support-texture(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"9c743227\",\n\t\t\t\t\"\
+          md5\": \"31ac29bf015704cf19e77ce1426f795e\",\n\t\t\t\t\"sha1\": \"f8cb1b37b1e468c2c1ed761d8764d28b31ddf20f\"\
+          ,\n\t\t\t\t\"size\": \"159135\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"support-texture\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"\
+          url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=support-texture(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"1d6627c3\",\n\t\t\t\t\"\
+          md5\": \"825284e75a611da4d2e40bc89619ef75\",\n\t\t\t\t\"sha1\": \"fbfbce3c03a3ffcc6951bde45ac25ee6c3d02ecf\"\
+          ,\n\t\t\t\t\"size\": \"146646\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"support-2D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=support-2D(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"dc0d420e\",\n\t\t\t\t\"\
+          md5\": \"adac27d77f965390d57632c7fa1bbb64\",\n\t\t\t\t\"sha1\": \"6dbe02886a60576984eef2b4f4f1bd0a22c4b057\"\
+          ,\n\t\t\t\t\"size\": \"395673\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"support-2D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=support-2D(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"fd71b060\",\n\t\t\t\t\"\
+          md5\": \"4e5e6ff89c165acee93f6b75666b4a8c\",\n\t\t\t\t\"sha1\": \"ff72ce676aa4b676422c0c1fd1e272f2cbb1265f\"\
+          ,\n\t\t\t\t\"size\": \"347279\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"support-2D\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=support-2D(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"a26a1d84\",\n\t\t\t\t\"\
+          md5\": \"62c9dffb72ec017fcd4e776d13c26acd\",\n\t\t\t\t\"sha1\": \"a5429bb3850d1276b6b264e60716d8b47f371157\"\
+          ,\n\t\t\t\t\"size\": \"290295\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"bezel-16-9\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"posx\"\
+          : \"246\",\n\t\t\t\t\"posy\": \"2\",\n\t\t\t\t\"posw\": \"1431\",\n\t\t\t\t\
+          \"posh\": \"1075\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=bezel-16-9(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"d6baf7e9\",\n\t\t\t\t\"\
+          md5\": \"c769736a347a58e57d8903faf35185ea\",\n\t\t\t\t\"sha1\": \"20c8f3d56601d85c2d1d6b46bde677642d81c691\"\
+          ,\n\t\t\t\t\"size\": \"190243\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv1\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv1(br)\"\
+          ,\n\t\t\t\t\"region\": \"br\",\n\t\t\t\t\"crc\": \"a91f5fa2\",\n\t\t\t\t\"\
+          md5\": \"290cba7a3290bd9265b3e40a40891640\",\n\t\t\t\t\"sha1\": \"aaedeff48edb003e35a5d5febe2fe957e4d12e0f\"\
+          ,\n\t\t\t\t\"size\": \"712267\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv1\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv1(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"0c4d8b11\",\n\t\t\t\t\"\
+          md5\": \"df1c6a15c4372f5c7c0d9a0707ae4603\",\n\t\t\t\t\"sha1\": \"603891d8789d59376f21f4aef8be5ba1cabd5410\"\
+          ,\n\t\t\t\t\"size\": \"706827\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv1\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv1(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"834b485c\",\n\t\t\t\t\"\
+          md5\": \"53b34100f671ea3af207fd604fb1eaf8\",\n\t\t\t\t\"sha1\": \"1fed4664da917bea20ce60b130d114523a4d1d67\"\
+          ,\n\t\t\t\t\"size\": \"654423\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv1\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv1(ss)\"\
+          ,\n\t\t\t\t\"region\": \"ss\",\n\t\t\t\t\"crc\": \"d855f49d\",\n\t\t\t\t\"\
+          md5\": \"cd2507a75ddc9cbd9a0d42d479c6e798\",\n\t\t\t\t\"sha1\": \"f91704f1e12b8b7e3c6f6a68277c0a88dc60d757\"\
+          ,\n\t\t\t\t\"size\": \"705104\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv1\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv1(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"2bac7aa1\",\n\t\t\t\t\"\
+          md5\": \"a4df1777843dcfeb63ff69d58e269a0d\",\n\t\t\t\t\"sha1\": \"aaa0540f01e87aa2f2e8487fc2624a85b5fc1266\"\
+          ,\n\t\t\t\t\"size\": \"726053\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv1\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv1(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"0c4d8b11\",\n\t\t\t\t\"\
+          md5\": \"df1c6a15c4372f5c7c0d9a0707ae4603\",\n\t\t\t\t\"sha1\": \"603891d8789d59376f21f4aef8be5ba1cabd5410\"\
+          ,\n\t\t\t\t\"size\": \"706827\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv2\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv2(br)\"\
+          ,\n\t\t\t\t\"region\": \"br\",\n\t\t\t\t\"crc\": \"d4dd1722\",\n\t\t\t\t\"\
+          md5\": \"bad2224fda71942eb6c12a9c7c54e9d7\",\n\t\t\t\t\"sha1\": \"eda8a19573c66b550fa02b8bdc81d51c6d196163\"\
+          ,\n\t\t\t\t\"size\": \"950327\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv2\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv2(eu)\"\
+          ,\n\t\t\t\t\"region\": \"eu\",\n\t\t\t\t\"crc\": \"96bf48ce\",\n\t\t\t\t\"\
+          md5\": \"dd4f0b44587ace5799f05dfcc22ea496\",\n\t\t\t\t\"sha1\": \"20577ede69a3e6207afcdfc07af92e9f05b731d7\"\
+          ,\n\t\t\t\t\"size\": \"945860\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv2\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv2(jp)\"\
+          ,\n\t\t\t\t\"region\": \"jp\",\n\t\t\t\t\"crc\": \"bfe8fe40\",\n\t\t\t\t\"\
+          md5\": \"70a1627918029c1dd600876f0cbea898\",\n\t\t\t\t\"sha1\": \"11305b8394292a9cfbb170ef83c3937282282f8f\"\
+          ,\n\t\t\t\t\"size\": \"903353\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv2\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv2(ss)\"\
+          ,\n\t\t\t\t\"region\": \"ss\",\n\t\t\t\t\"crc\": \"7698c4e4\",\n\t\t\t\t\"\
+          md5\": \"140f1674da33eab21fdf958c36b3d889\",\n\t\t\t\t\"sha1\": \"73c7e69afb0abf49ee4c4257b33ac0a82625a7ff\"\
+          ,\n\t\t\t\t\"size\": \"944619\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv2\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv2(us)\"\
+          ,\n\t\t\t\t\"region\": \"us\",\n\t\t\t\t\"crc\": \"b85437a2\",\n\t\t\t\t\"\
+          md5\": \"50044e63bf44c36665bd409420d2920c\",\n\t\t\t\t\"sha1\": \"a2b1a5c2c2f73faf89e511e80b37718198263da6\"\
+          ,\n\t\t\t\t\"size\": \"950374\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"mixrbv2\",\n\t\t\t\t\"parent\": \"jeu\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaJeu.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&systemeid=1&jeuid=1&media=mixrbv2(wor)\"\
+          ,\n\t\t\t\t\"region\": \"wor\",\n\t\t\t\t\"crc\": \"96bf48ce\",\n\t\t\t\t\"\
+          md5\": \"dd4f0b44587ace5799f05dfcc22ea496\",\n\t\t\t\t\"sha1\": \"20577ede69a3e6207afcdfc07af92e9f05b731d7\"\
+          ,\n\t\t\t\t\"size\": \"945860\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t\
+          {\"type\": \"pictoliste\",\n\t\t\t\t\"parent\": \"region\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaGroup.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=57&media=pictoliste\"\
+          ,\n\t\t\t\t\"crc\": \"3e16ef2f\",\n\t\t\t\t\"md5\": \"477d7229d6acc6f9fe10410d8523f91a\"\
+          ,\n\t\t\t\t\"sha1\": \"99cb5eab43e90a3dd73b1034b140a8ead05c224f\",\n\t\t\t\
+          \t\"format\": \"png\"},\n\t\t\t\t{\"type\": \"pictomonochrome\",\n\t\t\t\t\
+          \"parent\": \"editeur\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaCompagnie.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=1&media=logo-monochrome\"\
+          ,\n\t\t\t\t\"crc\": \"57fa0967\",\n\t\t\t\t\"md5\": \"b9431112b9c59d7f5231a25cba667d7f\"\
+          ,\n\t\t\t\t\"sha1\": \"34a44f3308ce5e55254bd3ae695736ddefd1afd9\",\n\t\t\t\
+          \t\"size\": \"29109\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"type\":\
+          \ \"pictocouleur\",\n\t\t\t\t\"parent\": \"editeur\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaCompagnie.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=1&media=wheel\"\
+          ,\n\t\t\t\t\"crc\": \"113ab6b7\",\n\t\t\t\t\"md5\": \"ba1042f2bcde5fd495d0f9b2616a7907\"\
+          ,\n\t\t\t\t\"sha1\": \"84e503c6943178ed1b9134e4e42d3de0d62cb202\",\n\t\t\t\
+          \t\"size\": \"11946\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"type\":\
+          \ \"pictomonochrome\",\n\t\t\t\t\"parent\": \"developpeur\",\n\t\t\t\t\"url\"\
+          : \"https://neoclone.screenscraper.fr/api2/mediaCompagnie.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=2&media=logo-monochrome\"\
+          ,\n\t\t\t\t\"crc\": \"420daf73\",\n\t\t\t\t\"md5\": \"70dfa243c209ca136ebb063593c2998c\"\
+          ,\n\t\t\t\t\"sha1\": \"e32ad05386671f826f1ed828ac9bfccec2cfe9c7\",\n\t\t\t\
+          \t\"size\": \"9943\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"type\": \"\
+          pictocouleur\",\n\t\t\t\t\"parent\": \"developpeur\",\n\t\t\t\t\"url\": \"\
+          https://neoclone.screenscraper.fr/api2/mediaCompagnie.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=2&media=wheel\"\
+          ,\n\t\t\t\t\"crc\": \"85c43b5b\",\n\t\t\t\t\"md5\": \"4530c00e3338dd6120ad835ee53e5427\"\
+          ,\n\t\t\t\t\"sha1\": \"f66e49db1229db033275a0b15f0f8980982a7789\",\n\t\t\t\
+          \t\"size\": \"35241\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"type\":\
+          \ \"pictoliste\",\n\t\t\t\t\"parent\": \"joueurs\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaGroup.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=3304&media=pictoliste\"\
+          ,\n\t\t\t\t\"crc\": \"0abdc9bf\",\n\t\t\t\t\"md5\": \"05057bd8fcfe368b23628ba314e94df0\"\
+          ,\n\t\t\t\t\"sha1\": \"6d9b48053c720498ece35d0029621b7d25010d3b\",\n\t\t\t\
+          \t\"size\": \"449\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"type\": \"\
+          pictoliste\",\n\t\t\t\t\"parent\": \"note\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaGroup.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=3553&media=pictoliste\"\
+          ,\n\t\t\t\t\"crc\": \"612df705\",\n\t\t\t\t\"md5\": \"6ee8a25c785597ef3035b7139189482a\"\
+          ,\n\t\t\t\t\"sha1\": \"570ad57ff7c5643595c1a2148bacc373f326cffe\",\n\t\t\t\
+          \t\"size\": \"840\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"type\": \"\
+          pictoliste\",\n\t\t\t\t\"parent\": \"classification\",\n\t\t\t\t\"subparent\"\
+          : \"VRC\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaGroup.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=3733&media=pictoliste\"\
+          ,\n\t\t\t\t\"crc\": \"e34ba136\",\n\t\t\t\t\"md5\": \"b481137eba34134a8178d68c6414cb32\"\
+          ,\n\t\t\t\t\"sha1\": \"fa812a3c467414111be23bcd692aa8548bf5b461\",\n\t\t\t\
+          \t\"size\": \"762\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"id\": \"1\"\
+          ,\n\t\t\t\t\"parent\": \"genre\",\n\t\t\t\t\"subparent\": \"Beat'em All\"\
+          ,\n\t\t\t\t\"type\": \"pictoliste\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaGroup.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=1&media=pictoliste\"\
+          ,\n\t\t\t\t\"crc\": \"151e4161\",\n\t\t\t\t\"md5\": \"00cb0cb4842e9aba77214ca54b713d0b\"\
+          ,\n\t\t\t\t\"sha1\": \"95b8ef111b7e5be0c1750123da620e76523dec62\",\n\t\t\t\
+          \t\"size\": \"1126\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"id\": \"\
+          1\",\n\t\t\t\t\"parent\": \"genre\",\n\t\t\t\t\"subparent\": \"Beat'em All\"\
+          ,\n\t\t\t\t\"type\": \"pictomonochrome\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaGroup.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=1&media=logo-monochrome\"\
+          ,\n\t\t\t\t\"crc\": \"3974c2c4\",\n\t\t\t\t\"md5\": \"19fa1571415cc4d60d321d1c42dd45b5\"\
+          ,\n\t\t\t\t\"sha1\": \"27a372f24bbf11f0a7050bfea0bbcab612935244\",\n\t\t\t\
+          \t\"size\": \"9003\",\n\t\t\t\t\"format\": \"png\"},\n\t\t\t\t{\"id\": \"\
+          1\",\n\t\t\t\t\"parent\": \"genre\",\n\t\t\t\t\"subparent\": \"Beat'em All\"\
+          ,\n\t\t\t\t\"type\": \"pictomonochrome\",\n\t\t\t\t\"url\": \"https://neoclone.screenscraper.fr/api2/mediaGroup.php?devid=zurdi15&devpassword=xTJwoOFjOQG&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&groupid=1&media=logo-monochrome-svg\"\
+          ,\n\t\t\t\t\"crc\": \"ccb72604\",\n\t\t\t\t\"md5\": \"a3cce15fcad1ab4329a718a6b0d27d7e\"\
+          ,\n\t\t\t\t\"sha1\": \"1de1e8426d307e4cc56b909ffe353813822278e3\",\n\t\t\t\
+          \t\"size\": \"2918\",\n\t\t\t\t\"format\": \"svg\"}\n\t\t\t],\n\t\t\t\"roms\"\
+          : [\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"73\",\n\t\t\t\t\t\"romsize\": \"359440\"\
+          ,\n\t\t\t\t\t\"romfilename\": \"Battletoads (World).zip\",\n\t\t\t\t\t\"romnumsupport\"\
+          : \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\t\t\t\"romcloneof\"\
+          : \"0\",\n\t\t\t\t\t\"romcrc\": \"BE55BF2A\",\n\t\t\t\t\t\"rommd5\": \"CA32E3BFB4507F9713F37B5D345BAAB1\"\
+          ,\n\t\t\t\t\t\"romsha1\": \"9D3CDCCBFE2659BFB609987707B2CC2CA4317BEB\",\n\t\
+          \t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\"\
+          : \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\
+          \t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\
+          \t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\"\
+          : [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"\
+          regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\
+          \t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"\
+          ],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\
+          \t\t{\n\t\t\t\t\t\"id\": \"85954\",\n\t\t\t\t\t\"romsize\": \"329618\",\n\t\
+          \t\t\t\t\"romfilename\": \"Battletoads (World).7z\",\n\t\t\t\t\t\"romnumsupport\"\
+          : \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\t\t\t\"romcloneof\"\
+          : \"0\",\n\t\t\t\t\t\"romcrc\": \"74002736\",\n\t\t\t\t\t\"rommd5\": \"CBEFC8F7C7CA94942926CA75B7FFCDB5\"\
+          ,\n\t\t\t\t\t\"romsha1\": \"\",\n\t\t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"\
+          demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\
+          \t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"\
+          0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\
+          \"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\"\
+          : [\"wor\"],\n\t\t\t\t\t\t\"regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\"\
+          : [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\"\
+          : [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\
+          \t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"118779\",\n\t\t\t\t\t\"romsize\": \"\
+          359418\",\n\t\t\t\t\t\"romfilename\": \"Battletoads (World).zip\",\n\t\t\t\
+          \t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\
+          \t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"749B17FC\",\n\t\t\t\t\
+          \t\"rommd5\": \"177F750741F8B44F13A2A7435F0DB6EE\",\n\t\t\t\t\t\"romsha1\"\
+          : \"\",\n\t\t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\
+          \"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\
+          \t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\":\
+          \ \"0\",\n\t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\
+          \t\t\"regions_id\": [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\": [\"wor\"\
+          ],\n\t\t\t\t\t\t\"regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\":\
+          \ [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\"\
+          : [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\
+          \t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"133799\",\n\t\t\t\t\t\"romsize\": \"\
+          524288\",\n\t\t\t\t\t\"romfilename\": \"Battletoads (World).md\",\n\t\t\t\t\
+          \t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\t\
+          \t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"D10E103A\",\n\t\t\t\t\t\
+          \"rommd5\": \"F1E299D6EB40E3ECEC6460D96E1E4DC9\",\n\t\t\t\t\t\"romsha1\":\
+          \ \"5EF3C29B6BDD04D24552AB200D0530F647AFDB08\",\n\t\t\t\t\t\"beta\": \"0\"\
+          ,\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\t\"trad\"\
+          : \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\
+          \"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\": \"0\"\
+          ,\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\t\t\t\
+          \t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"regions_en\": [\"World\"\
+          ],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\":\
+          \ [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\"\
+          : [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"203570\"\
+          ,\n\t\t\t\t\t\"romsize\": \"358534\",\n\t\t\t\t\t\"romfilename\": \"Battletoads\
+          \ (W) [!].gen\",\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\"\
+          : \"1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"83C7944F\"\
+          ,\n\t\t\t\t\t\"rommd5\": \"D7AFC4D4D8D9B90F6F268239C742924C\",\n\t\t\t\t\t\
+          \"romsha1\": \"\",\n\t\t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\"\
+          ,\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\"\
+          : \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\
+          \"best\": \"1\",\n\t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\
+          \t\t\t\t\t\t\"regions_id\": [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\":\
+          \ [\"wor\"],\n\t\t\t\t\t\t\"regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\"\
+          : [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\"\
+          : [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\
+          \t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"203571\",\n\t\t\t\t\t\"romsize\": \"\
+          358549\",\n\t\t\t\t\t\"romfilename\": \"battletoads (w) [b1].zip\",\n\t\t\t\
+          \t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\
+          \t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"CEB6B839\",\n\t\t\t\t\
+          \t\"rommd5\": \"D709384172D28F8563E79278BF2B7613\",\n\t\t\t\t\t\"romsha1\"\
+          : \"\",\n\t\t\t\t\t\"beta\": \"1\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\
+          \"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\
+          \t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\":\
+          \ \"0\",\n\t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\
+          \t\t\"regions_id\": [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\": [\"wor\"\
+          ],\n\t\t\t\t\t\t\"regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\":\
+          \ [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\"\
+          : [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\
+          \t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"203572\",\n\t\t\t\t\t\"romsize\": \"\
+          358539\",\n\t\t\t\t\t\"romfilename\": \"Battletoads (W) [h1C].gen\",\n\t\t\
+          \t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\
+          \t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"C58567C4\",\n\t\t\t\
+          \t\t\"rommd5\": \"AE72B7B66A65F04312FA03D2111BB27F\",\n\t\t\t\t\t\"romsha1\"\
+          : \"\",\n\t\t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\
+          \"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"1\",\n\
+          \t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\":\
+          \ \"0\",\n\t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\
+          \t\t\"regions_id\": [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\": [\"wor\"\
+          ],\n\t\t\t\t\t\t\"regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\":\
+          \ [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\"\
+          : [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\
+          \t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"203573\",\n\t\t\t\t\t\"romsize\": \"\
+          358552\",\n\t\t\t\t\t\"romfilename\": \"Battletoads (W) [p1].zip\",\n\t\t\t\
+          \t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\
+          \t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"E817C9A8\",\n\t\t\t\t\
+          \t\"rommd5\": \"5F303CA1FA3D7E10E35E6E9730B4E6BB\",\n\t\t\t\t\t\"romsha1\"\
+          : \"\",\n\t\t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\
+          \"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\
+          \t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\":\
+          \ \"0\",\n\t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\
+          \t\t\"regions_id\": [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\": [\"wor\"\
+          ],\n\t\t\t\t\t\t\"regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\":\
+          \ [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\"\
+          : [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\
+          \t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"203574\",\n\t\t\t\t\t\"romsize\": \"\
+          358662\",\n\t\t\t\t\t\"romfilename\": \"Battletoads (W) [T Rus_NewGame].bin\"\
+          ,\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"\
+          1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"40E74041\"\
+          ,\n\t\t\t\t\t\"rommd5\": \"A0F847B3507CB8919A58095EC3B16841\",\n\t\t\t\t\t\
+          \"romsha1\": \"\",\n\t\t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\"\
+          ,\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"1\",\n\t\t\t\t\t\"hack\"\
+          : \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\
+          \"best\": \"0\",\n\t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\
+          \t\t\t\t\t\t\"regions_id\": [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\":\
+          \ [\"wor\"],\n\t\t\t\t\t\t\"regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\"\
+          : [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\"\
+          : [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\
+          \t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"203589\",\n\t\t\t\t\t\"romsize\": \"\
+          9215010\",\n\t\t\t\t\t\"romfilename\": \"Battletoads RAMM (Hack).bin\",\n\t\
+          \t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\
+          \t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"A81D68E4\",\n\t\t\
+          \t\t\t\"rommd5\": \"EE990D0B09E6AEB71CB8547EC81BFAE5\",\n\t\t\t\t\t\"romsha1\"\
+          : \"\",\n\t\t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\
+          \"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"1\",\n\
+          \t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\":\
+          \ \"0\",\n\t\t\t\t\t\"netplay\": \"0\"\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"\
+          id\": \"203590\",\n\t\t\t\t\t\"romsize\": \"358616\",\n\t\t\t\t\t\"romfilename\"\
+          : \"Battletoads Remastered (Hack).bin\",\n\t\t\t\t\t\"romnumsupport\": \"\
+          1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\t\t\t\"romcloneof\": \"\
+          0\",\n\t\t\t\t\t\"romcrc\": \"6AC6502D\",\n\t\t\t\t\t\"rommd5\": \"2727700BA908BAE3B66A16F1BD2CDBF8\"\
+          ,\n\t\t\t\t\t\"romsha1\": \"\",\n\t\t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"\
+          demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\
+          \t\t\t\t\"hack\": \"1\",\n\t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"\
+          0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\": \"0\"\n\t\t\t\t},\n\
+          \t\t\t\t{\n\t\t\t\t\t\"id\": \"543806\",\n\t\t\t\t\t\"romsize\": \"373731\"\
+          ,\n\t\t\t\t\t\"romfilename\": \"Battletoads (World).zip\",\n\t\t\t\t\t\"romnumsupport\"\
+          : \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\t\t\t\"romcloneof\"\
+          : \"0\",\n\t\t\t\t\t\"romcrc\": \"7409C241\",\n\t\t\t\t\t\"rommd5\": \"D71124F17920403DB40D99B6A04DDAB4\"\
+          ,\n\t\t\t\t\t\"romsha1\": \"3D58BA8A6C1662F735B6A1FA36B022D31D9A2FEE\",\n\t\
+          \t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\"\
+          : \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\
+          \t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\
+          \t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\"\
+          : [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"\
+          regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\
+          \t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"\
+          ],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\
+          \t\t{\n\t\t\t\t\t\"id\": \"546554\",\n\t\t\t\t\t\"romsize\": \"359873\",\n\
+          \t\t\t\t\t\"romfilename\": \"Battletoads (JUE) [!].zip\",\n\t\t\t\t\t\"romnumsupport\"\
+          : \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\t\t\t\"romcloneof\"\
+          : \"0\",\n\t\t\t\t\t\"romcrc\": \"7A2EA990\",\n\t\t\t\t\t\"rommd5\": \"55B012D3ED8335A3466F144EBE1935E4\"\
+          ,\n\t\t\t\t\t\"romsha1\": \"8046E44E1C486B6BD470194726D71A07184E6B7F\",\n\t\
+          \t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\"\
+          : \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\
+          \t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"1\",\n\
+          \t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\"\
+          : [\"46\",\"48\"],\n\t\t\t\t\t\t\"regions_shortname\": [\"us\",\"eu\"],\n\t\
+          \t\t\t\t\t\"regions_en\": [\"USA\",\"Europe\"],\n\t\t\t\t\t\t\"regions_fr\"\
+          : [\"USA\",\"Europe\"],\n\t\t\t\t\t\t\"regions_de\": [\"USA\",\"Europa\"],\n\
+          \t\t\t\t\t\t\"regions_es\": [\"USA\",\"Europa\"],\n\t\t\t\t\t\t\"regions_it\"\
+          : [\"USA\"],\n\t\t\t\t\t\t\"regions_pt\": [\"EUA\",\"Europa\"]\n\t\t\t\t\t\
+          }\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"587987\",\n\t\t\t\t\t\"romsize\"\
+          : \"358664\",\n\t\t\t\t\t\"romfilename\": \"Battletoads (World).zip\",\n\t\
+          \t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\
+          \t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"4B87BB34\",\n\t\t\
+          \t\t\t\"rommd5\": \"629DAF16944422D58C34EB27EDE88D4F\",\n\t\t\t\t\t\"romsha1\"\
+          : \"BF02FAE9E5AE8CEC13EBACACFCD44BE99B88C49A\",\n\t\t\t\t\t\"beta\": \"0\"\
+          ,\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\t\"trad\"\
+          : \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\
+          \"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\": \"0\"\
+          ,\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\t\t\t\
+          \t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"regions_en\": [\"World\"\
+          ],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\":\
+          \ [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\"\
+          : [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"613629\"\
+          ,\n\t\t\t\t\t\"romsize\": \"358532\",\n\t\t\t\t\t\"romfilename\": \"Battletoads\
+          \ (World).zip\",\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\"\
+          : \"1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"3DBC3FFF\"\
+          ,\n\t\t\t\t\t\"rommd5\": \"A81218CDBDB3B168CB88FC4FF593FB32\",\n\t\t\t\t\t\
+          \"romsha1\": \"B998131C1896904A4A4B16870112D4B60413197A\",\n\t\t\t\t\t\"beta\"\
+          : \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\
+          \t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\
+          \t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\"\
+          : \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\
+          \t\t\t\t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"regions_en\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\"\
+          : [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"613772\"\
+          ,\n\t\t\t\t\t\"romsize\": \"359882\",\n\t\t\t\t\t\"romfilename\": \"Battletoads.zip\"\
+          ,\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"\
+          1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"C5E95063\"\
+          ,\n\t\t\t\t\t\"rommd5\": \"D33949CC4D01F181D498E602BD01B196\",\n\t\t\t\t\t\
+          \"romsha1\": \"882520B3B51D799FADE6C777C714205B8FA11871\",\n\t\t\t\t\t\"beta\"\
+          : \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\
+          \t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\
+          \t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\"\
+          : \"0\"\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"616262\",\n\t\t\t\t\t\"\
+          romsize\": \"524288\",\n\t\t\t\t\t\"romfilename\": \"Battletoads [T Rus_NewGame].bin\"\
+          ,\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"\
+          1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"D2859FFF\"\
+          ,\n\t\t\t\t\t\"rommd5\": \"204014B305BB5A0EA93EFB0FCA36FEA7\",\n\t\t\t\t\t\
+          \"romsha1\": \"EBB9B88F1E50FE99D85B1DB5044349599BA127C0\",\n\t\t\t\t\t\"beta\"\
+          : \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\
+          \t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\
+          \t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\"\
+          : \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\
+          \t\t\t\t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"regions_en\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\"\
+          : [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"616263\"\
+          ,\n\t\t\t\t\t\"romsize\": \"524288\",\n\t\t\t\t\t\"romfilename\": \"Battletoads\
+          \ (W) [T Rus Pirate][b1].gen\",\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\
+          \t\t\t\"romtotalsupport\": \"1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\
+          \t\t\"romcrc\": \"D67397A8\",\n\t\t\t\t\t\"rommd5\": \"3A670957B3C409761EF042078F118D88\"\
+          ,\n\t\t\t\t\t\"romsha1\": \"1DDD7C7F5B170E0ABAED1F27B32DBCC099BDC726\",\n\t\
+          \t\t\t\t\"beta\": \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\"\
+          : \"0\",\n\t\t\t\t\t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\
+          \t\"unl\": \"0\",\n\t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\
+          \t\t\t\t\t\"netplay\": \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\"\
+          : [\"57\"],\n\t\t\t\t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"\
+          regions_en\": [\"World\"],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\
+          \t\t\t\t\"regions_de\": [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"\
+          ],\n\t\t\t\t\t\t\"regions_pt\": [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\
+          \t\t{\n\t\t\t\t\t\"id\": \"616264\",\n\t\t\t\t\t\"romsize\": \"524288\",\n\
+          \t\t\t\t\t\"romfilename\": \"Battletoads (W) [T Rus Pirate].zip\",\n\t\t\t\
+          \t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"1\",\n\t\t\
+          \t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"2DA7DBCD\",\n\t\t\t\t\
+          \t\"rommd5\": \"86945FE2547CA90D0F226BEA981BAACE\",\n\t\t\t\t\t\"romsha1\"\
+          : \"1A351E9CD7312B3B13D7DF82F2AFCFC9AEF33CD8\",\n\t\t\t\t\t\"beta\": \"0\"\
+          ,\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\t\"trad\"\
+          : \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\t\t\t\t\t\
+          \"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\": \"0\"\
+          ,\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\t\t\t\
+          \t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"regions_en\": [\"World\"\
+          ],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\":\
+          \ [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\"\
+          : [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"617681\"\
+          ,\n\t\t\t\t\t\"romsize\": \"358538\",\n\t\t\t\t\t\"romfilename\": \"Battletoads\
+          \ (World).zip\",\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\"\
+          : \"1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"3033A130\"\
+          ,\n\t\t\t\t\t\"rommd5\": \"3AEB63777E8953E963A1AD58AC367CA5\",\n\t\t\t\t\t\
+          \"romsha1\": \"C498315A6B303A0D9001FF3AE19068EBC2B62AAD\",\n\t\t\t\t\t\"beta\"\
+          : \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\
+          \t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\
+          \t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\"\
+          : \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\
+          \t\t\t\t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"regions_en\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\"\
+          : [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"619657\"\
+          ,\n\t\t\t\t\t\"romsize\": \"524288\",\n\t\t\t\t\t\"romfilename\": \"battle_toads.bin\"\
+          ,\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\": \"\
+          1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"6CDBFFCD\"\
+          ,\n\t\t\t\t\t\"rommd5\": \"31E7DF020CCBC090404800FF44410FEE\",\n\t\t\t\t\t\
+          \"romsha1\": \"66C4B98103EA006957481892F22B4336A240D8B6\",\n\t\t\t\t\t\"beta\"\
+          : \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\
+          \t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"1\",\n\t\t\t\t\t\"unl\": \"0\",\n\
+          \t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\"\
+          : \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\
+          \t\t\t\t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"regions_en\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\"\
+          : [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\t\"id\": \"630883\"\
+          ,\n\t\t\t\t\t\"romsize\": \"524288\",\n\t\t\t\t\t\"romfilename\": \"Battletoads\
+          \ (W) [b1].gen\",\n\t\t\t\t\t\"romnumsupport\": \"1\",\n\t\t\t\t\t\"romtotalsupport\"\
+          : \"1\",\n\t\t\t\t\t\"romcloneof\": \"0\",\n\t\t\t\t\t\"romcrc\": \"7B6199EB\"\
+          ,\n\t\t\t\t\t\"rommd5\": \"2E603829DE7B38475F32370A72207FCA\",\n\t\t\t\t\t\
+          \"romsha1\": \"053AEC63CC7AE74130404CE2557C7EFB45150FE4\",\n\t\t\t\t\t\"beta\"\
+          : \"0\",\n\t\t\t\t\t\"demo\": \"0\",\n\t\t\t\t\t\"proto\": \"0\",\n\t\t\t\t\
+          \t\"trad\": \"0\",\n\t\t\t\t\t\"hack\": \"0\",\n\t\t\t\t\t\"unl\": \"0\",\n\
+          \t\t\t\t\t\"alt\": \"0\",\n\t\t\t\t\t\"best\": \"0\",\n\t\t\t\t\t\"netplay\"\
+          : \"0\",\n\t\t\t\t\t\"regions\": {\n\t\t\t\t\t\t\"regions_id\": [\"57\"],\n\
+          \t\t\t\t\t\t\"regions_shortname\": [\"wor\"],\n\t\t\t\t\t\t\"regions_en\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_fr\": [\"Monde\"],\n\t\t\t\t\t\t\"regions_de\"\
+          : [\"World\"],\n\t\t\t\t\t\t\"regions_es\": [\"Mundo\"],\n\t\t\t\t\t\t\"regions_pt\"\
+          : [\"Mundo\"]\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t]\n\t\t}\n\t}\n}\n  "
+      headers:
+        Access-Control-Allow-Headers:
+          - X-Requested-With
+        Access-Control-Allow-Methods:
+          - GET
+        Access-Control-Allow-Origin:
+          - "*"
+        Cache-Control:
+          - no-cache, must-revalidate
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json; charset=utf-8
+        Date:
+          - Wed, 23 Jul 2025 03:46:44 GMT
+        Expires:
+          - "0"
+        Pragma:
+          - no-cache
+        Server:
+          - nginx/1.14.2
+        Set-Cookie:
+          - SESSID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Accept-Encoding
+      status:
+        code: 200
+        message: OK
+version: 1

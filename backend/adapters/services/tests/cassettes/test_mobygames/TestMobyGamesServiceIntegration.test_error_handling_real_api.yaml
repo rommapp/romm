@@ -1,0 +1,43 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.mobygames.com/v1/games?id=999999&format=normal
+    response:
+      body:
+        string:
+          '{"code":401,"error":"Authorization required","message":"You must have
+          an API key to use this resource."}
+
+          '
+      headers:
+        CF-RAY:
+          - 963b9278fab3544f-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "105"
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:37:23 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=IREPYBRjyxV9xuhHi5Vquq%2FEtCBarJCxOMSPPc%2FGTKYYv28m%2BfL5Qalu0oL%2FpFSaMGeRRsi7lXj5fkybujCYJKBmg49O%2B26HoYlHirpw"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - session-www=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxx;
+            HttpOnly; SameSite=Lax; Path=/; Domain=mobygames.com
+        Vary:
+          - Cookie
+        WWW-Authenticate:
+          - Basic realm="MobyGames API key (no password)"
+      status:
+        code: 401
+        message: Unauthorized
+version: 1

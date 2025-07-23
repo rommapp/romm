@@ -1,0 +1,99 @@
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/1?styles=material&limit=3
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963865f38bbaa31d-YUL
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 04:22:42 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/1?styles=material&limit=3
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=NySxv89agQjTn2An8NrPLzvimuTV5bVWBm8sv2zuZCfPiBUAUCxxLNyA%2F%2F5cW5BGcE3fvYWn4OX4o3qW56rh%2B6LUAhKjRCI6lxHVvlc%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/1?styles=material&limit=3
+    response:
+      body:
+        string: '{"success":true,"page":0,"total":0,"limit":3,"data":[]}'
+      headers:
+        CF-RAY:
+          - 963865f48c75a2ac-YUL
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 04:22:42 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=b1XJuD5Wtrw4OiT3%2BiKAWnDAkHWFMF5icQ8g5VEdm%2Fo6CCoQ0TWTP1oN1E4c2o5yJ13cmAWpic26LKkHM8x8zjt1x8ra607%2B%2BQYc%2BgJnV9DL"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=fdd0a1h1ebo3fvha468voq0e7f; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 04:22:42 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 200
+        message: OK
+version: 1
