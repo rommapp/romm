@@ -1,0 +1,118 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.mobygames.com/v1/games?format=normal&limit=2&offset=0
+    response:
+      body:
+        string:
+          '{"games":[{"alternate_titles":[{"description":"Finnish title","title":"Salaiset
+          Kansiot"},{"description":"PSX title","title":"The X Files"},{"description":"Spanish
+          title","title":"The X-Files: Expediente X - El Juego"},{"description":"French
+          title","title":"The X-Files: Le Jeu"}],"description":"<p>As an extension of
+          one of the most long-running television series of all time, <em>The X-Files</em>,
+          play through the eyes of Special Agent Craig Willmore, a new FBI field investigator
+          brought in to locate missing agents Fox Mulder and Dana Scully whose last
+          location was the Everett, Washington, area. In this \"movie quality\" video
+          production, characters are played by the actors and actresses from the show,
+          including <a href=\"https://www.mobygames.com/person/9411/gillian-anderson/\">Gillian
+          Anderson</a> (Scully) and <a href=\"https://www.mobygames.com/person/9412/david-duchovny/\">David
+          Duchovny</a> (Mulder).</p>\n<p>As the game begins, you are given a briefing
+          of your mission. Gather up all state-of-the-art spy tools (night vision goggles,
+          a digital camera, PDA, lock picks, evidence kit, a standard issue revolver,
+          handcuffs and badge) and then head out to follow their trail. As you explore
+          the various locations, take photographs, pick up pieces of evidence and talk
+          with people. Use your Newton PDA to access the navigational map, to make notes
+          and send/receive e-mail. Trace telephone numbers, run background checks and
+          license plate ids and even post an All Points Bulletin on missing persons
+          using the computer network at your home or office. By using photo viewer software,
+          download field photographs to the computer where they can be enlarged and
+          studied more closely for clues.</p>\n<p>Features include emotion icons for
+          interjecting different tones during conversations (mean, humorous or technical)
+          which effect the answer given. An in-game hint system, Artificial Intelligence,
+          can be set on or off. In addition, there are multiple endings as a direct
+          result of actions you take.</p>","game_id":1,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":2,"genre_name":"Adventure"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":7,"genre_name":"1st-person"},{"genre_category":"Art
+          Style","genre_category_id":13,"genre_id":217,"genre_name":"Live action"},{"genre_category":"Setting","genre_category_id":10,"genre_id":8,"genre_name":"Sci-fi
+          / futuristic"},{"genre_category":"Narrative Theme/Topic","genre_category_id":8,"genre_id":55,"genre_name":"Detective
+          / mystery"},{"genre_category":"Other Attributes","genre_category_id":6,"genre_id":82,"genre_name":"Licensed"}],"moby_score":7.1,"moby_url":"https://www.mobygames.com/game/1/the-x-files-game/","num_votes":57,"official_url":"https://www.hyperbole.com/xsite/","platforms":[{"first_release_date":"1998","platform_id":3,"platform_name":"Windows"},{"first_release_date":"1999","platform_id":6,"platform_name":"PlayStation"},{"first_release_date":"1998-06","platform_id":74,"platform_name":"Macintosh"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/4062982-the-x-files-game-windows-front-cover.jpg","platforms":["Windows","Macintosh"],"thumbnail_image":"https://cdn.mobygames.com/872aed6c-aba4-11ed-a188-02420a00019a.webp","width":690},"sample_screenshots":[{"caption":"Outside
+          Agent Craig Willmore''s apartment ","height":480,"image":"https://cdn.mobygames.com/screenshots/11077669-the-x-files-game-windows-outside-agent-craig-willmores-apartment.jpg","thumbnail_image":"https://cdn.mobygames.com/93317876-ac15-11ed-b444-02420a000134.webp","width":640},{"caption":"Arriving
+          at Dockside Warehouse","height":480,"image":"https://cdn.mobygames.com/screenshots/11072419-the-x-files-game-windows-arriving-at-dockside-warehouse.jpg","thumbnail_image":"https://cdn.mobygames.com/916394e8-ac15-11ed-803a-02420a000131.webp","width":640},{"caption":"Boat
+          dock","height":480,"image":"https://cdn.mobygames.com/screenshots/11076046-the-x-files-game-windows-boat-dock.jpg","thumbnail_image":"https://cdn.mobygames.com/9a3b5ef2-ac15-11ed-b075-02420a00012f.webp","width":640},{"caption":"Medical
+          examiner and very dead James Wong","height":480,"image":"https://cdn.mobygames.com/screenshots/11073361-the-x-files-game-windows-medical-examiner-and-very-dead-james-wo.jpg","thumbnail_image":"https://cdn.mobygames.com/8f6b8eb6-ac15-11ed-833b-02420a000131.webp","width":640},{"caption":"Main
+          Menu","height":576,"image":"https://cdn.mobygames.com/screenshots/10470736-the-x-files-game-playstation-main-menu.jpg","thumbnail_image":"https://cdn.mobygames.com/6cfd26d2-ac10-11ed-803a-02420a000131.webp","width":720}],"title":"The
+          X-Files Game"},{"alternate_titles":[],"description":"<p>Roger Rabbit has been
+          framed for the murder of Marvin Acme, head of the Acme Corporation. Acme''s
+          will states that upon his death, Toon Town would be left to the Toons, but
+          the will is nowhere to be found. You have to find the will and save your wife,
+          Jessica, from Judge Doom and his weasels.</p>\n<p>The game takes place in
+          Hollywood, 1947, where Toons are alive. There are 4 levels in the game, 2
+          of which are driving levels (levels 1 &amp; 3). Roger and Benny the cab have
+          to beat the weasels to the destination, while dodging cars, trams and Judge
+          Doom''s dip which is scattered on the road. There are pick-ups to help you
+          on your way.</p>\n<p>Level 2 is the Ink &amp; Paint Club. The will is on one
+          of the tables. Roger has to pick up all the pieces of paper the penguin waiters
+          put down, whilst avoiding the alcohol and gorilla bouncer.</p>\n<p>Level 4
+          has you in Judge Doom''s warehouse trying to save your wife, Jessica, from
+          the dip truck. You have to use gags to progress and make the weasels laugh
+          themselves to death, literally!</p>","game_id":2,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":9,"genre_name":"Arcade"},{"genre_category":"Other
+          Attributes","genre_category_id":6,"genre_id":82,"genre_name":"Licensed"}],"moby_score":5.9,"moby_url":"https://www.mobygames.com/game/2/who-framed-roger-rabbit/","num_votes":34,"official_url":null,"platforms":[{"first_release_date":"1988","platform_id":2,"platform_name":"DOS"},{"first_release_date":"1988","platform_id":19,"platform_name":"Amiga"},{"first_release_date":"1988","platform_id":24,"platform_name":"Atari
+          ST"},{"first_release_date":"1988","platform_id":27,"platform_name":"Commodore
+          64"},{"first_release_date":"1988","platform_id":31,"platform_name":"Apple
+          II"}],"sample_cover":{"height":700,"image":"https://cdn.mobygames.com/covers/4068119-who-framed-roger-rabbit-amiga-front-cover.jpg","platforms":["Amiga"],"thumbnail_image":"https://cdn.mobygames.com/b59d6706-aba4-11ed-ba50-02420a000199.webp","width":467},"sample_screenshots":[{"caption":"But
+          don''t let the Waiter catch you. (CGA)","height":200,"image":"https://cdn.mobygames.com/screenshots/7288598-who-framed-roger-rabbit-dos-but-dont-let-the-waiter-catch-you-cg.png","thumbnail_image":"https://cdn.mobygames.com/272f1ce8-abf5-11ed-92cb-02420a000132.webp","width":320},{"caption":"The
+          map of the city and where you need to go. Your remaining lives are represented
+          by empty spaces for dip barrels","height":375,"image":"https://cdn.mobygames.com/screenshots/445776-who-framed-roger-rabbit-amiga-the-map-of-the-city-and-where-you-.png","thumbnail_image":"https://cdn.mobygames.com/2750450e-ab6d-11ed-b165-02420a000198.webp","width":640},{"caption":"Title
+          screen","height":375,"image":"https://cdn.mobygames.com/screenshots/445808-who-framed-roger-rabbit-amiga-title-screen.png","thumbnail_image":"https://cdn.mobygames.com/2762b126-ab6d-11ed-b325-02420a00019e.webp","width":640},{"caption":"Pick
+          up the pieces of paper and dodge the gorilla and alcohol","height":375,"image":"https://cdn.mobygames.com/screenshots/445448-who-framed-roger-rabbit-amiga-pick-up-the-pieces-of-paper-and-do.png","thumbnail_image":"https://cdn.mobygames.com/26a9c35a-ab6d-11ed-ba04-02420a00019f.webp","width":640},{"caption":"Roger
+          must collect all the pieces of paper from the table. Avoid the gorilla bouncer
+          (EGA)","height":200,"image":"https://cdn.mobygames.com/screenshots/442192-who-framed-roger-rabbit-dos-roger-must-collect-all-the-pieces-of.png","thumbnail_image":"https://cdn.mobygames.com/2039dc44-ab6d-11ed-9ab3-02420a0001a0.webp","width":320}],"title":"Who
+          Framed Roger Rabbit"}]}
+
+          '
+      headers:
+        CF-RAY:
+          - 963b92d7a8ada1e1-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Security-Policy:
+          - frame-ancestors 'none';
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:37:38 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Ratelimit-Limit:
+          - "720"
+        Ratelimit-Policy:
+          - 1;w=1, 720;w=3600
+        Ratelimit-Remaining:
+          - "216"
+        Ratelimit-Reset:
+          - "1342"
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=cMdhBH49LSqcqJmaDvUSsqiOz5Hbb%2FavRFtM9lRILRDZj%2F5bvW8KRjLD7KB7wslOEGg0w%2BymmjYkHzgn0hLhWp%2F66peXeX5mNSPjpcrY"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - session-www=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxx;
+            HttpOnly; SameSite=Lax; Path=/; Domain=mobygames.com
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Cookie
+        X-Frame-Options:
+          - DENY
+        X-Xss-Protection:
+          - 1; mode=block
+      status:
+        code: 200
+        message: OK
+version: 1
