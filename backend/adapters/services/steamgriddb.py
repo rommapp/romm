@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Collection
 from typing import Literal, cast
 
 import aiohttp
+import aiohttp.client_exceptions
 import yarl
 from adapters.services.steamgriddb_types import (
     SGDBDimension,
@@ -58,8 +59,10 @@ class SteamGridDBService:
             )
             res.raise_for_status()
             return await res.json()
-        except aiohttp.ClientResponseError as exc:
+        except aiohttp.client_exceptions.ClientResponseError as exc:
+            print(f"Request failed with status {exc.status} for URL: {url}")
             if exc.status == http.HTTPStatus.UNAUTHORIZED:
+                print("Invalid API key or unauthorized access.")
                 raise SGDBInvalidAPIKeyException from exc
             # Log the error and return an empty dict if the request fails with a different code
             log.error(exc)
@@ -112,7 +115,8 @@ class SteamGridDBService:
         if page_number is not None:
             params["page"] = [str(page_number)]
 
-        url = self.url.joinpath("grids/game", str(game_id)).with_query(**params)
+        base_url = self.url.joinpath("grids/game", str(game_id))
+        url = base_url.with_query(**params) if params else base_url
         response = await self._request(str(url))
         if not response:
             return SGDBGridList(
