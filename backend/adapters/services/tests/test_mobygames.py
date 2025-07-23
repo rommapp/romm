@@ -394,7 +394,7 @@ class TestMobyGamesServiceUnit:
     @pytest.mark.asyncio
     async def test_list_games_empty_response(self, service):
         """Test list_games with empty response."""
-        mock_response: dict[str, int] = {}
+        mock_response: MockResponse = {}
 
         with patch.object(service, "_request", return_value=mock_response):
             result = await service.list_games()
