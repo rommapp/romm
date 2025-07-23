@@ -11,6 +11,8 @@ from adapters.services.retroachievements import (
 )
 from fastapi import HTTPException, status
 
+INVALID_GAME_ID = 999999
+
 
 class TestAuthMiddleware:
     @patch("adapters.services.retroachievements.RETROACHIEVEMENTS_API_KEY", "test_key")
@@ -265,5 +267,5 @@ class TestRetroAchievementsServiceIntegration:
                 "invalid_key",
             ):
                 # This should handle the error gracefully
-                result = await service.get_game_extended_details(999999)
+                result = await service.get_game_extended_details(INVALID_GAME_ID)
                 assert isinstance(result, list)
