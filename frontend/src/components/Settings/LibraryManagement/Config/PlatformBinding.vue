@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import AddBtn from "@/components/Settings/LibraryManagement/AddBtn.vue";
-import CreatePlatformBindingDialog from "@/components/Settings/LibraryManagement/Dialog/CreatePlatformBinding.vue";
-import DeletePlatformBindingDialog from "@/components/Settings/LibraryManagement/Dialog/DeletePlatformBinding.vue";
-import PlatformBindCard from "@/components/Settings/LibraryManagement/PlatformBindCard.vue";
+import AddBtn from "@/components/Settings/LibraryManagement/Config/AddBtn.vue";
+import CreatePlatformBindingDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreatePlatformBinding.vue";
+import DeletePlatformBindingDialog from "@/components/Settings/LibraryManagement/Config/Dialog/DeletePlatformBinding.vue";
+import PlatformBindCard from "@/components/Settings/LibraryManagement/Config/PlatformBindCard.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -22,11 +22,7 @@ const editable = ref(false);
 </script>
 
 <template>
-  <r-section
-    icon="mdi-controller"
-    :title="t('settings.platforms-bindings')"
-    class="ma-2"
-  >
+  <r-section icon="mdi-controller" :title="t('settings.platforms-bindings')">
     <template #toolbar-title-append>
       <v-tooltip bottom max-width="400">
         <template #activator="{ props }">
@@ -97,9 +93,8 @@ const editable = ref(false);
           />
         </v-col>
       </v-row>
+      <create-platform-binding-dialog />
+      <delete-platform-binding-dialog />
     </template>
   </r-section>
-
-  <create-platform-binding-dialog />
-  <delete-platform-binding-dialog />
 </template>
