@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import AddBtn from "@/components/Settings/LibraryManagement/AddBtn.vue";
-import CreatePlatformVersionDialog from "@/components/Settings/LibraryManagement/Dialog/CreatePlatformVersion.vue";
-import DeletePlatformVersionDialog from "@/components/Settings/LibraryManagement/Dialog/DeletePlatformVersion.vue";
-import PlatformBindCard from "@/components/Settings/LibraryManagement/PlatformBindCard.vue";
+import AddBtn from "@/components/Settings/LibraryManagement/Config/AddBtn.vue";
+import CreatePlatformVersionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreatePlatformVersion.vue";
+import DeletePlatformVersionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/DeletePlatformVersion.vue";
+import PlatformBindCard from "@/components/Settings/LibraryManagement/Config/PlatformBindCard.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
@@ -25,7 +25,6 @@ const editable = ref(false);
   <r-section
     icon="mdi-gamepad-variant"
     :title="t('settings.platforms-versions')"
-    class="mx-2 mt-4 mb-2"
   >
     <template #toolbar-title-append>
       <v-tooltip bottom max-width="400">
@@ -98,9 +97,8 @@ const editable = ref(false);
           />
         </v-col>
       </v-row>
+      <create-platform-version-dialog />
+      <delete-platform-version-dialog />
     </template>
   </r-section>
-
-  <create-platform-version-dialog />
-  <delete-platform-version-dialog />
 </template>
