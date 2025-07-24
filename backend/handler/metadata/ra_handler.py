@@ -308,35 +308,24 @@ class SlugToRAId(TypedDict):
 
 RA_PLATFORM_LIST: dict[str, SlugToRAId] = {
     "3do": {"id": 43, "name": "3DO"},
-    "cpc": {"id": 37, "name": "Amstrad CPC"},
     "acpc": {"id": 37, "name": "Amstrad CPC"},
-    "apple2": {"id": 38, "name": "Apple II"},
     "appleii": {"id": 38, "name": "Apple II"},
     "arcade": {"id": 27, "name": "Arcade"},
     "arcadia-2001": {"id": 73, "name": "Arcadia 2001"},
     "arduboy": {"id": 71, "name": "Arduboy"},
-    "atari-2600": {"id": 25, "name": "Atari 2600"},
-    "atari2600": {"id": 25, "name": "Atari 2600"},  # IGDB
-    "atari-7800": {"id": 51, "name": "Atari 7800"},
-    "atari7800": {"id": 51, "name": "Atari 7800"},  # IGDB
+    "atari2600": {"id": 25, "name": "Atari 2600"},
+    "atari7800": {"id": 51, "name": "Atari 7800"},
     "atari-jaguar-cd": {"id": 77, "name": "Atari Jaguar CD"},
     "colecovision": {"id": 44, "name": "ColecoVision"},
-    "dreamcast": {"id": 40, "name": "Dreamcast"},
-    "dc": {"id": 40, "name": "Dreamcast"},  # IGDB
+    "dc": {"id": 40, "name": "Dreamcast"},
     "elektor": {"id": 75, "name": "Elektor"},
     "fairchild-channel-f": {"id": 57, "name": "Fairchild Channel F"},
-    "gameboy": {"id": 4, "name": "Game Boy"},
-    "gb": {"id": 4, "name": "Game Boy"},  # IGDB
-    "gameboy-advance": {"id": 5, "name": "Game Boy Advance"},
-    "gba": {"id": 5, "name": "Game Boy Advance"},  # IGDB
-    "gameboy-color": {"id": 6, "name": "Game Boy Color"},
-    "gbc": {"id": 6, "name": "Game Boy Color"},  # IGDB
-    "game-gear": {"id": 15, "name": "Game Gear"},
-    "gamegear": {"id": 15, "name": "Game Gear"},  # IGDB
-    "gamecube": {"id": 16, "name": "GameCube"},
-    "ngc": {"id": 16, "name": "GameCube"},  # IGDB
+    "gb": {"id": 4, "name": "Game Boy"},
+    "gba": {"id": 5, "name": "Game Boy Advance"},
+    "gbc": {"id": 6, "name": "Game Boy Color"},
+    "gamegear": {"id": 15, "name": "Game Gear"},
+    "ngc": {"id": 16, "name": "GameCube"},
     "genesis": {"id": 1, "name": "Genesis/Mega Drive"},
-    "genesis-slash-megadrive": {"id": 1, "name": "Genesis/Mega Drive"},
     "intellivision": {"id": 45, "name": "Intellivision"},
     "interton-vc-4000": {"id": 74, "name": "Interton VC 4000"},
     "jaguar": {"id": 17, "name": "Jaguar"},
@@ -349,32 +338,24 @@ RA_PLATFORM_LIST: dict[str, SlugToRAId] = {
     "neo-geo-pocket": {"id": 14, "name": "Neo Geo Pocket"},
     "neo-geo-pocket-color": {"id": 14, "name": "Neo Geo Pocket Color"},
     "n64": {"id": 2, "name": "Nintendo 64"},
-    "nintendo-ds": {"id": 18, "name": "Nintendo DS"},
-    "nds": {"id": 18, "name": "Nintendo DS"},  # IGDB
+    "nds": {"id": 18, "name": "Nintendo DS"},
     "nintendo-dsi": {"id": 78, "name": "Nintendo DSi"},
     "odyssey-2": {"id": 23, "name": "Odyssey 2"},
-    "pc-8000": {"id": 47, "name": "PC-8000"},
-    "pc-8800-series": {"id": 47, "name": "PC-8800 Series"},  # IGDB
+    "pc-8800-series": {"id": 47, "name": "PC-8800 Series"},
     "pc-fx": {"id": 49, "name": "PC-FX"},
     "psp": {"id": 41, "name": "PSP"},
-    "playstation": {"id": 12, "name": "PlayStation"},
-    "ps": {"id": 12, "name": "PlayStation"},  # IGDB
+    "psx": {"id": 12, "name": "PlayStation"},
     "ps2": {"id": 21, "name": "PlayStation 2"},
     "pokemon-mini": {"id": 24, "name": "Pokémon Mini"},
     "saturn": {"id": 39, "name": "Sega Saturn"},
-    "sega-32x": {"id": 10, "name": "SEGA 32X"},
-    "sega32": {"id": 10, "name": "SEGA 32X"},  # IGDB
-    "sega-cd": {"id": 9, "name": "SEGA CD"},
-    "segacd": {"id": 9, "name": "SEGA CD"},  # IGDB
-    "sega-master-system": {"id": 11, "name": "SEGA Master System"},
-    "sms": {"id": 11, "name": "SEGA Master System"},  # IGDB
-    "sg-1000": {"id": 33, "name": "SG-1000"},
+    "sega32": {"id": 10, "name": "SEGA 32X"},
+    "segacd": {"id": 9, "name": "SEGA CD"},
+    "sms": {"id": 11, "name": "SEGA Master System"},
+    "sg1000": {"id": 33, "name": "SG-1000"},
     "snes": {"id": 3, "name": "SNES"},
-    "sfam": {"id": 3, "name": "Super Famicom"},  # IGDB
+    "sfam": {"id": 3, "name": "Super Famicom"},
     "turbografx-cd": {"id": 76, "name": "TurboGrafx CD"},
-    "turbografx-16-slash-pc-engine-cd": {"id": 76, "name": "TurboGrafx CD"},
-    "turbo-grafx": {"id": 8, "name": "TurboGrafx-16"},
-    "turbografx16--1": {"id": 8, "name": "TurboGrafx-16"},  # IGDB
+    "tg16": {"id": 8, "name": "TurboGrafx-16"},
     "uzebox": {"id": 80, "name": "Uzebox"},
     "vectrex": {"id": 46, "name": "Vectrex"},
     "virtual-boy": {"id": 28, "name": "Virtual Boy"},

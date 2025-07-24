@@ -48,30 +48,13 @@ class TestPlatformSlugMapping:
             "nes": 7,
             "snes": 3,
             "genesis": 1,
-            "gameboy": 4,
+            "gb": 4,
             "n64": 2,
-            "playstation": 12,
+            "psx": 12,
         }
 
         for slug, expected_id in expected_platforms.items():
             assert PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[slug] == expected_id
-
-    def test_platform_mapping_has_aliases(self):
-        """Test that platform aliases map to the same ID."""
-        aliases = [
-            ("gameboy", "gb"),
-            ("gameboy-advance", "gba"),
-            ("gameboy-color", "gbc"),
-            ("genesis", "genesis-slash-megadrive"),
-            ("nes", "famicom"),
-            ("playstation", "ps"),
-        ]
-
-        for primary, alias in aliases:
-            assert (
-                PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[primary]
-                == PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[alias]
-            )
 
 
 class TestRAHasherService:
@@ -211,7 +194,7 @@ class TestRAHasherService:
         test_cases = [
             (3, "/path/to/game.smc", "snes"),
             (1, "/path/to/game.md", "genesis"),
-            (4, "/path/to/game.gb", "gameboy"),
+            (4, "/path/to/game.gb", "gb"),
         ]
 
         for platform_id, file_path, platform_slug in test_cases:

@@ -82,7 +82,7 @@ NON_HASHABLE_PLATFORMS = frozenset(
         "pc",
         "ps3",
         "ps4",
-        "ps4--1",
+        "ps4",
         "ps5",
         "psvr",
         "psvr2",

@@ -1670,7 +1670,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/e-reader-slash-card-e-reader",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ploy.jpg",
     },
-    "edsac--1": {
+    "edsac": {
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -1681,7 +1681,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/edsac--1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plat.jpg",
     },
-    "elektor-tv-games-computer": {
+    "elektor": {
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -1879,7 +1879,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/gear-vr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkj.jpg",
     },
-    "genesis-slash-megadrive": {
+    "genesis": {
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2143,7 +2143,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/meta-quest-3",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnb.jpg",
     },
-    "microcomputer--1": {
+    "microcomputer": {
         "category": "Unknown",
         "family_name": "",
         "family_slug": "",
@@ -2154,7 +2154,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/microcomputer--1",
         "url_logo": "",
     },
-    "microvision--1": {
+    "microvision": {
         "category": "Portable Console",
         "family_name": "Milton Bradley",
         "family_slug": "milton-bradley",
@@ -2407,7 +2407,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/oculus-vr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pivaofe9ll2b8cqfvvbu.jpg",
     },
-    "odyssey--1": {
+    "odyssey": {
         "category": "Console",
         "family_name": "Magnavox",
         "family_slug": "magnavox",
@@ -2539,7 +2539,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/pc-fx",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf8.jpg",
     },
-    "pdp-7--1": {
+    "pdp-7": {
         "category": "Unknown",
         "family_name": "DEC",
         "family_slug": "dec",
@@ -2550,7 +2550,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/pdp-7--1",
         "url_logo": "",
     },
-    "pdp-8--1": {
+    "pdp-8": {
         "category": "Computer",
         "family_name": "DEC",
         "family_slug": "dec",
@@ -2605,7 +2605,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/philips-cd-i",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl80.jpg",
     },
-    "plato--1": {
+    "plato": {
         "category": "Computer",
         "family_name": "",
         "family_slug": "",
@@ -2682,7 +2682,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/polymega",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plox.jpg",
     },
-    "ps": {
+    "psx": {
         "category": "Console",
         "family_name": "PlayStation",
         "family_slug": "playstation",
@@ -2715,7 +2715,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/ps3",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/tuyy1nrqodtmbqajp4jg.jpg",
     },
-    "ps4--1": {
+    "ps4": {
         "category": "Console",
         "family_name": "PlayStation",
         "family_slug": "playstation",
@@ -2825,7 +2825,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/sdssigma7",
         "url_logo": "",
     },
-    "sega-cd": {
+    "segacd": {
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
@@ -2935,7 +2935,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/sinclair-ql",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plih.jpg",
     },
-    "sinclair-zx81": {
+    "zx81": {
         "category": "Computer",
         "family_name": "Sinclair",
         "family_slug": "sinclair",
@@ -3144,7 +3144,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/trs-80-color-computer",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf1.jpg",
     },
-    "turbografx-16-slash-pc-engine-cd": {
+    "turbografx-cd": {
         "category": "Computer",
         "family_name": "NEC",
         "family_slug": "nec",
@@ -3155,7 +3155,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/turbografx-16-slash-pc-engine-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl83.jpg",
     },
-    "turbografx16--1": {
+    "tg16": {
         "category": "Console",
         "family_name": "NEC",
         "family_slug": "nec",
@@ -3809,7 +3809,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "ez-games-video-game-system": {
         "id": 623,
         "name": "EZ Games Video Game System",
-        "platform_slug": "genesis-slash-megadrive",
+        "platform_slug": "genesis",
         "slug": "ez-games-video-game-system",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/ez-games-video-game-system",
         "url_logo": "",
@@ -4009,7 +4009,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "itt-odyssee": {
         "id": 169,
         "name": "ITT Odyssee",
-        "platform_slug": "odyssey--1",
+        "platform_slug": "odyssey",
         "slug": "itt-odyssee",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/itt-odyssee",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8y.jpg",
@@ -4129,7 +4129,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mega-pc": {
         "id": 625,
         "name": "Mega PC",
-        "platform_slug": "genesis-slash-megadrive",
+        "platform_slug": "genesis",
         "slug": "mega-pc",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/mega-pc",
         "url_logo": "",
@@ -4225,7 +4225,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "net-yaroze": {
         "id": 654,
         "name": "Net Yaroze",
-        "platform_slug": "ps",
+        "platform_slug": "psx",
         "slug": "net-yaroze",
         "url": "https://www.igdb.com/platforms/ps/version/net-yaroze",
         "url_logo": "",
@@ -4361,7 +4361,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odisea-mexico-export": {
         "id": 170,
         "name": "Odisea (Mexico Export)",
-        "platform_slug": "odyssey--1",
+        "platform_slug": "odyssey",
         "slug": "odisea-mexico-export",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odisea-mexico-export",
         "url_logo": "",
@@ -4369,7 +4369,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odissea-italian-export": {
         "id": 171,
         "name": "Odissea (Italian Export)",
-        "platform_slug": "odyssey--1",
+        "platform_slug": "odyssey",
         "slug": "odissea-italian-export",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odissea-italian-export",
         "url_logo": "",
@@ -4377,7 +4377,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odyssey-export": {
         "id": 167,
         "name": "Odyssey (Export)",
-        "platform_slug": "odyssey--1",
+        "platform_slug": "odyssey",
         "slug": "odyssey-export",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-export",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf5.jpg",
@@ -4385,7 +4385,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odyssey-german-export": {
         "id": 168,
         "name": "Odyssey (German Export)",
-        "platform_slug": "odyssey--1",
+        "platform_slug": "odyssey",
         "slug": "odyssey-german-export",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-german-export",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf6.jpg",
@@ -4393,7 +4393,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odyssey-us": {
         "id": 101,
         "name": "Odyssey (US)",
-        "platform_slug": "odyssey--1",
+        "platform_slug": "odyssey",
         "slug": "odyssey-us",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-us",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8u.jpg",
@@ -4473,7 +4473,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation": {
         "id": 57,
         "name": "PlayStation",
-        "platform_slug": "ps",
+        "platform_slug": "psx",
         "slug": "playstation",
         "url": "https://www.igdb.com/platforms/ps/version/playstation",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7q.jpg",
@@ -4505,7 +4505,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-4-pro": {
         "id": 179,
         "name": "PlayStation 4 Pro",
-        "platform_slug": "ps4--1",
+        "platform_slug": "ps4",
         "slug": "playstation-4-pro",
         "url": "https://www.igdb.com/platforms/ps4--1/version/playstation-4-pro",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6f.jpg",
@@ -4513,7 +4513,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-4-slim": {
         "id": 178,
         "name": "PlayStation 4 Slim",
-        "platform_slug": "ps4--1",
+        "platform_slug": "ps4",
         "slug": "playstation-4-slim",
         "url": "https://www.igdb.com/platforms/ps4--1/version/playstation-4-slim",
         "url_logo": "",
@@ -4593,7 +4593,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "ps-one": {
         "id": 653,
         "name": "PS One",
-        "platform_slug": "ps",
+        "platform_slug": "psx",
         "slug": "ps-one",
         "url": "https://www.igdb.com/platforms/ps/version/ps-one",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmb.jpg",
@@ -4689,7 +4689,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-mega-drive-2-slash-genesis": {
         "id": 628,
         "name": "Sega Mega Drive 2/Genesis",
-        "platform_slug": "genesis-slash-megadrive",
+        "platform_slug": "genesis",
         "slug": "sega-mega-drive-2-slash-genesis",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-drive-2-slash-genesis",
         "url_logo": "",
@@ -4697,7 +4697,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-mega-drive-slash-genesis": {
         "id": 64,
         "name": "Sega Mega Drive/Genesis",
-        "platform_slug": "genesis-slash-megadrive",
+        "platform_slug": "genesis",
         "slug": "sega-mega-drive-slash-genesis",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-drive-slash-genesis",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl85.jpg",
@@ -4705,7 +4705,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-mega-jet": {
         "id": 624,
         "name": "Sega Mega Jet",
-        "platform_slug": "genesis-slash-megadrive",
+        "platform_slug": "genesis",
         "slug": "sega-mega-jet",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-jet",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plne.jpg",
@@ -4721,7 +4721,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-nomad": {
         "id": 626,
         "name": "Sega Nomad",
-        "platform_slug": "genesis-slash-megadrive",
+        "platform_slug": "genesis",
         "slug": "sega-nomad",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-nomad",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmc.jpg",
@@ -4953,7 +4953,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "teradrive": {
         "id": 627,
         "name": "Teradrive",
-        "platform_slug": "genesis-slash-megadrive",
+        "platform_slug": "genesis",
         "slug": "teradrive",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/teradrive",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm5.jpg",
@@ -4993,7 +4993,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "tlv-k981g-game-vcd-player": {
         "id": 622,
         "name": "TLV-K981G Game VCD Player",
-        "platform_slug": "genesis-slash-megadrive",
+        "platform_slug": "genesis",
         "slug": "tlv-k981g-game-vcd-player",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/tlv-k981g-game-vcd-player",
         "url_logo": "",
@@ -5009,7 +5009,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "turbo-express-slash-pc-engine-gt": {
         "id": 733,
         "name": "Turbo Express/PC Engine GT",
-        "platform_slug": "turbografx16--1",
+        "platform_slug": "tg16",
         "slug": "turbo-express-slash-pc-engine-gt",
         "url": "https://www.igdb.com/platforms/turbografx16--1/version/turbo-express-slash-pc-engine-gt",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ploz.jpg",
