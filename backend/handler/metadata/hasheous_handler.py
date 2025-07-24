@@ -1358,7 +1358,7 @@ HASHEOUS_PLATFORM_LIST: dict[str, SlugToHasheousId] = {
         "ra_id": 28,
         "tgdb_id": None,
     },
-    "watara-slash-quickshot-supervision": {
+    "supervision": {
         "id": 244828,
         "igdb_id": 415,
         "igdb_slug": "watara-slash-quickshot-supervision",

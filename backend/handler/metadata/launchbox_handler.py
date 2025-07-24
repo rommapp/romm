@@ -456,7 +456,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[str, SlugToLaunchboxPlatformName] = {
     "virtualboy": {"id": 32, "name": "Nintendo Virtual Boy"},
     "vmu": {"id": 144, "name": "Sega Dreamcast VMU"},
     "vsmile": {"id": 221, "name": "VTech V.Smile"},
-    "watara-slash-quickshot-supervision": {"id": 153, "name": "Watara Supervision"},
+    "supervision": {"id": 153, "name": "Watara Supervision"},
     "wii": {"id": 33, "name": "Nintendo Wii"},
     "wiiu": {"id": 34, "name": "Nintendo Wii U"},
     "win": {"id": 84, "name": "Windows"},
