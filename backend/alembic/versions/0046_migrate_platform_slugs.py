@@ -198,6 +198,7 @@ OLD_SLUGS_TO_NEW_MAP = {
     "sinclair-zx81": "zx81",
     "sg-1000": "sg1000",
     "switch2": "switch-2",
+    "thomson-mo": "thomson-mo5",
     "trs-80-coco": "trs-80-color-computer",
     "turbografx-16-slash-pc-engine-cd": "turbografx-cd",
     "turbo-grafx": "tg16",
