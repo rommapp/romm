@@ -303,7 +303,10 @@ class SSHandler(MetadataHandler):
         return roms[0] if roms else None
 
     def get_platform(self, slug: str) -> SSPlatform:
-        platform = SCREENSAVER_PLATFORM_LIST.get(slug, None)
+        try:
+            platform = SCREENSAVER_PLATFORM_LIST.get(UPS(slug), None)
+        except ValueError:
+            return SSPlatform(ss_id=None, slug=slug)
 
         if not platform:
             return SSPlatform(ss_id=None, slug=slug)
@@ -600,10 +603,8 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.VIC_20: {"id": 73, "name": "Vic-20"},
     UPS.VECTREX: {"id": 102, "name": "Vectrex"},
     UPS.VIDEOPAC_G7400: {"id": 104, "name": "Videopac G7000"},
-    "virtual-boy": {"id": 11, "name": "Virtual Boy"},
     UPS.VIRTUALBOY: {"id": 11, "name": "Virtual Boy"},
     UPS.WII: {"id": 16, "name": "Wii"},
-    "wii-u": {"id": 18, "name": "Wii U"},
     UPS.WIIU: {"id": 18, "name": "Wii U"},
     UPS.WIN: {"id": 138, "name": "PC Windows"},
     UPS.WIN3X: {"id": 136, "name": "PC Win3.xx"},
@@ -611,7 +612,6 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.WONDERSWAN_COLOR: {"id": 46, "name": "WonderSwan Color"},
     UPS.XBOX: {"id": 32, "name": "Xbox"},
     UPS.XBOX360: {"id": 33, "name": "Xbox 360"},
-    "xbox-one": {"id": 34, "name": "Xbox One"},
     UPS.XBOXONE: {"id": 34, "name": "Xbox One"},
     UPS.Z_MACHINE: {"id": 215, "name": "Z-Machine"},
     UPS.ZX_SPECTRUM: {"id": 76, "name": "ZX Spectrum"},

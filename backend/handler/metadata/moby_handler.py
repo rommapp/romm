@@ -99,7 +99,10 @@ class MobyGamesHandler(MetadataHandler):
         return roms[0]
 
     def get_platform(self, slug: str) -> MobyGamesPlatform:
-        platform = MOBYGAMES_PLATFORM_LIST.get(slug, None)
+        try:
+            platform = MOBYGAMES_PLATFORM_LIST.get(UPS(slug), None)
+        except ValueError:
+            return MobyGamesPlatform(moby_id=None, slug=slug)
 
         if not platform:
             return MobyGamesPlatform(moby_id=None, slug=slug)
@@ -385,10 +388,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Bally Astrocade",
         "slug": "bally-astrocade",
     },
-    "atari-2600": {"id": 28, "name": "Atari 2600", "slug": "atari-2600"},
-    "atari-5200": {"id": 33, "name": "Atari 5200", "slug": "atari-5200"},
-    "atari-7800": {"id": 34, "name": "Atari 7800", "slug": "atari-7800"},
-    "atari-8-bit": {"id": 39, "name": "Atari 8-bit", "slug": "atari-8-bit"},
     UPS.ATARI_ST: {"id": 24, "name": "Atari ST", "slug": "atari-st"},
     UPS.ATARI_VCS: {
         "id": 319,
@@ -429,11 +428,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "slug": "blackberry",
     },
     UPS.BLACKNUT: {"id": 290, "name": "Blacknut", "slug": "blacknut"},
-    "blu-ray-disc-player": {
-        "id": 168,
-        "name": "Blu-ray Player",
-        "slug": "blu-ray-disc-player",
-    },
     UPS.BLU_RAY_PLAYER: {
         "id": 169,
         "name": "Blu-ray Player",
@@ -543,7 +537,7 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Dedicated console",
         "slug": "dedicated-console",
     },
-    "dedicated-handheld": {
+    UPS.DEDICATED_HANDHELD: {
         "id": 205,
         "name": "Dedicated handheld",
         "slug": "dedicated-handheld",
@@ -613,7 +607,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Family Computer",
         "slug": "famicom",
     },
-    "fire-os": {"id": 159, "name": "Fire OS", "slug": "fire-os"},
     UPS.FM_7: {"id": 126, "name": "FM-7", "slug": "fm-7"},
     UPS.FM_TOWNS: {"id": 102, "name": "FM Towns", "slug": "fmtowns"},
     UPS.FRED_COSMAC: {
@@ -753,7 +746,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     },
     UPS.IOS: {"id": 86, "name": "iOS", "slug": "iphone"},
     UPS.IPAD: {"id": 96, "name": "iPad", "slug": "ipad"},
-    "iphone": {"id": 86, "name": "iPhone", "slug": "iphone"},
     UPS.IPOD_CLASSIC: {
         "id": 80,
         "name": "iPod Classic",
@@ -811,7 +803,7 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Matsushita/Panasonic JR",
         "slug": "matsushitapanasonic-jr",
     },
-    UPS.MATTEL_AQUARIUS: {
+    UPS.AQUARIUS: {
         "id": 135,
         "name": "Mattel Aquarius",
         "slug": "mattel-aquarius",
@@ -939,7 +931,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Ohio Scientific",
         "slug": "ohio-scientific",
     },
-    "onlive": {"id": 282, "name": "OnLive", "slug": "onlive"},
     UPS.ONLIVE_GAME_SYSTEM: {
         "id": 282,
         "name": "OnLive Game System",
@@ -1049,7 +1040,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "SD-200/270/290",
         "slug": "sd-200270290",
     },
-    "sega-32x": {"id": 21, "name": "SEGA 32X", "slug": "sega-32x"},
     UPS.SEGA_PICO: {
         "id": 103,
         "name": "SEGA Pico",
@@ -1265,7 +1255,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Videopac+ G7400",
         "slug": "videopac-g7400",
     },
-    "virtual-boy": {"id": 38, "name": "Virtual Boy", "slug": "virtual-boy"},
     UPS.VIRTUALBOY: {
         "id": 38,
         "name": "Virtual Boy",
@@ -1281,7 +1270,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     UPS.WATCHOS: {"id": 180, "name": "watchOS", "slug": "watchos"},
     UPS.WEBOS: {"id": 100, "name": "webOS", "slug": "webos"},
     UPS.WII: {"id": 82, "name": "Wii", "slug": "wii"},
-    "wii-u": {"id": 132, "name": "Wii U", "slug": "wii-u"},
     UPS.WIIU: {"id": 132, "name": "Wii U", "slug": "wii-u"},
     UPS.WIN: {"id": 3, "name": "Windows", "slug": "windows"},
     UPS.WIN3X: {"id": 5, "name": "Windows 3.x", "slug": "win3x"},
@@ -1295,8 +1283,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "name": "Windows Mobile",
         "slug": "windowsmobile",
     },
-    "windows-phone": {"id": 98, "name": "Windows Phone", "slug": "windows-phone"},
-    "windowsmobile": {"id": 66, "name": "Windows Mobile", "slug": "windowsmobile"},
     UPS.WINPHONE: {
         "id": 98,
         "name": "Windows Phone",
@@ -1320,8 +1306,6 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
         "slug": "xavixport",
     },
     UPS.XBOX: {"id": 13, "name": "Xbox", "slug": "xbox"},
-    "xbox-one": {"id": 142, "name": "Xbox One", "slug": "xbox-one"},
-    "xbox-series": {"id": 289, "name": "Xbox Series", "slug": "xbox-series"},
     UPS.XBOX360: {"id": 69, "name": "Xbox 360", "slug": "xbox360"},
     UPS.XBOXCLOUDGAMING: {
         "id": 293,
