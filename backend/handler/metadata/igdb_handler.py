@@ -392,9 +392,11 @@ class IGDBHandler(MetadataHandler):
 
     @check_twitch_token
     def get_platform(self, slug: str) -> IGDBPlatform:
-        platform = IGDB_PLATFORM_LIST.get(slug, None)
+        try:
+            platform = IGDB_PLATFORM_LIST.get(UPS(slug), None)
+            if not platform:
+                raise ValueError("Platform not found")
 
-        if platform:
             return IGDBPlatform(
                 igdb_id=platform["id"],
                 slug=slug,
@@ -406,13 +408,15 @@ class IGDBHandler(MetadataHandler):
                 url=platform["url"],
                 url_logo=self.normalize_cover_url(platform["url_logo"]),
             )
+        except ValueError:
+            platform_version = IGDB_PLATFORM_VERSIONS.get(slug, None)
+            if not platform_version:
+                return IGDBPlatform(igdb_id=None, slug=slug)
 
-        platform_version = IGDB_PLATFORM_VERSIONS.get(slug, None)
-        if platform_version:
-            main_platform = IGDB_PLATFORM_LIST.get(
-                platform_version["platform_slug"], None
-            )
-            if main_platform:
+            try:
+                main_platform = IGDB_PLATFORM_LIST[
+                    UPS(platform_version["platform_slug"])
+                ]
                 return IGDBPlatform(
                     igdb_id=main_platform["id"],
                     slug=main_platform["slug"],
@@ -426,16 +430,14 @@ class IGDBHandler(MetadataHandler):
                         platform_version["url_logo"] or main_platform["url_logo"]
                     ),
                 )
-
-            return IGDBPlatform(
-                igdb_id=platform_version["id"],
-                slug=platform_version["platform_slug"],
-                name=platform_version["name"],
-                url=platform_version["url"],
-                url_logo=self.normalize_cover_url(platform_version["url_logo"]),
-            )
-
-        return IGDBPlatform(igdb_id=None, slug=slug)
+            except ValueError:
+                return IGDBPlatform(
+                    igdb_id=platform_version["id"],
+                    slug=platform_version["platform_slug"],
+                    name=platform_version["name"],
+                    url=platform_version["url"],
+                    url_logo=self.normalize_cover_url(platform_version["url_logo"]),
+                )
 
     @check_twitch_token
     async def get_rom(self, fs_name: str, platform_igdb_id: int) -> IGDBRom:
@@ -616,7 +618,7 @@ class IGDBHandler(MetadataHandler):
             matched_roms.extend(alternative_matched_roms)
 
         # Use a dictionary to keep track of unique ids
-        unique_ids: dict[UPS, dict[UPS, str]] = {}
+        unique_ids: dict[str, dict[str, str]] = {}
 
         # Use a list comprehension to filter duplicates based on the 'id' key
         matched_roms = [

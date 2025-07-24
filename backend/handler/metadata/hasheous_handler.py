@@ -195,7 +195,10 @@ class HasheousHandler(MetadataHandler):
         return {}
 
     def get_platform(self, slug: str) -> HasheousPlatform:
-        platform = HASHEOUS_PLATFORM_LIST.get(slug, None)
+        try:
+            platform = HASHEOUS_PLATFORM_LIST.get(UPS(slug), None)
+        except ValueError:
+            return HasheousPlatform(hasheous_id=None, slug=slug)
 
         if not platform:
             return HasheousPlatform(hasheous_id=None, slug=slug)
@@ -903,7 +906,7 @@ HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UPS.MATTEL_AQUARIUS: {
+    UPS.AQUARIUS: {
         "id": 51,
         "igdb_id": None,
         "igdb_slug": "",

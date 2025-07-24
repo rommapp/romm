@@ -23,7 +23,10 @@ class TGDBHandler(MetadataHandler):
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
 
     def get_platform(self, slug: str) -> TGDBPlatform:
-        platform = TGDB_PLATFORM_LIST.get(slug.lower(), None)
+        try:
+            platform = TGDB_PLATFORM_LIST.get(UPS(slug), None)
+        except ValueError:
+            return TGDBPlatform(tgdb_id=None, slug=slug)
 
         if not platform:
             return TGDBPlatform(tgdb_id=None, slug=slug)
@@ -984,7 +987,7 @@ TGDB_PLATFORM_LIST: dict[UPS, SlugToTGDBId] = {
         "summary": "The Magnavox Odyssey², known in Europe as the Videopac, in Brazil as the Philips Odyssey, in the United States as the Magnavox Odyssey² and the Philips Odyssey², and also by many other names, is a video game console released in 1978.In the early 1970s, Magnavox was an innovator in the home video game industry. They succeeded in bringing the first home video game system to market, the Odyssey, which was quickly followed by a number of later models, each with a few technological improvements (Magnavox Odyssey Series). In 1978, Magnavox, now a subsidiary of North American Philips, released the Odyssey², its new second-generation video game console.In 2009, the video game website IGN named the Odyssey² the 21st greatest video game console, out of its list of 25.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/4927-1.jpg",
     },
-    UPS.MATTEL_AQUARIUS: {
+    UPS.AQUARIUS: {
         "id": 4989,
         "name": "Mattel Aquarius",
         "manufacturer": "Mattel Electronics",

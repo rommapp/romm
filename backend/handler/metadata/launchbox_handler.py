@@ -199,7 +199,10 @@ class LaunchboxHandler(MetadataHandler):
         return screenshots
 
     def get_platform(self, slug: str) -> LaunchboxPlatform:
-        platform = LAUNCHBOX_PLATFORM_LIST.get(slug, None)
+        try:
+            platform = LAUNCHBOX_PLATFORM_LIST.get(UPS(slug), None)
+        except ValueError:
+            return LaunchboxPlatform(slug=slug, launchbox_id=None)
 
         if not platform:
             return LaunchboxPlatform(slug=slug, launchbox_id=None)
@@ -383,7 +386,7 @@ LAUNCHBOX_PLATFORM_LIST: dict[UPS, SlugToLaunchboxPlatformName] = {
     UPS.LINUX: {"id": 218, "name": "Linux"},
     UPS.LYNX: {"id": 11, "name": "Atari Lynx"},
     UPS.MAC: {"id": 16, "name": "Apple Mac OS"},
-    UPS.MATTEL_AQUARIUS: {"id": 69, "name": "Mattel Aquarius"},
+    UPS.AQUARIUS: {"id": 69, "name": "Mattel Aquarius"},
     UPS.MEGA_DUCK_SLASH_COUGAR_BOY: {"id": 127, "name": "Mega Duck"},
     UPS.MODEL1: {"id": 104, "name": "Sega Model 1"},
     UPS.MODEL2: {"id": 88, "name": "Sega Model 2"},

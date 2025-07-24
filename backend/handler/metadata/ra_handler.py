@@ -185,7 +185,10 @@ class RAHandler(MetadataHandler):
         return None
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
-        platform = RA_PLATFORM_LIST.get(slug.lower(), None)
+        try:
+            platform = RA_PLATFORM_LIST.get(UPS(slug), None)
+        except ValueError:
+            return RAGamesPlatform(ra_id=None, slug=slug)
 
         if not platform:
             return RAGamesPlatform(ra_id=None, slug=slug)
