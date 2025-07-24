@@ -1,14 +1,15 @@
-# uv run python3 -m utils.generate_supported_platforms
+# uv run python -m utils.generate_supported_platforms
 from typing import TypedDict
 
-from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST
-from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
-from handler.metadata.launchbox_handler import LAUNCHBOX_PLATFORM_LIST
-from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST
-from handler.metadata.ra_handler import RA_PLATFORM_LIST
-from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST
-
-# from handler.metadata.tgdb_handler import TGDB_PLATFORM_LIST
+from handler.metadata import (
+    meta_hasheous_handler,
+    meta_igdb_handler,
+    meta_launchbox_handler,
+    meta_moby_handler,
+    meta_ra_handler,
+    meta_ss_handler,
+)
+from handler.metadata.base_hander import UniversalPlatformSlug
 
 
 class SupportedPlatform(TypedDict):
@@ -24,150 +25,33 @@ class SupportedPlatform(TypedDict):
 
 if __name__ == "__main__":
     supported_platforms: dict[str, SupportedPlatform] = {}
-    matched_moby_slugs: list[str] = []
-    matched_ss_ids: list[int] = []
-    matched_launchbox_ids: list[int] = []
-    matched_hasheous_ids: list[int] = []
-    matched_ra_ids: list[int] = []
 
-    for slug, plt in IGDB_PLATFORM_LIST.items():
-        slug_lower = slug.lower()
+    for upl in UniversalPlatformSlug:
+        slug_lower = upl.value.lower()
 
-        moby_platform = MOBYGAMES_PLATFORM_LIST.get(slug_lower)
-        moby_slug = moby_platform["slug"] if moby_platform else None
-
-        ss_platform = SCREENSAVER_PLATFORM_LIST.get(slug_lower)
-        ss_id = ss_platform["id"] if ss_platform else None
-
-        launchbox_platform = LAUNCHBOX_PLATFORM_LIST.get(slug_lower)
-        launchbox_id = launchbox_platform["id"] if launchbox_platform else None
-
-        hasheous_platform = HASHEOUS_PLATFORM_LIST.get(slug_lower)
-        hasheous_id = hasheous_platform["id"] if hasheous_platform else None
-
-        ra_platform = RA_PLATFORM_LIST.get(slug_lower)
-        ra_id = ra_platform["id"] if ra_platform else None
+        igdb_platform = meta_igdb_handler.get_platform(slug_lower)
+        moby_platform = meta_moby_handler.get_platform(slug_lower)
+        ss_platform = meta_ss_handler.get_platform(slug_lower)
+        launchbox_platform = meta_launchbox_handler.get_platform(slug_lower)
+        hasheous_platform = meta_hasheous_handler.get_platform(slug_lower)
+        ra_platform = meta_ra_handler.get_platform(slug_lower)
 
         supported_platforms[slug_lower] = {
-            "name": plt["name"],
+            "name": igdb_platform.get("name", None)
+            or moby_platform.get("name", None)
+            or ss_platform.get("name", None)
+            or launchbox_platform.get("name", None)
+            or hasheous_platform.get("name", None)
+            or ra_platform.get("name", None)
+            or slug_lower.replace("-", " ").title(),
             "folder": slug_lower,
-            "igdb_slug": plt["slug"],
-            "moby_slug": moby_slug,
-            "ss_id": ss_id,
-            "launchbox_id": launchbox_id,
-            "hasheous_id": hasheous_id,
-            "ra_id": ra_id,
+            "igdb_slug": igdb_platform["slug"],
+            "moby_slug": moby_platform["slug"],
+            "ss_id": ss_platform["ss_id"],
+            "launchbox_id": launchbox_platform["launchbox_id"],
+            "hasheous_id": hasheous_platform["hasheous_id"],
+            "ra_id": ra_platform["ra_id"],
         }
-
-        if moby_slug:
-            matched_moby_slugs.append(moby_slug)
-        if ss_id:
-            matched_ss_ids.append(ss_id)
-        if launchbox_id:
-            matched_launchbox_ids.append(launchbox_id)
-        if hasheous_id:
-            matched_hasheous_ids.append(hasheous_id)
-        if ra_id:
-            matched_ra_ids.append(ra_id)
-
-    # Now go over the moby ids
-    for slug, mplt in MOBYGAMES_PLATFORM_LIST.items():
-        if mplt["slug"] in matched_moby_slugs:
-            continue
-
-        # If the platform is not in supported_platforms, add it
-        slug_lower = slug.lower()
-        if slug_lower not in supported_platforms:
-            supported_platforms[slug_lower] = {
-                "name": mplt["name"],
-                "folder": slug,
-                "igdb_slug": None,
-                "moby_slug": mplt["slug"],
-                "ss_id": None,
-                "launchbox_id": None,
-                "hasheous_id": None,
-                "ra_id": None,
-            }
-        # If the platform is already in supported_platforms, update the moby_slug if it's None
-        elif supported_platforms[slug_lower]["moby_slug"] is None:
-            supported_platforms[slug_lower]["moby_slug"] = mplt["slug"]
-
-    # And the remaining metadata sources
-    for slug, ssplt in SCREENSAVER_PLATFORM_LIST.items():
-        if ssplt["id"] in matched_ss_ids:
-            continue
-
-        slug_lower = slug.lower()
-        if slug_lower not in supported_platforms:
-            supported_platforms[slug_lower] = {
-                "name": ssplt["name"],
-                "folder": slug,
-                "igdb_slug": None,
-                "moby_slug": None,
-                "ss_id": ssplt["id"],
-                "launchbox_id": None,
-                "hasheous_id": None,
-                "ra_id": None,
-            }
-        elif supported_platforms[slug_lower]["ss_id"] is None:
-            supported_platforms[slug_lower]["ss_id"] = ssplt["id"]
-
-    for slug, lbplt in LAUNCHBOX_PLATFORM_LIST.items():
-        if lbplt["id"] in matched_launchbox_ids:
-            continue
-
-        slug_lower = slug.lower()
-        if slug_lower not in supported_platforms:
-            supported_platforms[slug_lower] = {
-                "name": lbplt["name"],
-                "folder": slug,
-                "igdb_slug": None,
-                "moby_slug": None,
-                "ss_id": None,
-                "launchbox_id": lbplt["id"],
-                "hasheous_id": None,
-                "ra_id": None,
-            }
-        elif supported_platforms[slug_lower]["launchbox_id"] is None:
-            supported_platforms[slug_lower]["launchbox_id"] = lbplt["id"]
-
-    for slug, hsplt in HASHEOUS_PLATFORM_LIST.items():
-        if hsplt["id"] in matched_hasheous_ids:
-            continue
-
-        slug_lower = slug.lower()
-        if slug_lower not in supported_platforms:
-            supported_platforms[slug_lower] = {
-                "name": hsplt["name"],
-                "folder": slug,
-                "igdb_slug": None,
-                "moby_slug": None,
-                "ss_id": None,
-                "launchbox_id": None,
-                "hasheous_id": hsplt["id"],
-                "ra_id": None,
-            }
-        elif supported_platforms[slug_lower]["hasheous_id"] is None:
-            supported_platforms[slug_lower]["hasheous_id"] = hsplt["id"]
-
-    for slug, raplt in RA_PLATFORM_LIST.items():
-        if raplt["id"] in matched_ra_ids:
-            continue
-
-        slug_lower = slug.lower()
-        if slug_lower not in supported_platforms:
-            supported_platforms[slug_lower] = {
-                "name": raplt["name"],
-                "folder": slug,
-                "igdb_slug": None,
-                "moby_slug": None,
-                "ss_id": None,
-                "launchbox_id": None,
-                "hasheous_id": None,
-                "ra_id": raplt["id"],
-            }
-        elif supported_platforms[slug_lower]["ra_id"] is None:
-            supported_platforms[slug_lower]["ra_id"] = raplt["id"]
 
     # Sort platforms by name field
     supported_platforms = dict(

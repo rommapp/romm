@@ -36,6 +36,7 @@ ARCADE_IGDB_IDS: Final = [52, 79, 80]
 class IGDBPlatform(TypedDict):
     slug: str
     igdb_id: int | None
+    igdb_slug: NotRequired[str]
     name: NotRequired[str]
     category: NotRequired[str]
     generation: NotRequired[int]
@@ -395,11 +396,12 @@ class IGDBHandler(MetadataHandler):
         try:
             platform = IGDB_PLATFORM_LIST.get(UPS(slug), None)
             if not platform:
-                raise ValueError("Platform not found")
+                return IGDBPlatform(igdb_id=None, slug=slug)
 
             return IGDBPlatform(
                 igdb_id=platform["id"],
                 slug=slug,
+                igdb_slug=platform["slug"],
                 name=platform["name"],
                 category=platform["category"],
                 generation=platform["generation"],
@@ -419,7 +421,8 @@ class IGDBHandler(MetadataHandler):
                 ]
                 return IGDBPlatform(
                     igdb_id=main_platform["id"],
-                    slug=main_platform["slug"],
+                    slug=platform_version["platform_slug"],
+                    igdb_slug=main_platform["slug"],
                     name=platform_version["name"],
                     category=main_platform["category"],
                     generation=main_platform["generation"],
@@ -433,7 +436,8 @@ class IGDBHandler(MetadataHandler):
             except ValueError:
                 return IGDBPlatform(
                     igdb_id=platform_version["id"],
-                    slug=platform_version["platform_slug"],
+                    slug=slug,
+                    igdb_slug=platform_version["slug"],
                     name=platform_version["name"],
                     url=platform_version["url"],
                     url_logo=self.normalize_cover_url(platform_version["url_logo"]),
