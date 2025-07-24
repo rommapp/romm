@@ -491,7 +491,6 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "colecovision": {"id": 48, "name": "Colecovision"},
     "colour-genie": {"id": 92, "name": "EG2000 Colour Genie"},
     "c128": {"id": 66, "name": "Commodore 64"},
-    "commodore-16-plus4": {"id": 99, "name": "Plus/4"},
     "c-plus-4": {"id": 99, "name": "Plus/4"},
     "c16": {"id": 99, "name": "Plus/4"},
     "c64": {"id": 66, "name": "Commodore 64"},

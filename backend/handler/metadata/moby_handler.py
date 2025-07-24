@@ -366,11 +366,6 @@ MOBYGAMES_PLATFORM_LIST: dict[str, SlugToMobyId] = {
     "colecoadam": {"id": 156, "name": "Coleco Adam", "slug": "colecoadam"},
     "colecovision": {"id": 29, "name": "ColecoVision", "slug": "colecovision"},
     "colour-genie": {"id": 197, "name": "Colour Genie", "slug": "colour-genie"},
-    "commodore-16-plus4": {
-        "id": 115,
-        "name": "Commodore 16, Plus/4",
-        "slug": "commodore-16-plus4",
-    },
     "commodore-cdtv": {"id": 83, "name": "CDTV", "slug": "cdtv"},
     "compal-80": {"id": 277, "name": "Compal 80", "slug": "compal-80"},
     "compucolor-i": {"id": 243, "name": "Compucolor I", "slug": "compucolor-i"},

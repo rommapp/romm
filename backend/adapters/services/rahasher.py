@@ -42,6 +42,7 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
     "ngc": 16,
     "nintendo-dsi": 78,
     "odyssey-2": 23,
+    "pc-8000": 47,
     "pc-8800-series": 47,
     "pc-fx": 49,
     "pokemon-mini": 24,
