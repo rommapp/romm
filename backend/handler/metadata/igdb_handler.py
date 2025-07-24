@@ -3265,7 +3265,7 @@ IGDB_PLATFORM_LIST: dict[str, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/vsmile",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plk7.jpg",
     },
-    "watara-slash-quickshot-supervision": {
+    "supervision": {
         "category": "Portable Console",
         "family_name": "",
         "family_slug": "",

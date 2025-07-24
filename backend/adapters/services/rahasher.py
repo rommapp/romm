@@ -62,7 +62,7 @@ PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
     "virtual-boy": 28,
     "virtualboy": 28,
     "wasm-4": 72,
-    "watara-slash-quickshot-supervision": 63,
+    "supervision": 63,
     "win": 102,
     "wonderswan": 53,
     "wonderswan-color": 53,

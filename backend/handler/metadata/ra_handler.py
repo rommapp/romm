@@ -361,7 +361,7 @@ RA_PLATFORM_LIST: dict[str, SlugToRAId] = {
     "virtual-boy": {"id": 28, "name": "Virtual Boy"},
     "virtualboy": {"id": 28, "name": "Virtual Boy"},
     "wasm-4": {"id": 72, "name": "WASM-4"},
-    "watara-slash-quickshot-supervision": {
+    "supervision": {
         "id": 63,
         "name": "Watara/QuickShot Supervision",
     },
