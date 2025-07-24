@@ -11,7 +11,8 @@ from models.rom import RomFile
 from utils import get_version
 from utils.context import ctx_httpx_client
 
-from .base_hander import BaseRom, MetadataHandler, UniversalPlatformSlug
+from .base_hander import BaseRom, MetadataHandler
+from .base_hander import UniversalPlatformSlug as UPS
 from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
@@ -54,9 +55,7 @@ class HasheousRom(BaseRom):
 ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {"dc": ["cue"]}
 
 
-def extract_metadata_from_igdb_rom(
-    rom: dict[UniversalPlatformSlug, Any],
-) -> IGDBMetadata:
+def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
     return IGDBMetadata(
         {
             "youtube_video_id": (
@@ -391,8 +390,8 @@ class SlugToHasheousId(TypedDict):
     ra_id: int | None
 
 
-HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
-    UniversalPlatformSlug._3DO: {
+HASHEOUS_PLATFORM_LIST: dict[UPS, SlugToHasheousId] = {
+    UPS._3DO: {
         "id": 161825,
         "igdb_id": 50,
         "igdb_slug": "3do",
@@ -400,7 +399,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 43,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.N3DS: {
+    UPS.N3DS: {
         "id": 62,
         "igdb_id": 37,
         "igdb_slug": "3ds",
@@ -408,7 +407,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 62,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.N64DD: {
+    UPS.N64DD: {
         "id": 65,
         "igdb_id": 416,
         "igdb_slug": "64dd",
@@ -416,7 +415,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ACORN_ARCHIMEDES: {
+    UPS.ACORN_ARCHIMEDES: {
         "id": 24,
         "igdb_id": 116,
         "igdb_slug": "acorn-archimedes",
@@ -424,7 +423,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ACORN_ELECTRON: {
+    UPS.ACORN_ELECTRON: {
         "id": 25,
         "igdb_id": 134,
         "igdb_slug": "acorn-electron",
@@ -432,7 +431,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ACPC: {
+    UPS.ACPC: {
         "id": 28,
         "igdb_id": 25,
         "igdb_slug": "acpc",
@@ -440,7 +439,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 37,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ACTION_MAX: {
+    UPS.ACTION_MAX: {
         "id": 232983,
         "igdb_id": None,
         "igdb_slug": "",
@@ -448,7 +447,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ADVENTURE_VISION: {
+    UPS.ADVENTURE_VISION: {
         "id": 234388,
         "igdb_id": None,
         "igdb_slug": "",
@@ -456,7 +455,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ALTAIR_8800: {
+    UPS.ALTAIR_8800: {
         "id": 234456,
         "igdb_id": None,
         "igdb_slug": "",
@@ -464,7 +463,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.AMIGA: {
+    UPS.AMIGA: {
         "id": 3,
         "igdb_id": 16,
         "igdb_slug": "amiga",
@@ -472,7 +471,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 35,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.AMIGA_CD32: {
+    UPS.AMIGA_CD32: {
         "id": 161823,
         "igdb_id": 114,
         "igdb_slug": "amiga-cd32",
@@ -480,7 +479,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.AMSTRAD_GX4000: {
+    UPS.AMSTRAD_GX4000: {
         "id": 61540,
         "igdb_id": 506,
         "igdb_slug": "amstrad-gx4000",
@@ -488,7 +487,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.AMSTRAD_PCW: {
+    UPS.AMSTRAD_PCW: {
         "id": 29,
         "igdb_id": 154,
         "igdb_slug": "amstrad-pcw",
@@ -496,7 +495,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.APF: {
+    UPS.APF: {
         "id": 61738,
         "igdb_id": None,
         "igdb_slug": "",
@@ -504,7 +503,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.APPLE: {
+    UPS.APPLE: {
         "id": 61885,
         "igdb_id": None,
         "igdb_slug": "",
@@ -512,7 +511,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.APPLE_IIGS: {
+    UPS.APPLE_IIGS: {
         "id": 21,
         "igdb_id": 115,
         "igdb_slug": "apple-iigs",
@@ -520,7 +519,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.APPLE_LISA: {
+    UPS.APPLE_LISA: {
         "id": 69659,
         "igdb_id": None,
         "igdb_slug": "",
@@ -528,7 +527,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.APPLE_PIPPIN: {
+    UPS.APPLE_PIPPIN: {
         "id": 22,
         "igdb_id": 476,
         "igdb_slug": "apple-pippin",
@@ -536,7 +535,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.APPLEII: {
+    UPS.APPLEII: {
         "id": 20,
         "igdb_id": 75,
         "igdb_slug": "appleii",
@@ -544,7 +543,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 38,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.APPLEIII: {
+    UPS.APPLEIII: {
         "id": 63154,
         "igdb_id": None,
         "igdb_slug": "",
@@ -552,7 +551,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ARCADE: {
+    UPS.ARCADE: {
         "id": 178,
         "igdb_id": 52,
         "igdb_slug": "arcade",
@@ -560,7 +559,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 27,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ARDUBOY: {
+    UPS.ARDUBOY: {
         "id": 244294,
         "igdb_id": 438,
         "igdb_slug": "arduboy",
@@ -568,7 +567,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ASTROCADE: {
+    UPS.ASTROCADE: {
         "id": 31,
         "igdb_id": 91,
         "igdb_slug": "astrocade",
@@ -576,7 +575,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ATARI_ST: {
+    UPS.ATARI_ST: {
         "id": 15,
         "igdb_id": 63,
         "igdb_slug": "atari-st",
@@ -584,7 +583,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 36,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ATARI2600: {
+    UPS.ATARI2600: {
         "id": 12,
         "igdb_id": 59,
         "igdb_slug": "atari2600",
@@ -592,7 +591,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 25,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ATARI5200: {
+    UPS.ATARI5200: {
         "id": 17,
         "igdb_id": 66,
         "igdb_slug": "atari5200",
@@ -600,7 +599,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 50,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ATARI7800: {
+    UPS.ATARI7800: {
         "id": 16,
         "igdb_id": 60,
         "igdb_slug": "atari7800",
@@ -608,7 +607,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 51,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ATARI8BIT: {
+    UPS.ATARI8BIT: {
         "id": 18,
         "igdb_id": 65,
         "igdb_slug": "atari8bit",
@@ -616,7 +615,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ATOM: {
+    UPS.ATOM: {
         "id": 55099,
         "igdb_id": None,
         "igdb_slug": "",
@@ -624,7 +623,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.BBCMICRO: {
+    UPS.BBCMICRO: {
         "id": 26,
         "igdb_id": 69,
         "igdb_slug": "bbcmicro",
@@ -632,7 +631,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.BEENA: {
+    UPS.BEENA: {
         "id": 82,
         "igdb_id": None,
         "igdb_slug": "",
@@ -640,7 +639,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.BIT_90: {
+    UPS.BIT_90: {
         "id": 97614,
         "igdb_id": None,
         "igdb_slug": "",
@@ -648,7 +647,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.C_PLUS_4: {
+    UPS.C_PLUS_4: {
         "id": 7,
         "igdb_id": 94,
         "igdb_slug": "c-plus-4",
@@ -656,7 +655,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.C128: {
+    UPS.C128: {
         "id": 8,
         "igdb_id": None,
         "igdb_slug": "",
@@ -664,7 +663,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.C16: {
+    UPS.C16: {
         "id": 6,
         "igdb_id": 93,
         "igdb_slug": "c16",
@@ -672,7 +671,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.C64: {
+    UPS.C64: {
         "id": 5,
         "igdb_id": 15,
         "igdb_slug": "c64",
@@ -680,7 +679,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.CAMPUTERS_LYNX: {
+    UPS.CAMPUTERS_LYNX: {
         "id": 97720,
         "igdb_id": None,
         "igdb_slug": "",
@@ -688,7 +687,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.CASIO_CFX_9850: {
+    UPS.CASIO_CFX_9850: {
         "id": 97839,
         "igdb_id": None,
         "igdb_slug": "",
@@ -696,7 +695,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.CASIO_FP_1000: {
+    UPS.CASIO_FP_1000: {
         "id": 98757,
         "igdb_id": None,
         "igdb_slug": "",
@@ -704,7 +703,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.CASIO_LOOPY: {
+    UPS.CASIO_LOOPY: {
         "id": 37,
         "igdb_id": 380,
         "igdb_slug": "casio-loopy",
@@ -712,7 +711,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.CASIO_PB_1000: {
+    UPS.CASIO_PB_1000: {
         "id": 98771,
         "igdb_id": None,
         "igdb_slug": "",
@@ -720,7 +719,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.CASIO_PV_1000: {
+    UPS.CASIO_PV_1000: {
         "id": 98793,
         "igdb_id": None,
         "igdb_slug": "",
@@ -728,7 +727,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.CASIO_PV_2000: {
+    UPS.CASIO_PV_2000: {
         "id": 98811,
         "igdb_id": None,
         "igdb_slug": "",
@@ -736,7 +735,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.COLECOVISION: {
+    UPS.COLECOVISION: {
         "id": 39,
         "igdb_id": 68,
         "igdb_slug": "colecovision",
@@ -744,7 +743,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 44,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.COMMANDER_X16: {
+    UPS.COMMANDER_X16: {
         "id": 54769,
         "igdb_id": None,
         "igdb_slug": "",
@@ -752,7 +751,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.COMMODORE_CDTV: {
+    UPS.COMMODORE_CDTV: {
         "id": 9,
         "igdb_id": 158,
         "igdb_slug": "commodore-cdtv",
@@ -760,7 +759,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.CPET: {
+    UPS.CPET: {
         "id": 10,
         "igdb_id": 90,
         "igdb_slug": "cpet",
@@ -768,7 +767,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.DC: {
+    UPS.DC: {
         "id": 54694,
         "igdb_id": 23,
         "igdb_slug": "dc",
@@ -776,7 +775,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 40,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.DOS: {
+    UPS.DOS: {
         "id": 233075,
         "igdb_id": 13,
         "igdb_slug": "dos",
@@ -784,7 +783,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.EXCALIBUR_64: {
+    UPS.EXCALIBUR_64: {
         "id": 97612,
         "igdb_id": None,
         "igdb_slug": "",
@@ -792,7 +791,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.FAIRCHILD_CHANNEL_F: {
+    UPS.FAIRCHILD_CHANNEL_F: {
         "id": 43,
         "igdb_id": 127,
         "igdb_slug": "fairchild-channel-f",
@@ -800,7 +799,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 57,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.FDS: {
+    UPS.FDS: {
         "id": 54692,
         "igdb_id": 51,
         "igdb_slug": "fds",
@@ -808,7 +807,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.FM_TOWNS: {
+    UPS.FM_TOWNS: {
         "id": 238902,
         "igdb_id": 118,
         "igdb_slug": "fm-towns",
@@ -816,7 +815,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.GAMATE: {
+    UPS.GAMATE: {
         "id": 97616,
         "igdb_id": 378,
         "igdb_slug": "gamate",
@@ -824,7 +823,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.GAMEGEAR: {
+    UPS.GAMEGEAR: {
         "id": 84,
         "igdb_id": 35,
         "igdb_slug": "gamegear",
@@ -832,7 +831,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 15,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.GB: {
+    UPS.GB: {
         "id": 70,
         "igdb_id": 33,
         "igdb_slug": "gb",
@@ -840,7 +839,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 4,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.GBA: {
+    UPS.GBA: {
         "id": 71,
         "igdb_id": 24,
         "igdb_slug": "gba",
@@ -848,7 +847,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 5,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.GBC: {
+    UPS.GBC: {
         "id": 72,
         "igdb_id": 22,
         "igdb_slug": "gbc",
@@ -856,7 +855,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 6,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.GENESIS: {
+    UPS.GENESIS: {
         "id": 86,
         "igdb_id": 29,
         "igdb_slug": "genesis-slash-megadrive",
@@ -864,7 +863,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 1,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.INTELLIVISION: {
+    UPS.INTELLIVISION: {
         "id": 52,
         "igdb_id": 67,
         "igdb_slug": "intellivision",
@@ -872,7 +871,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 45,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.JAGUAR: {
+    UPS.JAGUAR: {
         "id": 13,
         "igdb_id": 62,
         "igdb_slug": "jaguar",
@@ -880,7 +879,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 17,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.LINUX: {
+    UPS.LINUX: {
         "id": 233076,
         "igdb_id": 3,
         "igdb_slug": "linux",
@@ -888,7 +887,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.LYNX: {
+    UPS.LYNX: {
         "id": 14,
         "igdb_id": 61,
         "igdb_slug": "lynx",
@@ -896,7 +895,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 13,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.MAC: {
+    UPS.MAC: {
         "id": 30,
         "igdb_id": 14,
         "igdb_slug": "mac",
@@ -904,7 +903,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.MATTEL_AQUARIUS: {
+    UPS.MATTEL_AQUARIUS: {
         "id": 51,
         "igdb_id": None,
         "igdb_slug": "",
@@ -912,7 +911,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.MICROBEE: {
+    UPS.MICROBEE: {
         "id": 69714,
         "igdb_id": None,
         "igdb_slug": "",
@@ -920,7 +919,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.MSX: {
+    UPS.MSX: {
         "id": 53,
         "igdb_id": 27,
         "igdb_slug": "msx",
@@ -928,7 +927,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 29,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.MSX2: {
+    UPS.MSX2: {
         "id": 54,
         "igdb_id": 53,
         "igdb_slug": "msx2",
@@ -936,7 +935,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.MULTIVISION: {
+    UPS.MULTIVISION: {
         "id": 52922,
         "igdb_id": None,
         "igdb_slug": "",
@@ -944,7 +943,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.N64: {
+    UPS.N64: {
         "id": 64,
         "igdb_id": 4,
         "igdb_slug": "n64",
@@ -952,7 +951,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 2,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NDS: {
+    UPS.NDS: {
         "id": 66,
         "igdb_id": 20,
         "igdb_slug": "nds",
@@ -960,7 +959,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 18,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NEC_PC_6000_SERIES: {
+    UPS.NEC_PC_6000_SERIES: {
         "id": 58,
         "igdb_id": 157,
         "igdb_slug": "nec-pc-6000-series",
@@ -968,7 +967,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NEO_GEO_CD: {
+    UPS.NEO_GEO_CD: {
         "id": 161829,
         "igdb_id": 136,
         "igdb_slug": "neo-geo-cd",
@@ -976,7 +975,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 56,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NEO_GEO_POCKET: {
+    UPS.NEO_GEO_POCKET: {
         "id": 97,
         "igdb_id": 119,
         "igdb_slug": "neo-geo-pocket",
@@ -984,7 +983,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 14,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NEO_GEO_POCKET_COLOR: {
+    UPS.NEO_GEO_POCKET_COLOR: {
         "id": 98,
         "igdb_id": 120,
         "igdb_slug": "neo-geo-pocket-color",
@@ -992,7 +991,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NEOGEOAES: {
+    UPS.NEOGEOAES: {
         "id": 96,
         "igdb_id": 80,
         "igdb_slug": "neogeoaes",
@@ -1000,7 +999,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NES: {
+    UPS.NES: {
         "id": 68,
         "igdb_id": 18,
         "igdb_slug": "nes",
@@ -1008,7 +1007,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 7,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NEW_NINTENDON3DS: {
+    UPS.NEW_NINTENDON3DS: {
         "id": 63,
         "igdb_id": 137,
         "igdb_slug": "new-nintendo-3ds",
@@ -1016,7 +1015,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NGC: {
+    UPS.NGC: {
         "id": 73,
         "igdb_id": 21,
         "igdb_slug": "ngc",
@@ -1024,7 +1023,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 16,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.NINTENDO_DSI: {
+    UPS.NINTENDO_DSI: {
         "id": 67,
         "igdb_id": 159,
         "igdb_slug": "nintendo-dsi",
@@ -1032,7 +1031,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 78,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ODYSSEY: {
+    UPS.ODYSSEY: {
         "id": 48,
         "igdb_id": 88,
         "igdb_slug": "odyssey--1",
@@ -1040,7 +1039,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
         "id": 49,
         "igdb_id": 133,
         "igdb_slug": "odyssey-2-slash-videopac-g7000",
@@ -1048,7 +1047,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 23,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PC_8800_SERIES: {
+    UPS.PC_8800_SERIES: {
         "id": 57,
         "igdb_id": 125,
         "igdb_slug": "pc-8800-series",
@@ -1056,7 +1055,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PC_9800_SERIES: {
+    UPS.PC_9800_SERIES: {
         "id": 59,
         "igdb_id": 149,
         "igdb_slug": "pc-9800-series",
@@ -1064,7 +1063,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PC_JR: {
+    UPS.PC_JR: {
         "id": 233269,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1072,7 +1071,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PHILIPS_CD_I: {
+    UPS.PHILIPS_CD_I: {
         "id": 161827,
         "igdb_id": 117,
         "igdb_slug": "philips-cd-i",
@@ -1080,7 +1079,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 42,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.POCKET_CHALLENGE_V2: {
+    UPS.POCKET_CHALLENGE_V2: {
         "id": 97550,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1088,7 +1087,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.POCKET_CHALLENGE_W: {
+    UPS.POCKET_CHALLENGE_W: {
         "id": 97577,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1096,7 +1095,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.POCKETSTATION: {
+    UPS.POCKETSTATION: {
         "id": 103,
         "igdb_id": 441,
         "igdb_slug": "pocketstation",
@@ -1104,7 +1103,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.POKEMON_MINI: {
+    UPS.POKEMON_MINI: {
         "id": 244733,
         "igdb_id": 166,
         "igdb_slug": "pokemon-mini",
@@ -1112,7 +1111,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 24,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PS2: {
+    UPS.PS2: {
         "id": 101,
         "igdb_id": 8,
         "igdb_slug": "ps2",
@@ -1120,7 +1119,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 21,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PS3: {
+    UPS.PS3: {
         "id": 161830,
         "igdb_id": 9,
         "igdb_slug": "ps3",
@@ -1128,7 +1127,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PS4: {
+    UPS.PS4: {
         "id": 232986,
         "igdb_id": 48,
         "igdb_slug": "ps4--1",
@@ -1136,7 +1135,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PS5: {
+    UPS.PS5: {
         "id": 232987,
         "igdb_id": 167,
         "igdb_slug": "ps5",
@@ -1144,7 +1143,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PSP: {
+    UPS.PSP: {
         "id": 161831,
         "igdb_id": 38,
         "igdb_slug": "psp",
@@ -1152,7 +1151,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 41,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PSVITA: {
+    UPS.PSVITA: {
         "id": 102,
         "igdb_id": 46,
         "igdb_slug": "psvita",
@@ -1160,7 +1159,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.PSX: {
+    UPS.PSX: {
         "id": 100,
         "igdb_id": 7,
         "igdb_slug": "ps",
@@ -1168,7 +1167,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 12,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.RCA_STUDIO_II: {
+    UPS.RCA_STUDIO_II: {
         "id": 234745,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1176,7 +1175,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SATURN: {
+    UPS.SATURN: {
         "id": 54695,
         "igdb_id": 32,
         "igdb_slug": "saturn",
@@ -1184,7 +1183,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 39,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SC3000: {
+    UPS.SC3000: {
         "id": 52165,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1192,7 +1191,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SEGA_PICO: {
+    UPS.SEGA_PICO: {
         "id": 81,
         "igdb_id": 339,
         "igdb_slug": "sega-pico",
@@ -1200,7 +1199,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 68,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SEGA32: {
+    UPS.SEGA32: {
         "id": 80,
         "igdb_id": 30,
         "igdb_slug": "sega32",
@@ -1208,7 +1207,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 10,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SEGACD: {
+    UPS.SEGACD: {
         "id": 161828,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1216,7 +1215,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 9,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SERIES_X_S: {
+    UPS.SERIES_X_S: {
         "id": 232984,
         "igdb_id": 169,
         "igdb_slug": "series-x-s",
@@ -1224,7 +1223,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SFAM: {
+    UPS.SFAM: {
         "id": 233081,
         "igdb_id": 58,
         "igdb_slug": "sfam",
@@ -1232,7 +1231,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SG1000: {
+    UPS.SG1000: {
         "id": 244470,
         "igdb_id": 84,
         "igdb_slug": "sg1000",
@@ -1240,7 +1239,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 33,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SHARP_X68000: {
+    UPS.SHARP_X68000: {
         "id": 90,
         "igdb_id": 121,
         "igdb_slug": "sharp-x68000",
@@ -1248,7 +1247,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 52,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SINCLAIR_QL: {
+    UPS.SINCLAIR_QL: {
         "id": 92,
         "igdb_id": 406,
         "igdb_slug": "sinclair-ql",
@@ -1256,7 +1255,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SMS: {
+    UPS.SMS: {
         "id": 85,
         "igdb_id": 64,
         "igdb_slug": "sms",
@@ -1264,7 +1263,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 11,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SNES: {
+    UPS.SNES: {
         "id": 74,
         "igdb_id": 19,
         "igdb_slug": "snes",
@@ -1272,7 +1271,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 3,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SUPER_VISION_8000: {
+    UPS.SUPER_VISION_8000: {
         "id": 97267,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1280,7 +1279,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SWITCH: {
+    UPS.SWITCH: {
         "id": 233067,
         "igdb_id": 130,
         "igdb_slug": "switch",
@@ -1288,7 +1287,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.TG16: {
+    UPS.TG16: {
         "id": 245372,
         "igdb_id": 86,
         "igdb_slug": "turbografx16--1",
@@ -1296,7 +1295,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 8,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.TI_82: {
+    UPS.TI_82: {
         "id": 47973,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1304,7 +1303,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.TI_83: {
+    UPS.TI_83: {
         "id": 243852,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1312,7 +1311,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.TRS_80: {
+    UPS.TRS_80: {
         "id": 105,
         "igdb_id": 126,
         "igdb_slug": "trs-80",
@@ -1320,7 +1319,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.TRS_80_COLOR_COMPUTER: {
+    UPS.TRS_80_COLOR_COMPUTER: {
         "id": 106,
         "igdb_id": 151,
         "igdb_slug": "trs-80-color-computer",
@@ -1328,7 +1327,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.TURBOGRAFX_CD: {
+    UPS.TURBOGRAFX_CD: {
         "id": 247350,
         "igdb_id": 150,
         "igdb_slug": "turbografx-16-slash-pc-engine-cd",
@@ -1336,7 +1335,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.VECTREX: {
+    UPS.VECTREX: {
         "id": 45,
         "igdb_id": 70,
         "igdb_slug": "vectrex",
@@ -1344,7 +1343,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 46,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.VIC_20: {
+    UPS.VIC_20: {
         "id": 4,
         "igdb_id": 71,
         "igdb_slug": "vic-20",
@@ -1352,7 +1351,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.VIRTUALBOY: {
+    UPS.VIRTUALBOY: {
         "id": 75,
         "igdb_id": 87,
         "igdb_slug": "virtualboy",
@@ -1360,7 +1359,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 28,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.SUPERVISION: {
+    UPS.SUPERVISION: {
         "id": 244828,
         "igdb_id": 415,
         "igdb_slug": "watara-slash-quickshot-supervision",
@@ -1368,7 +1367,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 63,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.WII: {
+    UPS.WII: {
         "id": 76,
         "igdb_id": 5,
         "igdb_slug": "wii",
@@ -1376,7 +1375,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.WIIU: {
+    UPS.WIIU: {
         "id": 77,
         "igdb_id": 41,
         "igdb_slug": "wiiu",
@@ -1384,7 +1383,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.WIN: {
+    UPS.WIN: {
         "id": 233074,
         "igdb_id": 6,
         "igdb_slug": "win",
@@ -1392,7 +1391,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.WONDERSWAN: {
+    UPS.WONDERSWAN: {
         "id": 34,
         "igdb_id": 57,
         "igdb_slug": "wonderswan",
@@ -1400,7 +1399,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 53,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.WONDERSWAN_COLOR: {
+    UPS.WONDERSWAN_COLOR: {
         "id": 35,
         "igdb_id": 123,
         "igdb_slug": "wonderswan-color",
@@ -1408,7 +1407,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.X1: {
+    UPS.X1: {
         "id": 89,
         "igdb_id": 77,
         "igdb_slug": "x1",
@@ -1416,7 +1415,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": 64,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.XBOX: {
+    UPS.XBOX: {
         "id": 54696,
         "igdb_id": 11,
         "igdb_slug": "xbox",
@@ -1424,7 +1423,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.XBOX360: {
+    UPS.XBOX360: {
         "id": 54697,
         "igdb_id": 12,
         "igdb_slug": "xbox360",
@@ -1432,7 +1431,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.XBOXONE: {
+    UPS.XBOXONE: {
         "id": 161824,
         "igdb_id": 49,
         "igdb_slug": "xboxone",
@@ -1440,7 +1439,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.Z88: {
+    UPS.Z88: {
         "id": 97718,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1448,7 +1447,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ZX80: {
+    UPS.ZX80: {
         "id": 232985,
         "igdb_id": None,
         "igdb_slug": "",
@@ -1456,7 +1455,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ZX81: {
+    UPS.ZX81: {
         "id": 94,
         "igdb_id": 373,
         "igdb_slug": "sinclair-zx81",
@@ -1464,7 +1463,7 @@ HASHEOUS_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToHasheousId] = {
         "ra_id": None,
         "tgdb_id": None,
     },
-    UniversalPlatformSlug.ZXS: {
+    UPS.ZXS: {
         "id": 93,
         "igdb_id": 26,
         "igdb_slug": "zxs",

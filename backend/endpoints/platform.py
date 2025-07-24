@@ -21,7 +21,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.base_hander import UniversalPlatformSlug
+from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
@@ -77,7 +77,7 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     now = datetime.now(timezone.utc)
     supported_platforms = []
 
-    for upslug in UniversalPlatformSlug:
+    for upslug in UPS:
         slug = upslug.value
 
         db_platform = db_platforms_map.get(slug, None)

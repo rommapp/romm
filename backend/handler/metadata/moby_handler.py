@@ -15,8 +15,8 @@ from .base_hander import (
     SWITCH_TITLEDB_REGEX,
     BaseRom,
     MetadataHandler,
-    UniversalPlatformSlug,
 )
+from .base_hander import UniversalPlatformSlug as UPS
 
 # Used to display the Mobygames API status in the frontend
 MOBY_API_ENABLED: Final = bool(MOBYGAMES_API_KEY)
@@ -284,103 +284,103 @@ class SlugToMobyId(TypedDict):
     slug: str
 
 
-MOBYGAMES_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToMobyId] = {
-    UniversalPlatformSlug.APVS: {
+MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
+    UPS.APVS: {
         "id": 253,
         "name": "1292 Advanced Programmable Video System",
         "slug": "1292-advanced-programmable-video-system",
     },
-    UniversalPlatformSlug._3DO: {"id": 35, "name": "3DO", "slug": "3do"},
-    UniversalPlatformSlug.N3DS: {"id": 101, "name": "Nintendo 3DS", "slug": "3ds"},
-    UniversalPlatformSlug.ABC_80: {"id": 318, "name": "ABC 80", "slug": "abc-80"},
-    UniversalPlatformSlug.ACORN_ARCHIMEDES: {
+    UPS._3DO: {"id": 35, "name": "3DO", "slug": "3do"},
+    UPS.N3DS: {"id": 101, "name": "Nintendo 3DS", "slug": "3ds"},
+    UPS.ABC_80: {"id": 318, "name": "ABC 80", "slug": "abc-80"},
+    UPS.ACORN_ARCHIMEDES: {
         "id": 117,
         "name": "Acorn Archimedes",
         "slug": "acorn-32-bit",
     },
-    UniversalPlatformSlug.ACORN_ELECTRON: {
+    UPS.ACORN_ELECTRON: {
         "id": 93,
         "name": "Electron",
         "slug": "electron",
     },
-    UniversalPlatformSlug.ACPC: {"id": 60, "name": "Amstrad CPC", "slug": "cpc"},
-    UniversalPlatformSlug.ADVENTURE_VISION: {
+    UPS.ACPC: {"id": 60, "name": "Amstrad CPC", "slug": "cpc"},
+    UPS.ADVENTURE_VISION: {
         "id": 210,
         "name": "Adventure Vision",
         "slug": "adventure-vision",
     },
-    UniversalPlatformSlug.AIRCONSOLE: {
+    UPS.AIRCONSOLE: {
         "id": 305,
         "name": "AirConsole",
         "slug": "airconsole",
     },
-    UniversalPlatformSlug.ALICE_3290: {
+    UPS.ALICE_3290: {
         "id": 194,
         "name": "Alice 32/90",
         "slug": "alice-3290",
     },
-    UniversalPlatformSlug.ALTAIR_680: {
+    UPS.ALTAIR_680: {
         "id": 265,
         "name": "Altair 680",
         "slug": "altair-680",
     },
-    UniversalPlatformSlug.ALTAIR_8800: {
+    UPS.ALTAIR_8800: {
         "id": 222,
         "name": "Altair 8800",
         "slug": "altair-8800",
     },
-    UniversalPlatformSlug.AMAZON_ALEXA: {
+    UPS.AMAZON_ALEXA: {
         "id": 237,
         "name": "Amazon Alexa",
         "slug": "amazon-alexa",
     },
-    UniversalPlatformSlug.AMAZON_FIRE_TV: {
+    UPS.AMAZON_FIRE_TV: {
         "id": 159,
         "name": "Fire TV",
         "slug": "fire-os",
     },
-    UniversalPlatformSlug.AMIGA: {"id": 19, "name": "Amiga", "slug": "amiga"},
-    UniversalPlatformSlug.AMIGA_CD32: {
+    UPS.AMIGA: {"id": 19, "name": "Amiga", "slug": "amiga"},
+    UPS.AMIGA_CD32: {
         "id": 56,
         "name": "Amiga CD32",
         "slug": "amiga-cd32",
     },
-    UniversalPlatformSlug.AMSTRAD_PCW: {
+    UPS.AMSTRAD_PCW: {
         "id": 136,
         "name": "Amstrad PCW",
         "slug": "amstrad-pcw",
     },
-    UniversalPlatformSlug.ANDROID: {"id": 91, "name": "Android", "slug": "android"},
-    UniversalPlatformSlug.ANTSTREAM: {
+    UPS.ANDROID: {"id": 91, "name": "Android", "slug": "android"},
+    UPS.ANTSTREAM: {
         "id": 286,
         "name": "Antstream",
         "slug": "antstream",
     },
-    UniversalPlatformSlug.APF: {
+    UPS.APF: {
         "id": 213,
         "name": "APF MP1000/Imagination Machine",
         "slug": "apf",
     },
-    UniversalPlatformSlug.APPLE: {"id": 245, "name": "Apple I", "slug": "apple-i"},
-    UniversalPlatformSlug.APPLE_IIGS: {
+    UPS.APPLE: {"id": 245, "name": "Apple I", "slug": "apple-i"},
+    UPS.APPLE_IIGS: {
         "id": 51,
         "name": "Apple IIGD",
         "slug": "apple2gs",
     },
-    UniversalPlatformSlug.APPLEII: {"id": 31, "name": "Apple II", "slug": "apple2"},
-    UniversalPlatformSlug.ARCADE: {"id": 143, "name": "Arcade", "slug": "arcade"},
-    UniversalPlatformSlug.ARCADIA_2001: {
+    UPS.APPLEII: {"id": 31, "name": "Apple II", "slug": "apple2"},
+    UPS.ARCADE: {"id": 143, "name": "Arcade", "slug": "arcade"},
+    UPS.ARCADIA_2001: {
         "id": 162,
         "name": "Arcadia 2001",
         "slug": "arcadia-2001",
     },
-    UniversalPlatformSlug.ARDUBOY: {"id": 215, "name": "Arduboy", "slug": "arduboy"},
-    UniversalPlatformSlug.ASTRAL_2000: {
+    UPS.ARDUBOY: {"id": 215, "name": "Arduboy", "slug": "arduboy"},
+    UPS.ASTRAL_2000: {
         "id": 241,
         "name": "Astral 2000",
         "slug": "astral-2000",
     },
-    UniversalPlatformSlug.ASTROCADE: {
+    UPS.ASTROCADE: {
         "id": 160,
         "name": "Bally Astrocade",
         "slug": "bally-astrocade",
@@ -389,156 +389,156 @@ MOBYGAMES_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToMobyId] = {
     "atari-5200": {"id": 33, "name": "Atari 5200", "slug": "atari-5200"},
     "atari-7800": {"id": 34, "name": "Atari 7800", "slug": "atari-7800"},
     "atari-8-bit": {"id": 39, "name": "Atari 8-bit", "slug": "atari-8-bit"},
-    UniversalPlatformSlug.ATARI_ST: {"id": 24, "name": "Atari ST", "slug": "atari-st"},
-    UniversalPlatformSlug.ATARI_VCS: {
+    UPS.ATARI_ST: {"id": 24, "name": "Atari ST", "slug": "atari-st"},
+    UPS.ATARI_VCS: {
         "id": 319,
         "name": "Atari VCS",
         "slug": "atari-vcs",
     },
-    UniversalPlatformSlug.ATARI2600: {
+    UPS.ATARI2600: {
         "id": 28,
         "name": "Atari 2600",
         "slug": "atari-2600",
     },
-    UniversalPlatformSlug.ATARI5200: {
+    UPS.ATARI5200: {
         "id": 33,
         "name": "Atari 5200",
         "slug": "atari-5200",
     },
-    UniversalPlatformSlug.ATARI7800: {
+    UPS.ATARI7800: {
         "id": 34,
         "name": "Atari 7800",
         "slug": "atari-7800",
     },
-    UniversalPlatformSlug.ATARI8BIT: {
+    UPS.ATARI8BIT: {
         "id": 39,
         "name": "Atari 8-bit",
         "slug": "atari-8-bit",
     },
-    UniversalPlatformSlug.ATOM: {"id": 129, "name": "Atom", "slug": "atom"},
-    UniversalPlatformSlug.BADA: {"id": 99, "name": "Bada", "slug": "bada"},
-    UniversalPlatformSlug.BBCMICRO: {
+    UPS.ATOM: {"id": 129, "name": "Atom", "slug": "atom"},
+    UPS.BADA: {"id": 99, "name": "Bada", "slug": "bada"},
+    UPS.BBCMICRO: {
         "id": 92,
         "name": "BBC Micro",
         "slug": "bbc-micro",
     },
-    UniversalPlatformSlug.BEOS: {"id": 165, "name": "BeOS", "slug": "beos"},
-    UniversalPlatformSlug.BLACKBERRY: {
+    UPS.BEOS: {"id": 165, "name": "BeOS", "slug": "beos"},
+    UPS.BLACKBERRY: {
         "id": 90,
         "name": "BlackBerry",
         "slug": "blackberry",
     },
-    UniversalPlatformSlug.BLACKNUT: {"id": 290, "name": "Blacknut", "slug": "blacknut"},
+    UPS.BLACKNUT: {"id": 290, "name": "Blacknut", "slug": "blacknut"},
     "blu-ray-disc-player": {
         "id": 168,
         "name": "Blu-ray Player",
         "slug": "blu-ray-disc-player",
     },
-    UniversalPlatformSlug.BLU_RAY_PLAYER: {
+    UPS.BLU_RAY_PLAYER: {
         "id": 169,
         "name": "Blu-ray Player",
         "slug": "blu-ray-disc-player",
     },
-    UniversalPlatformSlug.BREW: {"id": 63, "name": "BREW", "slug": "brew"},
-    UniversalPlatformSlug.BROWSER: {"id": 84, "name": "Browser", "slug": "browser"},
-    UniversalPlatformSlug.BUBBLE: {"id": 231, "name": "Bubble", "slug": "bubble"},
-    UniversalPlatformSlug.C_PLUS_4: {
+    UPS.BREW: {"id": 63, "name": "BREW", "slug": "brew"},
+    UPS.BROWSER: {"id": 84, "name": "Browser", "slug": "browser"},
+    UPS.BUBBLE: {"id": 231, "name": "Bubble", "slug": "bubble"},
+    UPS.C_PLUS_4: {
         "id": 115,
         "name": "Commodore Plus/4",
         "slug": "commodore-16-plus4",
     },
-    UniversalPlatformSlug.C128: {"id": 61, "name": "Commodore 128", "slug": "c128"},
-    UniversalPlatformSlug.C16: {
+    UPS.C128: {"id": 61, "name": "Commodore 128", "slug": "c128"},
+    UPS.C16: {
         "id": 115,
         "name": "Commodore 16",
         "slug": "commodore-16-plus4",
     },
-    UniversalPlatformSlug.C64: {"id": 27, "name": "Commodore 64", "slug": "c64"},
-    UniversalPlatformSlug.CAMPUTERS_LYNX: {
+    UPS.C64: {"id": 27, "name": "Commodore 64", "slug": "c64"},
+    UPS.CAMPUTERS_LYNX: {
         "id": 154,
         "name": "Camputers Lynx",
         "slug": "camputers-lynx",
     },
-    UniversalPlatformSlug.CASIO_LOOPY: {
+    UPS.CASIO_LOOPY: {
         "id": 124,
         "name": "Casio Loopy",
         "slug": "casio-loopy",
     },
-    UniversalPlatformSlug.CASIO_PROGRAMMABLE_CALCULATOR: {
+    UPS.CASIO_PROGRAMMABLE_CALCULATOR: {
         "id": 306,
         "name": "Casio Programmable Calculator",
         "slug": "casio-programmable-calculator",
     },
-    UniversalPlatformSlug.CASIO_PV_1000: {
+    UPS.CASIO_PV_1000: {
         "id": 125,
         "name": "Casio PV-1000",
         "slug": "casio-pv-1000",
     },
-    UniversalPlatformSlug.CHAMPION_2711: {
+    UPS.CHAMPION_2711: {
         "id": 298,
         "name": "Champion 2711",
         "slug": "champion-2711",
     },
-    UniversalPlatformSlug.CLICKSTART: {
+    UPS.CLICKSTART: {
         "id": 188,
         "name": "ClickStart",
         "slug": "clickstart",
     },
-    UniversalPlatformSlug.COLECOADAM: {
+    UPS.COLECOADAM: {
         "id": 156,
         "name": "Coleco Adam",
         "slug": "colecoadam",
     },
-    UniversalPlatformSlug.COLECOVISION: {
+    UPS.COLECOVISION: {
         "id": 29,
         "name": "ColecoVision",
         "slug": "colecovision",
     },
-    UniversalPlatformSlug.COLOUR_GENIE: {
+    UPS.COLOUR_GENIE: {
         "id": 197,
         "name": "Colour Genie",
         "slug": "colour-genie",
     },
-    UniversalPlatformSlug.COMMODORE_CDTV: {"id": 83, "name": "CDTV", "slug": "cdtv"},
-    UniversalPlatformSlug.COMPAL_80: {
+    UPS.COMMODORE_CDTV: {"id": 83, "name": "CDTV", "slug": "cdtv"},
+    UPS.COMPAL_80: {
         "id": 277,
         "name": "Compal 80",
         "slug": "compal-80",
     },
-    UniversalPlatformSlug.COMPUCOLOR_I: {
+    UPS.COMPUCOLOR_I: {
         "id": 243,
         "name": "Compucolor I",
         "slug": "compucolor-i",
     },
-    UniversalPlatformSlug.COMPUCOLOR_II: {
+    UPS.COMPUCOLOR_II: {
         "id": 198,
         "name": "Compucolor II",
         "slug": "compucolor-ii",
     },
-    UniversalPlatformSlug.COMPUCORP_PROGRAMMABLE_CALCULATOR: {
+    UPS.COMPUCORP_PROGRAMMABLE_CALCULATOR: {
         "id": 238,
         "name": "Compucorp Programmable Calculator",
         "slug": "compucorp-programmable-calculator",
     },
-    UniversalPlatformSlug.CPET: {"id": 77, "name": "Commodore PET/CBM", "slug": "pet"},
-    UniversalPlatformSlug.CPM: {"id": 261, "name": "CP/M", "slug": "cpm"},
-    UniversalPlatformSlug.CREATIVISION: {
+    UPS.CPET: {"id": 77, "name": "Commodore PET/CBM", "slug": "pet"},
+    UPS.CPM: {"id": 261, "name": "CP/M", "slug": "cpm"},
+    UPS.CREATIVISION: {
         "id": 212,
         "name": "CreatiVision",
         "slug": "creativision",
     },
-    UniversalPlatformSlug.CYBERVISION: {
+    UPS.CYBERVISION: {
         "id": 301,
         "name": "Cybervision",
         "slug": "cybervision",
     },
-    UniversalPlatformSlug.DANGER_OS: {
+    UPS.DANGER_OS: {
         "id": 285,
         "name": "Danger OS",
         "slug": "danger-os",
     },
-    UniversalPlatformSlug.DC: {"id": 8, "name": "Dreamcast", "slug": "dc"},
-    UniversalPlatformSlug.DEDICATED_CONSOLE: {
+    UPS.DC: {"id": 8, "name": "Dreamcast", "slug": "dc"},
+    UPS.DEDICATED_CONSOLE: {
         "id": 204,
         "name": "Dedicated console",
         "slug": "dedicated-console",
@@ -548,819 +548,818 @@ MOBYGAMES_PLATFORM_LIST: dict[UniversalPlatformSlug, SlugToMobyId] = {
         "name": "Dedicated handheld",
         "slug": "dedicated-handheld",
     },
-    UniversalPlatformSlug.DIDJ: {"id": 184, "name": "Didj", "slug": "didj"},
-    UniversalPlatformSlug.DIGIBLAST: {
+    UPS.DIDJ: {"id": 184, "name": "Didj", "slug": "didj"},
+    UPS.DIGIBLAST: {
         "id": 187,
         "name": "digiBlast",
         "slug": "digiblast",
     },
-    UniversalPlatformSlug.DOJA: {"id": 72, "name": "DoJa", "slug": "doja"},
-    UniversalPlatformSlug.DOS: {"id": 2, "name": "DOS", "slug": "dos"},
-    UniversalPlatformSlug.DRAGON_32_SLASH_64: {
+    UPS.DOJA: {"id": 72, "name": "DoJa", "slug": "doja"},
+    UPS.DOS: {"id": 2, "name": "DOS", "slug": "dos"},
+    UPS.DRAGON_32_SLASH_64: {
         "id": 79,
         "name": "Dragon 32/64",
         "slug": "dragon-3264",
     },
-    UniversalPlatformSlug.DVD_PLAYER: {
+    UPS.DVD_PLAYER: {
         "id": 166,
         "name": "DVD Player",
         "slug": "dvd-player",
     },
-    UniversalPlatformSlug.ECD_MICROMIND: {
+    UPS.ECD_MICROMIND: {
         "id": 269,
         "name": "ECD Micromind",
         "slug": "ecd-micromind",
     },
-    UniversalPlatformSlug.ENTERPRISE: {
+    UPS.ENTERPRISE: {
         "id": 161,
         "name": "Enterprise",
         "slug": "enterprise",
     },
-    UniversalPlatformSlug.EPOCH_CASSETTE_VISION: {
+    UPS.EPOCH_CASSETTE_VISION: {
         "id": 137,
         "name": "Epoch Cassette Vision",
         "slug": "epoch-cassette-vision",
     },
-    UniversalPlatformSlug.EPOCH_GAME_POCKET_COMPUTER: {
+    UPS.EPOCH_GAME_POCKET_COMPUTER: {
         "id": 139,
         "name": "Epoch Game Pocket Computer",
         "slug": "epoch-game-pocket-computer",
     },
-    UniversalPlatformSlug.EPOCH_SUPER_CASSETTE_VISION: {
+    UPS.EPOCH_SUPER_CASSETTE_VISION: {
         "id": 138,
         "name": "Epoch Super Cassette Vision",
         "slug": "epoch-super-cassette-vision",
     },
-    UniversalPlatformSlug.EVERCADE: {"id": 284, "name": "Evercade", "slug": "evercade"},
-    UniversalPlatformSlug.EXELVISION: {
+    UPS.EVERCADE: {"id": 284, "name": "Evercade", "slug": "evercade"},
+    UPS.EXELVISION: {
         "id": 195,
         "name": "Exelvision",
         "slug": "exelvision",
     },
-    UniversalPlatformSlug.EXEN: {"id": 70, "name": "ExEn", "slug": "exen"},
-    UniversalPlatformSlug.EXIDY_SORCERER: {
+    UPS.EXEN: {"id": 70, "name": "ExEn", "slug": "exen"},
+    UPS.EXIDY_SORCERER: {
         "id": 176,
         "name": "Exidy Sorcerer",
         "slug": "exidy-sorcerer",
     },
-    UniversalPlatformSlug.FAIRCHILD_CHANNEL_F: {
+    UPS.FAIRCHILD_CHANNEL_F: {
         "id": 76,
         "name": "Channel F",
         "slug": "channel-f",
     },
-    UniversalPlatformSlug.FAMICOM: {
+    UPS.FAMICOM: {
         "id": 22,
         "name": "Family Computer",
         "slug": "famicom",
     },
     "fire-os": {"id": 159, "name": "Fire OS", "slug": "fire-os"},
-    UniversalPlatformSlug.FM_7: {"id": 126, "name": "FM-7", "slug": "fm-7"},
-    UniversalPlatformSlug.FM_TOWNS: {"id": 102, "name": "FM Towns", "slug": "fmtowns"},
-    UniversalPlatformSlug.FRED_COSMAC: {
+    UPS.FM_7: {"id": 126, "name": "FM-7", "slug": "fm-7"},
+    UPS.FM_TOWNS: {"id": 102, "name": "FM Towns", "slug": "fmtowns"},
+    UPS.FRED_COSMAC: {
         "id": 216,
         "name": "COSMAC",
         "slug": "fred-cosmac",
     },
-    UniversalPlatformSlug.FREEBOX: {"id": 268, "name": "Freebox", "slug": "freebox"},
-    UniversalPlatformSlug.G_AND_W: {
+    UPS.FREEBOX: {"id": 268, "name": "Freebox", "slug": "freebox"},
+    UPS.G_AND_W: {
         "id": 205,
         "name": "Dedicated handheld",
         "slug": "dedicated-handheld",
     },
-    UniversalPlatformSlug.G_CLUSTER: {
+    UPS.G_CLUSTER: {
         "id": 302,
         "name": "G-cluster",
         "slug": "g-cluster",
     },
-    UniversalPlatformSlug.GALAKSIJA: {
+    UPS.GALAKSIJA: {
         "id": 236,
         "name": "Galaksija",
         "slug": "galaksija",
     },
-    UniversalPlatformSlug.GAME_DOT_COM: {
+    UPS.GAME_DOT_COM: {
         "id": 50,
         "name": "Game.Com",
         "slug": "game-com",
     },
-    UniversalPlatformSlug.GAME_WAVE: {
+    UPS.GAME_WAVE: {
         "id": 104,
         "name": "Game Wave",
         "slug": "game-wave",
     },
-    UniversalPlatformSlug.GAMEGEAR: {
+    UPS.GAMEGEAR: {
         "id": 25,
         "name": "Game Gear",
         "slug": "game-gear",
     },
-    UniversalPlatformSlug.GAMESTICK: {
+    UPS.GAMESTICK: {
         "id": 155,
         "name": "GameStick",
         "slug": "gamestick",
     },
-    UniversalPlatformSlug.GB: {"id": 10, "name": "Game Boy", "slug": "gameboy"},
-    UniversalPlatformSlug.GBA: {
+    UPS.GB: {"id": 10, "name": "Game Boy", "slug": "gameboy"},
+    UPS.GBA: {
         "id": 12,
         "name": "Game Boy Advance",
         "slug": "gameboy-advance",
     },
-    UniversalPlatformSlug.GBC: {
+    UPS.GBC: {
         "id": 11,
         "name": "Game Boy Color",
         "slug": "gameboy-color",
     },
-    UniversalPlatformSlug.GENESIS: {
+    UPS.GENESIS: {
         "id": 16,
         "name": "Genesis/Mega Drive",
         "slug": "genesis",
     },
-    UniversalPlatformSlug.GIMINI: {"id": 251, "name": "GIMINI", "slug": "gimini"},
-    UniversalPlatformSlug.GIZMONDO: {"id": 55, "name": "Gizmondo", "slug": "gizmondo"},
-    UniversalPlatformSlug.GLOUD: {"id": 292, "name": "Gloud", "slug": "gloud"},
-    UniversalPlatformSlug.GLULX: {"id": 172, "name": "Glulx", "slug": "glulx"},
-    UniversalPlatformSlug.GNEX: {"id": 258, "name": "GNEX", "slug": "gnex"},
-    UniversalPlatformSlug.GP2X: {"id": 122, "name": "GP2X", "slug": "gp2x"},
-    UniversalPlatformSlug.GP2X_WIZ: {"id": 123, "name": "GP2X Wiz", "slug": "gp2x-wiz"},
-    UniversalPlatformSlug.GP32: {"id": 108, "name": "GP32", "slug": "gp32"},
-    UniversalPlatformSlug.GVM: {"id": 257, "name": "GVM", "slug": "gvm"},
-    UniversalPlatformSlug.HD_DVD_PLAYER: {
+    UPS.GIMINI: {"id": 251, "name": "GIMINI", "slug": "gimini"},
+    UPS.GIZMONDO: {"id": 55, "name": "Gizmondo", "slug": "gizmondo"},
+    UPS.GLOUD: {"id": 292, "name": "Gloud", "slug": "gloud"},
+    UPS.GLULX: {"id": 172, "name": "Glulx", "slug": "glulx"},
+    UPS.GNEX: {"id": 258, "name": "GNEX", "slug": "gnex"},
+    UPS.GP2X: {"id": 122, "name": "GP2X", "slug": "gp2x"},
+    UPS.GP2X_WIZ: {"id": 123, "name": "GP2X Wiz", "slug": "gp2x-wiz"},
+    UPS.GP32: {"id": 108, "name": "GP32", "slug": "gp32"},
+    UPS.GVM: {"id": 257, "name": "GVM", "slug": "gvm"},
+    UPS.HD_DVD_PLAYER: {
         "id": 167,
         "name": "HD DVD Player",
         "slug": "hd-dvd-player",
     },
-    UniversalPlatformSlug.HEATHKIT_H11: {
+    UPS.HEATHKIT_H11: {
         "id": 248,
         "name": "Heathkit H11",
         "slug": "heathkit-h11",
     },
-    UniversalPlatformSlug.HEATHZENITH: {
+    UPS.HEATHZENITH: {
         "id": 262,
         "name": "Heath/Zenith H8/H89",
         "slug": "heathzenith",
     },
-    UniversalPlatformSlug.HITACHI_S1: {
+    UPS.HITACHI_S1: {
         "id": 274,
         "name": "Hitachi S1",
         "slug": "hitachi-s1",
     },
-    UniversalPlatformSlug.HP_9800: {"id": 219, "name": "HP 9800", "slug": "hp-9800"},
-    UniversalPlatformSlug.HP_PROGRAMMABLE_CALCULATOR: {
+    UPS.HP_9800: {"id": 219, "name": "HP 9800", "slug": "hp-9800"},
+    UPS.HP_PROGRAMMABLE_CALCULATOR: {
         "id": 234,
         "name": "HP Programmable Calculator",
         "slug": "hp-programmable-calculator",
     },
-    UniversalPlatformSlug.HUGO: {"id": 170, "name": "Hugo", "slug": "hugo"},
-    UniversalPlatformSlug.HYPERSCAN: {
+    UPS.HUGO: {"id": 170, "name": "Hugo", "slug": "hugo"},
+    UPS.HYPERSCAN: {
         "id": 192,
         "name": "HyperScan",
         "slug": "hyperscan",
     },
-    UniversalPlatformSlug.IBM_5100: {"id": 250, "name": "IBM 5100", "slug": "ibm-5100"},
-    UniversalPlatformSlug.IDEAL_COMPUTER: {
+    UPS.IBM_5100: {"id": 250, "name": "IBM 5100", "slug": "ibm-5100"},
+    UPS.IDEAL_COMPUTER: {
         "id": 252,
         "name": "Ideal-Computer",
         "slug": "ideal-computer",
     },
-    UniversalPlatformSlug.IIRCADE: {"id": 314, "name": "iiRcade", "slug": "iircade"},
-    UniversalPlatformSlug.INTEL_8008: {
+    UPS.IIRCADE: {"id": 314, "name": "iiRcade", "slug": "iircade"},
+    UPS.INTEL_8008: {
         "id": 224,
         "name": "Intel 8008",
         "slug": "intel-8008",
     },
-    UniversalPlatformSlug.INTEL_8080: {
+    UPS.INTEL_8080: {
         "id": 225,
         "name": "Intel 8080",
         "slug": "intel-8080",
     },
-    UniversalPlatformSlug.INTEL_8086: {
+    UPS.INTEL_8086: {
         "id": 317,
         "name": "Intel 8086 / 8088",
         "slug": "intel-8086",
     },
-    UniversalPlatformSlug.INTELLIVISION: {
+    UPS.INTELLIVISION: {
         "id": 30,
         "name": "Intellivision",
         "slug": "intellivision",
     },
-    UniversalPlatformSlug.INTERACT_MODEL_ONE: {
+    UPS.INTERACT_MODEL_ONE: {
         "id": 295,
         "name": "Interact Model One",
         "slug": "interact-model-one",
     },
-    UniversalPlatformSlug.INTERTON_VIDEO_2000: {
+    UPS.INTERTON_VIDEO_2000: {
         "id": 221,
         "name": "Interton Video 2000",
         "slug": "interton-video-2000",
     },
-    UniversalPlatformSlug.IOS: {"id": 86, "name": "iOS", "slug": "iphone"},
-    UniversalPlatformSlug.IPAD: {"id": 96, "name": "iPad", "slug": "ipad"},
+    UPS.IOS: {"id": 86, "name": "iOS", "slug": "iphone"},
+    UPS.IPAD: {"id": 96, "name": "iPad", "slug": "ipad"},
     "iphone": {"id": 86, "name": "iPhone", "slug": "iphone"},
-    UniversalPlatformSlug.IPOD_CLASSIC: {
+    UPS.IPOD_CLASSIC: {
         "id": 80,
         "name": "iPod Classic",
         "slug": "ipod-classic",
     },
-    UniversalPlatformSlug.J2ME: {"id": 64, "name": "J2ME", "slug": "j2me"},
-    UniversalPlatformSlug.JAGUAR: {"id": 17, "name": "Jaguar", "slug": "jaguar"},
-    UniversalPlatformSlug.JOLT: {"id": 247, "name": "Jolt", "slug": "jolt"},
-    UniversalPlatformSlug.JUPITER_ACE: {
+    UPS.J2ME: {"id": 64, "name": "J2ME", "slug": "j2me"},
+    UPS.JAGUAR: {"id": 17, "name": "Jaguar", "slug": "jaguar"},
+    UPS.JOLT: {"id": 247, "name": "Jolt", "slug": "jolt"},
+    UPS.JUPITER_ACE: {
         "id": 153,
         "name": "Jupiter Ace",
         "slug": "jupiter-ace",
     },
-    UniversalPlatformSlug.KAIOS: {"id": 313, "name": "KaiOS", "slug": "kaios"},
-    UniversalPlatformSlug.KIM_1: {"id": 226, "name": "KIM-1", "slug": "kim-1"},
-    UniversalPlatformSlug.KINDLE: {
+    UPS.KAIOS: {"id": 313, "name": "KaiOS", "slug": "kaios"},
+    UPS.KIM_1: {"id": 226, "name": "KIM-1", "slug": "kim-1"},
+    UPS.KINDLE: {
         "id": 145,
         "name": "Kindle Classic",
         "slug": "kindle",
     },
-    UniversalPlatformSlug.LASER200: {
+    UPS.LASER200: {
         "id": 264,
         "name": "Laser 200",
         "slug": "laser200",
     },
-    UniversalPlatformSlug.LASERACTIVE: {
+    UPS.LASERACTIVE: {
         "id": 163,
         "name": "LaserActive",
         "slug": "laseractive",
     },
-    UniversalPlatformSlug.LEAPFROG_EXPLORER: {
+    UPS.LEAPFROG_EXPLORER: {
         "id": 185,
         "name": "LeapFrog Explorer",
         "slug": "leapfrog-explorer",
     },
-    UniversalPlatformSlug.LEAPSTER: {"id": 183, "name": "Leapster", "slug": "leapster"},
-    UniversalPlatformSlug.LEAPSTER_EXPLORER_SLASH_LEADPAD_EXPLORER: {
+    UPS.LEAPSTER: {"id": 183, "name": "Leapster", "slug": "leapster"},
+    UPS.LEAPSTER_EXPLORER_SLASH_LEADPAD_EXPLORER: {
         "id": 183,
         "name": "Leapster Explorer/LeapPad Explorer",
         "slug": "leapster",
     },
-    UniversalPlatformSlug.LEAPTV: {"id": 186, "name": "LeapTV", "slug": "leaptv"},
-    UniversalPlatformSlug.LINUX: {"id": 1, "name": "Linux", "slug": "linux"},
-    UniversalPlatformSlug.LUNA: {"id": 297, "name": "Luna", "slug": "luna"},
-    UniversalPlatformSlug.LYNX: {"id": 18, "name": "Lynx", "slug": "lynx"},
-    UniversalPlatformSlug.MAC: {"id": 74, "name": "Macintosh", "slug": "macintosh"},
-    UniversalPlatformSlug.MAEMO: {"id": 157, "name": "Maemo", "slug": "maemo"},
-    UniversalPlatformSlug.MAINFRAME: {
+    UPS.LEAPTV: {"id": 186, "name": "LeapTV", "slug": "leaptv"},
+    UPS.LINUX: {"id": 1, "name": "Linux", "slug": "linux"},
+    UPS.LUNA: {"id": 297, "name": "Luna", "slug": "luna"},
+    UPS.LYNX: {"id": 18, "name": "Lynx", "slug": "lynx"},
+    UPS.MAC: {"id": 74, "name": "Macintosh", "slug": "macintosh"},
+    UPS.MAEMO: {"id": 157, "name": "Maemo", "slug": "maemo"},
+    UPS.MAINFRAME: {
         "id": 208,
         "name": "Mainframe",
         "slug": "mainframe",
     },
-    UniversalPlatformSlug.MATSUSHITAPANASONIC_JR: {
+    UPS.MATSUSHITAPANASONIC_JR: {
         "id": 307,
         "name": "Matsushita/Panasonic JR",
         "slug": "matsushitapanasonic-jr",
     },
-    UniversalPlatformSlug.MATTEL_AQUARIUS: {
+    UPS.MATTEL_AQUARIUS: {
         "id": 135,
         "name": "Mattel Aquarius",
         "slug": "mattel-aquarius",
     },
-    UniversalPlatformSlug.MEEGO: {"id": 158, "name": "MeeGo", "slug": "meego"},
-    UniversalPlatformSlug.MEMOTECH_MTX: {
+    UPS.MEEGO: {"id": 158, "name": "MeeGo", "slug": "meego"},
+    UPS.MEMOTECH_MTX: {
         "id": 148,
         "name": "Memotech MTX",
         "slug": "memotech-mtx",
     },
-    UniversalPlatformSlug.MERITUM: {"id": 311, "name": "Meritum", "slug": "meritum"},
-    UniversalPlatformSlug.MICROBEE: {"id": 200, "name": "Microbee", "slug": "microbee"},
-    UniversalPlatformSlug.MICROTAN_65: {
+    UPS.MERITUM: {"id": 311, "name": "Meritum", "slug": "meritum"},
+    UPS.MICROBEE: {"id": 200, "name": "Microbee", "slug": "microbee"},
+    UPS.MICROTAN_65: {
         "id": 232,
         "name": "Microtan 65",
         "slug": "microtan-65",
     },
-    UniversalPlatformSlug.MICROVISION: {
+    UPS.MICROVISION: {
         "id": 97,
         "name": "Microvision",
         "slug": "microvision",
     },
-    UniversalPlatformSlug.MOBILE_CUSTOM: {
+    UPS.MOBILE_CUSTOM: {
         "id": 315,
         "name": "Feature phone",
         "slug": "mobile-custom",
     },
-    UniversalPlatformSlug.MOPHUN: {"id": 71, "name": "Mophun", "slug": "mophun"},
-    UniversalPlatformSlug.MOS_TECHNOLOGY_6502: {
+    UPS.MOPHUN: {"id": 71, "name": "Mophun", "slug": "mophun"},
+    UPS.MOS_TECHNOLOGY_6502: {
         "id": 240,
         "name": "MOS Technology 6502",
         "slug": "mos-technology-6502",
     },
-    UniversalPlatformSlug.MOTOROLA_6800: {
+    UPS.MOTOROLA_6800: {
         "id": 235,
         "name": "Motorola 6800",
         "slug": "motorola-6800",
     },
-    UniversalPlatformSlug.MOTOROLA_68K: {
+    UPS.MOTOROLA_68K: {
         "id": 275,
         "name": "Motorola 68k",
         "slug": "motorola-68k",
     },
-    UniversalPlatformSlug.MRE: {"id": 229, "name": "MRE", "slug": "mre"},
-    UniversalPlatformSlug.MSX: {"id": 57, "name": "MSX", "slug": "msx"},
-    UniversalPlatformSlug.N64: {"id": 9, "name": "Nintendo 64", "slug": "n64"},
-    UniversalPlatformSlug.NASCOM: {"id": 175, "name": "Nascom", "slug": "nascom"},
-    UniversalPlatformSlug.NDS: {"id": 44, "name": "Nintendo DS", "slug": "nintendo-ds"},
-    UniversalPlatformSlug.NEO_GEO_CD: {
+    UPS.MRE: {"id": 229, "name": "MRE", "slug": "mre"},
+    UPS.MSX: {"id": 57, "name": "MSX", "slug": "msx"},
+    UPS.N64: {"id": 9, "name": "Nintendo 64", "slug": "n64"},
+    UPS.NASCOM: {"id": 175, "name": "Nascom", "slug": "nascom"},
+    UPS.NDS: {"id": 44, "name": "Nintendo DS", "slug": "nintendo-ds"},
+    UPS.NEO_GEO_CD: {
         "id": 54,
         "name": "Neo Geo CD",
         "slug": "neo-geo-cd",
     },
-    UniversalPlatformSlug.NEO_GEO_POCKET: {
+    UPS.NEO_GEO_POCKET: {
         "id": 52,
         "name": "Neo Geo Pocket",
         "slug": "neo-geo-pocket",
     },
-    UniversalPlatformSlug.NEO_GEO_POCKET_COLOR: {
+    UPS.NEO_GEO_POCKET_COLOR: {
         "id": 53,
         "name": "Neo Geo Pocket Color",
         "slug": "neo-geo-pocket-color",
     },
-    UniversalPlatformSlug.NEO_GEO_X: {
+    UPS.NEO_GEO_X: {
         "id": 279,
         "name": "Neo Geo X",
         "slug": "neo-geo-x",
     },
-    UniversalPlatformSlug.NEOGEOAES: {"id": 36, "name": "Neo Geo", "slug": "neo-geo"},
-    UniversalPlatformSlug.NEOGEOMVS: {"id": 36, "name": "Neo Geo", "slug": "neo-geo"},
-    UniversalPlatformSlug.NES: {"id": 22, "name": "NES", "slug": "nes"},
-    UniversalPlatformSlug.NEW_NINTENDON3DS: {
+    UPS.NEOGEOAES: {"id": 36, "name": "Neo Geo", "slug": "neo-geo"},
+    UPS.NEOGEOMVS: {"id": 36, "name": "Neo Geo", "slug": "neo-geo"},
+    UPS.NES: {"id": 22, "name": "NES", "slug": "nes"},
+    UPS.NEW_NINTENDON3DS: {
         "id": 174,
         "name": "New Nintendo 3DS",
         "slug": "new-nintendo-3ds",
     },
-    UniversalPlatformSlug.NEWBRAIN: {"id": 177, "name": "NewBrain", "slug": "newbrain"},
-    UniversalPlatformSlug.NEWTON: {"id": 207, "name": "Newton", "slug": "newton"},
-    UniversalPlatformSlug.NGAGE: {"id": 32, "name": "N-Gage", "slug": "ngage"},
-    UniversalPlatformSlug.NGAGE2: {
+    UPS.NEWBRAIN: {"id": 177, "name": "NewBrain", "slug": "newbrain"},
+    UPS.NEWTON: {"id": 207, "name": "Newton", "slug": "newton"},
+    UPS.NGAGE: {"id": 32, "name": "N-Gage", "slug": "ngage"},
+    UPS.NGAGE2: {
         "id": 89,
         "name": "N-Gage (service)",
         "slug": "ngage2",
     },
-    UniversalPlatformSlug.NGC: {"id": 14, "name": "GameCube", "slug": "gamecube"},
-    UniversalPlatformSlug.NINTENDO_DSI: {
+    UPS.NGC: {"id": 14, "name": "GameCube", "slug": "gamecube"},
+    UPS.NINTENDO_DSI: {
         "id": 87,
         "name": "Nintendo DSi",
         "slug": "nintendo-dsi",
     },
-    UniversalPlatformSlug.NORTHSTAR: {
+    UPS.NORTHSTAR: {
         "id": 266,
         "name": "North Star",
         "slug": "northstar",
     },
-    UniversalPlatformSlug.NOVAL_760: {
+    UPS.NOVAL_760: {
         "id": 244,
         "name": "Noval 760",
         "slug": "noval-760",
     },
-    UniversalPlatformSlug.NUON: {"id": 116, "name": "Nuon", "slug": "nuon"},
-    UniversalPlatformSlug.OCULUS_GO: {
+    UPS.NUON: {"id": 116, "name": "Nuon", "slug": "nuon"},
+    UPS.OCULUS_GO: {
         "id": 218,
         "name": "Oculus Go",
         "slug": "oculus-go",
     },
-    UniversalPlatformSlug.OCULUS_QUEST: {
+    UPS.OCULUS_QUEST: {
         "id": 271,
         "name": "Quest",
         "slug": "oculus-quest",
     },
-    UniversalPlatformSlug.ODYSSEY: {"id": 75, "name": "Odyssey", "slug": "odyssey"},
-    UniversalPlatformSlug.ODYSSEY_2: {
+    UPS.ODYSSEY: {"id": 75, "name": "Odyssey", "slug": "odyssey"},
+    UPS.ODYSSEY_2: {
         "id": 78,
         "name": "Odyssey 2",
         "slug": "odyssey-2",
     },
-    UniversalPlatformSlug.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
+    UPS.ODYSSEY_2_SLASH_VIDEOPAC_G7000: {
         "id": 78,
         "name": "Odyssey 2/Videopac G7000",
         "slug": "odyssey-2",
     },
-    UniversalPlatformSlug.OHIO_SCIENTIFIC: {
+    UPS.OHIO_SCIENTIFIC: {
         "id": 178,
         "name": "Ohio Scientific",
         "slug": "ohio-scientific",
     },
     "onlive": {"id": 282, "name": "OnLive", "slug": "onlive"},
-    UniversalPlatformSlug.ONLIVE_GAME_SYSTEM: {
+    UPS.ONLIVE_GAME_SYSTEM: {
         "id": 282,
         "name": "OnLive Game System",
         "slug": "onlive",
     },
-    UniversalPlatformSlug.OOPARTS: {"id": 300, "name": "OOParts", "slug": "ooparts"},
-    UniversalPlatformSlug.ORAO: {"id": 270, "name": "Orao", "slug": "orao"},
-    UniversalPlatformSlug.ORIC: {"id": 111, "name": "Oric", "slug": "oric"},
-    UniversalPlatformSlug.OS2: {"id": 146, "name": "OS/2", "slug": "os2"},
-    UniversalPlatformSlug.OUYA: {"id": 144, "name": "Ouya", "slug": "ouya"},
-    UniversalPlatformSlug.PALM_OS: {"id": 65, "name": "Palm OS", "slug": "palmos"},
-    UniversalPlatformSlug.PANDORA: {"id": 308, "name": "Pandora", "slug": "pandora"},
-    UniversalPlatformSlug.PC_6001: {"id": 149, "name": "PC-6001", "slug": "pc-6001"},
-    UniversalPlatformSlug.PC_8000: {"id": 201, "name": "PC-8000", "slug": "pc-8000"},
-    UniversalPlatformSlug.PC_8800_SERIES: {
+    UPS.OOPARTS: {"id": 300, "name": "OOParts", "slug": "ooparts"},
+    UPS.ORAO: {"id": 270, "name": "Orao", "slug": "orao"},
+    UPS.ORIC: {"id": 111, "name": "Oric", "slug": "oric"},
+    UPS.OS2: {"id": 146, "name": "OS/2", "slug": "os2"},
+    UPS.OUYA: {"id": 144, "name": "Ouya", "slug": "ouya"},
+    UPS.PALM_OS: {"id": 65, "name": "Palm OS", "slug": "palmos"},
+    UPS.PANDORA: {"id": 308, "name": "Pandora", "slug": "pandora"},
+    UPS.PC_6001: {"id": 149, "name": "PC-6001", "slug": "pc-6001"},
+    UPS.PC_8000: {"id": 201, "name": "PC-8000", "slug": "pc-8000"},
+    UPS.PC_8800_SERIES: {
         "id": 94,
         "name": "PC-8800 Series",
         "slug": "pc88",
     },
-    UniversalPlatformSlug.PC_9800_SERIES: {
+    UPS.PC_9800_SERIES: {
         "id": 95,
         "name": "PC-9800 Series",
         "slug": "pc98",
     },
-    UniversalPlatformSlug.PC_BOOTER: {
+    UPS.PC_BOOTER: {
         "id": 4,
         "name": "PC Booter",
         "slug": "pc-booter",
     },
-    UniversalPlatformSlug.PC_FX: {"id": 59, "name": "PC-FX", "slug": "pc-fx"},
-    UniversalPlatformSlug.PEBBLE: {"id": 304, "name": "Pebble", "slug": "pebble"},
-    UniversalPlatformSlug.PHILIPS_CD_I: {"id": 73, "name": "CD-i", "slug": "cd-i"},
-    UniversalPlatformSlug.PHILIPS_VG_5000: {
+    UPS.PC_FX: {"id": 59, "name": "PC-FX", "slug": "pc-fx"},
+    UPS.PEBBLE: {"id": 304, "name": "Pebble", "slug": "pebble"},
+    UPS.PHILIPS_CD_I: {"id": 73, "name": "CD-i", "slug": "cd-i"},
+    UPS.PHILIPS_VG_5000: {
         "id": 133,
         "name": "Philips VG 5000",
         "slug": "philips-vg-5000",
     },
-    UniversalPlatformSlug.PHOTOCD: {"id": 272, "name": "Photo CD", "slug": "photocd"},
-    UniversalPlatformSlug.PICO: {"id": 316, "name": "PICO", "slug": "pico"},
-    UniversalPlatformSlug.PIPPIN: {"id": 112, "name": "Pippin", "slug": "pippin"},
-    UniversalPlatformSlug.PLAYDATE: {"id": 303, "name": "Playdate", "slug": "playdate"},
-    UniversalPlatformSlug.PLAYDIA: {"id": 107, "name": "Playdia", "slug": "playdia"},
-    UniversalPlatformSlug.PLAYSTATION_NOW: {
+    UPS.PHOTOCD: {"id": 272, "name": "Photo CD", "slug": "photocd"},
+    UPS.PICO: {"id": 316, "name": "PICO", "slug": "pico"},
+    UPS.PIPPIN: {"id": 112, "name": "Pippin", "slug": "pippin"},
+    UPS.PLAYDATE: {"id": 303, "name": "Playdate", "slug": "playdate"},
+    UPS.PLAYDIA: {"id": 107, "name": "Playdia", "slug": "playdia"},
+    UPS.PLAYSTATION_NOW: {
         "id": 294,
         "name": "PlayStation Now",
         "slug": "playstation-now",
     },
-    UniversalPlatformSlug.PLEX_ARCADE: {
+    UPS.PLEX_ARCADE: {
         "id": 291,
         "name": "Plex Arcade",
         "slug": "plex-arcade",
     },
-    UniversalPlatformSlug.POKEMON_MINI: {
+    UPS.POKEMON_MINI: {
         "id": 152,
         "name": "Pokémon Mini",
         "slug": "pokemon-mini",
     },
-    UniversalPlatformSlug.POKITTO: {"id": 230, "name": "Pokitto", "slug": "pokitto"},
-    UniversalPlatformSlug.POLY_88: {"id": 249, "name": "Poly-88", "slug": "poly-88"},
-    UniversalPlatformSlug.PS2: {
+    UPS.POKITTO: {"id": 230, "name": "Pokitto", "slug": "pokitto"},
+    UPS.POLY_88: {"id": 249, "name": "Poly-88", "slug": "poly-88"},
+    UPS.PS2: {
         "id": 7,
         "name": "PlayStation 2",
         "slug": "playstation-2",
     },
-    UniversalPlatformSlug.PS3: {
+    UPS.PS3: {
         "id": 81,
         "name": "PlayStation 3",
         "slug": "playstation-3",
     },
-    UniversalPlatformSlug.PS4: {
+    UPS.PS4: {
         "id": 141,
         "name": "PlayStation 4",
         "slug": "playstation-4",
     },
-    UniversalPlatformSlug.PS5: {
+    UPS.PS5: {
         "id": 288,
         "name": "PlayStation 5",
         "slug": "playstation-5",
     },
-    UniversalPlatformSlug.PSP: {"id": 46, "name": "PSP", "slug": "psp"},
-    UniversalPlatformSlug.PSVITA: {"id": 105, "name": "PS Vita", "slug": "ps-vita"},
-    UniversalPlatformSlug.PSX: {"id": 6, "name": "PlayStation", "slug": "playstation"},
-    UniversalPlatformSlug.RCA_STUDIO_II: {
+    UPS.PSP: {"id": 46, "name": "PSP", "slug": "psp"},
+    UPS.PSVITA: {"id": 105, "name": "PS Vita", "slug": "ps-vita"},
+    UPS.PSX: {"id": 6, "name": "PlayStation", "slug": "playstation"},
+    UPS.RCA_STUDIO_II: {
         "id": 113,
         "name": "RCA Studio II",
         "slug": "rca-studio-ii",
     },
-    UniversalPlatformSlug.RESEARCH_MACHINES_380Z: {
+    UPS.RESEARCH_MACHINES_380Z: {
         "id": 309,
         "name": "Research Machines 380Z",
         "slug": "research-machines-380z",
     },
-    UniversalPlatformSlug.ROKU: {"id": 196, "name": "Roku", "slug": "roku"},
-    UniversalPlatformSlug.SAM_COUPE: {
+    UPS.ROKU: {"id": 196, "name": "Roku", "slug": "roku"},
+    UPS.SAM_COUPE: {
         "id": 120,
         "name": "SAM Coupé",
         "slug": "sam-coupe",
     },
-    UniversalPlatformSlug.SATURN: {
+    UPS.SATURN: {
         "id": 23,
         "name": "SEGA Saturn",
         "slug": "sega-saturn",
     },
-    UniversalPlatformSlug.SCMP: {"id": 255, "name": "SC/MP", "slug": "scmp"},
-    UniversalPlatformSlug.SD_200270290: {
+    UPS.SCMP: {"id": 255, "name": "SC/MP", "slug": "scmp"},
+    UPS.SD_200270290: {
         "id": 267,
         "name": "SD-200/270/290",
         "slug": "sd-200270290",
     },
     "sega-32x": {"id": 21, "name": "SEGA 32X", "slug": "sega-32x"},
-    UniversalPlatformSlug.SEGA_PICO: {
+    UPS.SEGA_PICO: {
         "id": 103,
         "name": "SEGA Pico",
         "slug": "sega-pico",
     },
-    UniversalPlatformSlug.SEGA32: {"id": 21, "name": "SEGA 32X", "slug": "sega-32x"},
-    UniversalPlatformSlug.SEGACD: {"id": 20, "name": "SEGA CD", "slug": "sega-cd"},
-    UniversalPlatformSlug.SERIES_X_S: {
+    UPS.SEGA32: {"id": 21, "name": "SEGA 32X", "slug": "sega-32x"},
+    UPS.SEGACD: {"id": 20, "name": "SEGA CD", "slug": "sega-cd"},
+    UPS.SERIES_X_S: {
         "id": 289,
         "name": "Xbox Series X/S",
         "slug": "xbox-series",
     },
-    UniversalPlatformSlug.SFAM: {"id": 15, "name": "Super Famicom", "slug": "snes"},
-    UniversalPlatformSlug.SG1000: {"id": 114, "name": "SG-1000", "slug": "sg-1000"},
-    UniversalPlatformSlug.SHARP_MZ_80B20002500: {
+    UPS.SFAM: {"id": 15, "name": "Super Famicom", "slug": "snes"},
+    UPS.SG1000: {"id": 114, "name": "SG-1000", "slug": "sg-1000"},
+    UPS.SHARP_MZ_80B20002500: {
         "id": 182,
         "name": "Sharp MZ-80B/2000/2500",
         "slug": "sharp-mz-80b20002500",
     },
-    UniversalPlatformSlug.SHARP_MZ_80K7008001500: {
+    UPS.SHARP_MZ_80K7008001500: {
         "id": 181,
         "name": "Sharp MZ-80K/700/800/1500",
         "slug": "sharp-mz-80k7008001500",
     },
-    UniversalPlatformSlug.SHARP_X68000: {
+    UPS.SHARP_X68000: {
         "id": 106,
         "name": "Sharp X68000",
         "slug": "sharp-x68000",
     },
-    UniversalPlatformSlug.SHARP_ZAURUS: {
+    UPS.SHARP_ZAURUS: {
         "id": 202,
         "name": "Sharp Zaurus",
         "slug": "sharp-zaurus",
     },
-    UniversalPlatformSlug.SIGNETICS_2650: {
+    UPS.SIGNETICS_2650: {
         "id": 278,
         "name": "Signetics 2650",
         "slug": "signetics-2650",
     },
-    UniversalPlatformSlug.SINCLAIR_QL: {
+    UPS.SINCLAIR_QL: {
         "id": 131,
         "name": "Sinclair QL",
         "slug": "sinclair-ql",
     },
-    UniversalPlatformSlug.SK_VM: {"id": 259, "name": "SK-VM", "slug": "sk-vm"},
-    UniversalPlatformSlug.SMC_777: {"id": 273, "name": "SMC-777", "slug": "smc-777"},
-    UniversalPlatformSlug.SMS: {
+    UPS.SK_VM: {"id": 259, "name": "SK-VM", "slug": "sk-vm"},
+    UPS.SMC_777: {"id": 273, "name": "SMC-777", "slug": "smc-777"},
+    UPS.SMS: {
         "id": 26,
         "name": "SEGA Master System",
         "slug": "sega-master-system",
     },
-    UniversalPlatformSlug.SNES: {"id": 15, "name": "SNES", "slug": "snes"},
-    UniversalPlatformSlug.SOCRATES: {"id": 190, "name": "Socrates", "slug": "socrates"},
-    UniversalPlatformSlug.SOL_20: {"id": 199, "name": "Sol-20", "slug": "sol-20"},
-    UniversalPlatformSlug.SORD_M5: {"id": 134, "name": "Sord M5", "slug": "sord-m5"},
-    UniversalPlatformSlug.SPECTRAVIDEO: {
+    UPS.SNES: {"id": 15, "name": "SNES", "slug": "snes"},
+    UPS.SOCRATES: {"id": 190, "name": "Socrates", "slug": "socrates"},
+    UPS.SOL_20: {"id": 199, "name": "Sol-20", "slug": "sol-20"},
+    UPS.SORD_M5: {"id": 134, "name": "Sord M5", "slug": "sord-m5"},
+    UPS.SPECTRAVIDEO: {
         "id": 85,
         "name": "Spectravideo",
         "slug": "spectravideo",
     },
-    UniversalPlatformSlug.SRI_5001000: {
+    UPS.SRI_5001000: {
         "id": 242,
         "name": "SRI-500/1000",
         "slug": "sri-5001000",
     },
-    UniversalPlatformSlug.STADIA: {"id": 281, "name": "Stadia", "slug": "stadia"},
-    UniversalPlatformSlug.SUPER_ACAN: {
+    UPS.STADIA: {"id": 281, "name": "Stadia", "slug": "stadia"},
+    UPS.SUPER_ACAN: {
         "id": 110,
         "name": "Super A'can",
         "slug": "super-acan",
     },
-    UniversalPlatformSlug.SUPER_VISION_8000: {
+    UPS.SUPER_VISION_8000: {
         "id": 296,
         "name": "Super Vision 8000",
         "slug": "super-vision-8000",
     },
-    UniversalPlatformSlug.SUPERGRAFX: {
+    UPS.SUPERGRAFX: {
         "id": 127,
         "name": "SuperGrafx",
         "slug": "supergrafx",
     },
-    UniversalPlatformSlug.SUPERVISION: {
+    UPS.SUPERVISION: {
         "id": 109,
         "name": "Supervision",
         "slug": "supervision",
     },
-    UniversalPlatformSlug.SURE_SHOT_HD: {
+    UPS.SURE_SHOT_HD: {
         "id": 287,
         "name": "Sure Shot HD",
         "slug": "sure-shot-hd",
     },
-    UniversalPlatformSlug.SWITCH: {
+    UPS.SWITCH: {
         "id": 203,
         "name": "Nintendo Switch",
         "slug": "switch",
     },
-    UniversalPlatformSlug.SWITCH_2: {
+    UPS.SWITCH_2: {
         "id": -1,
         "name": "Nintendo Switch 2",
         "slug": "switch-2",
     },
-    UniversalPlatformSlug.SWTPC_6800: {
+    UPS.SWTPC_6800: {
         "id": 228,
         "name": "SWTPC 6800",
         "slug": "swtpc-6800",
     },
-    UniversalPlatformSlug.SYMBIAN: {"id": 67, "name": "Symbian", "slug": "symbian"},
-    UniversalPlatformSlug.TADS: {"id": 171, "name": "TADS", "slug": "tads"},
-    UniversalPlatformSlug.TAITO_X_55: {
+    UPS.SYMBIAN: {"id": 67, "name": "Symbian", "slug": "symbian"},
+    UPS.TADS: {"id": 171, "name": "TADS", "slug": "tads"},
+    UPS.TAITO_X_55: {
         "id": 283,
         "name": "Taito X-55",
         "slug": "taito-x-55",
     },
-    UniversalPlatformSlug.TATUNG_EINSTEIN: {
+    UPS.TATUNG_EINSTEIN: {
         "id": 150,
         "name": "Tatung Einstein",
         "slug": "tatung-einstein",
     },
-    UniversalPlatformSlug.TEKTRONIX_4050: {
+    UPS.TEKTRONIX_4050: {
         "id": 223,
         "name": "Tektronix 4050",
         "slug": "tektronix-4050",
     },
-    UniversalPlatformSlug.TELE_SPIEL: {
+    UPS.TELE_SPIEL: {
         "id": 220,
         "name": "Tele-Spiel ES-2201",
         "slug": "tele-spiel",
     },
-    UniversalPlatformSlug.TELSTAR_ARCADE: {
+    UPS.TELSTAR_ARCADE: {
         "id": 233,
         "name": "Telstar Arcade",
         "slug": "telstar-arcade",
     },
-    UniversalPlatformSlug.TERMINAL: {"id": 209, "name": "Terminal", "slug": "terminal"},
-    UniversalPlatformSlug.TG16: {
+    UPS.TERMINAL: {"id": 209, "name": "Terminal", "slug": "terminal"},
+    UPS.TG16: {
         "id": 40,
         "name": "TurboGrafx-16",
         "slug": "turbo-grafx",
     },
-    "thomson-mo": {"id": 147, "name": "Thomson MO", "slug": "thomson-mo"},
-    UniversalPlatformSlug.THOMSON_MO5: {
+    UPS.THOMSON_MO5: {
         "id": 147,
         "name": "Thomson MO5",
         "slug": "thomson-mo",
     },
-    UniversalPlatformSlug.THOMSON_TO: {
+    UPS.THOMSON_TO: {
         "id": 130,
         "name": "Thomson TO",
         "slug": "thomson-to",
     },
-    UniversalPlatformSlug.TI_99: {"id": 47, "name": "TI-99/4A", "slug": "ti-994a"},
-    UniversalPlatformSlug.TI_994A: {"id": 47, "name": "TI-99/4A", "slug": "ti-994a"},
-    UniversalPlatformSlug.TI_PROGRAMMABLE_CALCULATOR: {
+    UPS.TI_99: {"id": 47, "name": "TI-99/4A", "slug": "ti-994a"},
+    UPS.TI_994A: {"id": 47, "name": "TI-99/4A", "slug": "ti-994a"},
+    UPS.TI_PROGRAMMABLE_CALCULATOR: {
         "id": 239,
         "name": "TI Programmable Calculator",
         "slug": "ti-programmable-calculator",
     },
-    UniversalPlatformSlug.TIKI_100: {"id": 263, "name": "Tiki 100", "slug": "tiki-100"},
-    UniversalPlatformSlug.TIM: {"id": 246, "name": "TIM", "slug": "tim"},
-    UniversalPlatformSlug.TIMEX_SINCLAIR_2068: {
+    UPS.TIKI_100: {"id": 263, "name": "Tiki 100", "slug": "tiki-100"},
+    UPS.TIM: {"id": 246, "name": "TIM", "slug": "tim"},
+    UPS.TIMEX_SINCLAIR_2068: {
         "id": 173,
         "name": "Timex Sinclair 2068",
         "slug": "timex-sinclair-2068",
     },
-    UniversalPlatformSlug.TIZEN: {"id": 206, "name": "Tizen", "slug": "tizen"},
-    UniversalPlatformSlug.TOMAHAWK_F1: {
+    UPS.TIZEN: {"id": 206, "name": "Tizen", "slug": "tizen"},
+    UPS.TOMAHAWK_F1: {
         "id": 256,
         "name": "Tomahawk F1",
         "slug": "tomahawk-f1",
     },
-    UniversalPlatformSlug.TOMY_TUTOR: {
+    UPS.TOMY_TUTOR: {
         "id": 151,
         "name": "Tomy Tutor",
         "slug": "tomy-tutor",
     },
-    UniversalPlatformSlug.TRITON: {"id": 310, "name": "Triton", "slug": "triton"},
-    UniversalPlatformSlug.TRS_80: {"id": 58, "name": "TRS-80", "slug": "trs-80"},
-    UniversalPlatformSlug.TRS_80_COLOR_COMPUTER: {
+    UPS.TRITON: {"id": 310, "name": "Triton", "slug": "triton"},
+    UPS.TRS_80: {"id": 58, "name": "TRS-80", "slug": "trs-80"},
+    UPS.TRS_80_COLOR_COMPUTER: {
         "id": 62,
         "name": "TRS-80 Color Computer",
         "slug": "trs-80-coco",
     },
-    UniversalPlatformSlug.TRS_80_MC_10: {
+    UPS.TRS_80_MC_10: {
         "id": 193,
         "name": "TRS-80 MC-10",
         "slug": "trs-80-mc-10",
     },
-    UniversalPlatformSlug.TRS_80_MODEL_100: {
+    UPS.TRS_80_MODEL_100: {
         "id": 312,
         "name": "TRS-80 Model 100",
         "slug": "trs-80-model-100",
     },
-    UniversalPlatformSlug.TURBOGRAFX_CD: {
+    UPS.TURBOGRAFX_CD: {
         "id": 45,
         "name": "TurboGrafx CD",
         "slug": "turbografx-cd",
     },
-    UniversalPlatformSlug.TVOS: {"id": 179, "name": "tvOS", "slug": "tvos"},
-    UniversalPlatformSlug.VECTREX: {"id": 37, "name": "Vectrex", "slug": "vectrex"},
-    UniversalPlatformSlug.VERSATILE: {
+    UPS.TVOS: {"id": 179, "name": "tvOS", "slug": "tvos"},
+    UPS.VECTREX: {"id": 37, "name": "Vectrex", "slug": "vectrex"},
+    UPS.VERSATILE: {
         "id": 299,
         "name": "Versatile",
         "slug": "versatile",
     },
-    UniversalPlatformSlug.VFLASH: {"id": 189, "name": "V.Flash", "slug": "vflash"},
-    UniversalPlatformSlug.VIC_20: {"id": 43, "name": "VIC-20", "slug": "vic-20"},
-    UniversalPlatformSlug.VIDEOBRAIN: {
+    UPS.VFLASH: {"id": 189, "name": "V.Flash", "slug": "vflash"},
+    UPS.VIC_20: {"id": 43, "name": "VIC-20", "slug": "vic-20"},
+    UPS.VIDEOBRAIN: {
         "id": 214,
         "name": "VideoBrain",
         "slug": "videobrain",
     },
-    UniversalPlatformSlug.VIDEOPAC_G7400: {
+    UPS.VIDEOPAC_G7400: {
         "id": 128,
         "name": "Videopac+ G7400",
         "slug": "videopac-g7400",
     },
     "virtual-boy": {"id": 38, "name": "Virtual Boy", "slug": "virtual-boy"},
-    UniversalPlatformSlug.VIRTUALBOY: {
+    UPS.VIRTUALBOY: {
         "id": 38,
         "name": "Virtual Boy",
         "slug": "virtual-boy",
     },
-    UniversalPlatformSlug.VIS: {"id": 164, "name": "VIS", "slug": "vis"},
-    UniversalPlatformSlug.VSMILE: {"id": 42, "name": "V.Smile", "slug": "vsmile"},
-    UniversalPlatformSlug.WANG2200: {
+    UPS.VIS: {"id": 164, "name": "VIS", "slug": "vis"},
+    UPS.VSMILE: {"id": 42, "name": "V.Smile", "slug": "vsmile"},
+    UPS.WANG2200: {
         "id": 217,
         "name": "Wang 2200",
         "slug": "wang2200",
     },
-    UniversalPlatformSlug.WATCHOS: {"id": 180, "name": "watchOS", "slug": "watchos"},
-    UniversalPlatformSlug.WEBOS: {"id": 100, "name": "webOS", "slug": "webos"},
-    UniversalPlatformSlug.WII: {"id": 82, "name": "Wii", "slug": "wii"},
+    UPS.WATCHOS: {"id": 180, "name": "watchOS", "slug": "watchos"},
+    UPS.WEBOS: {"id": 100, "name": "webOS", "slug": "webos"},
+    UPS.WII: {"id": 82, "name": "Wii", "slug": "wii"},
     "wii-u": {"id": 132, "name": "Wii U", "slug": "wii-u"},
-    UniversalPlatformSlug.WIIU: {"id": 132, "name": "Wii U", "slug": "wii-u"},
-    UniversalPlatformSlug.WIN: {"id": 3, "name": "Windows", "slug": "windows"},
-    UniversalPlatformSlug.WIN3X: {"id": 5, "name": "Windows 3.x", "slug": "win3x"},
-    UniversalPlatformSlug.WINDOWS_APPS: {
+    UPS.WIIU: {"id": 132, "name": "Wii U", "slug": "wii-u"},
+    UPS.WIN: {"id": 3, "name": "Windows", "slug": "windows"},
+    UPS.WIN3X: {"id": 5, "name": "Windows 3.x", "slug": "win3x"},
+    UPS.WINDOWS_APPS: {
         "id": 140,
         "name": "Windows Apps",
         "slug": "windows-apps",
     },
-    UniversalPlatformSlug.WINDOWS_MOBILE: {
+    UPS.WINDOWS_MOBILE: {
         "id": 66,
         "name": "Windows Mobile",
         "slug": "windowsmobile",
     },
     "windows-phone": {"id": 98, "name": "Windows Phone", "slug": "windows-phone"},
     "windowsmobile": {"id": 66, "name": "Windows Mobile", "slug": "windowsmobile"},
-    UniversalPlatformSlug.WINPHONE: {
+    UPS.WINPHONE: {
         "id": 98,
         "name": "Windows Phone",
         "slug": "windows-phone",
     },
-    UniversalPlatformSlug.WIPI: {"id": 260, "name": "WIPI", "slug": "wipi"},
-    UniversalPlatformSlug.WONDERSWAN: {
+    UPS.WIPI: {"id": 260, "name": "WIPI", "slug": "wipi"},
+    UPS.WONDERSWAN: {
         "id": 48,
         "name": "WonderSwan",
         "slug": "wonderswan",
     },
-    UniversalPlatformSlug.WONDERSWAN_COLOR: {
+    UPS.WONDERSWAN_COLOR: {
         "id": 49,
         "name": "WonderSwan Color",
         "slug": "wonderswan-color",
     },
-    UniversalPlatformSlug.X1: {"id": 121, "name": "Sharp X1", "slug": "sharp-x1"},
-    UniversalPlatformSlug.XAVIXPORT: {
+    UPS.X1: {"id": 121, "name": "Sharp X1", "slug": "sharp-x1"},
+    UPS.XAVIXPORT: {
         "id": 191,
         "name": "XaviXPORT",
         "slug": "xavixport",
     },
-    UniversalPlatformSlug.XBOX: {"id": 13, "name": "Xbox", "slug": "xbox"},
+    UPS.XBOX: {"id": 13, "name": "Xbox", "slug": "xbox"},
     "xbox-one": {"id": 142, "name": "Xbox One", "slug": "xbox-one"},
     "xbox-series": {"id": 289, "name": "Xbox Series", "slug": "xbox-series"},
-    UniversalPlatformSlug.XBOX360: {"id": 69, "name": "Xbox 360", "slug": "xbox360"},
-    UniversalPlatformSlug.XBOXCLOUDGAMING: {
+    UPS.XBOX360: {"id": 69, "name": "Xbox 360", "slug": "xbox360"},
+    UPS.XBOXCLOUDGAMING: {
         "id": 293,
         "name": "Xbox Cloud Gaming",
         "slug": "xboxcloudgaming",
     },
-    UniversalPlatformSlug.XBOXONE: {"id": 142, "name": "Xbox One", "slug": "xbox-one"},
-    UniversalPlatformSlug.XEROX_ALTO: {
+    UPS.XBOXONE: {"id": 142, "name": "Xbox One", "slug": "xbox-one"},
+    UPS.XEROX_ALTO: {
         "id": 254,
         "name": "Xerox Alto",
         "slug": "xerox-alto",
     },
-    UniversalPlatformSlug.Z_MACHINE: {
+    UPS.Z_MACHINE: {
         "id": 169,
         "name": "Z-machine",
         "slug": "z-machine",
     },
-    UniversalPlatformSlug.Z80: {"id": 227, "name": "Zilog Z80", "slug": "z80"},
-    UniversalPlatformSlug.ZEEBO: {"id": 88, "name": "Zeebo", "slug": "zeebo"},
-    UniversalPlatformSlug.ZILOG_Z8000: {
+    UPS.Z80: {"id": 227, "name": "Zilog Z80", "slug": "z80"},
+    UPS.ZEEBO: {"id": 88, "name": "Zeebo", "slug": "zeebo"},
+    UPS.ZILOG_Z8000: {
         "id": 276,
         "name": "Zilog Z8000",
         "slug": "zilog-z8000",
     },
-    UniversalPlatformSlug.ZODIAC: {"id": 68, "name": "Zodiac", "slug": "zodiac"},
-    UniversalPlatformSlug.ZUNE: {"id": 211, "name": "Zune", "slug": "zune"},
-    UniversalPlatformSlug.ZX_SPECTRUM: {
+    UPS.ZODIAC: {"id": 68, "name": "Zodiac", "slug": "zodiac"},
+    UPS.ZUNE: {"id": 211, "name": "Zune", "slug": "zune"},
+    UPS.ZX_SPECTRUM: {
         "id": 41,
         "name": "ZX Spectrum",
         "slug": "zx-spectrum",
     },
-    UniversalPlatformSlug.ZX_SPECTRUM_NEXT: {
+    UPS.ZX_SPECTRUM_NEXT: {
         "id": 280,
         "name": "ZX Spectrum Next",
         "slug": "zx-spectrum-next",
     },
-    UniversalPlatformSlug.ZX80: {"id": 118, "name": "ZX80", "slug": "zx80"},
-    UniversalPlatformSlug.ZX81: {"id": 119, "name": "ZX81", "slug": "zx81"},
+    UPS.ZX80: {"id": 118, "name": "ZX80", "slug": "zx80"},
+    UPS.ZX81: {"id": 119, "name": "ZX81", "slug": "zx81"},
 }
 
 # Reverse lookup
