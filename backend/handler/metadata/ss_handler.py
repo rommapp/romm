@@ -303,13 +303,10 @@ class SSHandler(MetadataHandler):
         return roms[0] if roms else None
 
     def get_platform(self, slug: str) -> SSPlatform:
-        try:
-            platform = SCREENSAVER_PLATFORM_LIST.get(UPS(slug), None)
-        except ValueError:
+        if slug not in SCREENSAVER_PLATFORM_LIST:
             return SSPlatform(ss_id=None, slug=slug)
 
-        if not platform:
-            return SSPlatform(ss_id=None, slug=slug)
+        platform = SCREENSAVER_PLATFORM_LIST[UPS(slug)]
 
         return SSPlatform(
             ss_id=platform["id"],

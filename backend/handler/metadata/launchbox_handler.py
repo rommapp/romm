@@ -199,13 +199,10 @@ class LaunchboxHandler(MetadataHandler):
         return screenshots
 
     def get_platform(self, slug: str) -> LaunchboxPlatform:
-        try:
-            platform = LAUNCHBOX_PLATFORM_LIST.get(UPS(slug), None)
-        except ValueError:
+        if slug not in LAUNCHBOX_PLATFORM_LIST:
             return LaunchboxPlatform(slug=slug, launchbox_id=None)
 
-        if not platform:
-            return LaunchboxPlatform(slug=slug, launchbox_id=None)
+        platform = LAUNCHBOX_PLATFORM_LIST[UPS(slug)]
 
         return LaunchboxPlatform(
             slug=slug,

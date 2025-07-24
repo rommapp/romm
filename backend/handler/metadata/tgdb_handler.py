@@ -23,13 +23,10 @@ class TGDBHandler(MetadataHandler):
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
 
     def get_platform(self, slug: str) -> TGDBPlatform:
-        try:
-            platform = TGDB_PLATFORM_LIST.get(UPS(slug), None)
-        except ValueError:
+        if slug not in TGDB_PLATFORM_LIST:
             return TGDBPlatform(tgdb_id=None, slug=slug)
 
-        if not platform:
-            return TGDBPlatform(tgdb_id=None, slug=slug)
+        platform = TGDB_PLATFORM_LIST[UPS(slug)]
 
         return TGDBPlatform(
             tgdb_id=platform["id"],

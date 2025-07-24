@@ -393,10 +393,8 @@ class IGDBHandler(MetadataHandler):
 
     @check_twitch_token
     def get_platform(self, slug: str) -> IGDBPlatform:
-        try:
-            platform = IGDB_PLATFORM_LIST.get(UPS(slug), None)
-            if not platform:
-                return IGDBPlatform(igdb_id=None, slug=slug)
+        if slug in IGDB_PLATFORM_LIST:
+            platform = IGDB_PLATFORM_LIST[UPS(slug)]
 
             return IGDBPlatform(
                 igdb_id=platform["id"],
@@ -410,38 +408,27 @@ class IGDBHandler(MetadataHandler):
                 url=platform["url"],
                 url_logo=self.normalize_cover_url(platform["url_logo"]),
             )
-        except ValueError:
-            platform_version = IGDB_PLATFORM_VERSIONS.get(slug, None)
-            if not platform_version:
-                return IGDBPlatform(igdb_id=None, slug=slug)
 
-            try:
-                main_platform = IGDB_PLATFORM_LIST[
-                    UPS(platform_version["platform_slug"])
-                ]
-                return IGDBPlatform(
-                    igdb_id=main_platform["id"],
-                    slug=platform_version["platform_slug"],
-                    igdb_slug=main_platform["slug"],
-                    name=platform_version["name"],
-                    category=main_platform["category"],
-                    generation=main_platform["generation"],
-                    family_name=main_platform["family_name"],
-                    family_slug=main_platform["family_slug"],
-                    url=platform_version["url"],
-                    url_logo=self.normalize_cover_url(
-                        platform_version["url_logo"] or main_platform["url_logo"]
-                    ),
-                )
-            except ValueError:
-                return IGDBPlatform(
-                    igdb_id=platform_version["id"],
-                    slug=slug,
-                    igdb_slug=platform_version["slug"],
-                    name=platform_version["name"],
-                    url=platform_version["url"],
-                    url_logo=self.normalize_cover_url(platform_version["url_logo"]),
-                )
+        if slug in IGDB_PLATFORM_VERSIONS:
+            platform_version = IGDB_PLATFORM_VERSIONS[slug]
+            main_platform = IGDB_PLATFORM_LIST[platform_version["platform_slug"]]
+
+            return IGDBPlatform(
+                igdb_id=main_platform["id"],
+                slug=slug,
+                igdb_slug=main_platform["slug"],
+                name=platform_version["name"],
+                category=main_platform["category"],
+                generation=main_platform["generation"],
+                family_name=main_platform["family_name"],
+                family_slug=main_platform["family_slug"],
+                url=platform_version["url"],
+                url_logo=self.normalize_cover_url(
+                    platform_version["url_logo"] or main_platform["url_logo"]
+                ),
+            )
+
+        return IGDBPlatform(igdb_id=None, slug=slug)
 
     @check_twitch_token
     async def get_rom(self, fs_name: str, platform_igdb_id: int) -> IGDBRom:
@@ -3453,7 +3440,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
 class SlugToIGDBVersion(TypedDict):
     id: int
     slug: str
-    platform_slug: str
+    platform_slug: UPS
     name: str
     url: str
     url_logo: str
@@ -3463,7 +3450,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "10": {
         "id": 526,
         "name": "10",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "10",
         "url": "https://www.igdb.com/platforms/android/version/10",
         "url_logo": "",
@@ -3471,7 +3458,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "11": {
         "id": 527,
         "name": "11",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "11",
         "url": "https://www.igdb.com/platforms/android/version/11",
         "url_logo": "",
@@ -3479,7 +3466,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "12": {
         "id": 528,
         "name": "12",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "12",
         "url": "https://www.igdb.com/platforms/android/version/12",
         "url_logo": "",
@@ -3487,7 +3474,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "520-st": {
         "id": 30,
         "name": "520 ST",
-        "platform_slug": "atari-st",
+        "platform_slug": UPS.ATARI_ST,
         "slug": "520-st",
         "url": "https://www.igdb.com/platforms/atari-st/version/520-st",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla7.jpg",
@@ -3495,7 +3482,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "acetronic-mpu-1000": {
         "id": 213,
         "name": "Acetronic MPU-1000",
-        "platform_slug": "1292-advanced-programmable-video-system",
+        "platform_slug": UPS.APVS,
         "slug": "acetronic-mpu-1000",
         "url": "https://www.igdb.com/platforms/1292-advanced-programmable-video-system/version/acetronic-mpu-1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/yfdqsudagw0av25dawjr.jpg",
@@ -3503,7 +3490,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "advanced-pico-beena": {
         "id": 726,
         "name": "Advanced Pico Beena",
-        "platform_slug": "advanced-pico-beena",
+        "platform_slug": UPS.ADVANCED_PICO_BEENA,
         "slug": "advanced-pico-beena",
         "url": "https://www.igdb.com/platforms/advanced-pico-beena/version/advanced-pico-beena",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plou.jpg",
@@ -3511,7 +3498,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "aleck-64": {
         "id": 681,
         "name": "Aleck 64",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "aleck-64",
         "url": "https://www.igdb.com/platforms/arcade/version/aleck-64",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plni.jpg",
@@ -3519,7 +3506,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "amiga-a-1000": {
         "id": 110,
         "name": "Amiga A 1000",
-        "platform_slug": "amiga",
+        "platform_slug": UPS.AMIGA,
         "slug": "amiga-a-1000",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkf.jpg",
@@ -3527,7 +3514,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "amiga-a-1200": {
         "id": 522,
         "name": "Amiga A 1200",
-        "platform_slug": "amiga",
+        "platform_slug": UPS.AMIGA,
         "slug": "amiga-a-1200",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-1200",
         "url_logo": "",
@@ -3535,7 +3522,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "amiga-a-2000": {
         "id": 111,
         "name": "Amiga A 2000",
-        "platform_slug": "amiga",
+        "platform_slug": UPS.AMIGA,
         "slug": "amiga-a-2000",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-2000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plng.jpg",
@@ -3543,7 +3530,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "amiga-a-3000": {
         "id": 112,
         "name": "Amiga A 3000",
-        "platform_slug": "amiga",
+        "platform_slug": UPS.AMIGA,
         "slug": "amiga-a-3000",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-3000",
         "url_logo": "",
@@ -3551,7 +3538,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "amiga-a-3000t": {
         "id": 113,
         "name": "Amiga A 3000T",
-        "platform_slug": "amiga",
+        "platform_slug": UPS.AMIGA,
         "slug": "amiga-a-3000t",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-3000t",
         "url_logo": "",
@@ -3559,7 +3546,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "amiga-a-500": {
         "id": 19,
         "name": "Amiga A 500",
-        "platform_slug": "amiga",
+        "platform_slug": UPS.AMIGA,
         "slug": "amiga-a-500",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-500",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plav.jpg",
@@ -3567,7 +3554,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "amiga-a-600": {
         "id": 109,
         "name": "Amiga A 600",
-        "platform_slug": "amiga",
+        "platform_slug": UPS.AMIGA,
         "slug": "amiga-a-600",
         "url": "https://www.igdb.com/platforms/amiga/version/amiga-a-600",
         "url_logo": "",
@@ -3575,7 +3562,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "amstrad-cpc-6128": {
         "id": 525,
         "name": "Amstrad CPC 6128",
-        "platform_slug": "acpc",
+        "platform_slug": UPS.ACPC,
         "slug": "amstrad-cpc-6128",
         "url": "https://www.igdb.com/platforms/acpc/version/amstrad-cpc-6128",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnh.jpg",
@@ -3583,7 +3570,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "android-1-dot-0": {
         "id": 541,
         "name": "Android 1.0",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "android-1-dot-0",
         "url": "https://www.igdb.com/platforms/android/version/android-1-dot-0",
         "url_logo": "",
@@ -3591,7 +3578,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "android-1-dot-1": {
         "id": 542,
         "name": "Android 1.1",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "android-1-dot-1",
         "url": "https://www.igdb.com/platforms/android/version/android-1-dot-1",
         "url_logo": "",
@@ -3599,7 +3586,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "android-13": {
         "id": 672,
         "name": "Android 13",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "android-13",
         "url": "https://www.igdb.com/platforms/android/version/android-13",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln3.jpg",
@@ -3607,7 +3594,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "android-cupcake": {
         "id": 543,
         "name": "Android Cupcake",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "android-cupcake",
         "url": "https://www.igdb.com/platforms/android/version/android-cupcake",
         "url_logo": "",
@@ -3615,7 +3602,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "android-donut": {
         "id": 544,
         "name": "Android Donut",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "android-donut",
         "url": "https://www.igdb.com/platforms/android/version/android-donut",
         "url_logo": "",
@@ -3623,7 +3610,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "android-eclair": {
         "id": 545,
         "name": "Android Eclair",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "android-eclair",
         "url": "https://www.igdb.com/platforms/android/version/android-eclair",
         "url_logo": "",
@@ -3631,7 +3618,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "android-froyo": {
         "id": 546,
         "name": "Android Froyo",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "android-froyo",
         "url": "https://www.igdb.com/platforms/android/version/android-froyo",
         "url_logo": "",
@@ -3639,7 +3626,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "atari-2600-plus": {
         "id": 673,
         "name": "Atari 2600+",
-        "platform_slug": "atari2600",
+        "platform_slug": UPS.ATARI2600,
         "slug": "atari-2600-plus",
         "url": "https://www.igdb.com/platforms/atari2600/version/atari-2600-plus",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln4.jpg",
@@ -3647,7 +3634,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "atari-400": {
         "id": 27,
         "name": "Atari 400",
-        "platform_slug": "atari8bit",
+        "platform_slug": UPS.ATARI8BIT,
         "slug": "atari-400",
         "url": "https://www.igdb.com/platforms/atari8bit/version/atari-400",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plad.jpg",
@@ -3655,7 +3642,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "atari-800": {
         "id": 104,
         "name": "Atari 800",
-        "platform_slug": "atari8bit",
+        "platform_slug": UPS.ATARI8BIT,
         "slug": "atari-800",
         "url": "https://www.igdb.com/platforms/atari8bit/version/atari-800",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl68.jpg",
@@ -3663,7 +3650,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "atari-lynx-mkii": {
         "id": 189,
         "name": "Atari Lynx MkII",
-        "platform_slug": "lynx",
+        "platform_slug": UPS.LYNX,
         "slug": "atari-lynx-mkii",
         "url": "https://www.igdb.com/platforms/lynx/version/atari-lynx-mkii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl82.jpg",
@@ -3671,7 +3658,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "atomiswave": {
         "id": 652,
         "name": "Atomiswave",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "atomiswave",
         "url": "https://www.igdb.com/platforms/arcade/version/atomiswave",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plma.jpg",
@@ -3679,7 +3666,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "audiosonic-pp-1292-advanced-programmable-video-system": {
         "id": 197,
         "name": "Audiosonic PP-1292 Advanced Programmable Video System",
-        "platform_slug": "1292-advanced-programmable-video-system",
+        "platform_slug": UPS.APVS,
         "slug": "audiosonic-pp-1292-advanced-programmable-video-system",
         "url": "https://www.igdb.com/platforms/1292-advanced-programmable-video-system/version/audiosonic-pp-1292-advanced-programmable-video-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/f9a4tll5lnyxhlijvxjy.jpg",
@@ -3687,7 +3674,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "beenalite": {
         "id": 727,
         "name": "BeenaLite",
-        "platform_slug": "advanced-pico-beena",
+        "platform_slug": UPS.ADVANCED_PICO_BEENA,
         "slug": "beenalite",
         "url": "https://www.igdb.com/platforms/advanced-pico-beena/version/beenalite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plov.jpg",
@@ -3695,7 +3682,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "big-sur": {
         "id": 599,
         "name": "Big Sur",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "big-sur",
         "url": "https://www.igdb.com/platforms/mac/version/big-sur",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plla.jpg",
@@ -3703,7 +3690,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "blu-ray-disc": {
         "id": 356,
         "name": "Blu-ray Disc",
-        "platform_slug": "blu-ray-player",
+        "platform_slug": UPS.BLU_RAY_PLAYER,
         "slug": "blu-ray-disc",
         "url": "https://www.igdb.com/platforms/blu-ray-player/version/blu-ray-disc",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbv.jpg",
@@ -3711,7 +3698,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "card-e-reader": {
         "id": 735,
         "name": "Card-e Reader",
-        "platform_slug": "e-reader-slash-card-e-reader",
+        "platform_slug": UPS.E_READER_SLASH_CARD_E_READER,
         "slug": "card-e-reader",
         "url": "https://www.igdb.com/platforms/e-reader-slash-card-e-reader/version/card-e-reader",
         "url_logo": "",
@@ -3719,7 +3706,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "cheetah": {
         "id": 45,
         "name": "Cheetah",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "cheetah",
         "url": "https://www.igdb.com/platforms/mac/version/cheetah",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/eatvxlflfq0lk8p8sp2c.jpg",
@@ -3727,7 +3714,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "commodore-64c": {
         "id": 595,
         "name": "Commodore 64C",
-        "platform_slug": "c64",
+        "platform_slug": UPS.C64,
         "slug": "commodore-64c",
         "url": "https://www.igdb.com/platforms/c64/version/commodore-64c",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll3.jpg",
@@ -3735,7 +3722,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "cpc-464": {
         "id": 20,
         "name": "CPC 464",
-        "platform_slug": "acpc",
+        "platform_slug": UPS.ACPC,
         "slug": "cpc-464",
         "url": "https://www.igdb.com/platforms/acpc/version/cpc-464",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/nlizydzqnuzvzfdapqoj.jpg",
@@ -3743,7 +3730,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "digiblast": {
         "id": 712,
         "name": "Digiblast",
-        "platform_slug": "digiblast",
+        "platform_slug": UPS.DIGIBLAST,
         "slug": "digiblast",
         "url": "https://www.igdb.com/platforms/digiblast/version/digiblast",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo2.jpg",
@@ -3751,7 +3738,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "dol-101": {
         "id": 121,
         "name": "DOL-101",
-        "platform_slug": "ngc",
+        "platform_slug": UPS.NGC,
         "slug": "dol-101",
         "url": "https://www.igdb.com/platforms/ngc/version/dol-101",
         "url_logo": "",
@@ -3759,7 +3746,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "dvd": {
         "id": 355,
         "name": "DVD",
-        "platform_slug": "dvd-player",
+        "platform_slug": UPS.DVD_PLAYER,
         "slug": "dvd",
         "url": "https://www.igdb.com/platforms/dvd-player/version/dvd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plbu.jpg",
@@ -3767,7 +3754,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "e-reader-slash-card-e-reader-plus": {
         "id": 732,
         "name": "e-Reader / Card-e Reader+",
-        "platform_slug": "e-reader-slash-card-e-reader",
+        "platform_slug": UPS.E_READER_SLASH_CARD_E_READER,
         "slug": "e-reader-slash-card-e-reader-plus",
         "url": "https://www.igdb.com/platforms/e-reader-slash-card-e-reader/version/e-reader-slash-card-e-reader-plus",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ploy.jpg",
@@ -3775,7 +3762,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "el-capitan": {
         "id": 151,
         "name": "El Capitan",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "el-capitan",
         "url": "https://www.igdb.com/platforms/mac/version/el-capitan",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll8.jpg",
@@ -3783,7 +3770,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "epoch-cassette-vision": {
         "id": 493,
         "name": "Epoch Cassette Vision",
-        "platform_slug": "epoch-cassette-vision",
+        "platform_slug": UPS.EPOCH_CASSETTE_VISION,
         "slug": "epoch-cassette-vision",
         "url": "https://www.igdb.com/platforms/epoch-cassette-vision/version/epoch-cassette-vision",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plko.jpg",
@@ -3791,7 +3778,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "euzebox": {
         "id": 721,
         "name": "EUzebox",
-        "platform_slug": "uzebox",
+        "platform_slug": UPS.UZEBOX,
         "slug": "euzebox",
         "url": "https://www.igdb.com/platforms/uzebox/version/euzebox",
         "url_logo": "",
@@ -3799,7 +3786,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "evercade-exp": {
         "id": 594,
         "name": "Evercade EXP",
-        "platform_slug": "evercade",
+        "platform_slug": UPS.EVERCADE,
         "slug": "evercade-exp",
         "url": "https://www.igdb.com/platforms/evercade/version/evercade-exp",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plky.jpg",
@@ -3807,7 +3794,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "evercade-vs": {
         "id": 500,
         "name": "Evercade VS",
-        "platform_slug": "evercade",
+        "platform_slug": UPS.EVERCADE,
         "slug": "evercade-vs",
         "url": "https://www.igdb.com/platforms/evercade/version/evercade-vs",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgm.jpg",
@@ -3815,7 +3802,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "ez-games-video-game-system": {
         "id": 623,
         "name": "EZ Games Video Game System",
-        "platform_slug": "genesis",
+        "platform_slug": UPS.GENESIS,
         "slug": "ez-games-video-game-system",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/ez-games-video-game-system",
         "url_logo": "",
@@ -3823,7 +3810,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "famicom-titler": {
         "id": 646,
         "name": "Famicom Titler",
-        "platform_slug": "famicom",
+        "platform_slug": UPS.FAMICOM,
         "slug": "famicom-titler",
         "url": "https://www.igdb.com/platforms/famicom/version/famicom-titler",
         "url_logo": "",
@@ -3831,7 +3818,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "famicombox-slash-famicom-station": {
         "id": 648,
         "name": "FamicomBox/Famicom Station",
-        "platform_slug": "famicom",
+        "platform_slug": UPS.FAMICOM,
         "slug": "famicombox-slash-famicom-station",
         "url": "https://www.igdb.com/platforms/famicom/version/famicombox-slash-famicom-station",
         "url_logo": "",
@@ -3839,7 +3826,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "family-computer": {
         "id": 123,
         "name": "Family Computer",
-        "platform_slug": "famicom",
+        "platform_slug": UPS.FAMICOM,
         "slug": "family-computer",
         "url": "https://www.igdb.com/platforms/famicom/version/family-computer",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7p.jpg",
@@ -3847,7 +3834,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "feature-phone": {
         "id": 514,
         "name": "Feature phone",
-        "platform_slug": "mobile",
+        "platform_slug": UPS.MOBILE,
         "slug": "feature-phone",
         "url": "https://www.igdb.com/platforms/mobile/version/feature-phone",
         "url_logo": "",
@@ -3855,7 +3842,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "firefox": {
         "id": 660,
         "name": "Firefox",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "firefox",
         "url": "https://www.igdb.com/platforms/browser/version/firefox",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmu.jpg",
@@ -3863,7 +3850,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "fm-towns-car-marty": {
         "id": 709,
         "name": "FM Towns Car Marty",
-        "platform_slug": "fm-towns",
+        "platform_slug": UPS.FM_TOWNS,
         "slug": "fm-towns-car-marty",
         "url": "https://www.igdb.com/platforms/fm-towns/version/fm-towns-car-marty",
         "url_logo": "",
@@ -3871,7 +3858,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "fm-towns-marty": {
         "id": 707,
         "name": "FM Towns Marty",
-        "platform_slug": "fm-towns",
+        "platform_slug": UPS.FM_TOWNS,
         "slug": "fm-towns-marty",
         "url": "https://www.igdb.com/platforms/fm-towns/version/fm-towns-marty",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnz.jpg",
@@ -3879,7 +3866,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "fm-towns-marty-2": {
         "id": 708,
         "name": "FM Towns Marty 2",
-        "platform_slug": "fm-towns",
+        "platform_slug": UPS.FM_TOWNS,
         "slug": "fm-towns-marty-2",
         "url": "https://www.igdb.com/platforms/fm-towns/version/fm-towns-marty-2",
         "url_logo": "",
@@ -3887,7 +3874,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "froyo-2-2": {
         "id": 7,
         "name": "Froyo 2.2",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "froyo-2-2",
         "url": "https://www.igdb.com/platforms/android/version/froyo-2-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/gvskesmuwhvmtzv2zhny.jpg",
@@ -3895,7 +3882,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "game-boy-advance-sp": {
         "id": 193,
         "name": "Game Boy Advance SP",
-        "platform_slug": "gba",
+        "platform_slug": UPS.GBA,
         "slug": "game-boy-advance-sp",
         "url": "https://www.igdb.com/platforms/gba/version/game-boy-advance-sp",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7x.jpg",
@@ -3903,7 +3890,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "game-boy-light": {
         "id": 182,
         "name": "Game Boy Light",
-        "platform_slug": "gb",
+        "platform_slug": UPS.GB,
         "slug": "game-boy-light",
         "url": "https://www.igdb.com/platforms/gb/version/game-boy-light",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7m.jpg",
@@ -3911,7 +3898,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "game-boy-micro": {
         "id": 194,
         "name": "Game Boy Micro",
-        "platform_slug": "gba",
+        "platform_slug": UPS.GBA,
         "slug": "game-boy-micro",
         "url": "https://www.igdb.com/platforms/gba/version/game-boy-micro",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl74.jpg",
@@ -3919,7 +3906,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "game-boy-pocket": {
         "id": 181,
         "name": "Game Boy Pocket",
-        "platform_slug": "gb",
+        "platform_slug": UPS.GB,
         "slug": "game-boy-pocket",
         "url": "https://www.igdb.com/platforms/gb/version/game-boy-pocket",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7o.jpg",
@@ -3927,7 +3914,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "game-television": {
         "id": 644,
         "name": "Game Television",
-        "platform_slug": "nes",
+        "platform_slug": UPS.NES,
         "slug": "game-television",
         "url": "https://www.igdb.com/platforms/nes/version/game-television",
         "url_logo": "",
@@ -3935,7 +3922,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "gingerbread-2-3-3": {
         "id": 8,
         "name": "Gingerbread 2.3.3",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "gingerbread-2-3-3",
         "url": "https://www.igdb.com/platforms/android/version/gingerbread-2-3-3",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/iftbsii6snn6geq5hi9n.jpg",
@@ -3943,7 +3930,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "google-chrome": {
         "id": 659,
         "name": "Google Chrome",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "google-chrome",
         "url": "https://www.igdb.com/platforms/browser/version/google-chrome",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmt.jpg",
@@ -3951,7 +3938,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "google-stadia-founders-edition": {
         "id": 285,
         "name": "Google Stadia: Founder's Edition",
-        "platform_slug": "stadia",
+        "platform_slug": UPS.STADIA,
         "slug": "google-stadia-founders-edition",
         "url": "https://www.igdb.com/platforms/stadia/version/google-stadia-founders-edition",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl94.jpg",
@@ -3959,7 +3946,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "handheld-pc": {
         "id": 539,
         "name": "Handheld PC",
-        "platform_slug": "mobile",
+        "platform_slug": UPS.MOBILE,
         "slug": "handheld-pc",
         "url": "https://www.igdb.com/platforms/mobile/version/handheld-pc",
         "url_logo": "",
@@ -3967,7 +3954,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "honeycomb-3-2": {
         "id": 9,
         "name": "Honeycomb 3.2",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "honeycomb-3-2",
         "url": "https://www.igdb.com/platforms/android/version/honeycomb-3-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/qkdxwfyrcwhqrnj1hljd.jpg",
@@ -3975,7 +3962,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "ice-cream-sandwich": {
         "id": 10,
         "name": "Ice Cream Sandwich",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "ice-cream-sandwich",
         "url": "https://www.igdb.com/platforms/android/version/ice-cream-sandwich",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fxe5fcitcfmnam128xc1.jpg",
@@ -3983,7 +3970,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "initial-version": {
         "id": 200,
         "name": "Initial version",
-        "platform_slug": "pc-50x-family",
+        "platform_slug": UPS.PC_50X_FAMILY,
         "slug": "initial-version",
         "url": "https://www.igdb.com/platforms/pc-50x-family/version/initial-version",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/vckflbrulcehb6qiap6n.jpg",
@@ -3991,7 +3978,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "internet-explorer": {
         "id": 655,
         "name": "Internet Explorer",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "internet-explorer",
         "url": "https://www.igdb.com/platforms/browser/version/internet-explorer",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmp.jpg",
@@ -3999,7 +3986,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vc-4000": {
         "id": 196,
         "name": "Interton VC 4000",
-        "platform_slug": "vc-4000",
+        "platform_slug": UPS.VC_4000,
         "slug": "interton-vc-4000",
         "url": "https://www.igdb.com/platforms/vc-4000/version/interton-vc-4000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/phikgyfmv1fevj2jhzr5.jpg",
@@ -4007,7 +3994,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "ique-player": {
         "id": 122,
         "name": "iQue Player",
-        "platform_slug": "n64",
+        "platform_slug": UPS.N64,
         "slug": "ique-player",
         "url": "https://www.igdb.com/platforms/n64/version/ique-player",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl78.jpg",
@@ -4015,7 +4002,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "itt-odyssee": {
         "id": 169,
         "name": "ITT Odyssee",
-        "platform_slug": "odyssey",
+        "platform_slug": UPS.ODYSSEY,
         "slug": "itt-odyssee",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/itt-odyssee",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8y.jpg",
@@ -4023,7 +4010,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mac": {
         "id": 142,
         "name": "Jaguar",
-        "platform_slug": "jaguar",
+        "platform_slug": UPS.JAGUAR,
         "slug": "jaguar",
         "url": "https://www.igdb.com/platforms/mac/version/jaguar",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fua8zdpguizpoyzfvkou.jpg",
@@ -4031,7 +4018,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "jelly-bean-4-1-x-4-3-x": {
         "id": 11,
         "name": "Jelly Bean 4.1.x-4.3.x",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "jelly-bean-4-1-x-4-3-x",
         "url": "https://www.igdb.com/platforms/android/version/jelly-bean-4-1-x-4-3-x",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/w4okoupqnolhrymeqznd.jpg",
@@ -4039,7 +4026,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "kitkat": {
         "id": 12,
         "name": "KitKat",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "kitkat",
         "url": "https://www.igdb.com/platforms/android/version/kitkat",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/kb9wpjpv0t1dthhuypou.jpg",
@@ -4047,7 +4034,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "lcd-based-handhelds": {
         "id": 551,
         "name": "LCD-based handhelds",
-        "platform_slug": "handheld-electronic-lcd",
+        "platform_slug": UPS.HANDHELD_ELECTRONIC_LCD,
         "slug": "lcd-based-handhelds",
         "url": "https://www.igdb.com/platforms/handheld-electronic-lcd/version/lcd-based-handhelds",
         "url_logo": "",
@@ -4055,7 +4042,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "led-based-handheld": {
         "id": 692,
         "name": "LED-based handheld",
-        "platform_slug": "handheld-electronic-lcd",
+        "platform_slug": UPS.HANDHELD_ELECTRONIC_LCD,
         "slug": "led-based-handheld",
         "url": "https://www.igdb.com/platforms/handheld-electronic-lcd/version/led-based-handheld",
         "url_logo": "",
@@ -4063,7 +4050,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "leopard": {
         "id": 145,
         "name": "Leopard",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "leopard",
         "url": "https://www.igdb.com/platforms/mac/version/leopard",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/db0qv9ovisi8e0isgkby.jpg",
@@ -4071,7 +4058,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "lion": {
         "id": 147,
         "name": "Lion",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "lion",
         "url": "https://www.igdb.com/platforms/mac/version/lion",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/yaguodfpr4ucdiakputb.jpg",
@@ -4079,7 +4066,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "lollipop": {
         "id": 236,
         "name": "Lollipop",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "lollipop",
         "url": "https://www.igdb.com/platforms/android/version/lollipop",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plah.jpg",
@@ -4087,7 +4074,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mark-iii-soft-desk-10": {
         "id": 665,
         "name": "Mark III Soft Desk 10",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "mark-iii-soft-desk-10",
         "url": "https://www.igdb.com/platforms/arcade/version/mark-iii-soft-desk-10",
         "url_logo": "",
@@ -4095,7 +4082,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mark-iii-soft-desk-5": {
         "id": 666,
         "name": "Mark III Soft Desk 5",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "mark-iii-soft-desk-5",
         "url": "https://www.igdb.com/platforms/arcade/version/mark-iii-soft-desk-5",
         "url_logo": "",
@@ -4103,7 +4090,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "marshmallow": {
         "id": 237,
         "name": "Marshmallow",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "marshmallow",
         "url": "https://www.igdb.com/platforms/android/version/marshmallow",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plai.jpg",
@@ -4111,7 +4098,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "master-system-girl": {
         "id": 632,
         "name": "Master System Girl",
-        "platform_slug": "sms",
+        "platform_slug": UPS.SMS,
         "slug": "master-system-girl",
         "url": "https://www.igdb.com/platforms/sms/version/master-system-girl",
         "url_logo": "",
@@ -4119,7 +4106,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "master-system-super-compact": {
         "id": 630,
         "name": "Master System Super Compact",
-        "platform_slug": "sms",
+        "platform_slug": UPS.SMS,
         "slug": "master-system-super-compact",
         "url": "https://www.igdb.com/platforms/sms/version/master-system-super-compact",
         "url_logo": "",
@@ -4127,7 +4114,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mavericks": {
         "id": 149,
         "name": "Mavericks",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "mavericks",
         "url": "https://www.igdb.com/platforms/mac/version/mavericks",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lsyardp2tldsqglhscqh.jpg",
@@ -4135,7 +4122,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mega-pc": {
         "id": 625,
         "name": "Mega PC",
-        "platform_slug": "genesis",
+        "platform_slug": UPS.GENESIS,
         "slug": "mega-pc",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/mega-pc",
         "url_logo": "",
@@ -4143,7 +4130,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mega-play": {
         "id": 636,
         "name": "Mega Play",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "mega-play",
         "url": "https://www.igdb.com/platforms/arcade/version/mega-play",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm8.jpg",
@@ -4151,7 +4138,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mega-tech-system": {
         "id": 635,
         "name": "Mega-Tech System",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "mega-tech-system",
         "url": "https://www.igdb.com/platforms/arcade/version/mega-tech-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmk.jpg",
@@ -4159,7 +4146,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "meta-quest-2": {
         "id": 593,
         "name": "Meta Quest 2",
-        "platform_slug": "meta-quest-2",
+        "platform_slug": UPS.META_QUEST_2,
         "slug": "meta-quest-2",
         "url": "https://www.igdb.com/platforms/meta-quest-2/version/meta-quest-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll0.jpg",
@@ -4167,7 +4154,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "microsoft-edge": {
         "id": 661,
         "name": "Microsoft Edge",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "microsoft-edge",
         "url": "https://www.igdb.com/platforms/browser/version/microsoft-edge",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmv.jpg",
@@ -4175,7 +4162,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "monterey": {
         "id": 600,
         "name": "Monterey",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "monterey",
         "url": "https://www.igdb.com/platforms/mac/version/monterey",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll9.jpg",
@@ -4183,7 +4170,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "mountain-lion": {
         "id": 148,
         "name": "Mountain Lion",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "mountain-lion",
         "url": "https://www.igdb.com/platforms/mac/version/mountain-lion",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/vpprk3kkeloztxesyoiv.jpg",
@@ -4191,7 +4178,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "ms-dos": {
         "id": 540,
         "name": "MS-DOS",
-        "platform_slug": "dos",
+        "platform_slug": UPS.DOS,
         "slug": "ms-dos",
         "url": "https://www.igdb.com/platforms/dos/version/ms-dos",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plix.jpg",
@@ -4199,7 +4186,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "my-computer-tv": {
         "id": 645,
         "name": "My Computer TV",
-        "platform_slug": "famicom",
+        "platform_slug": UPS.FAMICOM,
         "slug": "my-computer-tv",
         "url": "https://www.igdb.com/platforms/famicom/version/my-computer-tv",
         "url_logo": "",
@@ -4207,7 +4194,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "n-gage-qd": {
         "id": 118,
         "name": "N-Gage QD",
-        "platform_slug": "ngage",
+        "platform_slug": UPS.NGAGE,
         "slug": "n-gage-qd",
         "url": "https://www.igdb.com/platforms/ngage/version/n-gage-qd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl76.jpg",
@@ -4215,7 +4202,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "naomi": {
         "id": 637,
         "name": "NAOMI",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "naomi",
         "url": "https://www.igdb.com/platforms/arcade/version/naomi",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmf.jpg",
@@ -4223,7 +4210,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "naomi-2": {
         "id": 651,
         "name": "NAOMI 2",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "naomi-2",
         "url": "https://www.igdb.com/platforms/arcade/version/naomi-2",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm9.jpg",
@@ -4231,7 +4218,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "net-yaroze": {
         "id": 654,
         "name": "Net Yaroze",
-        "platform_slug": "psx",
+        "platform_slug": UPS.PSX,
         "slug": "net-yaroze",
         "url": "https://www.igdb.com/platforms/ps/version/net-yaroze",
         "url_logo": "",
@@ -4239,7 +4226,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "netscape-navigator": {
         "id": 656,
         "name": "Netscape Navigator",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "netscape-navigator",
         "url": "https://www.igdb.com/platforms/browser/version/netscape-navigator",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmq.jpg",
@@ -4247,7 +4234,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "new-famicom": {
         "id": 642,
         "name": "New Famicom",
-        "platform_slug": "famicom",
+        "platform_slug": UPS.FAMICOM,
         "slug": "new-famicom",
         "url": "https://www.igdb.com/platforms/famicom/version/new-famicom",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnf.jpg",
@@ -4255,7 +4242,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "new-nintendo-3ds-xl": {
         "id": 677,
         "name": "New Nintendo 3DS XL",
-        "platform_slug": "new-nintendo-3ds",
+        "platform_slug": UPS.NEW_NINTENDON3DS,
         "slug": "new-nintendo-3ds-xl",
         "url": "https://www.igdb.com/platforms/new-nintendo-3ds/version/new-nintendo-3ds-xl",
         "url_logo": "",
@@ -4263,7 +4250,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "new-style-nes": {
         "id": 643,
         "name": "New-Style NES",
-        "platform_slug": "nes",
+        "platform_slug": UPS.NES,
         "slug": "new-style-nes",
         "url": "https://www.igdb.com/platforms/nes/version/new-style-nes",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmo.jpg",
@@ -4271,7 +4258,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "new-style-super-nes-model-sns-101": {
         "id": 97,
         "name": "New-Style Super NES (Model SNS-101)",
-        "platform_slug": "snes",
+        "platform_slug": UPS.SNES,
         "slug": "new-style-super-nes-model-sns-101",
         "url": "https://www.igdb.com/platforms/snes/version/new-style-super-nes-model-sns-101",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/mr2y5qpyhvj1phm5tivg.jpg",
@@ -4279,7 +4266,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nintendo-2ds": {
         "id": 676,
         "name": "Nintendo 2DS",
-        "platform_slug": "3ds",
+        "platform_slug": UPS.N3DS,
         "slug": "nintendo-2ds",
         "url": "https://www.igdb.com/platforms/3ds/version/nintendo-2ds",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln6.jpg",
@@ -4287,7 +4274,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nintendo-3ds-xl-slash-ll": {
         "id": 675,
         "name": "Nintendo 3DS XL/LL",
-        "platform_slug": "3ds",
+        "platform_slug": UPS.N3DS,
         "slug": "nintendo-3ds-xl-slash-ll",
         "url": "https://www.igdb.com/platforms/3ds/version/nintendo-3ds-xl-slash-ll",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln5.jpg",
@@ -4295,7 +4282,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nintendo-ds-lite": {
         "id": 190,
         "name": "Nintendo DS Lite",
-        "platform_slug": "nds",
+        "platform_slug": UPS.NDS,
         "slug": "nintendo-ds-lite",
         "url": "https://www.igdb.com/platforms/nds/version/nintendo-ds-lite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pdn0g4fyks0y1v2ckzws.jpg",
@@ -4303,7 +4290,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nintendo-dsi": {
         "id": 191,
         "name": "Nintendo DSi",
-        "platform_slug": "nds",
+        "platform_slug": UPS.NDS,
         "slug": "nintendo-dsi",
         "url": "https://www.igdb.com/platforms/nds/version/nintendo-dsi",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6s.jpg",
@@ -4311,7 +4298,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nintendo-dsi-xl": {
         "id": 192,
         "name": "Nintendo DSi XL",
-        "platform_slug": "nds",
+        "platform_slug": UPS.NDS,
         "slug": "nintendo-dsi-xl",
         "url": "https://www.igdb.com/platforms/nds/version/nintendo-dsi-xl",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6t.jpg",
@@ -4319,7 +4306,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nintendo-super-system": {
         "id": 638,
         "name": "Nintendo Super System",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "nintendo-super-system",
         "url": "https://www.igdb.com/platforms/arcade/version/nintendo-super-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmd.jpg",
@@ -4327,7 +4314,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nintendo-vs-system": {
         "id": 640,
         "name": "Nintendo VS. System",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "nintendo-vs-system",
         "url": "https://www.igdb.com/platforms/arcade/version/nintendo-vs-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmi.jpg",
@@ -4335,7 +4322,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nokia-n-gage-classic": {
         "id": 49,
         "name": "Nokia N-Gage Classic",
-        "platform_slug": "ngage",
+        "platform_slug": UPS.NGAGE,
         "slug": "nokia-n-gage-classic",
         "url": "https://www.igdb.com/platforms/ngage/version/nokia-n-gage-classic",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl75.jpg",
@@ -4343,7 +4330,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "nougat": {
         "id": 238,
         "name": "Nougat",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "nougat",
         "url": "https://www.igdb.com/platforms/android/version/nougat",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaj.jpg",
@@ -4351,7 +4338,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "oculus-quest-2": {
         "id": 507,
         "name": "Oculus Quest 2",
-        "platform_slug": "meta-quest-2",
+        "platform_slug": UPS.META_QUEST_2,
         "slug": "oculus-quest-2",
         "url": "https://www.igdb.com/platforms/meta-quest-2/version/oculus-quest-2",
         "url_logo": "",
@@ -4359,7 +4346,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "oculus-rift-s": {
         "id": 680,
         "name": "Oculus Rift S",
-        "platform_slug": "oculus-rift",
+        "platform_slug": UPS.OCULUS_RIFT,
         "slug": "oculus-rift-s",
         "url": "https://www.igdb.com/platforms/oculus-rift/version/oculus-rift-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln9.jpg",
@@ -4367,7 +4354,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odisea-mexico-export": {
         "id": 170,
         "name": "Odisea (Mexico Export)",
-        "platform_slug": "odyssey",
+        "platform_slug": UPS.ODYSSEY,
         "slug": "odisea-mexico-export",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odisea-mexico-export",
         "url_logo": "",
@@ -4375,7 +4362,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odissea-italian-export": {
         "id": 171,
         "name": "Odissea (Italian Export)",
-        "platform_slug": "odyssey",
+        "platform_slug": UPS.ODYSSEY,
         "slug": "odissea-italian-export",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odissea-italian-export",
         "url_logo": "",
@@ -4383,7 +4370,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odyssey-export": {
         "id": 167,
         "name": "Odyssey (Export)",
-        "platform_slug": "odyssey",
+        "platform_slug": UPS.ODYSSEY,
         "slug": "odyssey-export",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-export",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf5.jpg",
@@ -4391,7 +4378,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odyssey-german-export": {
         "id": 168,
         "name": "Odyssey (German Export)",
-        "platform_slug": "odyssey",
+        "platform_slug": UPS.ODYSSEY,
         "slug": "odyssey-german-export",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-german-export",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf6.jpg",
@@ -4399,7 +4386,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "odyssey-us": {
         "id": 101,
         "name": "Odyssey (US)",
-        "platform_slug": "odyssey",
+        "platform_slug": UPS.ODYSSEY,
         "slug": "odyssey-us",
         "url": "https://www.igdb.com/platforms/odyssey--1/version/odyssey-us",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8u.jpg",
@@ -4407,7 +4394,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "oled-model": {
         "id": 503,
         "name": "OLED Model",
-        "platform_slug": "switch",
+        "platform_slug": UPS.SWITCH,
         "slug": "oled-model",
         "url": "https://www.igdb.com/platforms/switch/version/oled-model",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plgu.jpg",
@@ -4415,7 +4402,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "opera": {
         "id": 657,
         "name": "Opera",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "opera",
         "url": "https://www.igdb.com/platforms/browser/version/opera",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmr.jpg",
@@ -4423,7 +4410,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "opera-gx": {
         "id": 663,
         "name": "Opera GX",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "opera-gx",
         "url": "https://www.igdb.com/platforms/browser/version/opera-gx",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
@@ -4431,7 +4418,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "oreo": {
         "id": 239,
         "name": "Oreo",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "oreo",
         "url": "https://www.igdb.com/platforms/android/version/oreo",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plag.jpg",
@@ -4439,7 +4426,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "original-version": {
         "id": 67,
         "name": "Original version",
-        "platform_slug": "sfam",
+        "platform_slug": UPS.SFAM,
         "slug": "original-version",
         "url": "https://www.igdb.com/platforms/sfam/version/original-version",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7j.jpg",
@@ -4447,7 +4434,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "panasonic-q": {
         "id": 125,
         "name": "Panasonic Q",
-        "platform_slug": "ngc",
+        "platform_slug": UPS.NGC,
         "slug": "panasonic-q",
         "url": "https://www.igdb.com/platforms/ngc/version/panasonic-q",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/jtbbevwj5l6q01pkkned.jpg",
@@ -4455,7 +4442,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "panther": {
         "id": 143,
         "name": "Panther",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "panther",
         "url": "https://www.igdb.com/platforms/mac/version/panther",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lgboqvrjxbhm9crh0gmk.jpg",
@@ -4463,7 +4450,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "pie": {
         "id": 320,
         "name": "Pie",
-        "platform_slug": "android",
+        "platform_slug": UPS.ANDROID,
         "slug": "pie",
         "url": "https://www.igdb.com/platforms/android/version/pie",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plax.jpg",
@@ -4471,7 +4458,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playchoice-10": {
         "id": 641,
         "name": "PlayChoice-10",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "playchoice-10",
         "url": "https://www.igdb.com/platforms/arcade/version/playchoice-10",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmg.jpg",
@@ -4479,7 +4466,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation": {
         "id": 57,
         "name": "PlayStation",
-        "platform_slug": "psx",
+        "platform_slug": UPS.PSX,
         "slug": "playstation",
         "url": "https://www.igdb.com/platforms/ps/version/playstation",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7q.jpg",
@@ -4487,7 +4474,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-3-original": {
         "id": 4,
         "name": "Playstation 3 Original",
-        "platform_slug": "ps3",
+        "platform_slug": UPS.PS3,
         "slug": "playstation-3-original",
         "url": "https://www.igdb.com/platforms/ps3/version/playstation-3-original",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6l.jpg",
@@ -4495,7 +4482,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-3-slim": {
         "id": 5,
         "name": "Playstation 3 Slim",
-        "platform_slug": "ps3",
+        "platform_slug": UPS.PS3,
         "slug": "playstation-3-slim",
         "url": "https://www.igdb.com/platforms/ps3/version/playstation-3-slim",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6m.jpg",
@@ -4503,7 +4490,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-3-super-slim": {
         "id": 6,
         "name": "Playstation 3 Super Slim",
-        "platform_slug": "ps3",
+        "platform_slug": UPS.PS3,
         "slug": "playstation-3-super-slim",
         "url": "https://www.igdb.com/platforms/ps3/version/playstation-3-super-slim",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/tuyy1nrqodtmbqajp4jg.jpg",
@@ -4511,7 +4498,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-4-pro": {
         "id": 179,
         "name": "PlayStation 4 Pro",
-        "platform_slug": "ps4",
+        "platform_slug": UPS.PS4,
         "slug": "playstation-4-pro",
         "url": "https://www.igdb.com/platforms/ps4--1/version/playstation-4-pro",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6f.jpg",
@@ -4519,7 +4506,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-4-slim": {
         "id": 178,
         "name": "PlayStation 4 Slim",
-        "platform_slug": "ps4",
+        "platform_slug": UPS.PS4,
         "slug": "playstation-4-slim",
         "url": "https://www.igdb.com/platforms/ps4--1/version/playstation-4-slim",
         "url_logo": "",
@@ -4527,7 +4514,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-5-pro": {
         "id": 724,
         "name": "PlayStation 5 Pro",
-        "platform_slug": "ps5",
+        "platform_slug": UPS.PS5,
         "slug": "playstation-5-pro",
         "url": "https://www.igdb.com/platforms/ps5/version/playstation-5-pro",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plos.jpg",
@@ -4535,7 +4522,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-portable-brite": {
         "id": 277,
         "name": "PlayStation Portable Brite",
-        "platform_slug": "psp",
+        "platform_slug": UPS.PSP,
         "slug": "playstation-portable-brite",
         "url": "https://www.igdb.com/platforms/psp/version/playstation-portable-brite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5w.jpg",
@@ -4543,7 +4530,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-portable-go": {
         "id": 278,
         "name": "PlayStation Portable Go",
-        "platform_slug": "psp",
+        "platform_slug": UPS.PSP,
         "slug": "playstation-portable-go",
         "url": "https://www.igdb.com/platforms/psp/version/playstation-portable-go",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6p.jpg",
@@ -4551,7 +4538,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-portable-slim-and-lite": {
         "id": 276,
         "name": "PlayStation Portable Slim & Lite",
-        "platform_slug": "psp",
+        "platform_slug": UPS.PSP,
         "slug": "playstation-portable-slim-and-lite",
         "url": "https://www.igdb.com/platforms/psp/version/playstation-portable-slim-and-lite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5v.jpg",
@@ -4559,7 +4546,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-portable-street": {
         "id": 279,
         "name": "PlayStation Portable Street",
-        "platform_slug": "psp",
+        "platform_slug": UPS.PSP,
         "slug": "playstation-portable-street",
         "url": "https://www.igdb.com/platforms/psp/version/playstation-portable-street",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5y.jpg",
@@ -4567,7 +4554,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-tv": {
         "id": 275,
         "name": "PlayStation TV",
-        "platform_slug": "psvita",
+        "platform_slug": UPS.PSVITA,
         "slug": "playstation-tv",
         "url": "https://www.igdb.com/platforms/psvita/version/playstation-tv",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6h.jpg",
@@ -4575,7 +4562,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-vita": {
         "id": 60,
         "name": "PlayStation Vita",
-        "platform_slug": "psvita",
+        "platform_slug": UPS.PSVITA,
         "slug": "playstation-vita",
         "url": "https://www.igdb.com/platforms/psvita/version/playstation-vita",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6g.jpg",
@@ -4583,7 +4570,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "playstation-vita-pch-2000": {
         "id": 274,
         "name": "PlayStation Vita (PCH-2000)",
-        "platform_slug": "psvita",
+        "platform_slug": UPS.PSVITA,
         "slug": "playstation-vita-pch-2000",
         "url": "https://www.igdb.com/platforms/psvita/version/playstation-vita-pch-2000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl5z.jpg",
@@ -4591,7 +4578,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "pocket-pc-2002": {
         "id": 535,
         "name": "Pocket PC 2002",
-        "platform_slug": "windows-mobile",
+        "platform_slug": UPS.WINDOWS_MOBILE,
         "slug": "pocket-pc-2002",
         "url": "https://www.igdb.com/platforms/windows-mobile/version/pocket-pc-2002",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pliu.jpg",
@@ -4599,7 +4586,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "ps-one": {
         "id": 653,
         "name": "PS One",
-        "platform_slug": "psx",
+        "platform_slug": UPS.PSX,
         "slug": "ps-one",
         "url": "https://www.igdb.com/platforms/ps/version/ps-one",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmb.jpg",
@@ -4607,7 +4594,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "psp-1000": {
         "id": 59,
         "name": "PSP-1000",
-        "platform_slug": "psp",
+        "platform_slug": UPS.PSP,
         "slug": "psp-1000",
         "url": "https://www.igdb.com/platforms/psp/version/psp-1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6q.jpg",
@@ -4615,7 +4602,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "puma": {
         "id": 141,
         "name": "Puma",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "puma",
         "url": "https://www.igdb.com/platforms/mac/version/puma",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/luxugq3uspac6qqbvqwk.jpg",
@@ -4623,7 +4610,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "saba-videoplay": {
         "id": 212,
         "name": "Saba Videoplay",
-        "platform_slug": "fairchild-channel-f",
+        "platform_slug": UPS.FAIRCHILD_CHANNEL_F,
         "slug": "saba-videoplay",
         "url": "https://www.igdb.com/platforms/fairchild-channel-f/version/saba-videoplay",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8t.jpg",
@@ -4631,7 +4618,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "safari": {
         "id": 658,
         "name": "Safari",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "safari",
         "url": "https://www.igdb.com/platforms/browser/version/safari",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plms.jpg",
@@ -4639,7 +4626,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sears-hockey-pong": {
         "id": 510,
         "name": "Sears Hockey-Pong",
-        "platform_slug": "ay-3-8500",
+        "platform_slug": UPS.AY_3_8500,
         "slug": "sears-hockey-pong",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/sears-hockey-pong",
         "url_logo": "",
@@ -4647,7 +4634,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-alls": {
         "id": 696,
         "name": "Sega ALLS",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "sega-alls",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-alls",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plnq.jpg",
@@ -4655,7 +4642,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-game-box-9": {
         "id": 631,
         "name": "Sega Game Box 9",
-        "platform_slug": "sms",
+        "platform_slug": UPS.SMS,
         "slug": "sega-game-box-9",
         "url": "https://www.igdb.com/platforms/sms/version/sega-game-box-9",
         "url_logo": "",
@@ -4663,7 +4650,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-hikaru": {
         "id": 650,
         "name": "Sega Hikaru",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "sega-hikaru",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-hikaru",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmj.jpg",
@@ -4671,7 +4658,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-mark-iii": {
         "id": 629,
         "name": "Sega Mark III",
-        "platform_slug": "sms",
+        "platform_slug": UPS.SMS,
         "slug": "sega-mark-iii",
         "url": "https://www.igdb.com/platforms/sms/version/sega-mark-iii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm6.jpg",
@@ -4679,7 +4666,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-master-system": {
         "id": 63,
         "name": "Sega Master System",
-        "platform_slug": "sms",
+        "platform_slug": UPS.SMS,
         "slug": "sega-master-system",
         "url": "https://www.igdb.com/platforms/sms/version/sega-master-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8a.jpg",
@@ -4687,7 +4674,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-master-system-ii": {
         "id": 633,
         "name": "Sega Master System II",
-        "platform_slug": "sms",
+        "platform_slug": UPS.SMS,
         "slug": "sega-master-system-ii",
         "url": "https://www.igdb.com/platforms/sms/version/sega-master-system-ii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plme.jpg",
@@ -4695,7 +4682,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-mega-drive-2-slash-genesis": {
         "id": 628,
         "name": "Sega Mega Drive 2/Genesis",
-        "platform_slug": "genesis",
+        "platform_slug": UPS.GENESIS,
         "slug": "sega-mega-drive-2-slash-genesis",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-drive-2-slash-genesis",
         "url_logo": "",
@@ -4703,7 +4690,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-mega-drive-slash-genesis": {
         "id": 64,
         "name": "Sega Mega Drive/Genesis",
-        "platform_slug": "genesis",
+        "platform_slug": UPS.GENESIS,
         "slug": "sega-mega-drive-slash-genesis",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-drive-slash-genesis",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl85.jpg",
@@ -4711,7 +4698,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-mega-jet": {
         "id": 624,
         "name": "Sega Mega Jet",
-        "platform_slug": "genesis",
+        "platform_slug": UPS.GENESIS,
         "slug": "sega-mega-jet",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-mega-jet",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plne.jpg",
@@ -4719,7 +4706,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-neptune": {
         "id": 703,
         "name": "Sega Neptune",
-        "platform_slug": "sega32",
+        "platform_slug": UPS.SEGA32,
         "slug": "sega-neptune",
         "url": "https://www.igdb.com/platforms/sega32/version/sega-neptune",
         "url_logo": "",
@@ -4727,7 +4714,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-nomad": {
         "id": 626,
         "name": "Sega Nomad",
-        "platform_slug": "genesis",
+        "platform_slug": UPS.GENESIS,
         "slug": "sega-nomad",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/sega-nomad",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmc.jpg",
@@ -4735,7 +4722,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-ringedge": {
         "id": 667,
         "name": "Sega RingEdge",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "sega-ringedge",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-ringedge",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmz.jpg",
@@ -4743,7 +4730,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-system-1": {
         "id": 649,
         "name": "Sega System 1",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "sega-system-1",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-system-1",
         "url_logo": "",
@@ -4751,7 +4738,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-system-e": {
         "id": 634,
         "name": "Sega System E",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "sega-system-e",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-system-e",
         "url_logo": "",
@@ -4759,7 +4746,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sega-titan-video": {
         "id": 669,
         "name": "Sega Titan Video",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "sega-titan-video",
         "url": "https://www.igdb.com/platforms/arcade/version/sega-titan-video",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln1.jpg",
@@ -4767,7 +4754,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sg-1000": {
         "id": 91,
         "name": "SG-1000",
-        "platform_slug": "sg1000",
+        "platform_slug": UPS.SG1000,
         "slug": "sg-1000",
         "url": "https://www.igdb.com/platforms/sg1000/version/sg-1000",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmn.jpg",
@@ -4775,7 +4762,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sg-1000-ii": {
         "id": 92,
         "name": "SG-1000 II",
-        "platform_slug": "sg1000",
+        "platform_slug": UPS.SG1000,
         "slug": "sg-1000-ii",
         "url": "https://www.igdb.com/platforms/sg1000/version/sg-1000-ii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/m7lor1sj7g9gnvliwxx8.jpg",
@@ -4783,7 +4770,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sinclair-ql": {
         "id": 524,
         "name": "Sinclair QL",
-        "platform_slug": "sinclair-ql",
+        "platform_slug": UPS.SINCLAIR_QL,
         "slug": "sinclair-ql",
         "url": "https://www.igdb.com/platforms/sinclair-ql/version/sinclair-ql",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plih.jpg",
@@ -4791,7 +4778,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "slimline": {
         "id": 114,
         "name": "Slimline",
-        "platform_slug": "ps2",
+        "platform_slug": UPS.PS2,
         "slug": "slimline",
         "url": "https://www.igdb.com/platforms/ps2/version/slimline",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl72.jpg",
@@ -4799,7 +4786,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "snow-leopard": {
         "id": 146,
         "name": "Snow Leopard",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "snow-leopard",
         "url": "https://www.igdb.com/platforms/mac/version/snow-leopard",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/jiy43xitvtxfi16wcdyd.jpg",
@@ -4807,7 +4794,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "soft-desk-10": {
         "id": 668,
         "name": "Soft Desk 10",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "soft-desk-10",
         "url": "https://www.igdb.com/platforms/arcade/version/soft-desk-10",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pln0.jpg",
@@ -4815,7 +4802,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "sonoma": {
         "id": 713,
         "name": "Sonoma",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "sonoma",
         "url": "https://www.igdb.com/platforms/mac/version/sonoma",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plo3.jpg",
@@ -4823,7 +4810,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "duplicate-stadia": {
         "id": 319,
         "name": "Stadia",
-        "platform_slug": "duplicate-stadia",
+        "platform_slug": UPS.STADIA,
         "slug": "stadia",
         "url": "https://www.igdb.com/platforms/duplicate-stadia/version/stadia",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plaw.jpg",
@@ -4831,7 +4818,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "starlight-wii-gaming-station": {
         "id": 730,
         "name": "Starlight Wii Gaming Station",
-        "platform_slug": "wii",
+        "platform_slug": UPS.WII,
         "slug": "starlight-wii-gaming-station",
         "url": "https://www.igdb.com/platforms/wii/version/starlight-wii-gaming-station",
         "url_logo": "",
@@ -4839,7 +4826,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "super-famicom-box": {
         "id": 639,
         "name": "Super Famicom Box",
-        "platform_slug": "sfam",
+        "platform_slug": UPS.SFAM,
         "slug": "super-famicom-box",
         "url": "https://www.igdb.com/platforms/sfam/version/super-famicom-box",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmm.jpg",
@@ -4847,7 +4834,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "super-famicom-jr": {
         "id": 98,
         "name": "Super Famicom Jr.",
-        "platform_slug": "sfam",
+        "platform_slug": UPS.SFAM,
         "slug": "super-famicom-jr",
         "url": "https://www.igdb.com/platforms/sfam/version/super-famicom-jr",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/a9x7xjy4p9sqynrvomcf.jpg",
@@ -4855,7 +4842,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "super-famicom-jr-model-shvc-101": {
         "id": 177,
         "name": "Super Famicom Jr. (Model SHVC-101)",
-        "platform_slug": "snes",
+        "platform_slug": UPS.SNES,
         "slug": "super-famicom-jr-model-shvc-101",
         "url": "https://www.igdb.com/platforms/snes/version/super-famicom-jr-model-shvc-101",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ifw2tvdkynyxayquiyk4.jpg",
@@ -4863,7 +4850,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "super-famicom-shvc-001": {
         "id": 139,
         "name": "Super Famicom (SHVC-001)",
-        "platform_slug": "snes",
+        "platform_slug": UPS.SNES,
         "slug": "super-famicom-shvc-001",
         "url": "https://www.igdb.com/platforms/snes/version/super-famicom-shvc-001",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/jj75e2f0lzrbvtyw56er.jpg",
@@ -4871,7 +4858,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "super-nes-cd-rom-system": {
         "id": 174,
         "name": "Super NES CD-ROM System",
-        "platform_slug": "super-nes-cd-rom-system",
+        "platform_slug": UPS.SUPER_NES_CD_ROM_SYSTEM,
         "slug": "super-nes-cd-rom-system",
         "url": "https://www.igdb.com/platforms/super-nes-cd-rom-system/version/super-nes-cd-rom-system",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plep.jpg",
@@ -4879,7 +4866,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "super-nintendo-original-european-version": {
         "id": 95,
         "name": "Super Nintendo (original European version)",
-        "platform_slug": "snes",
+        "platform_slug": UPS.SNES,
         "slug": "super-nintendo-original-european-version",
         "url": "https://www.igdb.com/platforms/snes/version/super-nintendo-original-european-version",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7k.jpg",
@@ -4887,7 +4874,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "super-nintendo-original-north-american-version": {
         "id": 68,
         "name": "Super Nintendo (original North American version)",
-        "platform_slug": "snes",
+        "platform_slug": UPS.SNES,
         "slug": "super-nintendo-original-north-american-version",
         "url": "https://www.igdb.com/platforms/snes/version/super-nintendo-original-north-american-version",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ob1omu1he33vpulatqzv.jpg",
@@ -4895,7 +4882,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "swancrystal": {
         "id": 734,
         "name": "SwanCrystal",
-        "platform_slug": "wonderswan-color",
+        "platform_slug": UPS.WONDERSWAN_COLOR,
         "slug": "swancrystal",
         "url": "https://www.igdb.com/platforms/wonderswan-color/version/swancrystal",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plp0.jpg",
@@ -4903,7 +4890,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "switch-lite": {
         "id": 282,
         "name": "Switch Lite",
-        "platform_slug": "switch",
+        "platform_slug": UPS.SWITCH,
         "slug": "switch-lite",
         "url": "https://www.igdb.com/platforms/switch/version/switch-lite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pleu.jpg",
@@ -4911,7 +4898,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "tele-ball": {
         "id": 201,
         "name": "tele-ball",
-        "platform_slug": "ay-3-8500",
+        "platform_slug": UPS.AY_3_8500,
         "slug": "tele-ball",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/tele-ball",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/yjdciw0jagvnmvzhhubs.jpg",
@@ -4919,7 +4906,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "tele-ball-ii": {
         "id": 202,
         "name": "tele-ball II",
-        "platform_slug": "ay-3-8500",
+        "platform_slug": UPS.AY_3_8500,
         "slug": "tele-ball-ii",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/tele-ball-ii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/x42zeitpbuo2ltn7ybb2.jpg",
@@ -4927,7 +4914,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "tele-ball-iii": {
         "id": 203,
         "name": "tele-ball III",
-        "platform_slug": "ay-3-8500",
+        "platform_slug": UPS.AY_3_8500,
         "slug": "tele-ball-iii",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/tele-ball-iii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fzkmxoxkrfwo1by8t9ja.jpg",
@@ -4935,7 +4922,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "tele-ball-vii": {
         "id": 204,
         "name": "tele-ball VII",
-        "platform_slug": "ay-3-8500",
+        "platform_slug": UPS.AY_3_8500,
         "slug": "tele-ball-vii",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/tele-ball-vii",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/vs8nzlrcte7l9ep2cqy5.jpg",
@@ -4943,7 +4930,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "tele-cassetten-game": {
         "id": 205,
         "name": "Tele-Cassetten-Game",
-        "platform_slug": "pc-50x-family",
+        "platform_slug": UPS.PC_50X_FAMILY,
         "slug": "tele-cassetten-game",
         "url": "https://www.igdb.com/platforms/pc-50x-family/version/tele-cassetten-game",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/dpwrkxrjkuxwqroqwjsw.jpg",
@@ -4951,7 +4938,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "telstar": {
         "id": 198,
         "name": "Telstar",
-        "platform_slug": "ay-3-8500",
+        "platform_slug": UPS.AY_3_8500,
         "slug": "telstar",
         "url": "https://www.igdb.com/platforms/ay-3-8500/version/telstar",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/vgsvdiyyzjeayaooi1fy.jpg",
@@ -4959,7 +4946,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "teradrive": {
         "id": 627,
         "name": "Teradrive",
-        "platform_slug": "genesis",
+        "platform_slug": UPS.GENESIS,
         "slug": "teradrive",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/teradrive",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plm5.jpg",
@@ -4967,7 +4954,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "terebikko-cordless": {
         "id": 698,
         "name": "Terebikko Cordless",
-        "platform_slug": "terebikko-slash-see-n-say-video-phone",
+        "platform_slug": UPS.TEREBIKKO_SLASH_SEE_N_SAY_VIDEO_PHONE,
         "slug": "terebikko-cordless",
         "url": "https://www.igdb.com/platforms/terebikko-slash-see-n-say-video-phone/version/terebikko-cordless",
         "url_logo": "",
@@ -4975,7 +4962,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "texas-instruments-ti-99-slash-4": {
         "id": 172,
         "name": "Texas Instruments TI-99/4",
-        "platform_slug": "ti-99",
+        "platform_slug": UPS.TI_99,
         "slug": "texas-instruments-ti-99-slash-4",
         "url": "https://www.igdb.com/platforms/ti-99/version/texas-instruments-ti-99-slash-4",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plez.jpg",
@@ -4983,7 +4970,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "texas-instruments-ti-99-slash-4a": {
         "id": 427,
         "name": "Texas Instruments TI-99/4A",
-        "platform_slug": "ti-99",
+        "platform_slug": UPS.TI_99,
         "slug": "texas-instruments-ti-99-slash-4a",
         "url": "https://www.igdb.com/platforms/ti-99/version/texas-instruments-ti-99-slash-4a",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plf0.jpg",
@@ -4991,7 +4978,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "tiger": {
         "id": 144,
         "name": "Tiger",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "tiger",
         "url": "https://www.igdb.com/platforms/mac/version/tiger",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/jp06zemqemczisfaxsgl.jpg",
@@ -4999,7 +4986,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "tlv-k981g-game-vcd-player": {
         "id": 622,
         "name": "TLV-K981G Game VCD Player",
-        "platform_slug": "genesis",
+        "platform_slug": UPS.GENESIS,
         "slug": "tlv-k981g-game-vcd-player",
         "url": "https://www.igdb.com/platforms/genesis-slash-megadrive/version/tlv-k981g-game-vcd-player",
         "url_logo": "",
@@ -5007,7 +4994,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "triforce": {
         "id": 664,
         "name": "Triforce",
-        "platform_slug": "arcade",
+        "platform_slug": UPS.ARCADE,
         "slug": "triforce",
         "url": "https://www.igdb.com/platforms/arcade/version/triforce",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmy.jpg",
@@ -5015,7 +5002,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "turbo-express-slash-pc-engine-gt": {
         "id": 733,
         "name": "Turbo Express/PC Engine GT",
-        "platform_slug": "tg16",
+        "platform_slug": UPS.TG16,
         "slug": "turbo-express-slash-pc-engine-gt",
         "url": "https://www.igdb.com/platforms/turbografx16--1/version/turbo-express-slash-pc-engine-gt",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ploz.jpg",
@@ -5023,7 +5010,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "twin-famicom": {
         "id": 647,
         "name": "Twin Famicom",
-        "platform_slug": "famicom",
+        "platform_slug": UPS.FAMICOM,
         "slug": "twin-famicom",
         "url": "https://www.igdb.com/platforms/famicom/version/twin-famicom",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plml.jpg",
@@ -5031,7 +5018,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vectrex": {
         "id": 70,
         "name": "Vectrex",
-        "platform_slug": "vectrex",
+        "platform_slug": UPS.VECTREX,
         "slug": "vectrex",
         "url": "https://www.igdb.com/platforms/vectrex/version/vectrex",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl8h.jpg",
@@ -5039,7 +5026,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "ventura": {
         "id": 598,
         "name": "Ventura",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "ventura",
         "url": "https://www.igdb.com/platforms/mac/version/ventura",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pll5.jpg",
@@ -5047,7 +5034,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vfd-based-handhelds": {
         "id": 691,
         "name": "VFD-based handhelds",
-        "platform_slug": "handheld-electronic-lcd",
+        "platform_slug": UPS.HANDHELD_ELECTRONIC_LCD,
         "slug": "vfd-based-handhelds",
         "url": "https://www.igdb.com/platforms/handheld-electronic-lcd/version/vfd-based-handhelds",
         "url_logo": "",
@@ -5055,7 +5042,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vivaldi": {
         "id": 662,
         "name": "Vivaldi",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "vivaldi",
         "url": "https://www.igdb.com/platforms/browser/version/vivaldi",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmw.jpg",
@@ -5063,7 +5050,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vt01": {
         "id": 686,
         "name": "VT01",
-        "platform_slug": "plug-and-play",
+        "platform_slug": UPS.PLUG_AND_PLAY,
         "slug": "vt01",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt01",
         "url_logo": "",
@@ -5071,7 +5058,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vt02": {
         "id": 684,
         "name": "VT02",
-        "platform_slug": "plug-and-play",
+        "platform_slug": UPS.PLUG_AND_PLAY,
         "slug": "vt02",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt02",
         "url_logo": "",
@@ -5079,7 +5066,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vt03": {
         "id": 685,
         "name": "VT03",
-        "platform_slug": "plug-and-play",
+        "platform_slug": UPS.PLUG_AND_PLAY,
         "slug": "vt03",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt03",
         "url_logo": "",
@@ -5087,7 +5074,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vt09": {
         "id": 687,
         "name": "VT09",
-        "platform_slug": "plug-and-play",
+        "platform_slug": UPS.PLUG_AND_PLAY,
         "slug": "vt09",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt09",
         "url_logo": "",
@@ -5095,7 +5082,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "vt32": {
         "id": 688,
         "name": "VT32",
-        "platform_slug": "plug-and-play",
+        "platform_slug": UPS.PLUG_AND_PLAY,
         "slug": "vt32",
         "url": "https://www.igdb.com/platforms/plug-and-play/version/vt32",
         "url_logo": "",
@@ -5103,7 +5090,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "web-browser": {
         "id": 86,
         "name": "Web browser",
-        "platform_slug": "browser",
+        "platform_slug": UPS.BROWSER,
         "slug": "web-browser",
         "url": "https://www.igdb.com/platforms/browser/version/web-browser",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plal.jpg",
@@ -5111,7 +5098,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "wii-family-edition": {
         "id": 731,
         "name": "Wii Family Edition",
-        "platform_slug": "wii",
+        "platform_slug": UPS.WII,
         "slug": "wii-family-edition",
         "url": "https://www.igdb.com/platforms/wii/version/wii-family-edition",
         "url_logo": "",
@@ -5119,7 +5106,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "wii-mini": {
         "id": 283,
         "name": "Wii mini",
-        "platform_slug": "wii",
+        "platform_slug": UPS.WII,
         "slug": "wii-mini",
         "url": "https://www.igdb.com/platforms/wii/version/wii-mini",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl92.jpg",
@@ -5127,7 +5114,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-1-dot-0": {
         "id": 529,
         "name": "Windows 1.0",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-1-dot-0",
         "url": "https://www.igdb.com/platforms/win/version/windows-1-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plin.jpg",
@@ -5135,7 +5122,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-10": {
         "id": 124,
         "name": "Windows 10",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-10",
         "url": "https://www.igdb.com/platforms/win/version/windows-10",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/irwvwpl023f8y19tidgq.jpg",
@@ -5143,7 +5130,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-10-mobile": {
         "id": 227,
         "name": "Windows 10 Mobile",
-        "platform_slug": "winphone",
+        "platform_slug": UPS.WINPHONE,
         "slug": "windows-10-mobile",
         "url": "https://www.igdb.com/platforms/winphone/version/windows-10-mobile",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pla3.jpg",
@@ -5151,7 +5138,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-11": {
         "id": 513,
         "name": "Windows 11",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-11",
         "url": "https://www.igdb.com/platforms/win/version/windows-11",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plim.jpg",
@@ -5159,7 +5146,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-2-dot-0": {
         "id": 530,
         "name": "Windows 2.0",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-2-dot-0",
         "url": "https://www.igdb.com/platforms/win/version/windows-2-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plio.jpg",
@@ -5167,7 +5154,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-3-dot-0": {
         "id": 531,
         "name": "Windows 3.0",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-3-dot-0",
         "url": "https://www.igdb.com/platforms/win/version/windows-3-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plip.jpg",
@@ -5175,7 +5162,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-7": {
         "id": 1,
         "name": "Windows 7",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-7",
         "url": "https://www.igdb.com/platforms/win/version/windows-7",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pvjzmgepkxhwvgrgmazj.jpg",
@@ -5183,7 +5170,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-8": {
         "id": 15,
         "name": "Windows 8",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-8",
         "url": "https://www.igdb.com/platforms/win/version/windows-8",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/itdndmarjfphtsppnlfh.jpg",
@@ -5191,7 +5178,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-95": {
         "id": 532,
         "name": "Windows 95",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-95",
         "url": "https://www.igdb.com/platforms/win/version/windows-95",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pliq.jpg",
@@ -5199,7 +5186,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-98": {
         "id": 533,
         "name": "Windows 98",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-98",
         "url": "https://www.igdb.com/platforms/win/version/windows-98",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plir.jpg",
@@ -5207,7 +5194,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-me": {
         "id": 534,
         "name": "Windows Me",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-me",
         "url": "https://www.igdb.com/platforms/win/version/windows-me",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plis.jpg",
@@ -5215,7 +5202,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-mobile-2003": {
         "id": 536,
         "name": "Windows Mobile 2003",
-        "platform_slug": "windows-mobile",
+        "platform_slug": UPS.WINDOWS_MOBILE,
         "slug": "windows-mobile-2003",
         "url": "https://www.igdb.com/platforms/windows-mobile/version/windows-mobile-2003",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pliv.jpg",
@@ -5223,7 +5210,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-mobile-5-dot-0": {
         "id": 537,
         "name": "Windows Mobile 5.0",
-        "platform_slug": "windows-mobile",
+        "platform_slug": UPS.WINDOWS_MOBILE,
         "slug": "windows-mobile-5-dot-0",
         "url": "https://www.igdb.com/platforms/windows-mobile/version/windows-mobile-5-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pliw.jpg",
@@ -5231,7 +5218,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-mobile-6-dot-0": {
         "id": 538,
         "name": "Windows Mobile 6.0",
-        "platform_slug": "windows-mobile",
+        "platform_slug": UPS.WINDOWS_MOBILE,
         "slug": "windows-mobile-6-dot-0",
         "url": "https://www.igdb.com/platforms/windows-mobile/version/windows-mobile-6-dot-0",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plkl.jpg",
@@ -5239,7 +5226,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-phone-7": {
         "id": 224,
         "name": "Windows Phone 7",
-        "platform_slug": "winphone",
+        "platform_slug": UPS.WINPHONE,
         "slug": "windows-phone-7",
         "url": "https://www.igdb.com/platforms/winphone/version/windows-phone-7",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/taegabndvbq86z4dumy2.jpg",
@@ -5247,7 +5234,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-phone-8": {
         "id": 225,
         "name": "Windows Phone 8",
-        "platform_slug": "winphone",
+        "platform_slug": UPS.WINPHONE,
         "slug": "windows-phone-8",
         "url": "https://www.igdb.com/platforms/winphone/version/windows-phone-8",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/ui8kqoijqxolfowolj56.jpg",
@@ -5255,7 +5242,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-phone-8-dot-1": {
         "id": 226,
         "name": "Windows Phone 8.1",
-        "platform_slug": "winphone",
+        "platform_slug": UPS.WINPHONE,
         "slug": "windows-phone-8-dot-1",
         "url": "https://www.igdb.com/platforms/winphone/version/windows-phone-8-dot-1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/gvk8xyyptd40kg3yb8j5.jpg",
@@ -5263,7 +5250,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-vista": {
         "id": 14,
         "name": "Windows Vista",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-vista",
         "url": "https://www.igdb.com/platforms/win/version/windows-vista",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/z6hjqy9uvneqbd3yh4sm.jpg",
@@ -5271,7 +5258,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "windows-xp": {
         "id": 13,
         "name": "Windows XP",
-        "platform_slug": "win",
+        "platform_slug": UPS.WIN,
         "slug": "windows-xp",
         "url": "https://www.igdb.com/platforms/win/version/windows-xp",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/nnr9qxtqzrmh1v0s9x2p.jpg",
@@ -5279,7 +5266,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "wonderswan-color": {
         "id": 84,
         "name": "WonderSwan Color",
-        "platform_slug": "wonderswan",
+        "platform_slug": UPS.WONDERSWAN,
         "slug": "wonderswan-color",
         "url": "https://www.igdb.com/platforms/wonderswan/version/wonderswan-color",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7d.jpg",
@@ -5287,7 +5274,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-360-arcade": {
         "id": 3,
         "name": "Xbox 360 Arcade",
-        "platform_slug": "xbox360",
+        "platform_slug": UPS.XBOX360,
         "slug": "xbox-360-arcade",
         "url": "https://www.igdb.com/platforms/xbox360/version/xbox-360-arcade",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6y.jpg",
@@ -5295,7 +5282,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-360-elite": {
         "id": 2,
         "name": "Xbox 360 Elite",
-        "platform_slug": "xbox360",
+        "platform_slug": UPS.XBOX360,
         "slug": "xbox-360-elite",
         "url": "https://www.igdb.com/platforms/xbox360/version/xbox-360-elite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6z.jpg",
@@ -5303,7 +5290,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-360-original": {
         "id": 83,
         "name": "Xbox 360 Original",
-        "platform_slug": "xbox360",
+        "platform_slug": UPS.XBOX360,
         "slug": "xbox-360-original",
         "url": "https://www.igdb.com/platforms/xbox360/version/xbox-360-original",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl6x.jpg",
@@ -5311,7 +5298,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-360-s": {
         "id": 495,
         "name": "Xbox 360 S",
-        "platform_slug": "xbox360",
+        "platform_slug": UPS.XBOX360,
         "slug": "xbox-360-s",
         "url": "https://www.igdb.com/platforms/xbox360/version/xbox-360-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plha.jpg",
@@ -5319,7 +5306,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-one-s": {
         "id": 180,
         "name": "Xbox One S",
-        "platform_slug": "xboxone",
+        "platform_slug": UPS.XBOXONE,
         "slug": "xbox-one-s",
         "url": "https://www.igdb.com/platforms/xboxone/version/xbox-one-s",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl90.jpg",
@@ -5327,7 +5314,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-one-s-all-digital": {
         "id": 188,
         "name": "Xbox One S All-Digital",
-        "platform_slug": "xboxone",
+        "platform_slug": UPS.XBOXONE,
         "slug": "xbox-one-s-all-digital",
         "url": "https://www.igdb.com/platforms/xboxone/version/xbox-one-s-all-digital",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl95.jpg",
@@ -5335,7 +5322,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-one-x--1": {
         "id": 185,
         "name": "Xbox One X",
-        "platform_slug": "xboxone",
+        "platform_slug": UPS.XBOXONE,
         "slug": "xbox-one-x--1",
         "url": "https://www.igdb.com/platforms/xboxone/version/xbox-one-x--1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/fckqj8d3as6tug4fg3x4.jpg",
@@ -5343,7 +5330,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-series-s": {
         "id": 489,
         "name": "Xbox Series S",
-        "platform_slug": "series-x-s",
+        "platform_slug": UPS.SERIES_X_S,
         "slug": "xbox-series-s",
         "url": "https://www.igdb.com/platforms/series-x-s/version/xbox-series-s",
         "url_logo": "",
@@ -5351,7 +5338,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "xbox-series-x": {
         "id": 284,
         "name": "Xbox Series X",
-        "platform_slug": "series-x-s",
+        "platform_slug": UPS.SERIES_X_S,
         "slug": "xbox-series-x",
         "url": "https://www.igdb.com/platforms/series-x-s/version/xbox-series-x",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plfl.jpg",
@@ -5359,7 +5346,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "yosemite": {
         "id": 150,
         "name": "Yosemite",
-        "platform_slug": "mac",
+        "platform_slug": UPS.MAC,
         "slug": "yosemite",
         "url": "https://www.igdb.com/platforms/mac/version/yosemite",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/df1raex6oqgcp56leff4.jpg",
@@ -5367,7 +5354,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "zodiac-1": {
         "id": 69,
         "name": "Zodiac 1",
-        "platform_slug": "zod",
+        "platform_slug": UPS.ZOD,
         "slug": "zodiac-1",
         "url": "https://www.igdb.com/platforms/zod/version/zodiac-1",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/lfsdnlko80ftakbugceu.jpg",
@@ -5375,7 +5362,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     "zx-spectrum": {
         "id": 79,
         "name": "ZX Spectrum",
-        "platform_slug": "zxs",
+        "platform_slug": UPS.ZXS,
         "slug": "zx-spectrum",
         "url": "https://www.igdb.com/platforms/zxs/version/zx-spectrum",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plab.jpg",
