@@ -14,7 +14,6 @@ from typing import IO, Any, Final, Literal, TypedDict
 import magic
 import py7zr
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
-from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (
@@ -327,6 +326,7 @@ class FSRomsHandler(FSHandler):
         )
 
     async def get_rom_files(self, rom: Rom) -> tuple[list[RomFile], str, str, str, str]:
+        from adapters.services.rahasher import RAHasherService
         from handler.metadata import meta_ra_handler
 
         rel_roms_path = self.get_roms_fs_structure(
