@@ -8,6 +8,7 @@ Create Date: 2025-07-24 15:24:04.331946
 
 import sqlalchemy as sa
 from alembic import op
+from config.config_manager import config_manager as cm
 from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 
 revision = "0046_migrate_platform_slugs"
@@ -73,21 +74,27 @@ def upgrade() -> None:
     # Update slugs already in the database
     connection = op.get_bind()
     for old_slug, new_slug in OLD_SLUGS_TO_NEW_MAP.items():
-        connection.execute(
+        result = connection.execute(
             sa.text(
                 "UPDATE platforms SET slug = :new_slug, temp_old_slug = :old_slug WHERE slug = :old_slug"
             ),
-            {"new_slug": new_slug, "old_slug": old_slug},
+            {"new_slug": new_slug.value, "old_slug": old_slug},
         )
+        if result.rowcount > 0:
+            cm.add_platform_binding(old_slug, new_slug.value)
 
 
 def downgrade() -> None:
     connection = op.get_bind()
-    connection.execute(
-        sa.text(
-            "UPDATE platforms SET slug = temp_old_slug WHERE temp_old_slug IS NOT NULL"
+    for old_slug, new_slug in OLD_SLUGS_TO_NEW_MAP.items():
+        result = connection.execute(
+            sa.text(
+                "UPDATE platforms SET slug = temp_old_slug WHERE temp_old_slug = :old_slug AND slug = :new_slug"
+            ),
+            {"old_slug": old_slug, "new_slug": new_slug.value},
         )
-    )
+        if result.rowcount > 0:
+            cm.remove_platform_binding(old_slug)
 
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.alter_column(
