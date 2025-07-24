@@ -30,25 +30,27 @@ if __name__ == "__main__":
     matched_hasheous_ids: list[int] = []
     matched_ra_ids: list[int] = []
 
-    for plt in IGDB_PLATFORM_LIST.values():
-        moby_platform = MOBYGAMES_PLATFORM_LIST.get(plt["slug"])
+    for slug, plt in IGDB_PLATFORM_LIST.items():
+        slug_lower = slug.lower()
+
+        moby_platform = MOBYGAMES_PLATFORM_LIST.get(slug_lower)
         moby_slug = moby_platform["slug"] if moby_platform else None
 
-        ss_platform = SCREENSAVER_PLATFORM_LIST.get(plt["slug"])
+        ss_platform = SCREENSAVER_PLATFORM_LIST.get(slug_lower)
         ss_id = ss_platform["id"] if ss_platform else None
 
-        launchbox_platform = LAUNCHBOX_PLATFORM_LIST.get(plt["slug"])
+        launchbox_platform = LAUNCHBOX_PLATFORM_LIST.get(slug_lower)
         launchbox_id = launchbox_platform["id"] if launchbox_platform else None
 
-        hasheous_platform = HASHEOUS_PLATFORM_LIST.get(plt["slug"])
+        hasheous_platform = HASHEOUS_PLATFORM_LIST.get(slug_lower)
         hasheous_id = hasheous_platform["id"] if hasheous_platform else None
 
-        ra_platform = RA_PLATFORM_LIST.get(plt["slug"])
+        ra_platform = RA_PLATFORM_LIST.get(slug_lower)
         ra_id = ra_platform["id"] if ra_platform else None
 
-        supported_platforms[plt["slug"].lower()] = {
+        supported_platforms[slug_lower] = {
             "name": plt["name"],
-            "folder": plt["slug"],
+            "folder": slug_lower,
             "igdb_slug": plt["slug"],
             "moby_slug": moby_slug,
             "ss_id": ss_id,
@@ -173,18 +175,7 @@ if __name__ == "__main__":
     )
 
     print(
-        """<!-- vale off -->
-<!-- prettier-ignore -->
-
-Below is a list of all supported platforms/systems/consoles and their respective folder names. Supported platforms means RomM can fetch metadata from sources for those platforms.
-
-!!! info
-    For platforms that can be playable in the browser, please check [emulatorjs supported platforms](./EmulatorJS-Player.md) and [ruffle player](./RuffleRS-Player.md).
-
-!!! danger
-    **The folder name is case-sensitive and must be used exactly as it appears in the list below.**
-
-|Platform Name|Folder Name|Metadata Providers|
+        """|Platform Name|Folder Name|Metadata Providers|
 |---|---|---|"""
     )
 
@@ -224,5 +215,3 @@ Below is a list of all supported platforms/systems/consoles and their respective
             ),
             " |",
         )
-
-    print("\n<!-- vale on -->")

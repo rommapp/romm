@@ -73,7 +73,6 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "name": platform["name"],
             "fs_slug": platform["slug"],
             "slug": platform["slug"],
-            "logo_path": "",
             "roms": [],
             "rom_count": 0,
             "created_at": now,
@@ -152,7 +151,7 @@ async def delete_platform(
         raise PlatformNotFoundInDatabaseException(id)
 
     log.info(
-        f"Deleting {hl(platform.name,  color=BLUE)} [{hl(platform.fs_slug)}] from database"
+        f"Deleting {hl(platform.name, color=BLUE)} [{hl(platform.fs_slug)}] from database"
     )
     db_platform_handler.delete_platform(id)
 
