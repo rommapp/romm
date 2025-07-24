@@ -42,7 +42,6 @@ class IGDBPlatform(TypedDict):
     family_slug: NotRequired[str]
     url: NotRequired[str]
     url_logo: NotRequired[str]
-    logo_path: NotRequired[str]
 
 
 class IGDBMetadataPlatform(TypedDict):
