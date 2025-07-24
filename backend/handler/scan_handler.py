@@ -58,7 +58,7 @@ class MetadataSource:
     SGDB = "sgdb"  # SteamGridDB
 
 
-async def _get_main_platform_igdb_id(platform: Platform):
+def _get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
     if platform.fs_slug in cnfg.PLATFORMS_VERSIONS.keys():
@@ -387,7 +387,7 @@ async def scan_rom(
                 return await meta_igdb_handler.get_rom_by_id(playmatch_rom["igdb_id"])
 
             # If no matches found, use the file name to get the IGDB ID
-            main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
+            main_platform_igdb_id = _get_main_platform_igdb_id(platform)
             return await meta_igdb_handler.get_rom(
                 rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
             )

@@ -391,7 +391,6 @@ class IGDBHandler(MetadataHandler):
     #         f'fields {",".join(self.platforms_fields)}; limit 500;',
     #     )
 
-    @check_twitch_token
     def get_platform(self, slug: str) -> IGDBPlatform:
         if slug in IGDB_PLATFORM_LIST:
             platform = IGDB_PLATFORM_LIST[UPS(slug)]
