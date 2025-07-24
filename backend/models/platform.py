@@ -3,9 +3,6 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-import pydash
-from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
-from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST
 from models.base import BaseModel
 from models.rom import Rom
 from sqlalchemy import String, func, select
@@ -83,11 +80,19 @@ class Platform(BaseModel):
 
     @cached_property
     def igdb_slug(self) -> str | None:
-        return pydash.get(IGDB_PLATFORM_LIST, f"{self.slug}.slug", None)
+        from handler.metadata import meta_igdb_handler
+
+        igdb_platform = meta_igdb_handler.get_platform(self.slug)
+
+        return igdb_platform.get("igdb_slug", None)
 
     @cached_property
     def moby_slug(self) -> str | None:
-        return pydash.get(MOBYGAMES_PLATFORM_LIST, f"{self.slug}.slug", None)
+        from handler.metadata import meta_moby_handler
+
+        moby_platform = meta_moby_handler.get_platform(self.slug)
+
+        return moby_platform.get("moby_slug", None)
 
     def __repr__(self) -> str:
         return self.name

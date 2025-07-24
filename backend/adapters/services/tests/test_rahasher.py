@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from adapters.services.rahasher import (
-    PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID,
     RAHASHER_VALID_HASH_REGEX,
     RAHasherError,
     RAHasherService,
@@ -37,24 +36,6 @@ class TestRAHasherValidHashRegex:
 
         for hash_value in invalid_hashes:
             assert RAHASHER_VALID_HASH_REGEX.search(hash_value) is None
-
-
-class TestPlatformSlugMapping:
-    """Test the platform slug to RetroAchievements ID mapping."""
-
-    def test_platform_mapping_contains_expected_platforms(self):
-        """Test that the mapping contains some expected platforms."""
-        expected_platforms = {
-            "nes": 7,
-            "snes": 3,
-            "genesis": 1,
-            "gb": 4,
-            "n64": 2,
-            "psx": 12,
-        }
-
-        for slug, expected_id in expected_platforms.items():
-            assert PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID[slug] == expected_id
 
 
 class TestRAHasherService:

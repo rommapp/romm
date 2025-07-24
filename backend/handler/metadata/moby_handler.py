@@ -31,6 +31,7 @@ ARCADE_MOBY_IDS: Final = [143, 36]
 class MobyGamesPlatform(TypedDict):
     slug: str
     moby_id: int | None
+    moby_slug: NotRequired[str]
     name: NotRequired[str]
 
 
@@ -110,6 +111,7 @@ class MobyGamesHandler(MetadataHandler):
         return MobyGamesPlatform(
             moby_id=platform["id"],
             slug=slug,
+            moby_slug=platform["slug"],
             name=platform["name"],
         )
 
