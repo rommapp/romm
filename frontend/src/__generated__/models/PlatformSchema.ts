@@ -9,6 +9,8 @@ export type PlatformSchema = {
     fs_slug: string;
     rom_count: number;
     name: string;
+    igdb_slug: (string | null);
+    moby_slug: (string | null);
     custom_name?: (string | null);
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
@@ -33,6 +35,5 @@ export type PlatformSchema = {
     is_identified: boolean;
     missing_from_fs: boolean;
     readonly display_name: string;
-    readonly moby_slug: (string | null);
 };
 

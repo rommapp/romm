@@ -390,7 +390,7 @@ class IGDBHandler(MetadataHandler):
     #     )
 
     @check_twitch_token
-    async def get_platform(self, slug: str) -> IGDBPlatform:
+    def get_platform(self, slug: str) -> IGDBPlatform:
         platform = IGDB_PLATFORM_LIST.get(slug, None)
 
         if platform:
