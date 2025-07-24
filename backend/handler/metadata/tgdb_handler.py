@@ -953,7 +953,7 @@ TGDB_PLATFORM_LIST: dict[str, SlugToTGDBId] = {
         "summary": "Mac OS is a series of graphical user interface-based operating systems developed by Apple Inc. (formerly Apple Computer, Inc.) for their Macintosh line of computer systems. The Macintosh user experience is credited with popularizing the graphical user interface.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/37-1.jpg",
     },
-    "odyssey--1": {
+    "odyssey": {
         "id": 4961,
         "name": "Magnavox Odyssey 1",
         "manufacturer": "Magnavox",
@@ -983,7 +983,7 @@ TGDB_PLATFORM_LIST: dict[str, SlugToTGDBId] = {
         "summary": "The Magnavox Odyssey², known in Europe as the Videopac, in Brazil as the Philips Odyssey, in the United States as the Magnavox Odyssey² and the Philips Odyssey², and also by many other names, is a video game console released in 1978.In the early 1970s, Magnavox was an innovator in the home video game industry. They succeeded in bringing the first home video game system to market, the Odyssey, which was quickly followed by a number of later models, each with a few technological improvements (Magnavox Odyssey Series). In 1978, Magnavox, now a subsidiary of North American Philips, released the Odyssey², its new second-generation video game console.In 2009, the video game website IGN named the Odyssey² the 21st greatest video game console, out of its list of 25.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/4927-1.jpg",
     },
-    "aquarius": {
+    "mattel-aquarius": {
         "id": 4989,
         "name": "Mattel Aquarius",
         "manufacturer": "Mattel Electronics",
@@ -1343,7 +1343,7 @@ TGDB_PLATFORM_LIST: dict[str, SlugToTGDBId] = {
         "summary": "The Nintendo Switch (Japanese: ニンテンドースイッチ Hepburn: Nintendō Suitchi?), is Nintendo's seventh major home console. Originally known in development as the NX, it was officially unveiled in October 2016 and released worldwide on March 3, 2017.The Switch is a 'hybrid' console, allowing different modes of play. Its main unit is shaped like a tablet computer which can be used portably as-is, or connected to a television display through a detachable docking station. In addition it can also be used in a tapletop form with its kickstand. Despite these characteristics, Nintendo markets the Switch primarily as a home console rather than as a portable.Its most distinguishable feature are the 'Joy-Con' controllers. These are two detachable controllers that can be either attached to a 'Grip' to provide a traditional home console gamepad form, attached on either side of the main unit for handheld play, or can be used individually in the hand like Nintendo's Wii Remote. The Joy-Cons are similarly motion-sensitive, and feature NFC for reading Amiibo data. The Switch uses flash ROM cartridges for media, rather than optical discs.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/4971-1.jpg",
     },
-    "switch2": {
+    "switch-2": {
         "id": 5021,
         "name": "Nintendo Switch 2",
         "manufacturer": "Nintendo",
@@ -1718,7 +1718,7 @@ TGDB_PLATFORM_LIST: dict[str, SlugToTGDBId] = {
         "summary": "The Sega Game Gear was Sega's first handheld game console. It was the third commercially available color handheld console, after the Atari Lynx and the TurboExpress.Work began on the console in 1989 under the codename 'Project Mercury', following Sega's policy at the time of codenaming their systems after planets. The system was released in Japan on October 6, 1990, North America, Europe and Argentina in 1991, and Australia in 1992. The launch price was $150 US and £145 UK. Sega dropped support for the Game Gear in early 1997.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/20-1.jpg",
     },
-    "genesis-slash-megadrive": {
+    "genesis": {
         "id": 18,
         "name": "Sega Genesis",
         "manufacturer": "Sega",
@@ -1778,7 +1778,7 @@ TGDB_PLATFORM_LIST: dict[str, SlugToTGDBId] = {
         "summary": "The Sega Saturn is a 32-bit fifth-generation video game console that was first released by Sega on November 22, 1994 in Japan, May 11, 1995 in North America, and July 8, 1995 in Europe. The system was discontinued in North America and Europe in 1998, and in 2000 in Japan.While it was popular in Japan, the Saturn failed to gain a similar market share in North America and Europe against its main competitors: Sony's PlayStation and the Nintendo 64.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/17-1.jpg",
     },
-    "sg-1000": {
+    "sg1000": {
         "id": 4949,
         "name": "SEGA SG-1000",
         "manufacturer": "SEGA",
@@ -1898,7 +1898,7 @@ TGDB_PLATFORM_LIST: dict[str, SlugToTGDBId] = {
         "summary": "",
         "url_logo": None,
     },
-    "ps": {
+    "psx": {
         "id": 10,
         "name": "Sony Playstation",
         "manufacturer": "Sony",
@@ -1943,7 +1943,7 @@ TGDB_PLATFORM_LIST: dict[str, SlugToTGDBId] = {
         "summary": "The PlayStation 3, (officially abbreviated as PS3) is the third home video game console produced by Sony Computer Entertainment and the successor to the PlayStation 2 as part of the PlayStation series.The PlayStation 3 competes with Microsoft's Xbox 360 and Nintendo's Wii as part of the seventh generation of video game consoles. It was first released on November 11, 2006, in Japan, with international markets following shortly thereafter.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/12-3.jpg",
     },
-    "ps4--1": {
+    "ps4": {
         "id": 4919,
         "name": "Sony Playstation 4",
         "manufacturer": "Sony",
@@ -2108,7 +2108,7 @@ TGDB_PLATFORM_LIST: dict[str, SlugToTGDBId] = {
         "summary": "The Radio Shack TRS-80 Color Computer (also marketed as the Tandy Color Computer and affectionately nicknamed CoCo) is a line of home computers based on the Motorola 6809 processor. The Color Computer was launched in 1980, and lasted through three generations of hardware until being discontinued in 1991. The CoCo is designed to be attached to a color television set, whereas the Z80 machines use monochrome computer monitors, often built into the case. The CoCo also features an expansion connector for program cartridges (mostly games, although the EDTASM assembler is a cartridge) and other expansion devices, such as floppy-disk controllers and modems. In this way it is similar to the Atari 2600, Atari 8-bit computers, and other cartridge-capable systems. Tandy released a Multi-Pak Interface which allowed switching quickly among four cartridges. This is similar in concept to the Model I's Expansion Interface.",
         "url_logo": "https://cdn.thegamesdb.net/images/original/platform/boxart/4941-1.jpg",
     },
-    "turbografx16--1": {
+    "tg16": {
         "id": 34,
         "name": "TurboGrafx 16",
         "manufacturer": "NEC",
