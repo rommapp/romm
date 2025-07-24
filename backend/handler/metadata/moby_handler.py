@@ -100,13 +100,10 @@ class MobyGamesHandler(MetadataHandler):
         return roms[0]
 
     def get_platform(self, slug: str) -> MobyGamesPlatform:
-        try:
-            platform = MOBYGAMES_PLATFORM_LIST.get(UPS(slug), None)
-        except ValueError:
+        if slug not in MOBYGAMES_PLATFORM_LIST:
             return MobyGamesPlatform(moby_id=None, slug=slug)
 
-        if not platform:
-            return MobyGamesPlatform(moby_id=None, slug=slug)
+        platform = MOBYGAMES_PLATFORM_LIST[UPS(slug)]
 
         return MobyGamesPlatform(
             moby_id=platform["id"],

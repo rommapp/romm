@@ -195,14 +195,10 @@ class HasheousHandler(MetadataHandler):
         return {}
 
     def get_platform(self, slug: str) -> HasheousPlatform:
-        try:
-            platform = HASHEOUS_PLATFORM_LIST.get(UPS(slug), None)
-        except ValueError:
+        if slug not in HASHEOUS_PLATFORM_LIST:
             return HasheousPlatform(hasheous_id=None, slug=slug)
 
-        if not platform:
-            return HasheousPlatform(hasheous_id=None, slug=slug)
-
+        platform = HASHEOUS_PLATFORM_LIST[UPS(slug)]
         return HasheousPlatform(
             hasheous_id=platform["id"],
             slug=slug,
