@@ -20,6 +20,7 @@ from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomsNotFoundException,
 )
+from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
@@ -65,33 +66,32 @@ COMPRESSED_FILE_EXTENSIONS = frozenset(
 
 NON_HASHABLE_PLATFORMS = frozenset(
     (
-        "amazon-alexa",
-        "amazon-fire-tv",
-        "android",
-        "gear-vr",
-        "ios",
-        "ipad",
-        "linux",
-        "mac",
-        "meta-quest-2",
-        "meta-quest-3",
-        "oculus-go",
-        "oculus-quest",
-        "oculus-rift",
-        "pc",
-        "ps3",
-        "ps4",
-        "ps4",
-        "ps5",
-        "psvr",
-        "psvr2",
-        "series-x-s",
-        "switch",
-        "wiiu",
-        "win",
-        "xbox-360",
-        "xbox360",
-        "xboxone",
+        UPS.AMAZON_ALEXA,
+        UPS.AMAZON_FIRE_TV,
+        UPS.ANDROID,
+        UPS.GEAR_VR,
+        UPS.IOS,
+        UPS.IPAD,
+        UPS.LINUX,
+        UPS.MAC,
+        UPS.META_QUEST_2,
+        UPS.META_QUEST_3,
+        UPS.OCULUS_GO,
+        UPS.OCULUS_QUEST,
+        UPS.OCULUS_RIFT,
+        UPS.PS3,
+        UPS.PS4,
+        UPS.PS5,
+        UPS.PSVR,
+        UPS.PSVR2,
+        UPS.SERIES_X_S,
+        UPS.SWITCH,
+        UPS.SWITCH_2,
+        UPS.WIIU,
+        UPS.WIN,
+        UPS.XBOX360,
+        UPS.XBOXONE,
+        UPS.SERIES_X_S,
     )
 )
 

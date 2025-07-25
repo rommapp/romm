@@ -45,8 +45,8 @@ if __name__ == "__main__":
             or ra_platform.get("name", None)
             or slug_lower.replace("-", " ").title(),
             "folder": slug_lower,
-            "igdb_slug": igdb_platform["slug"],
-            "moby_slug": moby_platform["slug"],
+            "igdb_slug": igdb_platform.get("igdb_slug", None),
+            "moby_slug": moby_platform.get("moby_slug", None),
             "ss_id": ss_platform["ss_id"],
             "launchbox_id": launchbox_platform["launchbox_id"],
             "hasheous_id": hasheous_platform["hasheous_id"],
