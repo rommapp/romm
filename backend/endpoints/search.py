@@ -17,7 +17,7 @@ from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
 from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
 from handler.metadata.ss_handler import SS_API_ENABLED, SSRom
-from handler.scan_handler import _get_main_platform_igdb_id
+from handler.scan_handler import get_main_platform_igdb_id
 from logger.formatter import BLUE, CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -101,7 +101,7 @@ async def search_rom(
     elif search_by.lower() == "name":
         igdb_matched_roms, moby_matched_roms, ss_matched_roms = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
-                search_term, (await _get_main_platform_igdb_id(rom.platform))
+                search_term, get_main_platform_igdb_id(rom.platform)
             ),
             meta_moby_handler.get_matched_roms_by_name(
                 search_term, rom.platform.moby_id
