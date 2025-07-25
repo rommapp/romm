@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
       <v-card
         v-bind="{
           ...hoverProps,
-          ...collectionRoute,
+          to: collectionRoute,
         }"
         :class="{
           'on-hover': isHovering,

@@ -179,7 +179,7 @@ class SmartCollection(BaseModel):
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
     rom_count: Mapped[int] = mapped_column(default=0)
-    rom_ids: Mapped[set[int]] = mapped_column(
+    rom_ids: Mapped[list[int]] = mapped_column(
         CustomJSON(), default=[], doc="Rom IDs that belong to this smart collection"
     )
     path_covers_small: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
@@ -203,7 +203,7 @@ class SmartCollection(BaseModel):
 
         # Update the properties based on the list of ROMs
         self.rom_count = len(roms)
-        self.rom_ids = {rom.id for rom in roms}
+        self.rom_ids = [rom.id for rom in roms]
         self.path_covers_small = [
             f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
             for r in roms
