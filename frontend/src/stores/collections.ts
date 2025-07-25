@@ -17,7 +17,6 @@ export default defineStore("collections", {
     virtualCollections: [] as VirtualCollection[],
     smartCollections: [] as SmartCollection[],
     favCollection: {} as Collection | undefined,
-    currentSmartCollection: null as SmartCollection | null,
     filterText: "" as string,
   }),
   getters: {
@@ -83,7 +82,6 @@ export default defineStore("collections", {
       this.virtualCollections = [];
       this.smartCollections = [];
       this.favCollection = undefined;
-      this.currentSmartCollection = null;
       this.filterText = "";
     },
   },

@@ -22,8 +22,6 @@ class BaseCollectionSchema(BaseModel):
 class CollectionSchema(BaseCollectionSchema):
     id: int
     url_cover: str | None
-    rom_ids: set[int]
-    rom_count: int
     user_id: int
     user__username: str
     is_public: bool
@@ -59,7 +57,6 @@ class SmartCollectionSchema(BaseCollectionSchema):
     id: int
     name: str
     description: str = ""
-    rom_ids: set[int] = set()
     filter_criteria: dict[str, Any]
     filter_summary: str
     user_id: int
