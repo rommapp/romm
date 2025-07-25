@@ -465,8 +465,9 @@ class SlugToSSId(TypedDict):
 SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS._3DO: {"id": 29, "name": "3DO"},
     UPS.AMIGA: {"id": 64, "name": "Amiga"},
-    UPS.AMIGA_CD32: {"id": 134, "name": "Amiga CD"},
-    UPS.ACPC: {"id": 60, "name": "CPC"},
+    UPS.AMIGA_CD: {"id": 134, "name": "Amiga CD"},
+    UPS.AMIGA_CD32: {"id": 130, "name": "Amiga CD32"},
+    UPS.ACPC: {"id": 65, "name": "CPC"},
     UPS.ADVENTURE_VISION: {
         "id": 78,
         "name": "Entex Adventure Vision",
@@ -547,6 +548,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     },
     UPS.N3DS: {"id": 17, "name": "Nintendo 3DS"},
     UPS.N64: {"id": 14, "name": "Nintendo 64"},
+    UPS.N64DD: {"id": 122, "name": "Nintendo 64DD"},
     UPS.NDS: {"id": 15, "name": "Nintendo DS"},
     UPS.NINTENDO_DSI: {"id": 15, "name": "Nintendo DS"},
     UPS.SWITCH: {"id": 225, "name": "Switch"},
