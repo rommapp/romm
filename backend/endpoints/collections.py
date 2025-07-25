@@ -132,6 +132,9 @@ async def add_smart_collection(request: Request) -> SmartCollectionSchema:
         SmartCollection(**cleaned_data)
     )
 
+    # Fetch the ROMs to update the database model
+    created_smart_collection.get_roms()
+
     return SmartCollectionSchema.model_validate(created_smart_collection)
 
 
@@ -379,6 +382,9 @@ async def update_smart_collection(
     updated_smart_collection = db_collection_handler.update_smart_collection(
         id, cleaned_data
     )
+
+    # Fetch the ROMs to update the database model
+    updated_smart_collection.get_roms()
 
     return SmartCollectionSchema.model_validate(updated_smart_collection)
 

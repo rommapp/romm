@@ -1,27 +1,19 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useI18n } from "vue-i18n";
-import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import type { Events } from "@/types/emitter";
+import collectionApi from "@/services/api/collection";
 import { storeToRefs } from "pinia";
 import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 import { inject } from "vue";
 
-// Props
-const { t } = useI18n();
-const collectionsStore = storeCollections();
 const galleryFilterStore = storeGalleryFilter();
-const emitter = inject<Emitter<Events>>("emitter");
-
-// State
 const show = ref(false);
 const loading = ref(false);
 const name = ref("");
 const description = ref("");
 const isPublic = ref(false);
 
-// Get current filter state
 const {
   searchTerm,
   filterUnmatched,
@@ -43,7 +35,19 @@ const {
   selectedLanguage,
 } = storeToRefs(galleryFilterStore);
 
-// Computed
+const emitter = inject<Emitter<Events>>("emitter");
+emitter?.on("showCreateSmartCollectionDialog", () => {
+  if (!hasFilters.value) {
+    emitter?.emit("snackbarShow", {
+      msg: "Please apply some filters before creating a smart collection",
+      icon: "mdi-information",
+      color: "warning",
+    });
+    return;
+  }
+  show.value = true;
+});
+
 const hasFilters = computed(() => galleryFilterStore.isFiltered);
 
 const filterSummary = computed(() => {
@@ -76,25 +80,11 @@ const filterSummary = computed(() => {
   return filters.length > 0 ? filters.join("; ") : "No filters applied";
 });
 
-// Methods
-function openDialog() {
-  if (!hasFilters.value) {
-    emitter?.emit("snackbarShow", {
-      msg: "Please apply some filters before creating a smart collection",
-      icon: "mdi-information",
-      color: "warning",
-    });
-    return;
-  }
-
-  show.value = true;
+function closeDialog() {
+  show.value = false;
   name.value = "";
   description.value = "";
   isPublic.value = false;
-}
-
-function closeDialog() {
-  show.value = false;
 }
 
 async function createSmartCollection() {
@@ -110,7 +100,6 @@ async function createSmartCollection() {
   loading.value = true;
 
   try {
-    // Build filter criteria object from current state
     const filterCriteria: Record<string, any> = {};
 
     if (searchTerm.value) filterCriteria.search_term = searchTerm.value;
@@ -141,11 +130,13 @@ async function createSmartCollection() {
     if (selectedLanguage.value)
       filterCriteria.selected_language = selectedLanguage.value;
 
-    await collectionsStore.createSmartCollection({
-      name: name.value.trim(),
-      description: description.value.trim() || undefined,
-      filter_criteria: filterCriteria,
-      is_public: isPublic.value,
+    await collectionApi.createSmartCollection({
+      smartCollection: {
+        name: name.value.trim(),
+        description: description.value.trim() || undefined,
+        filter_criteria: filterCriteria,
+        is_public: isPublic.value,
+      },
     });
 
     emitter?.emit("snackbarShow", {
@@ -166,11 +157,6 @@ async function createSmartCollection() {
     loading.value = false;
   }
 }
-
-// Expose methods for parent components
-defineExpose({
-  openDialog,
-});
 </script>
 
 <template>

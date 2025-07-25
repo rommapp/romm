@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import storeCollections from "@/stores/collections";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
+import CreateSmartCollectionDialog from "@/components/common/Collection/Dialog/CreateSmartCollection.vue";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -202,4 +203,5 @@ function onClose() {
   </v-navigation-drawer>
 
   <create-collection-dialog />
+  <create-smart-collection-dialog />
 </template>
