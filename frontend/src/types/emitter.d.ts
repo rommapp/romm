@@ -15,6 +15,7 @@ export type SnackbarStatus = {
 export type Events = {
   showDeletePlatformDialog: Platform;
   showCreateCollectionDialog: null;
+  showCreateSmartCollectionDialog: null;
   showAddToCollectionDialog: SimpleRom[];
   showRemoveFromCollectionDialog: SimpleRom[];
   showDeleteCollectionDialog: Collection;

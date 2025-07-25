@@ -196,8 +196,7 @@ class SmartCollection(BaseModel):
         lazy="joined", back_populates="smart_collections"
     )
 
-    @property
-    def roms(self) -> list["Rom"]:
+    def get_roms(self) -> list["Rom"]:
         from handler.database import db_collection_handler
 
         roms = db_collection_handler.get_smart_collection_roms(self, self.user_id)
@@ -216,6 +215,7 @@ class SmartCollection(BaseModel):
             if r.path_cover_l
         ]
 
+        # Update the database with the new properties
         db_collection_handler.update_smart_collection(
             self.id,
             {

@@ -16,7 +16,7 @@ export const collectionApi = api;
 async function createCollection({
   collection,
 }: {
-  collection: UpdatedCollection;
+  collection: Partial<UpdatedCollection>;
 }): Promise<{ data: Collection }> {
   const formData = new FormData();
 
@@ -36,11 +36,11 @@ async function createCollection({
 async function createSmartCollection({
   smartCollection,
 }: {
-  smartCollection: SmartCollection;
+  smartCollection: Partial<SmartCollection>;
 }): Promise<{ data: SmartCollection }> {
   const formData = new FormData();
 
-  formData.append("name", smartCollection.name);
+  formData.append("name", smartCollection.name || "");
   formData.append("description", smartCollection.description || "");
   formData.append(
     "filter_criteria",

@@ -3,7 +3,7 @@ from collections.abc import Iterable, Sequence
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
-from models.collection import Collection, VirtualCollection
+from models.collection import Collection, SmartCollection, VirtualCollection
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
@@ -182,11 +182,12 @@ class DBRomsHandler(DBBaseHandler):
         self, query: Query, session: Session, smart_collection_id: int
     ):
         smart_collection = (
-            session.query(Collection)
-            .filter(Collection.id == smart_collection_id)
+            session.query(SmartCollection)
+            .filter(SmartCollection.id == smart_collection_id)
             .one_or_none()
         )
         if smart_collection:
+            smart_collection.get_roms()  # Ensure the latest ROMs are loaded
             return query.filter(Rom.id.in_(smart_collection.rom_ids))
         return query
 
