@@ -6,6 +6,7 @@ import type {
 } from "@/stores/collections";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import { ROUTES } from "@/plugins/router";
+import { computed } from "vue";
 
 // Props
 const props = withDefaults(
@@ -24,11 +25,17 @@ const props = withDefaults(
   },
 );
 
+const collectionType = computed(() => {
+  if ("filter_criteria" in props.collection) return "smart";
+  if ("type" in props.collection) return "virtual";
+  return "regular";
+});
+
 // Determine the correct route for this collection type
-const getCollectionRoute = () => {
+const collectionRoute = computed(() => {
   if (!props.withLink || !props.collection) return {};
 
-  if ("filter_criteria" in props.collection) {
+  if (collectionType.value === "smart") {
     return {
       to: {
         name: ROUTES.SMART_COLLECTION,
@@ -37,7 +44,7 @@ const getCollectionRoute = () => {
     };
   }
 
-  if ("type" in props.collection) {
+  if (collectionType.value === "virtual") {
     return {
       to: {
         name: ROUTES.VIRTUAL_COLLECTION,
@@ -52,13 +59,13 @@ const getCollectionRoute = () => {
       params: { collection: props.collection.id },
     },
   };
-};
+});
 </script>
 
 <template>
   <v-list-item
-    v-bind="getCollectionRoute()"
-    :value="collection.id"
+    v-bind="collectionRoute"
+    :value="`${collectionType}-${collection.id}`"
     rounded
     density="compact"
     class="my-1 py-2"
@@ -66,11 +73,11 @@ const getCollectionRoute = () => {
     <template #prepend>
       <r-avatar :size="45" :collection="collection" />
     </template>
-    <v-row v-if="withTitle" no-gutters
-      ><v-col
-        ><span class="text-body-1">{{ collection.name }}</span></v-col
-      ></v-row
-    >
+    <v-row v-if="withTitle" no-gutters>
+      <v-col>
+        <span class="text-body-1">{{ collection.name }}</span>
+      </v-col>
+    </v-row>
     <v-row v-if="withDescription" no-gutters>
       <v-col>
         <span class="text-caption text-grey">{{ collection.description }}</span>
