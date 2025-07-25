@@ -32,6 +32,7 @@ from .base_handler import DBBaseHandler
 EJS_SUPPORTED_PLATFORMS = [
     UPS._3DO,
     UPS.AMIGA,
+    UPS.AMIGA_CD,
     UPS.AMIGA_CD32,
     UPS.ARCADE,
     UPS.NEOGEOAES,
@@ -53,6 +54,7 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.FAMICOM,
     UPS.FDS,
     UPS.N64,
+    UPS.N64DD,
     UPS.NDS,
     UPS.NINTENDO_DSI,
     UPS.GB,

@@ -263,6 +263,7 @@ class UniversalPlatformSlug(enum.StrEnum):
     AMAZON_ALEXA = "amazon-alexa"
     AMAZON_FIRE_TV = "amazon-fire-tv"
     AMIGA = "amiga"
+    AMIGA_CD = "amiga-cd"
     AMIGA_CD32 = "amiga-cd32"
     AMSTRAD_GX4000 = "amstrad-gx4000"
     AMSTRAD_PCW = "amstrad-pcw"
