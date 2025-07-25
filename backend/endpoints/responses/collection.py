@@ -15,6 +15,10 @@ class BaseCollectionSchema(BaseModel):
     path_cover_large: str | None
     path_covers_small: list[str]
     path_covers_large: list[str]
+    is_public: bool = False
+    is_favorite: bool = False
+    is_virtual: bool = False
+    is_smart: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -24,9 +28,6 @@ class CollectionSchema(BaseCollectionSchema):
     url_cover: str | None
     user_id: int
     user__username: str
-    is_public: bool
-    is_favorite: bool
-    is_virtual: bool = False
 
     class Config:
         from_attributes = True
@@ -45,8 +46,6 @@ class CollectionSchema(BaseCollectionSchema):
 class VirtualCollectionSchema(BaseCollectionSchema):
     id: str
     type: str
-    is_public: bool = True
-    is_favorite: bool = False
     is_virtual: bool = True
 
     class Config:
@@ -61,7 +60,6 @@ class SmartCollectionSchema(BaseCollectionSchema):
     filter_summary: str
     user_id: int
     user__username: str
-    is_public: bool
     is_smart: bool = True
 
     class Config:

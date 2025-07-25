@@ -11,12 +11,13 @@ export type VirtualCollectionSchema = {
     path_cover_large: (string | null);
     path_covers_small: Array<string>;
     path_covers_large: Array<string>;
+    is_public?: boolean;
+    is_favorite?: boolean;
+    is_virtual?: boolean;
+    is_smart?: boolean;
     created_at: string;
     updated_at: string;
     id: string;
     type: string;
-    is_public?: boolean;
-    is_favorite?: boolean;
-    is_virtual?: boolean;
 };
 
