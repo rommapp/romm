@@ -27,7 +27,7 @@ system:
     amstradcpc: acpc
     apfm1000: apf
     apple2: appleii
-    apple2gs: apple2gs
+    apple2gs: apple-iigs
     arcadia: arcadia-2001
     archimedes: acorn-archimedes
     arduboy: arduboy
@@ -81,8 +81,8 @@ system:
     lynx: lynx
     mame: arcade
     mastersystem: sms
-    megadrive: genesis-slash-megadrive
-    megadrive-msu: genesis-slash-megadrive
+    megadrive: genesis
+    megadrive-msu: genesis
     megaduck: megaduck
     model2: arcade
     model3: arcade
@@ -102,15 +102,15 @@ system:
     oricatmos: oric
     pc88: pc-8800-series
     pc98: pc-9800-series
-    pcengine: turbografx16--1
-    pcenginecd: turbografx-16-slash-pc-engine-cd
+    pcengine: tg16
+    pcenginecd: turbografx-cd
     pcfx: pc-fx
     pet: cpet
     pokemini: pokemon-mini
     prboom: doom
     ps2: ps2
     ps3: ps3
-    ps4: ps4--1
+    ps4: ps4
     psp: psp
     psvita: psvita
     psx: ps
@@ -149,6 +149,6 @@ system:
     xbox: xbox
     xbox360: xbox360
     zmachine: z-machine
-    zx81: sinclair-zx81
+    zx81: zx81
     zxspectrum: zxs
   versions: {}

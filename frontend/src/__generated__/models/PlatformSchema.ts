@@ -9,6 +9,8 @@ export type PlatformSchema = {
     fs_slug: string;
     rom_count: number;
     name: string;
+    igdb_slug: (string | null);
+    moby_slug: (string | null);
     custom_name?: (string | null);
     igdb_id?: (number | null);
     sgdb_id?: (number | null);
@@ -24,7 +26,6 @@ export type PlatformSchema = {
     family_slug?: (string | null);
     url?: (string | null);
     url_logo?: (string | null);
-    logo_path?: (string | null);
     firmware?: Array<FirmwareSchema>;
     aspect_ratio?: string;
     created_at: string;
@@ -34,6 +35,5 @@ export type PlatformSchema = {
     is_identified: boolean;
     missing_from_fs: boolean;
     readonly display_name: string;
-    readonly moby_slug: (string | null);
 };
 

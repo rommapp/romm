@@ -12,11 +12,21 @@ from fastapi import Request, status
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler
-from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST
+from handler.metadata import (
+    meta_hasheous_handler,
+    meta_igdb_handler,
+    meta_launchbox_handler,
+    meta_moby_handler,
+    meta_ra_handler,
+    meta_ss_handler,
+    meta_tgdb_handler,
+)
+from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.platform import DEFAULT_COVER_ASPECT_RATIO, Platform
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -62,18 +72,34 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
     """Retrieve the list of supported platforms."""
 
     db_platforms = db_platform_handler.get_platforms()
-    db_platforms_map = {p.name: p.id for p in db_platforms}
+    db_platforms_map = {p.slug: p for p in db_platforms}
 
     now = datetime.now(timezone.utc)
     supported_platforms = []
-    for platform in IGDB_PLATFORM_LIST.values():
-        platform_id = db_platforms_map.get(platform["name"], -1)
-        sup_plat = {
-            "id": platform_id,
-            "name": platform["name"],
-            "fs_slug": platform["slug"],
-            "slug": platform["slug"],
-            "logo_path": "",
+
+    for upslug in UPS:
+        slug = upslug.value
+
+        db_platform = db_platforms_map.get(slug, None)
+        if db_platform:
+            supported_platforms.append(
+                PlatformSchema.model_validate(db_platform).model_dump()
+            )
+            continue
+
+        igdb_platform = meta_igdb_handler.get_platform(slug)
+        moby_platform = meta_moby_handler.get_platform(slug)
+        ss_platform = meta_ss_handler.get_platform(slug)
+        ra_platform = meta_ra_handler.get_platform(slug)
+        launchbox_platform = meta_launchbox_handler.get_platform(slug)
+        hasheous_platform = meta_hasheous_handler.get_platform(slug)
+        tgdb_platform = meta_tgdb_handler.get_platform(slug)
+
+        platform_attrs = {
+            "id": -1,
+            "name": slug.replace("-", " ").title(),
+            "fs_slug": slug,
+            "slug": slug,
             "roms": [],
             "rom_count": 0,
             "created_at": now,
@@ -82,8 +108,43 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "is_unidentified": False,
             "is_identified": True,
             "missing_from_fs": False,
+            "aspect_ratio": DEFAULT_COVER_ASPECT_RATIO,
         }
-        supported_platforms.append(PlatformSchema.model_validate(sup_plat).model_dump())
+
+        platform_attrs.update(
+            {
+                **hasheous_platform,
+                **tgdb_platform,
+                **launchbox_platform,
+                **ra_platform,
+                **moby_platform,
+                **ss_platform,
+                **igdb_platform,
+                "igdb_id": igdb_platform.get("igdb_id")
+                or hasheous_platform.get("igdb_id")
+                or None,
+                "ra_id": ra_platform.get("ra_id")
+                or hasheous_platform.get("ra_id")
+                or None,
+                "tgdb_id": moby_platform.get("tgdb_id")
+                or hasheous_platform.get("tgdb_id")
+                or None,
+                "name": igdb_platform.get("name")
+                or ss_platform.get("name")
+                or moby_platform.get("name")
+                or ra_platform.get("name")
+                or launchbox_platform.get("name")
+                or hasheous_platform.get("name")
+                or tgdb_platform.get("name")
+                or slug.replace("-", " ").title(),
+                "url_logo": igdb_platform.get("url_logo")
+                or tgdb_platform.get("url_logo")
+                or "",
+            }
+        )
+
+        platform = Platform(**platform_attrs)
+        supported_platforms.append(PlatformSchema.model_validate(platform).model_dump())
 
     return supported_platforms
 
@@ -152,7 +213,7 @@ async def delete_platform(
         raise PlatformNotFoundInDatabaseException(id)
 
     log.info(
-        f"Deleting {hl(platform.name,  color=BLUE)} [{hl(platform.fs_slug)}] from database"
+        f"Deleting {hl(platform.name, color=BLUE)} [{hl(platform.fs_slug)}] from database"
     )
     db_platform_handler.delete_platform(id)
 

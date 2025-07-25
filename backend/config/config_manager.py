@@ -1,6 +1,4 @@
-import os
 import sys
-from pathlib import Path
 from typing import Final
 
 import pydash
@@ -66,11 +64,7 @@ class ConfigManager:
     # Tests require custom config path
     def __init__(self, config_file: str = ROMM_USER_CONFIG_FILE):
         self.config_file = config_file
-        # If config file doesn't exists, create an empty one
-        if not os.path.exists(config_file):
-            Path(ROMM_USER_CONFIG_PATH).mkdir(parents=True, exist_ok=True)
-            with open(config_file, "w") as file:
-                file.write("")
+
         try:
             self.get_config()
         except ConfigNotReadableException as e:
@@ -221,14 +215,8 @@ class ConfigManager:
             sys.exit(3)
 
     def get_config(self) -> Config:
-        try:
-            with open(self.config_file) as config_file:
-                self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
-        except FileNotFoundError:
-            self._raw_config = {}
-        except PermissionError as exc:
-            self._raw_config = {}
-            raise ConfigNotReadableException from exc
+        with open(self.config_file) as config_file:
+            self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
 
         self._parse_config()
         self._validate_config()

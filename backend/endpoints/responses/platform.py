@@ -1,6 +1,5 @@
 from datetime import datetime
 
-from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST
 from models.platform import DEFAULT_COVER_ASPECT_RATIO
 from pydantic import Field, computed_field, field_validator
 
@@ -14,6 +13,8 @@ class PlatformSchema(BaseModel):
     fs_slug: str
     rom_count: int
     name: str
+    igdb_slug: str | None
+    moby_slug: str | None
     custom_name: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
@@ -29,7 +30,6 @@ class PlatformSchema(BaseModel):
     family_slug: str | None = None
     url: str | None = None
     url_logo: str | None = None
-    logo_path: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)
     aspect_ratio: str = DEFAULT_COVER_ASPECT_RATIO
     created_at: datetime
@@ -50,14 +50,3 @@ class PlatformSchema(BaseModel):
     @field_validator("firmware")
     def sort_files(cls, v: list[FirmwareSchema]) -> list[FirmwareSchema]:
         return sorted(v, key=lambda x: x.file_name)
-
-    @computed_field  # type: ignore
-    @property
-    def moby_slug(self) -> str | None:
-        if not self.moby_id:
-            return None
-
-        if self.slug not in MOBYGAMES_PLATFORM_LIST:
-            return None
-
-        return MOBYGAMES_PLATFORM_LIST[self.slug].get("slug", None)

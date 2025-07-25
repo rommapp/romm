@@ -18,6 +18,7 @@ from handler.filesystem import fs_resource_handler
 from models.rom import Rom
 
 from .base_hander import BaseRom, MetadataHandler
+from .base_hander import UniversalPlatformSlug as UPS
 
 # Used to display the Retroachievements API status in the frontend
 RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY)
@@ -184,10 +185,10 @@ class RAHandler(MetadataHandler):
         return None
 
     def get_platform(self, slug: str) -> RAGamesPlatform:
-        platform = RA_PLATFORM_LIST.get(slug.lower(), None)
-
-        if not platform:
+        if slug not in RA_PLATFORM_LIST:
             return RAGamesPlatform(ra_id=None, slug=slug)
+
+        platform = RA_PLATFORM_LIST[UPS(slug)]
 
         return RAGamesPlatform(
             ra_id=platform["id"],
@@ -306,87 +307,76 @@ class SlugToRAId(TypedDict):
     name: str
 
 
-RA_PLATFORM_LIST: dict[str, SlugToRAId] = {
-    "3do": {"id": 43, "name": "3DO"},
-    "cpc": {"id": 37, "name": "Amstrad CPC"},
-    "acpc": {"id": 37, "name": "Amstrad CPC"},
-    "apple2": {"id": 38, "name": "Apple II"},
-    "appleii": {"id": 38, "name": "Apple II"},
-    "arcade": {"id": 27, "name": "Arcade"},
-    "arcadia-2001": {"id": 73, "name": "Arcadia 2001"},
-    "arduboy": {"id": 71, "name": "Arduboy"},
-    "atari-2600": {"id": 25, "name": "Atari 2600"},
-    "atari2600": {"id": 25, "name": "Atari 2600"},  # IGDB
-    "atari-7800": {"id": 51, "name": "Atari 7800"},
-    "atari7800": {"id": 51, "name": "Atari 7800"},  # IGDB
-    "atari-jaguar-cd": {"id": 77, "name": "Atari Jaguar CD"},
-    "colecovision": {"id": 44, "name": "ColecoVision"},
-    "dreamcast": {"id": 40, "name": "Dreamcast"},
-    "dc": {"id": 40, "name": "Dreamcast"},  # IGDB
-    "elektor": {"id": 75, "name": "Elektor"},
-    "fairchild-channel-f": {"id": 57, "name": "Fairchild Channel F"},
-    "gameboy": {"id": 4, "name": "Game Boy"},
-    "gb": {"id": 4, "name": "Game Boy"},  # IGDB
-    "gameboy-advance": {"id": 5, "name": "Game Boy Advance"},
-    "gba": {"id": 5, "name": "Game Boy Advance"},  # IGDB
-    "gameboy-color": {"id": 6, "name": "Game Boy Color"},
-    "gbc": {"id": 6, "name": "Game Boy Color"},  # IGDB
-    "game-gear": {"id": 15, "name": "Game Gear"},
-    "gamegear": {"id": 15, "name": "Game Gear"},  # IGDB
-    "gamecube": {"id": 16, "name": "GameCube"},
-    "ngc": {"id": 16, "name": "GameCube"},  # IGDB
-    "genesis": {"id": 1, "name": "Genesis/Mega Drive"},
-    "genesis-slash-megadrive": {"id": 1, "name": "Genesis/Mega Drive"},
-    "intellivision": {"id": 45, "name": "Intellivision"},
-    "interton-vc-4000": {"id": 74, "name": "Interton VC 4000"},
-    "jaguar": {"id": 17, "name": "Jaguar"},
-    "lynx": {"id": 13, "name": "Lynx"},
-    "msx": {"id": 29, "name": "MSX"},
-    "mega-duck-slash-cougar-boy": {"id": 69, "name": "Mega Duck/Cougar Boy"},
-    "nes": {"id": 7, "name": "NES"},
-    "famicom": {"id": 7, "name": "Family Computer"},
-    "neo-geo-cd": {"id": 56, "name": "Neo Geo CD"},
-    "neo-geo-pocket": {"id": 14, "name": "Neo Geo Pocket"},
-    "neo-geo-pocket-color": {"id": 14, "name": "Neo Geo Pocket Color"},
-    "n64": {"id": 2, "name": "Nintendo 64"},
-    "nintendo-ds": {"id": 18, "name": "Nintendo DS"},
-    "nds": {"id": 18, "name": "Nintendo DS"},  # IGDB
-    "nintendo-dsi": {"id": 78, "name": "Nintendo DSi"},
-    "odyssey-2": {"id": 23, "name": "Odyssey 2"},
-    "pc-8000": {"id": 47, "name": "PC-8000"},
-    "pc-8800-series": {"id": 47, "name": "PC-8800 Series"},  # IGDB
-    "pc-fx": {"id": 49, "name": "PC-FX"},
-    "psp": {"id": 41, "name": "PSP"},
-    "playstation": {"id": 12, "name": "PlayStation"},
-    "ps": {"id": 12, "name": "PlayStation"},  # IGDB
-    "ps2": {"id": 21, "name": "PlayStation 2"},
-    "pokemon-mini": {"id": 24, "name": "Pokémon Mini"},
-    "saturn": {"id": 39, "name": "Sega Saturn"},
-    "sega-32x": {"id": 10, "name": "SEGA 32X"},
-    "sega32": {"id": 10, "name": "SEGA 32X"},  # IGDB
-    "sega-cd": {"id": 9, "name": "SEGA CD"},
-    "segacd": {"id": 9, "name": "SEGA CD"},  # IGDB
-    "sega-master-system": {"id": 11, "name": "SEGA Master System"},
-    "sms": {"id": 11, "name": "SEGA Master System"},  # IGDB
-    "sg-1000": {"id": 33, "name": "SG-1000"},
-    "snes": {"id": 3, "name": "SNES"},
-    "sfam": {"id": 3, "name": "Super Famicom"},  # IGDB
-    "turbografx-cd": {"id": 76, "name": "TurboGrafx CD"},
-    "turbografx-16-slash-pc-engine-cd": {"id": 76, "name": "TurboGrafx CD"},
-    "turbo-grafx": {"id": 8, "name": "TurboGrafx-16"},
-    "turbografx16--1": {"id": 8, "name": "TurboGrafx-16"},  # IGDB
-    "uzebox": {"id": 80, "name": "Uzebox"},
-    "vectrex": {"id": 46, "name": "Vectrex"},
-    "virtual-boy": {"id": 28, "name": "Virtual Boy"},
-    "virtualboy": {"id": 28, "name": "Virtual Boy"},
-    "wasm-4": {"id": 72, "name": "WASM-4"},
-    "watara-slash-quickshot-supervision": {
+RA_PLATFORM_LIST: dict[UPS, SlugToRAId] = {
+    UPS._3DO: {"id": 43, "name": "3DO"},
+    UPS.ACPC: {"id": 37, "name": "Amstrad CPC"},
+    UPS.APPLEII: {"id": 38, "name": "Apple II"},
+    UPS.ARCADE: {"id": 27, "name": "Arcade"},
+    UPS.ARCADIA_2001: {"id": 73, "name": "Arcadia 2001"},
+    UPS.ARDUBOY: {"id": 71, "name": "Arduboy"},
+    UPS.ATARI2600: {"id": 25, "name": "Atari 2600"},
+    UPS.ATARI7800: {"id": 51, "name": "Atari 7800"},
+    UPS.ATARI_JAGUAR_CD: {"id": 77, "name": "Atari Jaguar CD"},
+    UPS.COLECOVISION: {"id": 44, "name": "ColecoVision"},
+    UPS.DC: {"id": 40, "name": "Dreamcast"},
+    UPS.ELEKTOR: {"id": 75, "name": "Elektor"},
+    UPS.FAIRCHILD_CHANNEL_F: {
+        "id": 57,
+        "name": "Fairchild Channel F",
+    },
+    UPS.GB: {"id": 4, "name": "Game Boy"},
+    UPS.GBA: {"id": 5, "name": "Game Boy Advance"},
+    UPS.GBC: {"id": 6, "name": "Game Boy Color"},
+    UPS.GAMEGEAR: {"id": 15, "name": "Game Gear"},
+    UPS.NGC: {"id": 16, "name": "GameCube"},
+    UPS.GENESIS: {"id": 1, "name": "Genesis/Mega Drive"},
+    UPS.INTELLIVISION: {"id": 45, "name": "Intellivision"},
+    UPS.INTERTON_VC_4000: {"id": 74, "name": "Interton VC 4000"},
+    UPS.JAGUAR: {"id": 17, "name": "Jaguar"},
+    UPS.LYNX: {"id": 13, "name": "Lynx"},
+    UPS.MSX: {"id": 29, "name": "MSX"},
+    UPS.MEGA_DUCK_SLASH_COUGAR_BOY: {
+        "id": 69,
+        "name": "Mega Duck/Cougar Boy",
+    },
+    UPS.NES: {"id": 7, "name": "NES"},
+    UPS.FAMICOM: {"id": 7, "name": "Family Computer"},
+    UPS.NEO_GEO_CD: {"id": 56, "name": "Neo Geo CD"},
+    UPS.NEO_GEO_POCKET: {"id": 14, "name": "Neo Geo Pocket"},
+    UPS.NEO_GEO_POCKET_COLOR: {
+        "id": 14,
+        "name": "Neo Geo Pocket Color",
+    },
+    UPS.N64: {"id": 2, "name": "Nintendo 64"},
+    UPS.NDS: {"id": 18, "name": "Nintendo DS"},
+    UPS.NINTENDO_DSI: {"id": 78, "name": "Nintendo DSi"},
+    UPS.ODYSSEY_2: {"id": 23, "name": "Odyssey 2"},
+    UPS.PC_8800_SERIES: {"id": 47, "name": "PC-8800 Series"},
+    UPS.PC_FX: {"id": 49, "name": "PC-FX"},
+    UPS.PSP: {"id": 41, "name": "PSP"},
+    UPS.PSX: {"id": 12, "name": "PlayStation"},
+    UPS.PS2: {"id": 21, "name": "PlayStation 2"},
+    UPS.POKEMON_MINI: {"id": 24, "name": "Pokémon Mini"},
+    UPS.SATURN: {"id": 39, "name": "Sega Saturn"},
+    UPS.SEGA32: {"id": 10, "name": "SEGA 32X"},
+    UPS.SEGACD: {"id": 9, "name": "SEGA CD"},
+    UPS.SMS: {"id": 11, "name": "SEGA Master System"},
+    UPS.SG1000: {"id": 33, "name": "SG-1000"},
+    UPS.SNES: {"id": 3, "name": "SNES"},
+    UPS.SFAM: {"id": 3, "name": "Super Famicom"},
+    UPS.TURBOGRAFX_CD: {"id": 76, "name": "TurboGrafx CD"},
+    UPS.TG16: {"id": 8, "name": "TurboGrafx-16"},
+    UPS.UZEBOX: {"id": 80, "name": "Uzebox"},
+    UPS.VECTREX: {"id": 46, "name": "Vectrex"},
+    UPS.VIRTUALBOY: {"id": 28, "name": "Virtual Boy"},
+    UPS.WASM_4: {"id": 72, "name": "WASM-4"},
+    UPS.SUPERVISION: {
         "id": 63,
         "name": "Watara/QuickShot Supervision",
     },
-    "win": {"id": 102, "name": "Windows"},
-    "wonderswan": {"id": 53, "name": "WonderSwan"},
-    "wonderswan-color": {"id": 53, "name": "WonderSwan Color"},
+    UPS.WIN: {"id": 102, "name": "Windows"},
+    UPS.WONDERSWAN: {"id": 53, "name": "WonderSwan"},
+    UPS.WONDERSWAN_COLOR: {"id": 53, "name": "WonderSwan Color"},
 }
 
 # Reverse lookup
