@@ -21,7 +21,6 @@ const props = defineProps<{
 }>();
 
 // Props
-const { t } = useI18n();
 const storedCollections = localStorage.getItem(`settings.${props.setting}`);
 const gridCollections = ref(
   isNull(storedCollections) ? false : storedCollections === "true",
