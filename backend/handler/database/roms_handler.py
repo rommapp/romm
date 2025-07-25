@@ -30,7 +30,9 @@ from .base_handler import DBBaseHandler
 
 EJS_SUPPORTED_PLATFORMS = [
     "3do",
+    "64dd",
     "amiga",
+    "amiga-cd",
     "amiga-cd32",
     "arcade",
     "neogeoaes",
