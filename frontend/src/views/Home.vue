@@ -123,9 +123,11 @@ onMounted(async () => {
       class="ma-2"
     />
     <collections
-      v-if="
-        allCollections.length + smartCollections.length > 0 && showCollections
-      "
+      v-if="allCollections.length > 0 && showCollections"
+      class="ma-2"
+    />
+    <collections
+      v-if="smartCollections.length > 0 && showCollections"
       class="ma-2"
     />
     <virtual-collections

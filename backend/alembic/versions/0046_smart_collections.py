@@ -29,6 +29,15 @@ def upgrade() -> None:
         sa.Column("is_public", sa.Boolean(), nullable=False, default=False),
         sa.Column("filter_criteria", CustomJSON(), nullable=False, default={}),
         sa.Column("user_id", sa.Integer(), nullable=False),
+        sa.Column("rom_count", sa.Integer(), nullable=False, default=0),
+        sa.Column(
+            "rom_ids",
+            CustomJSON(),
+            nullable=False,
+            default=[],
+        ),
+        sa.Column("path_covers_small", CustomJSON(), nullable=False, default=[]),
+        sa.Column("path_covers_large", CustomJSON(), nullable=False, default=[]),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

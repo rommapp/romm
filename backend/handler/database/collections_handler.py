@@ -8,6 +8,7 @@ from models.collection import (
     SmartCollection,
     VirtualCollection,
 )
+from models.rom import Rom
 from sqlalchemy import delete, insert, literal, or_, select, update
 from sqlalchemy.orm import Session
 
@@ -204,10 +205,3 @@ class DBCollectionsHandler(DBBaseHandler):
             order_by=criteria.get("order_by", "name"),
             order_dir=criteria.get("order_dir", "asc"),
         )
-
-    def get_smart_collection_rom_count(
-        self, smart_collection: SmartCollection, user_id: int | None = None
-    ) -> int:
-        """Get the count of ROMs that match the smart collection's filter criteria."""
-        roms = self.get_smart_collection_roms(smart_collection, user_id)
-        return len(roms)

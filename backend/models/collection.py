@@ -178,6 +178,12 @@ class SmartCollection(BaseModel):
     name: Mapped[str] = mapped_column(String(length=400))
     description: Mapped[str | None] = mapped_column(Text)
     is_public: Mapped[bool] = mapped_column(default=False)
+    rom_count: Mapped[int] = mapped_column(default=0)
+    rom_ids: Mapped[set[int]] = mapped_column(
+        CustomJSON(), default=[], doc="Rom IDs that belong to this smart collection"
+    )
+    path_covers_small: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
+    path_covers_large: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
 
     filter_criteria: Mapped[dict[str, Any]] = mapped_column(
         CustomJSON(),
@@ -190,35 +196,41 @@ class SmartCollection(BaseModel):
         lazy="joined", back_populates="smart_collections"
     )
 
-    def get_matching_roms(self) -> list["Rom"]:
-        """Get ROMs that match this smart collection's filter criteria.
-
-        Returns:
-            list[Rom]: List of ROMs matching the filter criteria
-        """
-        # Import here to avoid circular imports
-        from handler.database import db_collection_handler
-
-        return list(db_collection_handler.get_smart_collection_roms(self, self.user_id))
-
     @property
     def roms(self) -> list["Rom"]:
-        """Dynamically computed list of ROMs based on filter criteria."""
-        return self.get_matching_roms()
+        from handler.database import db_collection_handler
+
+        roms = db_collection_handler.get_smart_collection_roms(self, self.user_id)
+
+        # Update the properties based on the list of ROMs
+        self.rom_count = len(roms)
+        self.rom_ids = {rom.id for rom in roms}
+        self.path_covers_small = [
+            f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
+            for r in roms
+            if r.path_cover_s
+        ]
+        self.path_covers_large = [
+            f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
+            for r in roms
+            if r.path_cover_l
+        ]
+
+        db_collection_handler.update_smart_collection(
+            self.id,
+            {
+                "rom_count": self.rom_count,
+                "rom_ids": list(self.rom_ids),
+                "path_covers_small": self.path_covers_small,
+                "path_covers_large": self.path_covers_large,
+            },
+        )
+
+        return [r for r in roms]
 
     @property
     def user__username(self) -> str:
         return self.user.username
-
-    @property
-    def rom_count(self) -> int:
-        """Dynamically computed ROM count based on filter criteria."""
-        return len(self.get_matching_roms())
-
-    @property
-    def rom_ids(self) -> list[int]:
-        """Dynamically computed list of ROM IDs based on filter criteria."""
-        return [r.id for r in self.get_matching_roms()]
 
     @property
     def path_cover_small(self) -> str | None:
@@ -227,24 +239,6 @@ class SmartCollection(BaseModel):
     @property
     def path_cover_large(self) -> str | None:
         return None
-
-    @property
-    def path_covers_small(self) -> list[str]:
-        roms = self.get_matching_roms()
-        return [
-            f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
-            for r in roms
-            if r.path_cover_s
-        ]
-
-    @property
-    def path_covers_large(self) -> list[str]:
-        roms = self.get_matching_roms()
-        return [
-            f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
-            for r in roms
-            if r.path_cover_l
-        ]
 
     @property
     def filter_summary(self) -> str:
