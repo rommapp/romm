@@ -203,7 +203,7 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             collection
           ) {
-            if (currentCollection.value) resetGallery();
+            resetGallery();
             romsStore.setCurrentCollection(collection);
             document.title = `${collection.name}`;
             await fetchRoms();
@@ -235,7 +235,7 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             collection
           ) {
-            if (currentVirtualCollection.value) resetGallery();
+            resetGallery();
             romsStore.setCurrentVirtualCollection(collection);
             document.title = `${collection.name}`;
             await fetchRoms();
@@ -268,7 +268,7 @@ onMounted(async () => {
               allRoms.value.length === 0) &&
             collection
           ) {
-            if (currentSmartCollection.value) resetGallery();
+            resetGallery();
             romsStore.setCurrentSmartCollection(collection);
             document.title = `${collection.name}`;
             await fetchRoms();
@@ -308,7 +308,7 @@ onBeforeRouteUpdate(async (to, from) => {
               allRoms.value.length === 0) &&
             collection
           ) {
-            if (currentCollection.value) resetGallery();
+            resetGallery();
             romsStore.setCurrentCollection(collection);
             document.title = `${collection.name}`;
             await fetchRoms();
@@ -335,7 +335,7 @@ onBeforeRouteUpdate(async (to, from) => {
               allRoms.value.length === 0) &&
             collection
           ) {
-            romsStore.setCurrentCollection(null);
+            resetGallery();
             romsStore.setCurrentVirtualCollection(collection);
             document.title = `${collection.name}`;
             await fetchRoms();
@@ -361,9 +361,7 @@ onBeforeRouteUpdate(async (to, from) => {
               allRoms.value.length === 0) &&
             collection
           ) {
-            if (currentSmartCollection.value) resetGallery();
-            romsStore.setCurrentCollection(null);
-            romsStore.setCurrentVirtualCollection(null);
+            resetGallery();
             romsStore.setCurrentSmartCollection(collection);
             document.title = `${collection.name}`;
             await fetchRoms();
