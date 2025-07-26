@@ -26,17 +26,14 @@ const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const collectionsStore = storeCollections();
-const { allCollections, virtualCollections, smartCollections } =
-  storeToRefs(collectionsStore);
+const { virtualCollections } = storeToRefs(collectionsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
-  currentCollection,
   currentVirtualCollection,
-  currentSmartCollection,
   fetchingRoms,
   fetchTotalRoms,
 } = storeToRefs(romsStore);
@@ -177,200 +174,65 @@ function resetGallery() {
 
 onMounted(async () => {
   const routeCollectionId = route.params.collection;
-  const isVirtualCollectionRoute = route.name === "virtual-collection";
-  const isSmartCollectionRoute = route.name === "smart-collection";
-  const isRegularCollectionRoute = route.name === "collection";
   currentPlatform.value = null;
 
-  // Watch regular collections only if we're on the regular collection route
-  if (isRegularCollectionRoute) {
-    watch(
-      () => allCollections.value,
-      async (collections) => {
+  watch(
+    () => virtualCollections.value,
+    async (collections) => {
+      if (
+        collections.length > 0 &&
+        collections.some((collection) => collection.id === routeCollectionId)
+      ) {
+        const collection = collections.find(
+          (collection) => collection.id === routeCollectionId,
+        );
+
         if (
-          collections.length > 0 &&
-          collections.some(
-            (collection) => collection.id === Number(routeCollectionId),
-          )
+          (currentVirtualCollection.value?.id !== routeCollectionId ||
+            allRoms.value.length === 0) &&
+          collection
         ) {
-          const collection = collections.find(
-            (collection) => collection.id === Number(routeCollectionId),
-          );
-
-          // Check if the current collection is different or no ROMs have been loaded
-          if (
-            (currentCollection.value?.id !== Number(routeCollectionId) ||
-              allRoms.value.length === 0) &&
-            collection
-          ) {
-            resetGallery();
-            romsStore.setCurrentCollection(collection);
-            document.title = `${collection.name}`;
-            await fetchRoms();
-          }
-
-          window.addEventListener("scroll", onScroll);
+          resetGallery();
+          romsStore.setCurrentVirtualCollection(collection);
+          document.title = `${collection.name}`;
+          await fetchRoms();
         }
-      },
-      { immediate: true }, // Ensure watcher is triggered immediately
-    );
-  }
 
-  // Watch virtual collections only if we're on the virtual collection route
-  if (isVirtualCollectionRoute) {
-    watch(
-      () => virtualCollections.value,
-      async (collections) => {
-        if (
-          collections.length > 0 &&
-          collections.some((collection) => collection.id === routeCollectionId)
-        ) {
-          const collection = collections.find(
-            (collection) => collection.id === routeCollectionId,
-          );
-
-          // Check if the current platform is different or no ROMs have been loaded
-          if (
-            (currentVirtualCollection.value?.id !== routeCollectionId ||
-              allRoms.value.length === 0) &&
-            collection
-          ) {
-            resetGallery();
-            romsStore.setCurrentVirtualCollection(collection);
-            document.title = `${collection.name}`;
-            await fetchRoms();
-          }
-
-          window.addEventListener("scroll", onScroll);
-        }
-      },
-      { immediate: true }, // Ensure watcher is triggered immediately
-    );
-  }
-
-  // Watch smart collections only if we're on the smart collection route
-  if (isSmartCollectionRoute) {
-    watch(
-      () => smartCollections.value,
-      async (collections) => {
-        if (
-          collections.length > 0 &&
-          collections.some(
-            (collection) => collection.id === Number(routeCollectionId),
-          )
-        ) {
-          const collection = collections.find(
-            (collection) => collection.id === Number(routeCollectionId),
-          );
-
-          if (
-            (currentSmartCollection.value?.id !== Number(routeCollectionId) ||
-              allRoms.value.length === 0) &&
-            collection
-          ) {
-            resetGallery();
-            romsStore.setCurrentSmartCollection(collection);
-            document.title = `${collection.name}`;
-            await fetchRoms();
-          }
-
-          window.addEventListener("scroll", onScroll);
-        }
-      },
-      { immediate: true }, // Ensure watcher is triggered immediately
-    );
-  }
+        window.addEventListener("scroll", onScroll);
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
 });
 
 onBeforeRouteUpdate(async (to, from) => {
   // Triggers when change param of the same route
   // Reset store if switching to another collection
   if (to.path === from.path) return true;
-
   const routeCollectionId = to.params.collection;
-  const isVirtualCollectionRoute = to.name === "virtual-collection";
-  const isSmartCollectionRoute = to.name === "smart-collection";
-  const isRegularCollectionRoute = to.name === "collection";
 
-  // Handle regular collections only if we're on the regular collection route
-  if (isRegularCollectionRoute) {
-    watch(
-      () => allCollections.value,
-      async (collections) => {
-        if (collections.length > 0) {
-          const collection = collections.find(
-            (collection) => collection.id === Number(routeCollectionId),
-          );
+  watch(
+    () => virtualCollections.value,
+    async (collections) => {
+      if (collections.length > 0) {
+        const collection = collections.find(
+          (collection) => collection.id === routeCollectionId,
+        );
 
-          // Only trigger fetchRoms if switching platforms or ROMs are not loaded
-          if (
-            (currentCollection.value?.id !== Number(routeCollectionId) ||
-              allRoms.value.length === 0) &&
-            collection
-          ) {
-            resetGallery();
-            romsStore.setCurrentCollection(collection);
-            document.title = `${collection.name}`;
-            await fetchRoms();
-          }
+        if (
+          (currentVirtualCollection.value?.id !== routeCollectionId ||
+            allRoms.value.length === 0) &&
+          collection
+        ) {
+          resetGallery();
+          romsStore.setCurrentVirtualCollection(collection);
+          document.title = `${collection.name}`;
+          await fetchRoms();
         }
-      },
-      { immediate: true }, // Ensure watcher is triggered immediately
-    );
-  }
-
-  // Handle virtual collections only if we're on the virtual collection route
-  if (isVirtualCollectionRoute) {
-    watch(
-      () => virtualCollections.value,
-      async (collections) => {
-        if (collections.length > 0) {
-          const collection = collections.find(
-            (collection) => collection.id === routeCollectionId,
-          );
-
-          // Only trigger fetchRoms if switching platforms or ROMs are not loaded
-          if (
-            (currentVirtualCollection.value?.id !== routeCollectionId ||
-              allRoms.value.length === 0) &&
-            collection
-          ) {
-            resetGallery();
-            romsStore.setCurrentVirtualCollection(collection);
-            document.title = `${collection.name}`;
-            await fetchRoms();
-          }
-        }
-      },
-      { immediate: true }, // Ensure watcher is triggered immediately
-    );
-  }
-
-  // Handle smart collections only if we're on the smart collection route
-  if (isSmartCollectionRoute) {
-    watch(
-      () => smartCollections.value,
-      async (collections) => {
-        if (collections.length > 0) {
-          const collection = collections.find(
-            (collection) => collection.id === Number(routeCollectionId),
-          );
-
-          if (
-            (currentSmartCollection.value?.id !== Number(routeCollectionId) ||
-              allRoms.value.length === 0) &&
-            collection
-          ) {
-            resetGallery();
-            romsStore.setCurrentSmartCollection(collection);
-            document.title = `${collection.name}`;
-            await fetchRoms();
-          }
-        }
-      },
-      { immediate: true }, // Ensure watcher is triggered immediately
-    );
-  }
+      }
+    },
+    { immediate: true }, // Ensure watcher is triggered immediately
+  );
 });
 
 onBeforeUnmount(() => {
@@ -441,14 +303,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game
-          v-if="
-            (allCollections.length > 0 ||
-              virtualCollections.length > 0 ||
-              smartCollections.length > 0) &&
-            !fetchingRoms
-          "
-        />
+        <empty-game v-if="virtualCollections.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>
