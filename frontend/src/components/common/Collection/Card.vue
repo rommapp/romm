@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import type {
-  Collection,
-  VirtualCollection,
-  SmartCollection,
-} from "@/stores/collections";
+import type { CollectionType } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
 import { computed, ref, watchEffect, onMounted, onBeforeUnmount } from "vue";
@@ -14,7 +10,7 @@ import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 // Props
 const props = withDefaults(
   defineProps<{
-    collection: Collection | VirtualCollection | SmartCollection;
+    collection: CollectionType;
     transformScale?: boolean;
     showTitle?: boolean;
     titleOnHover?: boolean;

@@ -1,18 +1,14 @@
 <script setup lang="ts">
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
-import {
-  type Collection,
-  type SmartCollection,
-  type VirtualCollection,
-} from "@/stores/collections";
+import { type CollectionType } from "@/stores/collections";
 import { views } from "@/utils";
 import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
-  collections: (Collection | VirtualCollection | SmartCollection)[];
+  collections: CollectionType[];
   title: string;
   setting:
     | "gridCollections"

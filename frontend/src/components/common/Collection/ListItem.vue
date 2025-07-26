@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import type {
-  Collection,
-  VirtualCollection,
-  SmartCollection,
-} from "@/stores/collections";
+import type { CollectionType } from "@/stores/collections";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import { ROUTES } from "@/plugins/router";
 import { computed } from "vue";
@@ -11,7 +7,7 @@ import { computed } from "vue";
 // Props
 const props = withDefaults(
   defineProps<{
-    collection: Collection | VirtualCollection | SmartCollection;
+    collection: CollectionType;
     withTitle?: boolean;
     withDescription?: boolean;
     withRomCount?: boolean;
