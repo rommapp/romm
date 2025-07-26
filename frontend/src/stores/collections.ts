@@ -10,6 +10,7 @@ import type { SimpleRom } from "./roms";
 export type Collection = CollectionSchema;
 export type VirtualCollection = VirtualCollectionSchema;
 export type SmartCollection = SmartCollectionSchema;
+export type CollectionType = Collection | VirtualCollection | SmartCollection;
 
 export default defineStore("collections", {
   state: () => ({
