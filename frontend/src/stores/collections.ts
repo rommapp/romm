@@ -1,6 +1,7 @@
 import type {
   CollectionSchema,
   VirtualCollectionSchema,
+  SmartCollectionSchema,
 } from "@/__generated__";
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
@@ -8,11 +9,14 @@ import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
 export type VirtualCollection = VirtualCollectionSchema;
+export type SmartCollection = SmartCollectionSchema;
+export type CollectionType = Collection | VirtualCollection | SmartCollection;
 
 export default defineStore("collections", {
   state: () => ({
     allCollections: [] as Collection[],
     virtualCollections: [] as VirtualCollection[],
+    smartCollections: [] as SmartCollection[],
     favCollection: {} as Collection | undefined,
     filterText: "" as string,
   }),
@@ -23,6 +27,10 @@ export default defineStore("collections", {
       ),
     filteredVirtualCollections: ({ virtualCollections, filterText }) =>
       virtualCollections.filter((p) =>
+        p.name.toLowerCase().includes(filterText.toLowerCase()),
+      ),
+    filteredSmartCollections: ({ smartCollections, filterText }) =>
+      smartCollections.filter((p) =>
         p.name.toLowerCase().includes(filterText.toLowerCase()),
       ),
   },
@@ -40,6 +48,9 @@ export default defineStore("collections", {
     },
     setVirtual(collections: VirtualCollection[]) {
       this.virtualCollections = collections;
+    },
+    setSmart(collections: SmartCollection[]) {
+      this.smartCollections = collections;
     },
     add(collection: Collection) {
       this.allCollections.push(collection);
@@ -70,6 +81,7 @@ export default defineStore("collections", {
     reset() {
       this.allCollections = [];
       this.virtualCollections = [];
+      this.smartCollections = [];
       this.favCollection = undefined;
       this.filterText = "";
     },

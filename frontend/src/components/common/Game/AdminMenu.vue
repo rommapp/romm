@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import collectionApi, {
-  type UpdatedCollection,
-} from "@/services/api/collection";
+import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -31,7 +29,7 @@ async function switchFromFavourites() {
   if (!favCollection.value) {
     await collectionApi
       .createCollection({
-        collection: { name: "Favourites" } as UpdatedCollection,
+        collection: { name: "Favourites" },
       })
       .then(({ data }) => {
         collectionsStore.add(data);

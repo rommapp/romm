@@ -43,5 +43,7 @@
   "user-interface": "사용자 인터페이스",
   "virtual-collection": "자동 생성된 모음집",
   "virtual-collections": "자동 생성된 모음집",
+  "smart-collection": "스마트 모음집",
+  "smart-collections": "스마트 모음집",
   "sync": "동기화"
 }

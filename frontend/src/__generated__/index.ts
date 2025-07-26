@@ -59,6 +59,7 @@ export type { SearchCoverSchema } from './models/SearchCoverSchema';
 export type { SearchRomSchema } from './models/SearchRomSchema';
 export type { SiblingRomSchema } from './models/SiblingRomSchema';
 export type { SimpleRomSchema } from './models/SimpleRomSchema';
+export type { SmartCollectionSchema } from './models/SmartCollectionSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
 export type { SystemDict } from './models/SystemDict';

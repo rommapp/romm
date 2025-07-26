@@ -3,7 +3,7 @@ from collections.abc import Iterable, Sequence
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
-from models.collection import Collection, VirtualCollection
+from models.collection import Collection, SmartCollection, VirtualCollection
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
@@ -178,6 +178,19 @@ class DBRomsHandler(DBBaseHandler):
         )
         if v_collection:
             return query.filter(Rom.id.in_(v_collection.rom_ids))
+        return query
+
+    def filter_by_smart_collection_id(
+        self, query: Query, session: Session, smart_collection_id: int
+    ):
+        smart_collection = (
+            session.query(SmartCollection)
+            .filter(SmartCollection.id == smart_collection_id)
+            .one_or_none()
+        )
+        if smart_collection:
+            smart_collection.get_roms()  # Ensure the latest ROMs are loaded
+            return query.filter(Rom.id.in_(smart_collection.rom_ids))
         return query
 
     def filter_by_search_term(self, query: Query, search_term: str):
@@ -392,6 +405,7 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
+        smart_collection_id: int | None = None,
         search_term: str | None = None,
         matched: bool | None = None,
         favourite: bool | None = None,
@@ -421,6 +435,11 @@ class DBRomsHandler(DBBaseHandler):
         if virtual_collection_id:
             query = self.filter_by_virtual_collection_id(
                 query, session, virtual_collection_id
+            )
+
+        if smart_collection_id:
+            query = self.filter_by_smart_collection_id(
+                query, session, smart_collection_id
             )
 
         if search_term:

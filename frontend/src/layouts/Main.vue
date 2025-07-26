@@ -77,6 +77,15 @@ onBeforeMount(async () => {
       console.error(error);
     });
 
+  await collectionApi
+    .getSmartCollections()
+    .then(({ data: smartCollections }) => {
+      collectionsStore.setSmart(smartCollections);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+
   if (showVirtualCollections) {
     await collectionApi
       .getVirtualCollections({ type: virtualCollectionTypeRef.value })

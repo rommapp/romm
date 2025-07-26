@@ -1,0 +1,26 @@
+<script setup lang="ts">
+import BaseCollection from "./BaseCollection.vue";
+import storeCollections, {
+  type VirtualCollection,
+  type CollectionType,
+} from "@/stores/collections";
+import storeRoms from "@/stores/roms";
+import { storeToRefs } from "pinia";
+
+const collectionsStore = storeCollections();
+const { virtualCollections } = storeToRefs(collectionsStore);
+const romsStore = storeRoms();
+const { currentVirtualCollection } = storeToRefs(romsStore);
+
+function setCurrentVirtualCollection(collection: CollectionType) {
+  romsStore.setCurrentVirtualCollection(collection as VirtualCollection);
+}
+</script>
+
+<template>
+  <base-collection
+    :collections="virtualCollections"
+    :current-collection="currentVirtualCollection"
+    :set-current-collection="setCurrentVirtualCollection"
+  ></base-collection>
+</template>

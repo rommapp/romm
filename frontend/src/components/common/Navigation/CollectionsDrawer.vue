@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import storeCollections from "@/stores/collections";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
+import CreateSmartCollectionDialog from "@/components/common/Collection/Dialog/CreateSmartCollection.vue";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
@@ -16,8 +17,12 @@ const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { mdAndUp, smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
-const { filteredCollections, filteredVirtualCollections, filterText } =
-  storeToRefs(collectionsStore);
+const {
+  filteredCollections,
+  filteredVirtualCollections,
+  filteredSmartCollections,
+  filterText,
+} = storeToRefs(collectionsStore);
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const visibleVirtualCollections = ref(72);
@@ -108,7 +113,7 @@ function onClose() {
     <template #prepend>
       <v-text-field
         ref="textFieldRef"
-        aria-label="Search collection"
+        aria-label="Search collections"
         :tabindex="tabIndex"
         v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
@@ -131,10 +136,37 @@ function onClose() {
         role="listitem"
         :aria-label="`${collection.name}`"
       />
+
+      <!-- Smart Collections -->
+      <template v-if="filteredSmartCollections.length > 0">
+        <v-divider v-if="filteredCollections.length > 0" class="my-4 mx-4" />
+        <v-list-subheader
+          role="listitem"
+          :aria-label="t('common.smart-collections')"
+          :tabindex="tabIndex"
+          class="uppercase"
+          >{{ t("common.smart-collections").toUpperCase() }}</v-list-subheader
+        >
+        <collection-list-item
+          v-for="collection in filteredSmartCollections"
+          :collection="collection"
+          with-link
+          role="listitem"
+          :tabindex="tabIndex"
+          :aria-label="`${collection.name} with ${collection.rom_count} games`"
+        />
+      </template>
+
+      <!-- Virtual Collections -->
       <template
         v-if="showVirtualCollections && filteredVirtualCollections.length > 0"
       >
-        <v-divider v-if="filteredCollections.length > 0" class="my-4 mx-4" />
+        <v-divider
+          v-if="
+            filteredCollections.length + filteredSmartCollections.length > 0
+          "
+          class="my-4 mx-4"
+        />
         <v-list-subheader
           role="listitem"
           :aria-label="t('common.virtual-collections')"
@@ -171,4 +203,5 @@ function onClose() {
   </v-navigation-drawer>
 
   <create-collection-dialog />
+  <create-smart-collection-dialog />
 </template>

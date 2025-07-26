@@ -62,6 +62,7 @@ export interface GetRomsParams {
   platformId?: number | null;
   collectionId?: number | null;
   virtualCollectionId?: string | null;
+  smartCollectionId?: number | null;
   searchTerm?: string | null;
   limit?: number;
   offset?: number;
@@ -90,6 +91,7 @@ async function getRoms({
   platformId = null,
   collectionId = null,
   virtualCollectionId = null,
+  smartCollectionId = null,
   searchTerm = null,
   limit = 72,
   offset = 0,
@@ -118,6 +120,7 @@ async function getRoms({
       platform_id: platformId,
       collection_id: collectionId,
       virtual_collection_id: virtualCollectionId,
+      smart_collection_id: smartCollectionId,
       search_term: searchTerm,
       limit: limit,
       offset: offset,
