@@ -4,7 +4,6 @@ import RSection from "@/components/common/RSection.vue";
 import { type CollectionType } from "@/stores/collections";
 import { views } from "@/utils";
 import { isNull } from "lodash";
-import { useI18n } from "vue-i18n";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
