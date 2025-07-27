@@ -124,7 +124,7 @@ async function updateCollection() {
         color: "green",
       });
       currentCollection.value = data;
-      collectionsStore.update(data);
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {

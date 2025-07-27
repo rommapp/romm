@@ -17,7 +17,7 @@ export default defineStore("collections", {
     allCollections: [] as Collection[],
     virtualCollections: [] as VirtualCollection[],
     smartCollections: [] as SmartCollection[],
-    favCollection: {} as Collection | undefined,
+    favoriteCollection: {} as Collection | undefined,
     filterText: "" as string,
   }),
   getters: {
@@ -35,54 +35,104 @@ export default defineStore("collections", {
       ),
   },
   actions: {
-    _reorder() {
+    _reorderCollections() {
       this.allCollections = uniqBy(this.allCollections, "id").sort((a, b) => {
         return a.name.localeCompare(b.name);
       });
     },
-    setFavCollection(favCollection: Collection | undefined) {
-      this.favCollection = favCollection;
+    _reorderVirtualCollection() {
+      this.virtualCollections = uniqBy(this.virtualCollections, "id").sort(
+        (a, b) => {
+          return a.name.localeCompare(b.name);
+        },
+      );
     },
-    set(collections: Collection[]) {
+    _reorderSmartCollections() {
+      this.smartCollections = uniqBy(this.smartCollections, "id").sort(
+        (a, b) => {
+          return a.name.localeCompare(b.name);
+        },
+      );
+    },
+    setFavoriteCollection(favoriteCollection: Collection | undefined) {
+      this.favoriteCollection = favoriteCollection;
+    },
+    setCollections(collections: Collection[]) {
       this.allCollections = collections;
     },
-    setVirtual(collections: VirtualCollection[]) {
+    setVirtualCollections(collections: VirtualCollection[]) {
       this.virtualCollections = collections;
     },
-    setSmart(collections: SmartCollection[]) {
+    setSmartCollection(collections: SmartCollection[]) {
       this.smartCollections = collections;
     },
-    add(collection: Collection) {
+    addCollection(collection: Collection) {
       this.allCollections.push(collection);
-      this._reorder();
+      this._reorderCollections();
     },
-    update(collection: Collection) {
+    addVirtualCollection(collection: VirtualCollection) {
+      this.virtualCollections.push(collection);
+      this._reorderVirtualCollection();
+    },
+    addSmartCollection(collection: SmartCollection) {
+      this.smartCollections.push(collection);
+      this._reorderSmartCollections();
+    },
+    updateCollection(collection: Collection) {
       this.allCollections = this.allCollections.map((value) =>
         value.id === collection.id ? collection : value,
       );
-      this._reorder();
+      this._reorderCollections();
     },
-    exists(collection: Collection) {
+    updateSmartCollection(collection: SmartCollection) {
+      this.smartCollections = this.smartCollections.map((value) =>
+        value.id === collection.id ? collection : value,
+      );
+      this._reorderSmartCollections();
+    },
+    collectionExists(collection: Collection) {
       return (
         this.allCollections.filter((p) => p.name == collection.name).length > 0
       );
     },
-    remove(collection: Collection) {
+    virtualCollectionExists(collection: VirtualCollection) {
+      return (
+        this.virtualCollections.filter((p) => p.name == collection.name)
+          .length > 0
+      );
+    },
+    smartCollectionExists(collection: SmartCollection) {
+      return (
+        this.smartCollections.filter((p) => p.name == collection.name).length >
+        0
+      );
+    },
+    removeCollection(collection: Collection) {
       this.allCollections = this.allCollections.filter((p) => {
         return p.name !== collection.name;
       });
     },
-    get(collectionId: number) {
+    removeVirtualCollection(collection: VirtualCollection) {
+      this.virtualCollections = this.virtualCollections.filter((p) => {
+        return p.name !== collection.name;
+      });
+    },
+    removeSmartCollection(collection: SmartCollection) {
+      this.smartCollections = this.smartCollections.filter((p) => {
+        return p.name !== collection.name;
+      });
+    },
+    getCollection(collectionId: number) {
       return this.allCollections.find((p) => p.id === collectionId);
     },
-    isFav(rom: SimpleRom) {
-      return this.favCollection?.rom_ids?.includes(rom.id);
+    isFavorite(rom: SimpleRom) {
+      return this.favoriteCollection?.rom_ids?.includes(rom.id);
     },
     reset() {
       this.allCollections = [];
       this.virtualCollections = [];
       this.smartCollections = [];
-      this.favCollection = undefined;
+      this.favoriteCollection = undefined;
       this.filterText = "";
     },
   },

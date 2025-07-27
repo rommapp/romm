@@ -29,7 +29,7 @@ emitter?.on("openFabMenu", (open) => {
 const auth = storeAuth();
 const scanningStore = storeScanning();
 const collectionsStore = storeCollections();
-const { favCollection } = storeToRefs(collectionsStore);
+const { favoriteCollection } = storeToRefs(collectionsStore);
 const route = useRoute();
 const heartbeat = storeHeartbeat();
 
@@ -69,12 +69,12 @@ function resetSelection() {
 }
 
 async function addToFavourites() {
-  if (!favCollection.value) return;
-  favCollection.value.rom_ids = favCollection.value.rom_ids.concat(
+  if (!favoriteCollection.value) return;
+  favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.concat(
     selectedRoms.value.map((r) => r.id),
   );
   await collectionApi
-    .updateCollection({ collection: favCollection.value as Collection })
+    .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Roms added to favourites successfully!",
@@ -98,15 +98,15 @@ async function addToFavourites() {
 }
 
 async function removeFromFavourites() {
-  if (!favCollection.value) return;
-  favCollection.value.rom_ids = favCollection.value.rom_ids.filter(
+  if (!favoriteCollection.value) return;
+  favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter(
     (value) => !selectedRoms.value.map((r) => r.id).includes(value),
   );
   if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
     romsStore.remove(selectedRoms.value);
   }
   await collectionApi
-    .updateCollection({ collection: favCollection.value as Collection })
+    .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Roms removed from favourites successfully!",
@@ -114,8 +114,8 @@ async function removeFromFavourites() {
         color: "green",
         timeout: 2000,
       });
-      favCollection.value = data;
-      collectionsStore.update(data);
+      favoriteCollection.value = data;
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       console.log(error);

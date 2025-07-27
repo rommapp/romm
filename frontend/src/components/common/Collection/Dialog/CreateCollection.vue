@@ -76,9 +76,9 @@ async function createCollection() {
       collection: collection.value,
     })
     .then(({ data }) => {
-      collectionsStore.add(data);
+      collectionsStore.addCollection(data);
       if (data.name.toLowerCase() == "favourites") {
-        collectionsStore.setFavCollection(data);
+        collectionsStore.setFavoriteCollection(data);
       }
       emitter?.emit("snackbarShow", {
         msg: `Collection ${data.name} created successfully!`,
