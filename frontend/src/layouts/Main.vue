@@ -66,8 +66,8 @@ onBeforeMount(async () => {
   await collectionApi
     .getCollections()
     .then(({ data: collections }) => {
-      collectionsStore.set(collections);
-      collectionsStore.setFavCollection(
+      collectionsStore.setCollections(collections);
+      collectionsStore.setFavoriteCollection(
         collections.find(
           (collection) => collection.name.toLowerCase() === "favourites",
         ),
@@ -80,7 +80,7 @@ onBeforeMount(async () => {
   await collectionApi
     .getSmartCollections()
     .then(({ data: smartCollections }) => {
-      collectionsStore.setSmart(smartCollections);
+      collectionsStore.setSmartCollection(smartCollections);
     })
     .catch((error) => {
       console.error(error);
@@ -90,7 +90,7 @@ onBeforeMount(async () => {
     await collectionApi
       .getVirtualCollections({ type: virtualCollectionTypeRef.value })
       .then(({ data: virtualCollections }) => {
-        collectionsStore.setVirtual(virtualCollections);
+        collectionsStore.setVirtualCollections(virtualCollections);
       });
   }
 
