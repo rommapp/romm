@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import RDialog from "@/components/common/RDialog.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import collectionApi from "@/services/api/collection";
@@ -7,11 +8,14 @@ import storeCollections from "@/stores/collections";
 import { storeToRefs } from "pinia";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
+import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const collectionsStore = storeCollections();
+const { mdAndUp } = useDisplay();
 const show = ref(false);
-const loading = ref(false);
 const name = ref("");
 const description = ref("");
 const isPublic = ref(false);
@@ -79,7 +83,7 @@ const filterSummary = computed(() => {
   if (selectedLanguage.value)
     filters.push(`Language: ${selectedLanguage.value}`);
 
-  return filters.length > 0 ? filters.join("; ") : "No filters applied";
+  return filters || ["No filters applied"];
 });
 
 function closeDialog() {
@@ -99,7 +103,7 @@ async function createSmartCollection() {
     return;
   }
 
-  loading.value = true;
+  emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
   try {
     const filterCriteria: Record<string, any> = {};
@@ -147,6 +151,7 @@ async function createSmartCollection() {
       color: "green",
     });
     collectionsStore.addSmartCollection(data);
+    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     closeDialog();
   } catch (error: any) {
     console.error("Failed to create smart collection:", error);
@@ -155,81 +160,105 @@ async function createSmartCollection() {
       icon: "mdi-close-circle",
       color: "red",
     });
-  } finally {
-    loading.value = false;
   }
 }
 </script>
 
 <template>
-  <v-dialog v-model="show" max-width="600px" persistent>
-    <v-card>
-      <v-card-title class="text-h5">
-        <v-icon class="mr-2">mdi-playlist-plus</v-icon>
-        Create Smart Collection
-      </v-card-title>
-
-      <v-card-text>
-        <v-container>
-          <v-row>
-            <v-col cols="12">
+  <r-dialog
+    @close="closeDialog"
+    v-model="show"
+    icon="mdi-playlist-plus"
+    :width="mdAndUp ? '45vw' : '95vw'"
+  >
+    <template #header>
+      <v-card-title> Create Smart Collection </v-card-title>
+    </template>
+    <template #content>
+      <v-row class="align-center pa-2" no-gutters>
+        <v-col cols="12" lg="7" xl="9">
+          <v-row class="pa-2" no-gutters>
+            <v-col>
               <v-text-field
                 v-model="name"
-                label="Collection Name"
+                :label="t('collection.name')"
+                variant="outlined"
                 required
-                :disabled="loading"
-                prepend-icon="mdi-tag"
+                hide-details
+                @keyup.enter="createSmartCollection"
               />
             </v-col>
-
-            <v-col cols="12">
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
               <v-textarea
                 v-model="description"
-                label="Description (optional)"
+                class="mt-1"
+                :label="t('collection.description')"
+                variant="outlined"
                 rows="3"
-                :disabled="loading"
-                prepend-icon="mdi-text"
+                hide-details
+                @keyup.enter="createSmartCollection"
               />
             </v-col>
-
-            <v-col cols="12">
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
               <v-switch
                 v-model="isPublic"
-                label="Make this collection public"
-                :disabled="loading"
+                :label="t('collection.public-desc')"
                 color="primary"
+                hide-details
               />
             </v-col>
-
-            <v-col cols="12">
-              <v-card variant="outlined">
+          </v-row>
+        </v-col>
+        <v-col>
+          <v-row class="pa-2 justify-center" no-gutters>
+            <v-col class="filters-preview">
+              <v-card variant="outlined" class="h-100">
                 <v-card-title class="text-subtitle-1">
                   <v-icon class="mr-2">mdi-filter</v-icon>
-                  Current Filters
+                  {{ t("collection.current-filters") }}
                 </v-card-title>
                 <v-card-text>
-                  <div class="text-body-2 text-medium-emphasis">
-                    {{ filterSummary }}
-                  </div>
+                  <ul class="mt-2 ml-4">
+                    <li v-for="filter in filterSummary" :key="filter">
+                      {{ filter }}
+                    </li>
+                  </ul>
                 </v-card-text>
               </v-card>
             </v-col>
           </v-row>
-        </v-container>
-      </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn text @click="closeDialog" :disabled="loading"> Cancel </v-btn>
-        <v-btn
-          color="primary"
-          @click="createSmartCollection"
-          :loading="loading"
-          :disabled="!name.trim()"
-        >
-          Create Smart Collection
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+        </v-col>
+      </v-row>
+    </template>
+    <template #append>
+      <v-divider />
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            class="bg-toplayer text-romm-green"
+            :disabled="!name.trim()"
+            :variant="!name.trim() ? 'plain' : 'flat'"
+            @click="createSmartCollection"
+          >
+            {{ t("common.create") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
+    </template>
+  </r-dialog>
 </template>
+<style scoped>
+.filters-preview {
+  min-width: 240px;
+  min-height: 330px;
+  max-width: 240px;
+  max-height: 330px;
+}
+</style>

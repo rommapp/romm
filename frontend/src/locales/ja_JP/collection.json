@@ -1,5 +1,7 @@
 {
   "add-collection": "コレクションに追加",
+  "create-collection": "コレクションを作成",
+  "create-smart-collection": "スマートコレクションを作成",
   "danger-zone": "危険",
   "delete-collection": "コレクションを削除",
   "description": "説明",
@@ -14,5 +16,6 @@
   "removing-collection-2": "よろしいですか？",
   "removing-smart-collection-1": "RomMからスマートコレクションを削除します",
   "removing-smart-collection-2": "よろしいですか？",
+  "current-filters": "現在のフィルター",
   "search-collection": "コレクションを検索"
 }
