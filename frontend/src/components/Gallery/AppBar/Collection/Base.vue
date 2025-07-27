@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import CollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/CollectionInfoDrawer.vue";
+import SmartCollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/SmartCollectionInfoDrawer.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
@@ -39,6 +40,7 @@ const activeCollection = computed(() => {
   </base-gallery-app-bar>
 
   <collection-info-drawer />
+  <smart-collection-info-drawer />
 </template>
 
 <style scoped>

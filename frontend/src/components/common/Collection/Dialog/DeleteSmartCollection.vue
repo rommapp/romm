@@ -87,11 +87,6 @@ function closeDialog() {
           t("collection.removing-smart-collection-2")
         }}</span>
       </v-row>
-      <v-row class="justify-center pa-2" no-gutters>
-        <v-alert type="warning" variant="tonal" class="ma-2" density="compact">
-          {{ t("collection.smart-collection-delete-warning") }}
-        </v-alert>
-      </v-row>
     </template>
     <template #append>
       <v-row class="justify-center pa-2" no-gutters>
