@@ -12,5 +12,7 @@
   "public-desc": "Public (visible par tous)",
   "removing-collection-1": "Confirmer le retrait de",
   "removing-collection-2": "la collection de RomM?",
+  "removing-smart-collection-1": "Confirmer le retrait de la collection intelligente",
+  "removing-smart-collection-2": "de RomM?",
   "search-collection": "Recherche dans la collection"
 }

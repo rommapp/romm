@@ -12,5 +12,7 @@
   "public-desc": "公開(全員表示可)",
   "removing-collection-1": "RomMからコレクションを削除します",
   "removing-collection-2": "よろしいですか？",
+  "removing-smart-collection-1": "RomMからスマートコレクションを削除します",
+  "removing-smart-collection-2": "よろしいですか？",
   "search-collection": "コレクションを検索"
 }

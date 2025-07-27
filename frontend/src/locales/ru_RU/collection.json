@@ -12,5 +12,7 @@
   "public-desc": "Публичный (виден всем)",
   "removing-collection-1": "Удаление коллекции",
   "removing-collection-2": "из RomM. Вы подтверждаете?",
+  "removing-smart-collection-1": "Удаление умной коллекции",
+  "removing-smart-collection-2": "из RomM. Вы подтверждаете?",
   "search-collection": "Поиск коллекции"
 }

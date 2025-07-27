@@ -3,11 +3,13 @@ import { ref, computed } from "vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import collectionApi from "@/services/api/collection";
+import storeCollections from "@/stores/collections";
 import { storeToRefs } from "pinia";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 
 const galleryFilterStore = storeGalleryFilter();
+const collectionsStore = storeCollections();
 const show = ref(false);
 const loading = ref(false);
 const name = ref("");
@@ -130,7 +132,7 @@ async function createSmartCollection() {
     if (selectedLanguage.value)
       filterCriteria.selected_language = selectedLanguage.value;
 
-    await collectionApi.createSmartCollection({
+    const { data } = await collectionApi.createSmartCollection({
       smartCollection: {
         name: name.value.trim(),
         description: description.value.trim() || undefined,
@@ -144,7 +146,7 @@ async function createSmartCollection() {
       icon: "mdi-check-circle",
       color: "green",
     });
-
+    collectionsStore.addSmartCollection(data);
     closeDialog();
   } catch (error: any) {
     console.error("Failed to create smart collection:", error);
