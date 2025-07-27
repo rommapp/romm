@@ -10,11 +10,14 @@ import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { ROUTES } from "@/plugins/router";
+import { useRouter } from "vue-router";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const collectionsStore = storeCollections();
 const { mdAndUp } = useDisplay();
+const router = useRouter();
 const show = ref(false);
 const name = ref("");
 const description = ref("");
@@ -152,6 +155,10 @@ async function createSmartCollection() {
     });
     collectionsStore.addSmartCollection(data);
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    router.push({
+      name: ROUTES.SMART_COLLECTION,
+      params: { collection: data.id },
+    });
     closeDialog();
   } catch (error: any) {
     console.error("Failed to create smart collection:", error);
@@ -172,7 +179,7 @@ async function createSmartCollection() {
     :width="mdAndUp ? '45vw' : '95vw'"
   >
     <template #header>
-      <v-card-title> Create Smart Collection </v-card-title>
+      <v-card-title>{{ t("collection.create-smart-collection") }}</v-card-title>
     </template>
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
