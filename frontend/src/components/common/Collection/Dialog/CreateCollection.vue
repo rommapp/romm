@@ -114,8 +114,11 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-bookmark-box-multiple"
-    :width="mdAndUp ? '55vw' : '95vw'"
+    :width="mdAndUp ? '45vw' : '95vw'"
   >
+    <template #header>
+      <v-card-title> Create Collection </v-card-title>
+    </template>
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
         <v-col cols="12" lg="7" xl="9">
@@ -141,6 +144,16 @@ function closeDialog() {
                 required
                 hide-details
                 @keyup.enter="createCollection"
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-switch
+                v-model="collection.is_public"
+                :label="t('collection.public-desc')"
+                color="primary"
+                hide-details
               />
             </v-col>
           </v-row>

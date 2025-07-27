@@ -1,5 +1,7 @@
 {
   "add-collection": "Adaugă colecție",
+  "create-collection": "Creează colecție",
+  "create-smart-collection": "Creează colecție inteligentă",
   "danger-zone": "Zonă periculoasă",
   "delete-collection": "Șterge colecția",
   "description": "Descriere",
@@ -14,5 +16,6 @@
   "removing-collection-2": "colecției din RomM?",
   "removing-smart-collection-1": "Confirmă eliminarea colecției inteligente",
   "removing-smart-collection-2": "din RomM?",
+  "current-filters": "Filtrele actuale",
   "search-collection": "Caută în colecție"
 }

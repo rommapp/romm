@@ -1,5 +1,7 @@
 {
   "add-collection": "Добавить коллекцию",
+  "create-collection": "Создать коллекцию",
+  "create-smart-collection": "Создать умную коллекцию",
   "danger-zone": "Опасная зона",
   "delete-collection": "Удалить коллекцию",
   "description": "Описание",
@@ -14,5 +16,6 @@
   "removing-collection-2": "из RomM. Вы подтверждаете?",
   "removing-smart-collection-1": "Удаление умной коллекции",
   "removing-smart-collection-2": "из RomM. Вы подтверждаете?",
+  "current-filters": "Текущие фильтры",
   "search-collection": "Поиск коллекции"
 }
