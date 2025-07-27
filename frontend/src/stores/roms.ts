@@ -31,7 +31,6 @@ const defaultRomsState = {
   selectingRoms: false,
   fetchingRoms: false,
   initialSearch: false,
-  fetchLimit: 72,
   fetchOffset: 0,
   fetchTotalRoms: 0,
   characterIndex: {} as Record<string, number>,
@@ -51,6 +50,7 @@ export default defineStore("roms", {
   state: () => ({ ...defaultRomsState }),
 
   getters: {
+    fetchLimit: () => 72,
     filteredRoms: (state) => state.allRoms,
     selectedRoms: (state) =>
       state.allRoms.filter((rom) => state.selectedIDs.has(rom.id)),
@@ -231,13 +231,11 @@ export default defineStore("roms", {
       this.selectingRoms = false;
       this.fetchingRoms = false;
       this.initialSearch = false;
-      this.fetchOffset = 0;
-      this.fetchTotalRoms = 0;
       this.characterIndex = {};
       this.selectedCharacter = null;
+      this.resetPagination();
     },
     resetPagination() {
-      this.fetchLimit = 72;
       this.fetchOffset = 0;
       this.fetchTotalRoms = 0;
     },
