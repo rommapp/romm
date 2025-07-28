@@ -13,6 +13,7 @@ from .base_hander import (
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
+    BaseRom,
     MetadataHandler,
 )
 
@@ -44,12 +45,8 @@ class MobyMetadata(TypedDict):
     platforms: list[MobyMetadataPlatform]
 
 
-class MobyGamesRom(TypedDict):
+class MobyGamesRom(BaseRom):
     moby_id: int | None
-    name: NotRequired[str]
-    summary: NotRequired[str]
-    url_cover: NotRequired[str]
-    url_screenshots: NotRequired[list[str]]
     moby_metadata: NotRequired[MobyMetadata]
 
 
@@ -254,10 +251,9 @@ class MobyGamesHandler(MetadataHandler):
         if not platform_moby_id:
             return []
 
-        search_term = uc(search_term)
         matched_roms = await self.moby_service.list_games(
             platform_ids=[platform_moby_id],
-            title=quote(search_term, safe="/ "),
+            title=quote(uc(search_term), safe="/ "),
         )
 
         return [

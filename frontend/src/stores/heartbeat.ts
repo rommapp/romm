@@ -3,7 +3,7 @@ import { defineStore } from "pinia";
 import i18n from "@/locales";
 
 export type Heartbeat = HeartbeatResponse;
-type MetadataOption = {
+export type MetadataOption = {
   name: string;
   value: string;
   logo_path: string;
@@ -14,31 +14,6 @@ const defaultHeartbeat: Heartbeat = {
   SYSTEM: {
     VERSION: "0.0.0",
     SHOW_SETUP_WIZARD: false,
-  },
-  WATCHER: {
-    ENABLED: false,
-    TITLE: "",
-    MESSAGE: "",
-  },
-  SCHEDULER: {
-    RESCAN: {
-      ENABLED: false,
-      TITLE: "",
-      MESSAGE: "",
-      CRON: "",
-    },
-    SWITCH_TITLEDB: {
-      ENABLED: false,
-      TITLE: "",
-      MESSAGE: "",
-      CRON: "",
-    },
-    LAUNCHBOX_METADATA: {
-      ENABLED: false,
-      TITLE: "",
-      MESSAGE: "",
-      CRON: "",
-    },
   },
   METADATA_SOURCES: {
     ANY_SOURCE_ENABLED: false,
@@ -62,6 +37,7 @@ const defaultHeartbeat: Heartbeat = {
   FRONTEND: {
     UPLOAD_TIMEOUT: 20,
     DISABLE_USERPASS_LOGIN: false,
+    YOUTUBE_BASE_URL: "https://www.youtube.com",
   },
   OIDC: {
     ENABLED: false,

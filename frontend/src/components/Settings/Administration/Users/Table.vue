@@ -168,7 +168,7 @@ onMounted(() => {
           />
         </template>
         <template #item.actions="{ item }">
-          <v-btn-group divided density="compact">
+          <v-btn-group divided density="compact" variant="text">
             <v-btn
               size="small"
               @click="emitter?.emit('showEditUserDialog', item)"

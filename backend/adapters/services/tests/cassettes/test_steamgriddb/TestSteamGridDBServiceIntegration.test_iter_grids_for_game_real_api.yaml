@@ -1,0 +1,101 @@
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/1?limit=50&page=0
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963865f5888733f1-YUL
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 04:22:42 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/1?limit=50&page=0
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=MrH8WMSUtRAEfQijpv4WQColsmHFN7GLnSfJV0jr3O%2FmhZHruD77mCFtjr8MYi7TStPd%2BImxnAOV%2F15qQ%2FREBGP7KEVoKJB0FcvOTJU%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/1?limit=50&page=0
+    response:
+      body:
+        string:
+          '{"success":true,"page":0,"total":14,"limit":50,"data":[{"id":103281,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/bafd5785e9335ccde7bcde6051b5dcf6.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/bafd5785e9335ccde7bcde6051b5dcf6.png","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"duckdicks","steam64":"76561198265411778","avatar":"https:\/\/avatars.steamstatic.com\/834b570adf40c70d7d2379cf0f9332e2534dde13_medium.jpg"}},{"id":318178,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":null,"mime":"image\/jpeg","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/fe80a3e914e35e5ba0157e1a85a3d14f.jpg","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/fe80a3e914e35e5ba0157e1a85a3d14f.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"DebonairTBS","steam64":"76561198008715015","avatar":"https:\/\/avatars.steamstatic.com\/560614290f1bce0865ecfca921bd90ceab6d2507_medium.jpg"}},{"id":92728,"score":0,"style":"alternate","width":920,"height":430,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/da56e25a64be3b08d6027242e1d85606.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/da56e25a64be3b08d6027242e1d85606.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"ZombiJambi","steam64":"76561197965184469","avatar":"https:\/\/avatars.steamstatic.com\/7e56965baf567e68693b40eb170cb4ce75ad68ff_medium.jpg"}},{"id":25987,"score":0,"style":"alternate","width":460,"height":215,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/cffb7924cc48c212e70437f8b32c5831.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/cffb7924cc48c212e70437f8b32c5831.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"TheBoss86","steam64":"76561197988452487","avatar":"https:\/\/avatars.steamstatic.com\/e641aef239f588fc89270581be496fe91afa8c54_medium.jpg"}},{"id":410400,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":"Reuploaded-Template
+          and Art By Castcoder","mime":"image\/jpeg","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/31087231e09099106762217619ccdb6e.jpg","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/31087231e09099106762217619ccdb6e.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"FattestWrestlingFan","steam64":"76561199418084858","avatar":"https:\/\/avatars.steamstatic.com\/bd7fdd4ab203fcd4f0e93a3d2dd43ff4744b97df_medium.jpg"}},{"id":319460,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/2080a149ed7cb6036bcfc3d16623c564.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/2080a149ed7cb6036bcfc3d16623c564.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"0x000","steam64":"76561197985453768","avatar":"https:\/\/avatars.steamstatic.com\/7861e04eaa0cb68669db41d2d95e9fba6947a03d_medium.jpg"}},{"id":303137,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":null,"mime":"image\/jpeg","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/c0bc968a8b234d199c63ec965ebc43c8.jpg","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/c0bc968a8b234d199c63ec965ebc43c8.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"Lord0Link","steam64":"76561198034492325","avatar":"https:\/\/avatars.steamstatic.com\/be61809e5c33d5605fdaec9902eba94280d52aeb_medium.jpg"}},{"id":275447,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/217e00d30b8dfa8ac5b7c23b52074e30.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/217e00d30b8dfa8ac5b7c23b52074e30.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"Kemerax","steam64":"76561199066504379","avatar":"https:\/\/avatars.steamstatic.com\/1454c7d29372359bf8b4b3f42b4158b837f41c9c_medium.jpg"}},{"id":269911,"score":0,"style":"alternate","width":920,"height":430,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/b9345057e5acb3bf4e0dc4865b726dfc.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/b9345057e5acb3bf4e0dc4865b726dfc.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"Kemerax","steam64":"76561199066504379","avatar":"https:\/\/avatars.steamstatic.com\/1454c7d29372359bf8b4b3f42b4158b837f41c9c_medium.jpg"}},{"id":243796,"score":0,"style":"alternate","width":512,"height":512,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/74b9bf986f01e772b3b5a457786f657d.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/74b9bf986f01e772b3b5a457786f657d.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"sourceispowerofforce","steam64":"76561198043263504","avatar":"https:\/\/avatars.steamstatic.com\/3ee699e03a4fdbc90a16718a36ba5e24a3f64d59_medium.jpg"}},{"id":93418,"score":0,"style":"alternate","width":920,"height":430,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/48e0868aa17389fd24e7c8d020012d9d.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/48e0868aa17389fd24e7c8d020012d9d.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"ZombiJambi","steam64":"76561197965184469","avatar":"https:\/\/avatars.steamstatic.com\/7e56965baf567e68693b40eb170cb4ce75ad68ff_medium.jpg"}},{"id":93047,"score":0,"style":"alternate","width":920,"height":430,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/86580625e3fe259aa5de46b9bcc1391f.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/86580625e3fe259aa5de46b9bcc1391f.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"ZombiJambi","steam64":"76561197965184469","avatar":"https:\/\/avatars.steamstatic.com\/7e56965baf567e68693b40eb170cb4ce75ad68ff_medium.jpg"}},{"id":285002,"score":0,"style":"alternate","width":600,"height":900,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/8237b3c746108d0c46f1e0f1a296fcb0.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/8237b3c746108d0c46f1e0f1a296fcb0.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"Kemerax","steam64":"76561199066504379","avatar":"https:\/\/avatars.steamstatic.com\/1454c7d29372359bf8b4b3f42b4158b837f41c9c_medium.jpg"}},{"id":276685,"score":0,"style":"alternate","width":920,"height":430,"nsfw":false,"humor":false,"notes":null,"mime":"image\/png","language":"en","url":"https:\/\/cdn2.steamgriddb.com\/grid\/e18fe0d0234ad82a12d6061000ef5651.png","thumb":"https:\/\/cdn2.steamgriddb.com\/thumb\/e18fe0d0234ad82a12d6061000ef5651.jpg","lock":false,"epilepsy":false,"upvotes":0,"downvotes":0,"author":{"name":"Kemerax","steam64":"76561199066504379","avatar":"https:\/\/avatars.steamstatic.com\/1454c7d29372359bf8b4b3f42b4158b837f41c9c_medium.jpg"}}]}'
+      headers:
+        CF-RAY:
+          - 963865f65983a29f-YUL
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 04:22:43 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=hVuWEmgQJRmTDRttK0rCVth%2BFviHYRr4p9Z8yxw9qUCbKFBqPIdDOQiBfMf6dwN8NUlylS3s%2FkoNl9keqz6oVbjcL0%2FEMjCidzaDqmQ9MGn0"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=mqeksggbuvepqmo9gvc6nb183c; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 04:22:42 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 200
+        message: OK
+version: 1

@@ -10,6 +10,8 @@ import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { MdPreview } from "md-editor-v3";
 import { get } from "lodash";
+import storeHeartbeat from "@/stores/heartbeat";
+import { storeToRefs } from "pinia";
 
 // Props
 const props = defineProps<{ rom: DetailedRom }>();
@@ -19,21 +21,23 @@ const theme = useTheme();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
+const heartbeatStore = storeHeartbeat();
+const { value: heartbeat } = storeToRefs(heartbeatStore);
 const filters = [
-  { key: "regions", path: "regions", name: t("rom.regions") },
-  { key: "languages", path: "languages", name: t("rom.languages") },
-  { key: "genres", path: "metadatum.genres", name: t("rom.genres") },
+  { key: "region", path: "regions", name: t("rom.regions") },
+  { key: "language", path: "languages", name: t("rom.languages") },
+  { key: "genre", path: "metadatum.genres", name: t("rom.genres") },
   {
-    key: "franchises",
+    key: "franchise",
     path: "metadatum.franchises",
     name: t("rom.franchises"),
   },
   {
-    key: "collections",
+    key: "collection",
     path: "metadatum.collections",
     name: t("rom.collections"),
   },
-  { key: "companies", path: "metadatum.companies", name: t("rom.companies") },
+  { key: "company", path: "metadatum.companies", name: t("rom.companies") },
 ] as const;
 
 const dataSources = computed(() => {
@@ -56,7 +60,7 @@ const dataSources = computed(() => {
     {
       name: "LaunchBox",
       condition: props.rom.launchbox_id,
-      url: `https://gamesdb.launchbox-app.com/games/details/${props.rom.launchbox_id}`,
+      url: `https://gamesdb.launchbox-app.com/games/dbid/${props.rom.launchbox_id}`,
     },
     {
       name: "RetroAchievements",
@@ -94,7 +98,7 @@ const coverImageSource = computed(() => {
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "search",
-    query: { search: "", filter, value },
+    query: { [filter]: value },
   });
 }
 </script>
@@ -170,7 +174,7 @@ function onFilterClick(filter: FilterType, value: string) {
             <v-img
               v-for="value in rom.igdb_metadata.age_ratings"
               :key="value.rating"
-              @click="onFilterClick('age_ratings', value.rating)"
+              @click="onFilterClick('ageRating', value.rating)"
               :src="value.rating_cover_url"
               height="50"
               width="50"
@@ -224,7 +228,7 @@ function onFilterClick(filter: FilterType, value: string) {
                 <iframe
                   height="100%"
                   width="100%"
-                  :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
+                  :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
                   title="YouTube video player"
                   frameborder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -273,7 +277,7 @@ function onFilterClick(filter: FilterType, value: string) {
                     <iframe
                       height="100%"
                       width="100%"
-                      :src="`https://www.youtube.com/embed/${rom.youtube_video_id}`"
+                      :src="`${heartbeat.FRONTEND.YOUTUBE_BASE_URL}/embed/${rom.youtube_video_id}`"
                       title="YouTube video player"
                       frameborder="0"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

@@ -1,0 +1,225 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.mobygames.com/v1/games?format=normal&limit=5
+    response:
+      body:
+        string:
+          '{"games":[{"alternate_titles":[{"description":"Finnish title","title":"Salaiset
+          Kansiot"},{"description":"PSX title","title":"The X Files"},{"description":"Spanish
+          title","title":"The X-Files: Expediente X - El Juego"},{"description":"French
+          title","title":"The X-Files: Le Jeu"}],"description":"<p>As an extension of
+          one of the most long-running television series of all time, <em>The X-Files</em>,
+          play through the eyes of Special Agent Craig Willmore, a new FBI field investigator
+          brought in to locate missing agents Fox Mulder and Dana Scully whose last
+          location was the Everett, Washington, area. In this \"movie quality\" video
+          production, characters are played by the actors and actresses from the show,
+          including <a href=\"https://www.mobygames.com/person/9411/gillian-anderson/\">Gillian
+          Anderson</a> (Scully) and <a href=\"https://www.mobygames.com/person/9412/david-duchovny/\">David
+          Duchovny</a> (Mulder).</p>\n<p>As the game begins, you are given a briefing
+          of your mission. Gather up all state-of-the-art spy tools (night vision goggles,
+          a digital camera, PDA, lock picks, evidence kit, a standard issue revolver,
+          handcuffs and badge) and then head out to follow their trail. As you explore
+          the various locations, take photographs, pick up pieces of evidence and talk
+          with people. Use your Newton PDA to access the navigational map, to make notes
+          and send/receive e-mail. Trace telephone numbers, run background checks and
+          license plate ids and even post an All Points Bulletin on missing persons
+          using the computer network at your home or office. By using photo viewer software,
+          download field photographs to the computer where they can be enlarged and
+          studied more closely for clues.</p>\n<p>Features include emotion icons for
+          interjecting different tones during conversations (mean, humorous or technical)
+          which effect the answer given. An in-game hint system, Artificial Intelligence,
+          can be set on or off. In addition, there are multiple endings as a direct
+          result of actions you take.</p>","game_id":1,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":2,"genre_name":"Adventure"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":7,"genre_name":"1st-person"},{"genre_category":"Art
+          Style","genre_category_id":13,"genre_id":217,"genre_name":"Live action"},{"genre_category":"Setting","genre_category_id":10,"genre_id":8,"genre_name":"Sci-fi
+          / futuristic"},{"genre_category":"Narrative Theme/Topic","genre_category_id":8,"genre_id":55,"genre_name":"Detective
+          / mystery"},{"genre_category":"Other Attributes","genre_category_id":6,"genre_id":82,"genre_name":"Licensed"}],"moby_score":7.1,"moby_url":"https://www.mobygames.com/game/1/the-x-files-game/","num_votes":57,"official_url":"https://www.hyperbole.com/xsite/","platforms":[{"first_release_date":"1998","platform_id":3,"platform_name":"Windows"},{"first_release_date":"1999","platform_id":6,"platform_name":"PlayStation"},{"first_release_date":"1998-06","platform_id":74,"platform_name":"Macintosh"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/4062982-the-x-files-game-windows-front-cover.jpg","platforms":["Windows","Macintosh"],"thumbnail_image":"https://cdn.mobygames.com/872aed6c-aba4-11ed-a188-02420a00019a.webp","width":690},"sample_screenshots":[{"caption":"Outside
+          Agent Craig Willmore''s apartment ","height":480,"image":"https://cdn.mobygames.com/screenshots/11077669-the-x-files-game-windows-outside-agent-craig-willmores-apartment.jpg","thumbnail_image":"https://cdn.mobygames.com/93317876-ac15-11ed-b444-02420a000134.webp","width":640},{"caption":"Arriving
+          at Dockside Warehouse","height":480,"image":"https://cdn.mobygames.com/screenshots/11072419-the-x-files-game-windows-arriving-at-dockside-warehouse.jpg","thumbnail_image":"https://cdn.mobygames.com/916394e8-ac15-11ed-803a-02420a000131.webp","width":640},{"caption":"Boat
+          dock","height":480,"image":"https://cdn.mobygames.com/screenshots/11076046-the-x-files-game-windows-boat-dock.jpg","thumbnail_image":"https://cdn.mobygames.com/9a3b5ef2-ac15-11ed-b075-02420a00012f.webp","width":640},{"caption":"Medical
+          examiner and very dead James Wong","height":480,"image":"https://cdn.mobygames.com/screenshots/11073361-the-x-files-game-windows-medical-examiner-and-very-dead-james-wo.jpg","thumbnail_image":"https://cdn.mobygames.com/8f6b8eb6-ac15-11ed-833b-02420a000131.webp","width":640},{"caption":"Main
+          Menu","height":576,"image":"https://cdn.mobygames.com/screenshots/10470736-the-x-files-game-playstation-main-menu.jpg","thumbnail_image":"https://cdn.mobygames.com/6cfd26d2-ac10-11ed-803a-02420a000131.webp","width":720}],"title":"The
+          X-Files Game"},{"alternate_titles":[],"description":"<p>Roger Rabbit has been
+          framed for the murder of Marvin Acme, head of the Acme Corporation. Acme''s
+          will states that upon his death, Toon Town would be left to the Toons, but
+          the will is nowhere to be found. You have to find the will and save your wife,
+          Jessica, from Judge Doom and his weasels.</p>\n<p>The game takes place in
+          Hollywood, 1947, where Toons are alive. There are 4 levels in the game, 2
+          of which are driving levels (levels 1 &amp; 3). Roger and Benny the cab have
+          to beat the weasels to the destination, while dodging cars, trams and Judge
+          Doom''s dip which is scattered on the road. There are pick-ups to help you
+          on your way.</p>\n<p>Level 2 is the Ink &amp; Paint Club. The will is on one
+          of the tables. Roger has to pick up all the pieces of paper the penguin waiters
+          put down, whilst avoiding the alcohol and gorilla bouncer.</p>\n<p>Level 4
+          has you in Judge Doom''s warehouse trying to save your wife, Jessica, from
+          the dip truck. You have to use gags to progress and make the weasels laugh
+          themselves to death, literally!</p>","game_id":2,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":9,"genre_name":"Arcade"},{"genre_category":"Other
+          Attributes","genre_category_id":6,"genre_id":82,"genre_name":"Licensed"}],"moby_score":5.9,"moby_url":"https://www.mobygames.com/game/2/who-framed-roger-rabbit/","num_votes":34,"official_url":null,"platforms":[{"first_release_date":"1988","platform_id":2,"platform_name":"DOS"},{"first_release_date":"1988","platform_id":19,"platform_name":"Amiga"},{"first_release_date":"1988","platform_id":24,"platform_name":"Atari
+          ST"},{"first_release_date":"1988","platform_id":27,"platform_name":"Commodore
+          64"},{"first_release_date":"1988","platform_id":31,"platform_name":"Apple
+          II"}],"sample_cover":{"height":700,"image":"https://cdn.mobygames.com/covers/4068119-who-framed-roger-rabbit-amiga-front-cover.jpg","platforms":["Amiga"],"thumbnail_image":"https://cdn.mobygames.com/b59d6706-aba4-11ed-ba50-02420a000199.webp","width":467},"sample_screenshots":[{"caption":"But
+          don''t let the Waiter catch you. (CGA)","height":200,"image":"https://cdn.mobygames.com/screenshots/7288598-who-framed-roger-rabbit-dos-but-dont-let-the-waiter-catch-you-cg.png","thumbnail_image":"https://cdn.mobygames.com/272f1ce8-abf5-11ed-92cb-02420a000132.webp","width":320},{"caption":"The
+          map of the city and where you need to go. Your remaining lives are represented
+          by empty spaces for dip barrels","height":375,"image":"https://cdn.mobygames.com/screenshots/445776-who-framed-roger-rabbit-amiga-the-map-of-the-city-and-where-you-.png","thumbnail_image":"https://cdn.mobygames.com/2750450e-ab6d-11ed-b165-02420a000198.webp","width":640},{"caption":"Title
+          screen","height":375,"image":"https://cdn.mobygames.com/screenshots/445808-who-framed-roger-rabbit-amiga-title-screen.png","thumbnail_image":"https://cdn.mobygames.com/2762b126-ab6d-11ed-b325-02420a00019e.webp","width":640},{"caption":"Pick
+          up the pieces of paper and dodge the gorilla and alcohol","height":375,"image":"https://cdn.mobygames.com/screenshots/445448-who-framed-roger-rabbit-amiga-pick-up-the-pieces-of-paper-and-do.png","thumbnail_image":"https://cdn.mobygames.com/26a9c35a-ab6d-11ed-ba04-02420a00019f.webp","width":640},{"caption":"Roger
+          must collect all the pieces of paper from the table. Avoid the gorilla bouncer
+          (EGA)","height":200,"image":"https://cdn.mobygames.com/screenshots/442192-who-framed-roger-rabbit-dos-roger-must-collect-all-the-pieces-of.png","thumbnail_image":"https://cdn.mobygames.com/2039dc44-ab6d-11ed-9ab3-02420a0001a0.webp","width":320}],"title":"Who
+          Framed Roger Rabbit"},{"alternate_titles":[{"description":"Working title","title":"Squadron"},{"description":"Common
+          abbreviation","title":"WC1"},{"description":"German tag-lined title","title":"Wing
+          Commander: Der 3D-Raumkampf-Simulator"},{"description":"Tag-lined title","title":"Wing
+          Commander: The 3-D Space Combat Simulator"},{"description":"Working title","title":"Wingleader"}],"description":"<p>The
+          Confederation have been at war with the Kilrathi for the past 20 years, and
+          you''re just now joining the Vega campaign. You''re a 2nd Lieutenant just
+          out of the Academy, with some good work under your belt. You''re posted to
+          Tiger''s Claw, the flagship of the Confederation Fleet. Will you help the
+          Confederation to victory, or go down in infamy? </p>\n<p><em>Wing Commander</em>
+          is a space combat simulator interspersed with shipboard dialogs. Onboard the
+          ship, you can save/load game, visit the bar to get the latest gossip, or go
+          on to the next mission briefing, and the 3D space combat part. </p>\n<p>The
+          3D space combat has you sitting in the cockpit, where you control the craft
+          like roll, turn, up/down, afterburner, as well as fire guns and launch missiles.
+          There are four different crafts on the Confed side, each with different flight
+          characteristics and armament. You will have a wingman on each mission, and
+          you should keep the wingman alive as the wingman will help you if you issue
+          the right orders. You can also taunt the enemy. You''ll be fighting several
+          different types of enemy fighters and capital ships, and even combat a few
+          Kilrathi aces. </p>\n<p>When the mission is complete, land back onboard the
+          ship and get ready for the next one. The campaign tree has both winning and
+          losing paths.</p>","game_id":3,"genres":[{"genre_category":"Basic Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":3,"genre_name":"Simulation"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":7,"genre_name":"1st-person"},{"genre_category":"Vehicular
+          Themes","genre_category_id":11,"genre_id":151,"genre_name":"Space flight"},{"genre_category":"Vehicular
+          Themes","genre_category_id":11,"genre_id":159,"genre_name":"Vehicular combat"},{"genre_category":"Setting","genre_category_id":10,"genre_id":8,"genre_name":"Sci-fi
+          / futuristic"}],"moby_score":7.9,"moby_url":"https://www.mobygames.com/game/3/wing-commander/","num_votes":201,"official_url":null,"platforms":[{"first_release_date":"1990","platform_id":2,"platform_name":"DOS"},{"first_release_date":"1992","platform_id":15,"platform_name":"SNES"},{"first_release_date":"1992","platform_id":19,"platform_name":"Amiga"},{"first_release_date":"1994","platform_id":20,"platform_name":"SEGA
+          CD"},{"first_release_date":"1992-12","platform_id":102,"platform_name":"FM
+          Towns"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/6743023-wing-commander-dos-front-cover.jpg","platforms":["DOS"],"thumbnail_image":"https://cdn.mobygames.com/dad1dfd8-abf0-11ed-8a97-02420a00012d.webp","width":560},"sample_screenshots":[{"caption":"The
+          Officers'' Lounge","height":224,"image":"https://cdn.mobygames.com/screenshots/15762759-wing-commander-snes-the-officers-lounge.png","thumbnail_image":"https://cdn.mobygames.com/ed048970-bede-11ed-9c42-02420a000140.webp","width":256},{"caption":"Encountering
+          a Dralthi","height":400,"image":"https://cdn.mobygames.com/screenshots/350994-wing-commander-amiga-encountering-a-dralthi.png","thumbnail_image":"https://cdn.mobygames.com/696381aa-ab6c-11ed-bd13-02420a00019c.webp","width":640},{"caption":"red
+          alert! (EGA)","height":400,"image":"https://cdn.mobygames.com/screenshots/273924-wing-commander-dos-red-alert-ega.png","thumbnail_image":"https://cdn.mobygames.com/bfbe68d6-ab6b-11ed-89d0-02420a00019d.webp","width":640},{"caption":"Raptor
+          Cockpit","height":200,"image":"https://cdn.mobygames.com/screenshots/6756305-wing-commander-dos-raptor-cockpit.png","thumbnail_image":"https://cdn.mobygames.com/f5d649ea-abf0-11ed-902e-02420a00012d.webp","width":320},{"caption":"Rapier
+          Cockpit","height":200,"image":"https://cdn.mobygames.com/screenshots/6756317-wing-commander-dos-rapier-cockpit.png","thumbnail_image":"https://cdn.mobygames.com/f6a3bd4e-abf0-11ed-902e-02420a00012d.webp","width":320}],"title":"Wing
+          Commander"},{"alternate_titles":[{"description":"Common abbreviation","title":"SMAC"}],"description":"<p>After
+          the 20th century, humankind reaches its hand out across the stars. Seeking
+          to escape the overcrowded chaos of Earth, the United Nations builds a single
+          seedship, the UNS Unity, and sends her on a mission towards the Alpha Centauri
+          star system. After a long journey in cryogenic suspension, the Unity reaches
+          Alpha Centauri where the Captain is killed under mysterious circumstances.
+          Suspecting the motives of one another, the officers and the crew split into
+          7 factions, each lead with a distinct ideology and motives that they seek
+          to build the planet in their image...</p>\n<p><em>Sid Meier''s Alpha Centauri</em>
+          is best compared to <a href=\"https://www.mobygames.com/game/15/sid-meiers-civilization-ii/\">Civilization
+          II</a>, but features many distinct differences in gameplay and thinking. In
+          Civilization, the objective was to evolve a society from primitive tribes,
+          whereas Alpha Centauri starts with the landing of colony pods on a barren
+          planet with society becoming fractured. Each faction (aka nation) receives
+          it''s own share of the Unity''s resources and tech base. For the basics, bases
+          produce nutrients, materials and energy. Nutrients are required to feed to
+          population, Materials are used in production and energy represents the commerce
+          effect which can be traded to players diplomatically or spent on improvements.
+          The 7 factions each have their own agenda, which is determined in large part
+          by the Social Engineering. This enables a faction to customize its values,
+          earning a bonus for what it considers important and a penalty for what it
+          doesn''t. Social Engineering system are discovered through research, the same
+          as other improvements, such as structures and units.</p>\n<p>Research is divided
+          into 4 types of technologies, which form an intertwining tree of dependencies.
+          They are: Conquer (direct military applications), Explore (indirect technologies
+          for units and bases), Build (direct infrastructure application) and Discovery
+          (Science for the sake of science, indirect applications). Because of the separation,
+          factions can focus on what they hope the intended result of their science
+          will be, and can be changed at any time. To explore the planet, units are
+          needed. Any unit can be customized out of known technologies; consisting of
+          a chassis type, reactor, weapon, armor and special abilities. Each of these
+          components has a different expense, with untested technologies having additional
+          overhead (prototype). </p>\n<p>Finally, Alpha Centauri is not a desolate star
+          system. There is life on the planet, in the form of alien fungus that litters
+          the ground and strange creatures such as mindworms. Initially hostile to all
+          factions, this form of life holds its own secrets and effects on the world
+          at large.</p>","game_id":4,"genres":[{"genre_category":"Basic Genres","genre_category_id":1,"genre_id":4,"genre_name":"Strategy
+          / tactics"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":129,"genre_name":"Diagonal-down"},{"genre_category":"Visual
+          Presentation","genre_category_id":12,"genre_id":134,"genre_name":"Free camera"},{"genre_category":"Visual
+          Presentation","genre_category_id":12,"genre_id":25,"genre_name":"Isometric"},{"genre_category":"Pacing","genre_category_id":9,"genre_id":106,"genre_name":"Turn-based"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":142,"genre_name":"4X"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":40,"genre_name":"Managerial
+          / business simulation"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":226,"genre_name":"Turn-based
+          strategy (TBS)"},{"genre_category":"Interface/Control","genre_category_id":7,"genre_id":173,"genre_name":"Multiple
+          units/characters control"},{"genre_category":"Interface/Control","genre_category_id":7,"genre_id":167,"genre_name":"Point
+          and select"},{"genre_category":"Setting","genre_category_id":10,"genre_id":8,"genre_name":"Sci-fi
+          / futuristic"}],"moby_score":8.0,"moby_url":"https://www.mobygames.com/game/4/sid-meiers-alpha-centauri/","num_votes":172,"official_url":"https://web.archive.org/web/20021017023243/http://www.firaxis.com/smac/","platforms":[{"first_release_date":"1999-02","platform_id":3,"platform_name":"Windows"},{"first_release_date":"2000-02","platform_id":74,"platform_name":"Macintosh"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/4024341-sid-meiers-alpha-centauri-windows-front-cover.jpg","platforms":["Windows"],"thumbnail_image":"https://cdn.mobygames.com/30989ad6-aba3-11ed-98cd-02420a00019e.webp","width":657},"sample_screenshots":[{"caption":"Governor
+          screen","height":600,"image":"https://cdn.mobygames.com/screenshots/10393646-sid-meiers-alpha-centauri-windows-governor-screen.jpg","thumbnail_image":"https://cdn.mobygames.com/d4034204-ac0f-11ed-aca6-02420a000132.webp","width":800},{"caption":"Moderately
+          developed cities","height":600,"image":"https://cdn.mobygames.com/screenshots/10232216-sid-meiers-alpha-centauri-windows-moderately-developed-cities.jpg","thumbnail_image":"https://cdn.mobygames.com/72c9f722-ac0e-11ed-9941-02420a000133.webp","width":800},{"caption":"Choosing
+          a faction","height":768,"image":"https://cdn.mobygames.com/screenshots/16876257-sid-meiers-alpha-centauri-windows-choosing-a-faction.png","thumbnail_image":"https://cdn.mobygames.com/a79f3e1c-c3fb-11ed-be63-02420a000121.webp","width":1024},{"caption":"Main
+          menu","height":768,"image":"https://cdn.mobygames.com/screenshots/16876134-sid-meiers-alpha-centauri-windows-main-menu.png","thumbnail_image":"https://cdn.mobygames.com/9809267a-c3fb-11ed-be63-02420a000121.webp","width":1024},{"caption":"Design
+          workshop","height":600,"image":"https://cdn.mobygames.com/screenshots/10393989-sid-meiers-alpha-centauri-windows-design-workshop.jpg","thumbnail_image":"https://cdn.mobygames.com/ce21e552-ac0f-11ed-897b-02420a00012d.webp","width":800}],"title":"Sid
+          Meier''s Alpha Centauri"},{"alternate_titles":[{"description":"Informal name","title":"Indy
+          500"}],"description":"<p>The famous Indianapolis 500 Mile race, held annually
+          at the Indianapolis Motor Speedway on the Memorial Day weekend, is one of
+          the most famous automobile racing events in North America. The event is simulated
+          here using 3D polygon graphics to recreate the  33 cars in the race.  Players
+          are able to choose their car and customize it with a variety of options. Modifications
+          include wing down-force, tire pressures, wheel stagger (making the right-side
+          wheels larger, to compensate for the banked corners) and turbo output (which
+          provides boost, but stresses the engine and uses more fuel).</p>\n<p>After
+          qualifying (by performing during four laps and taking the average), players
+          can race over 10, 30, 60 or the full 200 laps. Lower modes remove car damage
+          and the ''full-course yellow'' system, the absence of these can make for repeat
+          carnage including traffic collisions and huge pile-ups.</p>","game_id":5,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":6,"genre_name":"Racing / Driving"},{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":3,"genre_name":"Simulation"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":7,"genre_name":"1st-person"},{"genre_category":"Vehicular
+          Themes","genre_category_id":11,"genre_id":188,"genre_name":"Automobile"},{"genre_category":"Vehicular
+          Themes","genre_category_id":11,"genre_id":192,"genre_name":"Track racing"},{"genre_category":"Vehicular
+          Themes","genre_category_id":11,"genre_id":158,"genre_name":"Vehicle simulator"},{"genre_category":"Other
+          Attributes","genre_category_id":6,"genre_id":82,"genre_name":"Licensed"}],"moby_score":7.6,"moby_url":"https://www.mobygames.com/game/5/indianapolis-500-the-simulation/","num_votes":64,"official_url":null,"platforms":[{"first_release_date":"1989-12","platform_id":2,"platform_name":"DOS"},{"first_release_date":"1990","platform_id":19,"platform_name":"Amiga"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/868063-indianapolis-500-the-simulation-dos-front-cover.jpg","platforms":["DOS"],"thumbnail_image":"https://cdn.mobygames.com/87cf8842-ab70-11ed-beab-02420a000199.webp","width":608},"sample_screenshots":[{"caption":"Copy
+          protection (Tandy)","height":200,"image":"https://cdn.mobygames.com/screenshots/9497213-indianapolis-500-the-simulation-dos-copy-protection-tandy.png","thumbnail_image":"https://cdn.mobygames.com/889a5652-ac07-11ed-9f52-02420a000130.webp","width":320},{"caption":"Behind
+          the wheel of Penske Chevrolet (VGA)","height":200,"image":"https://cdn.mobygames.com/screenshots/9496819-indianapolis-500-the-simulation-dos-behind-the-wheel-of-penske-c.png","thumbnail_image":"https://cdn.mobygames.com/87c9e1c0-ac07-11ed-bc39-02420a000131.webp","width":320},{"caption":"Title
+          Screen (VGA)","height":200,"image":"https://cdn.mobygames.com/screenshots/5487218-indianapolis-500-the-simulation-dos-title-screen-vga.png","thumbnail_image":"https://cdn.mobygames.com/d609b908-abe6-11ed-893a-02420a00012f.webp","width":320},{"caption":"Pit
+          stop (CGA w/Composite Monitor)","height":400,"image":"https://cdn.mobygames.com/screenshots/7045342-indianapolis-500-the-simulation-dos-pit-stop-cga-wcomposite-moni.png","thumbnail_image":"https://cdn.mobygames.com/3e2f9866-abf3-11ed-92cb-02420a000132.webp","width":640},{"caption":"We
+          hit the wall","height":200,"image":"https://cdn.mobygames.com/screenshots/15985099-indianapolis-500-the-simulation-amiga-we-hit-the-wall.png","thumbnail_image":"https://cdn.mobygames.com/fc99b64c-bf21-11ed-9c42-02420a000140.webp","width":320}],"title":"Indianapolis
+          500: The Simulation"}]}
+
+          '
+      headers:
+        CF-RAY:
+          - 963b898d0909a21a-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Security-Policy:
+          - frame-ancestors 'none';
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:31:18 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Ratelimit-Limit:
+          - "720"
+        Ratelimit-Policy:
+          - 1;w=1, 720;w=3600
+        Ratelimit-Remaining:
+          - "323"
+        Ratelimit-Reset:
+          - "1722"
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=d3Y%2Bi5S1ZbnCplET22LftuqQSYgRqyfmNuKuCCwKhtIj5I9Bs0qDwdjS%2BewKBeoJdg%2B1clGMG83kF0Aq8Im8MfLmVaylh2F5xnval6gK"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - session-www=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxx;
+            HttpOnly; SameSite=Lax; Path=/; Domain=mobygames.com
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Cookie
+        X-Frame-Options:
+          - DENY
+        X-Xss-Protection:
+          - 1; mode=block
+      status:
+        code: 200
+        message: OK
+version: 1

@@ -15,6 +15,7 @@ from .base_hander import (
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
     SWITCH_TITLEDB_REGEX,
+    BaseRom,
     MetadataHandler,
 )
 
@@ -121,13 +122,8 @@ class SSMetadata(TypedDict):
     genres: list[str]
 
 
-class SSRom(TypedDict):
+class SSRom(BaseRom):
     ss_id: int | None
-    name: NotRequired[str]
-    summary: NotRequired[str]
-    url_cover: NotRequired[str]
-    url_manual: NotRequired[str]
-    url_screenshots: NotRequired[list[str]]
     ss_metadata: NotRequired[SSMetadata]
 
 
@@ -445,7 +441,6 @@ class SSHandler(MetadataHandler):
         if not platform_ss_id:
             return []
 
-        search_term = self.normalize_search_term(search_term)
         matched_roms = await self.ss_service.search_games(
             term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
@@ -469,9 +464,10 @@ class SlugToSSId(TypedDict):
 SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "3do": {"id": 29, "name": "3DO"},
     "amiga": {"id": 64, "name": "Amiga"},
-    "amiga-cd32": {"id": 134, "name": "Amiga CD"},
-    "cpc": {"id": 60, "name": "CPC"},
-    "acpc": {"id": 60, "name": "CPC"},  # IGDB
+    "amiga-cd": {"id": 134, "name": "Amiga CD"},
+    "amiga-cd32": {"id": 130, "name": "Amiga CD32"},
+    "cpc": {"id": 65, "name": "CPC"},
+    "acpc": {"id": 65, "name": "CPC"},  # IGDB
     "adventure-vision": {"id": 78, "name": "Entex Adventure Vision"},
     "amstrad-gx4000": {"id": 87, "name": "Amstrad GX4000"},
     "android": {"id": 63, "name": "Android"},
@@ -504,7 +500,7 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "casio-pv-1000": {"id": 74, "name": "PV-1000"},
     "channel-f": {"id": 80, "name": "Channel F"},
     "fairchild-channel-f": {"id": 80, "name": "Channel F"},  # IGDB
-    "colecoadam": {"id": 89, "name": "Adam"},
+    "colecoadam": {"id": 89, "name": "Coleco Adam"},
     "colecovision": {"id": 48, "name": "Colecovision"},
     "colour-genie": {"id": 92, "name": "EG2000 Colour Genie"},
     "c128": {"id": 66, "name": "Commodore 64"},
@@ -566,6 +562,7 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "neo-geo-pocket-color": {"id": 82, "name": "Neo-Geo Pocket Color"},
     "3ds": {"id": 17, "name": "Nintendo 3DS"},
     "n64": {"id": 14, "name": "Nintendo 64"},
+    "64dd": {"id": 122, "name": "Nintendo 64DD"},
     "nintendo-ds": {"id": 15, "name": "Nintendo DS"},
     "nds": {"id": 15, "name": "Nintendo DS"},  # IGDB
     "nintendo-dsi": {"id": 15, "name": "Nintendo DS"},

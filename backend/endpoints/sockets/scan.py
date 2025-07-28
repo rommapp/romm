@@ -90,7 +90,7 @@ async def _identify_firmware(
 
     firmware = db_firmware_handler.get_firmware_by_filename(platform.id, fs_fw)
 
-    scanned_firmware = scan_firmware(
+    scanned_firmware = await scan_firmware(
         platform=platform,
         file_name=fs_fw,
         firmware=firmware,
@@ -251,7 +251,7 @@ async def _identify_rom(
         db_rom_handler.add_rom_file(new_rom_file)
 
     if _added_rom.ra_metadata:
-        fs_resource_handler.create_ra_resources_path(platform.id, _added_rom.id)
+        await fs_resource_handler.create_ra_resources_path(platform.id, _added_rom.id)
 
         # Store the achievements badges
         for ach in _added_rom.ra_metadata.get("achievements", []):
@@ -331,9 +331,7 @@ async def _identify_platform(
     if platform and scan_type == ScanType.NEW_PLATFORMS:
         return scan_stats
 
-    scanned_platform = await scan_platform(
-        platform_slug, fs_platforms, metadata_sources=metadata_sources
-    )
+    scanned_platform = await scan_platform(platform_slug, fs_platforms)
     if platform:
         scanned_platform.id = platform.id
         # Keep the existing ids if they exist on the platform
@@ -359,7 +357,7 @@ async def _identify_platform(
 
     # Scanning firmware
     try:
-        fs_firmware = fs_firmware_handler.get_firmware(platform.fs_slug)
+        fs_firmware = await fs_firmware_handler.get_firmware(platform.fs_slug)
     except FirmwareNotFoundException:
         fs_firmware = []
 
@@ -457,7 +455,7 @@ async def scan_platforms(
         return
 
     try:
-        fs_platforms: list[str] = fs_platform_handler.get_platforms()
+        fs_platforms: list[str] = await fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
@@ -476,6 +474,7 @@ async def scan_platforms(
             for s in platform_ids
             if (platform := db_platform_handler.get_platform(s)) is not None
         ] or fs_platforms
+        platform_list = sorted(platform_list)
 
         if len(platform_list) == 0:
             log.warning(

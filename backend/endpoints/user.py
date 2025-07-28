@@ -1,9 +1,5 @@
-import os
-from pathlib import Path
 from typing import Annotated, Any
 
-from anyio import open_file
-from config import ASSETS_BASE_PATH
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses import MessageResponse
@@ -290,20 +286,16 @@ async def update_user(
     if form_data.ra_username:
         cleaned_data["ra_username"] = form_data.ra_username  # type: ignore[assignment]
 
-    if form_data.avatar is not None:
+    if form_data.avatar is not None and form_data.avatar.filename is not None:
         user_avatar_path = fs_asset_handler.build_avatar_path(user=db_user)
-        # Extract the file extension from the uploaded file
-        file_extension = os.path.splitext(form_data.avatar.filename)[1]
-        # Set the file name to "avatar" with the original extension
-        file_location = f"{user_avatar_path}/avatar{file_extension}"
-        cleaned_data["avatar_path"] = file_location
-        Path(f"{ASSETS_BASE_PATH}/{user_avatar_path}").mkdir(
-            parents=True, exist_ok=True
+        file_extension = form_data.avatar.filename.split(".")[-1]
+        file_name = f"avatar.{file_extension}"
+
+        await fs_asset_handler.write_file(
+            file=form_data.avatar.file, path=user_avatar_path, filename=file_name
         )
-        async with await open_file(
-            f"{ASSETS_BASE_PATH}/{file_location}", "wb+"
-        ) as file_object:
-            await file_object.write(form_data.avatar.file.read())
+        file_location = f"{user_avatar_path}/{file_name}"
+        cleaned_data["avatar_path"] = file_location
 
     if cleaned_data:
         db_user_handler.update_user(id, cleaned_data)
@@ -325,7 +317,7 @@ async def update_user(
 
 
 @protected_route(router.delete, "/{id}", [Scope.USERS_WRITE])
-def delete_user(request: Request, id: int) -> MessageResponse:
+async def delete_user(request: Request, id: int) -> MessageResponse:
     """Delete user endpoint
 
     Args:
@@ -356,6 +348,13 @@ def delete_user(request: Request, id: int) -> MessageResponse:
         )
 
     db_user_handler.delete_user(id)
+
+    # Remove the user's folder
+    user_avatar_path = fs_asset_handler.build_avatar_path(user=user)
+    try:
+        await fs_asset_handler.remove_directory(user_avatar_path)
+    except FileNotFoundError:
+        log.warning(f"Couldn't find avatar directory to delete for {user.username}")
 
     return {"msg": "User successfully deleted"}
 

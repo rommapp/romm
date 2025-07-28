@@ -4,11 +4,11 @@ import re
 import unicodedata
 from functools import lru_cache
 from itertools import batched
-from typing import Final
+from typing import Final, NotRequired, TypedDict
 
 from handler.redis_handler import async_cache, sync_cache
 from logger.logger import log
-from tasks.update_switch_titledb import (
+from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
     update_switch_titledb_task,
@@ -56,7 +56,13 @@ COMMA_ARTICLE_PATTERN = re.compile(r",\s(a|an|the)\b$")
 NON_WORD_SPACE_PATTERN = re.compile(r"[^\w\s]")
 MULTIPLE_SPACE_PATTERN = re.compile(r"\s+")
 
-CHAR_REMOVAL_TABLE = str.maketrans("_'\"", "   ")
+
+class BaseRom(TypedDict):
+    name: NotRequired[str]
+    summary: NotRequired[str]
+    url_cover: NotRequired[str]
+    url_screenshots: NotRequired[list[str]]
+    url_manual: NotRequired[str]
 
 
 # This caches results to avoid repeated normalization of the same search term
@@ -64,8 +70,8 @@ CHAR_REMOVAL_TABLE = str.maketrans("_'\"", "   ")
 def _normalize_search_term(
     name: str, remove_articles: bool = True, remove_punctuation: bool = True
 ) -> str:
-    # Single translate operation
-    name = name.lower().translate(CHAR_REMOVAL_TABLE)
+    # Lower and replace underscores with spaces
+    name = name.lower().replace("_", " ")
 
     # Remove articles (combined if possible)
     if remove_articles:

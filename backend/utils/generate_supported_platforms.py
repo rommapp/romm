@@ -30,7 +30,7 @@ if __name__ == "__main__":
     matched_hasheous_ids: list[int] = []
     matched_ra_ids: list[int] = []
 
-    for plt in IGDB_PLATFORM_LIST:
+    for plt in IGDB_PLATFORM_LIST.values():
         moby_platform = MOBYGAMES_PLATFORM_LIST.get(plt["slug"])
         moby_slug = moby_platform["slug"] if moby_platform else None
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
         ra_platform = RA_PLATFORM_LIST.get(plt["slug"])
         ra_id = ra_platform["id"] if ra_platform else None
 
-        supported_platforms[plt["name"]] = {
+        supported_platforms[plt["slug"].lower()] = {
             "name": plt["name"],
             "folder": plt["slug"],
             "igdb_slug": plt["slug"],
@@ -74,11 +74,9 @@ if __name__ == "__main__":
             continue
 
         # If the platform is not in supported_platforms, add it
-        if (
-            mplt["name"] not in supported_platforms
-            and mplt["name"].lower() not in supported_platforms
-        ):
-            supported_platforms[mplt["name"]] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": mplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -89,19 +87,17 @@ if __name__ == "__main__":
                 "ra_id": None,
             }
         # If the platform is already in supported_platforms, update the moby_slug if it's None
-        elif supported_platforms[mplt["name"]]["moby_slug"] is None:
-            supported_platforms[mplt["name"]]["moby_slug"] = mplt["slug"]
+        elif supported_platforms[slug_lower]["moby_slug"] is None:
+            supported_platforms[slug_lower]["moby_slug"] = mplt["slug"]
 
     # And the remaining metadata sources
     for slug, ssplt in SCREENSAVER_PLATFORM_LIST.items():
         if ssplt["id"] in matched_ss_ids:
             continue
 
-        if (
-            ssplt["name"] not in supported_platforms
-            and ssplt["name"].lower() not in supported_platforms
-        ):
-            supported_platforms[ssplt["name"]] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": ssplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -111,18 +107,16 @@ if __name__ == "__main__":
                 "hasheous_id": None,
                 "ra_id": None,
             }
-        elif supported_platforms[ssplt["name"]]["ss_id"] is None:
-            supported_platforms[ssplt["name"]]["ss_id"] = ssplt["id"]
+        elif supported_platforms[slug_lower]["ss_id"] is None:
+            supported_platforms[slug_lower]["ss_id"] = ssplt["id"]
 
     for slug, lbplt in LAUNCHBOX_PLATFORM_LIST.items():
         if lbplt["id"] in matched_launchbox_ids:
             continue
 
-        if (
-            lbplt["name"] not in supported_platforms
-            and lbplt["name"].lower() not in supported_platforms
-        ):
-            supported_platforms[lbplt["name"]] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": lbplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -132,18 +126,16 @@ if __name__ == "__main__":
                 "hasheous_id": None,
                 "ra_id": None,
             }
-        elif supported_platforms[lbplt["name"]]["launchbox_id"] is None:
-            supported_platforms[lbplt["name"]]["launchbox_id"] = lbplt["id"]
+        elif supported_platforms[slug_lower]["launchbox_id"] is None:
+            supported_platforms[slug_lower]["launchbox_id"] = lbplt["id"]
 
     for slug, hsplt in HASHEOUS_PLATFORM_LIST.items():
         if hsplt["id"] in matched_hasheous_ids:
             continue
 
-        if (
-            hsplt["name"] not in supported_platforms
-            and hsplt["name"].lower() not in supported_platforms
-        ):
-            supported_platforms[hsplt["name"]] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": hsplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -153,18 +145,16 @@ if __name__ == "__main__":
                 "hasheous_id": hsplt["id"],
                 "ra_id": None,
             }
-        elif supported_platforms[hsplt["name"]]["hasheous_id"] is None:
-            supported_platforms[hsplt["name"]]["hasheous_id"] = hsplt["id"]
+        elif supported_platforms[slug_lower]["hasheous_id"] is None:
+            supported_platforms[slug_lower]["hasheous_id"] = hsplt["id"]
 
     for slug, raplt in RA_PLATFORM_LIST.items():
         if raplt["id"] in matched_ra_ids:
             continue
 
-        if (
-            raplt["name"] not in supported_platforms
-            and raplt["name"].lower() not in supported_platforms
-        ):
-            supported_platforms[raplt["name"]] = {
+        slug_lower = slug.lower()
+        if slug_lower not in supported_platforms:
+            supported_platforms[slug_lower] = {
                 "name": raplt["name"],
                 "folder": slug,
                 "igdb_slug": None,
@@ -174,14 +164,17 @@ if __name__ == "__main__":
                 "hasheous_id": None,
                 "ra_id": raplt["id"],
             }
-        elif supported_platforms[raplt["name"]]["ra_id"] is None:
-            supported_platforms[raplt["name"]]["ra_id"] = raplt["id"]
+        elif supported_platforms[slug_lower]["ra_id"] is None:
+            supported_platforms[slug_lower]["ra_id"] = raplt["id"]
 
-    # Sort platforms by key
-    supported_platforms = dict(sorted(supported_platforms.items()))
+    # Sort platforms by name field
+    supported_platforms = dict(
+        sorted(supported_platforms.items(), key=lambda item: item[1]["name"].lower())
+    )
 
     print(
         """<!-- vale off -->
+<!-- prettier-ignore -->
 
 Below is a list of all supported platforms/systems/consoles and their respective folder names. Supported platforms means RomM can fetch metadata from sources for those platforms.
 

@@ -30,7 +30,9 @@ from .base_handler import DBBaseHandler
 
 EJS_SUPPORTED_PLATFORMS = [
     "3do",
+    "64dd",
     "amiga",
+    "amiga-cd",
     "amiga-cd32",
     "arcade",
     "neogeoaes",
@@ -192,7 +194,9 @@ class DBRomsHandler(DBBaseHandler):
             Rom.igdb_id.isnot(None),
             Rom.moby_id.isnot(None),
             Rom.ss_id.isnot(None),
+            Rom.ra_id.isnot(None),
             Rom.launchbox_id.isnot(None),
+            Rom.hasheous_id.isnot(None),
         )
         if not value:
             predicate = not_(predicate)
