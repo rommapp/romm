@@ -3,13 +3,12 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
-from anyio import Path, open_file
 from config import (
     RESOURCES_BASE_PATH,
     STORE_COVERS_ON_DISK,
     STORE_MANUALS_ON_DISK,
     STORE_RESOURCES_ON_DISK,
-    STORE_SCREENSHOTS_ON_DISK
+    STORE_SCREENSHOTS_ON_DISK,
 )
 from logger.logger import log
 from models.collection import Collection
@@ -106,7 +105,7 @@ class FSResourcesHandler(FSHandler):
 
     async def get_cover(
         self, entity: Rom | Collection | None, overwrite: bool, url_cover: str | None
-    ) -> tuple[str, str]:
+    ) -> tuple[str | None, str | None]:
         if not STORE_COVERS_ON_DISK or not entity:
             return None, None
 
@@ -279,7 +278,7 @@ class FSResourcesHandler(FSHandler):
     async def store_ra_badge(self, url: str, path: str) -> None:
         if not STORE_RESOURCES_ON_DISK:
             return
-        
+
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
