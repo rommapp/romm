@@ -30,7 +30,7 @@ const { selectedPlatform } = storeToRefs(galleryFilterStore);
 const platformsStore = storePlatforms();
 const missingGamesLoading = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-let timeout: ReturnType<typeof setTimeout>;
+let timeout: ReturnType<typeof setTimeout> = setTimeout(() => {}, 400);
 const allPlatforms = computed(() =>
   [
     ...new Map(
