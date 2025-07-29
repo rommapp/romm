@@ -45,7 +45,7 @@
     "vue-i18n": "^11.1.10",
     "vue-router": "^4.3.2",
     "vue3-pdf-app": "^1.0.3",
-    "vuetify": "^3.7.18"
+    "vuetify": "^3.9.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",

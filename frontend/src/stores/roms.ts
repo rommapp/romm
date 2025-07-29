@@ -98,7 +98,11 @@ export default defineStore("roms", {
         }
       }
     },
-    fetchRoms(galleryFilter: GalleryFilterStore, concat = true) {
+    fetchRoms(
+      galleryFilter: GalleryFilterStore,
+      groupRoms?: boolean,
+      concat = true,
+    ) {
       if (this.fetchingRoms) return Promise.resolve();
       this.fetchingRoms = true;
 
@@ -116,7 +120,7 @@ export default defineStore("roms", {
             offset: this.fetchOffset,
             orderBy: this.orderBy,
             orderDir: this.orderDir,
-            groupByMetaId: this._shouldGroupRoms(),
+            groupByMetaId: groupRoms ?? this._shouldGroupRoms(),
           })
           .then(({ data: { items, offset, total, char_index } }) => {
             if (!concat || this.fetchOffset === 0) {
