@@ -236,6 +236,9 @@ export default defineStore("roms", {
     setOrderDir(orderDir: "asc" | "desc") {
       this.orderDir = orderDir;
     },
+    setLimit(limit: number) {
+      this.fetchLimit = limit;
+    },
     isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
       return !isNull(rom.id) && !isUndefined(rom.id);
     },
