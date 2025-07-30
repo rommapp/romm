@@ -464,9 +464,10 @@ class SlugToSSId(TypedDict):
 SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "3do": {"id": 29, "name": "3DO"},
     "amiga": {"id": 64, "name": "Amiga"},
-    "amiga-cd32": {"id": 134, "name": "Amiga CD"},
-    "cpc": {"id": 60, "name": "CPC"},
-    "acpc": {"id": 60, "name": "CPC"},  # IGDB
+    "amiga-cd": {"id": 134, "name": "Amiga CD"},
+    "amiga-cd32": {"id": 130, "name": "Amiga CD32"},
+    "cpc": {"id": 65, "name": "CPC"},
+    "acpc": {"id": 65, "name": "CPC"},  # IGDB
     "adventure-vision": {"id": 78, "name": "Entex Adventure Vision"},
     "amstrad-gx4000": {"id": 87, "name": "Amstrad GX4000"},
     "android": {"id": 63, "name": "Android"},
@@ -561,6 +562,7 @@ SCREENSAVER_PLATFORM_LIST: dict[str, SlugToSSId] = {
     "neo-geo-pocket-color": {"id": 82, "name": "Neo-Geo Pocket Color"},
     "3ds": {"id": 17, "name": "Nintendo 3DS"},
     "n64": {"id": 14, "name": "Nintendo 64"},
+    "64dd": {"id": 122, "name": "Nintendo 64DD"},
     "nintendo-ds": {"id": 15, "name": "Nintendo DS"},
     "nds": {"id": 15, "name": "Nintendo DS"},  # IGDB
     "nintendo-dsi": {"id": 15, "name": "Nintendo DS"},
