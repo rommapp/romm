@@ -1,0 +1,20 @@
+{
+  "back-to-gallery": "Powrót do galerii",
+  "back-to-game-details": "Powrót do szczegółów gry",
+  "clear-cache": "Wyczyść pamięć podręczną EmulatorJS",
+  "clear-cache-description": "Zapisane stany i pliki przechowywane na serwerze nie zostaną usunięte.",
+  "clear-cache-title": "Czy na pewno chcesz wyczyścić pamięć podręczną EmulatorJS?",
+  "clear-cache-warning": "To usunie wszystkie zapisy i stany przechowywane w przeglądarce.",
+  "full-screen": "Pełny ekran",
+  "play": "Graj",
+  "quit": "Zakończ",
+  "save-and-quit": "Zapisz i zakończ",
+  "select-save": "Wybierz zapis",
+  "change-save": "Zmień zapis",
+  "deselect-save": "Odznacz zapis",
+  "select-state": "Wybierz stan",
+  "change-state": "Zmień stan",
+  "deselect-state": "Odznacz stan",
+  "background-color": "Kolor tła",
+  "select-background-color": "Wybierz kolor tła"
+}
