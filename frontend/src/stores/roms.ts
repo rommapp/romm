@@ -12,6 +12,7 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
+export let MAX_FETCH_LIMIT = 10000;
 
 const defaultRomsState = {
   currentPlatform: null as Platform | null,

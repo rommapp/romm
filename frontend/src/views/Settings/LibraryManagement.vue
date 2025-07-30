@@ -7,7 +7,7 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import storeRoms from "@/stores/roms";
+import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Emitter } from "mitt";
 import storeGalleryView from "@/stores/galleryView";
@@ -104,7 +104,7 @@ async function fetchRoms() {
 }
 
 function cleanupAll() {
-  romsStore.setLimit(10000);
+  romsStore.setLimit(MAX_FETCH_LIMIT);
   galleryFilterStore.setFilterMissing(true);
   romsStore
     .fetchRoms(galleryFilterStore, false)
