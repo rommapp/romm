@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
                 class="text-romm-red bg-toplayer"
                 variant="flat"
                 @click="cleanupAll"
-                >Cleanup all</v-btn
+                >Clean up all</v-btn
               >
             </v-col>
           </v-row>
