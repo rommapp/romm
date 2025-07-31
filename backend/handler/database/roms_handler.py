@@ -72,6 +72,7 @@ EJS_SUPPORTED_PLATFORMS = [
     "game-boy-micro",
     "gbc",
     "pc-fx",
+    "philips-cd-i",
     "ps",
     "psp",
     "segacd",
