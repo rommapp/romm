@@ -1,11 +1,267 @@
 <script setup lang="ts">
-import Excluded from "@/components/Settings/LibraryManagement/Excluded.vue";
-import PlatformBinding from "@/components/Settings/LibraryManagement/PlatformBinding.vue";
-import PlatformVersions from "@/components/Settings/LibraryManagement/PlatformVersions.vue";
+import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
+import PlatformBinding from "@/components/Settings/LibraryManagement/Config/PlatformBinding.vue";
+import PlatformVersions from "@/components/Settings/LibraryManagement/Config/PlatformVersions.vue";
+import GameTable from "@/components/common/Game/Table.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
+import FabOverlay from "@/components/Gallery/FabOverlay.vue";
+import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import type { Emitter } from "mitt";
+import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
+import type { Events } from "@/types/emitter";
+import { storeToRefs } from "pinia";
+import { ref, onMounted, inject, onBeforeUnmount, computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { debounce } from "lodash";
+
+const { t } = useI18n();
+const tab = ref<"config" | "missing">("config");
+const romsStore = storeRoms();
+const { allRoms, fetchingRoms, fetchTotalRoms, filteredRoms } =
+  storeToRefs(romsStore);
+const galleryViewStore = storeGalleryView();
+const { scrolledToTop } = storeToRefs(galleryViewStore);
+const galleryFilterStore = storeGalleryFilter();
+const { selectedPlatform } = storeToRefs(galleryFilterStore);
+const platformsStore = storePlatforms();
+const missingGamesLoading = ref(false);
+const emitter = inject<Emitter<Events>>("emitter");
+let timeout: ReturnType<typeof setTimeout> = setTimeout(() => {}, 400);
+const allPlatforms = computed(() =>
+  [
+    ...new Map(
+      allRoms.value
+        .map((rom) => platformsStore.get(rom.platform_id))
+        .filter((platform) => !!platform)
+        .map((platform) => [platform!.id, platform]),
+    ).values(),
+  ].sort((a, b) => a!.name.localeCompare(b!.name)),
+);
+
+const onFilterChange = debounce(
+  () => {
+    romsStore.resetPagination();
+    galleryFilterStore.setFilterMissing(true);
+    romsStore.fetchRoms(galleryFilterStore, false);
+
+    const url = new URL(window.location.href);
+    // Update URL with filters
+    Object.entries({
+      platform: selectedPlatform.value
+        ? String(selectedPlatform.value.id)
+        : null,
+    }).forEach(([key, value]) => {
+      if (value) {
+        url.searchParams.set(key, value);
+      } else {
+        url.searchParams.delete(key);
+      }
+    });
+    galleryFilterStore.setFilterMissing(false);
+  },
+  500,
+  // If leading and trailing options are true, this is invoked on the trailing edge of
+  // the timeout only if the the function is invoked more than once during the wait
+  { leading: true, trailing: true },
+);
+
+async function fetchRoms() {
+  if (fetchingRoms.value) return;
+
+  emitter?.emit("showLoadingDialog", {
+    loading: true,
+    scrim: false,
+  });
+
+  galleryFilterStore.setFilterMissing(true);
+  romsStore
+    .fetchRoms(galleryFilterStore, false)
+    .then(() => {
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
+    })
+    .catch((error) => {
+      console.error("Error fetching missing games:", error);
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch missing ROMs: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    })
+    .finally(() => {
+      galleryFilterStore.setFilterMissing(false);
+      if (romsStore.fetchOffset === romsStore.fetchLimit) {
+        missingGamesLoading.value = false;
+      }
+    });
+}
+
+function cleanupAll() {
+  romsStore.setLimit(MAX_FETCH_LIMIT);
+  galleryFilterStore.setFilterMissing(true);
+  romsStore
+    .fetchRoms(galleryFilterStore, false)
+    .then(() => {
+      emitter?.emit("showLoadingDialog", {
+        loading: false,
+        scrim: false,
+      });
+      emitter?.emit("showDeleteRomDialog", romsStore.filteredRoms);
+    })
+    .catch((error) => {
+      console.error("Error fetching missing games:", error);
+      emitter?.emit("snackbarShow", {
+        msg: `Couldn't fetch missing ROMs: ${error}`,
+        icon: "mdi-close-circle",
+        color: "red",
+        timeout: 4000,
+      });
+    })
+    .finally(() => {
+      galleryFilterStore.setFilterMissing(false);
+    });
+}
+
+function resetMissingRoms() {
+  romsStore.reset();
+  galleryFilterStore.resetFilters();
+}
+
+function onScroll() {
+  clearTimeout(timeout);
+
+  window.setTimeout(async () => {
+    scrolledToTop.value = window.scrollY === 0;
+    if (
+      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      fetchTotalRoms.value > filteredRoms.value.length
+    ) {
+      await fetchRoms();
+    }
+  }, 100);
+}
+
+onMounted(() => {
+  resetMissingRoms();
+  fetchRoms();
+  window.addEventListener("scroll", onScroll);
+});
+
+onBeforeUnmount(() => {
+  resetMissingRoms();
+  window.removeEventListener("scroll", onScroll);
+});
 </script>
 
 <template>
-  <platform-binding />
-  <platform-versions />
-  <excluded />
+  <v-row no-gutters class="pa-2">
+    <v-col cols="12">
+      <v-tabs
+        v-model="tab"
+        align-tabs="start"
+        slider-color="secondary"
+        selected-class="bg-toplayer"
+      >
+        <v-tab prepend-icon="mdi-cog" class="rounded" value="config"
+          >Config</v-tab
+        >
+        <v-tab
+          prepend-icon="mdi-folder-question"
+          class="rounded"
+          value="missing"
+          >Missing games</v-tab
+        >
+      </v-tabs>
+    </v-col>
+    <v-col>
+      <v-tabs-window v-model="tab">
+        <v-tabs-window-item value="config">
+          <platform-binding class="mt-2" />
+          <platform-versions class="mt-4" />
+          <excluded class="mt-4" />
+        </v-tabs-window-item>
+        <v-tabs-window-item value="missing">
+          <v-row class="mt-2 mr-2 align-center" no-gutters>
+            <v-col>
+              <v-select
+                class="mx-2"
+                v-model="selectedPlatform"
+                hide-details
+                prepend-inner-icon="mdi-controller"
+                clearable
+                :label="t('common.platform')"
+                variant="outlined"
+                density="comfortable"
+                :items="allPlatforms"
+                @update:model-value="onFilterChange"
+              >
+                <template #item="{ props, item }">
+                  <v-list-item
+                    v-bind="props"
+                    class="py-4"
+                    :title="item.raw.name ?? ''"
+                    :subtitle="item.raw.fs_slug"
+                  >
+                    <template #prepend>
+                      <platform-icon
+                        :key="item.raw.slug"
+                        :size="35"
+                        :slug="item.raw.slug"
+                        :name="item.raw.name"
+                        :fs-slug="item.raw.fs_slug"
+                      />
+                    </template>
+                    <template #append>
+                      <missing-from-f-s-icon
+                        v-if="item.raw.missing_from_fs"
+                        text="Missing platform from filesystem"
+                        chip
+                        chip-label
+                        chipDensity="compact"
+                        class="ml-2"
+                      />
+                      <v-chip class="ml-2" size="x-small" label>
+                        {{ item.raw.rom_count }}
+                      </v-chip>
+                    </template>
+                  </v-list-item>
+                </template>
+                <template #chip="{ item }">
+                  <platform-icon
+                    :key="item.raw.slug"
+                    :slug="item.raw.slug"
+                    :name="item.raw.name"
+                    :fs-slug="item.raw.fs_slug"
+                    :size="20"
+                    class="mx-2"
+                  />
+                  {{ item.raw.name }}
+                </template>
+              </v-select>
+            </v-col>
+            <v-col cols="auto">
+              <v-btn
+                prepend-icon="mdi-delete"
+                size="large"
+                class="text-romm-red bg-toplayer"
+                variant="flat"
+                @click="cleanupAll"
+                >Clean up all</v-btn
+              >
+            </v-col>
+          </v-row>
+          <game-table class="mx-2 mt-2" show-platform-icon />
+          <load-more-btn :fetchRoms="fetchRoms" />
+          <fab-overlay />
+        </v-tabs-window-item>
+      </v-tabs-window>
+    </v-col>
+  </v-row>
 </template>
