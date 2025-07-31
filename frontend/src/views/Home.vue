@@ -97,38 +97,50 @@ onMounted(async () => {
 </script>
 
 <template>
-  <template v-if="!isEmpty">
-    <stats v-if="showStats" />
-    <recent-skeleton-loader
-      v-if="showRecentSkeleton"
-      :title="t('home.recently-added')"
-      class="ma-2"
-    />
-    <recent-added
-      v-else-if="recentRoms.length > 0 && showRecentRoms"
-      class="ma-2"
-    />
-    <recent-skeleton-loader
-      v-if="showContinuePlayingSkeleton"
-      :title="t('home.continue-playing')"
-      class="ma-2"
-    />
-    <continue-playing
-      v-else-if="recentPlayedRoms.length > 0 && showContinuePlaying"
-      class="ma-2"
-    />
-    <platforms
-      v-if="filledPlatforms.length > 0 && showPlatforms"
-      class="ma-2"
-    />
-    <collections
-      v-if="allCollections.length > 0 && showCollections"
-      class="ma-2"
-    />
-    <virtual-collections
-      v-if="virtualCollections.length > 0 && showVirtualCollections"
-      class="ma-2"
-    />
+  <template v-if="fetchingRecentAdded || fetchingContinuePlaying">
+    <div class="d-flex align-center justify-center fill-height">
+      <v-progress-circular
+        color="primary"
+        :width="4"
+        size="120"
+        indeterminate
+      />
+    </div>
   </template>
-  <empty-home v-else />
+  <template v-if="!fetchingRecentAdded && !fetchingContinuePlaying">
+    <template v-if="!isEmpty">
+      <stats v-if="showStats" />
+      <recent-skeleton-loader
+        v-if="showRecentSkeleton"
+        :title="t('home.recently-added')"
+        class="ma-2"
+      />
+      <recent-added
+        v-else-if="recentRoms.length > 0 && showRecentRoms"
+        class="ma-2"
+      />
+      <recent-skeleton-loader
+        v-if="showContinuePlayingSkeleton"
+        :title="t('home.continue-playing')"
+        class="ma-2"
+      />
+      <continue-playing
+        v-else-if="recentPlayedRoms.length > 0 && showContinuePlaying"
+        class="ma-2"
+      />
+      <platforms
+        v-if="filledPlatforms.length > 0 && showPlatforms"
+        class="ma-2"
+      />
+      <collections
+        v-if="allCollections.length > 0 && showCollections"
+        class="ma-2"
+      />
+      <virtual-collections
+        v-if="virtualCollections.length > 0 && showVirtualCollections"
+        class="ma-2"
+      />
+    </template>
+    <empty-home v-else />
+  </template>
 </template>

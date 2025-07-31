@@ -11,6 +11,7 @@ from endpoints.responses import MessageResponse
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfoDict
 from fastapi import HTTPException, Request
 from handler.auth.constants import Scope
+from handler.redis_handler import low_prio_queue
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -132,24 +133,10 @@ async def run_all_tasks(request: Request) -> MessageResponse:
     if not runnable_tasks:
         return {"msg": "No runnable tasks available to run"}
 
-    failed_tasks = []
-    successful_tasks = []
-
     for task_name, task_instance in runnable_tasks.items():
-        try:
-            await task_instance.run()
-            successful_tasks.append(task_name)
-        except Exception as e:
-            failed_tasks.append(f"{task_name}: {str(e)}")
+        low_prio_queue.enqueue(task_instance.run)
 
-    if failed_tasks:
-        return {
-            "msg": f"Some tasks failed. Successful: {', '.join(successful_tasks)}. Failed: {', '.join(failed_tasks)}"
-        }
-
-    return {
-        "msg": f"All {len(successful_tasks)} triggerable tasks ran successfully: {', '.join(successful_tasks)}"
-    }
+    return {"msg": "All tasks launched. Check the worker logs for details."}
 
 
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
@@ -179,11 +166,5 @@ async def run_single_task(request: Request, task_name: str) -> MessageResponse:
             status_code=400,
             detail=f"Task '{task_name}' is not triggerable manually.",
         )
-
-    try:
-        await task_instance.run()
-        return {"msg": f"Task '{task_name}' ran successfully!"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Task '{task_name}' failed: {str(e)}"
-        ) from e
+    low_prio_queue.enqueue(task_instance.run)
+    return {"msg": f"Task '{task_name}' launched. Check the worker logs for details."}
