@@ -386,6 +386,7 @@ const _EJS_CORES_MAP = {
   "game-boy-micro": ["mgba"],
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
+  "philips-cd-i": ["same_cdi"],
   ps: ["pcsx_rearmed", "mednafen_psx_hw"],
   psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
