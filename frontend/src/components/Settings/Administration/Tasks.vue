@@ -64,7 +64,6 @@ const getAvailableTasks = async () => {
   await api.get("/tasks").then((response) => {
     tasks.value = response.data;
   });
-  console.log(tasks.value);
 };
 
 onMounted(() => {
