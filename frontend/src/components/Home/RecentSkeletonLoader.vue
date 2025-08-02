@@ -2,7 +2,6 @@
 import RSection from "@/components/common/RSection.vue";
 import { views } from "@/utils";
 
-// Props
 defineProps<{ title: string }>();
 </script>
 <template>

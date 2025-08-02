@@ -8,7 +8,6 @@ import { storeToRefs } from "pinia";
 import { inject, watch, computed } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const galleryFilterStore = storeGalleryFilter();

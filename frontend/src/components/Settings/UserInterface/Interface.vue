@@ -8,7 +8,7 @@ import { useDisplay } from "vuetify";
 import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
 
-// Props
+
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
@@ -210,7 +210,7 @@ const galleryOptions = computed(() => [
   },
 ]);
 
-// Functions to update localStorage
+ to update localStorage
 const setPlatformDrawerGroupBy = (value: string) => {
   platformsGroupByRef.value = value;
   localStorage.setItem("settings.platformsGroupBy", value);

@@ -5,7 +5,6 @@ import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 defineProps<{ rom: DetailedRom }>();
 const tab = ref<"saves" | "states">("saves");
 const { mdAndDown } = useDisplay();

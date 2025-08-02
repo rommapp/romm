@@ -15,7 +15,6 @@ import { inject, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
@@ -33,7 +32,6 @@ const { favoriteCollection } = storeToRefs(collectionsStore);
 const route = useRoute();
 const heartbeat = storeHeartbeat();
 
-// Functions
 function scrollToTop() {
   window.scrollTo({
     top: 0,

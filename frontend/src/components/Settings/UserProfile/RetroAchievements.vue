@@ -8,7 +8,6 @@ import userApi from "@/services/api/user";
 import { watch } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const valid = ref(false);
 const auth = storeAuth();
@@ -22,7 +21,6 @@ const rules = [
   },
 ];
 
-// Functions
 async function refreshRetroAchievements() {
   if (!auth.user) return;
 

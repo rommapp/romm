@@ -14,7 +14,6 @@ import { inject, ref, computed } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { xs, mdAndUp } = useDisplay();
 const auth = storeAuth();
@@ -36,7 +35,6 @@ const HEADERS = [
 ] as const;
 const tabIndex = computed(() => (activeFirmwareDrawer.value ? 0 : -1));
 
-// Functions
 function downloadSelectedFirmware() {
   selectedFirmware.value.map((firmware) => {
     const a = document.createElement("a");

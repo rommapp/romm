@@ -7,7 +7,6 @@ import storeConfig from "@/stores/config";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const configStore = storeConfig();
 const authStore = storeAuth();
