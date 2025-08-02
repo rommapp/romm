@@ -105,8 +105,6 @@ def get_supported_platforms(request: Request) -> list[PlatformSchema]:
             "created_at": now,
             "updated_at": now,
             "fs_size_bytes": 0,
-            "is_unidentified": False,
-            "is_identified": True,
             "missing_from_fs": False,
             "aspect_ratio": DEFAULT_COVER_ASPECT_RATIO,
         }

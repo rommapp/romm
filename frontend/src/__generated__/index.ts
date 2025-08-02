@@ -63,7 +63,7 @@ export type { SmartCollectionSchema } from './models/SmartCollectionSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
 export type { SystemDict } from './models/SystemDict';
-export type { TaskInfoDict } from './models/TaskInfoDict';
+export type { TaskInfo } from './models/TaskInfo';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';
 export type { TinfoilFeedTitleDBSchema } from './models/TinfoilFeedTitleDBSchema';
