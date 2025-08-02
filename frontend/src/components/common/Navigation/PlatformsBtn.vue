@@ -2,7 +2,6 @@
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 
-// Props
 withDefaults(
   defineProps<{
     block?: boolean;

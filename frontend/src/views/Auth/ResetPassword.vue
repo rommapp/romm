@@ -9,7 +9,6 @@ import { inject, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -21,7 +20,6 @@ const confirmPassword = ref("");
 const visibleNewPassword = ref(false);
 const visibleConfirmNewPassword = ref(false);
 
-// Functions
 async function resetPassword() {
   await identityApi
     .resetPassword(token, newPassword.value)

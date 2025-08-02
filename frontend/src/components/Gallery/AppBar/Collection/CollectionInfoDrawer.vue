@@ -18,7 +18,6 @@ import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import { getCollectionCoverImage } from "@/utils/covers";
 
-// Props
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -53,7 +52,6 @@ emitter?.on("updateUrlCover", (url_cover) => {
   setArtwork(url_cover);
 });
 
-// Functions
 function showEditable() {
   updatedCollection.value = { ...currentCollection.value } as UpdatedCollection;
   imagePreviewUrl.value = "";

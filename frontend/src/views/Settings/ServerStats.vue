@@ -4,7 +4,6 @@ import PlatformsStats from "@/components/Settings/ServerStats/PlatformsStats.vue
 import api from "@/services/api/index";
 import { onBeforeMount, ref } from "vue";
 
-// Props
 const stats = ref({
   PLATFORMS: 0,
   ROMS: 0,
@@ -14,7 +13,6 @@ const stats = ref({
   TOTAL_FILESIZE_BYTES: 0,
 });
 
-// Functions
 onBeforeMount(() => {
   api.get("/stats").then(({ data }) => {
     stats.value = data;

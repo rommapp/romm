@@ -9,7 +9,6 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import { computed } from "vue";
 
-// Props
 const { xs } = useDisplay();
 const navigationStore = storeNavigation();
 const romsStore = storeRoms();

@@ -3,7 +3,6 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const { activeFilterDrawer } = storeToRefs(galleryFilterStore);

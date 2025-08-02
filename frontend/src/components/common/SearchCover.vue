@@ -9,7 +9,6 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const searching = ref(false);
@@ -31,7 +30,6 @@ emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
   if (searchText.value) searchCovers();
 });
 
-// Functions
 async function searchCovers() {
   covers.value = [];
 

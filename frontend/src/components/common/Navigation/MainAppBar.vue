@@ -15,14 +15,12 @@ import storePlaying from "@/stores/playing";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
 const { mainBarCollapsed } = storeToRefs(navigationStore);
 const playingStore = storePlaying();
 const { playing, fullScreen } = storeToRefs(playingStore);
 
-// Functions
 function collapse() {
   mainBarCollapsed.value = !mainBarCollapsed.value;
   localStorage.setItem(

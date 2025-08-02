@@ -5,7 +5,6 @@ import api from "@/services/api/index";
 import type { Emitter } from "mitt";
 import storeRunningTasks from "@/stores/runningTasks";
 
-// Props
 const props = withDefaults(
   defineProps<{
     enabled?: boolean;
@@ -34,7 +33,6 @@ const isTaskRunning = computed(() =>
   props.name ? runningTasksStore.isTaskRunning(props.name) : false,
 );
 
-// Functions
 function run() {
   if (!props.name) return;
 

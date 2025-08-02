@@ -9,7 +9,6 @@ import { storeToRefs } from "pinia";
 import { inject, nextTick, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { xs, mdAndUp } = useDisplay();
 const show = ref(false);
 const romsStore = storeRoms();

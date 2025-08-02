@@ -9,7 +9,6 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const user = ref<UserItem | null>(null);
 const show = ref(false);
 const usersStore = storeUsers();
@@ -20,7 +19,6 @@ emitter?.on("showDeleteUserDialog", (userToDelete) => {
   show.value = true;
 });
 
-// Functions
 async function deleteUser() {
   if (!user.value) return;
 

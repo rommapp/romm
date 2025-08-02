@@ -4,7 +4,6 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 
-// Props
 withDefaults(
   defineProps<{
     block?: boolean;

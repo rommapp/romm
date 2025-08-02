@@ -9,7 +9,6 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
 
-// Props
 const props = defineProps<{ rom: SimpleRom }>();
 const romsStore = storeRoms();
 const collectionsStore = storeCollections();
@@ -17,7 +16,6 @@ const { favoriteCollection } = storeToRefs(collectionsStore);
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 
-// Functions
 async function switchFromFavourites() {
   if (!favoriteCollection.value) {
     await collectionApi

@@ -4,7 +4,6 @@ import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 
-// Props
 withDefaults(
   defineProps<{
     platform: Platform;

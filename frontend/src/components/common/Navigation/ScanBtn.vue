@@ -10,7 +10,6 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 withDefaults(
   defineProps<{
     block?: boolean;
