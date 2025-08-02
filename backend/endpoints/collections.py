@@ -437,5 +437,3 @@ async def delete_smart_collection(request: Request, id: int) -> None:
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)
-
-    return

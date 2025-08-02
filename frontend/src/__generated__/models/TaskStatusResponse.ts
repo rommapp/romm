@@ -3,10 +3,12 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { JobStatus } from './JobStatus';
-export type TaskExecutionResponse = {
+export type TaskStatusResponse = {
     task_name: string;
     task_id: string;
     status: (JobStatus | null);
     queued_at: string;
+    started_at: (string | null);
+    ended_at: (string | null);
 };
 
