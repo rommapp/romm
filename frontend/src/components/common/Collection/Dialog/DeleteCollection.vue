@@ -37,9 +37,9 @@ async function deleteCollection() {
         icon: "mdi-check-bold",
         color: "green",
       });
-      collectionsStore.remove(collection.value as Collection);
+      collectionsStore.removeCollection(collection.value as Collection);
       if (collection.value?.name.toLowerCase() == "favourites") {
-        collectionsStore.setFavCollection(undefined);
+        collectionsStore.setFavoriteCollection(undefined);
       }
     })
     .catch((error) => {
@@ -54,7 +54,7 @@ async function deleteCollection() {
 
   await router.push({ name: ROUTES.HOME });
 
-  collectionsStore.remove(collection.value);
+  collectionsStore.removeCollection(collection.value);
   emitter?.emit("refreshDrawer", null);
   closeDialog();
 }

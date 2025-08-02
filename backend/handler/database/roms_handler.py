@@ -3,7 +3,8 @@ from collections.abc import Iterable, Sequence
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
-from models.collection import Collection, VirtualCollection
+from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from models.collection import Collection, SmartCollection, VirtualCollection
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
@@ -29,80 +30,51 @@ from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
 from .base_handler import DBBaseHandler
 
 EJS_SUPPORTED_PLATFORMS = [
-    "3do",
-    "64dd",
-    "amiga",
-    "amiga-cd",
-    "amiga-cd32",
-    "arcade",
-    "neogeoaes",
-    "neogeomvs",
-    "atari2600",
-    "atari-2600-plus",
-    "atari5200",
-    "atari7800",
-    "c-plus-4",
-    "c64",
-    "cpet",
-    "commodore-64c",
-    "c128",
-    "commmodore-128",
-    "colecovision",
-    "jaguar",
-    "lynx",
-    "atari-lynx-mkii",
-    "neo-geo-pocket",
-    "neo-geo-pocket-color",
-    "nes",
-    "famicom",
-    "fds",
-    "game-televisison",
-    "new-style-nes",
-    "n64",
-    "ique-player",
-    "nds",
-    "nintendo-ds-lite",
-    "nintendo-dsi",
-    "nintendo-dsi-xl",
-    "gb",
-    "game-boy-pocket",
-    "game-boy-light",
-    "gba",
-    "game-boy-adavance-sp",
-    "game-boy-micro",
-    "gbc",
-    "pc-fx",
-    "philips-cd-i",
-    "ps",
-    "psp",
-    "segacd",
-    "sega32",
-    "gamegear",
-    "sms",
-    "sega-mark-iii",
-    "sega-game-box-9",
-    "sega-master-system-ii",
-    "master-system-super-compact",
-    "master-system-girl",
-    "genesis-slash-megadrive",
-    "sega-mega-drive-2-slash-genesis",
-    "sega-mega-jet",
-    "mega-pc",
-    "tera-drive",
-    "sega-nomad",
-    "saturn",
-    "snes",
-    "sfam",
-    "super-nintendo-original-european-version",
-    "super-famicom-shvc-001",
-    "super-famicom-jr-model-shvc-101",
-    "new-style-super-nes-model-sns-101",
-    "turbografx16--1",
-    "vic-20",
-    "virtualboy",
-    "wonderswan",
-    "swancrystal",
-    "wonderswan-color",
+    UPS._3DO,
+    UPS.AMIGA,
+    UPS.AMIGA_CD,
+    UPS.AMIGA_CD32,
+    UPS.ARCADE,
+    UPS.NEOGEOAES,
+    UPS.NEOGEOMVS,
+    UPS.ATARI2600,
+    UPS.ATARI5200,
+    UPS.ATARI7800,
+    UPS.C_PLUS_4,
+    UPS.C64,
+    UPS.CPET,
+    UPS.C64,
+    UPS.C128,
+    UPS.COLECOVISION,
+    UPS.JAGUAR,
+    UPS.LYNX,
+    UPS.NEO_GEO_POCKET,
+    UPS.NEO_GEO_POCKET_COLOR,
+    UPS.NES,
+    UPS.FAMICOM,
+    UPS.FDS,
+    UPS.N64,
+    UPS.N64DD,
+    UPS.NDS,
+    UPS.NINTENDO_DSI,
+    UPS.GB,
+    UPS.GBA,
+    UPS.PC_FX,
+    UPS.PHILIPS_CD_I,
+    UPS.PSX,
+    UPS.PSP,
+    UPS.SEGACD,
+    UPS.GENESIS,
+    UPS.SMS,
+    UPS.GAMEGEAR,
+    UPS.SATURN,
+    UPS.SNES,
+    UPS.SFAM,
+    UPS.TG16,
+    UPS.VIC_20,
+    UPS.VIRTUALBOY,
+    UPS.WONDERSWAN,
+    UPS.WONDERSWAN_COLOR,
 ]
 
 
@@ -179,6 +151,19 @@ class DBRomsHandler(DBBaseHandler):
         )
         if v_collection:
             return query.filter(Rom.id.in_(v_collection.rom_ids))
+        return query
+
+    def filter_by_smart_collection_id(
+        self, query: Query, session: Session, smart_collection_id: int
+    ):
+        smart_collection = (
+            session.query(SmartCollection)
+            .filter(SmartCollection.id == smart_collection_id)
+            .one_or_none()
+        )
+        if smart_collection:
+            smart_collection.get_roms()  # Ensure the latest ROMs are loaded
+            return query.filter(Rom.id.in_(smart_collection.rom_ids))
         return query
 
     def filter_by_search_term(self, query: Query, search_term: str):
@@ -393,6 +378,7 @@ class DBRomsHandler(DBBaseHandler):
         platform_id: int | None = None,
         collection_id: int | None = None,
         virtual_collection_id: str | None = None,
+        smart_collection_id: int | None = None,
         search_term: str | None = None,
         matched: bool | None = None,
         favourite: bool | None = None,
@@ -422,6 +408,11 @@ class DBRomsHandler(DBBaseHandler):
         if virtual_collection_id:
             query = self.filter_by_virtual_collection_id(
                 query, session, virtual_collection_id
+            )
+
+        if smart_collection_id:
+            query = self.filter_by_smart_collection_id(
+                query, session, smart_collection_id
             )
 
         if search_term:

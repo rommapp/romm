@@ -181,6 +181,10 @@ def get_roms(
         str | None,
         Query(description="Virtual collection internal id."),
     ] = None,
+    smart_collection_id: Annotated[
+        int | None,
+        Query(description="Smart collection internal id.", ge=1),
+    ] = None,
     matched: Annotated[
         bool | None,
         Query(description="Whether the rom matched a metadata source."),
@@ -274,6 +278,7 @@ def get_roms(
         platform_id=platform_id,
         collection_id=collection_id,
         virtual_collection_id=virtual_collection_id,
+        smart_collection_id=smart_collection_id,
         search_term=search_term,
         matched=matched,
         favourite=favourite,

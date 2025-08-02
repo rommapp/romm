@@ -4,7 +4,6 @@ import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import Stats from "@/components/Home/Stats.vue";
 import Collections from "@/components/Home/Collections.vue";
-import VirtualCollections from "@/components/Home/VirtualCollections.vue";
 import Platforms from "@/components/Home/Platforms.vue";
 import RecentSkeletonLoader from "@/components/Home/RecentSkeletonLoader.vue";
 import RecentAdded from "@/components/Home/RecentAdded.vue";
@@ -22,7 +21,11 @@ const { recentRoms, continuePlayingRoms: recentPlayedRoms } =
 const platformsStore = storePlatforms();
 const { filledPlatforms } = storeToRefs(platformsStore);
 const collectionsStore = storeCollections();
-const { allCollections, virtualCollections } = storeToRefs(collectionsStore);
+const {
+  filteredCollections,
+  filteredVirtualCollections,
+  filteredSmartCollections,
+} = storeToRefs(collectionsStore);
 
 function getSettingValue(key: string, defaultValue: boolean = true): boolean {
   const stored = localStorage.getItem(`settings.${key}`);
@@ -35,6 +38,7 @@ const showContinuePlaying = getSettingValue("showContinuePlaying");
 const showPlatforms = getSettingValue("showPlatforms");
 const showCollections = getSettingValue("showCollections");
 const showVirtualCollections = getSettingValue("showVirtualCollections");
+const showSmartCollections = getSettingValue("showSmartCollections");
 
 const fetchingRecentAdded = ref(false);
 const fetchingContinuePlaying = ref(false);
@@ -44,8 +48,9 @@ const isEmpty = computed(
     recentRoms.value.length === 0 &&
     recentPlayedRoms.value.length === 0 &&
     filledPlatforms.value.length === 0 &&
-    allCollections.value.length === 0 &&
-    virtualCollections.value.length === 0,
+    filteredCollections.value.length === 0 &&
+    filteredVirtualCollections.value.length === 0 &&
+    filteredSmartCollections.value.length === 0,
 );
 
 const showRecentSkeleton = computed(
@@ -133,11 +138,24 @@ onMounted(async () => {
         class="ma-2"
       />
       <collections
-        v-if="allCollections.length > 0 && showCollections"
+        v-if="filteredCollections.length > 0 && showCollections"
+        :collections="filteredCollections"
+        :title="t('common.collections')"
+        setting="gridCollections"
         class="ma-2"
       />
-      <virtual-collections
-        v-if="virtualCollections.length > 0 && showVirtualCollections"
+      <collections
+        v-if="filteredSmartCollections.length > 0 && showSmartCollections"
+        :collections="filteredSmartCollections"
+        :title="t('common.smart-collections')"
+        setting="gridSmartCollections"
+        class="ma-2"
+      />
+      <collections
+        v-if="filteredVirtualCollections.length > 0 && showVirtualCollections"
+        :collections="filteredVirtualCollections"
+        :title="t('common.virtual-collections')"
+        setting="gridVirtualCollections"
         class="ma-2"
       />
     </template>

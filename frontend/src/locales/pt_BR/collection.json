@@ -1,5 +1,8 @@
 {
   "add-collection": "Adicionar coleção",
+  "create-collection": "Criar coleção",
+  "create-smart-collection": "Criar coleção inteligente",
+  "current-filters": "Filtros atuais",
   "danger-zone": "Zona de perigo",
   "delete-collection": "Excluir coleção",
   "description": "Descrição",
@@ -12,5 +15,7 @@
   "public-desc": "Público (visível para todos)",
   "removing-collection-1": "Removendo coleção",
   "removing-collection-2": "do RomM. Você confirma?",
+  "removing-smart-collection-1": "Removendo coleção inteligente",
+  "removing-smart-collection-2": "do RomM. Você confirma?",
   "search-collection": "Buscar coleção"
 }
