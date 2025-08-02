@@ -27,7 +27,7 @@ const tabIndex = computed(() => (activeSettingsDrawer.value ? 0 : -1));
 
 // Functions
 async function logout() {
-  identityApi.logout().then(async ({ data }) => {
+  identityApi.logout().then(async () => {
     // Refetch CSRF token
     await refetchCSRFToken();
 

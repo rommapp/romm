@@ -66,8 +66,8 @@ def login(
     return {"user_id": user.id, "username": user.username}
 
 
-@router.post("/logout")
-def logout(request: Request) -> AuthenticationResponse:
+@router.post("/logout", status_code=status.HTTP_200_OK)
+def logout(request: Request) -> None:
     """Session logout endpoint
 
     Args:
@@ -79,7 +79,7 @@ def logout(request: Request) -> AuthenticationResponse:
 
     request.session.clear()
 
-    return {"user_id": None, "username": None}
+    return None
 
 
 @router.post("/token")
