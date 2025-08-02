@@ -2,9 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type VirtualCollectionSchema = {
+export type SmartCollectionSchema = {
     name: string;
-    description: string;
+    description?: string;
     rom_ids: Array<number>;
     rom_count: number;
     path_cover_small: (string | null);
@@ -17,7 +17,10 @@ export type VirtualCollectionSchema = {
     is_smart?: boolean;
     created_at: string;
     updated_at: string;
-    id: string;
-    type: string;
+    id: number;
+    filter_criteria: Record<string, any>;
+    filter_summary: string;
+    user_id: number;
+    user__username: string;
 };
 

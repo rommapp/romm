@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
                       <v-icon>mdi-card-multiple-outline</v-icon>
                     </v-chip>
                     <v-chip
-                      v-if="collectionsStore.isFav(rom)"
+                      v-if="collectionsStore.isFavorite(rom)"
                       text="Favorite"
                       color="secondary"
                       density="compact"

@@ -43,5 +43,7 @@
   "user-interface": "用户界面",
   "virtual-collection": "自动生成的收藏",
   "virtual-collections": "自动生成的收藏",
+  "smart-collection": "智能收藏",
+  "smart-collections": "智能收藏",
   "sync": "同步"
 }

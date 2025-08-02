@@ -2,8 +2,6 @@
 import romApi from "@/services/api/rom";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms from "@/stores/roms";
-import type { Platform } from "@/stores/platforms";
-import type { Collection, VirtualCollection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
@@ -17,8 +15,12 @@ const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
 const romsStore = storeRoms();
-const { currentPlatform, currentCollection, currentVirtualCollection } =
-  storeToRefs(romsStore);
+const {
+  currentPlatform,
+  currentCollection,
+  currentVirtualCollection,
+  currentSmartCollection,
+} = storeToRefs(romsStore);
 
 const {
   searchTerm,
@@ -48,6 +50,7 @@ async function goToRandomGame() {
       platformId: currentPlatform.value?.id || null,
       collectionId: currentCollection.value?.id || null,
       virtualCollectionId: currentVirtualCollection.value?.id || null,
+      smartCollectionId: currentSmartCollection.value?.id || null,
       searchTerm:
         searchTerm.value && searchTerm.value.trim()
           ? searchTerm.value.trim()

@@ -2,7 +2,7 @@
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import collectionApi from "@/services/api/collection";
-import storeCollections, { type Collection } from "@/stores/collections";
+import storeCollections, { type SmartCollection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
@@ -16,31 +16,29 @@ const { t } = useI18n();
 const router = useRouter();
 const { lgAndUp } = useDisplay();
 const collectionsStore = storeCollections();
-const collection = ref<Collection | null>(null);
+const smartCollection = ref<SmartCollection | null>(null);
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
-emitter?.on("showDeleteCollectionDialog", (collectionToDelete) => {
-  collection.value = collectionToDelete;
+emitter?.on("showDeleteSmartCollectionDialog", (smartCollectionToDelete) => {
+  smartCollection.value = smartCollectionToDelete;
   show.value = true;
 });
 
 // Functions
-async function deleteCollection() {
-  if (!collection.value) return;
+async function deleteSmartCollection() {
+  if (!smartCollection.value) return;
 
-  show.value = false;
   await collectionApi
-    .deleteCollection({ collection: collection.value })
+    .deleteSmartCollection(smartCollection.value.id)
     .then((response) => {
       emitter?.emit("snackbarShow", {
         msg: response.data.msg,
         icon: "mdi-check-bold",
         color: "green",
       });
-      collectionsStore.removeCollection(collection.value as Collection);
-      if (collection.value?.name.toLowerCase() == "favourites") {
-        collectionsStore.setFavoriteCollection(undefined);
-      }
+
+      if (!smartCollection.value) return;
+      collectionsStore.removeSmartCollection(smartCollection.value);
     })
     .catch((error) => {
       console.log(error);
@@ -50,13 +48,15 @@ async function deleteCollection() {
         color: "red",
       });
       return;
+    })
+    .finally(async () => {
+      smartCollection.value = null;
+
+      emitter?.emit("refreshDrawer", null);
+      await router.push({ name: ROUTES.HOME });
+
+      closeDialog();
     });
-
-  await router.push({ name: ROUTES.HOME });
-
-  collectionsStore.removeCollection(collection.value);
-  emitter?.emit("refreshDrawer", null);
-  closeDialog();
 }
 
 function closeDialog() {
@@ -65,7 +65,7 @@ function closeDialog() {
 </script>
 <template>
   <r-dialog
-    v-if="collection"
+    v-if="smartCollection"
     @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
@@ -74,16 +74,18 @@ function closeDialog() {
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
-        <span>{{ t("collection.removing-collection-1") }}</span>
+        <span>{{ t("collection.removing-smart-collection-1") }}</span>
         <v-chip class="pl-0 ml-1" label>
           <r-avatar-collection
-            :collection="collection"
+            :collection="smartCollection"
             :size="35"
             class="mr-2"
           />
-          {{ collection.name }}
+          {{ smartCollection.name }}
         </v-chip>
-        <span class="ml-1">{{ t("collection.removing-collection-2") }}</span>
+        <span class="ml-1">{{
+          t("collection.removing-smart-collection-2")
+        }}</span>
       </v-row>
     </template>
     <template #append>
@@ -92,7 +94,10 @@ function closeDialog() {
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
-          <v-btn class="bg-toplayer text-romm-red" @click="deleteCollection">
+          <v-btn
+            class="bg-toplayer text-romm-red"
+            @click="deleteSmartCollection"
+          >
             {{ t("common.confirm") }}
           </v-btn>
         </v-btn-group>
