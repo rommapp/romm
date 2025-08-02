@@ -28,6 +28,20 @@ RESOURCES_BASE_PATH: Final = f"{ROMM_BASE_PATH}/resources"
 ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
+# RESOURCES
+STORE_COVERS_ON_DISK: Final = str_to_bool(
+    os.environ.get("STORE_COVERS_ON_DISK", "true")
+)
+STORE_SCREENSHOTS_ON_DISK: Final = str_to_bool(
+    os.environ.get("STORE_SCREENSHOTS_ON_DISK", "false")
+)
+STORE_MANUALS_ON_DISK: Final = str_to_bool(
+    os.environ.get("STORE_MANUALS_ON_DISK", "false")
+)
+STORE_RESOURCES_ON_DISK: Final = str_to_bool(
+    os.environ.get("STORE_RESOURCES_ON_DISK", "true")
+)
+
 # DATABASE
 DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
 DB_PORT: Final = int(os.environ.get("DB_PORT", 3306))

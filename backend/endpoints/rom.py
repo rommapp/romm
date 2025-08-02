@@ -12,6 +12,7 @@ from config import (
     DEV_MODE,
     DISABLE_DOWNLOAD_ENDPOINT_AUTH,
     LIBRARY_BASE_PATH,
+    STORE_MANUALS_ON_DISK,
     str_to_bool,
 )
 from decorators.auth import protected_route
@@ -808,6 +809,12 @@ async def add_rom_manuals(
     ],
 ) -> Response:
     """Upload manuals for a rom."""
+
+    if not STORE_MANUALS_ON_DISK:
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Manuals upload is not supported when resources are not stored on disk.",
+        )
 
     rom = db_rom_handler.get_rom(id)
     if not rom:
