@@ -293,7 +293,7 @@ class TestRunSingleTask:
         assert response.status_code == 404
         data = response.json()
         assert "not found" in data["detail"].lower()
-        assert "Available tasks:" in data["detail"]
+        assert "available tasks are" in data["detail"]
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch(
