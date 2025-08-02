@@ -8,11 +8,6 @@ class TaskExecutionResponse(TypedDict):
     queued_at: str
 
 
-class AuthenticationResponse(TypedDict):
-    user_id: int | None
-    username: str | None
-
-
 class ConfigurationResponse(TypedDict):
     affected_items: list[str]
 

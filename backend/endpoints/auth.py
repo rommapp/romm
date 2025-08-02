@@ -4,7 +4,6 @@ from typing import Annotated, Final
 from config import OIDC_ENABLED, OIDC_REDIRECT_URI
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
-from endpoints.responses import AuthenticationResponse
 from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import (
     AuthCredentialsException,
@@ -35,7 +34,7 @@ router = APIRouter(
 def login(
     request: Request,
     credentials=Depends(HTTPBasic()),  # noqa
-) -> AuthenticationResponse:
+) -> None:
     """Session login endpoint
 
     Args:
@@ -45,9 +44,6 @@ def login(
     Raises:
         CredentialsException: Invalid credentials
         UserDisabledException: Auth is disabled
-
-    Returns:
-        AuthenticationResponse: Authentication response with user info
     """
 
     user = auth_handler.authenticate_user(credentials.username, credentials.password)
@@ -63,8 +59,6 @@ def login(
     now = datetime.now(timezone.utc)
     db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
 
-    return {"user_id": user.id, "username": user.username}
-
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 def logout(request: Request) -> None:
@@ -72,9 +66,6 @@ def logout(request: Request) -> None:
 
     Args:
         request (Request): Fastapi Request object
-
-    Returns:
-        AuthenticationResponse: Authentication response with user info
     """
 
     request.session.clear()
