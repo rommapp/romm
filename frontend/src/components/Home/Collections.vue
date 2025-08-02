@@ -1,16 +1,22 @@
 <script setup lang="ts">
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
-import storeCollections from "@/stores/collections";
+import { type CollectionType } from "@/stores/collections";
 import { views } from "@/utils";
 import { isNull } from "lodash";
-import { useI18n } from "vue-i18n";
-import { ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
+
+const props = defineProps<{
+  collections: CollectionType[];
+  title: string;
+  setting:
+    | "gridCollections"
+    | "gridVirtualCollections"
+    | "gridSmartCollections";
+}>();
 
 // Props
-const { t } = useI18n();
-const collections = storeCollections();
-const storedCollections = localStorage.getItem("settings.gridCollections");
+const storedCollections = localStorage.getItem(`settings.${props.setting}`);
 const gridCollections = ref(
   isNull(storedCollections) ? false : storedCollections === "true",
 );
@@ -18,6 +24,7 @@ const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
 const enable3DEffect = ref(
   isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
 );
+const visibleCollections = ref(72);
 const isHovering = ref(false);
 const hoveringCollectionId = ref();
 
@@ -25,7 +32,7 @@ const hoveringCollectionId = ref();
 function toggleGridCollections() {
   gridCollections.value = !gridCollections.value;
   localStorage.setItem(
-    "settings.gridCollections",
+    `settings.${props.setting}`,
     gridCollections.value.toString(),
   );
 }
@@ -34,9 +41,26 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
   isHovering.value = emitData.isHovering;
   hoveringCollectionId.value = emitData.id;
 }
+
+function onScroll() {
+  if (
+    window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+    visibleCollections.value < props.collections.length
+  ) {
+    visibleCollections.value += 72;
+  }
+}
+
+onMounted(() => {
+  window.addEventListener("scroll", onScroll);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("scroll", onScroll);
+});
 </script>
 <template>
-  <r-section icon="mdi-bookmark-box-multiple" :title="t('common.collections')">
+  <r-section icon="mdi-bookmark-box-multiple" :title="props.title">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle collections grid view"
@@ -55,8 +79,8 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
         no-gutters
       >
         <v-col
-          v-for="collection in collections.allCollections"
-          :key="collection.name"
+          v-for="collection in collections.slice(0, visibleCollections)"
+          :key="`${'filter_criteria' in collection ? 'smart' : 'regular'}-${collection.id}`"
           class="pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"

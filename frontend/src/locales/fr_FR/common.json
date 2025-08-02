@@ -44,5 +44,7 @@
   "user-interface": "Interface utilisateur",
   "virtual-collection": "Collection autogénérée",
   "virtual-collections": "Collections autogénérées",
+  "smart-collection": "Collection Intelligente",
+  "smart-collections": "Collections Intelligentes",
   "sync": "Synchroniser"
 }

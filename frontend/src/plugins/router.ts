@@ -22,6 +22,8 @@ export const ROUTES = {
   SEARCH: "search",
   PLATFORM: "platform",
   COLLECTION: "collection",
+  VIRTUAL_COLLECTION: "virtual-collection",
+  SMART_COLLECTION: "smart-collection",
   ROM: "rom",
   EMULATORJS: "emulatorjs",
   RUFFLE: "ruffle",
@@ -123,7 +125,19 @@ const routes = [
       {
         path: "collection/:collection",
         name: ROUTES.COLLECTION,
-        component: () => import("@/views/Gallery/Collection.vue"),
+        component: () => import("@/views/Gallery/Collection/Collection.vue"),
+      },
+      {
+        path: "collection/virtual/:collection",
+        name: ROUTES.VIRTUAL_COLLECTION,
+        component: () =>
+          import("@/views/Gallery/Collection/VirtualCollection.vue"),
+      },
+      {
+        path: "collection/smart/:collection",
+        name: ROUTES.SMART_COLLECTION,
+        component: () =>
+          import("@/views/Gallery/Collection/SmartCollection.vue"),
       },
       {
         path: "rom/:rom",
