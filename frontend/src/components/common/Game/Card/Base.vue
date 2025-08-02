@@ -21,7 +21,6 @@ import VanillaTilt from "vanilla-tilt";
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
-    src?: string;
     aspectRatio?: string | number;
     width?: string | number;
     height?: string | number;
@@ -52,7 +51,6 @@ const props = withDefaults(
     disableViewTransition: false,
     enable3DTilt: false,
     withLink: false,
-    src: "",
   },
 );
 const { smAndDown } = useDisplay();
@@ -191,14 +189,20 @@ onBeforeUnmount(() => {
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
+              :lazy-src="
+                romsStore.isSimpleRom(rom)
+                  ? rom.path_cover_small?.replace('.png', '.webp') ||
+                    fallbackCoverImage
+                  : fallbackCoverImage
+              "
               :src="
-                src ||
-                (romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_large || fallbackCoverImage
+                romsStore.isSimpleRom(rom)
+                  ? rom.path_cover_large?.replace('.png', '.webp') ||
+                    fallbackCoverImage
                   : rom.igdb_url_cover ||
                     rom.moby_url_cover ||
                     rom.ss_url_cover ||
-                    fallbackCoverImage)
+                    fallbackCoverImage
               "
               :aspect-ratio="computedAspectRatio"
             >
@@ -315,10 +319,24 @@ onBeforeUnmount(() => {
               </div>
               <template #error>
                 <v-img
-                  :src="fallbackCoverImage"
-                  cover
-                  :aspect-ratio="computedAspectRatio"
-                ></v-img>
+                  :lazy-src="
+                    romsStore.isSimpleRom(rom)
+                      ? rom.path_cover_small || fallbackCoverImage
+                      : fallbackCoverImage
+                  "
+                  :src="
+                    romsStore.isSimpleRom(rom)
+                      ? rom.path_cover_large || fallbackCoverImage
+                      : rom.igdb_url_cover ||
+                        rom.moby_url_cover ||
+                        rom.ss_url_cover ||
+                        fallbackCoverImage
+                  "
+                >
+                  <template #error>
+                    <v-img :src="fallbackCoverImage" />
+                  </template>
+                </v-img>
               </template>
               <template #placeholder>
                 <div class="d-flex align-center justify-center fill-height">

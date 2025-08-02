@@ -74,16 +74,45 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 <template>
   <v-avatar :rounded="0" :size="size">
     <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
-      <template v-if="collection.is_virtual || !collection.path_cover_large">
+      <template
+        v-if="
+          collection.is_virtual ||
+          !collection.path_cover_large ||
+          !collection.path_cover_small
+        "
+      >
         <div class="split-image first-image">
-          <v-img cover :src="firstCover" :aspect-ratio="1 / 1" />
+          <v-img
+            cover
+            :lazy-src="firstSmallCover"
+            :src="firstCover.replace('.png', '.webp')"
+            :aspect-ratio="1 / 1"
+          >
+            <template #error>
+              <v-img :lazy-src="firstSmallCover" :src="firstCover" />
+            </template>
+          </v-img>
         </div>
         <div class="split-image second-image">
-          <v-img cover :src="secondCover" :aspect-ratio="1 / 1" />
+          <v-img
+            cover
+            :lazy-src="secondSmallCover"
+            :src="secondCover.replace('.png', '.webp')"
+            :aspect-ratio="1 / 1"
+          >
+            <template #error>
+              <v-img :lazy-src="secondSmallCover" :src="secondCover" />
+            </template>
+          </v-img>
         </div>
       </template>
       <template v-else>
-        <v-img cover :src="collection.path_cover_large" :aspect-ratio="1 / 1" />
+        <v-img
+          cover
+          :lazy-src="collection.path_cover_small"
+          :src="collection.path_cover_large"
+          :aspect-ratio="1 / 1"
+        />
       </template>
     </div>
   </v-avatar>

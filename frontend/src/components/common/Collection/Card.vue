@@ -17,7 +17,6 @@ const props = withDefaults(
     showRomCount?: boolean;
     withLink?: boolean;
     enable3DTilt?: boolean;
-    src?: string;
   }>(),
   {
     transformScale: false,
@@ -26,7 +25,6 @@ const props = withDefaults(
     showRomCount: false,
     withLink: false,
     enable3DTilt: false,
-    src: "",
   },
 );
 
@@ -45,14 +43,6 @@ const collectionCoverImage = computed(() =>
 );
 
 watchEffect(() => {
-  if (props.src) {
-    memoizedCovers.value = {
-      large: [props.src, props.src],
-      small: [props.src, props.src],
-    };
-    return;
-  }
-
   // Check if it's a regular collection with covers or a smart collection with covers
   const isRegularOrSmartWithCovers =
     (!("is_virtual" in props.collection) || !props.collection.is_virtual) &&
@@ -203,28 +193,40 @@ onBeforeUnmount(() => {
           <template
             v-if="
               ('is_virtual' in collection && collection.is_virtual) ||
-              !collection.path_cover_large
+              !collection.path_cover_large ||
+              !collection.path_cover_small
             "
           >
             <div class="split-image first-image">
               <v-img
                 cover
-                :src="firstCover"
+                :lazy-src="firstSmallCover.replace('.png', '.webp')"
+                :src="firstCover.replace('.png', '.webp')"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              />
+              >
+                <template #error>
+                  <v-img :lazy-src="firstSmallCover" :src="firstCover" />
+                </template>
+              </v-img>
             </div>
             <div class="split-image second-image">
               <v-img
                 cover
-                :src="secondCover"
+                :lazy-src="secondSmallCover.replace('.png', '.webp')"
+                :src="secondCover.replace('.png', '.webp')"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              />
+              >
+                <template #error>
+                  <v-img :lazy-src="secondSmallCover" :src="secondCover" />
+                </template>
+              </v-img>
             </div>
           </template>
           <template v-else>
             <v-img
               cover
-              :src="src || collection.path_cover_large"
+              :lazy-src="collection.path_cover_small"
+              :src="collection.path_cover_large"
               :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
             />
           </template>

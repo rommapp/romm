@@ -9,6 +9,7 @@ from fastapi import HTTPException, Request
 from handler.auth.constants import Scope
 from handler.redis_handler import low_prio_queue
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
+from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
 from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
@@ -28,6 +29,7 @@ scheduled_tasks: dict[str, Task] = {
 
 manual_tasks: dict[str, Task] = {
     "cleanup_orphaned_resources": cleanup_orphaned_resources_task,
+    "convert_images_to_webp": convert_images_to_webp_task,
 }
 
 

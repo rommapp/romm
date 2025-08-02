@@ -29,7 +29,6 @@ const missingCoverImage = computed(() => getMissingCoverImage(props.game.name));
         :src="game.cover_url || missingCoverImage"
         :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
         cover
-        lazy
       >
         <v-chip
           class="px-2 position-absolute chip-type text-white translucent-dark"

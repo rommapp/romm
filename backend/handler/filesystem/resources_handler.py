@@ -49,6 +49,52 @@ class FSResourcesHandler(FSHandler):
 
         small_img.save(save_path)
 
+    def _create_webp_version(self, image_path: Path, quality: int = 85) -> Path | None:
+        """Create a WebP version of the given image file.
+
+        Args:
+            image_path: Path to the original image file
+            quality: WebP quality (0-100, default 85)
+
+        Returns:
+            Path to the created WebP file
+        """
+        webp_path = image_path.with_suffix(".webp")
+
+        try:
+            with Image.open(image_path) as img:
+                # Convert to RGB if necessary (WebP doesn't support RGBA)
+                if img.mode in ("RGBA", "LA", "P"):
+                    # Create white background for transparent images
+                    background = Image.new("RGB", img.size, (255, 255, 255))
+                    if img.mode == "P":
+                        img = img.convert("RGBA")
+                    background.paste(
+                        img, mask=img.split()[-1] if img.mode == "RGBA" else None
+                    )
+                    img = background
+                elif img.mode != "RGB":
+                    img = img.convert("RGB")
+
+                img.save(webp_path, "WEBP", quality=quality, optimize=True)
+                log.info(f"Created WebP version: {webp_path}")
+                return webp_path
+        except Exception as exc:
+            log.error(f"Failed to create WebP version of {image_path}: {str(exc)}")
+            return None
+
+    def _get_webp_path(self, original_path: Path) -> Path | None:
+        """Get the WebP version path for a given image file.
+
+        Args:
+            original_path: Path to the original image file
+
+        Returns:
+            Path to WebP file if it exists, None otherwise
+        """
+        webp_path = original_path.with_suffix(".webp")
+        return webp_path if webp_path.exists() else None
+
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
@@ -83,6 +129,14 @@ class FSResourcesHandler(FSHandler):
             except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None
+
+        # Create WebP version after storing the PNG
+        try:
+            image_path = self.validate_path(f"{cover_file}/{size.value}.png")
+            if image_path.exists():
+                self._create_webp_version(image_path)
+        except Exception as exc:
+            log.error(f"Failed to create WebP version for {cover_file}: {str(exc)}")
 
     def _get_cover_path(self, entity: Rom | Collection, size: CoverSize) -> str | None:
         """Returns rom cover filesystem path adapted to frontend folder structure
@@ -163,6 +217,17 @@ class FSResourcesHandler(FSHandler):
                 f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"
             )
             return None, None
+
+        # Create WebP versions after storing the original files
+        try:
+            if path_cover_l.exists():
+                self._create_webp_version(path_cover_l)
+            if path_cover_s.exists():
+                self._create_webp_version(path_cover_s)
+        except Exception as exc:
+            log.error(
+                f"Failed to create WebP versions for {entity.fs_resources_path}: {str(exc)}"
+            )
 
         return str(path_cover_l.relative_to(self.base_path)), str(
             path_cover_s.relative_to(self.base_path)
