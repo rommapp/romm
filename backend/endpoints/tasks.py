@@ -125,14 +125,14 @@ async def run_single_task(request: Request, task_name: str) -> MessageResponse:
         available_tasks = list(all_tasks.keys())
         raise HTTPException(
             status_code=404,
-            detail=f"Task '{task_name}' not found. Available tasks: {', '.join(available_tasks)}",
+            detail=f"Task '{task_name}' not found, available tasks are {', '.join(available_tasks)}",
         )
 
     task_instance = all_tasks[task_name]
     if not task_instance.enabled or not task_instance.manual_run:
         raise HTTPException(
             status_code=400,
-            detail=f"Task '{task_name}' is cannot be run",
+            detail=f"Task '{task_name}' cannot be run",
         )
 
     low_prio_queue.enqueue(task_instance.run)
