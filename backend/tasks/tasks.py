@@ -12,18 +12,35 @@ from utils.context import ctx_httpx_client
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
 
 
-class PeriodicTask(ABC):
+class Task(ABC):
+    title: str
+    description: str
+    enabled: bool
+    manual_run: bool
+    cron_string: str | None = None
+
     def __init__(
         self,
-        func: str,
-        description,
+        title: str,
+        description: str,
         enabled: bool = False,
+        manual_run: bool = False,
         cron_string: str | None = None,
     ):
-        self.func = func
-        self.description = description or func
+        self.title = title
+        self.description = description or title
         self.enabled = enabled
+        self.manual_run = manual_run
         self.cron_string = cron_string
+
+    @abstractmethod
+    async def run(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+class PeriodicTask(Task):
+    def __init__(self, *args, func: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.func = func
 
     def _get_existing_job(self):
         existing_jobs = tasks_scheduler.get_jobs()
@@ -40,9 +57,6 @@ class PeriodicTask(ABC):
             return self.schedule()
         elif job and not self.enabled:
             return self.unschedule()
-
-    @abstractmethod
-    async def run(self, *args: Any, **kwargs: Any) -> Any: ...
 
     def schedule(self):
         if not self.enabled:

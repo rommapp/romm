@@ -1,55 +1,48 @@
-import importlib
-from pathlib import Path
-from typing import Any, Dict
-
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
 from decorators.auth import protected_route
 from endpoints.responses import MessageResponse
-from endpoints.responses.tasks import GroupedTasksDict, TaskInfoDict
+from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
 from fastapi import HTTPException, Request
 from handler.auth.constants import Scope
-from logger.logger import log
+from handler.redis_handler import low_prio_queue
+from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
+from tasks.scheduled.scan_library import scan_library_task
+from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
+from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
+from tasks.tasks import Task
 from utils.router import APIRouter
-
-TASK_TYPES = ["scheduled", "manual"]
 
 router = APIRouter(
     prefix="/tasks",
     tags=["tasks"],
 )
 
+scheduled_tasks: dict[str, Task] = {
+    "scan_library": scan_library_task,
+    "update_launchbox_metadata": update_launchbox_metadata_task,
+    "update_switch_titledb": update_switch_titledb_task,
+}
 
-def _get_available_tasks() -> Dict[str, Any]:
-    """Automatically discover all available tasks by scanning the tasks directory."""
-    tasks = {}
+manual_tasks: dict[str, Task] = {
+    "cleanup_orphaned_resources": cleanup_orphaned_resources_task,
+}
 
-    for task_type in TASK_TYPES:
-        tasks_dir = Path(__file__).parent.parent / "tasks" / task_type
 
-        for task_file in tasks_dir.glob("*.py"):
-            module_name = f"tasks.{task_type}.{task_file.stem}"
-            try:
-                module = importlib.import_module(module_name)
-
-                # Look for task instances (variables ending with _task)
-                for attr_name in dir(module):
-                    if attr_name.endswith("_task") and not attr_name.startswith("_"):
-                        task_instance = getattr(module, attr_name)
-                        # Verify it has a run method
-                        if hasattr(task_instance, "run") and callable(
-                            task_instance.run
-                        ):
-                            # Use the task name without the _task suffix as the key
-                            task_key = attr_name.replace("_task", "")
-                            tasks[task_key] = task_instance
-
-            except ImportError as e:
-                log.error(f"Warning: Could not import task module {module_name}: {e}")
-
-    return tasks
+def _build_task_info(name: str, task: Task) -> TaskInfo:
+    """Builds a TaskInfo object from task details."""
+    return TaskInfo(
+        {
+            "name": name,
+            "title": task.title,
+            "description": task.description,
+            "enabled": task.enabled,
+            "manual_run": task.manual_run,
+            "cron_string": task.cron_string or "",
+        }
+    )
 
 
 @protected_route(router.get, "", [Scope.TASKS_RUN])
@@ -61,49 +54,32 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
     Returns:
         Dictionary with tasks grouped by their type (scheduled, manual, watcher)
     """
-    tasks = _get_available_tasks()
-
     # Initialize the grouped tasks dictionary
-    grouped_tasks: GroupedTasksDict = {}
+    grouped_tasks: GroupedTasksDict = {
+        "scheduled": [],
+        "manual": [],
+        "watcher": [],
+    }
 
-    # Group tasks by type
-    for task_type in TASK_TYPES:
-        task_list: list[TaskInfoDict] = []
-        tasks_dir = Path(__file__).parent.parent / "tasks" / task_type
+    for name, task in manual_tasks.items():
+        grouped_tasks["manual"].append(_build_task_info(name, task))
 
-        for name, instance in tasks.items():
-            # Check if this task belongs to the current type by checking if it exists in the type directory
-            task_file_path = tasks_dir / f"{name}.py"
-            if task_file_path.exists():
-                manual_run = getattr(instance, "manual_run", False)
-                title = getattr(instance, "title", name.replace("_", " ").title())
-                description = getattr(
-                    instance, "description", "No description available"
-                )
-                enabled = getattr(instance, "enabled", False)
-                task_info: TaskInfoDict = {
-                    "name": name,
-                    "manual_run": manual_run,
-                    "title": title,
-                    "description": description,
-                    "enabled": enabled,
-                    "cron_string": getattr(instance, "cron_string", ""),
-                }
-                task_list.append(task_info)
-
-        if task_list:
-            grouped_tasks[task_type] = task_list
+    for name, task in scheduled_tasks.items():
+        grouped_tasks["scheduled"].append(_build_task_info(name, task))
 
     # Add the adhoc watcher task
-    watcher_task: TaskInfoDict = {
-        "name": "filesystem_watcher",
-        "manual_run": False,
-        "title": "Rescan on filesystem change",
-        "description": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
-        "enabled": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-        "cron_string": "",
-    }
-    grouped_tasks["watcher"] = [watcher_task]
+    grouped_tasks["watcher"].append(
+        TaskInfo(
+            {
+                "name": "filesystem_watcher",
+                "manual_run": False,
+                "title": "Rescan on filesystem change",
+                "description": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
+                "enabled": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+                "cron_string": "",
+            }
+        )
+    )
 
     return grouped_tasks
 
@@ -117,39 +93,20 @@ async def run_all_tasks(request: Request) -> MessageResponse:
     Returns:
         MessageResponse: Standard message response
     """
-    tasks = _get_available_tasks()
-
-    if not tasks:
-        return {"msg": "No tasks available to run"}
-
     # Filter only runnable tasks
     runnable_tasks = {
-        name: instance
-        for name, instance in tasks.items()
-        if getattr(instance, "manual_run", False)
+        name: task
+        for name, task in {**manual_tasks, **scheduled_tasks}.items()
+        if task.enabled and task.manual_run
     }
 
     if not runnable_tasks:
         return {"msg": "No runnable tasks available to run"}
 
-    failed_tasks = []
-    successful_tasks = []
+    for _task_name, task_instance in runnable_tasks.items():
+        low_prio_queue.enqueue(task_instance.run)
 
-    for task_name, task_instance in runnable_tasks.items():
-        try:
-            await task_instance.run()
-            successful_tasks.append(task_name)
-        except Exception as e:
-            failed_tasks.append(f"{task_name}: {str(e)}")
-
-    if failed_tasks:
-        return {
-            "msg": f"Some tasks failed. Successful: {', '.join(successful_tasks)}. Failed: {', '.join(failed_tasks)}"
-        }
-
-    return {
-        "msg": f"All {len(successful_tasks)} triggerable tasks ran successfully: {', '.join(successful_tasks)}"
-    }
+    return {"msg": "All tasks launched, check the logs for details"}
 
 
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
@@ -162,28 +119,22 @@ async def run_single_task(request: Request, task_name: str) -> MessageResponse:
     Returns:
         MessageResponse: Standard message response
     """
-    tasks = _get_available_tasks()
+    all_tasks = {**manual_tasks, **scheduled_tasks}
 
-    if task_name not in tasks:
-        available_tasks = list(tasks.keys())
+    if task_name not in all_tasks:
+        available_tasks = list(all_tasks.keys())
         raise HTTPException(
             status_code=404,
-            detail=f"Task '{task_name}' not found. Available tasks: {', '.join(available_tasks)}",
+            detail=f"Task '{task_name}' not found, available tasks are {', '.join(available_tasks)}",
         )
 
-    task_instance = tasks[task_name]
-
-    # Check if task is triggerable (manual_run = True)
-    if not getattr(task_instance, "manual_run", False):
+    task_instance = all_tasks[task_name]
+    if not task_instance.enabled or not task_instance.manual_run:
         raise HTTPException(
             status_code=400,
-            detail=f"Task '{task_name}' is not triggerable manually.",
+            detail=f"Task '{task_name}' cannot be run",
         )
 
-    try:
-        await task_instance.run()
-        return {"msg": f"Task '{task_name}' ran successfully!"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Task '{task_name}' failed: {str(e)}"
-        ) from e
+    low_prio_queue.enqueue(task_instance.run)
+
+    return {"msg": f"Task '{task_name}' launched, check the logs for details"}
