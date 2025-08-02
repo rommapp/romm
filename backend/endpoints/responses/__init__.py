@@ -8,10 +8,6 @@ class TaskExecutionResponse(TypedDict):
     queued_at: str
 
 
-class ConfigurationResponse(TypedDict):
-    affected_items: list[str]
-
-
 class BulkOperationResponse(TypedDict):
     total_items: int
     successful_items: int
