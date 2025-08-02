@@ -1,11 +1,6 @@
 from typing import TypedDict
 
 
-class DeleteResponse(TypedDict):
-    deleted_count: int
-    deleted_items: list[str]
-
-
 class TaskExecutionResponse(TypedDict):
     task_name: str
     task_id: str

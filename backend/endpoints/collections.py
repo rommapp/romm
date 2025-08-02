@@ -3,7 +3,6 @@ from io import BytesIO
 
 from config import str_to_bool
 from decorators.auth import protected_route
-from endpoints.responses import DeleteResponse
 from endpoints.responses.collection import (
     CollectionSchema,
     SmartCollectionSchema,
@@ -390,7 +389,7 @@ async def update_smart_collection(
 
 
 @protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_collections(request: Request, id: int) -> DeleteResponse:
+async def delete_collection(request: Request, id: int) -> None:
     """Delete collections endpoint
 
     Args:
@@ -401,9 +400,6 @@ async def delete_collections(request: Request, id: int) -> DeleteResponse:
 
     Raises:
         HTTPException: Collection not found
-
-    Returns:
-        DeleteResponse: Delete response with details
     """
 
     collection = db_collection_handler.get_collection(id)
@@ -421,19 +417,14 @@ async def delete_collections(request: Request, id: int) -> DeleteResponse:
             f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"
         )
 
-    return {"deleted_count": 1, "deleted_items": [collection.name]}
-
 
 @protected_route(router.delete, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_smart_collection(request: Request, id: int) -> DeleteResponse:
+async def delete_smart_collection(request: Request, id: int) -> None:
     """Delete smart collection endpoint
 
     Args:
         request (Request): Fastapi Request object
         id (int): Smart collection id
-
-    Returns:
-        DeleteResponse: Delete response with details
     """
 
     smart_collection = db_collection_handler.get_smart_collection(id)
@@ -447,4 +438,4 @@ async def delete_smart_collection(request: Request, id: int) -> DeleteResponse:
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)
 
-    return {"deleted_count": 1, "deleted_items": [smart_collection.name]}
+    return

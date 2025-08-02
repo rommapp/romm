@@ -1,8 +1,4 @@
-import type {
-  UserSchema,
-  InviteLinkSchema,
-  DeleteResponse,
-} from "@/__generated__";
+import type { UserSchema, InviteLinkSchema } from "@/__generated__";
 import api from "@/services/api/index";
 import type { User } from "@/stores/users";
 
@@ -80,7 +76,7 @@ async function updateUser({
   );
 }
 
-async function deleteUser(user: User): Promise<{ data: DeleteResponse }> {
+async function deleteUser(user: User) {
   return api.delete(`/users/${user.id}`);
 }
 

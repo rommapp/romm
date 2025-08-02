@@ -23,7 +23,6 @@ export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
 export type { ConfigurationResponse } from './models/ConfigurationResponse';
 export type { CustomLimitOffsetPage_SimpleRomSchema_ } from './models/CustomLimitOffsetPage_SimpleRomSchema_';
-export type { DeleteResponse } from './models/DeleteResponse';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { EarnedAchievement } from './models/EarnedAchievement';
 export type { EmulationDict } from './models/EmulationDict';

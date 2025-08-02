@@ -2,7 +2,6 @@ from typing import Annotated, Any
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
-from endpoints.responses import DeleteResponse
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from fastapi import Body, Form, HTTPException, Request, status
 from handler.auth import auth_handler
@@ -317,7 +316,7 @@ async def update_user(
 
 
 @protected_route(router.delete, "/{id}", [Scope.USERS_WRITE])
-async def delete_user(request: Request, id: int) -> DeleteResponse:
+async def delete_user(request: Request, id: int) -> None:
     """Delete user endpoint
 
     Args:
@@ -328,9 +327,6 @@ async def delete_user(request: Request, id: int) -> DeleteResponse:
         HTTPException: User is not found in database
         HTTPException: User deleting itself
         HTTPException: User is the last admin user
-
-    Returns:
-        DeleteResponse: Delete response with details
     """
 
     user = db_user_handler.get_user(id)
@@ -355,8 +351,6 @@ async def delete_user(request: Request, id: int) -> DeleteResponse:
         await fs_asset_handler.remove_directory(user_avatar_path)
     except FileNotFoundError:
         log.warning(f"Couldn't find avatar directory to delete for {user.username}")
-
-    return {"deleted_count": 1, "deleted_items": [user.username]}
 
 
 @protected_route(
