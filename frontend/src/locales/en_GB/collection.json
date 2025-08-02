@@ -2,6 +2,7 @@
   "add-collection": "Add collection",
   "create-collection": "Create collection",
   "create-smart-collection": "Create smart collection",
+  "current-filters": "Current Filters",
   "danger-zone": "Danger zone",
   "delete-collection": "Delete collection",
   "description": "Description",
@@ -16,6 +17,5 @@
   "removing-collection-2": "from RomM. Do you confirm?",
   "removing-smart-collection-1": "Removing smart collection",
   "removing-smart-collection-2": "from RomM. Do you confirm?",
-  "current-filters": "Current Filters",
   "search-collection": "Search collection"
 }

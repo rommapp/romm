@@ -2,6 +2,7 @@
   "add-collection": "添加收藏",
   "create-collection": "创建收藏",
   "create-smart-collection": "创建智能收藏",
+  "current-filters": "当前过滤器",
   "danger-zone": "危险区",
   "delete-collection": "删除收藏",
   "description": "描述",
@@ -16,6 +17,5 @@
   "removing-collection-2": "] ，您确定吗？",
   "removing-smart-collection-1": "将从 RomM 中移除智能收藏 [",
   "removing-smart-collection-2": "] ，您确定吗？",
-  "current-filters": "当前过滤器",
   "search-collection": "搜索收藏"
 }
