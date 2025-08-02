@@ -1,5 +1,8 @@
 {
   "add-collection": "新增收藏庫",
+  "create-collection": "建立收藏庫",
+  "create-smart-collection": "建立智能收藏庫",
+  "current-filters": "目前篩選條件",
   "danger-zone": "危險操作",
   "delete-collection": "刪除收藏庫",
   "description": "說明",
@@ -12,5 +15,7 @@
   "public-desc": "公開（所有用戶可見）",
   "removing-collection-1": "將會移除收藏庫 \"",
   "removing-collection-2": "\"，您確定嗎？",
+  "removing-smart-collection-1": "將會移除智能收藏庫 \"",
+  "removing-smart-collection-2": "\"，您確定嗎？",
   "search-collection": "搜尋收藏庫"
 }
