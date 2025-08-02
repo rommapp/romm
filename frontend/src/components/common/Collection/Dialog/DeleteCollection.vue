@@ -33,7 +33,7 @@ async function deleteCollection() {
     .deleteCollection({ collection: collection.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: "Collection deleted",
         icon: "mdi-check-bold",
         color: "green",
       });

@@ -1,4 +1,4 @@
-import type { MessageResponse } from "@/__generated__";
+import type { AuthenticationResponse } from "@/__generated__";
 import api from "@/services/api/index";
 
 export const identityApi = api;
@@ -6,7 +6,7 @@ export const identityApi = api;
 async function login(
   username: string,
   password: string,
-): Promise<{ data: MessageResponse }> {
+): Promise<{ data: AuthenticationResponse }> {
   return api.post(
     "/login",
     {},
@@ -19,20 +19,18 @@ async function login(
   );
 }
 
-async function logout(): Promise<{ data: MessageResponse }> {
+async function logout(): Promise<{ data: AuthenticationResponse }> {
   return api.post("/logout");
 }
 
-async function requestPasswordReset(
-  username: string,
-): Promise<{ data: MessageResponse }> {
+async function requestPasswordReset(username: string): Promise<{ data: null }> {
   return api.post("/forgot-password", { username });
 }
 
 async function resetPassword(
   token: string,
   newPassword: string,
-): Promise<{ data: MessageResponse }> {
+): Promise<{ data: null }> {
   return api.post("/reset-password", { token, new_password: newPassword });
 }
 

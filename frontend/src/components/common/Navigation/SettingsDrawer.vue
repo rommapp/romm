@@ -32,7 +32,7 @@ async function logout() {
     await refetchCSRFToken();
 
     emitter?.emit("snackbarShow", {
-      msg: data.msg,
+      msg: "Logged out successfully",
       icon: "mdi-check-bold",
       color: "green",
     });

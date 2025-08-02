@@ -1,5 +1,5 @@
 import type {
-  MessageResponse,
+  BulkOperationResponse,
   SearchRomSchema,
   RomUserSchema,
 } from "@/__generated__";
@@ -298,7 +298,7 @@ async function deleteRoms({
 }: {
   roms: SimpleRom[];
   deleteFromFs: number[];
-}): Promise<{ data: MessageResponse }> {
+}): Promise<{ data: BulkOperationResponse }> {
   return api.post("/roms/delete", {
     roms: roms.map((r) => r.id),
     delete_from_fs: deleteFromFs,

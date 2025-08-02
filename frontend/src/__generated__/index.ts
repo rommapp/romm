@@ -4,6 +4,7 @@
 /* eslint-disable */
 
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
+export type { AuthenticationResponse } from './models/AuthenticationResponse';
 export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
 export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firmware_api_firmware_post';
 export type { Body_add_platform_api_platforms_post } from './models/Body_add_platform_api_platforms_post';
@@ -17,9 +18,12 @@ export type { Body_update_collection_api_collections__id__put } from './models/B
 export type { Body_update_platform_api_platforms__id__put } from './models/Body_update_platform_api_platforms__id__put';
 export type { Body_update_rom_api_roms__id__put } from './models/Body_update_rom_api_roms__id__put';
 export type { Body_update_rom_user_api_roms__id__props_put } from './models/Body_update_rom_user_api_roms__id__props_put';
+export type { BulkOperationResponse } from './models/BulkOperationResponse';
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
+export type { ConfigurationResponse } from './models/ConfigurationResponse';
 export type { CustomLimitOffsetPage_SimpleRomSchema_ } from './models/CustomLimitOffsetPage_SimpleRomSchema_';
+export type { DeleteResponse } from './models/DeleteResponse';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { EarnedAchievement } from './models/EarnedAchievement';
 export type { EmulationDict } from './models/EmulationDict';
@@ -33,7 +37,6 @@ export type { IGDBMetadataPlatform } from './models/IGDBMetadataPlatform';
 export type { IGDBRelatedGame } from './models/IGDBRelatedGame';
 export type { InviteLinkSchema } from './models/InviteLinkSchema';
 export type { LaunchboxImage } from './models/LaunchboxImage';
-export type { MessageResponse } from './models/MessageResponse';
 export type { MetadataSourcesDict } from './models/MetadataSourcesDict';
 export type { MobyMetadataPlatform } from './models/MobyMetadataPlatform';
 export type { OIDCDict } from './models/OIDCDict';
@@ -63,6 +66,7 @@ export type { SmartCollectionSchema } from './models/SmartCollectionSchema';
 export type { StateSchema } from './models/StateSchema';
 export type { StatsReturn } from './models/StatsReturn';
 export type { SystemDict } from './models/SystemDict';
+export type { TaskExecutionResponse } from './models/TaskExecutionResponse';
 export type { TaskInfo } from './models/TaskInfo';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';

@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
+
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
 )
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
+from endpoints.responses import TaskExecutionResponse
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
 from fastapi import HTTPException, Request
 from handler.auth.constants import Scope
@@ -85,13 +87,13 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
 
 
 @protected_route(router.post, "/run", [Scope.TASKS_RUN])
-async def run_all_tasks(request: Request) -> MessageResponse:
+async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
     """Run all runnable tasks endpoint
 
     Args:
         request (Request): FastAPI Request object
     Returns:
-        MessageResponse: Standard message response
+        TaskExecutionResponse: Task execution response with details
     """
     # Filter only runnable tasks
     runnable_tasks = {
@@ -101,23 +103,36 @@ async def run_all_tasks(request: Request) -> MessageResponse:
     }
 
     if not runnable_tasks:
-        return {"msg": "No runnable tasks available to run"}
+        raise HTTPException(
+            status_code=400,
+            detail="No runnable tasks available to run",
+        )
 
-    for _task_name, task_instance in runnable_tasks.items():
-        low_prio_queue.enqueue(task_instance.run)
+    jobs = [
+        (task_name, low_prio_queue.enqueue(task_instance.run))
+        for task_name, task_instance in runnable_tasks.items()
+    ]
 
-    return {"msg": "All tasks launched, check the logs for details"}
+    return [
+        {
+            "task_name": task_name,
+            "task_id": job.get_id(),
+            "status": "queued",
+            "queued_at": datetime.now(timezone.utc).isoformat(),
+        }
+        for (task_name, job) in jobs
+    ]
 
 
 @protected_route(router.post, "/run/{task_name}", [Scope.TASKS_RUN])
-async def run_single_task(request: Request, task_name: str) -> MessageResponse:
+async def run_single_task(request: Request, task_name: str) -> TaskExecutionResponse:
     """Run a single task endpoint.
 
     Args:
         request (Request): FastAPI Request object
         task_name (str): Name of the task to run
     Returns:
-        MessageResponse: Standard message response
+        TaskExecutionResponse: Task execution response with details
     """
     all_tasks = {**manual_tasks, **scheduled_tasks}
 
@@ -135,6 +150,11 @@ async def run_single_task(request: Request, task_name: str) -> MessageResponse:
             detail=f"Task '{task_name}' cannot be run",
         )
 
-    low_prio_queue.enqueue(task_instance.run)
+    job = low_prio_queue.enqueue(task_instance.run)
 
-    return {"msg": f"Task '{task_name}' launched, check the logs for details"}
+    return {
+        "task_name": task_name,
+        "task_id": job.get_id(),
+        "status": "queued",
+        "queued_at": datetime.now(timezone.utc).isoformat(),
+    }

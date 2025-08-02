@@ -2,7 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type MessageResponse = {
-    msg: string;
+export type TaskExecutionResponse = {
+    task_name: string;
+    task_id: string;
+    status: string;
+    queued_at: string;
 };
 

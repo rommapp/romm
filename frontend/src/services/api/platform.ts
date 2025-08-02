@@ -1,4 +1,4 @@
-import type { MessageResponse } from "@/__generated__";
+import type { DeleteResponse } from "@/__generated__";
 import api from "@/services/api/index";
 import type { Platform } from "@/stores/platforms";
 
@@ -38,7 +38,7 @@ async function deletePlatform({
   platform,
 }: {
   platform: Platform;
-}): Promise<{ data: MessageResponse }> {
+}): Promise<{ data: DeleteResponse }> {
   return api.delete(`/platforms/${platform.id}`);
 }
 
