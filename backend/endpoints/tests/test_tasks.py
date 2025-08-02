@@ -178,7 +178,10 @@ class TestListTasks:
 class TestRunAllTasks:
     """Test suite for the run_all_tasks endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.low_prio_queue.enqueue",
+        return_value=Mock(get_id=Mock(return_value="1")),
+    )
     @patch(
         "endpoints.tasks.manual_tasks",
         {
@@ -203,12 +206,10 @@ class TestRunAllTasks:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["msg"] == "All tasks launched, check the logs for details"
-
-        # Verify that enqueue was called for each runnable task
-        assert (
-            mock_queue.enqueue.call_count == 3
-        )  # task1, task2, task3 (task4 is disabled)
+        assert len(data) == 3
+        assert data[0]["task_name"] == "task1"
+        assert data[1]["task_name"] == "task2"
+        assert data[2]["task_name"] == "task3"
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.manual_tasks", {})
@@ -219,12 +220,12 @@ class TestRunAllTasks:
             "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         data = response.json()
-        assert data["msg"] == "No runnable tasks available to run"
+        assert data["detail"] == "No runnable tasks available to run"
 
         # Verify that enqueue was not called
-        mock_queue.enqueue.assert_not_called()
+        mock_queue.assert_not_called()
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch(
@@ -245,9 +246,9 @@ class TestRunAllTasks:
             "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         data = response.json()
-        assert data["msg"] == "No runnable tasks available to run"
+        assert data["detail"] == "No runnable tasks available to run"
 
         # Verify that enqueue was not called since no tasks are both enabled and manual
         mock_queue.enqueue.assert_not_called()
@@ -261,7 +262,10 @@ class TestRunAllTasks:
 class TestRunSingleTask:
     """Test suite for the run_single_task endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.low_prio_queue.enqueue",
+        return_value=Mock(get_id=Mock(return_value="1")),
+    )
     @patch(
         "endpoints.tasks.manual_tasks",
         {"test_task": Mock(spec=Task, enabled=True, manual_run=True, run=Mock())},
@@ -276,10 +280,13 @@ class TestRunSingleTask:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["msg"] == "Task 'test_task' launched, check the logs for details"
+        assert data["task_name"] == "test_task"
+        assert data["status"] == "queued"
+        assert "queued_at" in data
+        assert "task_id" in data
 
         # Verify that enqueue was called
-        mock_queue.enqueue.assert_called_once()
+        mock_queue.assert_called_once()
 
     @patch("endpoints.tasks.manual_tasks", {})
     @patch("endpoints.tasks.scheduled_tasks", {})
@@ -390,7 +397,10 @@ class TestIntegration:
 
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", True)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.low_prio_queue.enqueue",
+        return_value=Mock(get_id=Mock(return_value="1")),
+    )
     def test_full_workflow(self, mock_queue, client, access_token):
         """Test a complete workflow: list tasks, then run a specific task"""
         # First, list all tasks
@@ -414,7 +424,7 @@ class TestIntegration:
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
                 assert run_response.status_code == 200
-                assert mock_queue.enqueue.called
+                assert mock_queue.called
 
     def test_error_handling(self, client, access_token):
         """Test error handling for various scenarios"""
