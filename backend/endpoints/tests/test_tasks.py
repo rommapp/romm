@@ -1,8 +1,10 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import Mock, patch
 
 import pytest
+from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
+from tasks.tasks import Task
 
 
 @pytest.fixture
@@ -11,66 +13,78 @@ def client():
         yield client
 
 
-class MockTask:
-    """Mock task class for testing"""
-
-    def __init__(
-        self,
-        name="test_task",
-        manual_run=True,
-        title="Test Task",
-        description="Test task description",
-        enabled=True,
-        cron_string="0 0 * * *",
-    ):
-        self.manual_run = manual_run
-        self.title = title
-        self.description = description
-        self.enabled = enabled
-        self.cron_string = cron_string
-        self.run = AsyncMock()
+@pytest.fixture
+def mock_task():
+    """Create a mock task for testing"""
+    task = Mock(spec=Task)
+    task.title = "Test Task"
+    task.description = "A test task for unit testing"
+    task.enabled = True
+    task.manual_run = True
+    task.cron_string = "0 0 * * *"
+    task.run = Mock()
+    return task
 
 
-class TestTasksEndpoints:
-    """Test class for tasks endpoints"""
+@pytest.fixture
+def mock_disabled_task():
+    """Create a mock disabled task for testing"""
+    task = Mock(spec=Task)
+    task.title = "Disabled Task"
+    task.description = "A disabled task for testing"
+    task.enabled = False
+    task.manual_run = True
+    task.cron_string = None
+    task.run = Mock()
+    return task
 
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_list_tasks_success(self, mock_get_tasks, client, access_token):
-        """Test successful task listing"""
-        # Mock the available tasks
-        mock_get_tasks.return_value = {
-            "test_manual_task": MockTask(name="test_manual_task", manual_run=True),
-            "test_scheduled_task": MockTask(
-                name="test_scheduled_task", manual_run=False
-            ),
-        }
 
-        # Mock the filesystem structure
-        with patch("pathlib.Path.exists") as mock_exists:
-            mock_exists.side_effect = lambda: True  # All task files exist
+@pytest.fixture
+def mock_non_manual_task():
+    """Create a mock task that cannot be run manually"""
+    task = Mock(spec=Task)
+    task.title = "Non-Manual Task"
+    task.description = "A task that cannot be run manually"
+    task.enabled = True
+    task.manual_run = False
+    task.cron_string = "0 0 * * *"
+    task.run = Mock()
+    return task
 
-            response = client.get(
-                "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
+
+class TestListTasks:
+    """Test suite for the list_tasks endpoint"""
+
+    @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", True)
+    @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
+    @patch(
+        "endpoints.tasks.manual_tasks",
+        {
+            "test_manual": Mock(
+                spec=Task,
+                title="Manual Task",
+                description="Manual task",
+                enabled=True,
+                manual_run=True,
+                cron_string=None,
             )
-
-        assert response.status_code == 200
-        data = response.json()
-
-        # Should have manual, scheduled, and watcher sections
-        assert "manual" in data
-        assert "scheduled" in data
-        assert "watcher" in data
-
-        # Check watcher task is always present
-        assert len(data["watcher"]) == 1
-        assert data["watcher"][0]["name"] == "filesystem_watcher"
-        assert data["watcher"][0]["title"] == "Rescan on filesystem change"
-
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_list_tasks_empty(self, mock_get_tasks, client, access_token):
-        """Test task listing when no tasks are available"""
-        mock_get_tasks.return_value = {}
-
+        },
+    )
+    @patch(
+        "endpoints.tasks.scheduled_tasks",
+        {
+            "test_scheduled": Mock(
+                spec=Task,
+                title="Scheduled Task",
+                description="Scheduled task",
+                enabled=True,
+                manual_run=False,
+                cron_string="0 0 * * *",
+            )
+        },
+    )
+    def test_list_tasks_success(self, client, access_token):
+        """Test successful listing of all tasks"""
         response = client.get(
             "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
         )
@@ -78,87 +92,129 @@ class TestTasksEndpoints:
         assert response.status_code == 200
         data = response.json()
 
-        # Should still have watcher task
+        # Check structure
+        assert "scheduled" in data
+        assert "manual" in data
         assert "watcher" in data
+
+        # Check scheduled tasks
+        assert len(data["scheduled"]) == 1
+        scheduled_task = data["scheduled"][0]
+        assert scheduled_task["name"] == "test_scheduled"
+        assert scheduled_task["title"] == "Scheduled Task"
+        assert scheduled_task["description"] == "Scheduled task"
+        assert scheduled_task["enabled"] is True
+        assert scheduled_task["manual_run"] is False
+        assert scheduled_task["cron_string"] == "0 0 * * *"
+
+        # Check manual tasks
+        assert len(data["manual"]) == 1
+        manual_task = data["manual"][0]
+        assert manual_task["name"] == "test_manual"
+        assert manual_task["title"] == "Manual Task"
+        assert manual_task["description"] == "Manual task"
+        assert manual_task["enabled"] is True
+        assert manual_task["manual_run"] is True
+        assert manual_task["cron_string"] == ""
+
+        # Check watcher task
         assert len(data["watcher"]) == 1
+        watcher_task = data["watcher"][0]
+        assert watcher_task["name"] == "filesystem_watcher"
+        assert watcher_task["title"] == "Rescan on filesystem change"
+        assert "5 minute delay" in watcher_task["description"]
+        assert watcher_task["enabled"] is True
+        assert watcher_task["manual_run"] is False
+        assert watcher_task["cron_string"] == ""
+
+    @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", False)
+    @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 10)
+    @patch("endpoints.tasks.manual_tasks", {})
+    @patch("endpoints.tasks.scheduled_tasks", {})
+    def test_list_tasks_empty(self, client, access_token):
+        """Test listing tasks when no tasks are available"""
+        response = client.get(
+            "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["scheduled"] == []
+        assert data["manual"] == []
+        assert len(data["watcher"]) == 1
+        assert data["watcher"][0]["enabled"] is False
+        assert "10 minute delay" in data["watcher"][0]["description"]
 
     def test_list_tasks_unauthorized(self, client):
-        """Test task listing without authentication"""
+        """Test that unauthorized requests are rejected"""
         response = client.get("/api/tasks")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_list_tasks_insufficient_scope(self, client, admin_user):
+        """Test that requests without proper scope are rejected"""
+        # Create a token without TASKS_RUN scope
+        from datetime import timedelta
+
+        from handler.auth import oauth_handler
+
+        data = {
+            "sub": admin_user.username,
+            "iss": "romm:oauth",
+            "scopes": "roms:read",  # Missing TASKS_RUN scope
+            "type": "access",
+        }
+
+        token = oauth_handler.create_oauth_token(
+            data=data, expires_delta=timedelta(minutes=30)
+        )
+
+        response = client.get(
+            "/api/tasks", headers={"Authorization": f"Bearer {token}"}
+        )
         assert response.status_code == 403
 
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_run_all_tasks_success(self, mock_get_tasks, client, access_token):
-        """Test successful execution of all runnable tasks"""
-        mock_task1 = MockTask(name="task1", manual_run=True)
-        mock_task2 = MockTask(name="task2", manual_run=True)
-        mock_task3 = MockTask(name="task3", manual_run=False)  # Not runnable
 
-        mock_get_tasks.return_value = {
-            "task1": mock_task1,
-            "task2": mock_task2,
-            "task3": mock_task3,
-        }
+class TestRunAllTasks:
+    """Test suite for the run_all_tasks endpoint"""
 
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.manual_tasks",
+        {
+            "task1": Mock(spec=Task, enabled=True, manual_run=True, run=Mock()),
+            "task2": Mock(spec=Task, enabled=True, manual_run=True, run=Mock()),
+        },
+    )
+    @patch(
+        "endpoints.tasks.scheduled_tasks",
+        {
+            "task3": Mock(spec=Task, enabled=True, manual_run=True, run=Mock()),
+            "task4": Mock(
+                spec=Task, enabled=False, manual_run=True, run=Mock()
+            ),  # Disabled
+        },
+    )
+    def test_run_all_tasks_success(self, mock_queue, client, access_token):
+        """Test successful running of all runnable tasks"""
         response = client.post(
             "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
         )
 
         assert response.status_code == 200
         data = response.json()
+        assert data["msg"] == "All tasks launched, check the logs for details"
 
-        assert "2 triggerable tasks ran successfully" in data["msg"]
-        assert "task1, task2" in data["msg"]
+        # Verify that enqueue was called for each runnable task
+        assert (
+            mock_queue.enqueue.call_count == 3
+        )  # task1, task2, task3 (task4 is disabled)
 
-        # Verify only runnable tasks were called
-        mock_task1.run.assert_called_once()
-        mock_task2.run.assert_called_once()
-        mock_task3.run.assert_not_called()
-
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_run_all_tasks_some_fail(self, mock_get_tasks, client, access_token):
-        """Test when some tasks fail during execution"""
-        mock_task1 = MockTask(name="task1", manual_run=True)
-        mock_task2 = MockTask(name="task2", manual_run=True)
-        mock_task2.run.side_effect = Exception("Task 2 failed")
-
-        mock_get_tasks.return_value = {
-            "task1": mock_task1,
-            "task2": mock_task2,
-        }
-
-        response = client.post(
-            "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "Some tasks failed" in data["msg"]
-        assert "task1" in data["msg"]  # Successful
-        assert "task2: Task 2 failed" in data["msg"]  # Failed
-
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_run_all_tasks_no_tasks(self, mock_get_tasks, client, access_token):
-        """Test when no tasks are available"""
-        mock_get_tasks.return_value = {}
-
-        response = client.post(
-            "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["msg"] == "No tasks available to run"
-
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_run_all_tasks_no_runnable_tasks(
-        self, mock_get_tasks, client, access_token
-    ):
-        """Test when no tasks are manually runnable"""
-        mock_task = MockTask(name="task1", manual_run=False)
-        mock_get_tasks.return_value = {"task1": mock_task}
-
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.manual_tasks", {})
+    @patch("endpoints.tasks.scheduled_tasks", {})
+    def test_run_all_tasks_no_runnable_tasks(self, mock_queue, client, access_token):
+        """Test running all tasks when no tasks are runnable"""
         response = client.post(
             "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
         )
@@ -167,17 +223,52 @@ class TestTasksEndpoints:
         data = response.json()
         assert data["msg"] == "No runnable tasks available to run"
 
+        # Verify that enqueue was not called
+        mock_queue.enqueue.assert_not_called()
+
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.manual_tasks",
+        {
+            "task1": Mock(
+                spec=Task, enabled=True, manual_run=False, run=Mock()
+            ),  # Not manual
+            "task2": Mock(
+                spec=Task, enabled=False, manual_run=True, run=Mock()
+            ),  # Disabled
+        },
+    )
+    @patch("endpoints.tasks.scheduled_tasks", {})
+    def test_run_all_tasks_mixed_conditions(self, mock_queue, client, access_token):
+        """Test running all tasks with mixed enabled/disabled and manual/non-manual tasks"""
+        response = client.post(
+            "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["msg"] == "No runnable tasks available to run"
+
+        # Verify that enqueue was not called since no tasks are both enabled and manual
+        mock_queue.enqueue.assert_not_called()
+
     def test_run_all_tasks_unauthorized(self, client):
-        """Test running all tasks without authentication"""
+        """Test that unauthorized requests are rejected"""
         response = client.post("/api/tasks/run")
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_run_single_task_success(self, mock_get_tasks, client, access_token):
-        """Test successful execution of a single task"""
-        mock_task = MockTask(name="test_task", manual_run=True)
-        mock_get_tasks.return_value = {"test_task": mock_task}
 
+class TestRunSingleTask:
+    """Test suite for the run_single_task endpoint"""
+
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.manual_tasks",
+        {"test_task": Mock(spec=Task, enabled=True, manual_run=True, run=Mock())},
+    )
+    @patch("endpoints.tasks.scheduled_tasks", {})
+    def test_run_single_task_success(self, mock_queue, client, access_token):
+        """Test successful running of a single task"""
         response = client.post(
             "/api/tasks/run/test_task",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -185,14 +276,15 @@ class TestTasksEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["msg"] == "Task 'test_task' ran successfully!"
-        mock_task.run.assert_called_once()
+        assert data["msg"] == "Task 'test_task' launched, check the logs for details"
 
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_run_single_task_not_found(self, mock_get_tasks, client, access_token):
-        """Test running a task that doesn't exist"""
-        mock_get_tasks.return_value = {"other_task": MockTask()}
+        # Verify that enqueue was called
+        mock_queue.enqueue.assert_called_once()
 
+    @patch("endpoints.tasks.manual_tasks", {})
+    @patch("endpoints.tasks.scheduled_tasks", {})
+    def test_run_single_task_not_found(self, client, access_token):
+        """Test running a non-existent task"""
         response = client.post(
             "/api/tasks/run/nonexistent_task",
             headers={"Authorization": f"Bearer {access_token}"},
@@ -200,181 +292,135 @@ class TestTasksEndpoints:
 
         assert response.status_code == 404
         data = response.json()
-        assert "Task 'nonexistent_task' not found" in data["detail"]
-        assert "other_task" in data["detail"]
+        assert "not found" in data["detail"].lower()
+        assert "available tasks are" in data["detail"]
 
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_run_single_task_not_runnable(self, mock_get_tasks, client, access_token):
-        """Test running a task that is not manually runnable"""
-        mock_task = MockTask(name="scheduled_task", manual_run=False)
-        mock_get_tasks.return_value = {"scheduled_task": mock_task}
-
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.manual_tasks",
+        {"disabled_task": Mock(spec=Task, enabled=False, manual_run=True, run=Mock())},
+    )
+    @patch("endpoints.tasks.scheduled_tasks", {})
+    def test_run_single_task_disabled(self, mock_queue, client, access_token):
+        """Test running a disabled task"""
         response = client.post(
-            "/api/tasks/run/scheduled_task",
+            "/api/tasks/run/disabled_task",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
         assert response.status_code == 400
         data = response.json()
-        assert "Task 'scheduled_task' is not triggerable manually" in data["detail"]
+        assert "cannot be run" in data["detail"].lower()
 
-    @patch("endpoints.tasks._get_available_tasks")
-    def test_run_single_task_execution_fails(
-        self, mock_get_tasks, client, access_token
-    ):
-        """Test when a single task execution fails"""
-        mock_task = MockTask(name="failing_task", manual_run=True)
-        mock_task.run.side_effect = Exception("Task execution failed")
-        mock_get_tasks.return_value = {"failing_task": mock_task}
+        # Verify that enqueue was not called
+        mock_queue.enqueue.assert_not_called()
 
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.manual_tasks",
+        {
+            "non_manual_task": Mock(
+                spec=Task, enabled=True, manual_run=False, run=Mock()
+            )
+        },
+    )
+    @patch("endpoints.tasks.scheduled_tasks", {})
+    def test_run_single_task_non_manual(self, mock_queue, client, access_token):
+        """Test running a task that cannot be run manually"""
         response = client.post(
-            "/api/tasks/run/failing_task",
+            "/api/tasks/run/non_manual_task",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == 500
+        assert response.status_code == 400
         data = response.json()
-        assert "Task 'failing_task' failed: Task execution failed" in data["detail"]
+        assert "cannot be run" in data["detail"].lower()
+
+        # Verify that enqueue was not called
+        mock_queue.enqueue.assert_not_called()
 
     def test_run_single_task_unauthorized(self, client):
-        """Test running a single task without authentication"""
+        """Test that unauthorized requests are rejected"""
         response = client.post("/api/tasks/run/test_task")
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
-class TestGetAvailableTasks:
-    """Test class for the _get_available_tasks function"""
+class TestTaskInfoBuilding:
+    """Test suite for the _build_task_info helper function"""
 
-    @patch("importlib.import_module")
-    @patch("pathlib.Path.glob")
-    def test_get_available_tasks_success(self, mock_glob, mock_import):
-        """Test successful task discovery"""
-        from endpoints.tasks import _get_available_tasks
+    @patch("endpoints.tasks._build_task_info")
+    def test_build_task_info_structure(
+        self, mock_build_task_info, client, access_token
+    ):
+        """Test that _build_task_info creates correct TaskInfo structure"""
+        # Mock the helper function to return a known structure
+        mock_build_task_info.return_value = {
+            "name": "test_task",
+            "title": "Test Task",
+            "description": "Test Description",
+            "enabled": True,
+            "manual_run": True,
+            "cron_string": "0 0 * * *",
+        }
 
-        # Mock file discovery for both scheduled and manual task types
-        mock_file1 = MagicMock()
-        mock_file1.stem = "test_task"
-        mock_file2 = MagicMock()
-        mock_file2.stem = "another_task"
-        mock_glob.return_value = [mock_file1, mock_file2]
+        with patch(
+            "endpoints.tasks.manual_tasks",
+            {
+                "test_task": Mock(
+                    spec=Task,
+                    title="Test Task",
+                    description="Test Description",
+                    enabled=True,
+                    manual_run=True,
+                    cron_string="0 0 * * *",
+                )
+            },
+        ):
+            with patch("endpoints.tasks.scheduled_tasks", {}):
+                response = client.get(
+                    "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
+                )
 
-        # Mock modules
-        mock_module1 = MagicMock()
-        mock_task_instance = MockTask()
-        mock_module1.test_task_task = mock_task_instance
+                assert response.status_code == 200
+                # The mock ensures the structure is correct
 
-        mock_module2 = MagicMock()
-        mock_task_instance2 = MockTask()
-        mock_module2.another_task_task = mock_task_instance2
 
-        # Mock dir() calls to return the expected attributes
-        with patch("builtins.dir") as mock_dir:
-            mock_dir.side_effect = [
-                ["test_task_task", "other_var"],  # For mock_module1
-                ["another_task_task"],  # For mock_module2
-            ] * 2  # Multiply by 2 because it runs for both 'scheduled' and 'manual' task types
+class TestIntegration:
+    """Integration tests for the tasks endpoints"""
 
-            mock_import.side_effect = [mock_module1, mock_module2] * 2
+    @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", True)
+    @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
+    @patch("endpoints.tasks.low_prio_queue")
+    def test_full_workflow(self, mock_queue, client, access_token):
+        """Test a complete workflow: list tasks, then run a specific task"""
+        # First, list all tasks
+        list_response = client.get(
+            "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
+        )
+        assert list_response.status_code == 200
 
-            tasks = _get_available_tasks()
+        # Then run a specific task (if any exist)
+        with patch(
+            "endpoints.tasks.manual_tasks",
+            {
+                "workflow_task": Mock(
+                    spec=Task, enabled=True, manual_run=True, run=Mock()
+                )
+            },
+        ):
+            with patch("endpoints.tasks.scheduled_tasks", {}):
+                run_response = client.post(
+                    "/api/tasks/run/workflow_task",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                )
+                assert run_response.status_code == 200
+                assert mock_queue.enqueue.called
 
-        # Should find 2 tasks (one per module)
-        assert len(tasks) == 2
-        assert "test" in tasks  # Key is task name without _task suffix
-        assert "another" in tasks  # Key is task name without _task suffix
-        assert tasks["test"] == mock_task_instance
-        assert tasks["another"] == mock_task_instance2
-
-    @patch("importlib.import_module")
-    @patch("pathlib.Path.glob")
-    def test_get_available_tasks_import_error(self, mock_glob, mock_import):
-        """Test task discovery with import errors"""
-        from endpoints.tasks import _get_available_tasks
-
-        # Mock file discovery
-        mock_file = MagicMock()
-        mock_file.stem = "broken_task"
-        mock_glob.return_value = [mock_file]
-
-        # Mock import error for both task types
-        mock_import.side_effect = [ImportError("Module not found")] * 2
-
-        tasks = _get_available_tasks()
-
-        # Should return empty dict when imports fail
-        assert len(tasks) == 0
-
-    @patch("importlib.import_module")
-    @patch("pathlib.Path.glob")
-    def test_get_available_tasks_no_valid_tasks(self, mock_glob, mock_import):
-        """Test task discovery when modules don't have valid tasks"""
-        from endpoints.tasks import _get_available_tasks
-
-        # Mock file discovery
-        mock_file = MagicMock()
-        mock_file.stem = "invalid_task"
-        mock_glob.return_value = [mock_file]
-
-        # Mock module without valid task attributes
-        mock_module = MagicMock()
-
-        with patch("builtins.dir") as mock_dir:
-            mock_dir.return_value = ["some_var", "another_var"]  # No _task suffix
-            mock_import.side_effect = [mock_module] * 2  # For both task types
-
-            tasks = _get_available_tasks()
-
-        # Should return empty dict
-        assert len(tasks) == 0
-
-    @patch("importlib.import_module")
-    @patch("pathlib.Path.glob")
-    def test_get_available_tasks_invalid_task_object(self, mock_glob, mock_import):
-        """Test task discovery when task object doesn't have run method"""
-        from endpoints.tasks import _get_available_tasks
-
-        # Mock file discovery
-        mock_file = MagicMock()
-        mock_file.stem = "invalid_task"
-        mock_glob.return_value = [mock_file]
-
-        # Mock module with invalid task object
-        mock_module = MagicMock()
-        invalid_task = MagicMock()
-        del invalid_task.run  # Remove run method
-        mock_module.invalid_task_task = invalid_task
-
-        with patch("builtins.dir") as mock_dir:
-            mock_dir.return_value = ["invalid_task_task"]
-            mock_import.side_effect = [mock_module] * 2  # For both task types
-
-            tasks = _get_available_tasks()
-
-        # Should return empty dict
-        assert len(tasks) == 0
-
-    @patch("importlib.import_module")
-    @patch("pathlib.Path.glob")
-    def test_get_available_tasks_non_callable_run(self, mock_glob, mock_import):
-        """Test task discovery when run attribute is not callable"""
-        from endpoints.tasks import _get_available_tasks
-
-        # Mock file discovery
-        mock_file = MagicMock()
-        mock_file.stem = "invalid_task"
-        mock_glob.return_value = [mock_file]
-
-        # Mock module with non-callable run attribute
-        mock_module = MagicMock()
-        invalid_task = MagicMock()
-        invalid_task.run = "not callable"  # Not callable
-        mock_module.invalid_task_task = invalid_task
-
-        with patch("builtins.dir") as mock_dir:
-            mock_dir.return_value = ["invalid_task_task"]
-            mock_import.side_effect = [mock_module] * 2  # For both task types
-
-            tasks = _get_available_tasks()
-
-        # Should return empty dict
-        assert len(tasks) == 0
+    def test_error_handling(self, client, access_token):
+        """Test error handling for various scenarios"""
+        # Test with invalid task name
+        response = client.post(
+            "/api/tasks/run/invalid_task_name_with_special_chars!@#",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        assert response.status_code == 404

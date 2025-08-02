@@ -2,42 +2,36 @@
 import Task from "@/components/Settings/Administration/TaskOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import api from "@/services/api/index";
-import type { TaskInfoDict } from "@/__generated__/models/TaskInfoDict";
+import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import { convertCronExperssion } from "@/utils";
 import { computed, onMounted, ref } from "vue";
 
 // Props
 const tasks = ref<{
-  watcher?: Array<TaskInfoDict>;
-  scheduled?: Array<TaskInfoDict>;
-  manual?: Array<TaskInfoDict>;
-}>({});
+  watcher: TaskInfo[];
+  scheduled: TaskInfo[];
+  manual: TaskInfo[];
+}>({
+  watcher: [],
+  scheduled: [],
+  manual: [],
+});
 
-const watcherTasks = computed(
-  () =>
-    tasks.value.watcher?.map((task) => ({
-      title: task.title,
-      description: task.description,
-      icon: task.enabled ? "mdi-file-check-outline" : "mdi-file-remove-outline",
-      enabled: task.enabled,
-      name: task.name,
-    })) || [],
+const watcherTasks = computed(() =>
+  tasks.value.watcher.map((task) => ({
+    ...task,
+    icon: task.enabled ? "mdi-file-check-outline" : "mdi-file-remove-outline",
+  })),
 );
 
-const scheduledTasks = computed(
-  () =>
-    tasks.value.scheduled?.map((task) => ({
-      title: task.title,
-      description:
-        task.description + " " + convertCronExperssion(task.cron_string),
-      icon: task.enabled
-        ? "mdi-clock-check-outline"
-        : "mdi-clock-remove-outline",
-      enabled: task.enabled,
-      name: task.name,
-      manual_run: task.manual_run,
-      cron_string: convertCronExperssion(task.cron_string),
-    })) || [],
+const scheduledTasks = computed(() =>
+  tasks.value.scheduled.map((task) => ({
+    ...task,
+    description:
+      task.description + " " + convertCronExperssion(task.cron_string),
+    icon: task.enabled ? "mdi-clock-check-outline" : "mdi-clock-remove-outline",
+    cron_string: convertCronExperssion(task.cron_string),
+  })),
 );
 
 // Icon mapping for manual tasks
@@ -48,15 +42,11 @@ const getManualTaskIcon = (taskName: string) => {
   return iconMap[taskName] || "mdi-play";
 };
 
-const manualTasks = computed(
-  () =>
-    tasks.value.manual?.map((task) => ({
-      title: task.title,
-      description: task.description,
-      icon: getManualTaskIcon(task.name),
-      name: task.name,
-      manual_run: task.manual_run,
-    })) || [],
+const manualTasks = computed(() =>
+  tasks.value.manual.map((task) => ({
+    ...task,
+    icon: getManualTaskIcon(task.name),
+  })),
 );
 
 // Functions
@@ -64,7 +54,6 @@ const getAvailableTasks = async () => {
   await api.get("/tasks").then((response) => {
     tasks.value = response.data;
   });
-  console.log(tasks.value);
 };
 
 onMounted(() => {

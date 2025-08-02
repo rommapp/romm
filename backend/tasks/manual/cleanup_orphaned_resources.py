@@ -4,15 +4,19 @@ import shutil
 from config import RESOURCES_BASE_PATH
 from handler.database import db_platform_handler, db_rom_handler
 from logger.logger import log
+from tasks.tasks import Task
 from utils.context import initialize_context
 
 
-class CleanupOrphanedResourcesTask:
+class CleanupOrphanedResourcesTask(Task):
     def __init__(self):
-        self.manual_run = True
-        self.title = "Cleanup orphaned resources"
-        self.description = "cleanup orphaned resources"
-        self.enabled = True
+        super().__init__(
+            title="Cleanup orphaned resources",
+            description="Clean up orphaned resources in the ROMs directory",
+            enabled=True,
+            manual_run=True,
+            cron_string=None,
+        )
 
     @initialize_context()
     async def run(self) -> None:

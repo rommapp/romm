@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type TaskInfoDict = {
+export type TaskInfo = {
     name: string;
     manual_run: boolean;
     title: string;
