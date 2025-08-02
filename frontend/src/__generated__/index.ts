@@ -20,7 +20,6 @@ export type { Body_update_rom_user_api_roms__id__props_put } from './models/Body
 export type { BulkOperationResponse } from './models/BulkOperationResponse';
 export type { CollectionSchema } from './models/CollectionSchema';
 export type { ConfigResponse } from './models/ConfigResponse';
-export type { ConfigurationResponse } from './models/ConfigurationResponse';
 export type { CustomLimitOffsetPage_SimpleRomSchema_ } from './models/CustomLimitOffsetPage_SimpleRomSchema_';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { EarnedAchievement } from './models/EarnedAchievement';
