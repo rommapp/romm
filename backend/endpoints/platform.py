@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
+from endpoints.responses import DeleteResponse
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
@@ -203,7 +203,7 @@ async def update_platform(
 async def delete_platform(
     request: Request,
     id: Annotated[int, PathVar(description="Platform id.", ge=1)],
-) -> MessageResponse:
+) -> DeleteResponse:
     """Delete a platform."""
 
     platform = db_platform_handler.get_platform(id)
@@ -215,4 +215,7 @@ async def delete_platform(
     )
     db_platform_handler.delete_platform(id)
 
-    return {"msg": f"{platform.name} - [{platform.fs_slug}] deleted successfully!"}
+    return {
+        "deleted_count": 1,
+        "deleted_items": [f"{platform.name} - [{platform.fs_slug}]"],
+    }

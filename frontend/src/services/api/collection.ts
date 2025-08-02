@@ -1,4 +1,4 @@
-import type { MessageResponse } from "@/__generated__";
+import type { DeleteResponse } from "@/__generated__";
 import api from "@/services/api/index";
 import type {
   Collection,
@@ -137,13 +137,13 @@ async function deleteCollection({
   collection,
 }: {
   collection: Collection;
-}): Promise<{ data: MessageResponse }> {
+}): Promise<{ data: DeleteResponse }> {
   return api.delete(`/collections/${collection.id}`);
 }
 
 async function deleteSmartCollection(
   id: number,
-): Promise<{ data: { msg: string } }> {
+): Promise<{ data: DeleteResponse }> {
   return api.delete(`/collections/smart/${id}`);
 }
 

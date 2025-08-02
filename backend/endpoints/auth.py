@@ -4,7 +4,7 @@ from typing import Annotated, Final
 from config import OIDC_ENABLED, OIDC_REDIRECT_URI
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
-from endpoints.responses import MessageResponse
+from endpoints.responses import AuthenticationResponse
 from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import (
     AuthCredentialsException,
@@ -35,7 +35,7 @@ router = APIRouter(
 def login(
     request: Request,
     credentials=Depends(HTTPBasic()),  # noqa
-) -> MessageResponse:
+) -> AuthenticationResponse:
     """Session login endpoint
 
     Args:
@@ -47,7 +47,7 @@ def login(
         UserDisabledException: Auth is disabled
 
     Returns:
-        MessageResponse: Standard message response
+        AuthenticationResponse: Authentication response with user info
     """
 
     user = auth_handler.authenticate_user(credentials.username, credentials.password)
@@ -63,23 +63,23 @@ def login(
     now = datetime.now(timezone.utc)
     db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
 
-    return {"msg": "Successfully logged in"}
+    return {"user_id": user.id, "username": user.username}
 
 
 @router.post("/logout")
-def logout(request: Request) -> MessageResponse:
+def logout(request: Request) -> AuthenticationResponse:
     """Session logout endpoint
 
     Args:
         request (Request): Fastapi Request object
 
     Returns:
-        MessageResponse: Standard message response
+        AuthenticationResponse: Authentication response with user info
     """
 
     request.session.clear()
 
-    return {"msg": "Successfully logged out"}
+    return {"user_id": None, "username": None}
 
 
 @router.post("/token")
@@ -273,14 +273,14 @@ async def auth_openid(request: Request):
     return RedirectResponse(url="/")
 
 
-@router.post("/forgot-password")
-def request_password_reset(username: str = Body(..., embed=True)) -> MessageResponse:
-    """ "Request a password reset link for the user.
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+def request_password_reset(username: str = Body(..., embed=True)) -> None:
+    """Request a password reset link for the user.
 
     Args:
         username (str): Username of the user requesting the reset
     Returns:
-        MessageResponse: Confirmation message
+        None: Returns 200 OK status
     """
     user = db_user_handler.get_user_by_username(username)
 
@@ -291,14 +291,15 @@ def request_password_reset(username: str = Body(..., embed=True)) -> MessageResp
             f"Reset password link requested for a user {hl(username, color=CYAN)}, but that username does not exist."
         )
 
-    return {"msg": "If the username exists, a reset link has been sent."}
+    # Always return 200 OK for security reasons (don't reveal if user exists)
+    return None
 
 
-@router.post("/reset-password")
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
 def reset_password(
     token: str = Body(..., embed=True),
     new_password: str = Body(..., embed=True),
-) -> MessageResponse:
+) -> None:
     """Reset password using the token.
 
     Args:
@@ -306,7 +307,7 @@ def reset_password(
         new_password (str): New user password
 
     Returns:
-        MessageResponse: Confirmation message
+        None: Returns 200 OK status
     """
     user = auth_handler.verify_password_reset_token(token)
 
@@ -315,4 +316,4 @@ def reset_password(
     log.info(
         f"Password was successfully reset for user {hl(user.username, color=CYAN)}."
     )
-    return {"msg": "Password has been reset successfully."}
+    return None
