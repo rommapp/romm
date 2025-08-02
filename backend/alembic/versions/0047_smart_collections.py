@@ -1,7 +1,7 @@
 """Add smart collections table
 
-Revision ID: 0046_smart_collections
-Revises: 0045_roms_metadata_update
+Revision ID: 0047_smart_collections
+Revises: 0046_migrate_platform_slugs
 Create Date: 2024-12-19 12:00:00.000000
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.
-revision = "0046_smart_collections"
-down_revision = "0045_roms_metadata_update"
+revision = "0047_smart_collections"
+down_revision = "0046_migrate_platform_slugs"
 branch_labels = None
 depends_on = None
 
