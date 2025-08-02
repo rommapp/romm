@@ -26,14 +26,14 @@ LAUNCHBOX_FILES_KEY: Final = "romm:launchbox_files"
 class UpdateLaunchboxMetadataTask(RemoteFilePullTask):
     def __init__(self):
         super().__init__(
-            func="tasks.update_launchbox_metadata.update_launchbox_metadata_task.run",
+            title="Scheduled LaunchBox metadata update",
             description="Updates the LaunchBox metadata store",
             enabled=ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
             cron_string=SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
+            manual_run=True,
+            func="tasks.update_launchbox_metadata.update_launchbox_metadata_task.run",
             url="https://gamesdb.launchbox-app.com/Metadata.zip",
         )
-        self.manual_run = True
-        self.title = "Scheduled LaunchBox metadata update"
 
     @initialize_context()
     async def run(self, force: bool = False) -> None:

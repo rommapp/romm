@@ -1,7 +1,7 @@
 from typing import Dict, List, TypedDict
 
 
-class TaskInfoDict(TypedDict):
+class TaskInfo(TypedDict):
     name: str
     manual_run: bool
     title: str
@@ -11,4 +11,4 @@ class TaskInfoDict(TypedDict):
 
 
 # Use a more flexible type for grouped tasks
-GroupedTasksDict = Dict[str, List[TaskInfoDict]]
+GroupedTasksDict = Dict[str, List[TaskInfo]]
