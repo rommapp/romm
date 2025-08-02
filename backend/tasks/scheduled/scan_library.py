@@ -30,7 +30,7 @@ class ScanLibraryTask(PeriodicTask):
         if not ENABLE_SCHEDULED_RESCAN:
             log.info("Scheduled library scan not enabled, unscheduling...")
             self.unschedule()
-            return
+            return None
 
         source_mapping = {
             IGDB_API_ENABLED: MetadataSource.IGDB,
@@ -46,7 +46,7 @@ class ScanLibraryTask(PeriodicTask):
         if not metadata_sources:
             log.warning("No metadata sources enabled, unscheduling library scan")
             self.unschedule()
-            return
+            return None
 
         log.info("Scheduled library scan started...")
         await scan_platforms(

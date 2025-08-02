@@ -378,7 +378,7 @@ async def refresh_retro_achievements(request: Request, id: int):
                 "ra_progression": user_progression,
             },
         )
-        return
+        return None
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,

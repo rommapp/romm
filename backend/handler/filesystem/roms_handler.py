@@ -138,7 +138,7 @@ def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
                         yield chunk
 
                     # We only need to read the first file in the archive
-                    return
+                    return None
     except zipfile.BadZipFile:
         if isinstance(file, Path):
             for chunk in read_basic_file(file):
@@ -164,7 +164,7 @@ def read_tar_file(
                         yield chunk
 
                 # We only need to read the first file in the archive
-                return
+                return None
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk
