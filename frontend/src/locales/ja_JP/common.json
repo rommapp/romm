@@ -43,5 +43,7 @@
   "user-interface": "ユーザーインターフェイス",
   "virtual-collection": "自動生成コレクション",
   "virtual-collections": "自動生成コレクション",
+  "smart-collection": "スマートコレクション",
+  "smart-collections": "スマートコレクション",
   "sync": "同期"
 }

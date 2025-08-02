@@ -7,10 +7,10 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import Skeleton from "@/components/Gallery/Skeleton.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import GameTable from "@/components/common/Game/Table.vue";
-import storeCollections from "@/stores/collections";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import { type CollectionType } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
 import { ROUTES } from "@/plugins/router";
@@ -20,21 +20,21 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 
-// Props
+const props = defineProps<{
+  collections: CollectionType[];
+  currentCollection: CollectionType | null;
+  setCurrentCollection: (collection: CollectionType) => void;
+}>();
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
-const collectionsStore = storeCollections();
-const { allCollections, virtualCollections } = storeToRefs(collectionsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
   filteredRoms,
   selectedRoms,
   currentPlatform,
-  currentCollection,
-  currentVirtualCollection,
   fetchingRoms,
   fetchTotalRoms,
 } = storeToRefs(romsStore);
@@ -178,55 +178,23 @@ onMounted(async () => {
   currentPlatform.value = null;
 
   watch(
-    () => allCollections.value,
+    () => props.collections,
     async (collections) => {
       if (
         collections.length > 0 &&
-        collections.some(
-          (collection) => collection.id === Number(routeCollectionId),
-        )
+        collections.some((collection) => collection.id == routeCollectionId)
       ) {
         const collection = collections.find(
-          (collection) => collection.id === Number(routeCollectionId),
+          (collection) => collection.id == routeCollectionId,
         );
 
-        // Check if the current platform is different or no ROMs have been loaded
         if (
-          (currentVirtualCollection.value?.id !== routeCollectionId ||
+          (props.currentCollection?.id != routeCollectionId ||
             allRoms.value.length === 0) &&
           collection
         ) {
-          if (currentCollection.value) resetGallery();
-          romsStore.setCurrentCollection(collection);
-          document.title = `${collection.name}`;
-          await fetchRoms();
-        }
-
-        window.addEventListener("scroll", onScroll);
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
-
-  watch(
-    () => virtualCollections.value,
-    async (collections) => {
-      if (
-        collections.length > 0 &&
-        collections.some((collection) => collection.id === routeCollectionId)
-      ) {
-        const collection = collections.find(
-          (collection) => collection.id === routeCollectionId,
-        );
-
-        // Check if the current platform is different or no ROMs have been loaded
-        if (
-          (currentVirtualCollection.value?.id !== routeCollectionId ||
-            allRoms.value.length === 0) &&
-          collection
-        ) {
-          if (currentVirtualCollection.value) resetGallery();
-          romsStore.setCurrentVirtualCollection(collection);
+          resetGallery();
+          props.setCurrentCollection(collection);
           document.title = `${collection.name}`;
           await fetchRoms();
         }
@@ -242,49 +210,23 @@ onBeforeRouteUpdate(async (to, from) => {
   // Triggers when change param of the same route
   // Reset store if switching to another collection
   if (to.path === from.path) return true;
-
   const routeCollectionId = to.params.collection;
 
   watch(
-    () => allCollections.value,
+    () => props.collections,
     async (collections) => {
       if (collections.length > 0) {
         const collection = collections.find(
-          (collection) => collection.id === Number(routeCollectionId),
+          (collection) => collection.id == routeCollectionId,
         );
 
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
         if (
-          (currentCollection.value?.id !== Number(routeCollectionId) ||
+          (props.currentCollection?.id != routeCollectionId ||
             allRoms.value.length === 0) &&
           collection
         ) {
-          if (currentCollection.value) resetGallery();
-          romsStore.setCurrentCollection(collection);
-          document.title = `${collection.name}`;
-          await fetchRoms();
-        }
-      }
-    },
-    { immediate: true }, // Ensure watcher is triggered immediately
-  );
-
-  watch(
-    () => virtualCollections.value,
-    async (collections) => {
-      if (collections.length > 0) {
-        const collection = collections.find(
-          (collection) => collection.id === routeCollectionId,
-        );
-
-        // Only trigger fetchRoms if switching platforms or ROMs are not loaded
-        if (
-          (currentVirtualCollection.value?.id !== routeCollectionId ||
-            allRoms.value.length === 0) &&
-          collection
-        ) {
-          romsStore.setCurrentCollection(null);
-          romsStore.setCurrentVirtualCollection(collection);
+          resetGallery();
+          props.setCurrentCollection(collection);
           document.title = `${collection.name}`;
           await fetchRoms();
         }
@@ -362,7 +304,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="allCollections.length > 0 && !fetchingRoms" />
+        <empty-game v-if="props.collections.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>

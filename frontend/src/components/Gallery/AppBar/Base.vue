@@ -3,6 +3,7 @@ import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.
 import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
 import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
 import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
+import SmartCollectionBtn from "@/components/Gallery/AppBar/common/SmartCollectionBtn.vue";
 import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
 import ContextualRandomBtn from "@/components/Gallery/AppBar/common/ContextualRandomBtn.vue";
@@ -34,6 +35,7 @@ const { calculatedWidth } = calculateMainLayoutWidth();
     <template #prepend>
       <slot name="prepend" />
       <filter-btn />
+      <smart-collection-btn />
     </template>
     <search-text-field v-if="showSearchBar" />
     <slot name="content" />

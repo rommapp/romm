@@ -48,7 +48,7 @@ async function addRomsToCollection() {
         timeout: 2000,
       });
       emitter?.emit("refreshDrawer", null);
-      collectionsStore.update(data);
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       console.log(error);

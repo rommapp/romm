@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
+import DeleteSmartCollectionDialog from "@/components/common/Collection/Dialog/DeleteSmartCollection.vue";
 import RSection from "@/components/common/RSection.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
 import storeCollection from "@/stores/collections";
@@ -111,7 +112,7 @@ async function updateCollection() {
         color: "green",
       });
       currentCollection.value = data;
-      collectionsStore.update(data);
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -302,12 +303,9 @@ async function updateCollection() {
       </v-col>
       <v-col cols="12">
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
-          <v-card-text class="pa-4">
-            <template
-              v-for="(field, index) in collectionInfoFields"
-              :key="field.key"
-            >
-              <div :class="{ 'mt-4': index !== 0 }">
+          <v-card-text class="pa-4 d-flex">
+            <template v-for="field in collectionInfoFields" :key="field.key">
+              <div>
                 <v-chip size="small" class="mr-2 px-0" label>
                   <v-chip label>{{ field.label }}</v-chip
                   ><span class="px-2">{{
@@ -357,6 +355,7 @@ async function updateCollection() {
   </v-navigation-drawer>
 
   <delete-collection-dialog />
+  <delete-smart-collection-dialog />
 </template>
 <style scoped>
 .append-top-right {

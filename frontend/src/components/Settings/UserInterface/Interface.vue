@@ -238,7 +238,7 @@ const setVirtualCollectionType = async (value: string) => {
   await collectionApi
     .getVirtualCollections({ type: value })
     .then(({ data: virtualCollections }) => {
-      collectionsStore.setVirtual(virtualCollections);
+      collectionsStore.setVirtualCollections(virtualCollections);
     });
 };
 

@@ -18,14 +18,14 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.hasheous_handler import HasheousRom
-from handler.metadata.igdb_handler import IGDBRom
-from handler.metadata.launchbox_handler import LaunchboxRom
-from handler.metadata.moby_handler import MobyGamesRom
+from handler.metadata.hasheous_handler import HASHEOUS_PLATFORM_LIST, HasheousRom
+from handler.metadata.igdb_handler import IGDB_PLATFORM_LIST, IGDBRom
+from handler.metadata.launchbox_handler import LAUNCHBOX_PLATFORM_LIST, LaunchboxRom
+from handler.metadata.moby_handler import MOBYGAMES_PLATFORM_LIST, MobyGamesRom
 from handler.metadata.playmatch_handler import PlaymatchRomMatch
-from handler.metadata.ra_handler import RAGameRom
+from handler.metadata.ra_handler import RA_PLATFORM_LIST, RAGameRom
 from handler.metadata.sgdb_handler import SGDBRom
-from handler.metadata.ss_handler import SSRom
+from handler.metadata.ss_handler import SCREENSAVER_PLATFORM_LIST, SSRom
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -58,7 +58,7 @@ class MetadataSource:
     SGDB = "sgdb"  # SteamGridDB
 
 
-async def _get_main_platform_igdb_id(platform: Platform):
+def get_main_platform_igdb_id(platform: Platform):
     cnfg = cm.get_config()
 
     if platform.fs_slug in cnfg.PLATFORMS_VERSIONS.keys():
@@ -67,7 +67,7 @@ async def _get_main_platform_igdb_id(platform: Platform):
         if main_platform:
             main_platform_igdb_id = main_platform.igdb_id
         else:
-            main_platform = await meta_igdb_handler.get_platform(main_platform_slug)
+            main_platform = meta_igdb_handler.get_platform(main_platform_slug)
             main_platform_igdb_id = main_platform["igdb_id"]
             if not main_platform_igdb_id:
                 main_platform_igdb_id = platform.igdb_id
@@ -119,7 +119,7 @@ async def scan_platform(
     except (KeyError, TypeError, AttributeError):
         platform_attrs["slug"] = fs_slug
 
-    igdb_platform = await meta_igdb_handler.get_platform(platform_attrs["slug"])
+    igdb_platform = meta_igdb_handler.get_platform(platform_attrs["slug"])
     moby_platform = meta_moby_handler.get_platform(platform_attrs["slug"])
     ss_platform = meta_ss_handler.get_platform(platform_attrs["slug"])
     ra_platform = meta_ra_handler.get_platform(platform_attrs["slug"])
@@ -322,7 +322,11 @@ async def scan_rom(
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
-                or (scan_type == ScanType.PARTIAL and not rom.hasheous_id)
+                or (
+                    scan_type == ScanType.PARTIAL
+                    and not rom.hasheous_id
+                    and rom.slug in HASHEOUS_PLATFORM_LIST
+                )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
         ):
@@ -350,7 +354,11 @@ async def scan_rom(
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
-                or (scan_type == ScanType.PARTIAL and not rom.igdb_id)
+                or (
+                    scan_type == ScanType.PARTIAL
+                    and not rom.igdb_id
+                    and rom.slug in IGDB_PLATFORM_LIST
+                )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
         ):
@@ -379,7 +387,7 @@ async def scan_rom(
                 return await meta_igdb_handler.get_rom_by_id(playmatch_rom["igdb_id"])
 
             # If no matches found, use the file name to get the IGDB ID
-            main_platform_igdb_id = await _get_main_platform_igdb_id(platform)
+            main_platform_igdb_id = get_main_platform_igdb_id(platform)
             return await meta_igdb_handler.get_rom(
                 rom_attrs["fs_name"], main_platform_igdb_id or platform.igdb_id
             )
@@ -393,7 +401,11 @@ async def scan_rom(
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
-                or (scan_type == ScanType.PARTIAL and not rom.moby_id)
+                or (
+                    scan_type == ScanType.PARTIAL
+                    and not rom.moby_id
+                    and rom.slug in MOBYGAMES_PLATFORM_LIST
+                )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
         ):
@@ -410,7 +422,11 @@ async def scan_rom(
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
-                or (scan_type == ScanType.PARTIAL and not rom.ss_id)
+                or (
+                    scan_type == ScanType.PARTIAL
+                    and not rom.ss_id
+                    and rom.slug in SCREENSAVER_PLATFORM_LIST
+                )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
         ):
@@ -424,7 +440,11 @@ async def scan_rom(
         if MetadataSource.LB in metadata_sources and (
             newly_added
             or scan_type == ScanType.COMPLETE
-            or (scan_type == ScanType.PARTIAL and not rom.launchbox_id)
+            or (
+                scan_type == ScanType.PARTIAL
+                and not rom.launchbox_id
+                and rom.slug in LAUNCHBOX_PLATFORM_LIST
+            )
             or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
         ):
             return await meta_launchbox_handler.get_rom(
@@ -441,7 +461,11 @@ async def scan_rom(
                 newly_added
                 or scan_type == ScanType.COMPLETE
                 or scan_type == ScanType.HASHES
-                or (scan_type == ScanType.PARTIAL and not rom.ra_id)
+                or (
+                    scan_type == ScanType.PARTIAL
+                    and not rom.ra_id
+                    and rom.slug in RA_PLATFORM_LIST
+                )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
         ):
@@ -468,7 +492,11 @@ async def scan_rom(
             and (
                 newly_added
                 or scan_type == ScanType.COMPLETE
-                or (scan_type == ScanType.PARTIAL and not rom.hasheous_id)
+                or (
+                    scan_type == ScanType.PARTIAL
+                    and not rom.hasheous_id
+                    and rom.slug in HASHEOUS_PLATFORM_LIST
+                )
                 or (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
             )
         ):
