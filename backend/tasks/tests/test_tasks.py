@@ -19,6 +19,7 @@ class TestPeriodicTask:
     def task(self):
         return ConcretePeriodicTask(
             func="test.function",
+            title="Test Task",
             description="test task",
             enabled=True,
             cron_string="0 0 * * *",
@@ -28,6 +29,7 @@ class TestPeriodicTask:
     def disabled_task(self):
         return ConcretePeriodicTask(
             func="test.disabled.function",
+            title="Disabled Task",
             description="disabled task",
             enabled=False,
             cron_string="0 0 * * *",
@@ -36,14 +38,10 @@ class TestPeriodicTask:
     def test_init(self, task):
         """Test task initialization"""
         assert task.func == "test.function"
+        assert task.title == "Test Task"
         assert task.description == "test task"
         assert task.enabled is True
         assert task.cron_string == "0 0 * * *"
-
-    def test_init_default_description(self):
-        """Test that description defaults to func when not provided"""
-        task = ConcretePeriodicTask(func="test.function", description=None)
-        assert task.description == "test.function"
 
     @patch.object(tasks_scheduler, "get_jobs")
     def test_get_existing_job_found(self, mock_get_jobs, task):
@@ -149,6 +147,7 @@ class TestPeriodicTask:
         """Test scheduling with no cron string"""
         task = ConcretePeriodicTask(
             func="test.function",
+            title="Test Task",
             description="test task",
             enabled=True,
             cron_string=None,
@@ -194,6 +193,7 @@ class TestRemoteFilePullTask:
     def task(self):
         return RemoteFilePullTask(
             func="test.remote.function",
+            title="Remote Test Task",
             description="remote test task",
             enabled=True,
             cron_string="0 0 * * *",
@@ -204,6 +204,7 @@ class TestRemoteFilePullTask:
     def disabled_task(self):
         return RemoteFilePullTask(
             func="test.remote.disabled.function",
+            title="Disabled Remote Task",
             description="disabled remote task",
             enabled=False,
             url="https://example.com/data.json",
