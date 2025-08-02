@@ -152,7 +152,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
 </script>
 
 <template>
-  <v-data-table-server
+  <v-data-table-virtual
     @update:options="updateOptions"
     @click:row="rowClick"
     :items-per-page="72"
@@ -365,7 +365,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         </v-menu>
       </v-btn-group>
     </template>
-  </v-data-table-server>
+  </v-data-table-virtual>
 </template>
 
 <style scoped>

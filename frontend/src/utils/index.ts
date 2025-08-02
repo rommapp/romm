@@ -387,6 +387,7 @@ const _EJS_CORES_MAP = {
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
   psx: ["pcsx_rearmed", "mednafen_psx_hw"],
+  "philips-cd-i": ["same_cdi"],
   psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
   sega32: ["picodrive"],
