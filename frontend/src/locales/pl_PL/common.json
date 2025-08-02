@@ -35,6 +35,8 @@
   "server-stats": "Statystyki serwera",
   "size-on-disk": "Rozmiar na dysku",
   "slug": "Identyfikator (slug)",
+  "smart-collection": "Inteligentna kolekcja",
+  "smart-collections": "Inteligentne kolekcje",
   "state": "Stan",
   "states": "Stany",
   "states-n": "{n} Stan | {n} Stany | {n} Stanów",
