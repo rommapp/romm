@@ -1,12 +1,8 @@
-import type { AuthenticationResponse } from "@/__generated__";
 import api from "@/services/api/index";
 
 export const identityApi = api;
 
-async function login(
-  username: string,
-  password: string,
-): Promise<{ data: AuthenticationResponse }> {
+async function login(username: string, password: string) {
   return api.post(
     "/login",
     {},

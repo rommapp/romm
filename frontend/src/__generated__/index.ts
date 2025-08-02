@@ -4,7 +4,6 @@
 /* eslint-disable */
 
 export type { AddFirmwareResponse } from './models/AddFirmwareResponse';
-export type { AuthenticationResponse } from './models/AuthenticationResponse';
 export type { Body_add_collection_api_collections_post } from './models/Body_add_collection_api_collections_post';
 export type { Body_add_firmware_api_firmware_post } from './models/Body_add_firmware_api_firmware_post';
 export type { Body_add_platform_api_platforms_post } from './models/Body_add_platform_api_platforms_post';
