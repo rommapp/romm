@@ -19,18 +19,15 @@ async function login(
   );
 }
 
-async function logout(): Promise<{ data: AuthenticationResponse }> {
+async function logout() {
   return api.post("/logout");
 }
 
-async function requestPasswordReset(username: string): Promise<{ data: null }> {
+async function requestPasswordReset(username: string) {
   return api.post("/forgot-password", { username });
 }
 
-async function resetPassword(
-  token: string,
-  newPassword: string,
-): Promise<{ data: null }> {
+async function resetPassword(token: string, newPassword: string) {
   return api.post("/reset-password", { token, new_password: newPassword });
 }
 

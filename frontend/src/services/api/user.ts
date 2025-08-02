@@ -84,11 +84,7 @@ async function deleteUser(user: User): Promise<{ data: DeleteResponse }> {
   return api.delete(`/users/${user.id}`);
 }
 
-async function refreshRetroAchievements({
-  id,
-}: {
-  id: number;
-}): Promise<{ data: null }> {
+async function refreshRetroAchievements({ id }: { id: number }) {
   return api.post(`/users/${id}/ra/refresh`);
 }
 
