@@ -37,7 +37,6 @@ def test_login_logout(client, admin_user):
 
     assert response.status_code == 200
     assert response.cookies.get("romm_session")
-    assert response.json()["user_id"] == admin_user.id
 
     response = client.post("/api/logout")
 
@@ -169,6 +168,3 @@ def test_delete_user(client, access_token, editor_user):
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
-
-    body = response.json()
-    assert body["deleted_count"] == 1

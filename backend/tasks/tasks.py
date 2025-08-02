@@ -64,7 +64,7 @@ class PeriodicTask(Task):
 
         if self._get_existing_job():
             log.info(f"{self.description.capitalize()} is already scheduled.")
-            return
+            return None
 
         if self.cron_string:
             return tasks_scheduler.cron(
@@ -80,7 +80,7 @@ class PeriodicTask(Task):
 
         if not job:
             log.info(f"{self.description.capitalize()} is not scheduled.")
-            return
+            return None
 
         tasks_scheduler.cancel(job)
         log.info(f"{self.description.capitalize()} unscheduled.")

@@ -70,8 +70,6 @@ def logout(request: Request) -> None:
 
     request.session.clear()
 
-    return None
-
 
 @router.post("/token")
 async def token(form_data: Annotated[OAuth2RequestForm, Depends()]) -> TokenResponse:
@@ -282,9 +280,6 @@ def request_password_reset(username: str = Body(..., embed=True)) -> None:
             f"Reset password link requested for a user {hl(username, color=CYAN)}, but that username does not exist."
         )
 
-    # Always return 200 OK for security reasons (don't reveal if user exists)
-    return None
-
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 def reset_password(
@@ -307,4 +302,3 @@ def reset_password(
     log.info(
         f"Password was successfully reset for user {hl(user.username, color=CYAN)}."
     )
-    return None

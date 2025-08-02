@@ -37,14 +37,12 @@ manual_tasks: dict[str, Task] = {
 def _build_task_info(name: str, task: Task) -> TaskInfo:
     """Builds a TaskInfo object from task details."""
     return TaskInfo(
-        {
-            "name": name,
-            "title": task.title,
-            "description": task.description,
-            "enabled": task.enabled,
-            "manual_run": task.manual_run,
-            "cron_string": task.cron_string or "",
-        }
+        name=name,
+        title=task.title,
+        description=task.description,
+        enabled=task.enabled,
+        manual_run=task.manual_run,
+        cron_string=task.cron_string or "",
     )
 
 
@@ -73,14 +71,12 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
     # Add the adhoc watcher task
     grouped_tasks["watcher"].append(
         TaskInfo(
-            {
-                "name": "filesystem_watcher",
-                "manual_run": False,
-                "title": "Rescan on filesystem change",
-                "description": f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
-                "enabled": ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-                "cron_string": "",
-            }
+            name="filesystem_watcher",
+            title="Rescan on filesystem change",
+            description=f"Runs a scan when a change is detected in the library path, with a {RESCAN_ON_FILESYSTEM_CHANGE_DELAY} minute delay",
+            enabled=ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+            manual_run=False,
+            cron_string="",
         )
     )
 
@@ -116,14 +112,12 @@ async def get_task_by_id(request: Request, task_id: str) -> TaskStatusResponse:
     )
 
     return TaskStatusResponse(
-        {
-            "task_name": str(task_name),
-            "task_id": task_id,
-            "status": job.get_status(),
-            "queued_at": queued_at or "",
-            "started_at": started_at,
-            "ended_at": ended_at,
-        }
+        task_name=str(task_name),
+        task_id=task_id,
+        status=job.get_status(),
+        queued_at=queued_at or "",
+        started_at=started_at,
+        ended_at=ended_at,
     )
 
 
