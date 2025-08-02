@@ -311,7 +311,7 @@ watch(
             <a
               v-if="currentPlatform.igdb_id"
               style="text-decoration: none; color: inherit"
-              :href="`https://www.igdb.com/platforms/${currentPlatform.slug}`"
+              :href="`https://www.igdb.com/platforms/${currentPlatform.igdb_slug}`"
               target="_blank"
               :tabindex="tabIndex"
             >

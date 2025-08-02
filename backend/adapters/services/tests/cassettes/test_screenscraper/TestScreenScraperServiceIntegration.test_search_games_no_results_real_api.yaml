@@ -1,0 +1,62 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.screenscraper.fr/api2/jeuRecherche.php?recherche=ZZZNonexistentGameZZZ
+    response:
+      body:
+        string:
+          "{\n\t\"header\" : {\n\t\t\"APIversion\" : \"2.0\",\n\t\t\"dateTime\"\
+          \ : \"2025-07-23 05:47:11\",\n\t\t\"commandRequested\" : \"https://neoclone.screenscraper.fr/api2/jeuRecherche.php?recherche=ZZZNonexistentGameZZZ&devid=zurdi15&devpassword=xTJwoOFjOQG&output=json&softname=romm&ssid=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&sspassword=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\
+          ,\n\t\t\"success\": \"true\",\n\t\t\"error\": \"\"\n\t},\n\t\"response\" :\
+          \ {\n\t\t\"serveurs\" : {\n\t\t\t\"cpu1\": \"0\",\n\t\t\t\"cpu2\": \"0\",\n\
+          \t\t\t\"cpu3\": \"0\",\n\t\t\t\"cpu4\": \"0\",\n\t\t\t\"threadsmin\": \"3580\"\
+          ,\n\t\t\t\"nbscrapeurs\": \"547\",\n\t\t\t\"apiacces\": \"7207526\",\n\t\t\
+          \t\"closefornomember\": \"0\",\n\t\t\t\"closeforleecher\": \"0\",\n\t\t\t\"\
+          maxthreadfornonmember\": \"256\",\n\t\t\t\"threadfornonmember\": \"30\",\n\
+          \t\t\t\"maxthreadformember\": \"4096\",\n\t\t\t\"threadformember\": \"107\"\
+          \n\t\t},\n\t\t\"ssuser\" : {\n\t\t\t\"id\": \"arcaneasada\",\n\t\t\t\"numid\"\
+          : \"27224648\",\n\t\t\t\"niveau\": \"1\",\n\t\t\t\"contribution\": \"0\",\n\
+          \t\t\t\"uploadsysteme\": \"0\",\n\t\t\t\"uploadinfos\": \"0\",\n\t\t\t\"romasso\"\
+          : \"0\",\n\t\t\t\"uploadmedia\": \"0\",\n\t\t\t\"propositionok\": \"0\",\n\
+          \t\t\t\"propositionko\": \"0\",\n\t\t\t\"quotarefu\": \"0\",\n\t\t\t\"maxthreads\"\
+          : \"1\",\n\t\t\t\"maxdownloadspeed\": \"128\",\n\t\t\t\"requeststoday\": \"\
+          0\",\n\t\t\t\"requestskotoday\": \"0\",\n\t\t\t\"maxrequestspermin\": \"3072\"\
+          ,\n\t\t\t\"maxrequestsperday\": \"20000\",\n\t\t\t\"maxrequestskoperday\"\
+          : \"2000\",\n\t\t\t\"visites\": \"19\",\n\t\t\t\"datedernierevisite\": \"\
+          2025-07-22 04:21:46\",\n\t\t\t\"favregion\": \"\"\n\t\t\t},\n\t\t\"jeux\"\
+          \ : [{\n\t\t\t}]\n\t\t}\n\t}\n  "
+      headers:
+        Access-Control-Allow-Headers:
+          - X-Requested-With
+        Access-Control-Allow-Methods:
+          - GET
+        Access-Control-Allow-Origin:
+          - "*"
+        Cache-Control:
+          - no-cache, must-revalidate
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json; charset=utf-8
+        Date:
+          - Wed, 23 Jul 2025 03:47:24 GMT
+        Expires:
+          - "0"
+        Pragma:
+          - no-cache
+        Server:
+          - nginx/1.14.2
+        Set-Cookie:
+          - SESSID=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Accept-Encoding
+      status:
+        code: 200
+        message: OK
+version: 1

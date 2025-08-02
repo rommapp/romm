@@ -1,0 +1,775 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetUserCompletionProgress.php?u=Scott&c=500
+    response:
+      body:
+        string:
+          '{"Count":444,"Total":444,"Results":[{"GameID":3595,"Title":"Time Crisis","ImageIcon":"\/Images\/032393.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":26,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2025-06-17T13:03:32+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3368,"Title":"Picross
+          NP Vol. 7","ImageIcon":"\/Images\/024817.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":27,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2025-06-13T20:03:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":9617,"Title":"Picross
+          3D","ImageIcon":"\/Images\/039370.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":44,"NumAwarded":29,"NumAwardedHardcore":29,"MostRecentAwardedDate":"2025-05-30T15:32:03+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":140,"Title":"Wonder
+          Boy in Monster World","ImageIcon":"\/Images\/034382.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":49,"NumAwarded":17,"NumAwardedHardcore":17,"MostRecentAwardedDate":"2025-05-15T18:16:42+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1446,"Title":"Super
+          Mario Bros.","ImageIcon":"\/Images\/036035.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":77,"NumAwarded":12,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2025-05-13T15:06:40+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2014-01-08T23:56:20+00:00"},{"GameID":6183,"Title":"V-Rally
+          3","ImageIcon":"\/Images\/105675.png","ConsoleID":5,"ConsoleName":"Game Boy
+          Advance","MaxPossible":77,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2025-05-12T21:49:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":169,"Title":"Sonic
+          & Knuckles","ImageIcon":"\/Images\/110372.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":20,"NumAwarded":20,"NumAwardedHardcore":20,"MostRecentAwardedDate":"2025-05-09T00:37:52+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-05-09T00:37:52+00:00"},{"GameID":2308,"Title":"Moto
+          Roader","ImageIcon":"\/Images\/032830.png","ConsoleID":8,"ConsoleName":"PC
+          Engine\/TurboGrafx-16","MaxPossible":68,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2025-04-25T18:36:04+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":8979,"Title":"Gradius","ImageIcon":"\/Images\/034178.png","ConsoleID":8,"ConsoleName":"PC
+          Engine\/TurboGrafx-16","MaxPossible":57,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2025-04-25T18:25:51+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":7040,"Title":"Tetris
+          Blast","ImageIcon":"\/Images\/043936.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":23,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2025-04-24T21:06:26+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2025-04-24T21:01:23+00:00"},{"GameID":5293,"Title":"Tennis","ImageIcon":"\/Images\/043748.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":9,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2025-04-24T15:43:24+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3363,"Title":"Picross
+          NP Vol. 2","ImageIcon":"\/Images\/024812.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":27,"NumAwarded":27,"NumAwardedHardcore":27,"MostRecentAwardedDate":"2025-04-24T15:18:13+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-04-24T15:18:13+00:00"},{"GameID":7088,"Title":"Need
+          for Speed: Most Wanted","ImageIcon":"\/Images\/109352.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":33,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2025-04-20T21:05:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2578,"Title":"~Homebrew~
+          Pocket Meat","ImageIcon":"\/Images\/079416.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":13,"NumAwarded":11,"NumAwardedHardcore":11,"MostRecentAwardedDate":"2025-04-17T14:57:52+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2025-04-17T14:28:55+00:00"},{"GameID":5093,"Title":"Mario
+          Party Advance","ImageIcon":"\/Images\/087672.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":63,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2025-04-17T00:29:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":14937,"Title":"Picross
+          DS","ImageIcon":"\/Images\/066484.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":49,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2025-04-16T20:00:07+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":735,"Title":"Teenage
+          Mutant Ninja Turtles: Fall of the Foot Clan","ImageIcon":"\/Images\/113910.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":26,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2025-04-16T11:06:34+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5214,"Title":"Pocket
+          Monsters Midori [Subset - Monotype Challenge]","ImageIcon":"\/Images\/107758.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":147,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2025-04-16T10:57:08+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3227,"Title":"Mario
+          no Super Picross","ImageIcon":"\/Images\/003359.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":77,"NumAwarded":77,"NumAwardedHardcore":77,"MostRecentAwardedDate":"2025-04-16T10:27:10+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-04-16T10:27:10+00:00"},{"GameID":20255,"Title":"Sonic
+          Mega Collection Plus","ImageIcon":"\/Images\/072251.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":689,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2025-04-15T22:38:35+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":17,"Title":"NHLPA
+          Hockey 93","ImageIcon":"\/Images\/078128.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":31,"NumAwarded":9,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2025-04-09T12:32:48+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3320,"Title":"Mercenaries:
+          Playground of Destruction","ImageIcon":"\/Images\/109604.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":115,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2025-04-06T20:16:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4882,"Title":"Wario
+          Blast: Featuring Bomberman!","ImageIcon":"\/Images\/026433.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":10,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2025-03-31T22:10:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2738,"Title":"Grand
+          Theft Auto III","ImageIcon":"\/Images\/056403.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":180,"NumAwarded":32,"NumAwardedHardcore":32,"MostRecentAwardedDate":"2025-03-31T11:42:24+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2025-03-25T17:36:40+00:00"},{"GameID":724,"Title":"Pok\u00e9mon
+          Red Version | Pok\u00e9mon Blue Version","ImageIcon":"\/Images\/092935.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":93,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2025-03-28T16:55:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11322,"Title":"Metal
+          Gear Solid: VR Missions","ImageIcon":"\/Images\/113103.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":229,"NumAwarded":20,"NumAwardedHardcore":20,"MostRecentAwardedDate":"2025-03-23T22:38:00+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4939,"Title":"Tetris
+          DX","ImageIcon":"\/Images\/109627.png","ConsoleID":6,"ConsoleName":"Game Boy
+          Color","MaxPossible":39,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2025-03-21T23:10:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":33095,"Title":"Knight
+          Move","ImageIcon":"\/Images\/109284.png","ConsoleID":71,"ConsoleName":"Arduboy","MaxPossible":7,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2025-03-21T09:42:26+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2403,"Title":"Final
+          Fantasy Adventure","ImageIcon":"\/Images\/070038.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":50,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2025-03-19T22:07:43+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":668,"Title":"Pok\u00e9mon
+          Emerald Version","ImageIcon":"\/Images\/104473.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":63,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2025-03-18T11:58:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2465,"Title":"Bust-A-Move
+          2: Arcade Edition","ImageIcon":"\/Images\/054346.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":81,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2025-03-13T10:21:28+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":9722,"Title":"Sabrina:
+          The Animated Series - Zapped!","ImageIcon":"\/Images\/109114.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":40,"NumAwarded":25,"NumAwardedHardcore":25,"MostRecentAwardedDate":"2025-03-12T00:53:29+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2025-03-12T00:53:29+00:00"},{"GameID":7446,"Title":"Game
+          Boy Gallery","ImageIcon":"\/Images\/036079.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":25,"NumAwarded":25,"NumAwardedHardcore":25,"MostRecentAwardedDate":"2025-03-10T16:32:32+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-03-10T16:32:32+00:00"},{"GameID":19292,"Title":"Antcopter","ImageIcon":"\/Images\/056952.png","ConsoleID":72,"ConsoleName":"WASM-4","MaxPossible":27,"NumAwarded":12,"NumAwardedHardcore":12,"MostRecentAwardedDate":"2025-03-09T23:54:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19301,"Title":"Meteoroids","ImageIcon":"\/Images\/057567.png","ConsoleID":72,"ConsoleName":"WASM-4","MaxPossible":9,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2025-03-09T23:45:19+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":22113,"Title":"Suggoi!
+          Arcana Heart 2","ImageIcon":"\/Images\/081841.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":52,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2025-03-08T21:28:27+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2025-03-08T21:28:27+00:00"},{"GameID":14338,"Title":"Pingu:
+          Sekai de Ichiban Genki na Penguin","ImageIcon":"\/Images\/035942.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":31,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2025-03-07T21:20:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6621,"Title":"Picross
+          2","ImageIcon":"\/Images\/113050.png","ConsoleID":4,"ConsoleName":"Game Boy","MaxPossible":32,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2025-03-07T17:07:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19331,"Title":"Don''t
+          Smash into Obstacles","ImageIcon":"\/Images\/076396.png","ConsoleID":72,"ConsoleName":"WASM-4","MaxPossible":13,"NumAwarded":13,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2025-03-07T16:16:14+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-03-07T16:16:14+00:00"},{"GameID":669,"Title":"The
+          Legend of Zelda: Link''s Awakening","ImageIcon":"\/Images\/105114.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":30,"NumAwarded":30,"NumAwardedHardcore":30,"MostRecentAwardedDate":"2025-03-05T22:33:30+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-03-05T22:33:30+00:00"},{"GameID":3224,"Title":"Wipeout
+          Pure","ImageIcon":"\/Images\/049610.png","ConsoleID":41,"ConsoleName":"PlayStation
+          Portable","MaxPossible":237,"NumAwarded":237,"NumAwardedHardcore":235,"MostRecentAwardedDate":"2025-03-05T12:56:09+00:00","HighestAwardKind":"completed","HighestAwardDate":"2025-03-05T12:56:09+00:00"},{"GameID":33048,"Title":"Untangle","ImageIcon":"\/Images\/108676.png","ConsoleID":72,"ConsoleName":"WASM-4","MaxPossible":17,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2025-03-05T11:45:07+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":508,"Title":"Tetris","ImageIcon":"\/Images\/109629.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":13,"NumAwarded":13,"NumAwardedHardcore":11,"MostRecentAwardedDate":"2025-03-05T11:27:04+00:00","HighestAwardKind":"completed","HighestAwardDate":"2025-03-05T11:27:04+00:00"},{"GameID":14585,"Title":"Nankuro
+          4","ImageIcon":"\/Images\/031214.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":20,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2025-03-03T23:31:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":14589,"Title":"Oekaki
+          Puzzle 4","ImageIcon":"\/Images\/046365.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":40,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2025-03-03T14:45:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":14619,"Title":"Grand
+          Theft Auto: London 1969","ImageIcon":"\/Images\/109941.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":58,"NumAwarded":58,"NumAwardedHardcore":58,"MostRecentAwardedDate":"2025-03-03T12:47:16+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-03-03T12:47:16+00:00"},{"GameID":11284,"Title":"Soul
+          Blade","ImageIcon":"\/Images\/025358.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":59,"NumAwarded":28,"NumAwardedHardcore":28,"MostRecentAwardedDate":"2025-02-27T09:37:59+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2024-09-19T15:14:29+00:00"},{"GameID":14634,"Title":"Colin
+          McRae Rally 2.0","ImageIcon":"\/Images\/036793.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":144,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2025-02-26T16:37:23+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1627,"Title":"Color
+          a Dinosaur","ImageIcon":"\/Images\/089844.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":19,"NumAwarded":19,"NumAwardedHardcore":19,"MostRecentAwardedDate":"2025-02-26T11:03:05+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-02-26T11:03:05+00:00"},{"GameID":21,"Title":"Sonic
+          the Hedgehog 3","ImageIcon":"\/Images\/110369.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":29,"NumAwarded":29,"NumAwardedHardcore":29,"MostRecentAwardedDate":"2025-02-25T17:54:42+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-02-25T17:54:42+00:00"},{"GameID":540,"Title":"Super
+          Mario Land 2: 6 Golden Coins","ImageIcon":"\/Images\/057183.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":28,"NumAwarded":28,"NumAwardedHardcore":27,"MostRecentAwardedDate":"2025-02-25T16:00:13+00:00","HighestAwardKind":"completed","HighestAwardDate":"2025-02-25T16:00:13+00:00"},{"GameID":9454,"Title":"Shadow
+          the Hedgehog","ImageIcon":"\/Images\/078715.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":105,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2025-02-23T17:04:30+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2993,"Title":"Tony
+          Hawk''s Underground","ImageIcon":"\/Images\/061474.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":147,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2025-02-22T23:10:03+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":18511,"Title":"~Homebrew~
+          GameBoy WORDLE","ImageIcon":"\/Images\/069322.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":7,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2025-02-21T16:10:39+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-02-21T16:39:31+00:00"},{"GameID":1149,"Title":"Shanghai
+          II: Dragon''s Eye","ImageIcon":"\/Images\/044528.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":26,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2025-02-21T15:44:55+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1891,"Title":"Puzznic","ImageIcon":"\/Images\/087468.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":39,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2025-02-21T15:21:49+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":32910,"Title":"Terraria
+          [Subset - Completionist]","ImageIcon":"\/Images\/107695.png","ConsoleID":102,"ConsoleName":"Standalone","MaxPossible":330,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2025-02-21T15:02:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3606,"Title":"Felix
+          the Cat","ImageIcon":"\/Images\/066500.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":27,"NumAwarded":27,"NumAwardedHardcore":27,"MostRecentAwardedDate":"2025-02-21T13:44:15+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-02-21T13:44:15+00:00"},{"GameID":3362,"Title":"Picross
+          NP Vol. 1","ImageIcon":"\/Images\/024811.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":27,"NumAwarded":27,"NumAwardedHardcore":27,"MostRecentAwardedDate":"2025-02-21T12:46:39+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2025-02-21T12:46:39+00:00"},{"GameID":32909,"Title":"Terraria","ImageIcon":"\/Images\/107179.png","ConsoleID":102,"ConsoleName":"Standalone","MaxPossible":117,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2025-02-19T18:04:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":373,"Title":"Aero
+          Fighters","ImageIcon":"\/Images\/102646.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":30,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2025-02-15T13:18:09+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":30491,"Title":"Gladius","ImageIcon":"\/Images\/102795.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":356,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2025-01-29T23:53:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":51,"Title":"Bubsy
+          in Claws Encounters of the Furred Kind","ImageIcon":"\/Images\/034935.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":20,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2025-01-10T09:40:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":576,"Title":"Pok\u00e9mon
+          Gold Version","ImageIcon":"\/Images\/105481.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":72,"NumAwarded":13,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2024-11-27T22:04:28+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2688,"Title":"Ape
+          Escape 2","ImageIcon":"\/Images\/069063.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":126,"NumAwarded":67,"NumAwardedHardcore":67,"MostRecentAwardedDate":"2024-11-26T21:40:21+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6,"Title":"Desert
+          Strike: Return to the Gulf","ImageIcon":"\/Images\/062615.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":27,"NumAwarded":17,"NumAwardedHardcore":17,"MostRecentAwardedDate":"2024-10-28T23:01:30+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4338,"Title":"The
+          Legend of Galahad","ImageIcon":"\/Images\/050174.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":31,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2024-10-28T15:35:51+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11275,"Title":"Vagrant
+          Story","ImageIcon":"\/Images\/054471.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":200,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2024-10-28T14:39:13+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13912,"Title":"Wipeout
+          3: Special Edition","ImageIcon":"\/Images\/090469.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":145,"NumAwarded":30,"NumAwardedHardcore":30,"MostRecentAwardedDate":"2024-10-25T19:35:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":50,"Title":"Phantasy
+          Star IV: The End of the Millennium","ImageIcon":"\/Images\/045807.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":93,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2024-10-18T20:57:44+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":696,"Title":"Dr.
+          Mario","ImageIcon":"\/Images\/074449.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":69,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2024-10-15T16:38:55+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13040,"Title":"Shanghai","ImageIcon":"\/Images\/043589.png","ConsoleID":13,"ConsoleName":"Atari
+          Lynx","MaxPossible":17,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2024-10-15T13:06:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1,"Title":"Sonic
+          the Hedgehog","ImageIcon":"\/Images\/085573.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":36,"NumAwarded":35,"NumAwardedHardcore":35,"MostRecentAwardedDate":"2024-10-15T09:02:27+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2022-12-02T12:29:05+00:00"},{"GameID":11411,"Title":"Fighting
+          Force | Metal Fist","ImageIcon":"\/Images\/046228.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":65,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2024-10-14T22:51:28+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1097,"Title":"Pieces","ImageIcon":"\/Images\/077333.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":80,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2024-10-13T22:49:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2450,"Title":"Mario''s
+          Picross","ImageIcon":"\/Images\/113051.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":89,"NumAwarded":89,"NumAwardedHardcore":89,"MostRecentAwardedDate":"2024-10-13T22:26:15+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2024-10-13T22:26:15+00:00"},{"GameID":4523,"Title":"~Homebrew~
+          Pringles Game","ImageIcon":"\/Images\/027812.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":26,"NumAwarded":26,"NumAwardedHardcore":26,"MostRecentAwardedDate":"2024-10-10T15:03:09+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2024-10-10T15:03:09+00:00"},{"GameID":16597,"Title":"~Prototype~
+          Pok\u00e9mon Picross","ImageIcon":"\/Images\/039618.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":17,"NumAwarded":17,"NumAwardedHardcore":17,"MostRecentAwardedDate":"2024-10-09T22:42:22+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2024-10-09T22:42:22+00:00"},{"GameID":2400,"Title":"T2:
+          The Arcade Game","ImageIcon":"\/Images\/058886.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":39,"NumAwarded":16,"NumAwardedHardcore":16,"MostRecentAwardedDate":"2024-10-06T21:32:04+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":401,"Title":"Super
+          Star Wars","ImageIcon":"\/Images\/072974.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":31,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2024-09-30T23:41:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":236,"Title":"Super
+          Metroid","ImageIcon":"\/Images\/060989.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":52,"NumAwarded":47,"NumAwardedHardcore":46,"MostRecentAwardedDate":"2024-09-27T17:31:56+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2024-09-30T17:22:42+00:00"},{"GameID":743,"Title":"Yoshi","ImageIcon":"\/Images\/059147.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":28,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2024-09-24T23:19:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5048,"Title":"Rollcage:
+          Stage II","ImageIcon":"\/Images\/099125.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":127,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2024-09-24T21:19:15+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":110,"Title":"Sunset
+          Riders","ImageIcon":"\/Images\/052907.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":15,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2024-09-23T08:44:32+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11692,"Title":"Cotton:
+          Fantastic Night Dreams","ImageIcon":"\/Images\/068923.png","ConsoleID":14,"ConsoleName":"Neo
+          Geo Pocket","MaxPossible":22,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2024-09-20T19:52:52+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13439,"Title":"Rollcage","ImageIcon":"\/Images\/091042.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":71,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2024-09-19T16:47:42+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5690,"Title":"IK+
+          | International Karate Plus | Chop N'' Drop","ImageIcon":"\/Images\/025543.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":21,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2024-09-18T16:34:16+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":723,"Title":"Pok\u00e9mon
+          Yellow Version: Special Pikachu Edition","ImageIcon":"\/Images\/105480.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":76,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2024-09-18T15:35:17+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6946,"Title":"Bookworm","ImageIcon":"\/Images\/075934.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":57,"NumAwarded":14,"NumAwardedHardcore":14,"MostRecentAwardedDate":"2024-09-18T11:46:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2384,"Title":"Bomberman
+          GB","ImageIcon":"\/Images\/105897.png","ConsoleID":4,"ConsoleName":"Game Boy","MaxPossible":44,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2024-09-09T19:34:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":14356,"Title":"Tony
+          Hawk''s Pro Skater","ImageIcon":"\/Images\/041161.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":12,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2024-09-08T15:56:55+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11282,"Title":"Tony
+          Hawk''s Pro Skater 2","ImageIcon":"\/Images\/107023.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":56,"NumAwarded":12,"NumAwardedHardcore":12,"MostRecentAwardedDate":"2024-09-06T21:19:28+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2021-09-06T16:41:09+00:00"},{"GameID":16123,"Title":"Q*bert","ImageIcon":"\/Images\/032822.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":58,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2024-09-06T15:31:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":252,"Title":"F-Zero","ImageIcon":"\/Images\/082185.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":62,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2024-09-04T07:55:44+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5332,"Title":"Ridge
+          Racer Revolution","ImageIcon":"\/Images\/049669.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":46,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2024-08-28T20:13:49+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13767,"Title":"Cyber-Lip","ImageIcon":"\/Images\/062607.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":48,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2024-08-26T21:07:47+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":7687,"Title":"Caterpillar
+          Construction Zone","ImageIcon":"\/Images\/036845.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":15,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2024-08-26T20:47:10+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2024-08-26T20:47:10+00:00"},{"GameID":207,"Title":"Light
+          Crusader","ImageIcon":"\/Images\/009270.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":44,"NumAwarded":44,"NumAwardedHardcore":44,"MostRecentAwardedDate":"2024-08-26T17:01:51+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2024-08-26T17:01:51+00:00"},{"GameID":2531,"Title":"Doom
+          II","ImageIcon":"\/Images\/053767.png","ConsoleID":5,"ConsoleName":"Game Boy
+          Advance","MaxPossible":52,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2024-08-23T22:40:18+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":9226,"Title":"Wolfenstein
+          3-D","ImageIcon":"\/Images\/064379.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":28,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2024-08-23T22:21:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2169,"Title":"Tekken
+          Advance","ImageIcon":"\/Images\/086825.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":21,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2024-08-22T23:46:22+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":9518,"Title":"Professor
+          Layton and the Curious Village","ImageIcon":"\/Images\/068336.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":42,"NumAwarded":11,"NumAwardedHardcore":11,"MostRecentAwardedDate":"2024-08-10T21:57:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5522,"Title":"Castlevania:
+          Dawn of Sorrow","ImageIcon":"\/Images\/106339.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":68,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2024-07-28T22:09:30+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4293,"Title":"Home
+          Alone","ImageIcon":"\/Images\/034281.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":27,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2024-07-27T15:35:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1220,"Title":"Super
+          James Pond","ImageIcon":"\/Images\/072679.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":44,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2024-07-27T14:42:08+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4509,"Title":"Wiz
+          ''n'' Liz: The Frantic Wabbit Wescue","ImageIcon":"\/Images\/078319.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":55,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2024-07-26T16:15:50+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":8,"Title":"Ecco
+          the Dolphin","ImageIcon":"\/Images\/083458.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":41,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2024-07-24T21:34:35+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6253,"Title":"Super
+          Monkey Ball 2","ImageIcon":"\/Images\/089484.png","ConsoleID":16,"ConsoleName":"GameCube","MaxPossible":159,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2024-07-16T22:50:22+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":341,"Title":"Final
+          Fantasy VI","ImageIcon":"\/Images\/070796.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":115,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2024-07-05T23:08:10+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":20916,"Title":"101
+          in 1 Explosive Megamix","ImageIcon":"\/Images\/073517.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":107,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2024-07-01T23:53:18+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6907,"Title":"Trauma
+          Center: Under the Knife","ImageIcon":"\/Images\/107314.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":51,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2024-06-13T21:15:50+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11392,"Title":"Die
+          Hard Trilogy","ImageIcon":"\/Images\/080512.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":76,"NumAwarded":31,"NumAwardedHardcore":31,"MostRecentAwardedDate":"2024-03-22T22:32:50+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4272,"Title":"~Homebrew~
+          Net Yaroze: 2014 Collection","ImageIcon":"\/Images\/063598.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":160,"NumAwarded":20,"NumAwardedHardcore":20,"MostRecentAwardedDate":"2024-03-19T11:29:13+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11259,"Title":"Tekken
+          3","ImageIcon":"\/Images\/086821.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":81,"NumAwarded":14,"NumAwardedHardcore":14,"MostRecentAwardedDate":"2024-03-13T23:22:05+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2021-11-17T22:38:03+00:00"},{"GameID":11305,"Title":"R4:
+          Ridge Racer Type 4","ImageIcon":"\/Images\/059562.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":44,"NumAwarded":32,"NumAwardedHardcore":32,"MostRecentAwardedDate":"2024-03-13T15:07:10+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2024-03-04T23:04:32+00:00"},{"GameID":221,"Title":"Dynamite
+          Headdy","ImageIcon":"\/Images\/060585.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":39,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2024-03-12T00:37:07+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2697,"Title":"Burnout
+          3: Takedown","ImageIcon":"\/Images\/059270.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":124,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2024-03-08T16:22:13+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5613,"Title":"Need
+          for Speed: Underground 2","ImageIcon":"\/Images\/107045.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":76,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2024-02-22T22:51:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2762,"Title":"Grand
+          Theft Auto: Vice City Stories","ImageIcon":"\/Images\/089904.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":175,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2024-02-21T14:53:49+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19152,"Title":"Sega
+          Smash Pack: Volume 1","ImageIcon":"\/Images\/058329.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":451,"NumAwarded":31,"NumAwardedHardcore":31,"MostRecentAwardedDate":"2024-02-20T21:00:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":15003,"Title":"Tapper","ImageIcon":"\/Images\/060809.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":15,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2024-02-14T14:31:18+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6368,"Title":"Headhunter","ImageIcon":"\/Images\/054012.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":45,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2024-02-05T21:56:04+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4707,"Title":"Shining
+          Force: Resurrection of the Dark Dragon","ImageIcon":"\/Images\/082398.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":72,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2023-12-31T01:08:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6312,"Title":"Knuckles
+          the Echidna in Sonic the Hedgehog 2","ImageIcon":"\/Images\/112577.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":26,"NumAwarded":17,"NumAwardedHardcore":17,"MostRecentAwardedDate":"2023-12-22T22:56:27+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2023-12-22T22:56:27+00:00"},{"GameID":10110,"Title":"Perfect
+          Dark","ImageIcon":"\/Images\/107798.png","ConsoleID":2,"ConsoleName":"Nintendo
+          64","MaxPossible":130,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2023-12-21T14:45:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19040,"Title":"Black","ImageIcon":"\/Images\/059314.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":56,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-11-17T20:16:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":20232,"Title":"~Demo~
+          Ridge Racer Turbo","ImageIcon":"\/Images\/070495.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":46,"NumAwarded":14,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2023-11-17T11:43:21+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2023-11-17T11:43:21+00:00"},{"GameID":23831,"Title":"Neo
+          Turf Masters","ImageIcon":"\/Images\/084972.png","ConsoleID":56,"ConsoleName":"Neo
+          Geo CD","MaxPossible":20,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-11-15T14:00:15+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19,"Title":"Ghostbusters","ImageIcon":"\/Images\/050351.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":58,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2023-11-14T16:36:02+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":15020,"Title":"Defender","ImageIcon":"\/Images\/070479.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":37,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2023-11-14T16:07:36+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11996,"Title":"Buster
+          Bros.","ImageIcon":"\/Images\/069898.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":113,"NumAwarded":26,"NumAwardedHardcore":26,"MostRecentAwardedDate":"2023-11-14T16:03:51+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11316,"Title":"Tekken
+          2","ImageIcon":"\/Images\/086820.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":93,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2023-11-14T14:37:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5677,"Title":"Spider-Man
+          2","ImageIcon":"\/Images\/075933.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":184,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-11-07T14:22:40+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":20095,"Title":"Michael
+          Jackson: The Experience","ImageIcon":"\/Images\/104673.png","ConsoleID":41,"ConsoleName":"PlayStation
+          Portable","MaxPossible":91,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-11-07T12:09:58+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6298,"Title":"Battle
+          City","ImageIcon":"\/Images\/053951.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":24,"NumAwarded":10,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2023-11-03T21:14:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3514,"Title":"Ape
+          Escape: On the Loose","ImageIcon":"\/Images\/100514.png","ConsoleID":41,"ConsoleName":"PlayStation
+          Portable","MaxPossible":93,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-11-03T12:40:03+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11726,"Title":"Captain
+          Commando","ImageIcon":"\/Images\/028296.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":54,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2023-11-02T12:30:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":16298,"Title":"Ace
+          Attorney Investigations: Miles Edgeworth","ImageIcon":"\/Images\/086579.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":91,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-11-02T11:26:33+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13278,"Title":"Halloween","ImageIcon":"\/Images\/061523.png","ConsoleID":25,"ConsoleName":"Atari
+          2600","MaxPossible":12,"NumAwarded":12,"NumAwardedHardcore":12,"MostRecentAwardedDate":"2023-11-01T14:33:18+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2023-11-01T14:33:18+00:00"},{"GameID":18066,"Title":"Pac-Man:
+          Championship Edition","ImageIcon":"\/Images\/068128.png","ConsoleID":41,"ConsoleName":"PlayStation
+          Portable","MaxPossible":25,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2023-10-31T11:55:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3717,"Title":"Puzzle
+          Quest: Challenge of the Warlords","ImageIcon":"\/Images\/047372.png","ConsoleID":41,"ConsoleName":"PlayStation
+          Portable","MaxPossible":56,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2023-10-30T15:15:54+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2971,"Title":"Peggle","ImageIcon":"\/Images\/048181.png","ConsoleID":41,"ConsoleName":"PlayStation
+          Portable","MaxPossible":47,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-10-27T14:05:33+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1688,"Title":"Fisher-Price:
+          I Can Remember","ImageIcon":"\/Images\/012143.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":10,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-10-25T13:28:09+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":25807,"Title":"~Hack~
+          Teenage Mutant Ninja Turtles: Shredder''s Re-Revenge","ImageIcon":"\/Images\/082666.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":25,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2023-10-23T22:45:51+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":42,"Title":"Tiny
+          Toon Adventures: Buster''s Hidden Treasure","ImageIcon":"\/Images\/023861.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":98,"NumAwarded":7,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2023-10-20T22:41:49+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":145,"Title":"Columns","ImageIcon":"\/Images\/049263.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":24,"NumAwarded":10,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2023-10-20T22:19:10+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":75,"Title":"Shining
+          Force II","ImageIcon":"\/Images\/067487.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":98,"NumAwarded":85,"NumAwardedHardcore":85,"MostRecentAwardedDate":"2023-10-20T21:32:23+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2021-10-26T07:48:07+00:00"},{"GameID":16348,"Title":"Haunted
+          House","ImageIcon":"\/Images\/063191.png","ConsoleID":25,"ConsoleName":"Atari
+          2600","MaxPossible":12,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-10-20T21:24:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13093,"Title":"The
+          Texas Chainsaw Massacre","ImageIcon":"\/Images\/018663.png","ConsoleID":25,"ConsoleName":"Atari
+          2600","MaxPossible":13,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2023-10-20T21:07:12+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1351,"Title":"Scooby-Doo!
+          Classic Creep Capers","ImageIcon":"\/Images\/084492.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":15,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-10-20T11:27:25+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":12712,"Title":"Cory
+          in the House","ImageIcon":"\/Images\/083680.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":32,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-10-19T11:34:36+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":8705,"Title":"Point
+          Blank DS","ImageIcon":"\/Images\/084348.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":54,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-10-18T16:00:13+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":24124,"Title":"~Homebrew~
+          Slender: The 8 Pages","ImageIcon":"\/Images\/071726.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":9,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2023-10-18T10:06:18+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2023-10-18T10:06:18+00:00"},{"GameID":12394,"Title":"Contra","ImageIcon":"\/Images\/108513.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":22,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-10-13T12:58:13+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11943,"Title":"Donkey
+          Kong","ImageIcon":"\/Images\/035636.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":18,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2023-10-13T12:51:25+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11971,"Title":"Aliens","ImageIcon":"\/Images\/059994.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":38,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-10-12T09:42:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":7,"Title":"Gunstar
+          Heroes","ImageIcon":"\/Images\/044564.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":54,"NumAwarded":19,"NumAwardedHardcore":17,"MostRecentAwardedDate":"2023-10-10T21:59:21+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2023-10-10T21:56:14+00:00"},{"GameID":701,"Title":"Arcade
+          Classic No. 3: Galaga & Galaxian","ImageIcon":"\/Images\/049473.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":42,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-10-09T15:46:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11492,"Title":"~Prototype~
+          Marlboro Go!","ImageIcon":"\/Images\/027146.png","ConsoleID":13,"ConsoleName":"Atari
+          Lynx","MaxPossible":11,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2023-10-09T13:29:01+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2023-10-09T13:29:01+00:00"},{"GameID":8430,"Title":"Ridge
+          Racer DS","ImageIcon":"\/Images\/053007.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":21,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-10-09T12:38:46+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2689,"Title":"Ape
+          Escape 3","ImageIcon":"\/Images\/069853.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":145,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2023-10-06T16:38:15+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":14570,"Title":"Die
+          Hard Arcade | Dynamite Deka","ImageIcon":"\/Images\/034327.png","ConsoleID":39,"ConsoleName":"Saturn","MaxPossible":21,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-10-06T11:27:36+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5077,"Title":"Gunstar
+          Super Heroes","ImageIcon":"\/Images\/079539.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":57,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-10-06T10:11:12+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11961,"Title":"1943:
+          The Battle of Midway","ImageIcon":"\/Images\/069785.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":20,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-10-05T13:06:35+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5626,"Title":"Advance
+          Wars: Dual Strike","ImageIcon":"\/Images\/033351.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":126,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-10-05T11:24:28+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3073,"Title":"Ratchet
+          & Clank: Up Your Arsenal","ImageIcon":"\/Images\/087972.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":200,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-09-21T21:57:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":418,"Title":"Batman
+          Forever","ImageIcon":"\/Images\/047651.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":44,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-09-20T12:48:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":20529,"Title":"~Demo~
+          Final Fantasy XII: Playable Demo Version","ImageIcon":"\/Images\/112768.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":15,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2023-09-18T15:08:06+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2023-09-18T15:08:06+00:00"},{"GameID":20530,"Title":"The
+          Simpsons Game","ImageIcon":"\/Images\/076406.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":65,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2023-09-12T21:45:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2624,"Title":"TimeSplitters
+          2","ImageIcon":"\/Images\/058042.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":55,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2023-09-10T21:16:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19438,"Title":"~Demo~
+          Need for Speed: Most Wanted","ImageIcon":"\/Images\/058430.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":9,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-09-08T14:20:25+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4067,"Title":"Atomic
+          Punk","ImageIcon":"\/Images\/081661.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":28,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2023-09-08T09:48:01+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3124,"Title":"LEGO
+          Star Wars II: The Original Trilogy","ImageIcon":"\/Images\/064177.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":104,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-08-31T15:17:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11729,"Title":"New
+          Super Mario Bros.","ImageIcon":"\/Images\/046594.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":112,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2023-08-24T15:31:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":18961,"Title":"Who
+          Wants to Be a Millionaire","ImageIcon":"\/Images\/055518.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":6,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2023-08-23T15:23:26+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2023-08-23T15:23:26+00:00"},{"GameID":9,"Title":"Castle
+          of Illusion starring Mickey Mouse","ImageIcon":"\/Images\/048628.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":20,"NumAwarded":20,"NumAwardedHardcore":18,"MostRecentAwardedDate":"2023-08-11T15:22:12+00:00","HighestAwardKind":"completed","HighestAwardDate":"2023-08-11T15:22:12+00:00"},{"GameID":10073,"Title":"GoldenEye
+          007","ImageIcon":"\/Images\/022585.png","ConsoleID":2,"ConsoleName":"Nintendo
+          64","MaxPossible":141,"NumAwarded":21,"NumAwardedHardcore":21,"MostRecentAwardedDate":"2023-08-03T22:03:31+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2023-07-20T22:20:40+00:00"},{"GameID":17836,"Title":"Cannon
+          Spike","ImageIcon":"\/Images\/052398.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":17,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2023-08-03T10:07:29+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2023-08-03T10:07:29+00:00"},{"GameID":3,"Title":"Streets
+          of Rage 2","ImageIcon":"\/Images\/024874.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":22,"NumAwarded":22,"NumAwardedHardcore":19,"MostRecentAwardedDate":"2023-07-20T14:55:21+00:00","HighestAwardKind":"completed","HighestAwardDate":"2023-07-20T14:55:21+00:00"},{"GameID":12912,"Title":"Boxing","ImageIcon":"\/Images\/113436.png","ConsoleID":25,"ConsoleName":"Atari
+          2600","MaxPossible":13,"NumAwarded":13,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2023-07-05T12:30:26+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2023-07-05T12:30:26+00:00"},{"GameID":4318,"Title":"Junction","ImageIcon":"\/Images\/050073.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":60,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2023-06-29T20:43:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2361,"Title":"~Unlicensed~
+          Action 52","ImageIcon":"\/Images\/071673.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":110,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-06-27T22:07:30+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11364,"Title":"Tony
+          Hawk''s Pro Skater 3","ImageIcon":"\/Images\/108606.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":23,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2023-06-24T21:33:01+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2787,"Title":"Metal
+          Gear Solid 2: Substance","ImageIcon":"\/Images\/059908.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":170,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-06-16T21:01:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":9778,"Title":"Virtua
+          Tennis","ImageIcon":"\/Images\/049906.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":23,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-06-07T12:54:49+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19203,"Title":"The
+          Punisher","ImageIcon":"\/Images\/059598.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":166,"NumAwarded":8,"NumAwardedHardcore":8,"MostRecentAwardedDate":"2023-05-06T15:00:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":263,"Title":"Michael
+          Jackson''s Moonwalker","ImageIcon":"\/Images\/047868.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":50,"NumAwarded":9,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2023-04-14T08:58:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":17484,"Title":"Clubhouse
+          Games | 42 All-Time Classics","ImageIcon":"\/Images\/042422.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":64,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-04-13T23:20:26+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4481,"Title":"Trampoline
+          Terror!","ImageIcon":"\/Images\/033257.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":30,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-04-06T22:24:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11279,"Title":"Spyro
+          the Dragon","ImageIcon":"\/Images\/089382.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":65,"NumAwarded":46,"NumAwardedHardcore":46,"MostRecentAwardedDate":"2023-03-19T11:52:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2772,"Title":"Grand
+          Theft Auto: San Andreas","ImageIcon":"\/Images\/056407.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":261,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-03-16T20:09:08+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":728,"Title":"Shantae","ImageIcon":"\/Images\/080601.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":47,"NumAwarded":10,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2023-03-03T12:59:10+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3818,"Title":"Dragon
+          Quest I & II","ImageIcon":"\/Images\/093949.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":73,"NumAwarded":36,"NumAwardedHardcore":36,"MostRecentAwardedDate":"2023-02-27T15:23:55+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11240,"Title":"Castlevania:
+          Symphony of the Night","ImageIcon":"\/Images\/085764.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":106,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2023-02-23T15:21:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1323,"Title":"Katamari
+          Damacy","ImageIcon":"\/Images\/052680.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":130,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-02-13T22:27:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":22432,"Title":"Texas
+          Chainsaw Dodge","ImageIcon":"\/Images\/104504.png","ConsoleID":72,"ConsoleName":"WASM-4","MaxPossible":6,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2023-02-02T15:23:00+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2023-02-02T15:23:00+00:00"},{"GameID":11336,"Title":"Alundra","ImageIcon":"\/Images\/049400.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":76,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2023-01-14T09:27:32+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1416,"Title":"Grand
+          Theft Auto Advance","ImageIcon":"\/Images\/089901.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":41,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-01-13T21:30:24+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19010,"Title":"The
+          Simpsons: Hit & Run","ImageIcon":"\/Images\/112858.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":69,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2023-01-13T13:39:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2341,"Title":"World
+          Sports Competition","ImageIcon":"\/Images\/043363.png","ConsoleID":8,"ConsoleName":"PC
+          Engine\/TurboGrafx-16","MaxPossible":53,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2023-01-08T17:51:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6076,"Title":"OutRun","ImageIcon":"\/Images\/072161.png","ConsoleID":8,"ConsoleName":"PC
+          Engine\/TurboGrafx-16","MaxPossible":31,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2023-01-08T17:42:49+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2311,"Title":"New
+          Adventure Island","ImageIcon":"\/Images\/028054.png","ConsoleID":8,"ConsoleName":"PC
+          Engine\/TurboGrafx-16","MaxPossible":102,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2023-01-08T17:37:22+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1516,"Title":"1943:
+          The Battle of Midway","ImageIcon":"\/Images\/045843.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":30,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2022-12-31T18:33:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3608,"Title":"Dragon
+          Quest Monsters","ImageIcon":"\/Images\/086568.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":64,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2022-12-30T16:39:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13352,"Title":"Ninja
+          Golf","ImageIcon":"\/Images\/110758.png","ConsoleID":51,"ConsoleName":"Atari
+          7800","MaxPossible":30,"NumAwarded":10,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2022-12-15T10:24:00+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13368,"Title":"Ms.
+          Pac-Man","ImageIcon":"\/Images\/043750.png","ConsoleID":51,"ConsoleName":"Atari
+          7800","MaxPossible":18,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2022-12-14T10:13:10+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13367,"Title":"Midnight
+          Mutants","ImageIcon":"\/Images\/040824.png","ConsoleID":51,"ConsoleName":"Atari
+          7800","MaxPossible":20,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-12-13T12:13:23+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":10,"Title":"Sonic
+          the Hedgehog 2","ImageIcon":"\/Images\/085632.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":32,"NumAwarded":6,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2022-12-04T22:02:07+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5196,"Title":"Ripple
+          Island","ImageIcon":"\/Images\/063723.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":34,"NumAwarded":34,"NumAwardedHardcore":34,"MostRecentAwardedDate":"2022-12-02T22:16:59+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2022-12-02T22:16:59+00:00"},{"GameID":19265,"Title":"The
+          Lord of the Rings: The Two Towers","ImageIcon":"\/Images\/064300.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":90,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-11-30T12:19:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4184,"Title":"Croc","ImageIcon":"\/Images\/082794.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":40,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-11-29T14:44:39+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2411,"Title":"Gargoyle''s
+          Quest: Ghosts ''n Goblins","ImageIcon":"\/Images\/085184.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":31,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2022-11-29T14:12:50+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":319,"Title":"Chrono
+          Trigger","ImageIcon":"\/Images\/093950.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":77,"NumAwarded":13,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2022-11-24T22:06:54+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3395,"Title":"Soulcalibur","ImageIcon":"\/Images\/074721.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":88,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-11-22T10:23:19+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2022-11-22T10:23:19+00:00"},{"GameID":19021,"Title":".hack\/\/Infection","ImageIcon":"\/Images\/061146.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":40,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-11-10T22:41:25+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1395,"Title":"Motocross
+          Maniacs","ImageIcon":"\/Images\/044099.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":36,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-11-10T16:15:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":878,"Title":"The
+          Lion King","ImageIcon":"\/Images\/034930.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":35,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-11-09T09:45:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19027,"Title":"Dance
+          Dance Revolution EXTREME (USA)","ImageIcon":"\/Images\/058384.png","ConsoleID":21,"ConsoleName":"PlayStation
+          2","MaxPossible":302,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2022-11-04T16:26:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2759,"Title":"WTF:
+          Work Time Fun","ImageIcon":"\/Images\/053435.png","ConsoleID":41,"ConsoleName":"PlayStation
+          Portable","MaxPossible":276,"NumAwarded":13,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2022-11-01T14:06:04+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2068,"Title":"Werewolf:
+          The Last Warrior","ImageIcon":"\/Images\/012540.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":27,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-10-30T22:00:50+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":253,"Title":"Super
+          Mario All-Stars","ImageIcon":"\/Images\/066498.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":106,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2022-10-28T11:10:52+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19295,"Title":"Dodgeball","ImageIcon":"\/Images\/057015.png","ConsoleID":72,"ConsoleName":"WASM-4","MaxPossible":7,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-09-26T15:36:10+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19300,"Title":"Snake","ImageIcon":"\/Images\/057042.png","ConsoleID":72,"ConsoleName":"WASM-4","MaxPossible":9,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2022-09-20T15:03:25+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3733,"Title":"N+","ImageIcon":"\/Images\/052253.png","ConsoleID":41,"ConsoleName":"PlayStation
+          Portable","MaxPossible":109,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2022-08-23T13:06:55+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":19703,"Title":"~Hack~
+          Sonic VR","ImageIcon":"\/Images\/060628.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":16,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-08-23T10:14:09+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6766,"Title":"Croc
+          2","ImageIcon":"\/Images\/064959.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":98,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-07-31T20:27:30+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":17765,"Title":"~Homebrew~
+          Mega Flappy Sis","ImageIcon":"\/Images\/063146.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":13,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-07-29T09:02:28+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":36,"Title":"Double
+          Dragon","ImageIcon":"\/Images\/055048.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":15,"NumAwarded":10,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2022-07-24T13:20:58+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2022-07-24T13:20:58+00:00"},{"GameID":519,"Title":"Final
+          Fantasy Tactics Advance","ImageIcon":"\/Images\/070805.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":138,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2022-06-21T21:05:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":216,"Title":"Bubsy
+          II","ImageIcon":"\/Images\/034934.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":60,"NumAwarded":27,"NumAwardedHardcore":27,"MostRecentAwardedDate":"2022-06-10T16:42:28+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2022-06-10T16:42:26+00:00"},{"GameID":19896,"Title":"~Homebrew~
+          Diamond Run","ImageIcon":"\/Images\/059077.png","ConsoleID":14,"ConsoleName":"Neo
+          Geo Pocket","MaxPossible":6,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2022-06-10T14:27:20+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2022-06-10T14:27:20+00:00"},{"GameID":19312,"Title":"Skip
+          Ahead","ImageIcon":"\/Images\/057537.png","ConsoleID":72,"ConsoleName":"WASM-4","MaxPossible":10,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-05-09T15:01:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11691,"Title":"Metal
+          Slug: 1st Mission","ImageIcon":"\/Images\/015974.png","ConsoleID":14,"ConsoleName":"Neo
+          Geo Pocket","MaxPossible":62,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-05-02T22:27:10+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":12247,"Title":"Puzzle
+          Bobble | Bust-A-Move [Neo-Geo MVS]","ImageIcon":"\/Images\/077439.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":14,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2022-05-01T18:39:01+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11260,"Title":"Spyro
+          2: Ripto''s Rage!","ImageIcon":"\/Images\/089383.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":54,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-04-29T21:27:07+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3600,"Title":"Diner","ImageIcon":"\/Images\/072797.png","ConsoleID":45,"ConsoleName":"Intellivision","MaxPossible":19,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-04-22T22:26:39+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":29,"Title":"James
+          Pond II - Codename: RoboCod","ImageIcon":"\/Images\/108488.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":27,"NumAwarded":27,"NumAwardedHardcore":27,"MostRecentAwardedDate":"2022-04-20T14:28:58+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2022-04-20T13:53:05+00:00"},{"GameID":2889,"Title":"Frogger","ImageIcon":"\/Images\/073199.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":13,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-04-08T15:45:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":559,"Title":"The
+          Legend of Zelda: The Minish Cap","ImageIcon":"\/Images\/113471.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":67,"NumAwarded":8,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-04-04T11:15:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11763,"Title":"Cadillacs
+          and Dinosaurs","ImageIcon":"\/Images\/101998.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":44,"NumAwarded":10,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2022-04-03T14:45:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5601,"Title":"DuckTales
+          2","ImageIcon":"\/Images\/112157.png","ConsoleID":4,"ConsoleName":"Game Boy","MaxPossible":32,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-03-31T14:18:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":209,"Title":"Dr.
+          Robotnik''s Mean Bean Machine","ImageIcon":"\/Images\/108516.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":34,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2022-03-29T15:19:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":258,"Title":"Dick
+          Tracy","ImageIcon":"\/Images\/072796.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":64,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2022-03-29T13:28:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4228,"Title":"Devil
+          Crash MD | Dragon''s Fury","ImageIcon":"\/Images\/061849.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":39,"NumAwarded":10,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2022-03-29T10:38:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":40,"Title":"World
+          of Illusion starring Mickey Mouse and Donald Duck","ImageIcon":"\/Images\/005363.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":36,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2022-03-24T12:55:19+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11975,"Title":"Altered
+          Beast","ImageIcon":"\/Images\/040187.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":25,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2022-03-14T17:04:18+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2353,"Title":"Castlevania:
+          Harmony of Dissonance","ImageIcon":"\/Images\/105376.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":93,"NumAwarded":27,"NumAwardedHardcore":27,"MostRecentAwardedDate":"2022-03-09T10:48:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6552,"Title":"Dynamite
+          Cop","ImageIcon":"\/Images\/052624.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":38,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-03-08T23:09:43+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":8392,"Title":"Sega
+          GT","ImageIcon":"\/Images\/052059.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":118,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-03-08T22:56:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3399,"Title":"Crazy
+          Taxi","ImageIcon":"\/Images\/036797.png","ConsoleID":40,"ConsoleName":"Dreamcast","MaxPossible":82,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2022-03-08T21:59:33+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11331,"Title":"Tony
+          Hawk''s Pro Skater","ImageIcon":"\/Images\/033510.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":85,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2022-02-18T21:54:28+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":9407,"Title":"Castlevania:
+          Portrait of Ruin","ImageIcon":"\/Images\/105113.png","ConsoleID":18,"ConsoleName":"Nintendo
+          DS","MaxPossible":88,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-02-16T17:11:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":17859,"Title":"BurgerTime","ImageIcon":"\/Images\/050821.png","ConsoleID":45,"ConsoleName":"Intellivision","MaxPossible":24,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2022-02-11T22:55:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":534,"Title":"Metroid:
+          Zero Mission","ImageIcon":"\/Images\/093574.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":55,"NumAwarded":23,"NumAwardedHardcore":23,"MostRecentAwardedDate":"2022-02-06T23:47:07+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2242,"Title":"Dragon
+          Spirit","ImageIcon":"\/Images\/042730.png","ConsoleID":8,"ConsoleName":"PC
+          Engine\/TurboGrafx-16","MaxPossible":41,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2022-01-28T14:00:02+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1542,"Title":"Anticipation","ImageIcon":"\/Images\/014947.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":30,"NumAwarded":13,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2022-01-28T13:42:46+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2022-01-28T13:42:45+00:00"},{"GameID":449,"Title":"Breath
+          of Fire","ImageIcon":"\/Images\/105046.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":59,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-01-27T23:18:15+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4288,"Title":"Growl","ImageIcon":"\/Images\/006030.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":25,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-01-26T20:17:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":14461,"Title":"Tony
+          Hawk''s Pro Skater 4","ImageIcon":"\/Images\/107428.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":139,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2022-01-23T19:02:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":9620,"Title":"Ratatouille","ImageIcon":"\/Images\/034488.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":37,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-01-13T00:30:48+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11242,"Title":"Final
+          Fantasy VII","ImageIcon":"\/Images\/070798.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":207,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-01-13T00:07:36+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":10675,"Title":"Syphon
+          Filter","ImageIcon":"\/Images\/064832.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":50,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-01-10T02:00:10+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11320,"Title":"Gran
+          Turismo","ImageIcon":"\/Images\/101538.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":68,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-01-10T01:13:47+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":10596,"Title":"Chip''s
+          Challenge","ImageIcon":"\/Images\/016048.png","ConsoleID":13,"ConsoleName":"Atari
+          Lynx","MaxPossible":18,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-01-10T00:54:17+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":10328,"Title":"South
+          Park","ImageIcon":"\/Images\/088517.png","ConsoleID":2,"ConsoleName":"Nintendo
+          64","MaxPossible":54,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-01-07T00:12:19+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3229,"Title":"Mario''s
+          Early Years: Fun With Numbers","ImageIcon":"\/Images\/049806.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":12,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-01-06T16:04:12+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":12192,"Title":"Pac-Man","ImageIcon":"\/Images\/039726.png","ConsoleID":27,"ConsoleName":"Arcade","MaxPossible":21,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2022-01-05T16:21:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11276,"Title":"Tomba!
+          | Tombi! | Ore! Tomba","ImageIcon":"\/Images\/110683.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":53,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2022-01-04T19:24:03+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":35,"Title":"Speedball
+          2: Brutal Deluxe","ImageIcon":"\/Images\/077469.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":23,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2022-01-03T19:44:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":17640,"Title":"Happy
+          Pairs","ImageIcon":"\/Images\/043970.png","ConsoleID":63,"ConsoleName":"Watara
+          Supervision","MaxPossible":20,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2022-01-03T19:38:36+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":267,"Title":"Pilotwings","ImageIcon":"\/Images\/023448.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":31,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2022-01-02T16:57:28+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5377,"Title":"Kuru
+          Kuru Kururin","ImageIcon":"\/Images\/024183.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":64,"NumAwarded":13,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2022-01-01T21:41:21+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4853,"Title":"Harvest
+          Moon: Friends of Mineral Town","ImageIcon":"\/Images\/051640.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":150,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-12-28T20:09:40+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":9627,"Title":"Ms.
+          Pac-Man","ImageIcon":"\/Images\/043752.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":49,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-12-28T02:32:00+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":328,"Title":"Rainbow
+          Islands: The Story of Bubble Bobble 2 - Extra Version","ImageIcon":"\/Images\/064835.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":8,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2021-12-26T23:28:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":934,"Title":"Harvest
+          Moon","ImageIcon":"\/Images\/106361.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":83,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2021-12-23T23:10:24+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":228,"Title":"Super
+          Mario World","ImageIcon":"\/Images\/112443.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":89,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2021-12-19T10:49:19+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":232,"Title":"Super
+          Mario Kart","ImageIcon":"\/Images\/069326.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":47,"NumAwarded":16,"NumAwardedHardcore":16,"MostRecentAwardedDate":"2021-12-17T16:44:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11344,"Title":"Diablo","ImageIcon":"\/Images\/049224.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":80,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-12-16T11:45:36+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":7130,"Title":"Dance
+          Dance Revolution GB","ImageIcon":"\/Images\/061325.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":70,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-12-16T11:08:29+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":708,"Title":"Kirby''s
+          Pinball Land","ImageIcon":"\/Images\/109393.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":27,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2021-12-16T10:56:54+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1439,"Title":"Daze
+          Before Christmas","ImageIcon":"\/Images\/063153.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":27,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2021-12-15T11:58:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":12,"Title":"The
+          Addams Family","ImageIcon":"\/Images\/099515.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":69,"NumAwarded":5,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2021-12-14T14:31:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11311,"Title":"Medal
+          of Honor","ImageIcon":"\/Images\/054360.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":42,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2021-12-13T22:10:09+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":250,"Title":"Strider","ImageIcon":"\/Images\/056792.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":13,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-12-11T22:08:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4386,"Title":"Pinocchio","ImageIcon":"\/Images\/038856.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":37,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2021-12-05T13:11:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11401,"Title":"Tekken","ImageIcon":"\/Images\/086819.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":43,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2021-12-01T22:37:45+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2021-11-14T23:30:51+00:00"},{"GameID":762,"Title":"Final
+          Fantasy I & II: Dawn of Souls","ImageIcon":"\/Images\/059662.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":69,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2021-11-28T09:43:54+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":457,"Title":"Bubsy
+          in Claws Encounters of the Furred Kind","ImageIcon":"\/Images\/047652.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":31,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2021-11-27T10:01:15+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2184,"Title":"Balloon
+          Kid","ImageIcon":"\/Images\/080416.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":15,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2021-11-26T17:47:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":16210,"Title":"Bare
+          Knuckle III","ImageIcon":"\/Images\/110828.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":48,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2021-11-26T14:11:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11256,"Title":"Doom","ImageIcon":"\/Images\/076981.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":215,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2021-11-25T12:45:09+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":8712,"Title":"Command
+          & Conquer: Red Alert","ImageIcon":"\/Images\/048352.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":101,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-11-21T23:34:15+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13372,"Title":"Robotron
+          2084","ImageIcon":"\/Images\/024678.png","ConsoleID":51,"ConsoleName":"Atari
+          7800","MaxPossible":43,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-11-20T09:38:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":268,"Title":"Toy
+          Story","ImageIcon":"\/Images\/065388.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":31,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2021-11-19T22:43:12+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":8283,"Title":"Astrosmash","ImageIcon":"\/Images\/041827.png","ConsoleID":45,"ConsoleName":"Intellivision","MaxPossible":12,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2021-11-19T16:17:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11283,"Title":"Ape
+          Escape","ImageIcon":"\/Images\/061127.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":68,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-11-19T12:05:58+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11277,"Title":"Parasite
+          Eve","ImageIcon":"\/Images\/108237.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":64,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2021-11-18T23:12:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13237,"Title":"Streets
+          of Rage 2","ImageIcon":"\/Images\/088548.png","ConsoleID":15,"ConsoleName":"Game
+          Gear","MaxPossible":66,"NumAwarded":10,"NumAwardedHardcore":10,"MostRecentAwardedDate":"2021-11-17T00:05:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5185,"Title":"10-Pin
+          Bowling","ImageIcon":"\/Images\/036471.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":6,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-11-16T23:56:28+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3701,"Title":"Duke
+          Nukem Advance","ImageIcon":"\/Images\/092793.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":62,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-11-15T23:22:11+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2298,"Title":"Galaga
+          ''88 | Galaga ''90","ImageIcon":"\/Images\/041051.png","ConsoleID":8,"ConsoleName":"PC
+          Engine\/TurboGrafx-16","MaxPossible":45,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-11-14T08:58:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":494,"Title":"Mega
+          Bomberman","ImageIcon":"\/Images\/114059.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":40,"NumAwarded":23,"NumAwardedHardcore":23,"MostRecentAwardedDate":"2021-11-11T22:38:25+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1373,"Title":"RoboCop
+          Versus The Terminator","ImageIcon":"\/Images\/077449.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":32,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2021-11-05T23:30:44+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11391,"Title":"Driver:
+          You Are The Wheelman","ImageIcon":"\/Images\/052905.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":72,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-11-01T23:21:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1552,"Title":"Back
+          to the Future","ImageIcon":"\/Images\/044096.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":50,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2021-09-10T21:41:43+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":6473,"Title":"James
+          Bond 007","ImageIcon":"\/Images\/045351.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":30,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2021-09-03T20:47:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":706,"Title":"Kirby''s
+          Dream Land","ImageIcon":"\/Images\/051343.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":35,"NumAwarded":17,"NumAwardedHardcore":17,"MostRecentAwardedDate":"2021-09-02T14:14:29+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2021-09-02T14:14:29+00:00"},{"GameID":7274,"Title":"Pac-Man
+          Pinball Advance","ImageIcon":"\/Images\/061851.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":37,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-08-26T11:20:17+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1460,"Title":"Bubble
+          Bobble","ImageIcon":"\/Images\/051196.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":75,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2021-08-20T14:19:03+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1597,"Title":"The
+          Bugs Bunny Crazy Castle","ImageIcon":"\/Images\/045914.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":39,"NumAwarded":17,"NumAwardedHardcore":17,"MostRecentAwardedDate":"2021-08-20T11:29:22+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1723,"Title":"The
+          Great Waldo Search","ImageIcon":"\/Images\/073201.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":12,"NumAwarded":12,"NumAwardedHardcore":12,"MostRecentAwardedDate":"2021-08-13T16:57:00+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2021-08-13T16:57:00+00:00"},{"GameID":262,"Title":"Wonder
+          Boy III: Monster Lair","ImageIcon":"\/Images\/055398.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":29,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2021-07-24T18:52:15+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":793,"Title":"Sonic
+          Advance","ImageIcon":"\/Images\/044233.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":58,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2021-07-21T09:26:30+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":87,"Title":"Golden
+          Axe II","ImageIcon":"\/Images\/016754.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":32,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-07-19T22:49:13+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":791,"Title":"Pok\u00e9mon
+          Sapphire Version","ImageIcon":"\/Images\/104257.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":49,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2021-07-17T21:46:34+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":785,"Title":"Metroid
+          Fusion","ImageIcon":"\/Images\/089338.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":43,"NumAwarded":25,"NumAwardedHardcore":25,"MostRecentAwardedDate":"2021-07-07T11:46:59+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2021-07-05T14:33:29+00:00"},{"GameID":5068,"Title":"Alien
+          Hominid","ImageIcon":"\/Images\/067756.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":26,"NumAwarded":14,"NumAwardedHardcore":14,"MostRecentAwardedDate":"2021-07-01T09:52:58+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2021-07-01T09:52:58+00:00"},{"GameID":14772,"Title":"~Hack~
+          Sonic Delta 40Mb","ImageIcon":"\/Images\/086793.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":164,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2021-06-14T09:13:03+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":10434,"Title":"Crash
+          Bandicoot","ImageIcon":"\/Images\/081157.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":46,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-06-11T18:38:10+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":794,"Title":"Sonic
+          Advance 3","ImageIcon":"\/Images\/044235.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":94,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2021-05-16T22:38:02+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5081,"Title":"Aladdin","ImageIcon":"\/Images\/049695.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":39,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2021-05-16T22:33:50+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":11396,"Title":"Ridge
+          Racer","ImageIcon":"\/Images\/049667.png","ConsoleID":12,"ConsoleName":"PlayStation","MaxPossible":38,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-03-01T21:55:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":813,"Title":"Kirby''s
+          Dream Land 3","ImageIcon":"\/Images\/114700.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":32,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2021-01-17T23:06:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4874,"Title":"Sonic
+          3 & Knuckles","ImageIcon":"\/Images\/110373.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":53,"NumAwarded":12,"NumAwardedHardcore":12,"MostRecentAwardedDate":"2020-07-18T14:53:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":13943,"Title":"~Homebrew~
+          Cave Story MD","ImageIcon":"\/Images\/066684.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":84,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2020-07-06T17:11:05+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":561,"Title":"Landstalker:
+          The Treasures of King Nole","ImageIcon":"\/Images\/079386.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":50,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2019-10-10T08:46:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":717,"Title":"Mortal
+          Kombat II","ImageIcon":"\/Images\/054581.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":33,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2019-04-27T22:10:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1636,"Title":"Crystalis","ImageIcon":"\/Images\/053505.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":43,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2019-04-19T10:14:35+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":504,"Title":"Super
+          Mario Land","ImageIcon":"\/Images\/078873.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":36,"NumAwarded":16,"NumAwardedHardcore":12,"MostRecentAwardedDate":"2019-04-19T10:01:46+00:00","HighestAwardKind":"completed","HighestAwardDate":"2014-09-29T12:41:48+00:00"},{"GameID":4140,"Title":"Batman
+          Returns","ImageIcon":"\/Images\/107705.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":23,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2019-04-10T11:00:24+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":20,"Title":"Alex
+          Kidd in the Enchanted Castle","ImageIcon":"\/Images\/047131.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":66,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2019-04-09T18:47:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2545,"Title":"Mickey
+          Mania: The Timeless Adventures of Mickey Mouse","ImageIcon":"\/Images\/087830.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":20,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2019-04-07T20:12:03+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5785,"Title":"Alien
+          3","ImageIcon":"\/Images\/011352.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":28,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2019-02-12T21:28:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":725,"Title":"Pok\u00e9mon
+          Pinball","ImageIcon":"\/Images\/024809.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":78,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2019-02-11T22:16:24+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1452,"Title":"River
+          City Ransom | Street Gangs","ImageIcon":"\/Images\/072198.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":48,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2019-02-05T21:43:01+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1896,"Title":"R.C.
+          Pro-Am II","ImageIcon":"\/Images\/052571.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":24,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2019-02-05T21:34:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1481,"Title":"Lode
+          Runner","ImageIcon":"\/Images\/035825.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":64,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2019-02-05T21:27:47+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2445,"Title":"Mario
+          Pinball Land | Super Mario Ball","ImageIcon":"\/Images\/034679.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":68,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2019-02-03T22:39:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":745,"Title":"Castlevania:
+          Circle of the Moon","ImageIcon":"\/Images\/105343.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":109,"NumAwarded":13,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2019-02-03T20:55:37+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":312,"Title":"Galaxy
+          Force II","ImageIcon":"\/Images\/005276.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":58,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2019-02-02T22:59:30+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1473,"Title":"Excitebike","ImageIcon":"\/Images\/104983.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":17,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2019-02-02T11:36:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1233,"Title":"Super
+          Smash T.V.","ImageIcon":"\/Images\/072194.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":21,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2019-01-10T00:33:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":510,"Title":"Castlevania:
+          Aria of Sorrow","ImageIcon":"\/Images\/085857.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":66,"NumAwarded":38,"NumAwardedHardcore":38,"MostRecentAwardedDate":"2019-01-09T23:41:02+00:00","HighestAwardKind":"mastered","HighestAwardDate":"2019-01-09T23:41:02+00:00"},{"GameID":1774,"Title":"The
+          Karate Kid","ImageIcon":"\/Images\/054404.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":31,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2018-11-09T22:45:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":460,"Title":"Bust-A-Move","ImageIcon":"\/Images\/054342.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":27,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2018-11-09T22:24:42+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2509,"Title":"River
+          City Ransom EX","ImageIcon":"\/Images\/054766.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":49,"NumAwarded":4,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2018-11-09T22:12:28+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2018-11-09T22:12:28+00:00"},{"GameID":909,"Title":"Final
+          Fantasy: Mystic Quest","ImageIcon":"\/Images\/073901.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":51,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2018-10-20T21:58:00+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":69,"Title":"Castlevania:
+          Bloodlines","ImageIcon":"\/Images\/060798.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":55,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2018-10-10T21:51:33+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":355,"Title":"The
+          Legend of Zelda: A Link to the Past","ImageIcon":"\/Images\/059119.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":109,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2018-10-08T21:33:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":5080,"Title":"Tim
+          Burton''s The Nightmare Before Christmas: The Pumpkin King","ImageIcon":"\/Images\/046730.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":71,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2018-10-07T22:55:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":400,"Title":"Secret
+          of Mana","ImageIcon":"\/Images\/099440.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":85,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2018-10-05T21:40:52+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2369,"Title":"Ganpuru:
+          Gunman''s Proof","ImageIcon":"\/Images\/035558.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":64,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2018-10-01T12:52:26+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3409,"Title":"Raiden
+          Trad","ImageIcon":"\/Images\/019717.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":64,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2018-09-28T21:12:01+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":830,"Title":"The
+          Adventures of Batman & Robin","ImageIcon":"\/Images\/048996.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":27,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2018-09-28T20:39:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":18,"Title":"Golden
+          Axe","ImageIcon":"\/Images\/016753.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":24,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2018-09-28T13:00:12+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":3678,"Title":"Batman:
+          The Video Game","ImageIcon":"\/Images\/049999.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":31,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2018-09-27T22:19:33+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1454,"Title":"The
+          Legend of Zelda","ImageIcon":"\/Images\/059053.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":69,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2018-09-27T21:38:42+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":282,"Title":"Teenage
+          Mutant Ninja Turtles: The Hyperstone Heist","ImageIcon":"\/Images\/060233.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":25,"NumAwarded":5,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2018-09-27T20:48:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":574,"Title":"The
+          Punisher","ImageIcon":"\/Images\/064882.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":30,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2018-09-26T21:01:36+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":93,"Title":"The
+          Lion King","ImageIcon":"\/Images\/034931.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":24,"NumAwarded":3,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2018-09-26T20:35:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":769,"Title":"Kirby
+          & The Amazing Mirror","ImageIcon":"\/Images\/042405.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":55,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2018-09-25T20:19:09+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":270,"Title":"ActRaiser","ImageIcon":"\/Images\/110040.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":66,"NumAwarded":15,"NumAwardedHardcore":15,"MostRecentAwardedDate":"2018-09-23T22:35:07+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":10162,"Title":"Blast
+          Corps","ImageIcon":"\/Images\/049329.png","ConsoleID":2,"ConsoleName":"Nintendo
+          64","MaxPossible":24,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2018-09-12T16:28:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":287,"Title":"Rambo
+          III","ImageIcon":"\/Images\/004297.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":14,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2018-09-08T07:55:09+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":293,"Title":"Thunder
+          Force IV | Lightening Force: Quest for the Darkstar","ImageIcon":"\/Images\/004975.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":36,"NumAwarded":4,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2017-05-13T14:53:25+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":800,"Title":"Wario
+          Land 4","ImageIcon":"\/Images\/112286.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":65,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2017-04-14T22:55:01+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":7643,"Title":"Advance
+          Guardian Heroes","ImageIcon":"\/Images\/009589.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":48,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2017-01-17T23:27:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":506,"Title":"Advance
+          Wars","ImageIcon":"\/Images\/052963.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":92,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2015-11-10T02:45:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":767,"Title":"Golden
+          Sun","ImageIcon":"\/Images\/059231.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":60,"NumAwarded":4,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2015-11-02T22:47:44+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":55,"Title":"Streets
+          of Rage","ImageIcon":"\/Images\/110823.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":53,"NumAwarded":12,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2015-05-27T19:27:24+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":520,"Title":"Metal
+          Gear Solid: Ghost Babel","ImageIcon":"\/Images\/004440.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":106,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2015-05-17T17:46:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":624,"Title":"Mega
+          Man X3","ImageIcon":"\/Images\/038324.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":61,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2014-11-16T12:19:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":4671,"Title":"The
+          Powerpuff Girls: Bad Mojo Jojo","ImageIcon":"\/Images\/088583.png","ConsoleID":6,"ConsoleName":"Game
+          Boy Color","MaxPossible":42,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-10-18T07:38:52+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1683,"Title":"Felix
+          the Cat","ImageIcon":"\/Images\/064424.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":65,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-09-14T15:39:46+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2221,"Title":"Castlevania
+          III: Dracula''s Curse","ImageIcon":"\/Images\/079969.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":55,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-09-14T15:34:40+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1556,"Title":"Balloon
+          Fight","ImageIcon":"\/Images\/071267.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":25,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2014-08-29T21:13:02+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":290,"Title":"Captain
+          America and the Avengers","ImageIcon":"\/Images\/057420.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":11,"NumAwarded":4,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-08-02T13:33:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":24,"Title":"Altered
+          Beast","ImageIcon":"\/Images\/088907.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":26,"NumAwarded":5,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2014-08-02T09:56:15+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2014-08-02T09:56:15+00:00"},{"GameID":4,"Title":"Zero
+          Tolerance","ImageIcon":"\/Images\/064502.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":95,"NumAwarded":5,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2014-07-15T12:24:44+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1717,"Title":"Golf","ImageIcon":"\/Images\/061329.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":17,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-06-29T22:36:33+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1776,"Title":"Kick
+          Master","ImageIcon":"\/Images\/064829.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":26,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-05-03T20:23:07+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":566,"Title":"Shadowrun","ImageIcon":"\/Images\/064432.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":75,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-04-02T00:47:56+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":337,"Title":"Donkey
+          Kong Country","ImageIcon":"\/Images\/113279.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":71,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2014-03-29T21:20:20+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2348,"Title":"Super
+          Fantasy Zone","ImageIcon":"\/Images\/066090.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":45,"NumAwarded":14,"NumAwardedHardcore":14,"MostRecentAwardedDate":"2014-03-15T14:59:34+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":16,"Title":"Super
+          Hang-On","ImageIcon":"\/Images\/000860.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":21,"NumAwarded":8,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2014-03-15T13:56:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":31,"Title":"Fantastic
+          Dizzy","ImageIcon":"\/Images\/000400.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":31,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-03-14T17:35:06+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":351,"Title":"Star
+          Fox","ImageIcon":"\/Images\/071849.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":39,"NumAwarded":6,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2014-02-24T23:10:17+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2032,"Title":"Tiny
+          Toon Adventures","ImageIcon":"\/Images\/015367.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":54,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2014-02-23T22:29:35+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1472,"Title":"DuckTales","ImageIcon":"\/Images\/112003.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":63,"NumAwarded":17,"NumAwardedHardcore":13,"MostRecentAwardedDate":"2014-02-21T01:55:28+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2014-02-23T23:42:17+00:00"},{"GameID":2230,"Title":"Sweet
+          Home","ImageIcon":"\/Images\/055039.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":20,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-02-10T22:27:22+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1451,"Title":"Mega
+          Man 2","ImageIcon":"\/Images\/082481.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":84,"NumAwarded":11,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2014-02-10T01:34:30+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1480,"Title":"Kung
+          Fu","ImageIcon":"\/Images\/049484.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":22,"NumAwarded":7,"NumAwardedHardcore":7,"MostRecentAwardedDate":"2014-02-10T00:31:18+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":326,"Title":"Sonic
+          3D Blast | Sonic 3D: Flickies'' Island","ImageIcon":"\/Images\/098168.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":85,"NumAwarded":5,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-02-09T22:08:46+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2166,"Title":"Thunder
+          Force III","ImageIcon":"\/Images\/078307.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":28,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-01-27T22:33:41+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2180,"Title":"Trip
+          World","ImageIcon":"\/Images\/114267.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":27,"NumAwarded":7,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-01-26T12:07:21+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":379,"Title":"Aladdin","ImageIcon":"\/Images\/096482.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":40,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-01-20T00:27:18+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1295,"Title":"Uniracers
+          | Unirally","ImageIcon":"\/Images\/059040.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":24,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-01-19T02:44:50+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2114,"Title":"Teenage
+          Mutant Ninja Turtles II: The Arcade Game","ImageIcon":"\/Images\/076385.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":28,"NumAwarded":2,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2014-01-10T22:15:19+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":789,"Title":"Pok\u00e9mon
+          Pinball: Ruby & Sapphire","ImageIcon":"\/Images\/092736.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":54,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2014-01-01T22:53:19+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1553,"Title":"Bad
+          Dudes","ImageIcon":"\/Images\/080013.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":30,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2013-12-31T23:41:19+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1995,"Title":"Super
+          Mario Bros. 3","ImageIcon":"\/Images\/047650.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":52,"NumAwarded":25,"NumAwardedHardcore":25,"MostRecentAwardedDate":"2013-12-31T23:14:22+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2013-12-31T23:14:22+00:00"},{"GameID":1447,"Title":"Contra","ImageIcon":"\/Images\/079383.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":40,"NumAwarded":9,"NumAwardedHardcore":9,"MostRecentAwardedDate":"2013-12-31T13:03:41+00:00","HighestAwardKind":"beaten-hardcore","HighestAwardDate":"2013-12-31T13:03:41+00:00"},{"GameID":1515,"Title":"1942","ImageIcon":"\/Images\/043934.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":27,"NumAwarded":11,"NumAwardedHardcore":11,"MostRecentAwardedDate":"2013-12-27T19:52:31+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2022,"Title":"Tetris
+          (Nintendo)","ImageIcon":"\/Images\/064350.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":37,"NumAwarded":4,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2013-12-27T16:21:53+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":54,"Title":"Streets
+          of Rage 3","ImageIcon":"\/Images\/110827.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":48,"NumAwarded":6,"NumAwardedHardcore":6,"MostRecentAwardedDate":"2013-12-23T22:22:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":466,"Title":"Donkey
+          Kong Country 2: Diddy''s Kong Quest","ImageIcon":"\/Images\/107029.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":80,"NumAwarded":3,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2013-12-23T00:41:12+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1467,"Title":"Double
+          Dragon","ImageIcon":"\/Images\/055631.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":28,"NumAwarded":12,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-12-08T22:01:38+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":45,"Title":"Batman:
+          The Video Game","ImageIcon":"\/Images\/053393.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":17,"NumAwarded":13,"NumAwardedHardcore":4,"MostRecentAwardedDate":"2013-12-08T02:52:01+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2023-06-16T10:26:37+00:00"},{"GameID":1487,"Title":"Metroid","ImageIcon":"\/Images\/060606.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":25,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-12-04T00:07:14+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1449,"Title":"Final
+          Fantasy","ImageIcon":"\/Images\/113206.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":40,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-11-24T19:42:47+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1462,"Title":"Castlevania","ImageIcon":"\/Images\/070132.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":74,"NumAwarded":3,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2013-11-24T18:40:16+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1466,"Title":"Donkey
+          Kong","ImageIcon":"\/Images\/024799.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":25,"NumAwarded":15,"NumAwardedHardcore":5,"MostRecentAwardedDate":"2013-11-19T22:11:27+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2013-11-17T23:18:06+00:00"},{"GameID":212,"Title":"Ghouls
+          ''n Ghosts","ImageIcon":"\/Images\/072975.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":23,"NumAwarded":12,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-11-17T20:03:29+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":211,"Title":"Alien
+          Storm","ImageIcon":"\/Images\/089349.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":12,"NumAwarded":6,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2013-11-16T19:29:59+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":498,"Title":"Ninja
+          Gaiden Trilogy","ImageIcon":"\/Images\/085543.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":75,"NumAwarded":4,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-11-12T21:24:40+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1994,"Title":"Super
+          Mario Bros. 2","ImageIcon":"\/Images\/085238.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":51,"NumAwarded":5,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-11-09T17:34:46+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1474,"Title":"Friday
+          the 13th","ImageIcon":"\/Images\/062848.png","ConsoleID":7,"ConsoleName":"NES\/Famicom","MaxPossible":23,"NumAwarded":5,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-10-26T23:16:55+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":279,"Title":"Killer
+          Instinct","ImageIcon":"\/Images\/045854.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":53,"NumAwarded":1,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2013-09-15T16:48:39+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1216,"Title":"Super
+          Ghouls ''n Ghosts","ImageIcon":"\/Images\/052637.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":50,"NumAwarded":16,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-09-15T16:45:33+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":405,"Title":"Zombies
+          Ate My Neighbors","ImageIcon":"\/Images\/043812.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":95,"NumAwarded":4,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-09-15T13:59:16+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":637,"Title":"Mega
+          Man X","ImageIcon":"\/Images\/043274.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":57,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-09-08T01:48:52+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":750,"Title":"Donkey
+          Kong Country","ImageIcon":"\/Images\/072187.png","ConsoleID":5,"ConsoleName":"Game
+          Boy Advance","MaxPossible":80,"NumAwarded":2,"NumAwardedHardcore":1,"MostRecentAwardedDate":"2013-09-07T21:12:51+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":344,"Title":"Contra
+          III: The Alien Wars | Super Probotector: Alien Rebels","ImageIcon":"\/Images\/110814.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":30,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-08-20T21:51:42+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":1356,"Title":"Blaster
+          Master 2","ImageIcon":"\/Images\/043790.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":17,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-08-10T12:19:45+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":468,"Title":"Final
+          Fight 2","ImageIcon":"\/Images\/101604.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":45,"NumAwarded":3,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-07-19T12:50:04+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":680,"Title":"Game
+          & Watch Gallery","ImageIcon":"\/Images\/112766.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":27,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-07-16T22:15:48+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":311,"Title":"Gain
+          Ground","ImageIcon":"\/Images\/069979.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":101,"NumAwarded":7,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-07-14T15:45:18+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":177,"Title":"Paperboy","ImageIcon":"\/Images\/065591.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":9,"NumAwarded":5,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2013-06-23T14:59:36+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2013-06-23T14:59:36+00:00"},{"GameID":79,"Title":"Mortal
+          Kombat","ImageIcon":"\/Images\/054555.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":41,"NumAwarded":10,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-06-22T21:53:52+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2013-06-22T20:43:00+00:00"},{"GameID":338,"Title":"DJ
+          Boy","ImageIcon":"\/Images\/113699.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":17,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-06-14T13:56:27+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":109,"Title":"After
+          Burner II","ImageIcon":"\/Images\/038433.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":25,"NumAwarded":7,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-06-14T13:29:57+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":2,"Title":"Aladdin","ImageIcon":"\/Images\/061384.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":21,"NumAwarded":13,"NumAwardedHardcore":2,"MostRecentAwardedDate":"2013-06-14T03:07:41+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2020-01-21T20:13:43+00:00"},{"GameID":536,"Title":"Super
+          Smash T.V.","ImageIcon":"\/Images\/110681.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":14,"NumAwarded":2,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-06-11T19:56:39+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":119,"Title":"Road
+          Rash II","ImageIcon":"\/Images\/006316.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":50,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-06-06T23:08:33+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":94,"Title":"The
+          Revenge of Shinobi","ImageIcon":"\/Images\/072086.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":44,"NumAwarded":10,"NumAwardedHardcore":3,"MostRecentAwardedDate":"2013-06-05T17:54:02+00:00","HighestAwardKind":"beaten-softcore","HighestAwardDate":"2014-01-05T13:49:25+00:00"},{"GameID":571,"Title":"Midnight
+          Resistance","ImageIcon":"\/Images\/047930.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":27,"NumAwarded":8,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-06-01T12:40:48+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":303,"Title":"Mercs","ImageIcon":"\/Images\/064450.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":22,"NumAwarded":8,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-05-29T23:36:40+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":521,"Title":"Metroid
+          II: Return of Samus","ImageIcon":"\/Images\/041972.png","ConsoleID":4,"ConsoleName":"Game
+          Boy","MaxPossible":25,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-05-22T02:04:24+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":14,"Title":"Alien
+          3","ImageIcon":"\/Images\/055716.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":44,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-05-22T00:26:04+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":502,"Title":"Top
+          Gear","ImageIcon":"\/Images\/051929.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":61,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-05-21T17:49:08+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":52,"Title":"Super
+          Street Fighter II: The New Challengers","ImageIcon":"\/Images\/107285.png","ConsoleID":1,"ConsoleName":"Genesis\/Mega
+          Drive","MaxPossible":24,"NumAwarded":4,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-05-20T12:21:51+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":465,"Title":"Equinox","ImageIcon":"\/Images\/082627.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":54,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-05-16T14:51:43+00:00","HighestAwardKind":null,"HighestAwardDate":null},{"GameID":336,"Title":"The
+          Incredible Hulk","ImageIcon":"\/Images\/049198.png","ConsoleID":3,"ConsoleName":"SNES\/Super
+          Famicom","MaxPossible":22,"NumAwarded":1,"NumAwardedHardcore":0,"MostRecentAwardedDate":"2013-05-12T20:50:18+00:00","HighestAwardKind":null,"HighestAwardDate":null}]}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b0c3b40bbca279-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 17:18:59 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=08jO6y19kqabkcTuOdOV%2BrcL3S1%2BhqRJyo79%2BvhR%2BAc37A76KkX54dQBb0ic5uxIosxqOe6FuSztHTyy5EbEGwIg89mbvDEmyKPZmAOPhgU2iA%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Accept-Encoding
+        X-Cache:
+          - MISS
+        X-Content-Type-Options:
+          - nosniff
+        X-Frame-Options:
+          - SAMEORIGIN
+        X-Robots-Tag:
+          - all
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetUserCompletionProgress.php?u=Scott&c=500
+    response:
+      body:
+        string: '{"message":"Unauthenticated.","errors":[{"status":419,"code":"unauthorized","title":"Unauthenticated."}]}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b0d6cdac43a2a8-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 17:32:01 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=5kFSsa0Jo0jxyYT7jnWUoMvb2LSO120ruoyYjwxFW%2FGUQdzH9jS%2FS0gKv0nMvNM%2FAfJmdfZFHAKUIQ1MAOz6xVRm8QK7fPsgYZf9HCJAod5S0g%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        X-Robots-Tag:
+          - all
+      status:
+        code: 401
+        message: Unauthorized
+version: 1

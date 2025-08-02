@@ -207,9 +207,7 @@ onBeforeUnmount(() => {
                   <div
                     v-if="
                       isHovering ||
-                      (romsStore.isSimpleRom(rom) &&
-                        rom.is_unidentified &&
-                        !rom.path_cover_large) ||
+                      (romsStore.isSimpleRom(rom) && !rom.path_cover_large) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
                         !rom.moby_url_cover &&
@@ -219,8 +217,13 @@ onBeforeUnmount(() => {
                     :class="
                       sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
                     "
+                    :title="
+                      romsStore.isSimpleRom(rom) && rom.name === rom.fs_name
+                        ? rom.fs_name_no_tags
+                        : rom.name || ''
+                    "
                   >
-                    <div class="pa-2">
+                    <div class="pa-2 text-truncate">
                       {{
                         romsStore.isSimpleRom(rom) && rom.name === rom.fs_name
                           ? rom.fs_name_no_tags

@@ -1,0 +1,228 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetGameExtended.php?i=999999
+    response:
+      body:
+        string: "[]"
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b0c584df18a2da-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - gzip
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 17:20:13 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=ZGI%2FMXAMULi1VbLCTElFvJle8VZbKA8Pz9DuYYuEUX5qBUeNOdmP5dmzl2OIGK1HeYwMDL71yrx43K8%2BYdjhfOkTjjGLgnwA1GCGyvqHJKUlWA%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Accept-Encoding
+        X-Cache:
+          - MISS
+        X-Content-Type-Options:
+          - nosniff
+        X-Frame-Options:
+          - SAMEORIGIN
+        X-Robots-Tag:
+          - all
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetGameExtended.php?i=999999
+    response:
+      body:
+        string: '{"message":"Unauthenticated.","errors":[{"status":419,"code":"unauthorized","title":"Unauthenticated."}]}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b0c5ed7f47a2f0-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 17:20:30 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=C9u%2FBQ6n6PoxqiAZbEWzwGlG9ojuRgv30zCnVNK2Bkk1F8X5jNLe5HQlGbpBFuxxTm5l8CRXtdxv7pvIk9fuPOfClYJloaRtaUx1e0RcvEzlUQ%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        X-Robots-Tag:
+          - all
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetGameExtended.php?i=999999
+    response:
+      body:
+        string: '{"message":"Unauthenticated.","errors":[{"status":419,"code":"unauthorized","title":"Unauthenticated."}]}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b0c8bb987ca2b8-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 17:22:25 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=7K2lq6lDJUkNuV6wVmxT1fZEDUIZkChT9zqdm3Nzxr2XhuWMLYvCfnGlscxGzdXeqpgYggN%2BAXqEfh5QFD9ChMfz4FpZVt88VrRxckXpgzzJ1w%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        X-Robots-Tag:
+          - all
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetGameExtended.php?i=999999
+    response:
+      body:
+        string: '{"message":"Unauthenticated.","errors":[{"status":419,"code":"unauthorized","title":"Unauthenticated."}]}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b0c8dc5d04a2c4-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 17:22:30 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=4L1UGi8ZQKwaGK%2BuoNGSVDz2lEz5XPrzXFCMOxQuhzsjBqp9Fvi5o24F2MFsQ0NClGeCn3ytyc9jJHAZYOCpKWV0DooCfQQHTFFvr%2FAPbWjsoA%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        X-Robots-Tag:
+          - all
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetGameExtended.php?i=999999
+    response:
+      body:
+        string: '{"message":"Unauthenticated.","errors":[{"status":419,"code":"unauthorized","title":"Unauthenticated."}]}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b12f42d8396e06-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 18:32:25 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=WnAYup1EylGvDK8z8CMNRXU4iUNOvB%2BzQDXrOvYa%2FMXnBlioRXcJbfxur5%2BTJShqNk1yw3CouD84miZJPHLl0gdqtcj0%2BmkZoHthFwnYOlNcwA%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        X-Robots-Tag:
+          - all
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://retroachievements.org/API/API_GetGameExtended.php?i=999999
+    response:
+      body:
+        string: '{"message":"Unauthenticated.","errors":[{"status":419,"code":"unauthorized","title":"Unauthenticated."}]}'
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        CF-RAY:
+          - 95b15be73b23a2fc-YUL
+        Cache-Control:
+          - no-cache, private
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - application/json
+        Date:
+          - Sun, 06 Jul 2025 19:02:53 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=CgF%2BzO59bZ5oKDS6MbC%2BzUPVVHdvzoGoXk8sdAPNc03yFGlfsFwnss4vhxt8g3BnaR7DXsFn9RW7S%2FvjyDDrKiuRSXio1oeYSDT%2FtVpm1qTHhA%3D%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        X-Robots-Tag:
+          - all
+      status:
+        code: 401
+        message: Unauthorized
+version: 1
