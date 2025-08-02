@@ -22,7 +22,6 @@ type MatchedSource = {
   logo_path: string;
 };
 
-// Props
 const { t } = useI18n();
 const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -69,7 +68,6 @@ const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
 
-// Functions
 function toggleSourceFilter(source: MatchedSource["name"]) {
   if (source == "IGDB" && heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED) {
     isIGDBFiltered.value = !isIGDBFiltered.value;

@@ -9,7 +9,6 @@ import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
-// Props
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showCreateUserDialog", () => {
   show.value = true;
@@ -26,7 +25,6 @@ const show = ref(false);
 const usersStore = storeUsers();
 const validForm = ref(false);
 
-// Functions
 async function createUser() {
   await userApi
     .createUser(user.value)

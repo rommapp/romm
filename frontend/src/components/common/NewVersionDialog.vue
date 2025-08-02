@@ -4,7 +4,6 @@ import semver from "semver";
 import { onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const heartbeat = storeHeartbeat();
 const { VERSION } = heartbeat.value.SYSTEM;
 const GITHUB_VERSION = ref(VERSION);

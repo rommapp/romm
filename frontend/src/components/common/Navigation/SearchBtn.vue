@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import storeNavigation from "@/stores/navigation";
 
-// Props
 withDefaults(
   defineProps<{
     block?: boolean;

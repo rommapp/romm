@@ -24,7 +24,6 @@ import { storeToRefs } from "pinia";
 
 const EMULATORJS_VERSION = "4.2.3";
 
-// Props
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const route = useRoute();
@@ -46,7 +45,6 @@ const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
 
-// Functions
 function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
     romApi.updateUserRomProps({

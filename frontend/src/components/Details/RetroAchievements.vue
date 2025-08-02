@@ -6,7 +6,6 @@ import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchie
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
@@ -20,7 +19,6 @@ const achievementsPercentageHardcore = ref(0);
 const showEarned = ref(false);
 const filteredAchievements = ref<RAGameRomAchievement[]>([]);
 
-// Functions
 function toggleShowEarned() {
   showEarned.value = !showEarned.value;
   if (showEarned.value) {

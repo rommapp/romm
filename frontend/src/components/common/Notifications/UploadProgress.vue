@@ -5,13 +5,11 @@ import { storeToRefs } from "pinia";
 import { ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { xs } = useDisplay();
 const uploadStore = storeUpload();
 const { files } = storeToRefs(uploadStore);
 const show = ref(false);
 
-// Functions
 function clearFinished() {
   uploadStore.clearFinished();
 }

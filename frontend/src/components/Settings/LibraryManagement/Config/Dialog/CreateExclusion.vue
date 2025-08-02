@@ -8,7 +8,6 @@ import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { mdAndUp, smAndDown } = useDisplay();
 const show = ref(false);
@@ -25,7 +24,6 @@ emitter?.on("showCreateExclusionDialog", ({ type, icon, title }) => {
   show.value = true;
 });
 
-// Functions
 function addExclusion() {
   if (configStore.isExclusionType(exclusionType.value)) {
     configApi.addExclusion({

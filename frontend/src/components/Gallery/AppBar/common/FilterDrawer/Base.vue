@@ -22,7 +22,6 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { debounce } from "lodash";
 
-// Props
 withDefaults(
   defineProps<{
     showPlayablesFilter?: boolean;
@@ -164,7 +163,6 @@ const filters = [
   },
 ];
 
-// Functions
 function resetFilters() {
   galleryFilterStore.resetFilters();
   nextTick(() => emitter?.emit("filterRoms", null));

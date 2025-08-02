@@ -7,7 +7,6 @@ import { storeToRefs } from "pinia";
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const props = defineProps<{
   total_filesize: number;
 }>();
@@ -16,7 +15,6 @@ const platformsStore = storePlatforms();
 const { filteredPlatforms } = storeToRefs(platformsStore);
 const orderBy = ref<"name" | "size" | "count">("name");
 
-// Functions
 const sortedPlatforms = computed(() => {
   const platforms = [...filteredPlatforms.value];
   if (orderBy.value === "size") {

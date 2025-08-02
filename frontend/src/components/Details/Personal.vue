@@ -14,7 +14,6 @@ import { useDisplay, useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 
-// Props
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
 const tab = ref<"status" | "ra" | "notes">("status");
@@ -35,7 +34,6 @@ const statusOptions = [
   "completed_100",
 ];
 
-// Functions
 function editNote() {
   if (editingNote.value) {
     romApi.updateUserRomProps({

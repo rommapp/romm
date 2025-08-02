@@ -8,7 +8,6 @@ import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
 import { ref } from "vue";
 
-// Props
 const { t } = useI18n();
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
@@ -25,7 +24,6 @@ const hoveringRomId = ref();
 const openedMenu = ref(false);
 const openedMenuRomId = ref();
 
-// Functions
 function toggleGridRecentRoms() {
   gridRecentRoms.value = !gridRecentRoms.value;
   localStorage.setItem(

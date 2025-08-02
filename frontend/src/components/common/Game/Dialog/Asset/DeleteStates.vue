@@ -9,7 +9,6 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { mdAndUp, smAndUp } = useDisplay();
 const romsStore = storeRoms();
 const show = ref(false);
@@ -31,7 +30,6 @@ const HEADERS = [
   },
 ] as const;
 
-// Functions
 async function deleteStates() {
   if (!statesRef.value) return;
 

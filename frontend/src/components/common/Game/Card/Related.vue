@@ -4,7 +4,6 @@ import storeGalleryView from "@/stores/galleryView";
 import { getMissingCoverImage } from "@/utils/covers";
 import { computed } from "vue";
 
-// Props
 const props = defineProps<{
   game: IGDBRelatedGame;
 }>();

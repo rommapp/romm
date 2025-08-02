@@ -10,7 +10,6 @@ import { formatBytes } from "@/utils";
 import { ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
@@ -22,7 +21,6 @@ const romInfo = ref([
   { label: "CRC", value: props.rom.crc_hash },
 ]);
 
-// Functions
 async function toggleMainSibling() {
   romUser.value.is_main_sibling = !romUser.value.is_main_sibling;
   romApi.updateUserRomProps({

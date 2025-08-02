@@ -15,7 +15,6 @@ import { getMissingCoverImage } from "@/utils/covers";
 import { useRouter } from "vue-router";
 import { ROUTES } from "@/plugins/router";
 
-// Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const router = useRouter();

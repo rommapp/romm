@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 
-// Props
 const emit = defineEmits(["clickEdit", "clickDelete"]);
 defineProps<{
   slug: string;

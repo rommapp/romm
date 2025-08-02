@@ -8,7 +8,6 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");

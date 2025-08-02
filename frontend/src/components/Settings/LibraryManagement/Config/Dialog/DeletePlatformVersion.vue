@@ -8,7 +8,6 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
@@ -21,7 +20,6 @@ emitter?.on("showDeletePlatformVersionDialog", ({ fsSlug, slug }) => {
   show.value = true;
 });
 
-// Functions
 function deleteVersionPlatform() {
   configApi
     .deletePlatformVersionConfig({ fsSlug: fsSlugToDelete.value })

@@ -14,7 +14,6 @@ import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
-// Props
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -37,7 +36,6 @@ const collectionInfoFields = [
 const updating = ref(false);
 const isEditable = ref(false);
 
-// Functions
 function showEditable() {
   isEditable.value = true;
 }

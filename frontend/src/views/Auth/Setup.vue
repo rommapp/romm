@@ -11,7 +11,6 @@ import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -71,7 +70,6 @@ const filledAdminUser = computed(
 const isFirstStep = computed(() => step.value == 1);
 const isLastStep = computed(() => step.value == 2);
 
-// Functions
 async function finishWizard() {
   await userApi
     .createUser(defaultAdminUser.value)

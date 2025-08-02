@@ -10,7 +10,6 @@ import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { mdAndUp, lgAndUp, xs, smAndUp } = useDisplay();
 const show = ref(false);
 const firmwares = ref<FirmwareSchema[]>([]);

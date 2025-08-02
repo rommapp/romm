@@ -11,7 +11,6 @@ import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const auth = storeAuth();
 const { scopes } = storeToRefs(auth);
@@ -20,7 +19,6 @@ const selectedSaves = ref<SaveSchema[]>([]);
 const lastSelectedIndex = ref<number>(-1);
 const emitter = inject<Emitter<Events>>("emitter");
 
-// Functions
 async function downloasSaves() {
   selectedSaves.value.map((save) => {
     const a = document.createElement("a");

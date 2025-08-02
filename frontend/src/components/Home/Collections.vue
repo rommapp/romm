@@ -15,7 +15,6 @@ const props = defineProps<{
     | "gridSmartCollections";
 }>();
 
-// Props
 const storedCollections = localStorage.getItem(`settings.${props.setting}`);
 const gridCollections = ref(
   isNull(storedCollections) ? false : storedCollections === "true",
@@ -28,7 +27,6 @@ const visibleCollections = ref(72);
 const isHovering = ref(false);
 const hoveringCollectionId = ref();
 
-// Functions
 function toggleGridCollections() {
   gridCollections.value = !gridCollections.value;
   localStorage.setItem(

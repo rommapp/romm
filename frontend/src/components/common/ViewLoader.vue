@@ -3,7 +3,6 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 
-// Props
 const show = ref(false);
 const scrim = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");

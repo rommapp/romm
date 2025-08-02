@@ -7,7 +7,6 @@ import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const romsStore = storeRoms();
 const galleryFilterStore = storeGalleryFilter();
@@ -15,7 +14,6 @@ const { fetchTotalRoms } = storeToRefs(romsStore);
 const { filterRA } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
-// Functions
 function setRA() {
   galleryFilterStore.switchFilterRA();
   emitter?.emit("filterRoms", null);

@@ -13,7 +13,6 @@ import { get } from "lodash";
 import storeHeartbeat from "@/stores/heartbeat";
 import { storeToRefs } from "pinia";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const { xs } = useDisplay();
@@ -94,7 +93,6 @@ const coverImageSource = computed(() => {
   }
 });
 
-// Functions
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "search",

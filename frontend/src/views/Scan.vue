@@ -14,7 +14,6 @@ import { useI18n } from "vue-i18n";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 
-// Props
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();

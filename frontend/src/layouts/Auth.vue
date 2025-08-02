@@ -2,7 +2,6 @@
 import Notification from "@/components/common/Notifications/Notification.vue";
 import storeHeartbeat from "@/stores/heartbeat";
 
-// Props
 const heartbeatStore = storeHeartbeat();
 </script>
 

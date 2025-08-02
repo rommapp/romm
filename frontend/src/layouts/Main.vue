@@ -27,7 +27,6 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref } from "vue";
 import { isNull } from "lodash";
 
-// Props
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
@@ -52,7 +51,6 @@ const virtualCollectionTypeRef = ref(
     : storedVirtualCollectionType,
 );
 
-// Functions
 onBeforeMount(async () => {
   await platformApi
     .getPlatforms()

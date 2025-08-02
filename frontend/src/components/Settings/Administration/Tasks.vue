@@ -6,7 +6,6 @@ import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import { convertCronExperssion } from "@/utils";
 import { computed, onMounted, ref } from "vue";
 
-// Props
 const tasks = ref<{
   watcher: TaskInfo[];
   scheduled: TaskInfo[];
@@ -49,7 +48,6 @@ const manualTasks = computed(() =>
   })),
 );
 
-// Functions
 const getAvailableTasks = async () => {
   await api.get("/tasks").then((response) => {
     tasks.value = response.data;
