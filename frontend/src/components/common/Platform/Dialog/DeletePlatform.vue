@@ -37,7 +37,7 @@ async function deletePlatform() {
     .deletePlatform({ platform: platform.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: "Platform deleted",
         icon: "mdi-check-bold",
         color: "green",
       });

@@ -93,7 +93,6 @@ class EventHandler(FileSystemEventHandler):
                 [db_platform.id],
                 scan_type=ScanType.QUICK,
             )
-            return
 
 
 if __name__ == "__main__":

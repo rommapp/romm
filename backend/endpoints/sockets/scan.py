@@ -508,7 +508,6 @@ async def scan_platforms(
         await sm.emit("scan:done", scan_stats.__dict__)
     except ScanStoppedException:
         await stop_scan()
-        return
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client

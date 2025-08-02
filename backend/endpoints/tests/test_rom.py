@@ -90,4 +90,4 @@ def test_delete_roms(client, access_token, rom):
     assert response.status_code == 200
 
     body = response.json()
-    assert body["msg"] == "1 roms deleted successfully!"
+    assert body["successful_items"] == 1

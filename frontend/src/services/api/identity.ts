@@ -1,12 +1,8 @@
-import type { MessageResponse } from "@/__generated__";
 import api from "@/services/api/index";
 
 export const identityApi = api;
 
-async function login(
-  username: string,
-  password: string,
-): Promise<{ data: MessageResponse }> {
+async function login(username: string, password: string) {
   return api.post(
     "/login",
     {},
@@ -19,20 +15,15 @@ async function login(
   );
 }
 
-async function logout(): Promise<{ data: MessageResponse }> {
+async function logout() {
   return api.post("/logout");
 }
 
-async function requestPasswordReset(
-  username: string,
-): Promise<{ data: MessageResponse }> {
+async function requestPasswordReset(username: string) {
   return api.post("/forgot-password", { username });
 }
 
-async function resetPassword(
-  token: string,
-  newPassword: string,
-): Promise<{ data: MessageResponse }> {
+async function resetPassword(token: string, newPassword: string) {
   return api.post("/reset-password", { token, new_password: newPassword });
 }
 

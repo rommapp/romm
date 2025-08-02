@@ -37,12 +37,11 @@ def test_login_logout(client, admin_user):
 
     assert response.status_code == 200
     assert response.cookies.get("romm_session")
-    assert response.json()["msg"] == "Successfully logged in"
+    assert response.json()["user_id"] == admin_user.id
 
     response = client.post("/api/logout")
 
     assert response.status_code == 200
-    assert response.json()["msg"] == "Successfully logged out"
 
 
 def test_get_all_users(client, access_token):
@@ -172,4 +171,4 @@ def test_delete_user(client, access_token, editor_user):
     assert response.status_code == 200
 
     body = response.json()
-    assert body["msg"] == "User successfully deleted"
+    assert body["deleted_count"] == 1

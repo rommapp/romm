@@ -32,7 +32,7 @@ async function deleteSmartCollection() {
     .deleteSmartCollection(smartCollection.value.id)
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: "Smart collection deleted",
         icon: "mdi-check-bold",
         color: "green",
       });

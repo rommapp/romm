@@ -1,6 +1,5 @@
 from config.config_manager import config_manager as cm
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
 from endpoints.responses.config import ConfigResponse
 from exceptions.config_exceptions import (
     ConfigNotReadableException,
@@ -45,7 +44,7 @@ def get_config() -> ConfigResponse:
 
 
 @protected_route(router.post, "/system/platforms", [Scope.PLATFORMS_WRITE])
-async def add_platform_binding(request: Request) -> MessageResponse:
+async def add_platform_binding(request: Request) -> None:
     """Add platform binding to the configuration"""
 
     data = await request.json()
@@ -60,11 +59,9 @@ async def add_platform_binding(request: Request) -> MessageResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
 
-    return {"msg": f"{fs_slug} binded to: {slug} successfully!"}
-
 
 @protected_route(router.delete, "/system/platforms/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResponse:
+async def delete_platform_binding(request: Request, fs_slug: str) -> None:
     """Delete platform binding from the configuration"""
 
     try:
@@ -75,11 +72,9 @@ async def delete_platform_binding(request: Request, fs_slug: str) -> MessageResp
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
 
-    return {"msg": f"{fs_slug} bind removed successfully!"}
-
 
 @protected_route(router.post, "/system/versions", [Scope.PLATFORMS_WRITE])
-async def add_platform_version(request: Request) -> MessageResponse:
+async def add_platform_version(request: Request) -> None:
     """Add platform version to the configuration"""
 
     data = await request.json()
@@ -94,11 +89,9 @@ async def add_platform_version(request: Request) -> MessageResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
 
-    return {"msg": f"Added {fs_slug} as version of: {slug} successfully!"}
-
 
 @protected_route(router.delete, "/system/versions/{fs_slug}", [Scope.PLATFORMS_WRITE])
-async def delete_platform_version(request: Request, fs_slug: str) -> MessageResponse:
+async def delete_platform_version(request: Request, fs_slug: str) -> None:
     """Delete platform version from the configuration"""
 
     try:
@@ -109,11 +102,9 @@ async def delete_platform_version(request: Request, fs_slug: str) -> MessageResp
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
 
-    return {"msg": f"{fs_slug} version removed successfully!"}
-
 
 @protected_route(router.post, "/exclude", [Scope.PLATFORMS_WRITE])
-async def add_exclusion(request: Request) -> MessageResponse:
+async def add_exclusion(request: Request) -> None:
     """Add platform exclusion to the configuration"""
 
     data = await request.json()
@@ -127,10 +118,6 @@ async def add_exclusion(request: Request) -> MessageResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
 
-    return {
-        "msg": f"Exclusion {exclusion_value} added to {exclusion_type} successfully!"
-    }
-
 
 @protected_route(
     router.delete,
@@ -139,7 +126,7 @@ async def add_exclusion(request: Request) -> MessageResponse:
 )
 async def delete_exclusion(
     request: Request, exclusion_type: str, exclusion_value: str
-) -> MessageResponse:
+) -> None:
     """Delete platform binding from the configuration"""
 
     try:
@@ -149,7 +136,3 @@ async def delete_exclusion(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=exc.message
         ) from exc
-
-    return {
-        "msg": f"Exclusion {exclusion_value} removed from {exclusion_type} successfully!"
-    }
