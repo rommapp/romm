@@ -447,7 +447,7 @@ class TestFSRomsHandler:
         # Create mock platforms - one hashable, one non-hashable
         hashable_platform = Mock(spec=Platform)
         hashable_platform.fs_slug = "gba"
-        hashable_platform.slug = "gameboy-advance"
+        hashable_platform.slug = "gba"
 
         non_hashable_platform = Mock(spec=Platform)
         non_hashable_platform.fs_slug = "n64"

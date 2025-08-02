@@ -16,6 +16,7 @@ type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
 export type SimpleRom = SimpleRomSchema;
 export type DetailedRom = DetailedRomSchema;
+export const MAX_FETCH_LIMIT = 10000;
 
 const defaultRomsState = {
   currentPlatform: null as Platform | null,
@@ -33,6 +34,7 @@ const defaultRomsState = {
   initialSearch: false,
   fetchOffset: 0,
   fetchTotalRoms: 0,
+  fetchLimit: 72,
   characterIndex: {} as Record<string, number>,
   selectedCharacter: null as string | null,
   orderBy: "name" as keyof SimpleRom,
@@ -50,7 +52,6 @@ export default defineStore("roms", {
   state: () => ({ ...defaultRomsState }),
 
   getters: {
-    fetchLimit: () => 72,
     filteredRoms: (state) => state.allRoms,
     selectedRoms: (state) =>
       state.allRoms.filter((rom) => state.selectedIDs.has(rom.id)),
@@ -115,7 +116,11 @@ export default defineStore("roms", {
         }
       }
     },
-    fetchRoms(galleryFilter: GalleryFilterStore, concat = true) {
+    fetchRoms(
+      galleryFilter: GalleryFilterStore,
+      groupRoms?: boolean,
+      concat = true,
+    ) {
       if (this.fetchingRoms) return Promise.resolve();
       this.fetchingRoms = true;
 
@@ -134,7 +139,7 @@ export default defineStore("roms", {
             offset: this.fetchOffset,
             orderBy: this.orderBy,
             orderDir: this.orderDir,
-            groupByMetaId: this._shouldGroupRoms(),
+            groupByMetaId: groupRoms ?? this._shouldGroupRoms(),
           })
           .then(({ data: { items, offset, total, char_index } }) => {
             if (!concat || this.fetchOffset === 0) {
@@ -263,6 +268,9 @@ export default defineStore("roms", {
     },
     setOrderDir(orderDir: "asc" | "desc") {
       this.orderDir = orderDir;
+    },
+    setLimit(limit: number) {
+      this.fetchLimit = limit;
     },
     isSimpleRom(rom: SimpleRom | SearchRomSchema): rom is SimpleRom {
       return !isNull(rom.id) && !isUndefined(rom.id);

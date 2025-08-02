@@ -16,6 +16,7 @@ const defaultLanguageState = {
     { value: "ko_KR", name: "한국어 (대한민국)" },
     { value: "ja_JP", name: "日本語 (日本)" },
     { value: "it_IT", name: "Italiano" },
+    { value: "pl_PL", name: "Polski" },
   ].sort((a, b) => a.name.localeCompare(b.name)),
 };
 

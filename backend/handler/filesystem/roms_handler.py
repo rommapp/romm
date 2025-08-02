@@ -14,13 +14,13 @@ from typing import IO, Any, Final, Literal, TypedDict
 import magic
 import py7zr
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
-from adapters.services.rahasher import RAHasherService
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (
     RomAlreadyExistsException,
     RomsNotFoundException,
 )
+from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
 from py7zr.exceptions import (
@@ -66,33 +66,32 @@ COMPRESSED_FILE_EXTENSIONS = frozenset(
 
 NON_HASHABLE_PLATFORMS = frozenset(
     (
-        "amazon-alexa",
-        "amazon-fire-tv",
-        "android",
-        "gear-vr",
-        "ios",
-        "ipad",
-        "linux",
-        "mac",
-        "meta-quest-2",
-        "meta-quest-3",
-        "oculus-go",
-        "oculus-quest",
-        "oculus-rift",
-        "pc",
-        "ps3",
-        "ps4",
-        "ps4--1",
-        "ps5",
-        "psvr",
-        "psvr2",
-        "series-x-s",
-        "switch",
-        "wiiu",
-        "win",
-        "xbox-360",
-        "xbox360",
-        "xboxone",
+        UPS.AMAZON_ALEXA,
+        UPS.AMAZON_FIRE_TV,
+        UPS.ANDROID,
+        UPS.GEAR_VR,
+        UPS.IOS,
+        UPS.IPAD,
+        UPS.LINUX,
+        UPS.MAC,
+        UPS.META_QUEST_2,
+        UPS.META_QUEST_3,
+        UPS.OCULUS_GO,
+        UPS.OCULUS_QUEST,
+        UPS.OCULUS_RIFT,
+        UPS.PS3,
+        UPS.PS4,
+        UPS.PS5,
+        UPS.PSVR,
+        UPS.PSVR2,
+        UPS.SERIES_X_S,
+        UPS.SWITCH,
+        UPS.SWITCH_2,
+        UPS.WIIU,
+        UPS.WIN,
+        UPS.XBOX360,
+        UPS.XBOXONE,
+        UPS.SERIES_X_S,
     )
 )
 
@@ -327,7 +326,8 @@ class FSRomsHandler(FSHandler):
         )
 
     async def get_rom_files(self, rom: Rom) -> tuple[list[RomFile], str, str, str, str]:
-        from handler.metadata.ra_handler import RA_PLATFORM_LIST
+        from adapters.services.rahasher import RAHasherService
+        from handler.metadata import meta_ra_handler
 
         rel_roms_path = self.get_roms_fs_structure(
             rom.platform.fs_slug
@@ -349,9 +349,10 @@ class FSRomsHandler(FSHandler):
         # Check if rom is a multi-part rom
         if os.path.isdir(f"{abs_fs_path}/{rom.fs_name}"):
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
-            if rom.platform_slug in RA_PLATFORM_LIST.keys():
+            ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
+            if ra_platform and ra_platform["ra_id"]:
                 rom_ra_h = await RAHasherService().calculate_hash(
-                    RA_PLATFORM_LIST[rom.platform_slug]["id"],
+                    ra_platform["ra_id"],
                     f"{abs_fs_path}/{rom.fs_name}/*",
                 )
 
@@ -424,9 +425,10 @@ class FSRomsHandler(FSHandler):
                 sha1_h = hashlib.sha1(usedforsecurity=False)
 
             # Calculate the RA hash if the platform has a slug that matches a known RA slug
-            if rom.platform_slug in RA_PLATFORM_LIST.keys():
+            ra_platform = meta_ra_handler.get_platform(rom.platform_slug)
+            if ra_platform and ra_platform["ra_id"]:
                 rom_ra_h = await RAHasherService().calculate_hash(
-                    RA_PLATFORM_LIST[rom.platform_slug]["id"],
+                    ra_platform["ra_id"],
                     f"{abs_fs_path}/{rom.fs_name}",
                 )
 
