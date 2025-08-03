@@ -880,7 +880,6 @@ async def delete_roms(
     successful_items = 0
     failed_items = 0
     errors = []
-    deleted_items = []
 
     for id in roms:
         rom = db_rom_handler.get_rom(id)
@@ -916,7 +915,6 @@ async def delete_roms(
                     continue
 
             successful_items += 1
-            deleted_items.append(rom.name or rom.fs_name)
         except Exception as e:
             failed_items += 1
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
