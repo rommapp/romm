@@ -18,6 +18,8 @@ const props = withDefaults(
 const memoizedCovers = ref({
   large: ["", ""],
   small: ["", ""],
+  largeWebp: ["", ""],
+  smallWebp: ["", ""],
 });
 
 const collectionCoverImage = computed(() =>
@@ -41,6 +43,26 @@ watchEffect(() => {
         props.collection.path_cover_small,
         props.collection.path_cover_small,
       ],
+      largeWebp: [
+        props.collection.path_cover_large
+          ?.split(".")
+          .slice(0, -1)
+          .join(".webp") || "",
+        props.collection.path_cover_large
+          ?.split(".")
+          .slice(0, -1)
+          .join(".webp") || "",
+      ],
+      smallWebp: [
+        props.collection.path_cover_small
+          ?.split(".")
+          .slice(0, -1)
+          .join(".webp") || "",
+        props.collection.path_cover_small
+          ?.split(".")
+          .slice(0, -1)
+          .join(".webp") || "",
+      ],
     };
     return;
   }
@@ -52,6 +74,14 @@ watchEffect(() => {
     memoizedCovers.value = {
       large: [collectionCoverImage.value, collectionCoverImage.value],
       small: [collectionCoverImage.value, collectionCoverImage.value],
+      largeWebp: [
+        collectionCoverImage.value.split(".").slice(0, -1).join(".webp") || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".webp") || "",
+      ],
+      smallWebp: [
+        collectionCoverImage.value.split(".").slice(0, -1).join(".webp") || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".webp") || "",
+      ],
     };
     return;
   }
@@ -62,13 +92,25 @@ watchEffect(() => {
   memoizedCovers.value = {
     large: [shuffledLarge[0], shuffledLarge[1]],
     small: [shuffledSmall[0], shuffledSmall[1]],
+    largeWebp: [
+      shuffledLarge[0].split(".").slice(0, -1).join(".webp") || "",
+      shuffledLarge[1].split(".").slice(0, -1).join(".webp") || "",
+    ],
+    smallWebp: [
+      shuffledSmall[0].split(".").slice(0, -1).join(".webp") || "",
+      shuffledSmall[1].split(".").slice(0, -1).join(".webp") || "",
+    ],
   };
 });
 
-const firstCover = computed(() => memoizedCovers.value.large[0]);
-const secondCover = computed(() => memoizedCovers.value.large[1]);
+const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
+const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
 const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
 const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
+const firstLargeWebpCover = computed(() => memoizedCovers.value.largeWebp[0]);
+const secondLargeWebpCover = computed(() => memoizedCovers.value.largeWebp[1]);
+const firstSmallWebpCover = computed(() => memoizedCovers.value.smallWebp[0]);
+const secondSmallWebpCover = computed(() => memoizedCovers.value.smallWebp[1]);
 </script>
 
 <template>
@@ -84,24 +126,24 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
         <div class="split-image first-image">
           <v-img
             cover
-            :lazy-src="firstSmallCover"
-            :src="firstCover.split('.').slice(0, -1).join('.') + '.webp'"
+            :lazy-src="firstSmallWebpCover"
+            :src="firstLargeWebpCover"
             :aspect-ratio="1 / 1"
           >
             <template #error>
-              <v-img :lazy-src="firstSmallCover" :src="firstCover" />
+              <v-img :lazy-src="firstSmallCover" :src="firstLargeCover" />
             </template>
           </v-img>
         </div>
         <div class="split-image second-image">
           <v-img
             cover
-            :lazy-src="secondSmallCover"
-            :src="secondCover.split('.').slice(0, -1).join('.') + '.webp'"
+            :lazy-src="secondSmallWebpCover"
+            :src="secondLargeWebpCover"
             :aspect-ratio="1 / 1"
           >
             <template #error>
-              <v-img :lazy-src="secondSmallCover" :src="secondCover" />
+              <v-img :lazy-src="secondSmallCover" :src="secondLargeCover" />
             </template>
           </v-img>
         </div>
@@ -109,8 +151,8 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
       <template v-else>
         <v-img
           cover
-          :lazy-src="collection.path_cover_small"
-          :src="collection.path_cover_large"
+          :lazy-src="firstSmallWebpCover"
+          :src="firstLargeWebpCover"
           :aspect-ratio="1 / 1"
         />
       </template>

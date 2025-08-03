@@ -3,7 +3,7 @@
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from config import RESOURCES_BASE_PATH
 from logger.logger import log
@@ -105,7 +105,7 @@ class ConvertImagesToWebPTask(Task):
         """Reset processing counters."""
         self.processed_count = 0
         self.error_count = 0
-        self.errors = []
+        self.errors: list[str] = []
 
     def _find_convertible_images(self) -> List[Path]:
         """Find all convertible images in the resources directory.
@@ -117,9 +117,10 @@ class ConvertImagesToWebPTask(Task):
             log.warning(f"Resources path does not exist: {self.resources_path}")
             return []
 
-        image_files = []
+        image_files: list[Path] = []
         for ext in ImageConverter.SUPPORTED_EXTENSIONS:
-            image_files.extend(self.resources_path.rglob(f"*{ext}"))
+            # Only convert cover images
+            image_files.extend(self.resources_path.rglob(f"**/cover/*{ext}"))
 
         return sorted(image_files)  # Sort for consistent processing order
 

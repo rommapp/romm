@@ -106,7 +106,7 @@ async def run_all_tasks(request: Request) -> MessageResponse:
         return {"msg": "No runnable tasks available to run"}
 
     for _task_name, task_instance in runnable_tasks.items():
-        low_prio_queue.enqueue(task_instance.run)
+        low_prio_queue.enqueue(task_instance.run, job_timeout=900)
 
     return {"msg": "All tasks launched, check the logs for details"}
 
@@ -137,6 +137,7 @@ async def run_single_task(request: Request, task_name: str) -> MessageResponse:
             detail=f"Task '{task_name}' cannot be run",
         )
 
-    low_prio_queue.enqueue(task_instance.run)
+    # Use specific timeout for image conversion task
+    low_prio_queue.enqueue(task_instance.run, job_timeout=900)
 
     return {"msg": f"Task '{task_name}' launched, check the logs for details"}
