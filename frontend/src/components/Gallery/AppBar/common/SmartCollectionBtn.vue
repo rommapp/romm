@@ -4,9 +4,11 @@ import { useI18n } from "vue-i18n";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import { storeToRefs } from "pinia";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
+const { searchTerm } = storeToRefs(galleryFilterStore);
 
 const isFiltered = computed(() => galleryFilterStore.isFiltered());
 const emitter = inject<Emitter<Events>>("emitter");
@@ -18,7 +20,7 @@ function openCreateDialog() {
 
 <template>
   <v-btn
-    v-if="isFiltered"
+    v-if="isFiltered || searchTerm"
     icon="mdi-playlist-plus"
     @click="openCreateDialog"
     variant="text"
