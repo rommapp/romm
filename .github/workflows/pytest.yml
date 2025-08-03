@@ -47,7 +47,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --extra test
+          uv sync --locked --extra test
 
       - name: Initiate database
         run: |

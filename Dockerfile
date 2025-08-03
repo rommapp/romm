@@ -72,7 +72,7 @@ RUN uv python install 3.13
 COPY pyproject.toml uv.lock* .python-version /app/
 
 # Install Python dependencies
-RUN uv sync --all-extras
+RUN uv sync --locked --dev --all-extras
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh

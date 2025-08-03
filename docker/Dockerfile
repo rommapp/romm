@@ -50,12 +50,12 @@ COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /bin/
 WORKDIR /src
 
 COPY ./pyproject.toml ./uv.lock /src/
-RUN uv sync --locked --no-cache
+RUN uv sync --locked --no-cache --no-dev
 
 
 FROM backend-build AS backend-dev-build
 
-RUN uv sync --locked --no-cache --all-extras
+RUN uv sync --locked --no-cache --dev
 
 
 FROM alpine:${ALPINE_VERSION} AS rahasher-build
