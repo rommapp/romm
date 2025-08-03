@@ -21,7 +21,7 @@
   "roms-scanned-with-details": "Roms：{n_roms} 已扫描，新增 {n_added_roms}，识别 {n_identified_roms}",
   "scan": "扫描",
   "scan-options": "扫描选项",
-  "select-one-source": "如果您想用媒体文件与元数据丰富您的游戏库，请至少选择一个元数据源",
+  "select-one-source": "请至少选择一个元数据源，以丰富您的游戏库",
   "unidentified-games": "未识别的游戏",
   "unidentified-games-desc": "仅扫描未识别的游戏"
 }

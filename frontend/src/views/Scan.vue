@@ -112,7 +112,6 @@ socket.on("scan:done", (stats) => {
   scanStats.value = stats;
 });
 
-// TODO: fix abort scan
 async function stopScan() {
   socket.emit("scan:stop");
 }
@@ -291,17 +290,16 @@ async function stopScan() {
     >
       {{ t("scan.manage-library") }}
     </v-btn>
-  </v-row>
-
-  <v-row
-    v-if="metadataSources.length == 0"
-    no-gutters
-    class="mt-3 justify-center"
-  >
-    <v-list-item class="text-caption text-yellow py-0">
-      <v-icon>mdi-alert</v-icon
-      ><span class="ml-2">{{ t("scan.select-one-source") }}</span>
-    </v-list-item>
+    <v-alert
+      v-if="metadataSources.length == 0"
+      type="warning"
+      icon="mdi-alert"
+      variant="tonal"
+      class="mx-4"
+      density="compact"
+    >
+      <span>{{ t("scan.select-one-source") }}</span>
+    </v-alert>
   </v-row>
 
   <v-divider
