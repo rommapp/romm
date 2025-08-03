@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 
 // Props
 withDefaults(
@@ -17,6 +18,7 @@ withDefaults(
     withTag: false,
   },
 );
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
 </script>
@@ -52,7 +54,7 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
               $route.name == 'virtual-collection' ||
               $route.name == 'smart-collection',
           }"
-          >Collections</span
+          >{{ t("common.collections") }}</span
         >
       </v-expand-transition>
     </div>
