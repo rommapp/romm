@@ -4,6 +4,8 @@ import storeNavigation from "@/stores/navigation";
 import { defaultAvatarPath } from "@/utils";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { ref } from "vue";
+import { useNavigation } from "@/composables/useNavigation";
 
 // Props
 const auth = storeAuth();
@@ -11,9 +13,17 @@ const navigationStore = storeNavigation();
 const { user } = storeToRefs(auth);
 const { mainBarCollapsed } = storeToRefs(navigationStore);
 const { smAndDown } = useDisplay();
+
+const userBtnRef = ref<HTMLElement>();
+
+useNavigation(userBtnRef, "user-btn", {
+  priority: 7,
+  action: () => navigationStore.switchActiveSettingsDrawer(),
+});
 </script>
 <template>
   <v-avatar
+    ref="userBtnRef"
     @keydown.enter="navigationStore.switchActiveSettingsDrawer"
     @click="navigationStore.switchActiveSettingsDrawer"
     class="pointer"
@@ -22,6 +32,7 @@ const { smAndDown } = useDisplay();
       active: navigationStore.activeSettingsDrawer,
       rounded: !mainBarCollapsed,
     }"
+    v-navigation="{ id: 'user-btn', priority: 7 }"
   >
     <v-img
       :src="

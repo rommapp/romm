@@ -1,0 +1,317 @@
+/* Navigation Controller Styles */
+
+/* Focus indicators for navigation elements */
+.navigation-focused {
+  outline: 2px solid #1976d2 !important;
+  outline-offset: 2px !important;
+  transform: scale(1.02) !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3) !important;
+}
+
+/* Navigation container styles */
+.navigation-container {
+  position: relative;
+}
+
+.navigation-container:focus-within {
+  outline: 1px solid rgba(25, 118, 210, 0.2);
+  border-radius: 8px;
+}
+
+/* Navigation group styles */
+.navigation-group {
+  position: relative;
+}
+
+/* Enhanced focus styles for different element types */
+.navigation-focused.v-btn {
+  transform: scale(1.05) !important;
+  box-shadow: 0 6px 16px rgba(25, 118, 210, 0.4) !important;
+}
+
+.navigation-focused.v-card {
+  transform: scale(1.02) !important;
+  box-shadow: 0 8px 25px rgba(25, 118, 210, 0.3) !important;
+}
+
+.navigation-focused.v-list-item {
+  background-color: rgba(25, 118, 210, 0.1) !important;
+  border-left: 4px solid #1976d2 !important;
+}
+
+/* Disabled navigation elements */
+.navigation-disabled {
+  opacity: 0.5 !important;
+  pointer-events: none !important;
+}
+
+.navigation-disabled.navigation-focused {
+  outline: 2px solid #ccc !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Navigation status indicator animations */
+.navigation-status-indicator {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Gamepad connection indicator */
+.gamepad-connected {
+  background: linear-gradient(45deg, #4caf50, #8bc34a) !important;
+  animation: gamepad-pulse 1.5s infinite;
+}
+
+@keyframes gamepad-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+/* Navigation transition effects */
+.navigation-transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Focus ring for accessibility */
+.navigation-focus-ring {
+  position: relative;
+}
+
+.navigation-focus-ring::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border: 2px solid transparent;
+  border-radius: inherit;
+  pointer-events: none;
+  transition: border-color 0.2s ease;
+}
+
+.navigation-focus-ring:focus::after {
+  border-color: #1976d2;
+}
+
+/* Navigation grid layouts */
+.navigation-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.navigation-grid-compact {
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+/* Navigation list styles */
+.navigation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.navigation-list-item {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.navigation-list-item:hover {
+  background-color: rgba(25, 118, 210, 0.05);
+}
+
+.navigation-list-item.navigation-focused {
+  background-color: rgba(25, 118, 210, 0.1);
+  border-left: 4px solid #1976d2;
+  padding-left: 12px;
+}
+
+/* Navigation button styles */
+.navigation-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.navigation-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.navigation-btn:active::before {
+  left: 100%;
+}
+
+/* Navigation card styles */
+.navigation-card {
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+}
+
+.navigation-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+}
+
+.navigation-card.navigation-focused {
+  border-color: #1976d2;
+  transform: translateY(-2px) scale(1.02);
+}
+
+/* Navigation menu styles */
+.navigation-menu {
+  position: relative;
+}
+
+.navigation-menu-item {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.navigation-menu-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  background-color: #1976d2;
+  transition: width 0.2s ease;
+}
+
+.navigation-menu-item.navigation-focused::before {
+  width: 4px;
+}
+
+/* Navigation toolbar styles */
+.navigation-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+}
+
+.navigation-toolbar-item {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.navigation-toolbar-item.navigation-focused {
+  background-color: rgba(25, 118, 210, 0.1);
+  border-radius: 4px;
+  transform: scale(1.1);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .navigation-focused {
+    outline: 3px solid #000 !important;
+    outline-offset: 3px !important;
+  }
+
+  .navigation-disabled {
+    opacity: 0.3 !important;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .navigation-focused,
+  .navigation-transition,
+  .navigation-card,
+  .navigation-btn,
+  .navigation-list-item,
+  .navigation-menu-item,
+  .navigation-toolbar-item {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .navigation-focused {
+    transform: none !important;
+  }
+}
+
+/* Dark theme adjustments */
+.v-theme--dark .navigation-focused {
+  outline-color: #90caf9 !important;
+  box-shadow: 0 4px 12px rgba(144, 202, 249, 0.3) !important;
+}
+
+.v-theme--dark .navigation-list-item.navigation-focused {
+  background-color: rgba(144, 202, 249, 0.1);
+  border-left-color: #90caf9;
+}
+
+.v-theme--dark .navigation-menu-item.navigation-focused::before {
+  background-color: #90caf9;
+}
+
+.v-theme--dark .navigation-toolbar-item.navigation-focused {
+  background-color: rgba(144, 202, 249, 0.1);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .navigation-focused {
+    outline-width: 3px !important;
+    outline-offset: 3px !important;
+  }
+
+  .navigation-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .navigation-toolbar {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .navigation-focused,
+  .navigation-status,
+  .navigation-toolbar {
+    display: none !important;
+  }
+}

@@ -7,8 +7,9 @@ import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount } from "vue";
+import { inject, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useNavigation } from "@/composables/useNavigation";
 
 // Props
 withDefaults(
@@ -32,6 +33,14 @@ const emitter = inject<Emitter<Events>>("emitter");
 const scanningStore = storeScanning();
 const { scanningPlatforms, scanning } = storeToRefs(scanningStore);
 const romsStore = storeRoms();
+
+const scanBtnRef = ref<HTMLElement>();
+
+useNavigation(scanBtnRef, "scan-btn", {
+  priority: 5,
+  action: () => navigationStore.goScan(),
+});
+
 // Connect to socket on load to catch running scans
 if (!socket.connected) socket.connect();
 
@@ -116,6 +125,7 @@ onBeforeUnmount(() => {
 <template>
   <v-btn
     v-if="auth.scopes.includes('platforms.write')"
+    ref="scanBtnRef"
     icon
     :block="block"
     variant="flat"
@@ -124,6 +134,7 @@ onBeforeUnmount(() => {
     :class="{ rounded: rounded }"
     class="py-4 bg-background d-flex align-center justify-center"
     @click="navigationStore.goScan"
+    v-navigation="{ id: 'scan-btn', priority: 5 }"
   >
     <div class="d-flex flex-column align-center">
       <v-progress-circular

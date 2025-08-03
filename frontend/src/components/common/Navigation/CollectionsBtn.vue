@@ -2,6 +2,8 @@
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import { ref } from "vue";
+import { useNavigation } from "@/composables/useNavigation";
 
 // Props
 withDefaults(
@@ -21,9 +23,17 @@ withDefaults(
 const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { activeCollectionsDrawer } = storeToRefs(navigationStore);
+
+const collectionsBtnRef = ref<HTMLElement>();
+
+useNavigation(collectionsBtnRef, "collections-btn", {
+  priority: 4,
+  action: () => navigationStore.switchActiveCollectionsDrawer(),
+});
 </script>
 <template>
   <v-btn
+    ref="collectionsBtnRef"
     icon
     :block="block"
     variant="flat"
@@ -32,6 +42,7 @@ const { activeCollectionsDrawer } = storeToRefs(navigationStore);
     :class="{ rounded: rounded }"
     :color="activeCollectionsDrawer ? 'toplayer' : 'background'"
     @click="navigationStore.switchActiveCollectionsDrawer"
+    v-navigation="{ id: 'collections-btn', priority: 4 }"
   >
     <div class="d-flex flex-column align-center">
       <v-icon

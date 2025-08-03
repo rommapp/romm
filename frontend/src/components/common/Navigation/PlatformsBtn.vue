@@ -2,6 +2,8 @@
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import { ref } from "vue";
+import { useNavigation } from "@/composables/useNavigation";
 
 // Props
 withDefaults(
@@ -21,9 +23,17 @@ withDefaults(
 const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
+
+const platformsBtnRef = ref<HTMLElement>();
+
+useNavigation(platformsBtnRef, "platforms-btn", {
+  priority: 3,
+  action: () => navigationStore.switchActivePlatformsDrawer(),
+});
 </script>
 <template>
   <v-btn
+    ref="platformsBtnRef"
     icon
     :block="block"
     variant="flat"
@@ -33,6 +43,7 @@ const { activePlatformsDrawer } = storeToRefs(navigationStore);
     :class="{ rounded: rounded }"
     :color="activePlatformsDrawer ? 'toplayer' : 'background'"
     @click="navigationStore.switchActivePlatformsDrawer"
+    v-navigation="{ id: 'platforms-btn', priority: 3 }"
   >
     <div class="d-flex flex-column align-center">
       <v-icon :color="$route.name == 'platform' ? 'primary' : ''"

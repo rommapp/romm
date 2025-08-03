@@ -9,6 +9,7 @@ import storeHeartbeat from "@/stores/heartbeat";
 import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";
+import "@/styles/navigation.css";
 import { createApp } from "vue";
 
 async function initializeData() {
