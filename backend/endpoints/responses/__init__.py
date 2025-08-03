@@ -16,7 +16,6 @@ class TaskStatusResponse(TaskExecutionResponse):
 
 
 class BulkOperationResponse(TypedDict):
-    total_items: int
     successful_items: int
     failed_items: int
     errors: list[str] | None

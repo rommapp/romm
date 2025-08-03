@@ -922,10 +922,9 @@ async def delete_roms(
             errors.append(f"Failed to delete ROM {id}: {str(e)}")
 
     return {
-        "total_items": len(roms),
         "successful_items": successful_items,
         "failed_items": failed_items,
-        "errors": errors if errors else None,
+        "errors": errors,
     }
 
 

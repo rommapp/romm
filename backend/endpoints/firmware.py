@@ -251,8 +251,7 @@ async def delete_firmware(
             errors.append(f"Failed to delete firmware {id}: {str(e)}")
 
     return {
-        "total_items": len(firmware_ids),
         "successful_items": successful_items,
         "failed_items": failed_items,
-        "errors": errors if errors else None,
+        "errors": errors,
     }
