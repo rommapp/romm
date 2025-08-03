@@ -10,7 +10,6 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import i18n from "@/locales";
 
 // Props
 const { t } = useI18n();
