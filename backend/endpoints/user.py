@@ -356,7 +356,7 @@ async def delete_user(request: Request, id: int) -> None:
 @protected_route(
     router.post, "/{id}/ra/refresh", [Scope.ME_WRITE], status_code=status.HTTP_200_OK
 )
-async def refresh_retro_achievements(request: Request, id: int):
+async def refresh_retro_achievements(request: Request, id: int) -> None:
     """Refresh RetroAchievements data for a user.
 
     Args:
