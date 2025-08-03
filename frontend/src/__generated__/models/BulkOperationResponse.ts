@@ -3,7 +3,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export type BulkOperationResponse = {
-    total_items: number;
     successful_items: number;
     failed_items: number;
     errors: (Array<string> | null);
