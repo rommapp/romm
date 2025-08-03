@@ -16,7 +16,7 @@ from adapters.services.steamgriddb_types import (
     SGDBTag,
     SGDBType,
 )
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 INVALID_GAME_ID = 999999
 
@@ -118,7 +118,7 @@ class TestSteamGridDBServiceUnit:
         with patch("adapters.services.steamgriddb.ctx_aiohttp_session", mock_context):
             with pytest.raises(HTTPException) as exc_info:
                 await service._request("https://steamgriddb.com/api/v2/search/test")
-            assert exc_info.value.status_code == 401
+            assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
     @pytest.mark.asyncio
     async def test_request_other_client_error(self, service):
@@ -644,7 +644,7 @@ class TestSteamGridDBServiceIntegration:
                     assert isinstance(result, dict)
                 except HTTPException as exc:
                     # Should be authentication error with 401 status
-                    assert exc.status_code == 401
+                    assert exc.status_code == status.HTTP_401_UNAUTHORIZED
 
     @pytest.mark.asyncio
     @pytest.mark.vcr
