@@ -99,7 +99,7 @@ Then create the virtual environment and install the dependencies using uv:
 ````sh
 uv venv
 source .venv/bin/activate
-uv sync --locked --dev --all-extras
+uv sync --dev --all-extras
 ``
 
 #### - Spin up the database and other services
