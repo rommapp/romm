@@ -1,4 +1,5 @@
 import pytest
+from fastapi import status
 from fastapi.testclient import TestClient
 from main import app
 
@@ -11,7 +12,7 @@ def client():
 
 def test_config(client):
     response = client.get("/api/config")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     config = response.json()
     assert config.get("EXCLUDED_PLATFORMS") == []

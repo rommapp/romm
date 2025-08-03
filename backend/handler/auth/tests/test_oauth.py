@@ -1,6 +1,6 @@
 import pytest
 from decorators.auth import protected_route
-from fastapi import Request
+from fastapi import Request, status
 from fastapi.exceptions import HTTPException
 from handler.auth import oauth_handler
 from handler.database import db_user_handler
@@ -62,7 +62,7 @@ async def test_get_current_active_user_from_bearer_token_disabled_user(admin_use
     try:
         await oauth_handler.get_current_active_user_from_bearer_token(token)
     except HTTPException as e:
-        assert e.status_code == 401
+        assert e.status_code == status.HTTP_401_UNAUTHORIZED
         assert e.detail == "Disabled user"
 
 

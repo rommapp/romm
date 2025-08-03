@@ -404,7 +404,7 @@ class TestGetTaskById:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == 404
+        assert response.status_code == status.HTTP_404_NOT_FOUND
         data = response.json()
         assert "not found" in data["detail"].lower()
 
@@ -556,4 +556,4 @@ class TestIntegration:
             "/api/tasks/run/invalid_task_name_with_special_chars!@#",
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == 404
+        assert response.status_code == status.HTTP_404_NOT_FOUND
