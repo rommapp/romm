@@ -1,6 +1,7 @@
 {
   "continue-playing-as-grid": "Continuer à jouer en grille",
   "continue-playing-as-grid-desc": "Voir les cartes de continuer à jouer en grille sur la page d'accueil",
+  "edit-user": "Modifier l'utilisateur",
   "email": "E-mail",
   "enable-3d-effect": "Activer l'effet 3D",
   "enable-3d-effect-desc": "Activer l'effet 3D pour les cartes de jeu/plateforme/collection",
@@ -20,6 +21,7 @@
   "language": "Langue",
   "main-platform": "Plateforme principale",
   "password": "Mot de passe",
+  "password-placeholder": "Laisser vide pour conserver le mot de passe actuel",
   "platforms-drawer": "Menu des plateformes",
   "platforms-drawer-group-by": "Grouper par",
   "platform-version": "Version de la plateforme",

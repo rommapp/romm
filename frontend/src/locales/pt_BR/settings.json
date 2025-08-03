@@ -1,6 +1,7 @@
 {
   "continue-playing-as-grid": "Continuar jogando como grade",
   "continue-playing-as-grid-desc": "Ver cartões de continuar jogando como uma grade na página inicial",
+  "edit-user": "Editar usuário",
   "email": "E-mail",
   "enable-3d-effect": "Ativar efeito 3D",
   "enable-3d-effect-desc": "Ativar efeito 3D para os cartões de jogo, plataforma e coleção",
@@ -20,6 +21,7 @@
   "language": "Idioma",
   "main-platform": "Plataforma principal",
   "password": "Senha",
+  "password-placeholder": "Deixe em branco para manter a senha atual",
   "platforms-drawer": "Menu de plataformas",
   "platforms-drawer-group-by": "Agrupar por",
   "platform-version": "Versão da plataforma",
