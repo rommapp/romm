@@ -39,7 +39,9 @@ const auth = storeAuth();
     <div class="d-flex flex-column align-center">
       <v-icon>mdi-cloud-upload-outline</v-icon>
       <v-expand-transition>
-        <span v-if="withTag" class="text-caption text-center">{{ t("common.upload") }}</span>
+        <span v-if="withTag" class="text-caption text-center">{{
+          t("common.upload")
+        }}</span>
       </v-expand-transition>
     </div>
   </v-btn>
