@@ -200,8 +200,10 @@ onBeforeUnmount(() => {
             <div class="split-image first-image">
               <v-img
                 cover
-                :lazy-src="firstSmallCover.replace('.png', '.webp')"
-                :src="firstCover.replace('.png', '.webp')"
+                :lazy-src="
+                  firstSmallCover.split('.').slice(0, -1).join('.') + '.webp'
+                "
+                :src="firstCover.split('.').slice(0, -1).join('.') + '.webp'"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
               >
                 <template #error>
@@ -212,8 +214,10 @@ onBeforeUnmount(() => {
             <div class="split-image second-image">
               <v-img
                 cover
-                :lazy-src="secondSmallCover.replace('.png', '.webp')"
-                :src="secondCover.replace('.png', '.webp')"
+                :lazy-src="
+                  secondSmallCover.split('.').slice(0, -1).join('.') + '.webp'
+                "
+                :src="secondCover.split('.').slice(0, -1).join('.') + '.webp'"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
               >
                 <template #error>

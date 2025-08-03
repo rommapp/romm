@@ -85,7 +85,7 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
           <v-img
             cover
             :lazy-src="firstSmallCover"
-            :src="firstCover.replace('.png', '.webp')"
+            :src="firstCover.split('.').slice(0, -1).join('.') + '.webp'"
             :aspect-ratio="1 / 1"
           >
             <template #error>
@@ -97,7 +97,7 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
           <v-img
             cover
             :lazy-src="secondSmallCover"
-            :src="secondCover.replace('.png', '.webp')"
+            :src="secondCover.split('.').slice(0, -1).join('.') + '.webp'"
             :aspect-ratio="1 / 1"
           >
             <template #error>

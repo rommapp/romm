@@ -191,14 +191,14 @@ onBeforeUnmount(() => {
               :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
               :lazy-src="
                 romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_small?.replace('.png', '.webp') ||
-                    fallbackCoverImage
+                  ? rom.path_cover_small?.split('.').slice(0, -1).join('.') +
+                      '.webp' || fallbackCoverImage
                   : fallbackCoverImage
               "
               :src="
                 romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_large?.replace('.png', '.webp') ||
-                    fallbackCoverImage
+                  ? rom.path_cover_large?.split('.').slice(0, -1).join('.') +
+                      '.webp' || fallbackCoverImage
                   : rom.igdb_url_cover ||
                     rom.moby_url_cover ||
                     rom.ss_url_cover ||
