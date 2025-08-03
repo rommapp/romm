@@ -119,6 +119,31 @@ interface TiltHTMLElement extends HTMLElement {
 
 const tiltCard = ref<TiltHTMLElement | null>(null);
 
+const largeCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_large
+    : props.rom.igdb_url_cover ||
+      props.rom.moby_url_cover ||
+      props.rom.ss_url_cover,
+);
+const smallCover = computed(() =>
+  romsStore.isSimpleRom(props.rom) ? props.rom.path_cover_small : "",
+);
+const largeWebpCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_large
+      ? props.rom.path_cover_large.split(".").slice(0, -1).join(".") + ".webp"
+      : ""
+    : "",
+);
+const smallWebpCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_small
+      ? props.rom.path_cover_small.split(".").slice(0, -1).join(".") + ".webp"
+      : ""
+    : "",
+);
+
 onMounted(() => {
   if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
     VanillaTilt.init(tiltCard.value, {
@@ -189,21 +214,8 @@ onBeforeUnmount(() => {
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
-              :lazy-src="
-                romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_small?.split('.').slice(0, -1).join('.') +
-                      '.webp' || fallbackCoverImage
-                  : fallbackCoverImage
-              "
-              :src="
-                romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_large?.split('.').slice(0, -1).join('.') +
-                      '.webp' || fallbackCoverImage
-                  : rom.igdb_url_cover ||
-                    rom.moby_url_cover ||
-                    rom.ss_url_cover ||
-                    fallbackCoverImage
-              "
+              :lazy-src="smallWebpCover || fallbackCoverImage"
+              :src="largeWebpCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
             >
               <template v-bind="props" v-if="titleOnHover">
@@ -319,19 +331,8 @@ onBeforeUnmount(() => {
               </div>
               <template #error>
                 <v-img
-                  :lazy-src="
-                    romsStore.isSimpleRom(rom)
-                      ? rom.path_cover_small || fallbackCoverImage
-                      : fallbackCoverImage
-                  "
-                  :src="
-                    romsStore.isSimpleRom(rom)
-                      ? rom.path_cover_large || fallbackCoverImage
-                      : rom.igdb_url_cover ||
-                        rom.moby_url_cover ||
-                        rom.ss_url_cover ||
-                        fallbackCoverImage
-                  "
+                  :lazy-src="smallCover || fallbackCoverImage"
+                  :src="largeCover || fallbackCoverImage"
                 >
                   <template #error>
                     <v-img :src="fallbackCoverImage" />

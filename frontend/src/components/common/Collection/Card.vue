@@ -62,24 +62,16 @@ watchEffect(() => {
         props.collection.path_cover_small || "",
       ],
       largeWebp: [
-        props.collection.path_cover_large
-          ?.split(".")
-          .slice(0, -1)
-          .join(".webp") || "",
-        props.collection.path_cover_large
-          ?.split(".")
-          .slice(0, -1)
-          .join(".webp") || "",
+        props.collection.path_cover_large?.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+        props.collection.path_cover_large?.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
       ],
       smallWebp: [
-        props.collection.path_cover_small
-          ?.split(".")
-          .slice(0, -1)
-          .join(".webp") || "",
-        props.collection.path_cover_small
-          ?.split(".")
-          .slice(0, -1)
-          .join(".webp") || "",
+        props.collection.path_cover_small?.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+        props.collection.path_cover_small?.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
       ],
     };
     return;
@@ -100,12 +92,16 @@ watchEffect(() => {
       large: [collectionCoverImage.value, collectionCoverImage.value],
       small: [collectionCoverImage.value, collectionCoverImage.value],
       largeWebp: [
-        collectionCoverImage.value.split(".").slice(0, -1).join(".webp") || "",
-        collectionCoverImage.value.split(".").slice(0, -1).join(".webp") || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
       ],
       smallWebp: [
-        collectionCoverImage.value.split(".").slice(0, -1).join(".webp") || "",
-        collectionCoverImage.value.split(".").slice(0, -1).join(".webp") || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
       ],
     };
     return;
@@ -117,13 +113,13 @@ watchEffect(() => {
   memoizedCovers.value = {
     large: [shuffledLarge[0], shuffledLarge[1]],
     largeWebp: [
-      shuffledLarge[0].split(".").slice(0, -1).join(".webp") || "",
-      shuffledLarge[1].split(".").slice(0, -1).join(".webp") || "",
+      shuffledLarge[0].split(".").slice(0, -1).join(".") + ".webp" || "",
+      shuffledLarge[1].split(".").slice(0, -1).join(".") + ".webp" || "",
     ],
     small: [shuffledSmall[0], shuffledSmall[1]],
     smallWebp: [
-      shuffledSmall[0].split(".").slice(0, -1).join(".webp") || "",
-      shuffledSmall[1].split(".").slice(0, -1).join(".webp") || "",
+      shuffledSmall[0].split(".").slice(0, -1).join(".") + ".webp" || "",
+      shuffledSmall[1].split(".").slice(0, -1).join(".") + ".webp" || "",
     ],
   };
 });
