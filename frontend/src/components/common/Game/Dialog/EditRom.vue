@@ -17,7 +17,7 @@ import { getMissingCoverImage } from "@/utils/covers";
 
 // Props
 const { t } = useI18n();
-const { lgAndUp, smAndDown } = useDisplay();
+const { lgAndUp } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);

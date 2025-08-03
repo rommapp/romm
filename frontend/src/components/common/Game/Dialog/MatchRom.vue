@@ -286,7 +286,6 @@ onBeforeUnmount(() => {
     :empty-state-type="searched ? 'game' : undefined"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
-    :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #header>
       <span class="ml-4">{{ t("common.filter") }}:</span>
@@ -551,25 +550,25 @@ onBeforeUnmount(() => {
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12">
-            <v-row no-gutters class="my-4 justify-center">
-              <v-btn-group divided density="compact">
-                <v-btn class="bg-toplayer" @click="backToMatched">
-                  {{ t("common.cancel") }}
-                </v-btn>
-                <v-btn
-                  class="text-romm-green bg-toplayer"
-                  :disabled="selectedCover == undefined"
-                  :variant="selectedCover == undefined ? 'plain' : 'flat'"
-                  @click="confirm"
-                >
-                  {{ t("common.confirm") }}
-                </v-btn>
-              </v-btn-group>
-            </v-row>
-          </v-col>
         </v-row>
       </template>
+    </template>
+    <template #append>
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="backToMatched">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            class="text-romm-green bg-toplayer"
+            :disabled="selectedCover == undefined"
+            :variant="selectedCover == undefined ? 'plain' : 'flat'"
+            @click="confirm"
+          >
+            {{ t("common.confirm") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
     </template>
     <template #empty-state>
       <empty-manual-match />
