@@ -43,9 +43,7 @@ function run() {
 
   taskApi
     .runTask(props.name)
-    .then(({ data }) => {
-      console.log(data);
-
+    .then(() => {
       emitter?.emit("snackbarShow", {
         msg: `Task '${props.title}' ran successfully!`,
         icon: "mdi-check-bold",
