@@ -215,11 +215,14 @@ async function updateRom({
   unmatch?: boolean;
 }): Promise<{ data: DetailedRom }> {
   const formData = new FormData();
-  if (rom.igdb_id) formData.append("igdb_id", rom.igdb_id.toString());
-  if (rom.moby_id) formData.append("moby_id", rom.moby_id.toString());
-  if (rom.ss_id) formData.append("ss_id", rom.ss_id.toString());
-  if (rom.launchbox_id)
-    formData.append("launchbox_id", rom.launchbox_id.toString());
+  formData.append("igdb_id", rom.igdb_id?.toString() ?? "");
+  formData.append("sgdb_id", rom.sgdb_id?.toString() ?? "");
+  formData.append("moby_id", rom.moby_id?.toString() ?? "");
+  formData.append("ss_id", rom.ss_id?.toString() ?? "");
+  formData.append("ra_id", rom.ra_id?.toString() ?? "");
+  formData.append("launchbox_id", rom.launchbox_id?.toString() ?? "");
+  formData.append("hasheous_id", rom.hasheous_id?.toString() ?? "");
+  formData.append("tgdb_id", rom.tgdb_id?.toString() ?? "");
   formData.append("name", rom.name || "");
   formData.append("fs_name", rom.fs_name);
   formData.append("summary", rom.summary || "");

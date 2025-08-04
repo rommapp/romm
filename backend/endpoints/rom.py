@@ -49,6 +49,7 @@ from handler.metadata import (
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
+    meta_ra_handler,
     meta_ss_handler,
 )
 from logger.formatter import BLUE
@@ -594,6 +595,8 @@ async def update_rom(
                 "ss_id": None,
                 "ra_id": None,
                 "launchbox_id": None,
+                "hasheous_id": None,
+                "tgdb_id": None,
                 "name": rom.fs_name,
                 "summary": "",
                 "url_screenshots": [],
@@ -608,6 +611,7 @@ async def update_rom(
                 "ss_metadata": {},
                 "ra_metadata": {},
                 "launchbox_metadata": {},
+                "hasheous_metadata": {},
                 "revision": "",
             },
         )
@@ -618,64 +622,68 @@ async def update_rom(
 
         return DetailedRomSchema.from_orm_with_request(rom, request)
 
+    def parse_id_value(value: str) -> int | None:
+        if not value or value.strip() == "":
+            return None
+
+        return int(value)
+
     cleaned_data: dict[str, Any] = {
-        "igdb_id": data.get("igdb_id", rom.igdb_id),
-        "moby_id": data.get("moby_id", rom.moby_id),
-        "ss_id": data.get("ss_id", rom.ss_id),
-        "launchbox_id": data.get("launchbox_id", rom.launchbox_id),
+        "igdb_id": parse_id_value(str(data.get("igdb_id"))),
+        "sgdb_id": parse_id_value(str(data.get("sgdb_id"))),
+        "moby_id": parse_id_value(str(data.get("moby_id"))),
+        "ss_id": parse_id_value(str(data.get("ss_id"))),
+        "ra_id": parse_id_value(str(data.get("ra_id"))),
+        "launchbox_id": parse_id_value(str(data.get("launchbox_id"))),
+        "hasheous_id": parse_id_value(str(data.get("hasheous_id"))),
+        "tgdb_id": parse_id_value(str(data.get("tgdb_id"))),
     }
 
     if (
-        cleaned_data.get("moby_id", "")
-        and int(cleaned_data.get("moby_id", "")) != rom.moby_id
+        cleaned_data["launchbox_id"]
+        and int(cleaned_data["launchbox_id"]) != rom.launchbox_id
     ):
+        lb_rom = await meta_launchbox_handler.get_rom_by_id(
+            cleaned_data["launchbox_id"]
+        )
+        cleaned_data.update(lb_rom)
+    elif rom.launchbox_id and not cleaned_data["launchbox_id"]:
+        cleaned_data.update({"launchbox_id": None, "launchbox_metadata": {}})
+
+    if cleaned_data["ra_id"] and int(cleaned_data["ra_id"]) != rom.ra_id:
+        ra_rom = await meta_ra_handler.get_rom_by_id(rom, ra_id=cleaned_data["ra_id"])
+        cleaned_data.update(ra_rom)
+    elif rom.ra_id and not cleaned_data["ra_id"]:
+        cleaned_data.update({"ra_id": None, "ra_metadata": {}})
+
+    if cleaned_data["moby_id"] and int(cleaned_data["moby_id"]) != rom.moby_id:
         moby_rom = await meta_moby_handler.get_rom_by_id(
             int(cleaned_data.get("moby_id", ""))
         )
         cleaned_data.update(moby_rom)
-        path_screenshots = await fs_resource_handler.get_rom_screenshots(
-            rom=rom,
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+    elif rom.moby_id and not cleaned_data["moby_id"]:
+        cleaned_data.update({"moby_id": None, "moby_metadata": {}})
 
-    if (
-        cleaned_data.get("ss_id", "")
-        and int(cleaned_data.get("ss_id", "")) != rom.ss_id
-    ):
+    if cleaned_data["ss_id"] and int(cleaned_data["ss_id"]) != rom.ss_id:
         ss_rom = await meta_ss_handler.get_rom_by_id(cleaned_data["ss_id"])
         cleaned_data.update(ss_rom)
-        path_screenshots = await fs_resource_handler.get_rom_screenshots(
-            rom=rom,
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+    elif rom.ss_id and not cleaned_data["ss_id"]:
+        cleaned_data.update({"ss_id": None, "ss_metadata": {}})
 
-    if (
-        cleaned_data.get("igdb_id", "")
-        and int(cleaned_data.get("igdb_id", "")) != rom.igdb_id
-    ):
+    if cleaned_data["igdb_id"] and int(cleaned_data["igdb_id"]) != rom.igdb_id:
         igdb_rom = await meta_igdb_handler.get_rom_by_id(cleaned_data["igdb_id"])
         cleaned_data.update(igdb_rom)
-        path_screenshots = await fs_resource_handler.get_rom_screenshots(
-            rom=rom,
-            url_screenshots=cleaned_data.get("url_screenshots", []),
-        )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+    elif rom.igdb_id and not cleaned_data["igdb_id"]:
+        cleaned_data.update({"igdb_id": None, "igdb_metadata": {}})
 
-    if (
-        cleaned_data.get("launchbox_id", "")
-        and int(cleaned_data.get("launchbox_id", "")) != rom.launchbox_id
-    ):
-        igdb_rom = await meta_launchbox_handler.get_rom_by_id(
-            cleaned_data["launchbox_id"]
-        )
-        cleaned_data.update(igdb_rom)
+    if cleaned_data.get("url_screenshots", []):
         path_screenshots = await fs_resource_handler.get_rom_screenshots(
             rom=rom,
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
-        cleaned_data.update({"path_screenshots": path_screenshots})
+        cleaned_data.update(
+            {"path_screenshots": path_screenshots, "url_screenshots": []}
+        )
 
     cleaned_data.update(
         {
@@ -715,7 +723,7 @@ async def update_rom(
                 }
             )
         else:
-            if data.get(
+            if cleaned_data.get(
                 "url_cover", ""
             ) != rom.url_cover or not fs_resource_handler.cover_exists(
                 rom, CoverSize.BIG
