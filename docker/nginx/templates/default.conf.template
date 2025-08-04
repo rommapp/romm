@@ -11,6 +11,7 @@ map $http_x_forwarded_proto $forwardscheme {
 server {
     root /var/www/html;
     listen ${ROMM_PORT};
+    listen [::]:${ROMM_PORT};
     server_name localhost;
 
     proxy_set_header Host $http_host;
@@ -80,6 +81,7 @@ server {
 
 server {
     listen 8081;
+    listen [::]:8081;
     server_name localhost;
 
     location /library/ {
