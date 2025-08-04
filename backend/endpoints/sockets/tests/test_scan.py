@@ -102,14 +102,14 @@ class TestShouldScanRom:
         """COMPLETE should always scan regardless of rom state"""
         assert _should_scan_rom(ScanType.COMPLETE, None, []) is True
         assert _should_scan_rom(ScanType.COMPLETE, rom, []) is True
-        assert _should_scan_rom(ScanType.COMPLETE, rom, ["2", "3"]) is True
+        assert _should_scan_rom(ScanType.COMPLETE, rom, [2, 3]) is True
 
     # Test HASHES scan type
     def test_hashes_scan_always_scans(self, rom: Rom):
         """HASHES should always scan regardless of rom state"""
         assert _should_scan_rom(ScanType.HASHES, None, []) is True
         assert _should_scan_rom(ScanType.HASHES, rom, []) is True
-        assert _should_scan_rom(ScanType.HASHES, rom, ["2", "3"]) is True
+        assert _should_scan_rom(ScanType.HASHES, rom, [2, 3]) is True
 
     # Test UNIDENTIFIED scan type
     def test_unidentified_scan_with_no_rom(self):
@@ -159,7 +159,7 @@ class TestShouldScanRom:
     def test_scan_when_rom_id_in_list(self, rom: Rom):
         """Should scan when rom.id is in roms_ids list regardless of scan type"""
         rom.id = 1
-        roms_ids = ["1", "2", "3"]
+        roms_ids = [1, 2, 3]
 
         # Test with different scan types
         for scan_type in [
@@ -173,7 +173,7 @@ class TestShouldScanRom:
     def test_no_scan_when_rom_id_not_in_list(self, rom: Rom):
         """Should follow normal rules when rom.id is not in roms_ids list"""
         rom.id = 4
-        roms_ids = ["1", "2", "3"]
+        roms_ids = [1, 2, 3]
 
         # These should not scan because rom exists and id not in list
         assert _should_scan_rom(ScanType.NEW_PLATFORMS, rom, roms_ids) is False
@@ -193,7 +193,7 @@ class TestShouldScanRom:
     def test_rom_id_type_conversion(self, rom: Rom):
         """Test that rom.id (int) is properly compared with roms_ids (list of strings)"""
         rom.id = 123
-        roms_ids = ["123", "456"]
+        roms_ids = [123, 456]
 
         # This should scan because 123 should match "123"
         result = _should_scan_rom(ScanType.QUICK, rom, roms_ids)
@@ -241,7 +241,7 @@ class TestShouldScanRom:
                 rom.launchbox_id = None
 
             if rom_in_list:
-                roms_ids = ["1"]
+                roms_ids = [1]
 
         result = _should_scan_rom(scan_type, rom, roms_ids)
         assert result is expected
