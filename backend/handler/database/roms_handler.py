@@ -445,11 +445,10 @@ class DBRomsHandler(DBBaseHandler):
         if group_by_meta_id:
 
             def build_func(provider: str, column: InstrumentedAttribute):
-                if platform_id:
-                    return func.concat(provider, "-", Rom.platform_id, "-", column)
-
                 return func.concat(provider, "-", Rom.platform_id, "-", column)
 
+            # Create a group ID based on metadata IDs, prioritizing in order: igdb, moby, ss, launchbox, sgdb, ra, hasheous, tgdb
+            # If no metadata ID exists, use the ROM ID to ensure each ROM is in its own group
             group_id = case(
                 {
                     Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
@@ -458,6 +457,11 @@ class DBRomsHandler(DBBaseHandler):
                     Rom.launchbox_id.isnot(None): build_func(
                         "launchbox", Rom.launchbox_id
                     ),
+                    Rom.ra_id.isnot(None): build_func("ra", Rom.ra_id),
+                    Rom.hasheous_id.isnot(None): build_func(
+                        "hasheous", Rom.hasheous_id
+                    ),
+                    Rom.tgdb_id.isnot(None): build_func("tgdb", Rom.tgdb_id),
                 },
                 else_=build_func("romm", Rom.id),
             )
@@ -469,7 +473,8 @@ class DBRomsHandler(DBBaseHandler):
                 else literal(1)
             )
 
-            # Create a subquery that identifies the first ROM in each group
+            # Create a subquery that identifies the primary ROM in each group
+            # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc)
             group_subquery = (
                 session.query(Rom.id)
                 .outerjoin(
@@ -480,14 +485,14 @@ class DBRomsHandler(DBBaseHandler):
                     func.row_number()
                     .over(
                         partition_by=group_id,
-                        order_by=[is_main_sibling_order, Rom.fs_name_no_ext],
+                        order_by=[is_main_sibling_order, Rom.fs_name_no_ext.asc()],
                     )
                     .label("row_num"),
                 )
                 .subquery()
             )
 
-            # Add a filter to the original query to only include the first ROM from each group
+            # Add a filter to the original query to only include the primary ROM from each group
             query = query.filter(
                 Rom.id.in_(
                     session.query(group_subquery.c.id).filter(
