@@ -66,7 +66,7 @@ const onFilterChange = debounce(
   500,
   // If leading and trailing options are true, this is invoked on the trailing edge of
   // the timeout only if the the function is invoked more than once during the wait
-  { leading: true, trailing: true },
+  { leading: false, trailing: true },
 );
 
 async function fetchRoms() {
