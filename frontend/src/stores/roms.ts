@@ -116,11 +116,15 @@ export default defineStore("roms", {
         }
       }
     },
-    fetchRoms(
-      galleryFilter: GalleryFilterStore,
-      groupRoms?: boolean,
+    fetchRoms({
+      galleryFilter,
+      groupRoms,
       concat = true,
-    ) {
+    }: {
+      galleryFilter: GalleryFilterStore;
+      groupRoms?: boolean;
+      concat?: boolean;
+    }) {
       if (this.fetchingRoms) return Promise.resolve();
       this.fetchingRoms = true;
 
