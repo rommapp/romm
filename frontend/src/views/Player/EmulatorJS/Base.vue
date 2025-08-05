@@ -21,6 +21,7 @@ import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import { getEmptyCoverImage } from "@/utils/covers";
 import { useDisplay } from "vuetify";
 import { storeToRefs } from "pinia";
+import { MdEditor, MdPreview } from "md-editor-v3";
 
 const EMULATORJS_VERSION = "4.2.3";
 
@@ -45,6 +46,8 @@ const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
 const storedFSOP = localStorage.getItem("fullScreenOnPlay");
 const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
+const note_raw_markdown = ref<string | null>(null);
+const selectedCheat = ref<Array<Array<string>> | null>(null);
 
 // Functions
 function onPlay() {
@@ -190,6 +193,16 @@ onMounted(async () => {
   });
   rom.value = romResponse.data;
 
+  note_raw_markdown.value = rom.value.rom_user.note_raw_markdown;
+  var cheats = [];
+  for (const cheat of note_raw_markdown.value.split("\n")) {
+    const f = cheat.match(/- cheat:(.*):(.*)/);
+    if (f) {
+      cheats.push([f[1].trim(), f[2].trim()]);
+    }
+  }
+  selectedCheat.value = cheats;
+
   if (rom.value) {
     document.title = `${rom.value.name} | Play`;
   }
@@ -254,6 +267,7 @@ onBeforeUnmount(async () => {
         :bios="selectedFirmware"
         :core="selectedCore"
         :disc="selectedDisc"
+        :cheat="selectedCheat"
       />
     </v-col>
 
@@ -664,6 +678,15 @@ onBeforeUnmount(async () => {
           </v-expand-transition>
         </v-col>
       </v-row>
+
+      <MdPreview
+        :model-value="note_raw_markdown"
+        theme="dark"
+        language="en-US"
+        preview-theme="vuepress"
+        code-theme="github"
+        class="py-4 px-6"
+      />
 
       <!-- Action buttons -->
       <template v-if="!gameRunning">

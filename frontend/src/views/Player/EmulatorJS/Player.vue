@@ -33,6 +33,7 @@ const props = defineProps<{
   bios: FirmwareSchema | null;
   core: string | null;
   disc: number | null;
+  cheat: Array<Array<string>> | null;
 }>();
 const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
@@ -40,6 +41,7 @@ const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const playingStore = storePlaying();
 const { playing, fullScreen } = storeToRefs(playingStore);
+const cheatRef = ref<Array<Array<string>> | null>(props.cheat);
 
 // Declare global variables for EmulatorJS
 declare global {
@@ -56,7 +58,7 @@ declare global {
     EJS_backgroundColor: string;
     EJS_gameUrl: string;
     EJS_loadStateURL: string | null;
-    EJS_cheats: string;
+    EJS_cheats: Array<Array<string>> | null;
     EJS_gameParentUrl: string;
     EJS_gamePatchUrl: string;
     EJS_netplayServer: string;
@@ -112,6 +114,7 @@ window.EJS_defaultOptions = {
 window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
+window.EJS_cheats = cheatRef.value;
 
 onMounted(() => {
   window.scrollTo(0, 0);
