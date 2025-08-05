@@ -185,7 +185,6 @@ async function searchRom({
   });
 }
 
-// Used only for multi-file downloads
 async function downloadRom({
   rom,
   fileIDs = [],
@@ -193,12 +192,30 @@ async function downloadRom({
   rom: SimpleRom;
   fileIDs?: number[];
 }) {
-  const a = document.createElement("a");
-  a.href = getDownloadPath({ rom, fileIDs });
+  return new Promise<void>((resolve) => {
+    const a = document.createElement("a");
+    a.href = getDownloadPath({ rom, fileIDs });
+    a.style.display = "none";
 
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      if (document.body.contains(a)) {
+        document.body.removeChild(a);
+      }
+      resolve();
+    }, 100);
+  });
+}
+
+async function bulkDownloadRoms({ roms }: { roms: SimpleRom[] }) {
+  if (roms.length === 0) return;
+
+  for (let i = 0; i < roms.length; i++) {
+    await downloadRom({ rom: roms[i] });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
 }
 
 export type UpdateRom = SimpleRom & {
@@ -312,6 +329,7 @@ export default {
   getRecentPlayedRoms,
   getRom,
   downloadRom,
+  bulkDownloadRoms,
   searchRom,
   updateRom,
   uploadManuals,

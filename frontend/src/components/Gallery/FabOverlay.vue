@@ -131,12 +131,8 @@ async function removeFromFavourites() {
     });
 }
 
-function onDownload() {
-  romsStore.selectedRoms.forEach((rom, index) => {
-    setTimeout(() => {
-      romApi.downloadRom({ rom });
-    }, index * 100); // Prevents the download from being blocked by the browser
-  });
+async function onDownload() {
+  await romApi.bulkDownloadRoms({ roms: romsStore.selectedRoms });
 }
 </script>
 
