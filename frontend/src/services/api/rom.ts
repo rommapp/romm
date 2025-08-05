@@ -14,6 +14,9 @@ import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "
 
 export const romApi = api;
 
+const DOWNLOAD_CLEANUP_DELAY = 100;
+const DOWNLOAD_INTERVAL_DELAY = 300;
+
 async function uploadRoms({
   platformId,
   filesToUpload,
@@ -205,7 +208,7 @@ async function downloadRom({
         document.body.removeChild(a);
       }
       resolve();
-    }, 100);
+    }, DOWNLOAD_CLEANUP_DELAY);
   });
 }
 
@@ -214,7 +217,9 @@ async function bulkDownloadRoms({ roms }: { roms: SimpleRom[] }) {
 
   for (let i = 0; i < roms.length; i++) {
     await downloadRom({ rom: roms[i] });
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) =>
+      setTimeout(resolve, DOWNLOAD_INTERVAL_DELAY),
+    );
   }
 }
 
