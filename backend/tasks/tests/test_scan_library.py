@@ -19,7 +19,7 @@ class TestScanLibraryTask:
     @patch("tasks.scheduled.scan_library.IGDB_API_ENABLED", False)
     @patch("tasks.scheduled.scan_library.SS_API_ENABLED", False)
     @patch("tasks.scheduled.scan_library.MOBY_API_ENABLED", False)
-    @patch("tasks.scheduled.scan_library.RA_API_ENABLED", False)
+    @patch("tasks.scheduled.scan_library.RA_API_ENABLED", True)
     @patch("tasks.scheduled.scan_library.LAUNCHBOX_API_ENABLED", True)
     @patch("tasks.scheduled.scan_library.HASHEOUS_API_ENABLED", False)
     @patch("tasks.scheduled.scan_library.STEAMGRIDDB_API_ENABLED", False)
@@ -33,7 +33,9 @@ class TestScanLibraryTask:
 
         mock_log.info.assert_any_call("Scheduled library scan started...")
         mock_scan_platforms.assert_called_once_with(
-            [], scan_type=ScanType.UNIDENTIFIED, metadata_sources=[MetadataSource.LB]
+            [],
+            scan_type=ScanType.UNIDENTIFIED,
+            metadata_sources=[MetadataSource.RA, MetadataSource.LB],
         )
         mock_log.info.assert_any_call("Scheduled library scan done")
 
