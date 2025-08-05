@@ -445,7 +445,7 @@ class DBRomsHandler(DBBaseHandler):
         if group_by_meta_id:
 
             def build_func(provider: str, column: InstrumentedAttribute):
-                return func.concat(provider, "-", Rom.platform_id, "-", column)
+                return func.concat(provider, "-", column)
 
             # Create a group ID based on metadata IDs, prioritizing in order: igdb, moby, ss, launchbox, sgdb, ra, hasheous, tgdb
             # If no metadata ID exists, use the ROM ID to ensure each ROM is in its own group
