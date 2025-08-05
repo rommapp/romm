@@ -204,9 +204,7 @@ async function downloadRom({
     a.click();
 
     setTimeout(() => {
-      if (document.body.contains(a)) {
-        document.body.removeChild(a);
-      }
+      document.body.removeChild(a);
       resolve();
     }, DOWNLOAD_CLEANUP_DELAY);
   });
