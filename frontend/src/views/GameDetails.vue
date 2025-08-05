@@ -146,7 +146,7 @@ watch(
             :class="{ 'mt-4': smAndDown }"
           >
             <v-tab value="details"> {{ t("rom.details") }} </v-tab>
-            <v-tab value="manual" v-if="currentRom.has_manual">
+            <v-tab value="manual" v-if="currentRom.path_manual">
               {{ t("rom.manual") }}
             </v-tab>
             <v-tab value="gamedata">Game data</v-tab>
@@ -186,7 +186,7 @@ watch(
                 </v-row>
               </v-window-item>
               <v-window-item value="manual">
-                <pdf-viewer v-if="currentRom.has_manual" :rom="currentRom" />
+                <pdf-viewer v-if="currentRom.path_manual" :rom="currentRom" />
               </v-window-item>
               <v-window-item value="gamedata">
                 <game-data :rom="currentRom" />

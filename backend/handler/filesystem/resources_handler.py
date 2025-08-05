@@ -3,7 +3,13 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
-from config import RESOURCES_BASE_PATH
+from config import (
+    RESOURCES_BASE_PATH,
+    STORE_COVERS_ON_DISK,
+    STORE_MANUALS_ON_DISK,
+    STORE_RESOURCES_ON_DISK,
+    STORE_SCREENSHOTS_ON_DISK,
+)
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
@@ -100,7 +106,7 @@ class FSResourcesHandler(FSHandler):
     async def get_cover(
         self, entity: Rom | Collection | None, overwrite: bool, url_cover: str | None
     ) -> tuple[str | None, str | None]:
-        if not entity:
+        if not STORE_COVERS_ON_DISK or not entity:
             return None, None
 
         small_cover_exists = self.cover_exists(entity, CoverSize.SMALL)
@@ -204,7 +210,7 @@ class FSResourcesHandler(FSHandler):
     async def get_rom_screenshots(
         self, rom: Rom | None, url_screenshots: list | None
     ) -> list[str]:
-        if not rom or not url_screenshots:
+        if not STORE_SCREENSHOTS_ON_DISK or not rom or not url_screenshots:
             return []
 
         path_screenshots: list[str] = []
@@ -258,7 +264,7 @@ class FSResourcesHandler(FSHandler):
     async def get_manual(
         self, rom: Rom | None, overwrite: bool, url_manual: str | None
     ) -> str | None:
-        if not rom:
+        if not STORE_MANUALS_ON_DISK or not rom:
             return None
 
         manual_exists = self.manual_exists(rom)
@@ -270,6 +276,9 @@ class FSResourcesHandler(FSHandler):
         return path_manual
 
     async def store_ra_badge(self, url: str, path: str) -> None:
+        if not STORE_RESOURCES_ON_DISK:
+            return
+
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
@@ -282,7 +291,7 @@ class FSResourcesHandler(FSHandler):
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
         except httpx.TransportError as exc:
-            log.error(f"Unable to fetch cover at {url}: {str(exc)}")
+            log.error(f"Unable to fetch badge at {url}: {str(exc)}")
 
     def get_ra_resources_path(self, platform_id: int, rom_id: int) -> str:
         return os.path.join(
