@@ -23,7 +23,7 @@
     {
       "label": "Execute tests",
       "type": "shell",
-      "command": "cd backend && uv run pytest -vv -c ../pytest.ini",
+      "command": "cd backend && uv run pytest -vv",
       "problemMatcher": []
     },
     {
