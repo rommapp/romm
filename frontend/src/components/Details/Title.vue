@@ -21,7 +21,7 @@ const releaseDate = new Date(
 });
 
 const platformsStore = storePlatforms();
-const { allPlatforms } = storeToRefs(platformsStore);
+const { filteredPlatforms } = storeToRefs(platformsStore);
 
 const hashMatches = computed(() => {
   return [
@@ -82,7 +82,7 @@ const hashMatches = computed(() => {
         >
           <missing-from-f-s-icon
             v-if="
-              allPlatforms.find((p) => p.id === rom.platform_id)
+              filteredPlatforms.find((p) => p.id === rom.platform_id)
                 ?.missing_from_fs
             "
             class="mr-2"

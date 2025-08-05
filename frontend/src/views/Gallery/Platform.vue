@@ -26,7 +26,7 @@ const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const platformsStore = storePlatforms();
-const { allPlatforms } = storeToRefs(platformsStore);
+const { filteredPlatforms } = storeToRefs(platformsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -178,7 +178,7 @@ onMounted(async () => {
   currentCollection.value = null;
 
   watch(
-    () => allPlatforms.value,
+    () => filteredPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
         if (platforms.some((platform) => platform.id === routePlatformId)) {
@@ -215,7 +215,7 @@ onBeforeRouteUpdate(async (to, from) => {
   const routePlatformId = Number(to.params.platform);
 
   watch(
-    () => allPlatforms.value,
+    () => filteredPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
         const platform = platforms.find(
@@ -310,7 +310,7 @@ onBeforeUnmount(() => {
         <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="allPlatforms.length > 0 && !fetchingRoms" />
+        <empty-game v-if="filteredPlatforms.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>

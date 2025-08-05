@@ -73,7 +73,7 @@ const {
   filterLanguages,
 } = storeToRefs(galleryFilterStore);
 const { filteredRoms } = storeToRefs(romsStore);
-const { allPlatforms } = storeToRefs(platformsStore);
+const { filteredPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(
@@ -301,7 +301,7 @@ onMounted(async () => {
   );
 
   watch(
-    () => allPlatforms.value,
+    () => filteredPlatforms.value,
     async () => setFilters(),
     { immediate: true }, // Ensure watcher is triggered immediately
   );
