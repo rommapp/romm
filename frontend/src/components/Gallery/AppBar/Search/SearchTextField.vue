@@ -3,7 +3,8 @@ import storeRoms from "@/stores/roms";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, nextTick, onMounted, watch } from "vue";
+import { debounce } from "lodash";
+import { inject, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -35,7 +36,13 @@ function resetGallery() {
   galleryFilterStore.activeFilterDrawer = false;
 }
 
+const debouncedFetchRoms = debounce(fetchRoms, 250);
+
 onMounted(() => resetGallery());
+
+watch(searchTerm, () => {
+  debouncedFetchRoms();
+});
 
 watch(
   () => router.currentRoute.value.query,
@@ -47,6 +54,12 @@ watch(
   },
   { deep: true },
 );
+
+const onEnter = () => {
+  // Cancel the debounce if the user presses Enter, and fetch immediately.
+  debouncedFetchRoms.cancel();
+  fetchRoms();
+};
 </script>
 
 <template>
@@ -58,8 +71,7 @@ watch(
     rounded="0"
     :label="t('common.search')"
     v-model="searchTerm"
-    @keyup.enter="fetchRoms"
+    @keyup.enter="onEnter"
     @click:clear="clearInput"
-    @update:model-value="nextTick(fetchRoms)"
   />
 </template>
