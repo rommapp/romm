@@ -49,6 +49,7 @@ const onFilterChange = debounce(
     romsStore.fetchRoms({
       galleryFilter: galleryFilterStore,
       groupRoms: false,
+      concat: false,
     });
 
     const url = new URL(window.location.href);
