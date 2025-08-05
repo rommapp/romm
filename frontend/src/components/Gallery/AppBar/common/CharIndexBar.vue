@@ -30,7 +30,7 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms(galleryFilterStore, false)
+    .fetchRoms({ galleryFilter: galleryFilterStore, concat: false })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
