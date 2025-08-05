@@ -4,8 +4,10 @@ import States from "@/components/Details/States.vue";
 import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 // Props
+const { t } = useI18n();
 defineProps<{ rom: DetailedRom }>();
 const tab = ref<"saves" | "states">("saves");
 const { mdAndDown } = useDisplay();
@@ -25,13 +27,13 @@ const { mdAndDown } = useDisplay();
           prepend-icon="mdi-content-save"
           class="rounded text-caption"
           value="saves"
-          >Saves</v-tab
+          >{{ t("common.saves") }}</v-tab
         >
         <v-tab
           prepend-icon="mdi-file"
           class="rounded text-caption"
           value="states"
-          >States</v-tab
+          >{{ t("common.states") }}</v-tab
         >
       </v-tabs>
     </v-col>
