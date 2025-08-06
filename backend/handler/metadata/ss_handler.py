@@ -613,7 +613,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.XBOX360: {"id": 33, "name": "Xbox 360"},
     UPS.XBOXONE: {"id": 34, "name": "Xbox One"},
     UPS.Z_MACHINE: {"id": 215, "name": "Z-Machine"},
-    UPS.ZX_SPECTRUM: {"id": 76, "name": "ZX Spectrum"},
+    UPS.ZXS: {"id": 76, "name": "ZX Spectrum"},
     UPS.ZX81: {"id": 77, "name": "ZX81"},
 }
 
