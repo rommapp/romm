@@ -45,7 +45,7 @@ class TestUpdateLaunchboxMetadataTask:
         """Test task initialization with correct parameters"""
         assert (
             task.func
-            == "tasks.update_launchbox_metadata.update_launchbox_metadata_task.run"
+            == "tasks.scheduled.update_launchbox_metadata.update_launchbox_metadata_task.run"
         )
         assert task.description == "Updates the LaunchBox metadata store"
         assert task.url == "https://gamesdb.launchbox-app.com/Metadata.zip"
