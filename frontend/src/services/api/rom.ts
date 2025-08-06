@@ -14,6 +14,9 @@ import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "
 
 export const romApi = api;
 
+const DOWNLOAD_CLEANUP_DELAY = 100;
+const DOWNLOAD_INTERVAL_DELAY = 300;
+
 async function uploadRoms({
   platformId,
   filesToUpload,
@@ -185,7 +188,6 @@ async function searchRom({
   });
 }
 
-// Used only for multi-file downloads
 async function downloadRom({
   rom,
   fileIDs = [],
@@ -193,12 +195,30 @@ async function downloadRom({
   rom: SimpleRom;
   fileIDs?: number[];
 }) {
-  const a = document.createElement("a");
-  a.href = getDownloadPath({ rom, fileIDs });
+  return new Promise<void>((resolve) => {
+    const a = document.createElement("a");
+    a.href = getDownloadPath({ rom, fileIDs });
+    a.style.display = "none";
 
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      resolve();
+    }, DOWNLOAD_CLEANUP_DELAY);
+  });
+}
+
+async function bulkDownloadRoms({ roms }: { roms: SimpleRom[] }) {
+  if (roms.length === 0) return;
+
+  for (let i = 0; i < roms.length; i++) {
+    await downloadRom({ rom: roms[i] });
+    await new Promise((resolve) =>
+      setTimeout(resolve, DOWNLOAD_INTERVAL_DELAY),
+    );
+  }
 }
 
 export type UpdateRom = SimpleRom & {
@@ -312,6 +332,7 @@ export default {
   getRecentPlayedRoms,
   getRom,
   downloadRom,
+  bulkDownloadRoms,
   searchRom,
   updateRom,
   uploadManuals,
