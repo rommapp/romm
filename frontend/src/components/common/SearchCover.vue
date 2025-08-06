@@ -117,7 +117,6 @@ onBeforeUnmount(() => {
     empty-state-type="game"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
-    :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>
