@@ -73,56 +73,68 @@ class TestPeriodicTask:
 
     @patch.object(ConcretePeriodicTask, "_get_existing_job")
     @patch.object(ConcretePeriodicTask, "schedule")
+    @patch.object(ConcretePeriodicTask, "unschedule")
     def test_init_enabled_no_existing_job(
-        self, mock_schedule, mock_get_existing_job, task
+        self, mock_unschedule, mock_schedule, mock_get_existing_job, task
     ):
         """Test init when task is enabled and no existing job"""
+        mock_job = MagicMock(spec=Job)
         mock_get_existing_job.return_value = None
-        mock_schedule.return_value = "scheduled"
+        mock_schedule.return_value = mock_job
 
         result = task.init()
 
         mock_schedule.assert_called_once()
-        assert result == "scheduled"
+        mock_unschedule.assert_not_called()
+        assert result == mock_job
 
     @patch.object(ConcretePeriodicTask, "_get_existing_job")
+    @patch.object(ConcretePeriodicTask, "schedule")
     @patch.object(ConcretePeriodicTask, "unschedule")
     def test_init_disabled_with_existing_job(
-        self, mock_unschedule, mock_get_existing_job, disabled_task
+        self, mock_unschedule, mock_schedule, mock_get_existing_job, disabled_task
     ):
         """Test init when task is disabled but has existing job"""
-        mock_job = MagicMock()
+        mock_job = MagicMock(spec=Job)
         mock_get_existing_job.return_value = mock_job
-        mock_unschedule.return_value = "unscheduled"
+        mock_unschedule.return_value = None
 
         result = disabled_task.init()
 
         mock_unschedule.assert_called_once()
-        assert result == "unscheduled"
+        mock_schedule.assert_not_called()
+        assert result is None
 
     @patch.object(ConcretePeriodicTask, "_get_existing_job")
-    def test_init_enabled_with_existing_job(self, mock_get_existing_job, task):
+    @patch.object(ConcretePeriodicTask, "schedule")
+    @patch.object(ConcretePeriodicTask, "unschedule")
+    def test_init_enabled_with_existing_job(
+        self, mock_unschedule, mock_schedule, mock_get_existing_job, task
+    ):
         """Test init when task is enabled and job already exists"""
-        mock_job = MagicMock()
+        mock_job = MagicMock(spec=Job)
         mock_get_existing_job.return_value = mock_job
 
         result = task.init()
 
+        mock_schedule.assert_not_called()
+        mock_unschedule.assert_not_called()
         assert result is None  # Should do nothing
 
     @patch.object(ConcretePeriodicTask, "_get_existing_job")
     @patch.object(tasks_scheduler, "cron")
     def test_schedule_success(self, mock_cron, mock_get_existing_job, task):
         """Test successful scheduling"""
+        mock_job = MagicMock(spec=Job)
         mock_get_existing_job.return_value = None
-        mock_cron.return_value = "scheduled_job"
+        mock_cron.return_value = mock_job
 
         result = task.schedule()
 
         mock_cron.assert_called_once_with(
             "0 0 * * *", func="test.function", repeat=None
         )
-        assert result == "scheduled_job"
+        assert result == mock_job
 
     def test_schedule_not_enabled(self, disabled_task):
         """Test scheduling when task is not enabled"""
@@ -164,7 +176,7 @@ class TestPeriodicTask:
         self, mock_log, mock_cancel, mock_get_existing_job, task
     ):
         """Test successful unscheduling"""
-        mock_job = MagicMock()
+        mock_job = MagicMock(spec=Job)
         mock_get_existing_job.return_value = mock_job
 
         task.unschedule()
@@ -222,7 +234,7 @@ class TestRemoteFilePullTask:
     async def test_run_success(self, mock_log, mock_ctx_httpx_client, task):
         """Test successful remote file pull"""
         mock_client = AsyncMock()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.content = b"test content"
         mock_client.get.return_value = mock_response
         mock_ctx_httpx_client.get.return_value = mock_client
@@ -291,7 +303,7 @@ class TestRemoteFilePullTask:
     async def test_run_disabled_but_forced(self, mock_ctx_httpx_client, disabled_task):
         """Test run when task is disabled but forced"""
         mock_client = AsyncMock()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.content = b"forced content"
         mock_client.get.return_value = mock_response
         mock_ctx_httpx_client.get.return_value = mock_client
