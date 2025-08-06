@@ -40,7 +40,7 @@ def migrate_to_supported_engine() -> None:
 
     # Skip if sqlite database is not mounted
     if not os.path.exists(f"{SQLITE_DB_BASE_PATH}/romm.db"):
-        return
+        return None
 
     engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
     session = sessionmaker(bind=engine, expire_on_commit=False)

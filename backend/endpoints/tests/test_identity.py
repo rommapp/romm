@@ -5,6 +5,7 @@ from unittest import mock
 
 import pytest
 from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
+from fastapi import status
 from fastapi.testclient import TestClient
 from handler.auth import oauth_handler
 from handler.database.users_handler import DBUsersHandler
@@ -28,28 +29,26 @@ def clear_cache():
 def test_login_logout(client, admin_user):
     response = client.get("/api/login")
 
-    assert response.status_code == 405
+    assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
     basic_auth = base64.b64encode(b"test_admin:test_admin_password").decode("ascii")
     response = client.post(
         "/api/login", headers={"Authorization": f"Basic {basic_auth}"}
     )
 
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.cookies.get("romm_session")
-    assert response.json()["msg"] == "Successfully logged in"
 
     response = client.post("/api/logout")
 
-    assert response.status_code == 200
-    assert response.json()["msg"] == "Successfully logged out"
+    assert response.status_code == status.HTTP_200_OK
 
 
 def test_get_all_users(client, access_token):
     response = client.get(
         "/api/users", headers={"Authorization": f"Bearer {access_token}"}
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     users = response.json()
     assert len(users) == 1
@@ -61,7 +60,7 @@ def test_get_user(client, access_token, editor_user):
         f"/api/users/{editor_user.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     user = response.json()
     assert user["username"] == "test_editor"
@@ -158,7 +157,7 @@ def test_update_user(client, access_token, editor_user):
         data={"username": "editor_user_new_username", "role": "viewer"},
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     user = response.json()
     assert user["role"] == "viewer"
@@ -169,7 +168,4 @@ def test_delete_user(client, access_token, editor_user):
         f"/api/users/{editor_user.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    assert response.status_code == 200
-
-    body = response.json()
-    assert body["msg"] == "User successfully deleted"
+    assert response.status_code == status.HTTP_200_OK

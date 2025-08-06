@@ -46,7 +46,11 @@ const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
     galleryFilterStore.setFilterMissing(true);
-    romsStore.fetchRoms(galleryFilterStore, false);
+    romsStore.fetchRoms({
+      galleryFilter: galleryFilterStore,
+      groupRoms: false,
+      concat: false,
+    });
 
     const url = new URL(window.location.href);
     // Update URL with filters
@@ -66,7 +70,7 @@ const onFilterChange = debounce(
   500,
   // If leading and trailing options are true, this is invoked on the trailing edge of
   // the timeout only if the the function is invoked more than once during the wait
-  { leading: true, trailing: true },
+  { leading: false, trailing: true },
 );
 
 async function fetchRoms() {
@@ -79,7 +83,7 @@ async function fetchRoms() {
 
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms(galleryFilterStore, false)
+    .fetchRoms({ galleryFilter: galleryFilterStore, groupRoms: false })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
@@ -107,13 +111,22 @@ function cleanupAll() {
   romsStore.setLimit(MAX_FETCH_LIMIT);
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms(galleryFilterStore, false)
+    .fetchRoms({ galleryFilter: galleryFilterStore, groupRoms: false })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
         scrim: false,
       });
-      emitter?.emit("showDeleteRomDialog", romsStore.filteredRoms);
+      if (filteredRoms.value.length > 0) {
+        emitter?.emit("showDeleteRomDialog", filteredRoms.value);
+      } else {
+        emitter?.emit("snackbarShow", {
+          msg: "No missing ROMs to delete",
+          icon: "mdi-close-circle",
+          color: "red",
+          timeout: 4000,
+        });
+      }
     })
     .catch((error) => {
       console.error("Error fetching missing games:", error);

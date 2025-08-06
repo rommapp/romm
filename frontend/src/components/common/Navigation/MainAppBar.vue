@@ -11,18 +11,13 @@ import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import storeNavigation from "@/stores/navigation";
-import storePlaying from "@/stores/playing";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
 const { mainBarCollapsed } = storeToRefs(navigationStore);
-const playingStore = storePlaying();
-const { playing, fullScreen } = storeToRefs(playingStore);
 
-// Functions
 function collapse() {
   mainBarCollapsed.value = !mainBarCollapsed.value;
   localStorage.setItem(
@@ -33,7 +28,7 @@ function collapse() {
 </script>
 <template>
   <!-- Mobile top bar -->
-  <template v-if="smAndDown && (!playing || (playing && !fullScreen))">
+  <template v-if="smAndDown">
     <v-app-bar
       elevation="0"
       class="bg-background justify-center px-1"
@@ -66,7 +61,7 @@ function collapse() {
 
   <!-- Desktop app side bar -->
   <v-navigation-drawer
-    v-if="!smAndDown && (!playing || (playing && !fullScreen))"
+    v-if="!smAndDown"
     permanent
     rail
     :rail-width="mainBarCollapsed ? 60 : 90"

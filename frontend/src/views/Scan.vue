@@ -14,7 +14,6 @@ import { useI18n } from "vue-i18n";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 
-// Props
 const { t } = useI18n();
 const { xs, smAndDown } = useDisplay();
 const scanningStore = storeScanning();
@@ -112,7 +111,6 @@ socket.on("scan:done", (stats) => {
   scanStats.value = stats;
 });
 
-// TODO: fix abort scan
 async function stopScan() {
   socket.emit("scan:stop");
 }
@@ -125,7 +123,7 @@ async function stopScan() {
       <!-- TODO: add 'ALL' default option -->
       <v-select
         v-model="platformsToScan"
-        :items="platforms.allPlatforms"
+        :items="platforms.filteredPlatforms"
         :menu-props="{ maxHeight: 650 }"
         :label="t('common.platforms')"
         item-title="name"
@@ -291,17 +289,16 @@ async function stopScan() {
     >
       {{ t("scan.manage-library") }}
     </v-btn>
-  </v-row>
-
-  <v-row
-    v-if="metadataSources.length == 0"
-    no-gutters
-    class="mt-3 justify-center"
-  >
-    <v-list-item class="text-caption text-yellow py-0">
-      <v-icon>mdi-alert</v-icon
-      ><span class="ml-2">{{ t("scan.select-one-source") }}</span>
-    </v-list-item>
+    <v-alert
+      v-if="metadataSources.length == 0"
+      type="warning"
+      icon="mdi-alert"
+      variant="tonal"
+      class="mx-4"
+      density="compact"
+    >
+      <span>{{ t("scan.select-one-source") }}</span>
+    </v-alert>
   </v-row>
 
   <v-divider

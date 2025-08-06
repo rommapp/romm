@@ -1,5 +1,6 @@
 import pytest
 from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
+from fastapi import status
 from fastapi.exceptions import HTTPException
 from fastapi.testclient import TestClient
 from handler.auth.constants import EDIT_SCOPES
@@ -20,7 +21,7 @@ def test_refreshing_oauth_token_basic(client, refresh_token):
             "refresh_token": refresh_token,
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
     assert body["access_token"]
@@ -37,7 +38,7 @@ def test_refreshing_oauth_token_without_refresh_token(client):
             },
         )
     except HTTPException as e:
-        assert e.status_code == 400
+        assert e.status_code == status.HTTP_400_BAD_REQUEST
         assert e.detail == "Missing refresh token"
 
 
@@ -51,7 +52,7 @@ def test_refreshing_oauth_token_with_invalid_refresh_token(client):
             },
         )
     except HTTPException as e:
-        assert e.status_code == 400
+        assert e.status_code == status.HTTP_400_BAD_REQUEST
         assert e.detail == "Invalid refresh token"
 
 
@@ -64,7 +65,7 @@ def test_auth_via_upass(client, admin_user):
             "password": "test_admin_password",
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
     assert body["access_token"]
@@ -84,7 +85,7 @@ def test_auth_via_upass_with_invalid_credentials(client, admin_user):
             },
         )
     except HTTPException as e:
-        assert e.status_code == 401
+        assert e.status_code == status.HTTP_401_UNAUTHORIZED
         assert e.detail == "Invalid username or password"
 
 
@@ -100,7 +101,7 @@ def test_auth_via_upass_with_excess_scopes(client, viewer_user):
             },
         )
     except HTTPException as e:
-        assert e.status_code == 403
+        assert e.status_code == status.HTTP_403_FORBIDDEN
         assert e.detail == "Insufficient scope"
 
 
@@ -113,5 +114,5 @@ def test_auth_with_invalid_grant_type(client):
             },
         )
     except HTTPException as e:
-        assert e.status_code == 400
+        assert e.status_code == status.HTTP_400_BAD_REQUEST
         assert e.detail == "Invalid or unsupported grant type"

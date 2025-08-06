@@ -104,12 +104,12 @@ async def _identify_firmware(
     return scan_stats
 
 
-def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) -> bool:
+def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[int]) -> bool:
     """Decide if a rom should be scanned or not
 
     Args:
         scan_type (str): Type of scan to be performed.
-        roms_ids (list[str], optional): List of selected roms to be scanned.
+        roms_ids (list[int], optional): List of selected roms to be scanned.
         metadata_sources (list[str], optional): List of metadata sources to be used
     """
 
@@ -123,7 +123,7 @@ def _should_scan_rom(scan_type: ScanType, rom: Rom | None, roms_ids: list[str]) 
             and (
                 (scan_type == ScanType.UNIDENTIFIED and rom.is_unidentified)
                 or (scan_type == ScanType.PARTIAL and rom.is_identified)
-                or (str(rom.id) in roms_ids)
+                or (rom.id in roms_ids)
             )
         )
     )
@@ -140,7 +140,7 @@ async def _identify_rom(
     fs_rom: FSRom,
     rom: Rom | None,
     scan_type: ScanType,
-    roms_ids: list[str],
+    roms_ids: list[int],
     metadata_sources: list[str],
     socket_manager: socketio.AsyncRedisManager,
 ) -> ScanStats:
@@ -317,7 +317,7 @@ async def _identify_platform(
     platform_slug: str,
     scan_type: ScanType,
     fs_platforms: list[str],
-    roms_ids: list[str],
+    roms_ids: list[int],
     metadata_sources: list[str],
     socket_manager: socketio.AsyncRedisManager,
 ) -> ScanStats:
@@ -432,7 +432,7 @@ async def _identify_platform(
 async def scan_platforms(
     platform_ids: list[int],
     scan_type: ScanType = ScanType.QUICK,
-    roms_ids: list[str] | None = None,
+    roms_ids: list[int] | None = None,
     metadata_sources: list[str] | None = None,
 ):
     """Scan all the listed platforms and fetch metadata from different sources
@@ -440,7 +440,7 @@ async def scan_platforms(
     Args:
         platform_slugs (list[str]): List of platform slugs to be scanned
         scan_type (str): Type of scan to be performed. Defaults to "quick".
-        roms_ids (list[str], optional): List of selected roms to be scanned. Defaults to [].
+        roms_ids (list[int], optional): List of selected roms to be scanned. Defaults to [].
         metadata_sources (list[str], optional): List of metadata sources to be used. Defaults to all sources.
     """
 
@@ -452,14 +452,14 @@ async def scan_platforms(
     if not metadata_sources:
         log.error("No metadata sources provided")
         await sm.emit("scan:done_ko", "No metadata sources provided")
-        return
+        return None
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
-        return
+        return None
 
     scan_stats = ScanStats()
 
@@ -508,7 +508,6 @@ async def scan_platforms(
         await sm.emit("scan:done", scan_stats.__dict__)
     except ScanStoppedException:
         await stop_scan()
-        return
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client

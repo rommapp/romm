@@ -13,7 +13,6 @@ import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const userSearch = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
@@ -171,6 +170,7 @@ onMounted(() => {
           <v-btn-group divided density="compact" variant="text">
             <v-btn
               size="small"
+              :title="t('settings.edit-user')"
               @click="emitter?.emit('showEditUserDialog', item)"
             >
               <v-icon>mdi-pencil</v-icon>

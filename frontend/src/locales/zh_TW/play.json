@@ -12,9 +12,9 @@
   "select-save": "選擇存檔",
   "change-save": "更改存檔",
   "deselect-save": "取消選擇存檔",
-  "select-state": "選擇狀態",
-  "change-state": "更改狀態",
-  "deselect-state": "取消選擇狀態",
+  "select-state": "選擇即時存檔",
+  "change-state": "更改即時存檔",
+  "deselect-state": "取消選擇即時存檔",
   "background-color": "背景顏色",
   "select-background-color": "選擇背景顏色"
 }

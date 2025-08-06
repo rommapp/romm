@@ -8,7 +8,6 @@ import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 
-// Props
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filledPlatforms } = storeToRefs(platformsStore);

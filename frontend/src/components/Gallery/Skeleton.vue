@@ -3,7 +3,6 @@ import { views } from "@/utils";
 import { storeToRefs } from "pinia";
 import storeGalleryView from "@/stores/galleryView";
 
-// Props
 const galleryViewStore = storeGalleryView();
 const { currentView } = storeToRefs(galleryViewStore);
 </script>

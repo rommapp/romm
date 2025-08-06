@@ -1,6 +1,7 @@
 from base64 import b64encode
 
 import pytest
+from fastapi import status
 from fastapi.exceptions import HTTPException
 from handler.auth import auth_handler, oauth_handler
 from handler.auth.constants import EDIT_SCOPES
@@ -51,7 +52,7 @@ async def test_get_current_active_user_from_session_bad_username(editor_user: Us
     try:
         await auth_handler.get_current_active_user_from_session(conn)
     except HTTPException as e:
-        assert e.status_code == 403
+        assert e.status_code == status.HTTP_403_FORBIDDEN
         assert e.detail == "User not found"
 
 
@@ -69,7 +70,7 @@ async def test_get_current_active_user_from_session_disabled_user(editor_user: U
     try:
         await auth_handler.get_current_active_user_from_session(conn)
     except HTTPException as e:
-        assert e.status_code == 403
+        assert e.status_code == status.HTTP_403_FORBIDDEN
         assert e.detail == "Inactive user test_editor"
 
 

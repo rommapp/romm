@@ -13,7 +13,6 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const router = useRouter();
 const { lgAndUp } = useDisplay();
@@ -28,7 +27,6 @@ emitter?.on("showDeletePlatformDialog", (platformToDelete) => {
   show.value = true;
 });
 
-// Functions
 async function deletePlatform() {
   if (!platform.value) return;
 
@@ -37,7 +35,7 @@ async function deletePlatform() {
     .deletePlatform({ platform: platform.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: "Platform deleted",
         icon: "mdi-check-bold",
         color: "green",
       });

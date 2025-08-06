@@ -17,7 +17,6 @@ import type { Emitter } from "mitt";
 import { computed, inject, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 
-// Props
 const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
 const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();

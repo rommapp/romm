@@ -6,7 +6,6 @@ import { inject, ref, onBeforeMount } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
@@ -17,7 +16,6 @@ const email = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
 
-// Functions
 function register() {
   userApi
     .registerUser(username.value, email.value, password.value, token)

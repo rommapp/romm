@@ -22,7 +22,6 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { debounce } from "lodash";
 
-// Props
 withDefaults(
   defineProps<{
     showPlayablesFilter?: boolean;
@@ -73,13 +72,13 @@ const {
   filterLanguages,
 } = storeToRefs(galleryFilterStore);
 const { filteredRoms } = storeToRefs(romsStore);
-const { allPlatforms } = storeToRefs(platformsStore);
+const { filteredPlatforms } = storeToRefs(platformsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 
 const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
-    romsStore.fetchRoms(galleryFilterStore, false);
+    romsStore.fetchRoms({ galleryFilter: galleryFilterStore, concat: false });
 
     const url = new URL(window.location.href);
     // Update URL with filters
@@ -116,7 +115,7 @@ const onFilterChange = debounce(
   500,
   // If leading and trailing options are true, this is invoked on the trailing edge of
   // the timeout only if the the function is invoked more than once during the wait
-  { leading: true, trailing: true },
+  { leading: false, trailing: true },
 );
 
 emitter?.on("filterRoms", onFilterChange);
@@ -164,7 +163,6 @@ const filters = [
   },
 ];
 
-// Functions
 function resetFilters() {
   galleryFilterStore.resetFilters();
   nextTick(() => emitter?.emit("filterRoms", null));
@@ -234,12 +232,6 @@ onMounted(async () => {
     status: urlStatus,
   } = router.currentRoute.value.query;
 
-  // Check if search term is set in the URL (empty string is ok)
-  if (urlSearch !== undefined && urlSearch !== searchTerm.value) {
-    searchTerm.value = urlSearch as string;
-    romsStore.resetPagination();
-  }
-
   // Check for query params to set filters
   if (urlFilteredMatch !== undefined) {
     galleryFilterStore.setFilterMatched(true);
@@ -294,6 +286,18 @@ onMounted(async () => {
     galleryFilterStore.setSelectedFilterStatus(urlStatus as string);
   }
 
+  // Check if search term is set in the URL (empty string is ok)
+  const freshSearch = urlSearch !== undefined && urlSearch !== searchTerm.value;
+  if (freshSearch) {
+    searchTerm.value = urlSearch as string;
+    romsStore.resetPagination();
+  }
+
+  // Fire off search if URL state prepopulated
+  if (freshSearch || galleryFilterStore.isFiltered()) {
+    emitter?.emit("filterRoms", null);
+  }
+
   watch(
     () => filteredRoms.value,
     async () => setFilters(),
@@ -301,7 +305,7 @@ onMounted(async () => {
   );
 
   watch(
-    () => allPlatforms.value,
+    () => filteredPlatforms.value,
     async () => setFilters(),
     { immediate: true }, // Ensure watcher is triggered immediately
   );

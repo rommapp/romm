@@ -15,7 +15,6 @@ import { inject, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
@@ -33,7 +32,6 @@ const { favoriteCollection } = storeToRefs(collectionsStore);
 const route = useRoute();
 const heartbeat = storeHeartbeat();
 
-// Functions
 function scrollToTop() {
   window.scrollTo({
     top: 0,
@@ -131,12 +129,8 @@ async function removeFromFavourites() {
     });
 }
 
-function onDownload() {
-  romsStore.selectedRoms.forEach((rom, index) => {
-    setTimeout(() => {
-      romApi.downloadRom({ rom });
-    }, index * 100); // Prevents the download from being blocked by the browser
-  });
+async function onDownload() {
+  await romApi.bulkDownloadRoms({ roms: romsStore.selectedRoms });
 }
 </script>
 

@@ -13,7 +13,6 @@ import { get } from "lodash";
 import storeHeartbeat from "@/stores/heartbeat";
 import { storeToRefs } from "pinia";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const { xs } = useDisplay();
@@ -94,7 +93,6 @@ const coverImageSource = computed(() => {
   }
 });
 
-// Functions
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "search",
@@ -168,7 +166,7 @@ function onFilterClick(filter: FilterType, value: string) {
       >
         <v-row no-gutters class="mt-5">
           <v-col cols="3" xl="2" class="text-capitalize">
-            <span>Age Rating</span>
+            <span>{{ t("rom.age-rating") }}</span>
           </v-col>
           <div class="d-flex" :class="{ 'my-2': xs }">
             <v-img

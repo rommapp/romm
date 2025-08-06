@@ -1,8 +1,4 @@
-import type {
-  MessageResponse,
-  UserSchema,
-  InviteLinkSchema,
-} from "@/__generated__";
+import type { UserSchema, InviteLinkSchema } from "@/__generated__";
 import api from "@/services/api/index";
 import type { User } from "@/stores/users";
 
@@ -35,7 +31,7 @@ async function registerUser(
   email: string,
   password: string,
   token: string,
-): Promise<{ data: MessageResponse }> {
+): Promise<{ data: UserSchema }> {
   return api.post("/users/register", { username, email, password, token });
 }
 
@@ -80,15 +76,11 @@ async function updateUser({
   );
 }
 
-async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
+async function deleteUser(user: User) {
   return api.delete(`/users/${user.id}`);
 }
 
-async function refreshRetroAchievements({
-  id,
-}: {
-  id: number;
-}): Promise<{ data: MessageResponse }> {
+async function refreshRetroAchievements({ id }: { id: number }) {
   return api.post(`/users/${id}/ra/refresh`);
 }
 

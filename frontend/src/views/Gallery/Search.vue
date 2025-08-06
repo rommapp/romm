@@ -19,7 +19,6 @@ import { useRouter } from "vue-router";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-// Props
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
@@ -115,7 +114,7 @@ function onGameTouchEnd() {
 
 function fetchRoms() {
   romsStore
-    .fetchRoms(galleryFilterStore)
+    .fetchRoms({ galleryFilter: galleryFilterStore })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
         msg: `Couldn't fetch roms: ${error}`,
@@ -144,7 +143,6 @@ function onScroll() {
 }
 
 onMounted(async () => {
-  emitter?.emit("filterRoms", null);
   scrolledToTop.value = true;
   window.addEventListener("scroll", onScroll);
 });

@@ -15,9 +15,8 @@ import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { getMissingCoverImage } from "@/utils/covers";
 
-// Props
 const { t } = useI18n();
-const { lgAndUp, smAndDown } = useDisplay();
+const { lgAndUp } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
@@ -51,7 +50,6 @@ const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
 
-// Functions
 function triggerFileInput(id: string) {
   const fileInput = document.getElementById(id);
   fileInput?.click();

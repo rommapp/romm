@@ -51,7 +51,6 @@ const enable3DEffect = ref(
 );
 let timeout: ReturnType<typeof setTimeout>;
 
-// Functions
 async function fetchRoms() {
   if (fetchingRoms.value) return;
   emitter?.emit("showLoadingDialog", {
@@ -60,7 +59,7 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms(galleryFilterStore)
+    .fetchRoms({ galleryFilter: galleryFilterStore })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,

@@ -1,6 +1,7 @@
 {
   "continue-playing-as-grid": "顯示繼續遊玩卡片",
   "continue-playing-as-grid-desc": "在首頁上以卡片方式顯示繼續遊玩",
+  "edit-user": "編輯用戶",
   "email": "電子郵件",
   "enable-3d-effect": "啟用 3D 效果",
   "enable-3d-effect-desc": "為遊戲、平台及收藏卡片啟用 3D 效果",
@@ -20,6 +21,7 @@
   "language": "語言",
   "main-platform": "主平台",
   "password": "密碼",
+  "password-placeholder": "留空以保持當前密碼",
   "platforms-drawer": "平台選單",
   "platforms-drawer-group-by": "分組方式",
   "platform-version": "平台版本",

@@ -14,7 +14,6 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const navigationStore = storeNavigation();
 const router = useRouter();
@@ -25,14 +24,13 @@ const { activeSettingsDrawer } = storeToRefs(navigationStore);
 const { smAndDown, mdAndUp } = useDisplay();
 const tabIndex = computed(() => (activeSettingsDrawer.value ? 0 : -1));
 
-// Functions
 async function logout() {
-  identityApi.logout().then(async ({ data }) => {
+  identityApi.logout().then(async () => {
     // Refetch CSRF token
     await refetchCSRFToken();
 
     emitter?.emit("snackbarShow", {
-      msg: data.msg,
+      msg: "Logged out successfully",
       icon: "mdi-check-bold",
       color: "green",
     });
@@ -94,11 +92,9 @@ function onClose() {
         </v-img>
       </v-list-img>
       <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
-        <template #subtitle>
-          <v-list-item-subtitle v-if="user?.role">
-            {{ user.role }}
-            <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
-          </v-list-item-subtitle>
+        <template v-if="user?.role" #subtitle>
+          <span class="mr-1">{{ user.role }}</span>
+          <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
         </template>
       </v-list-item>
     </v-list>
