@@ -13,7 +13,6 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
@@ -128,14 +127,6 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     } else {
       romsStore.updateLastSelected(index);
     }
-  } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
-    const link = router.resolve({
-      name: ROUTES.ROM,
-      params: { rom: emitData.rom.id },
-    });
-    window.open(link.href, "_blank");
-  } else {
-    router.push({ name: ROUTES.ROM, params: { rom: emitData.rom.id } });
   }
 }
 
