@@ -1,0 +1,20 @@
+{
+  "back-to-gallery": "返回遊戲庫",
+  "back-to-game-details": "返回遊戲詳情",
+  "clear-cache": "清除 EmulatorJS 快取",
+  "clear-cache-description": "不會影響伺服器上儲存的任何存檔和狀態。",
+  "clear-cache-title": "您確定要清除 EmulatorJS 快取嗎？",
+  "clear-cache-warning": "將刪除瀏覽器中儲存的所有存檔和狀態。",
+  "full-screen": "全螢幕",
+  "play": "遊玩",
+  "quit": "退出",
+  "save-and-quit": "保存並退出",
+  "select-save": "選擇存檔",
+  "change-save": "更改存檔",
+  "deselect-save": "取消選擇存檔",
+  "select-state": "選擇即時存檔",
+  "change-state": "更改即時存檔",
+  "deselect-state": "取消選擇即時存檔",
+  "background-color": "背景顏色",
+  "select-background-color": "選擇背景顏色"
+}

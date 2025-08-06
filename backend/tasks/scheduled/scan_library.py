@@ -32,17 +32,17 @@ class ScanLibraryTask(PeriodicTask):
             self.unschedule()
             return
 
-        source_mapping = {
-            IGDB_API_ENABLED: MetadataSource.IGDB,
-            SS_API_ENABLED: MetadataSource.SS,
-            MOBY_API_ENABLED: MetadataSource.MOBY,
-            RA_API_ENABLED: MetadataSource.RA,
-            LAUNCHBOX_API_ENABLED: MetadataSource.LB,
-            HASHEOUS_API_ENABLED: MetadataSource.HASHEOUS,
-            STEAMGRIDDB_API_ENABLED: MetadataSource.SGDB,
+        source_mapping: dict[str, bool] = {
+            MetadataSource.IGDB: IGDB_API_ENABLED,
+            MetadataSource.SS: SS_API_ENABLED,
+            MetadataSource.MOBY: MOBY_API_ENABLED,
+            MetadataSource.RA: RA_API_ENABLED,
+            MetadataSource.LB: LAUNCHBOX_API_ENABLED,
+            MetadataSource.HASHEOUS: HASHEOUS_API_ENABLED,
+            MetadataSource.SGDB: STEAMGRIDDB_API_ENABLED,
         }
 
-        metadata_sources = [source for flag, source in source_mapping.items() if flag]
+        metadata_sources = [source for source, flag in source_mapping.items() if flag]
         if not metadata_sources:
             log.warning("No metadata sources enabled, unscheduling library scan")
             self.unschedule()

@@ -21,7 +21,7 @@
   "roms-scanned-with-details": "Roms: {n_roms} gescannt, dabei {n_added_roms} neue und {n_identified_roms} identifizierte",
   "scan": "Scannen",
   "scan-options": "Scan-Optionen",
-  "select-one-source": "Bitte wähle mindestens eine Metadatenquelle, wenn du die Bibliothek mit Cover-Artworks und Metadaten anreichern möchten",
+  "select-one-source": "Bitte wähle mindestens eine Metadatenquelle, wenn du die Bibliothek mit Cover-Artworks und Metadaten anreichern möchtest",
   "unidentified-games": "Unidentifizierte Spiele",
   "unidentified-games-desc": "Scanne Spiele ohne Metadaten"
 }

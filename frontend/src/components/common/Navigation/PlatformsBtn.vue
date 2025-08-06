@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 
 withDefaults(
   defineProps<{
@@ -16,6 +17,7 @@ withDefaults(
     withTag: false,
   },
 );
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
 </script>
@@ -40,7 +42,7 @@ const { activePlatformsDrawer } = storeToRefs(navigationStore);
           v-if="withTag"
           class="text-caption text-center"
           :class="{ 'text-primary': $route.name == 'platform' }"
-          >Platforms</span
+          >{{ t("common.platforms") }}</span
         >
       </v-expand-transition>
     </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import storeNavigation from "@/stores/navigation";
+import { useI18n } from "vue-i18n";
 
 withDefaults(
   defineProps<{
@@ -15,6 +16,7 @@ withDefaults(
     withTag: false,
   },
 );
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 </script>
 <template>
@@ -37,7 +39,7 @@ const navigationStore = storeNavigation();
           v-if="withTag"
           class="text-caption text-center"
           :class="{ 'text-primary': $route.name == 'search' }"
-          >Search</span
+          >{{ t("common.search") }}</span
         >
       </v-expand-transition>
     </div>

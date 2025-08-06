@@ -1,5 +1,5 @@
 import asyncio
-from enum import Enum
+import enum
 from typing import Any
 
 import emoji
@@ -38,7 +38,8 @@ from models.user import User
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
 
-class ScanType(Enum):
+@enum.unique
+class ScanType(enum.StrEnum):
     NEW_PLATFORMS = "new_platforms"
     QUICK = "quick"
     UNIDENTIFIED = "unidentified"
@@ -47,7 +48,8 @@ class ScanType(Enum):
     HASHES = "hashes"
 
 
-class MetadataSource:
+@enum.unique
+class MetadataSource(enum.StrEnum):
     IGDB = "igdb"  # IGDB
     MOBY = "moby"  # MobyGames
     SS = "ss"  # Screenscraper

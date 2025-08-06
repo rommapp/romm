@@ -3,6 +3,7 @@ import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
+import { useI18n } from "vue-i18n";
 
 withDefaults(
   defineProps<{
@@ -18,6 +19,7 @@ withDefaults(
     withTag: false,
   },
 );
+const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
 </script>
@@ -36,7 +38,9 @@ const auth = storeAuth();
     <div class="d-flex flex-column align-center">
       <v-icon>mdi-cloud-upload-outline</v-icon>
       <v-expand-transition>
-        <span v-if="withTag" class="text-caption text-center">Upload</span>
+        <span v-if="withTag" class="text-caption text-center">{{
+          t("common.upload")
+        }}</span>
       </v-expand-transition>
     </div>
   </v-btn>
