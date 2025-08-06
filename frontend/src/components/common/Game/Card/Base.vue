@@ -11,11 +11,13 @@ import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
-import { computed, ref, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { isNull } from "lodash";
 import { useDisplay } from "vuetify";
 import VanillaTilt from "vanilla-tilt";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 
 const props = withDefaults(
   defineProps<{
@@ -57,6 +59,7 @@ const props = withDefaults(
 const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const romsStore = storeRoms();
+const emitter = inject<Emitter<Events>>("emitter");
 const emit = defineEmits([
   "hover",
   "openedmenu",
@@ -111,6 +114,15 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   ? true
   : localStorage.getItem("settings.showSiblings") === "true";
 
+const hasNotes = computed(() => {
+  debugger;
+  if (!romsStore.isSimpleRom(props.rom)) return false;
+  return (
+    props.rom.rom_user?.note_raw_markdown &&
+    props.rom.rom_user.note_raw_markdown.trim().length > 0
+  );
+});
+
 // Tilt 3D effect logic
 interface TiltHTMLElement extends HTMLElement {
   vanillaTilt?: {
@@ -119,6 +131,13 @@ interface TiltHTMLElement extends HTMLElement {
 }
 
 const tiltCard = ref<TiltHTMLElement | null>(null);
+
+const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
+  event.preventDefault();
+  if (romsStore.isSimpleRom(props.rom)) {
+    emitter?.emit("showNoteDialog", props.rom);
+  }
+};
 
 onMounted(() => {
   if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
@@ -290,6 +309,15 @@ onBeforeUnmount(() => {
                     >
                       <v-icon>mdi-star</v-icon>
                     </v-chip>
+                    <v-chip
+                      v-if="hasNotes && showChips"
+                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      density="compact"
+                      title="View notes"
+                      @click.stop="showNoteDialog"
+                    >
+                      <v-icon>mdi-notebook</v-icon>
+                    </v-chip>
                   </v-col>
                 </v-row>
                 <div class="position-absolute append-inner-right">
@@ -375,5 +403,11 @@ onBeforeUnmount(() => {
 .append-inner-right {
   bottom: 0rem;
   right: 0rem;
+}
+
+/* Note icon hover effect */
+.v-chip:hover {
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
 }
 </style>
