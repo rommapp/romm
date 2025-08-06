@@ -40,23 +40,21 @@ class SGDBRom(TypedDict):
 class SGDBBaseHandler(MetadataHandler):
     def __init__(self) -> None:
         self.sgdb_service = SteamGridDBService()
-        # More conservative thresholds for better matching
         self.max_levenshtein_distance: Final = 2
         self.min_sequence_ratio: Final = 0.85
         self.min_token_overlap_ratio: Final = 0.7
+        self.min_similarity_score: Final = 0.75
 
-    def _calculate_title_similarity(self, search_term: str, game_name: str) -> float:
+    def _calculate_title_similarity(
+        self, search_normalized: str, game_name: str
+    ) -> float:
         """
         Calculate similarity between search term and game name using multiple metrics.
         Returns a score between 0 and 1, where 1 is a perfect match.
         """
-        # Normalize both strings for comparison
-        search_normalized = self.normalize_search_term(
-            search_term, remove_articles=False
-        )
         game_normalized = self.normalize_search_term(game_name, remove_articles=False)
 
-        # Exact match gets highest score
+        # Exact match gets the highest score
         if search_normalized == game_normalized:
             return 1.0
 
@@ -86,10 +84,7 @@ class SGDBBaseHandler(MetadataHandler):
         else:
             levenshtein_ratio = 1.0
 
-        # Weighted combination of metrics
         # Token overlap is most important for game titles
-        # Sequence similarity is good for overall similarity
-        # Levenshtein is least important but still useful
         final_score = (
             token_overlap_ratio * 0.5 + sequence_ratio * 0.3 + levenshtein_ratio * 0.2
         )
@@ -124,7 +119,6 @@ class SGDBBaseHandler(MetadataHandler):
                 log.debug(f"Could not find '{search_term}' on SteamGridDB")
                 continue
 
-            # Calculate similarity scores for all games
             game_scores = []
             for game in games:
                 similarity_score = self._calculate_title_similarity(
@@ -137,8 +131,7 @@ class SGDBBaseHandler(MetadataHandler):
 
             # Try the best matches within the threshold
             for game, score in game_scores:
-                # Use a more conservative threshold for better accuracy
-                if score >= 0.75:  # 75% similarity threshold
+                if score >= self.min_similarity_score:
                     game_details = await self._get_game_covers(
                         game_id=game["id"],
                         game_name=game["name"],
