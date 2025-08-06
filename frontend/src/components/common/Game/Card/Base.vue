@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
                       :key="rom.platform_slug"
                       :slug="rom.platform_slug"
                       :name="rom.platform_name"
-                      :fs-slug="rom.platform_slug"
+                      :fs-slug="rom.platform_fs_slug"
                       class="ml-1"
                     />
                   </v-col>
