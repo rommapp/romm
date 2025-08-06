@@ -2828,7 +2828,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/sega-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7w.jpg",
     },
-    UPS.SEGA_CD_32X: {
+    UPS.SEGACD32: {
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",
