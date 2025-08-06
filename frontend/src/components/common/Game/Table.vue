@@ -194,6 +194,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
             class="mr-4"
             :size="30"
             :slug="item.platform_slug"
+            :fs-slug="item.platform_fs_slug"
           />
           <r-avatar-rom :rom="item" />
         </template>
