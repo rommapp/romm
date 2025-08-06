@@ -18,7 +18,6 @@ import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { storeToRefs } from "pinia";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
@@ -47,7 +46,6 @@ const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
 
-// Functions
 async function copyDownloadLink(rom: DetailedRom) {
   const downloadLink = getDownloadLink({
     rom,

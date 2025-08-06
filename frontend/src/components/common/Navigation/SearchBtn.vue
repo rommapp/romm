@@ -2,7 +2,6 @@
 import storeNavigation from "@/stores/navigation";
 import { useI18n } from "vue-i18n";
 
-// Props
 withDefaults(
   defineProps<{
     block?: boolean;

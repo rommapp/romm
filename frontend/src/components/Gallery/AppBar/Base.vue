@@ -9,7 +9,6 @@ import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
 import ContextualRandomBtn from "@/components/Gallery/AppBar/common/ContextualRandomBtn.vue";
 import { calculateMainLayoutWidth } from "@/utils";
 
-// Props
 withDefaults(
   defineProps<{
     showPlayablesFilter?: boolean;

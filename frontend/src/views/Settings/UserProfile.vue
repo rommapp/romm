@@ -12,7 +12,6 @@ import { inject, ref, onMounted, onUnmounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
 
-// Props
 const { t } = useI18n();
 const auth = storeAuth();
 const { user } = storeToRefs(auth);
