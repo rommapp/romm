@@ -4,7 +4,6 @@ import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 
-// Props
 const romsStore = storeRoms();
 const { currentRom } = storeToRefs(romsStore);
 const missingCoverImage = computed(() =>

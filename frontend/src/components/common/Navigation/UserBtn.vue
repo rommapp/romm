@@ -5,7 +5,6 @@ import { defaultAvatarPath } from "@/utils";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
-// Props
 const auth = storeAuth();
 const navigationStore = storeNavigation();
 const { user } = storeToRefs(auth);

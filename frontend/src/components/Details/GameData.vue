@@ -6,7 +6,6 @@ import { ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 defineProps<{ rom: DetailedRom }>();
 const tab = ref<"saves" | "states">("saves");

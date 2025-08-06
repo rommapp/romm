@@ -7,7 +7,6 @@ import { useDisplay } from "vuetify";
 import VanillaTilt from "vanilla-tilt";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 
-// Props
 const props = withDefaults(
   defineProps<{
     collection: CollectionType;

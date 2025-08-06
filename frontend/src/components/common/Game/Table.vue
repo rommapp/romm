@@ -24,7 +24,6 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 
-// Props
 withDefaults(
   defineProps<{
     showPlatformIcon?: boolean;
@@ -100,7 +99,6 @@ const HEADERS = [
 
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
-// Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
   romsStore.resetSelection();

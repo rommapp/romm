@@ -20,7 +20,6 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 
-// Props
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
@@ -50,7 +49,6 @@ const enable3DEffect = ref(
 );
 let timeout: ReturnType<typeof setTimeout>;
 
-// Functions
 async function fetchRoms() {
   if (fetchingRoms.value) return;
 

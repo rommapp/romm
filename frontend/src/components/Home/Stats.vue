@@ -4,7 +4,6 @@ import { formatBytes } from "@/utils";
 import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const stats = ref({
   PLATFORMS: 0,
@@ -15,7 +14,6 @@ const stats = ref({
   TOTAL_FILESIZE_BYTES: 0,
 });
 
-// Functions
 onBeforeMount(() => {
   api.get("/stats").then(({ data }) => {
     stats.value = data;

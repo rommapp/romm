@@ -6,7 +6,6 @@ import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const props = defineProps<{
@@ -18,7 +17,6 @@ const props = defineProps<{
 }>();
 const configStore = storeConfig();
 
-// Functions
 function removeExclusion(exclusionValue: string) {
   if (configStore.isExclusionType(props.type)) {
     configApi.deleteExclusion({

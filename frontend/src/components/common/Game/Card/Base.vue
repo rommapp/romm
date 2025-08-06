@@ -17,7 +17,6 @@ import { isNull } from "lodash";
 import { useDisplay } from "vuetify";
 import VanillaTilt from "vanilla-tilt";
 
-// Props
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;

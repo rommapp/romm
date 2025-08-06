@@ -2,7 +2,6 @@
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { xs } = useDisplay();
 withDefaults(defineProps<{ text: string; icon: string }>(), {

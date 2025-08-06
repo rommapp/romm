@@ -9,7 +9,6 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import { computed } from "vue";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(

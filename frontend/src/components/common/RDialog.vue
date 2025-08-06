@@ -6,7 +6,6 @@ import RIsotipo from "@/components/common/RIsotipo.vue";
 import { onMounted, ref, useSlots } from "vue";
 import { useTheme } from "vuetify";
 
-// Props
 withDefaults(
   defineProps<{
     modelValue: boolean;

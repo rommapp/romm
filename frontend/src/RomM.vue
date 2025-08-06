@@ -4,7 +4,6 @@ import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { locale } = useI18n();
 const storeLanguage = languageStore();
 const { defaultLanguage, languages } = storeToRefs(storeLanguage);

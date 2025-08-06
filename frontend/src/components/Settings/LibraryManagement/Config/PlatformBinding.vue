@@ -12,7 +12,6 @@ import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const authStore = storeAuth();

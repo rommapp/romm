@@ -14,7 +14,6 @@ import { inject } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 
-// Props
 const { t } = useI18n();
 const props = defineProps<{ rom: SimpleRom }>();
 const emitter = inject<Emitter<Events>>("emitter");

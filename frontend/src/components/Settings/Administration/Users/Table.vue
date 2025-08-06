@@ -13,7 +13,6 @@ import { storeToRefs } from "pinia";
 import { inject, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const userSearch = ref("");
 const emitter = inject<Emitter<Events>>("emitter");
