@@ -157,7 +157,7 @@ function onClose() {
         :tabindex="tabIndex"
         class="mt-1"
         rounded
-        @click="emitter?.emit('showAboutDialog')"
+        @click="emitter?.emit('showAboutDialog', null)"
         append-icon="mdi-help-circle-outline"
         aria-label="About"
         role="listitem"
