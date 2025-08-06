@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from fastapi import status
 from fastapi.testclient import TestClient
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
@@ -18,7 +19,7 @@ def test_get_rom(client, access_token, rom):
         f"/api/roms/{rom.id}",
         headers={"Authorization": f"Bearer {access_token}"},
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
     assert body["id"] == rom.id
@@ -30,7 +31,7 @@ def test_get_all_roms(client, access_token, rom, platform):
         headers={"Authorization": f"Bearer {access_token}"},
         params={"platform_id": platform.id},
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
 
@@ -72,7 +73,7 @@ def test_update_rom(rename_fs_rom_mock, get_rom_by_id_mock, client, access_token
             "age_ratings": "[1, 2]",
         },
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
     assert body["fs_name"] == "Metroid Prime Remastered.zip"
@@ -87,7 +88,7 @@ def test_delete_roms(client, access_token, rom):
         headers={"Authorization": f"Bearer {access_token}"},
         json={"roms": [rom.id], "delete_from_fs": []},
     )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
 
     body = response.json()
-    assert body["msg"] == "1 roms deleted successfully!"
+    assert body["successful_items"] == 1

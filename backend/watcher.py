@@ -51,13 +51,13 @@ class EventHandler(FileSystemEventHandler):
             event: The event object representing the file system event.
         """
         if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
-            return
+            return None
 
         src_path = os.fsdecode(event.src_path)
 
         # Ignore .DS_Store files
         if src_path.endswith(".DS_Store"):
-            return
+            return None
 
         event_src = src_path.split(path)[-1]
         fs_slug = event_src.split("/")[1]
@@ -71,11 +71,11 @@ class EventHandler(FileSystemEventHandler):
                 if job.func_name == "endpoints.sockets.scan.scan_platforms":
                     if job.args[0] == []:
                         log.info("Full rescan already scheduled")
-                        return
+                        return None
 
                     if db_platform and db_platform.id in job.args[0]:
                         log.info(f"Scan already scheduled for {hl(fs_slug)}")
-                        return
+                        return None
 
         time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
         rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
@@ -93,7 +93,6 @@ class EventHandler(FileSystemEventHandler):
                 [db_platform.id],
                 scan_type=ScanType.QUICK,
             )
-            return
 
 
 if __name__ == "__main__":

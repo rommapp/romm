@@ -264,7 +264,7 @@ class ConfigManager:
         platform_bindings = self.config.PLATFORMS_BINDING
         if fs_slug in platform_bindings:
             log.warning(f"Binding for {hl(fs_slug)} already exists")
-            return
+            return None
 
         platform_bindings[fs_slug] = slug
         self.config.PLATFORMS_BINDING = platform_bindings
@@ -285,7 +285,7 @@ class ConfigManager:
         platform_versions = self.config.PLATFORMS_VERSIONS
         if fs_slug in platform_versions:
             log.warning(f"Version for {hl(fs_slug)} already exists")
-            return
+            return None
 
         platform_versions[fs_slug] = slug
         self.config.PLATFORMS_VERSIONS = platform_versions
@@ -308,7 +308,7 @@ class ConfigManager:
             log.warning(
                 f"{hl(exclusion_value)} already excluded in {hl(exclusion_type, color=BLUE)}"
             )
-            return
+            return None
 
         config_item.append(exclusion_value)
         self.config.__setattr__(exclusion_type, config_item)

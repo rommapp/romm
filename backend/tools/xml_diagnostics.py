@@ -44,7 +44,7 @@ def diagnose_xml(filename):
                 chunk_number += 1
     except Exception as e:
         print(f"Error reading file: {e}")
-        return
+        return None
 
     # Then try SAX parsing for detailed error reporting
     parser = make_parser()

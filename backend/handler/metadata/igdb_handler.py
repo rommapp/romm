@@ -678,7 +678,7 @@ class TwitchAuth(MetadataHandler):
                 timeout=self.timeout,
             )
 
-            if res.status_code == 400:
+            if res.status_code == status.HTTP_400_BAD_REQUEST:
                 log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
                 return ""
 

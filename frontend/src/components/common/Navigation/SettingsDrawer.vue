@@ -25,12 +25,12 @@ const { smAndDown, mdAndUp } = useDisplay();
 const tabIndex = computed(() => (activeSettingsDrawer.value ? 0 : -1));
 
 async function logout() {
-  identityApi.logout().then(async ({ data }) => {
+  identityApi.logout().then(async () => {
     // Refetch CSRF token
     await refetchCSRFToken();
 
     emitter?.emit("snackbarShow", {
-      msg: data.msg,
+      msg: "Logged out successfully",
       icon: "mdi-check-bold",
       color: "green",
     });

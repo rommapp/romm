@@ -2,7 +2,6 @@ from typing import Annotated, Any
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
-from endpoints.responses import MessageResponse
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from fastapi import Body, Form, HTTPException, Request, status
 from handler.auth import auth_handler
@@ -317,7 +316,7 @@ async def update_user(
 
 
 @protected_route(router.delete, "/{id}", [Scope.USERS_WRITE])
-async def delete_user(request: Request, id: int) -> MessageResponse:
+async def delete_user(request: Request, id: int) -> None:
     """Delete user endpoint
 
     Args:
@@ -328,9 +327,6 @@ async def delete_user(request: Request, id: int) -> MessageResponse:
         HTTPException: User is not found in database
         HTTPException: User deleting itself
         HTTPException: User is the last admin user
-
-    Returns:
-        MessageResponse: Standard message response
     """
 
     user = db_user_handler.get_user(id)
@@ -356,11 +352,23 @@ async def delete_user(request: Request, id: int) -> MessageResponse:
     except FileNotFoundError:
         log.warning(f"Couldn't find avatar directory to delete for {user.username}")
 
-    return {"msg": "User successfully deleted"}
 
+@protected_route(
+    router.post, "/{id}/ra/refresh", [Scope.ME_WRITE], status_code=status.HTTP_200_OK
+)
+async def refresh_retro_achievements(request: Request, id: int) -> None:
+    """Refresh RetroAchievements data for a user.
 
-@protected_route(router.post, "/{id}/ra/refresh", [Scope.ME_WRITE])
-async def refresh_retro_achievements(request: Request, id: int) -> MessageResponse:
+    Args:
+        request (Request): FastAPI Request object
+        id (int): User ID
+
+    Raises:
+        HTTPException: User not found or no RetroAchievements username set
+
+    Returns:
+        None: Returns 200 OK status
+    """
     user = db_user_handler.get_user(id)
     if user and user.ra_username:
         user_progression = await meta_ra_handler.get_user_progression(user.ra_username)
@@ -370,9 +378,9 @@ async def refresh_retro_achievements(request: Request, id: int) -> MessageRespon
                 "ra_progression": user_progression,
             },
         )
-        return {"msg": "RetroAchievements successfully refreshed"}
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User does not have a RetroAchievements username set",
-        )
+        return None
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="User does not have a RetroAchievements username set",
+    )

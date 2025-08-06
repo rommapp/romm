@@ -452,14 +452,14 @@ async def scan_platforms(
     if not metadata_sources:
         log.error("No metadata sources provided")
         await sm.emit("scan:done_ko", "No metadata sources provided")
-        return
+        return None
 
     try:
         fs_platforms: list[str] = await fs_platform_handler.get_platforms()
     except FolderStructureNotMatchException as e:
         log.error(e)
         await sm.emit("scan:done_ko", e.message)
-        return
+        return None
 
     scan_stats = ScanStats()
 
@@ -508,7 +508,6 @@ async def scan_platforms(
         await sm.emit("scan:done", scan_stats.__dict__)
     except ScanStoppedException:
         await stop_scan()
-        return
     except Exception as e:
         log.error(f"Error in scan_platform: {e}")
         # Catch all exceptions and emit error to the client
