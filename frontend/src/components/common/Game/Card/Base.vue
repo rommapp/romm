@@ -115,7 +115,6 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
   : localStorage.getItem("settings.showSiblings") === "true";
 
 const hasNotes = computed(() => {
-  debugger;
   if (!romsStore.isSimpleRom(props.rom)) return false;
   return (
     props.rom.rom_user?.note_raw_markdown &&
