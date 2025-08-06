@@ -3,7 +3,6 @@ from io import BytesIO
 
 from config import str_to_bool
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
 from endpoints.responses.collection import (
     CollectionSchema,
     SmartCollectionSchema,
@@ -264,7 +263,7 @@ async def update_collection(
         request (Request): Fastapi Request object
 
     Returns:
-        MessageResponse: Standard message response
+        CollectionSchema: Updated collection
     """
 
     data = await request.form()
@@ -390,7 +389,7 @@ async def update_smart_collection(
 
 
 @protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_collections(request: Request, id: int) -> MessageResponse:
+async def delete_collection(request: Request, id: int) -> None:
     """Delete collections endpoint
 
     Args:
@@ -401,9 +400,6 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
 
     Raises:
         HTTPException: Collection not found
-
-    Returns:
-        MessageResponse: Standard message response
     """
 
     collection = db_collection_handler.get_collection(id)
@@ -421,19 +417,14 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
             f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"
         )
 
-    return {"msg": f"{collection.name} deleted successfully!"}
-
 
 @protected_route(router.delete, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_smart_collection(request: Request, id: int) -> MessageResponse:
+async def delete_smart_collection(request: Request, id: int) -> None:
     """Delete smart collection endpoint
 
     Args:
         request (Request): Fastapi Request object
         id (int): Smart collection id
-
-    Returns:
-        MessageResponse: Standard message response
     """
 
     smart_collection = db_collection_handler.get_smart_collection(id)
@@ -446,5 +437,3 @@ async def delete_smart_collection(request: Request, id: int) -> MessageResponse:
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)
-
-    return {"msg": f"{smart_collection.name} deleted successfully!"}

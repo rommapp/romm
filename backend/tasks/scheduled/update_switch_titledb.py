@@ -31,7 +31,7 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
     async def run(self, force: bool = False) -> None:
         content = await super().run(force)
         if content is None:
-            return
+            return None
 
         index_json = json.loads(content)
         relevant_data = {k: v for k, v in index_json.items() if k and v}

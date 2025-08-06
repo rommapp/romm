@@ -2,7 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-export type MessageResponse = {
-    msg: string;
+export type BulkOperationResponse = {
+    successful_items: number;
+    failed_items: number;
+    errors: Array<string>;
 };
 

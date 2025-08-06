@@ -28,7 +28,7 @@ class CleanupOrphanedResourcesTask(Task):
         roms_resources_path = os.path.join(RESOURCES_BASE_PATH, "roms")
         if not os.path.exists(roms_resources_path):
             log.info("Resources path does not exist, skipping cleanup")
-            return
+            return None
 
         existing_platforms = {
             str(platform.id) for platform in db_platform_handler.get_platforms()

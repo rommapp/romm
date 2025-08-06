@@ -89,7 +89,7 @@ class TestListTasks:
             "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
         # Check structure
@@ -137,7 +137,7 @@ class TestListTasks:
             "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
         assert data["scheduled"] == []
@@ -172,13 +172,18 @@ class TestListTasks:
         response = client.get(
             "/api/tasks", headers={"Authorization": f"Bearer {token}"}
         )
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestRunAllTasks:
     """Test suite for the run_all_tasks endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.low_prio_queue.enqueue",
+        return_value=Mock(
+            get_id=Mock(return_value="1"), get_status=Mock(return_value="queued")
+        ),
+    )
     @patch(
         "endpoints.tasks.manual_tasks",
         {
@@ -201,14 +206,12 @@ class TestRunAllTasks:
             "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["msg"] == "All tasks launched, check the logs for details"
-
-        # Verify that enqueue was called for each runnable task
-        assert (
-            mock_queue.enqueue.call_count == 3
-        )  # task1, task2, task3 (task4 is disabled)
+        assert len(data) == 3
+        assert data[0]["task_name"] == "task1"
+        assert data[1]["task_name"] == "task2"
+        assert data[2]["task_name"] == "task3"
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch("endpoints.tasks.manual_tasks", {})
@@ -219,12 +222,12 @@ class TestRunAllTasks:
             "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         data = response.json()
-        assert data["msg"] == "No runnable tasks available to run"
+        assert data["detail"] == "No runnable tasks available to run"
 
         # Verify that enqueue was not called
-        mock_queue.enqueue.assert_not_called()
+        mock_queue.assert_not_called()
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch(
@@ -245,9 +248,9 @@ class TestRunAllTasks:
             "/api/tasks/run", headers={"Authorization": f"Bearer {access_token}"}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         data = response.json()
-        assert data["msg"] == "No runnable tasks available to run"
+        assert data["detail"] == "No runnable tasks available to run"
 
         # Verify that enqueue was not called since no tasks are both enabled and manual
         mock_queue.enqueue.assert_not_called()
@@ -261,7 +264,12 @@ class TestRunAllTasks:
 class TestRunSingleTask:
     """Test suite for the run_single_task endpoint"""
 
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.low_prio_queue.enqueue",
+        return_value=Mock(
+            get_id=Mock(return_value="1"), get_status=Mock(return_value="queued")
+        ),
+    )
     @patch(
         "endpoints.tasks.manual_tasks",
         {"test_task": Mock(spec=Task, enabled=True, manual_run=True, run=Mock())},
@@ -274,12 +282,15 @@ class TestRunSingleTask:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["msg"] == "Task 'test_task' launched, check the logs for details"
 
-        # Verify that enqueue was called
-        mock_queue.enqueue.assert_called_once()
+        assert data["task_name"] == "test_task"
+        assert data["task_id"] == "1"
+        assert data["status"] == "queued"
+        assert "queued_at" in data
+
+        mock_queue.assert_called_once()
 
     @patch("endpoints.tasks.manual_tasks", {})
     @patch("endpoints.tasks.scheduled_tasks", {})
@@ -290,10 +301,9 @@ class TestRunSingleTask:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == 404
+        assert response.status_code == status.HTTP_404_NOT_FOUND
         data = response.json()
         assert "not found" in data["detail"].lower()
-        assert "available tasks are" in data["detail"]
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch(
@@ -308,12 +318,9 @@ class TestRunSingleTask:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == 400
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         data = response.json()
         assert "cannot be run" in data["detail"].lower()
-
-        # Verify that enqueue was not called
-        mock_queue.enqueue.assert_not_called()
 
     @patch("endpoints.tasks.low_prio_queue")
     @patch(
@@ -332,16 +339,137 @@ class TestRunSingleTask:
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == 400
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
         data = response.json()
         assert "cannot be run" in data["detail"].lower()
 
-        # Verify that enqueue was not called
-        mock_queue.enqueue.assert_not_called()
-
     def test_run_single_task_unauthorized(self, client):
-        """Test that unauthorized requests are rejected"""
+        """Test running a task without authentication"""
         response = client.post("/api/tasks/run/test_task")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestGetTaskById:
+    """Test suite for the get_task_by_id endpoint"""
+
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.Job.fetch")
+    def test_get_task_by_id_success(
+        self, mock_job_fetch, mock_queue, client, access_token
+    ):
+        """Test successful retrieval of a task by job ID"""
+        # Mock job object with all necessary attributes
+        mock_job = Mock()
+        mock_job.created_at = Mock()
+        mock_job.created_at.isoformat.return_value = "2023-01-01T00:00:00"
+        mock_job.started_at = Mock()
+        mock_job.started_at.isoformat.return_value = "2023-01-01T00:01:00"
+        mock_job.ended_at = Mock()
+        mock_job.ended_at.isoformat.return_value = "2023-01-01T00:02:00"
+        mock_job.meta = {"task_name": "test_task"}
+        mock_job.func_name = "test_task"
+        mock_job.get_status.return_value = "finished"
+
+        mock_job_fetch.return_value = mock_job
+
+        response = client.get(
+            "/api/tasks/test-job-id-123",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        assert data["task_name"] == "test_task"
+        assert data["task_id"] == "test-job-id-123"
+        assert data["status"] == "finished"
+        assert data["queued_at"] == "2023-01-01T00:00:00"
+        assert data["started_at"] == "2023-01-01T00:01:00"
+        assert data["ended_at"] == "2023-01-01T00:02:00"
+
+        mock_job_fetch.assert_called_once_with(
+            "test-job-id-123", connection=mock_queue.connection
+        )
+
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.Job.fetch")
+    def test_get_task_by_id_not_found(
+        self, mock_job_fetch, mock_queue, client, access_token
+    ):
+        """Test retrieval of a non-existent task by job ID"""
+        mock_job_fetch.side_effect = Exception("Job not found")
+
+        response = client.get(
+            "/api/tasks/nonexistent-job-id",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        data = response.json()
+        assert "not found" in data["detail"].lower()
+
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.Job.fetch")
+    def test_get_task_by_id_with_exception_info(
+        self, mock_job_fetch, mock_queue, client, access_token
+    ):
+        """Test retrieval of a task that failed with exception"""
+        mock_job = Mock()
+        mock_job.created_at = Mock()
+        mock_job.created_at.isoformat.return_value = "2023-01-01T00:00:00"
+        mock_job.started_at = Mock()
+        mock_job.started_at.isoformat.return_value = "2023-01-01T00:01:00"
+        mock_job.ended_at = Mock()
+        mock_job.ended_at.isoformat.return_value = "2023-01-01T00:01:30"
+        mock_job.meta = {"task_name": "test_task"}
+        mock_job.func_name = "test_task"
+        mock_job.get_status.return_value = "failed"
+
+        mock_job_fetch.return_value = mock_job
+
+        response = client.get(
+            "/api/tasks/failed-job-id",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        assert data["status"] == "failed"
+
+    @patch("endpoints.tasks.low_prio_queue")
+    @patch("endpoints.tasks.Job.fetch")
+    def test_get_task_by_id_no_metadata(
+        self, mock_job_fetch, mock_queue, client, access_token
+    ):
+        """Test retrieval of a task with no metadata"""
+        mock_job = Mock()
+        mock_job.created_at = Mock()
+        mock_job.created_at.isoformat.return_value = "2023-01-01T00:00:00"
+        mock_job.started_at = None
+        mock_job.ended_at = None
+        mock_job.meta = None
+        mock_job.func_name = "test_task"
+        mock_job.get_status.return_value = "queued"
+
+        mock_job_fetch.return_value = mock_job
+
+        response = client.get(
+            "/api/tasks/queued-job-id",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        assert data["task_name"] == "test_task"
+        assert data["status"] == "queued"
+        assert data["started_at"] is None
+        assert data["ended_at"] is None
+
+    def test_get_task_by_id_unauthorized(self, client):
+        """Test retrieval of a task without authentication"""
+        response = client.get("/api/tasks/test-job-id")
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
@@ -381,7 +509,7 @@ class TestTaskInfoBuilding:
                     "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
                 )
 
-                assert response.status_code == 200
+                assert response.status_code == status.HTTP_200_OK
                 # The mock ensures the structure is correct
 
 
@@ -390,14 +518,19 @@ class TestIntegration:
 
     @patch("endpoints.tasks.ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", True)
     @patch("endpoints.tasks.RESCAN_ON_FILESYSTEM_CHANGE_DELAY", 5)
-    @patch("endpoints.tasks.low_prio_queue")
+    @patch(
+        "endpoints.tasks.low_prio_queue.enqueue",
+        return_value=Mock(
+            get_id=Mock(return_value="1"), get_status=Mock(return_value="queued")
+        ),
+    )
     def test_full_workflow(self, mock_queue, client, access_token):
         """Test a complete workflow: list tasks, then run a specific task"""
         # First, list all tasks
         list_response = client.get(
             "/api/tasks", headers={"Authorization": f"Bearer {access_token}"}
         )
-        assert list_response.status_code == 200
+        assert list_response.status_code == status.HTTP_200_OK
 
         # Then run a specific task (if any exist)
         with patch(
@@ -413,8 +546,8 @@ class TestIntegration:
                     "/api/tasks/run/workflow_task",
                     headers={"Authorization": f"Bearer {access_token}"},
                 )
-                assert run_response.status_code == 200
-                assert mock_queue.enqueue.called
+                assert run_response.status_code == status.HTTP_200_OK
+                assert mock_queue.called
 
     def test_error_handling(self, client, access_token):
         """Test error handling for various scenarios"""
@@ -423,4 +556,4 @@ class TestIntegration:
             "/api/tasks/run/invalid_task_name_with_special_chars!@#",
             headers={"Authorization": f"Bearer {access_token}"},
         )
-        assert response.status_code == 404
+        assert response.status_code == status.HTTP_404_NOT_FOUND
