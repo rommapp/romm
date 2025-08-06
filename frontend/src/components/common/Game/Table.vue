@@ -145,7 +145,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   romsStore.resetPagination();
   romsStore.setOrderBy(key);
   romsStore.setOrderDir(order);
-  romsStore.fetchRoms(galleryFilterStore, false);
+  romsStore.fetchRoms({ galleryFilter: galleryFilterStore });
 }
 </script>
 
