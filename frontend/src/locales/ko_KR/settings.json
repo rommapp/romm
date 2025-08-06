@@ -1,6 +1,7 @@
 {
   "continue-playing-as-grid": "계속 플레이하기 그리드 뷰",
   "continue-playing-as-grid-desc": "홈페이지에 계속 플레이하기를 그리드 뷰로 보여줍니다",
+  "edit-user": "사용자 편집",
   "email": "이메일",
   "enable-3d-effect": "3D 효과 활성화",
   "enable-3d-effect-desc": "게임/플랫폼/모음집 카드에 3D 효과를 활성화합니다",
@@ -20,6 +21,7 @@
   "language": "언어",
   "main-platform": "메인 플랫폼",
   "password": "패스워드",
+  "password-placeholder": "현재 패스워드를 유지하려면 비워두세요",
   "platforms-drawer": "플랫폼 메뉴",
   "platforms-drawer-group-by": "그룹화",
   "platform-version": "플랫폼 버전",
