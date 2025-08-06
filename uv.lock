@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.13"
 resolution-markers = [
     "platform_python_implementation != 'PyPy'",
@@ -1844,7 +1844,7 @@ requires-dist = [
     { name = "pyyaml", specifier = "==6.0.1" },
     { name = "redis", specifier = "~=6.2" },
     { name = "rq", specifier = "~=2.1" },
-    { name = "rq-scheduler", specifier = "~=0.14" },
+    { name = "rq-scheduler", git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl" },
     { name = "sentry-sdk", specifier = "~=2.32" },
     { name = "sqlalchemy", extras = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"], specifier = "~=2.0" },
     { name = "starlette-csrf", specifier = "~=3.0" },
@@ -1879,16 +1879,12 @@ wheels = [
 [[package]]
 name = "rq-scheduler"
 version = "0.14.0"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl#42a7a2b8146179cf4578ab1751b80f76c5a0f09e" }
 dependencies = [
     { name = "crontab" },
     { name = "freezegun" },
     { name = "python-dateutil" },
     { name = "rq" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/4e/977bbcc1f3b25ed9ea60ec968b13f7147661defe5b2f9272b44fdb1c5549/rq-scheduler-0.14.0.tar.gz", hash = "sha256:2d5a14a1ab217f8693184ebaa1fe03838edcbc70b4f76572721c0b33058cd023", size = 16582, upload-time = "2024-10-29T13:30:32.641Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/d0/28cedca9f3b321f30e69d644c2dcd7097ec21570ec9606fde56750621300/rq_scheduler-0.14.0-py2.py3-none-any.whl", hash = "sha256:d4ec221a3d8c11b3ff55e041f09d9af1e17f3253db737b6b97e86ab20fc3dc0d", size = 13874, upload-time = "2024-10-29T13:30:30.449Z" },
 ]
 
 [[package]]
