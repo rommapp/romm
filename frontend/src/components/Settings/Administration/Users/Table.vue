@@ -170,6 +170,7 @@ onMounted(() => {
           <v-btn-group divided density="compact" variant="text">
             <v-btn
               size="small"
+              :title="t('settings.edit-user')"
               @click="emitter?.emit('showEditUserDialog', item)"
             >
               <v-icon>mdi-pencil</v-icon>

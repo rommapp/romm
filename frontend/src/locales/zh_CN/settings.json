@@ -1,6 +1,7 @@
 {
   "continue-playing-as-grid": "继续游玩（网格）",
   "continue-playing-as-grid-desc": "以网格形式在主页上显示继续游玩（卡片）部分",
+  "edit-user": "编辑用户",
   "email": "电子邮件",
   "enable-3d-effect": "启用 3D 效果",
   "enable-3d-effect-desc": "为游戏、平台和收藏卡片启用 3D 效果",
@@ -20,6 +21,7 @@
   "language": "语言",
   "main-platform": "主平台",
   "password": "密码",
+  "password-placeholder": "留空以保持当前密码",
   "platforms-drawer": "平台菜单",
   "platforms-drawer-group-by": "分组方式",
   "platform-version": "平台版本",
