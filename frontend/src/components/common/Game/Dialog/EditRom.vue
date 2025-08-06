@@ -16,7 +16,7 @@ import { useI18n } from "vue-i18n";
 import { getMissingCoverImage } from "@/utils/covers";
 
 const { t } = useI18n();
-const { lgAndUp, smAndDown } = useDisplay();
+const { lgAndUp } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);

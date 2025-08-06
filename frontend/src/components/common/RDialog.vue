@@ -98,7 +98,7 @@ onMounted(() => {
       >
         <v-row
           v-if="loadingCondition"
-          class="justify-center align-center flex-grow-1"
+          class="justify-center align-center flex-grow-1 my-4"
           no-gutters
         >
           <v-progress-circular
@@ -111,7 +111,7 @@ onMounted(() => {
 
         <v-row
           v-if="!loadingCondition && emptyStateCondition"
-          class="justify-center align-center flex-grow-1"
+          class="justify-center align-center flex-grow-1 my-4"
           no-gutters
         >
           <empty-game v-if="emptyStateType == 'game'" />
