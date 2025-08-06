@@ -21,7 +21,7 @@
   "roms-scanned-with-details": "Rom-uri: {n_roms} scanate, {n_added_roms} noi și {n_identified_roms} identificate",
   "scan": "Scanează",
   "scan-options": "Tip de scanare",
-  "select-one-source": "Vă rugăm să alegeți cel puțin o sursă de metadate dacă doriți să îmbogățiți biblioteca cu coperți și metadate",
+  "select-one-source": "Vă rugăm să alegeți cel puțin o sursă de metadate pentru a îmbogăți biblioteca cu coperți și metadate",
   "unidentified-games": "Jocuri neidentificate",
   "unidentified-games-desc": "Scanează doar jocurile care nu au fost identificate de nicio sursă de metadate"
 }

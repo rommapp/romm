@@ -185,7 +185,6 @@ cd backend
 uv run pytest [path/file]
 # or run the following command to run all tests
 # the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
-# -c specifies the path to a configuration file for pytest.
-uv run pytest -vv -c ../pytest.ini
+uv run pytest -vv
 ```
 ````

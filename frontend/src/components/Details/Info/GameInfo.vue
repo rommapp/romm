@@ -166,7 +166,7 @@ function onFilterClick(filter: FilterType, value: string) {
       >
         <v-row no-gutters class="mt-5">
           <v-col cols="3" xl="2" class="text-capitalize">
-            <span>Age Rating</span>
+            <span>{{ t("rom.age-rating") }}</span>
           </v-col>
           <div class="d-flex" :class="{ 'my-2': xs }">
             <v-img

@@ -92,11 +92,9 @@ function onClose() {
         </v-img>
       </v-list-img>
       <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
-        <template #subtitle>
-          <v-list-item-subtitle v-if="user?.role">
-            {{ user.role }}
-            <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
-          </v-list-item-subtitle>
+        <template v-if="user?.role" #subtitle>
+          <span class="mr-1">{{ user.role }}</span>
+          <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
         </template>
       </v-list-item>
     </v-list>

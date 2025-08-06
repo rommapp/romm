@@ -1,0 +1,16 @@
+{
+  "login": "登入",
+  "login-oidc": "使用 {oidc} 登入",
+  "or": "或",
+  "password": "密碼",
+  "username": "用戶名",
+  "forgot-password": "忘記密碼？",
+  "send-reset-link": "發送重置密碼鏈接",
+  "reset-sent": "重置密碼鏈接已發送。請聯繫管理員。",
+  "new-password": "新密碼",
+  "confirm-new-password": "確認新密碼",
+  "reset-password": "重置密碼",
+  "back-to-login": "返回登入",
+  "setup-wizard": "設定精靈",
+  "register": "註冊"
+}
