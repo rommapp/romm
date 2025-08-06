@@ -20,7 +20,6 @@ import VanillaTilt from "vanilla-tilt";
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
-    src?: string;
     aspectRatio?: string | number;
     width?: string | number;
     height?: string | number;
@@ -51,7 +50,6 @@ const props = withDefaults(
     disableViewTransition: false,
     enable3DTilt: false,
     withLink: false,
-    src: "",
   },
 );
 const { smAndDown } = useDisplay();
@@ -119,6 +117,31 @@ interface TiltHTMLElement extends HTMLElement {
 }
 
 const tiltCard = ref<TiltHTMLElement | null>(null);
+
+const largeCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_large
+    : props.rom.igdb_url_cover ||
+      props.rom.moby_url_cover ||
+      props.rom.ss_url_cover,
+);
+const smallCover = computed(() =>
+  romsStore.isSimpleRom(props.rom) ? props.rom.path_cover_small : "",
+);
+const largeWebpCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_large
+      ? props.rom.path_cover_large.split(".").slice(0, -1).join(".") + ".webp"
+      : ""
+    : "",
+);
+const smallWebpCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_small
+      ? props.rom.path_cover_small.split(".").slice(0, -1).join(".") + ".webp"
+      : ""
+    : "",
+);
 
 onMounted(() => {
   if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
@@ -190,15 +213,8 @@ onBeforeUnmount(() => {
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
-              :src="
-                src ||
-                (romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_large || fallbackCoverImage
-                  : rom.igdb_url_cover ||
-                    rom.moby_url_cover ||
-                    rom.ss_url_cover ||
-                    fallbackCoverImage)
-              "
+              :lazy-src="smallWebpCover || fallbackCoverImage"
+              :src="largeWebpCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
             >
               <template v-bind="props" v-if="titleOnHover">
@@ -314,10 +330,13 @@ onBeforeUnmount(() => {
               </div>
               <template #error>
                 <v-img
-                  :src="fallbackCoverImage"
-                  cover
-                  :aspect-ratio="computedAspectRatio"
-                ></v-img>
+                  :lazy-src="smallCover || fallbackCoverImage"
+                  :src="largeCover || fallbackCoverImage"
+                >
+                  <template #error>
+                    <v-img :src="fallbackCoverImage" />
+                  </template>
+                </v-img>
               </template>
               <template #placeholder>
                 <div class="d-flex align-center justify-center fill-height">
