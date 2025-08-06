@@ -123,7 +123,7 @@ async function stopScan() {
       <!-- TODO: add 'ALL' default option -->
       <v-select
         v-model="platformsToScan"
-        :items="platforms.allPlatforms"
+        :items="platforms.filteredPlatforms"
         :menu-props="{ maxHeight: 650 }"
         :label="t('common.platforms')"
         item-title="name"
