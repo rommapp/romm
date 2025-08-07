@@ -64,6 +64,14 @@ PYTHONPATH="/app/backend:${PYTHONPATH-}" rq worker \
 	--url "${REDIS_URL}" \
 	high default low &
 
+echo "Starting watcher..."
+watchmedo shell-command \
+	--patterns='**/*' \
+	--ignore-patterns='.DS_Store' \
+	--recursive \
+	--command='uv run python watcher.py "${watch_src_path}" "${watch_dest_path}" "${watch_event_type}" "${watch_object}"' \
+	/app/romm/library &
+
 # Start the frontend dev server
 cd /app/frontend
 npm run dev &
