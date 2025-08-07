@@ -74,6 +74,8 @@ COPY pyproject.toml uv.lock* .python-version /app/
 # Install Python dependencies
 RUN uv sync --all-extras
 
+ENV PATH="/app/.venv/bin:${PATH}"
+
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
