@@ -3,6 +3,7 @@ import json
 import os
 import re
 import unicodedata
+from difflib import SequenceMatcher
 from functools import lru_cache
 from itertools import batched
 from typing import Final, NotRequired, TypedDict
@@ -92,6 +93,29 @@ def _normalize_search_term(
     return name.strip()
 
 
+WORD_TOKEN_PATTERN = re.compile(r"\b\w+\b")
+
+
+def wagner_fischer_distance(s1: str, s2: str) -> int:
+    if len(s1) < len(s2):
+        return wagner_fischer_distance(s2, s1)
+
+    if len(s2) == 0:
+        return len(s1)
+
+    previous_row = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        current_row = [i + 1]
+        for j, c2 in enumerate(s2):
+            insertions = previous_row[j + 1] + 1
+            deletions = current_row[j] + 1
+            substitutions = previous_row[j] + (c1 != c2)
+            current_row.append(min(insertions, deletions, substitutions))
+        previous_row = current_row
+
+    return previous_row[-1]
+
+
 class MetadataHandler:
     def __init__(self):
         # Initialize cache data lazily when the handler is first instantiated
@@ -108,6 +132,115 @@ class MetadataHandler:
         self, name: str, remove_articles: bool = True, remove_punctuation: bool = True
     ) -> str:
         return _normalize_search_term(name, remove_articles, remove_punctuation)
+
+    def calculate_text_similarity(
+        self,
+        normalized_search_term: str,
+        game_name: str,
+        remove_articles: bool = True,
+        remove_punctuation: bool = True,
+    ) -> float:
+        """
+        Calculate similarity between search term and game name using multiple metrics.
+        Returns a score between 0 and 1, where 1 is a perfect match.
+
+        Args:
+            search_term: The search term to compare
+            game_name: The game name to compare against
+
+        Returns:
+            Similarity score between 0 and 1
+        """
+        game_normalized = self.normalize_search_term(
+            game_name,
+            remove_articles=remove_articles,
+            remove_punctuation=remove_punctuation,
+        )
+
+        # Exact match gets the highest score
+        if normalized_search_term == game_normalized:
+            return 1.0
+
+        # Split into tokens for word-based matching
+        search_tokens = set(WORD_TOKEN_PATTERN.findall(normalized_search_term.lower()))
+        game_tokens = set(WORD_TOKEN_PATTERN.findall(game_normalized.lower()))
+
+        # Calculate token overlap ratio
+        if search_tokens and game_tokens:
+            intersection = search_tokens & game_tokens
+            union = search_tokens | game_tokens
+            token_overlap_ratio = len(intersection) / len(union)
+        else:
+            token_overlap_ratio = 0.0
+
+        # Calculate sequence similarity (better for longer strings)
+        sequence_ratio = SequenceMatcher(
+            None, normalized_search_term, game_normalized
+        ).ratio()
+
+        # Calculate Wagner-Fischer distance (normalized by max length)
+        max_len = max(len(normalized_search_term), len(game_normalized))
+        if max_len > 0:
+            wagner_fischer_ratio = 1 - (
+                wagner_fischer_distance(normalized_search_term, game_normalized)
+                / max_len
+            )
+        else:
+            wagner_fischer_ratio = 1.0
+
+        # Token overlap is most important for game titles
+        final_score = (
+            token_overlap_ratio * 0.5
+            + sequence_ratio * 0.3
+            + wagner_fischer_ratio * 0.2
+        )
+
+        return final_score
+
+    def find_best_match(
+        self,
+        normalized_search_term: str,
+        game_names: list[str],
+        min_similarity_score: float = 0.75,
+        remove_articles: bool = True,
+        remove_punctuation: bool = True,
+    ) -> tuple[str | None, float]:
+        """
+        Find the best matching game name from a list of candidates.
+
+        Args:
+            search_term: The search term to match
+            game_names: List of game names to check against
+            min_similarity_score: Minimum similarity score to consider a match
+
+        Returns:
+            Tuple of (best_match_name, similarity_score) or (None, 0.0) if no good match
+        """
+        if not game_names:
+            return None, 0.0
+
+        best_match = None
+        best_score = 0.0
+
+        for game_name in game_names:
+            score = self.calculate_text_similarity(
+                normalized_search_term,
+                game_name,
+                remove_articles=remove_articles,
+                remove_punctuation=remove_punctuation,
+            )
+            if score > best_score:
+                best_score = score
+                best_match = game_name
+
+                # Early exit for perfect match
+                if score == 1.0:
+                    break
+
+        if best_score >= min_similarity_score:
+            return best_match, best_score
+
+        return None, 0.0
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)
