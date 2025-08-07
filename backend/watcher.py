@@ -1,6 +1,9 @@
+import enum
+import json
 import os
-import sys
+from collections.abc import Sequence
 from datetime import timedelta
+from typing import cast
 
 import sentry_sdk
 from config import (
@@ -26,13 +29,6 @@ from logger.logger import log
 from rq.job import Job
 from tasks.tasks import tasks_scheduler
 from utils import get_version
-from watchdog.events import (
-    DirCreatedEvent,
-    DirDeletedEvent,
-    FileCreatedEvent,
-    FileDeletedEvent,
-    FileSystemMovedEvent,
-)
 
 sentry_sdk.init(
     dsn=SENTRY_DSN,
@@ -41,58 +37,60 @@ sentry_sdk.init(
 
 structure_level = 2 if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH) else 1
 
-valid_events = frozenset(
+
+@enum.unique
+class EventType(enum.StrEnum):
+    ADDED = "added"
+    MODIFIED = "modified"
+    DELETED = "deleted"
+
+
+VALID_EVENTS = frozenset(
     (
-        DirCreatedEvent.event_type,
-        DirDeletedEvent.event_type,
-        FileCreatedEvent.event_type,
-        FileDeletedEvent.event_type,
-        FileSystemMovedEvent.event_type,
+        EventType.ADDED,
+        EventType.DELETED,
     )
 )
 
+# A change is a tuple representing a file change, first element is the event type, second is the
+# path of the file or directory that changed.
+Change = tuple[EventType, str]
 
-def on_any_event(
-    src_path: str,
-    _dest_path: str,
-    event_type: str,
-):
-    if event_type not in valid_events:
-        return
 
+def process_changes(changes: Sequence[Change]) -> None:
     if not ENABLE_RESCAN_ON_FILESYSTEM_CHANGE:
         return
 
-    src_path = os.fsdecode(src_path)
-
-    event_src = src_path.split(LIBRARY_BASE_PATH)[-1]
-    event_src_parts = event_src.split("/")
-    if len(event_src_parts) <= structure_level:
-        log.warning(
-            f"Filesystem event path '{event_src}' does not have enough segments for structure_level {structure_level}. Skipping event."
-        )
+    # Filter for valid events.
+    changes = [change for change in changes if change[0] in VALID_EVENTS]
+    if not changes:
         return
 
-    fs_slug = event_src_parts[structure_level]
-    db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+    # Find affected platform slugs.
+    fs_slugs: set[str] = set()
+    changes_platform_directory = False
+    for change in changes:
+        event_type, change_path = change
+        src_path = os.fsdecode(change_path)
+        event_src = src_path.split(LIBRARY_BASE_PATH)[-1]
+        event_src_parts = event_src.split("/")
+        if len(event_src_parts) <= structure_level:
+            log.warning(
+                f"Filesystem event path '{event_src}' does not have enough segments for structure_level {structure_level}. Skipping event."
+            )
+            continue
 
-    log.info(f"Filesystem event: {event_type} {event_src}")
+        if len(event_src_parts) == structure_level + 1:
+            changes_platform_directory = True
 
-    # Skip if a scan is already scheduled
-    for job in tasks_scheduler.get_jobs():
-        if isinstance(job, Job):
-            if job.func_name == "endpoints.sockets.scan.scan_platforms":
-                if job.args[0] == []:
-                    log.info("Full rescan already scheduled")
-                    return
+        log.info(f"Filesystem event: {event_type} {event_src}")
+        fs_slugs.add(event_src_parts[structure_level])
 
-                if db_platform and db_platform.id in job.args[0]:
-                    log.info(f"Scan already scheduled for {hl(fs_slug)}")
-                    return
+    if not fs_slugs:
+        log.info("No valid filesystem slugs found in changes, exiting...")
+        return
 
-    time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
-    rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
-
+    # Check whether any metadata source is enabled.
     source_mapping: dict[str, bool] = {
         MetadataSource.IGDB: IGDB_API_ENABLED,
         MetadataSource.SS: SS_API_ENABLED,
@@ -102,14 +100,29 @@ def on_any_event(
         MetadataSource.HASHEOUS: HASHEOUS_API_ENABLED,
         MetadataSource.SGDB: STEAMGRIDDB_API_ENABLED,
     }
-
     metadata_sources = [source for source, flag in source_mapping.items() if flag]
     if not metadata_sources:
         log.warning("No metadata sources enabled, skipping rescan")
         return
 
-    # Any change to a platform directory should trigger a full rescan
-    if len(event_src_parts) == structure_level + 1:
+    # Get currently scheduled jobs for the scan_platforms function.
+    already_scheduled_jobs = [
+        job
+        for job in tasks_scheduler.get_jobs()
+        if isinstance(job, Job)
+        and job.func_name == "endpoints.sockets.scan.scan_platforms"
+    ]
+
+    # If a full rescan is already scheduled, skip further processing.
+    if any(job.args[0] == [] for job in already_scheduled_jobs):
+        log.info("Full rescan already scheduled")
+        return
+
+    time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
+    rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
+
+    # Any change to a platform directory should trigger a full rescan.
+    if changes_platform_directory:
         log.info(f"Platform directory changed, {rescan_in_msg}")
         tasks_scheduler.enqueue_in(
             time_delta,
@@ -118,8 +131,20 @@ def on_any_event(
             scan_type=ScanType.UNIDENTIFIED,
             metadata_sources=metadata_sources,
         )
-    # Otherwise trigger a rescan for the specific platform
-    elif db_platform:
+        return
+
+    # Otherwise, process each platform slug.
+    for fs_slug in fs_slugs:
+        # TODO: Query platforms from the database in bulk.
+        db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
+        if not db_platform:
+            continue
+
+        # Skip if a scan is already scheduled for this platform.
+        if any(db_platform.id in job.args[0] for job in already_scheduled_jobs):
+            log.info(f"Scan already scheduled for {hl(fs_slug)}")
+            continue
+
         log.info(f"Change detected in {hl(fs_slug)} folder, {rescan_in_msg}")
         tasks_scheduler.enqueue_in(
             time_delta,
@@ -131,8 +156,6 @@ def on_any_event(
 
 
 if __name__ == "__main__":
-    watch_src_path = sys.argv[1]
-    watch_dest_path = sys.argv[2]
-    watch_event_type = sys.argv[3]
-
-    on_any_event(watch_src_path, watch_dest_path, watch_event_type)
+    changes = cast(list[Change], json.loads(os.getenv("WATCHFILES_CHANGES", "[]")))
+    if changes:
+        process_changes(changes)
