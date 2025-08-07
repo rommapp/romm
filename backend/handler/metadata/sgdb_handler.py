@@ -10,6 +10,8 @@ from logger.logger import log
 
 from .base_hander import MetadataHandler
 
+WORD_TOKEN_PATTERN = re.compile(r"\b\w+\b")
+
 
 def levenshtein_distance(s1: str, s2: str) -> int:
     if len(s1) < len(s2):
@@ -73,8 +75,8 @@ class SGDBBaseHandler(MetadataHandler):
             return 1.0
 
         # Split into tokens for word-based matching
-        search_tokens = set(re.findall(r"\b\w+\b", search_normalized.lower()))
-        game_tokens = set(re.findall(r"\b\w+\b", game_normalized.lower()))
+        search_tokens = set(WORD_TOKEN_PATTERN.findall(search_normalized.lower()))
+        game_tokens = set(WORD_TOKEN_PATTERN.findall(game_normalized.lower()))
 
         # Calculate token overlap ratio
         if search_tokens and game_tokens:
@@ -138,7 +140,12 @@ class SGDBBaseHandler(MetadataHandler):
                 similarity_score = self._calculate_title_similarity(
                     search_term, game["name"]
                 )
+
                 game_scores.append((game, similarity_score))
+
+                # A perfect match is found, no need to check other games
+                if similarity_score == 1.0:
+                    break
 
             # Sort by similarity score (descending) to get the best match first
             game_scores.sort(key=lambda x: x[1], reverse=True)
