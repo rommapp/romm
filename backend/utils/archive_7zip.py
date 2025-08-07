@@ -1,58 +1,87 @@
-from collections.abc import Callable
-
-from py7zr import Py7zIO, WriterFactory
-
-
-class CallbackIO(Py7zIO):
-    """Py7zIO implementation that calls a callback on write and read."""
-
-    def __init__(
-        self,
-        filename: str,
-        on_write: Callable[[bytes | bytearray], None],
-        on_read: Callable[[int | None], bytes],
-    ):
-        self.filename = filename
-        self.on_write = on_write
-        self.on_read = on_read
-        self._size = 0
-
-    def write(self, s: bytes | bytearray) -> int:
-        length = len(s)
-        self._size += length
-        self.on_write(s)
-        return length
-
-    def read(self, size: int | None = None) -> bytes:
-        return self.on_read(size)
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        return 0
-
-    def flush(self) -> None: ...
-
-    def size(self) -> int:
-        return self._size
+import subprocess
+import tempfile
+from collections.abc import Callable, Iterator
+from pathlib import Path
 
 
-class CallbackIOFactory(WriterFactory):
-    """WriterFactory implementation that creates CallbackIO instances."""
+def process_file(
+    file_path: Path,
+    fn_hash_update: Callable[[bytes | bytearray], None],
+    fn_hash_read: Callable[[int | None], bytes],
+) -> None:
+    """Process a 7zip file using the system's 7zip binary and use the provided callables to update the calculated hashes.
 
-    def __init__(
-        self,
-        on_write: Callable[[bytes | bytearray], None],
-        on_read: Callable[[int | None], bytes],
-    ):
-        self.products: dict[str, CallbackIO] = {}
-        self.on_write = on_write
-        self.on_read = on_read
+    This function uses the system's 7zip binary to list the archive contents and extract the first file
+    to calculate hashes, avoiding the memory-intensive py7zr library.
 
-    def create(self, filename: str) -> CallbackIO:
-        product = CallbackIO(
-            filename=filename, on_write=self.on_write, on_read=self.on_read
+    Args:
+        file_path: Path to the 7z file
+        fn_hash_update: Callback to update hashes with data chunks
+        fn_hash_read: Callback that returns current hash digest (unused in this implementation)
+    """
+
+    try:
+        result = subprocess.run(
+            ["7z", "l", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
         )
-        self.products[filename] = product
-        return product
 
-    def get(self, filename: str) -> Py7zIO:
-        return self.products[filename]
+        lines = result.stdout.split("\n")
+        first_file = None
+
+        # Look for the line that contains the actual file entry
+        for line in lines:
+            line = line.strip()
+            if "....A" in line:
+                parts = line.split()
+                if len(parts) >= 4:
+                    first_file = parts[-1]  # Last part is the filename
+                    break
+
+        if not first_file:
+            # If no files found, fall back to reading the archive as a basic file
+            for chunk in read_basic_file(file_path):
+                fn_hash_update(chunk)
+            return
+
+        # Extract the first file to a temporary location
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Extract only the first file
+            subprocess.run(
+                ["7z", "e", str(file_path), first_file, f"-o{temp_path}", "-y"],
+                capture_output=True,
+                check=True,
+                timeout=60,  # 60 second timeout for extraction
+            )
+
+            # Read the extracted file and update hashes
+            extracted_file = temp_path / first_file
+            if extracted_file.exists():
+                with open(extracted_file, "rb") as f:
+                    while chunk := f.read(8192):  # 8KB chunks
+                        fn_hash_update(chunk)
+            else:
+                # Fall back to reading the archive as a basic file
+                for chunk in read_basic_file(file_path):
+                    fn_hash_update(chunk)
+
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ):
+        # If 7zip is not available or fails, fall back to reading the archive as a basic file
+        for chunk in read_basic_file(file_path):
+            fn_hash_update(chunk)
+
+
+def read_basic_file(file_path: Path) -> Iterator[bytes]:
+    """Read a file in chunks and yield the chunks."""
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):  # 8KB chunks
+            yield chunk
