@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# trunk-ignore-all(shellcheck/SC2016)
 
 set -o errexit           # treat errors as fatal
 set -o nounset           # treat unset variables as an error
