@@ -180,10 +180,21 @@ start_bin_rq_scheduler() {
 start_bin_rq_worker() {
 	info_log "Starting rq worker"
 
-	rq worker \
+	# Build Redis URL properly
+	local redis_url
+	if [[ -n ${REDIS_USERNAME-} && -n ${REDIS_PASSWORD-} ]]; then
+		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	elif [[ -n ${REDIS_PASSWORD-} ]]; then
+		redis_url="redis${REDIS_SSL:+s}://:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	else
+		redis_url="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	fi
+
+	# Set PYTHONPATH so RQ can find the tasks module
+	PYTHONPATH="/backend:${PYTHONPATH-}" rq worker \
 		--path /backend \
 		--pid /tmp/rq_worker.pid \
-		--url "redis${REDIS_SSL:+s}://${REDIS_USERNAME:-""}:${REDIS_PASSWORD:-""}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}" \
+		--url "${redis_url}" \
 		high default low &
 }
 

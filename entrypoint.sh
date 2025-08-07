@@ -48,10 +48,21 @@ RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
 	--pid /tmp/rq_scheduler.pid &
 
 echo "Starting RQ worker..."
-rq worker \
+
+# Build Redis URL properly
+if [[ -n ${REDIS_USERNAME-} && -n ${REDIS_PASSWORD-} ]]; then
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+elif [[ -n ${REDIS_PASSWORD-} ]]; then
+	REDIS_URL="redis${REDIS_SSL:+s}://:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+else
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+fi
+
+# Set PYTHONPATH so RQ can find the tasks module
+PYTHONPATH="/backend:${PYTHONPATH-}" rq worker \
 	--path /backend \
 	--pid /tmp/rq_worker.pid \
-	--url "redis${REDIS_SSL:+s}://${REDIS_USERNAME:-""}:${REDIS_PASSWORD:-""}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}" \
+	--url "${REDIS_URL}" \
 	high default low &
 
 # Start the frontend dev server
