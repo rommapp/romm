@@ -1,4 +1,6 @@
 #!/bin/bash
+# trunk-ignore-all(shellcheck/SC2016)
+
 set -e
 
 echo "Starting entrypoint script..."
