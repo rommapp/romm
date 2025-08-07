@@ -1,6 +1,7 @@
 import os
 import sys
 from datetime import timedelta
+from typing import Literal
 
 import sentry_sdk
 from config import (
@@ -34,16 +35,23 @@ sentry_sdk.init(
 
 structure_level = 2 if os.path.exists(cm.get_config().HIGH_PRIO_STRUCTURE_PATH) else 1
 
-valid_events = [
-    DirCreatedEvent.event_type,
-    DirDeletedEvent.event_type,
-    FileCreatedEvent.event_type,
-    FileDeletedEvent.event_type,
-    FileSystemMovedEvent.event_type,
-]
+valid_events = frozenset(
+    (
+        DirCreatedEvent.event_type,
+        DirDeletedEvent.event_type,
+        FileCreatedEvent.event_type,
+        FileDeletedEvent.event_type,
+        FileSystemMovedEvent.event_type,
+    )
+)
 
 
-def on_any_event(src_path: str, _dest_path: str, event_type: str, object: str):
+def on_any_event(
+    src_path: str,
+    _dest_path: str,
+    event_type: str,
+    fs_obj: Literal["file", "directory"],
+):
     if event_type not in valid_events:
         return
 
@@ -74,7 +82,7 @@ def on_any_event(src_path: str, _dest_path: str, event_type: str, object: str):
     rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
 
     # Any change to a platform directory should trigger a full rescan
-    if object == "directory" and event_src.count("/") == 1:
+    if fs_obj == "directory" and event_src.count("/") == 1:
         log.info(f"Platform directory changed, {rescan_in_msg}")
         tasks_scheduler.enqueue_in(time_delta, scan_platforms, [])
     elif db_platform:
@@ -94,4 +102,4 @@ if __name__ == "__main__":
     watch_event_type = sys.argv[3]
     watch_object = sys.argv[4]
 
-    on_any_event(watch_src_path, watch_dest_path, watch_event_type, watch_object)
+    on_any_event(watch_src_path, watch_dest_path, watch_event_type, watch_object)  # type: ignore
