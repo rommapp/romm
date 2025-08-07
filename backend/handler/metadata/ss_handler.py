@@ -8,6 +8,7 @@ import pydash
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from logger.logger import log
 from unidecode import unidecode as uc
 
 from .base_hander import (
@@ -24,6 +25,8 @@ from .base_hander import UniversalPlatformSlug as UPS
 SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER) and bool(SCREENSCRAPER_PASSWORD)
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
+
+SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
 
 PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
@@ -275,30 +278,32 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
 class SSHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ss_service = ScreenScraperService()
+        self.min_similarity_score: Final = 0.75
 
     async def _search_rom(self, search_term: str, platform_ss_id: int) -> SSGame | None:
         if not platform_ss_id:
             return None
-
-        def is_exact_match(rom: SSGame, search_term: str) -> bool:
-            rom_names = [name.get("text", "").lower() for name in rom.get("noms", [])]
-
-            return any(
-                (
-                    rom_name.lower() == search_term.lower()
-                    or self.normalize_search_term(rom_name) == search_term
-                )
-                for rom_name in rom_names
-            )
 
         roms = await self.ss_service.search_games(
             term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
         )
 
-        for rom in roms:
-            if is_exact_match(rom, search_term):
-                return rom
+        games_by_name = {
+            name["text"]: rom for rom in roms for name in rom.get("noms", [])
+        }
+
+        best_match, best_score = self.find_best_match(
+            search_term,
+            list(games_by_name.keys()),
+            min_similarity_score=self.min_similarity_score,
+            remove_punctuation=False,
+        )
+        if best_match:
+            log.debug(
+                f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+            )
+            return games_by_name[best_match]
 
         return roms[0] if roms else None
 
@@ -387,29 +392,16 @@ class SSHandler(MetadataHandler):
         normalized_search_term = self.normalize_search_term(
             search_term, remove_punctuation=False
         )
-        res = await self._search_rom(normalized_search_term, platform_ss_id)
+        res = await self._search_rom(
+            normalized_search_term.replace(": ", " - "), platform_ss_id
+        )
 
         # SS API doesn't handle some special characters well
         if not res and (
             ": " in search_term or " - " in search_term or "/" in search_term
         ):
-            if ": " in search_term:
-                terms = [
-                    s.strip() for s in search_term.split(":") if len(s.strip()) > 2
-                ]
-            elif " - " in search_term:
-                terms = [
-                    s.strip() for s in search_term.split(" - ") if len(s.strip()) > 2
-                ]
-            else:
-                terms = [
-                    s.strip() for s in search_term.split("/") if len(s.strip()) > 2
-                ]
-
-            for i in range(len(terms) - 1, -1, -1):
-                res = await self._search_rom(terms[i], platform_ss_id)
-                if res:
-                    break
+            terms = re.split(SEARCH_TERM_SPLIT_PATTERN, search_term)
+            res = await self._search_rom(terms[-1], platform_ss_id)
 
         if not res or not res.get("id"):
             return fallback_rom

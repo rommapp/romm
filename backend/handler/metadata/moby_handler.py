@@ -6,6 +6,7 @@ import pydash
 from adapters.services.mobygames import MobyGamesService
 from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
+from logger.logger import log
 from unidecode import unidecode as uc
 
 from .base_hander import (
@@ -20,6 +21,8 @@ from .base_hander import UniversalPlatformSlug as UPS
 
 # Used to display the Mobygames API status in the frontend
 MOBY_API_ENABLED: Final = bool(MOBYGAMES_API_KEY)
+
+SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
 
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
@@ -74,6 +77,7 @@ def extract_metadata_from_moby_rom(rom: MobyGame) -> MobyMetadata:
 class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
         self.moby_service = MobyGamesService()
+        self.min_similarity_score: Final = 0.75
 
     async def _search_rom(
         self, search_term: str, platform_moby_id: int
@@ -88,16 +92,20 @@ class MobyGamesHandler(MetadataHandler):
         if not roms:
             return None
 
-        # Find an exact match.
-        search_term_casefold = search_term.casefold()
-        for rom in roms:
-            if (
-                rom["title"].casefold() == search_term_casefold
-                or self.normalize_search_term(rom["title"]) == search_term
-            ):
-                return rom
+        games_by_name = {game["title"]: game for game in roms}
+        best_match, best_score = self.find_best_match(
+            search_term,
+            list(games_by_name.keys()),
+            min_similarity_score=self.min_similarity_score,
+            remove_punctuation=False,
+        )
+        if best_match:
+            log.debug(
+                f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+            )
+            return games_by_name[best_match]
 
-        return roms[0]
+        return None
 
     def get_platform(self, slug: str) -> MobyGamesPlatform:
         if slug not in MOBYGAMES_PLATFORM_LIST:
@@ -179,30 +187,17 @@ class MobyGamesHandler(MetadataHandler):
             search_term = await self._mame_format(search_term)
             fallback_rom = MobyGamesRom(moby_id=None, name=search_term)
 
-        normalized_search_term = self.normalize_search_term(search_term)
+        normalized_search_term = self.normalize_search_term(
+            search_term, remove_punctuation=False
+        )
         res = await self._search_rom(normalized_search_term, platform_moby_id)
 
         # Moby API doesn't handle some special characters well
         if not res and (
             ": " in search_term or " - " in search_term or "/" in search_term
         ):
-            if ":" in search_term:
-                terms = [
-                    s.strip() for s in search_term.split(":") if len(s.strip()) > 2
-                ]
-            elif " - " in search_term:
-                terms = [
-                    s.strip() for s in search_term.split(" - ") if len(s.strip()) > 2
-                ]
-            else:
-                terms = [
-                    s.strip() for s in search_term.split("/") if len(s.strip()) > 2
-                ]
-
-            for i in range(len(terms) - 1, -1, -1):
-                res = await self._search_rom(terms[i], platform_moby_id)
-                if res:
-                    break
+            terms = re.split(SEARCH_TERM_SPLIT_PATTERN, search_term)
+            res = await self._search_rom(terms[-1], platform_moby_id)
 
         if not res:
             return fallback_rom
