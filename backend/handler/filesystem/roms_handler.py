@@ -22,7 +22,7 @@ from exceptions.fs_exceptions import (
 from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from utils.archive_7zip import process_file
+from utils.archive_7zip import process_file_7z
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
 
@@ -172,12 +172,7 @@ def process_7z_file(
     fn_hash_update: Callable[[bytes | bytearray], None],
     fn_hash_read: Callable[[int | None], bytes],
 ) -> None:
-    """Process a 7zip file and use the provided callables to update the calculated hashes.
-    Hashes end up being updated by reference in the provided callables, so they will include the
-    final hash when this function returns.
-    """
-
-    process_file(
+    process_file_7z(
         file_path=file_path,
         fn_hash_update=fn_hash_update,
         fn_hash_read=fn_hash_read,
