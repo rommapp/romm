@@ -201,11 +201,9 @@ start_bin_rq_worker() {
 
 start_bin_watcher() {
 	info_log "Starting watcher"
-	watchmedo shell-command \
-		--patterns='**/*' \
-		--ignore-patterns='.DS_Store' \
-		--recursive \
-		--command='uv run python watcher.py "${watch_src_path}" "${watch_dest_path}" "${watch_event_type}" "${watch_object}"' \
+	watchfiles \
+		--target-type command \
+		'uv run python watcher.py' \
 		/romm/library &
 	WATCHER_PID=$!
 	echo "${WATCHER_PID}" >/tmp/watcher.pid
