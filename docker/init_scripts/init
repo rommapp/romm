@@ -162,7 +162,7 @@ start_bin_valkey-server() {
 }
 
 # Commands to start RQ scheduler
-start_bin_scheduler() {
+start_bin_rq_scheduler() {
 	info_log "Starting RQ scheduler"
 
 	RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
@@ -173,7 +173,18 @@ start_bin_scheduler() {
 		RQ_REDIS_SSL=${REDIS_SSL:-0} \
 		rqscheduler \
 		--path /backend \
-		--pid /tmp/scheduler.pid &
+		--pid /tmp/rq_scheduler.pid &
+}
+
+# Commands to start RQ worker
+start_bin_rq_worker() {
+	info_log "Starting rq worker"
+
+	rq worker \
+		--path /backend \
+		--pid /tmp/rq_worker.pid \
+		--url "redis${REDIS_SSL:+s}://${REDIS_USERNAME:-""}:${REDIS_PASSWORD:-""}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}" \
+		high default low &
 }
 
 # function that runs our independent python scripts and creates corresponding PID files,
@@ -223,8 +234,8 @@ stop_process_pid() {
 
 shutdown() {
 	# shutdown in reverse order
-	stop_process_pid worker
-	stop_process_pid scheduler
+	stop_process_pid rq_worker
+	stop_process_pid rq_scheduler
 	stop_process_pid watcher
 	stop_process_pid nginx
 	stop_process_pid gunicorn
@@ -264,10 +275,10 @@ while ! ((exited)); do
 
 	# only start the scheduler if enabled
 	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" ]]; then
-		watchdog_process_pid bin scheduler
+		watchdog_process_pid bin rq_scheduler
 	fi
 
-	watchdog_process_pid python worker
+	watchdog_process_pid bin rq_worker
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
