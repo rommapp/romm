@@ -1,6 +1,5 @@
 import asyncio
 
-import emoji
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
@@ -21,6 +20,7 @@ from handler.scan_handler import get_main_platform_igdb_id
 from logger.formatter import BLUE, CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
+from utils import emoji
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -66,15 +66,13 @@ async def search_rom(
         return []
 
     log.info(
-        emoji.emojize(":magnifying_glass_tilted_right: Searching metadata providers...")
+        f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Searching metadata providers..."
     )
     matched_roms: list = []
 
     log.info(f"Searching by {hl(search_by.lower(), color=CYAN)}:")
     log.info(
-        emoji.emojize(
-            f":video_game: {hl(rom.platform_display_name, color=BLUE)} [{rom.platform_fs_slug}]: {hl(search_term)}[{rom.fs_name}]"
-        )
+        f"{emoji.EMOJI_VIDEO_GAME} {hl(rom.platform_display_name, color=BLUE)} [{rom.platform_fs_slug}]: {hl(search_term)}[{rom.fs_name}]"
     )
 
     igdb_matched_roms: list[IGDBRom] = []

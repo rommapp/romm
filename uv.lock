@@ -422,15 +422,6 @@ wheels = [
 ]
 
 [[package]]
-name = "emoji"
-version = "2.10.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6c/5c/486737f2f26b9a3f684cfe2f642b618d79635905513f1d14a265f3b47b70/emoji-2.10.1.tar.gz", hash = "sha256:16287283518fb7141bde00198f9ffff4e1c1cb570efb68b2f1ec50975c3a581d", size = 428315, upload-time = "2024-01-31T12:58:27.778Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/00/00d56e704d69cee4a92b1d517676579b4af5f2f8bc72946c464a504705b2/emoji-2.10.1-py2.py3-none-any.whl", hash = "sha256:11fb369ea79d20c14efa4362c732d67126df294a7959a2c98bfd7447c12a218e", size = 421524, upload-time = "2024-01-31T12:58:25.439Z" },
-]
-
-[[package]]
 name = "executing"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1752,7 +1743,6 @@ dependencies = [
     { name = "authlib" },
     { name = "colorama" },
     { name = "defusedxml" },
-    { name = "emoji" },
     { name = "fastapi", extra = ["standard-no-fastapi-cloud-cli"] },
     { name = "fastapi-pagination", extra = ["sqlalchemy"] },
     { name = "gunicorn" },
@@ -1814,7 +1804,6 @@ requires-dist = [
     { name = "authlib", specifier = "~=1.3" },
     { name = "colorama", specifier = "~=0.4" },
     { name = "defusedxml", specifier = "~=0.7.1" },
-    { name = "emoji", specifier = "==2.10.1" },
     { name = "fakeredis", marker = "extra == 'test'", specifier = "~=2.21" },
     { name = "fastapi", extras = ["standard-no-fastapi-cloud-cli"], specifier = "~=0.116" },
     { name = "fastapi-pagination", extras = ["sqlalchemy"], specifier = "~=0.12" },
