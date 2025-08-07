@@ -1331,7 +1331,7 @@ MOBYGAMES_PLATFORM_LIST: dict[UPS, SlugToMobyId] = {
     },
     UPS.ZODIAC: {"id": 68, "name": "Zodiac", "slug": "zodiac"},
     UPS.ZUNE: {"id": 211, "name": "Zune", "slug": "zune"},
-    UPS.ZX_SPECTRUM: {
+    UPS.ZXS: {
         "id": 41,
         "name": "ZX Spectrum",
         "slug": "zx-spectrum",

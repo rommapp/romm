@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# trunk-ignore-all(shellcheck/SC2016)
 
 set -o errexit           # treat errors as fatal
 set -o nounset           # treat unset variables as an error
@@ -161,35 +162,66 @@ start_bin_valkey-server() {
 	error_log "Internal valkey did not become ready after $((max_retries * 500))ms"
 }
 
-# function that runs our independent python scripts and creates corresponding PID files,
-start_python() {
-	SCRIPT="${1}"
-	info_log "Starting ${SCRIPT}"
-	python3 "${SCRIPT}.py" &
+# Commands to start RQ scheduler
+start_bin_rq_scheduler() {
+	info_log "Starting RQ scheduler"
+
+	RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
+		RQ_REDIS_PORT=${REDIS_PORT:-6379} \
+		RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
+		RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
+		RQ_REDIS_DB=${REDIS_DB:-0} \
+		RQ_REDIS_SSL=${REDIS_SSL:-0} \
+		rqscheduler \
+		--path /backend \
+		--pid /tmp/rq_scheduler.pid &
+}
+
+# Commands to start RQ worker
+start_bin_rq_worker() {
+	info_log "Starting rq worker"
+
+	# Build Redis URL properly
+	local redis_url
+	if [[ -n ${REDIS_PASSWORD-} ]]; then
+		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	elif [[ -n ${REDIS_USERNAME-} ]]; then
+		redis_url="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	else
+		redis_url="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+	fi
+
+	# Set PYTHONPATH so RQ can find the tasks module
+	PYTHONPATH="/backend:${PYTHONPATH-}" rq worker \
+		--path /backend \
+		--pid /tmp/rq_worker.pid \
+		--url "${redis_url}" \
+		high default low &
+}
+
+start_bin_watcher() {
+	info_log "Starting watcher"
+	watchmedo shell-command \
+		--patterns='**/*' \
+		--ignore-patterns='.DS_Store' \
+		--recursive \
+		--command='uv run python watcher.py "${watch_src_path}" "${watch_dest_path}" "${watch_event_type}" "${watch_object}"' \
+		/romm/library &
 	WATCHER_PID=$!
-	echo "${WATCHER_PID}" >"/tmp/${SCRIPT}.pid"
+	echo "${WATCHER_PID}" >/tmp/watcher.pid
 }
 
 watchdog_process_pid() {
-	TYPE=$1
-	PROCESS=$2
+	PROCESS=$1
 	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
-		# check if the pid we last wrote to our state file is actually active
+		# Check if the pid we last wrote to our state file is actually active
 		PID=$(cat "/tmp/${PROCESS}.pid") || true
 		if [[ ! -d "/proc/${PID}" ]]; then
-			if [[ ${TYPE} == "bin" ]]; then
-				start_bin_"${PROCESS}"
-			elif [[ ${TYPE} == "python" ]]; then
-				start_python "${PROCESS}"
-			fi
+			start_bin_"${PROCESS}"
 		fi
 	else
-		# start process if we dont have a corresponding PID file
-		if [[ ${TYPE} == "bin" ]]; then
-			start_bin_"${PROCESS}"
-		elif [[ ${TYPE} == "python" ]]; then
-			start_python "${PROCESS}"
-		fi
+		# Start process if we dont have a corresponding PID file
+		start_bin_"${PROCESS}"
 	fi
 }
 
@@ -208,8 +240,8 @@ stop_process_pid() {
 
 shutdown() {
 	# shutdown in reverse order
-	stop_process_pid scheduler
-	stop_process_pid worker
+	stop_process_pid rq_worker
+	stop_process_pid rq_scheduler
 	stop_process_pid watcher
 	stop_process_pid nginx
 	stop_process_pid gunicorn
@@ -230,7 +262,7 @@ rm /tmp/*.pid -f
 
 # Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
 if [[ -z ${REDIS_HOST} ]]; then
-	watchdog_process_pid bin valkey-server
+	watchdog_process_pid valkey-server
 else
 	warn_log "REDIS_HOST is set, not starting internal valkey-server"
 fi
@@ -245,21 +277,21 @@ fi
 
 # main loop
 while ! ((exited)); do
-	watchdog_process_pid bin gunicorn
-
-	watchdog_process_pid python worker
+	watchdog_process_pid gunicorn
 
 	# only start the scheduler if enabled
-	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" ]]; then
-		watchdog_process_pid python scheduler
+	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" ]]; then
+		watchdog_process_pid rq_scheduler
 	fi
+
+	watchdog_process_pid rq_worker
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
-		watchdog_process_pid python watcher
+		watchdog_process_pid watcher
 	fi
 
-	watchdog_process_pid bin nginx
+	watchdog_process_pid nginx
 
 	# check for died processes every 5 seconds
 	sleep 5

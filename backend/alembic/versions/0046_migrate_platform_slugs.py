@@ -200,6 +200,7 @@ OLD_SLUGS_TO_NEW_MAP = {
     "ps-vita": UPS.PSVITA,
     "sega-32x": UPS.SEGA32,
     "sega-cd": UPS.SEGACD,
+    "sega-cd-32x": UPS.SEGACD32,
     "sega-master-system": UPS.SMS,
     "sega-saturn": UPS.SATURN,
     "sharp-x1": UPS.X1,
@@ -213,4 +214,5 @@ OLD_SLUGS_TO_NEW_MAP = {
     "turbografx16--1": UPS.TG16,
     "watara-slash-quickshot-supervision": UPS.SUPERVISION,
     "windows": UPS.WIN,
+    "zx-spectrum": UPS.ZXS,
 }
