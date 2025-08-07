@@ -5,11 +5,12 @@ import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
+SEVEN_ZIP_PATH = "/usr/bin/7z"
+
 
 def process_file_7z(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
-    fn_hash_read: Callable[[int | None], bytes],
 ) -> None:
     """
     Process a 7zip file using the system's 7zip binary and use the provided callables to update the calculated hashes.
@@ -17,12 +18,11 @@ def process_file_7z(
     Args:
         file_path: Path to the 7z file
         fn_hash_update: Callback to update hashes with data chunks
-        fn_hash_read: Callback that returns current hash digest (unused in this implementation)
     """
 
     try:
         result = subprocess.run(
-            ["/usr/bin/7z", "l", str(file_path)],
+            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
             capture_output=True,
             text=True,
             check=True,
@@ -33,14 +33,10 @@ def process_file_7z(
         lines = result.stdout.split("\n")
         first_file = None
 
-        # Look for the line that contains the actual file entry
         for line in lines:
-            attr_pos = line.strip().find("....A")
-            if attr_pos != -1:
-                filename_part = line[attr_pos:].split()
-                if len(filename_part) >= 4:
-                    first_file = " ".join(filename_part[3:])
-                    break
+            if line.strip().startswith("Path"):
+                first_file = line.split(" = ")[1].strip()
+                break
 
         if not first_file:
             for chunk in read_basic_file(file_path):
@@ -53,7 +49,7 @@ def process_file_7z(
             # Extract only the first file
             subprocess.run(
                 [
-                    "/usr/bin/7z",
+                    SEVEN_ZIP_PATH,
                     "e",
                     str(file_path),
                     first_file,
