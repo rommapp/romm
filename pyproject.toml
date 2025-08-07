@@ -51,7 +51,7 @@ dependencies = [
   "user-agents ~= 2.2",
   "uvicorn ~= 0.35",
   "uvicorn-worker ~= 0.3",
-  "watchdog[watchmedo]~=6.0",
+  "watchdog[watchmedo] ~= 6.0",
   "yarl ~= 1.14",
   "zipfile-inflate64 ~= 0.1",
 ]

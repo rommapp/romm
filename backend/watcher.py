@@ -61,10 +61,17 @@ def on_any_event(
     src_path = os.fsdecode(src_path)
 
     event_src = src_path.split(LIBRARY_BASE_PATH)[-1]
-    fs_slug = event_src.split("/")[structure_level]
+    event_src_parts = event_src.split("/")
+    if len(event_src_parts) <= structure_level:
+        log.warning(
+            f"Filesystem event path '{event_src}' does not have enough segments for structure_level {structure_level}. Skipping event."
+        )
+        return
+
+    fs_slug = event_src_parts[structure_level]
     db_platform = db_platform_handler.get_platform_by_fs_slug(fs_slug)
 
-    log.info(f"Filesystem event: {event_type} {event_src} {fs_slug} {db_platform}")
+    log.info(f"Filesystem event: {event_type} {event_src}")
 
     # Skip if a scan is already scheduled
     for job in tasks_scheduler.get_jobs():
@@ -82,7 +89,7 @@ def on_any_event(
     rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
 
     # Any change to a platform directory should trigger a full rescan
-    if fs_obj == "directory" and event_src.count("/") == 1:
+    if fs_obj == "directory" and len(event_src_parts) == structure_level + 1:
         log.info(f"Platform directory changed, {rescan_in_msg}")
         tasks_scheduler.enqueue_in(time_delta, scan_platforms, [])
     elif db_platform:
