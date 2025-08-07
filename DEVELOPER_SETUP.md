@@ -117,13 +117,6 @@ cd backend
 uv run python3 main.py
 ```
 
-#### - Start a worker
-
-```sh
-cd backend
-uv run python3 worker.py
-```
-
 ### Setting up the frontend
 
 #### - Install node.js dependencies

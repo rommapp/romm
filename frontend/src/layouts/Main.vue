@@ -17,6 +17,7 @@ import SelectSaveDialog from "@/components/common/Game/Dialog/Asset/SelectSave.v
 import SelectStateDialog from "@/components/common/Game/Dialog/Asset/SelectState.vue";
 import DeleteSavesDialog from "@/components/common/Game/Dialog/Asset/DeleteSaves.vue";
 import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
+import NoteDialog from "@/components/common/Game/Dialog/NoteDialog.vue";
 import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
 import storeCollections from "@/stores/collections";
@@ -108,6 +109,7 @@ onBeforeMount(async () => {
   <remove-roms-from-collection-dialog />
   <delete-rom-dialog />
   <edit-user-dialog />
+  <note-dialog />
   <show-q-r-code-dialog />
 
   <new-version-dialog />

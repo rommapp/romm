@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from itertools import batched
 from typing import Any, Final
 
-import emoji
 import socketio  # type: ignore
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
@@ -39,6 +38,7 @@ from models.rom import Rom, RomFile
 from rq import Worker
 from rq.job import Job
 from sqlalchemy.inspection import inspect
+from utils import emoji
 from utils.context import initialize_context
 
 STOP_SCAN_FLAG: Final = "scan:stop"
@@ -363,9 +363,7 @@ async def _identify_platform(
 
     if len(fs_firmware) == 0:
         log.warning(
-            emoji.emojize(
-                f"{hl(':warning:', color=LIGHTYELLOW)}  No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
-            )
+            f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No firmware found for {hl(platform.custom_name or platform.name, color=BLUE)}[{hl(platform.fs_slug)}]"
         )
     else:
         log.info(f"{hl(str(len(fs_firmware)))} firmware files found")
@@ -385,9 +383,7 @@ async def _identify_platform(
 
     if len(fs_roms) == 0:
         log.warning(
-            emoji.emojize(
-                f"{hl(':warning:', color=LIGHTYELLOW)}  No roms found, verify that the folder structure is correct"
-            )
+            f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No roms found, verify that the folder structure is correct"
         )
     else:
         log.info(f"{hl(str(len(fs_roms)))} roms found in the file system")
@@ -464,7 +460,7 @@ async def scan_platforms(
     scan_stats = ScanStats()
 
     async def stop_scan():
-        log.info(emoji.emojize(":stop_sign: Scan stopped manually"))
+        log.info(f"{emoji.EMOJI_STOP_SIGN} Scan stopped manually")
         await sm.emit("scan:done", scan_stats.__dict__)
         redis_client.delete(STOP_SCAN_FLAG)
 
@@ -478,10 +474,8 @@ async def scan_platforms(
 
         if len(platform_list) == 0:
             log.warning(
-                emoji.emojize(
-                    f"{hl(':warning:', color=LIGHTYELLOW)}  No platforms found, verify that the folder structure is right and the volume is mounted correctly. \
-                Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
-                )
+                f"{hl(emoji.EMOJI_WARNING, color=LIGHTYELLOW)} No platforms found, verify that the folder structure is right and the volume is mounted correctly."
+                "Check https://github.com/rommapp/romm?tab=readme-ov-file#folder-structure for more details."
             )
         else:
             log.info(
@@ -504,7 +498,7 @@ async def scan_platforms(
             for p in missed_platforms:
                 log.warning(f" - {p.slug}")
 
-        log.info(emoji.emojize(":check_mark:  Scan completed "))
+        log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
         await sm.emit("scan:done", scan_stats.__dict__)
     except ScanStoppedException:
         await stop_scan()
@@ -524,7 +518,7 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
         options (dict): Socket options
     """
 
-    log.info(emoji.emojize(":magnifying_glass_tilted_right: Scanning"))
+    log.info(f"{emoji.EMOJI_MAGNIFYING_GLASS_TILTED_RIGHT} Scanning")
 
     platform_ids = options.get("platforms", [])
     scan_type = ScanType[options.get("type", "quick").upper()]
@@ -553,12 +547,12 @@ async def scan_handler(_sid: str, options: dict[str, Any]):
 async def stop_scan_handler(_sid: str):
     """Stop scan socket endpoint"""
 
-    log.info(emoji.emojize(":stop_button: Stop scan requested..."))
+    log.info(f"{emoji.EMOJI_STOP_BUTTON} Stop scan requested...")
 
     async def cancel_job(job: Job):
         job.cancel()
         redis_client.set(STOP_SCAN_FLAG, 1)
-        log.info(emoji.emojize(":stop_button: Job found, stopping scan..."))
+        log.info(f"{emoji.EMOJI_STOP_BUTTON} Job found, stopping scan...")
 
     existing_jobs = high_prio_queue.get_jobs()
     for job in existing_jobs:
@@ -575,4 +569,4 @@ async def stop_scan_handler(_sid: str):
         ):
             return await cancel_job(current_job)
 
-    log.info(emoji.emojize(":stop_button: No running scan to stop"))
+    log.info(f"{emoji.EMOJI_STOP_BUTTON} No running scan to stop")

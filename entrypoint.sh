@@ -1,4 +1,6 @@
 #!/bin/bash
+# trunk-ignore-all(shellcheck/SC2016)
+
 set -e
 
 echo "Starting entrypoint script..."
@@ -32,9 +34,45 @@ function handle_termination() {
 trap handle_termination SIGTERM SIGINT
 
 # Start all services in the background
+echo "Starting backend..."
 cd /app/backend
 uv run python main.py &
-OBJC_DISABLE_INITIALIZE_FORK_SAFETY=1 uv run python worker.py &
+
+echo "Starting RQ scheduler..."
+RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
+	RQ_REDIS_PORT=${REDIS_PORT:-6379} \
+	RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
+	RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
+	RQ_REDIS_DB=${REDIS_DB:-0} \
+	RQ_REDIS_SSL=${REDIS_SSL:-0} \
+	rqscheduler \
+	--path /app/backend \
+	--pid /tmp/rq_scheduler.pid &
+
+echo "Starting RQ worker..."
+# Build Redis URL properly
+if [[ -n ${REDIS_PASSWORD-} ]]; then
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+elif [[ -n ${REDIS_USERNAME-} ]]; then
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+else
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+fi
+
+# Set PYTHONPATH so RQ can find the tasks module
+PYTHONPATH="/app/backend:${PYTHONPATH-}" rq worker \
+	--path /app/backend \
+	--pid /tmp/rq_worker.pid \
+	--url "${REDIS_URL}" \
+	high default low &
+
+echo "Starting watcher..."
+watchmedo shell-command \
+	--patterns='**/*' \
+	--ignore-patterns='.DS_Store' \
+	--recursive \
+	--command='uv run python watcher.py "${watch_src_path}" "${watch_dest_path}" "${watch_event_type}" "${watch_object}"' \
+	/app/romm/library &
 
 # Start the frontend dev server
 cd /app/frontend

@@ -422,15 +422,6 @@ wheels = [
 ]
 
 [[package]]
-name = "emoji"
-version = "2.10.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6c/5c/486737f2f26b9a3f684cfe2f642b618d79635905513f1d14a265f3b47b70/emoji-2.10.1.tar.gz", hash = "sha256:16287283518fb7141bde00198f9ffff4e1c1cb570efb68b2f1ec50975c3a581d", size = 428315, upload-time = "2024-01-31T12:58:27.778Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/00/00d56e704d69cee4a92b1d517676579b4af5f2f8bc72946c464a504705b2/emoji-2.10.1-py2.py3-none-any.whl", hash = "sha256:11fb369ea79d20c14efa4362c732d67126df294a7959a2c98bfd7447c12a218e", size = 421524, upload-time = "2024-01-31T12:58:25.439Z" },
-]
-
-[[package]]
 name = "executing"
 version = "2.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1703,7 +1694,6 @@ dependencies = [
     { name = "authlib" },
     { name = "colorama" },
     { name = "defusedxml" },
-    { name = "emoji" },
     { name = "fastapi", extra = ["standard-no-fastapi-cloud-cli"] },
     { name = "fastapi-pagination", extra = ["sqlalchemy"] },
     { name = "gunicorn" },
@@ -1734,7 +1724,7 @@ dependencies = [
     { name = "user-agents" },
     { name = "uvicorn" },
     { name = "uvicorn-worker" },
-    { name = "watchdog" },
+    { name = "watchdog", extra = ["watchmedo"] },
     { name = "yarl" },
     { name = "zipfile-inflate64" },
 ]
@@ -1764,7 +1754,6 @@ requires-dist = [
     { name = "authlib", specifier = "~=1.3" },
     { name = "colorama", specifier = "~=0.4" },
     { name = "defusedxml", specifier = "~=0.7.1" },
-    { name = "emoji", specifier = "==2.10.1" },
     { name = "fakeredis", marker = "extra == 'test'", specifier = "~=2.21" },
     { name = "fastapi", extras = ["standard-no-fastapi-cloud-cli"], specifier = "~=0.116" },
     { name = "fastapi-pagination", extras = ["sqlalchemy"], specifier = "~=0.12" },
@@ -1793,7 +1782,7 @@ requires-dist = [
     { name = "pyyaml", specifier = "==6.0.1" },
     { name = "redis", specifier = "~=6.2" },
     { name = "rq", specifier = "~=2.1" },
-    { name = "rq-scheduler", specifier = "~=0.14" },
+    { name = "rq-scheduler", git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl" },
     { name = "sentry-sdk", specifier = "~=2.32" },
     { name = "sqlalchemy", extras = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"], specifier = "~=2.0" },
     { name = "starlette-csrf", specifier = "~=3.0" },
@@ -1806,7 +1795,7 @@ requires-dist = [
     { name = "user-agents", specifier = "~=2.2" },
     { name = "uvicorn", specifier = "~=0.35" },
     { name = "uvicorn-worker", specifier = "~=0.3" },
-    { name = "watchdog", specifier = "~=6.0" },
+    { name = "watchdog", extras = ["watchmedo"], specifier = "~=6.0" },
     { name = "yarl", specifier = "~=1.14" },
     { name = "zipfile-inflate64", specifier = "~=0.1" },
 ]
@@ -1828,16 +1817,12 @@ wheels = [
 [[package]]
 name = "rq-scheduler"
 version = "0.14.0"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl#42a7a2b8146179cf4578ab1751b80f76c5a0f09e" }
 dependencies = [
     { name = "crontab" },
     { name = "freezegun" },
     { name = "python-dateutil" },
     { name = "rq" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/4e/977bbcc1f3b25ed9ea60ec968b13f7147661defe5b2f9272b44fdb1c5549/rq-scheduler-0.14.0.tar.gz", hash = "sha256:2d5a14a1ab217f8693184ebaa1fe03838edcbc70b4f76572721c0b33058cd023", size = 16582, upload-time = "2024-10-29T13:30:32.641Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/d0/28cedca9f3b321f30e69d644c2dcd7097ec21570ec9606fde56750621300/rq_scheduler-0.14.0-py2.py3-none-any.whl", hash = "sha256:d4ec221a3d8c11b3ff55e041f09d9af1e17f3253db737b6b97e86ab20fc3dc0d", size = 13874, upload-time = "2024-10-29T13:30:30.449Z" },
 ]
 
 [[package]]
@@ -2351,6 +2336,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/07/f6/d0e5b343768e8bcb4cda79f0f2f55051bf26177ecd5651f84c07567461cf/watchdog-6.0.0-py3-none-win32.whl", hash = "sha256:07df1fdd701c5d4c8e55ef6cf55b8f0120fe1aef7ef39a1c6fc6bc2e606d517a", size = 79065, upload-time = "2024-11-01T14:07:09.525Z" },
     { url = "https://files.pythonhosted.org/packages/db/d9/c495884c6e548fce18a8f40568ff120bc3a4b7b99813081c8ac0c936fa64/watchdog-6.0.0-py3-none-win_amd64.whl", hash = "sha256:cbafb470cf848d93b5d013e2ecb245d4aa1c8fd0504e863ccefa32445359d680", size = 79070, upload-time = "2024-11-01T14:07:10.686Z" },
     { url = "https://files.pythonhosted.org/packages/33/e8/e40370e6d74ddba47f002a32919d91310d6074130fe4e17dabcafc15cbf1/watchdog-6.0.0-py3-none-win_ia64.whl", hash = "sha256:a1914259fa9e1454315171103c6a30961236f508b9b623eae470268bbcc6a22f", size = 79067, upload-time = "2024-11-01T14:07:11.845Z" },
+]
+
+[package.optional-dependencies]
+watchmedo = [
+    { name = "pyyaml" },
 ]
 
 [[package]]
