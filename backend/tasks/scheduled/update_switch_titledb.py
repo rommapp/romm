@@ -23,7 +23,7 @@ class UpdateSwitchTitleDBTask(RemoteFilePullTask):
             enabled=ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
             cron_string=SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON,
             manual_run=True,
-            func="tasks.update_switch_titledb.update_switch_titledb_task.run",
+            func="tasks.scheduled.update_switch_titledb.update_switch_titledb_task.run",
             url="https://raw.githubusercontent.com/blawar/titledb/master/US.en.json",
         )
 

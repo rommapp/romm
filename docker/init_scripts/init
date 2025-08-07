@@ -161,6 +161,21 @@ start_bin_valkey-server() {
 	error_log "Internal valkey did not become ready after $((max_retries * 500))ms"
 }
 
+# Commands to start RQ scheduler
+start_bin_scheduler() {
+	info_log "Starting RQ scheduler"
+
+	RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
+		RQ_REDIS_PORT=${REDIS_PORT:-6379} \
+		RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
+		RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
+		RQ_REDIS_DB=${REDIS_DB:-0} \
+		RQ_REDIS_SSL=${REDIS_SSL:-0} \
+		rqscheduler \
+		--path /backend \
+		--pid /tmp/scheduler.pid &
+}
+
 # function that runs our independent python scripts and creates corresponding PID files,
 start_python() {
 	SCRIPT="${1}"
@@ -208,8 +223,8 @@ stop_process_pid() {
 
 shutdown() {
 	# shutdown in reverse order
-	stop_process_pid scheduler
 	stop_process_pid worker
+	stop_process_pid scheduler
 	stop_process_pid watcher
 	stop_process_pid nginx
 	stop_process_pid gunicorn
@@ -247,12 +262,12 @@ fi
 while ! ((exited)); do
 	watchdog_process_pid bin gunicorn
 
-	watchdog_process_pid python worker
-
 	# only start the scheduler if enabled
 	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" ]]; then
-		watchdog_process_pid python scheduler
+		watchdog_process_pid bin scheduler
 	fi
+
+	watchdog_process_pid python worker
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
