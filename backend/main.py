@@ -140,6 +140,9 @@ add_pagination(app)
 
 
 if __name__ == "__main__":
+    # Run migrations
+    alembic.config.main(argv=["upgrade", "head"])
+
     # Initialize scheduled tasks
     if ENABLE_SCHEDULED_RESCAN:
         log.info("Starting scheduled rescan")
@@ -152,9 +155,6 @@ if __name__ == "__main__":
     if ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:
         log.info("Starting scheduled update launchbox metadata")
         update_launchbox_metadata_task.init()
-
-    # Run migrations
-    alembic.config.main(argv=["upgrade", "head"])
 
     # Run application
     app.add_middleware(CustomLoggingMiddleware)

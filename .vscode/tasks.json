@@ -34,7 +34,7 @@
     },
     {
       "label": "Launch full stack",
-      "dependsOn": ["Launch frontend", "Launch backend", "Launch worker"],
+      "dependsOn": ["Launch frontend", "Launch backend"],
       "problemMatcher": [],
       "dependsOrder": "parallel"
     }

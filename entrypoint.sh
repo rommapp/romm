@@ -51,10 +51,10 @@ RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
 
 echo "Starting RQ worker..."
 # Build Redis URL properly
-if [[ -n ${REDIS_USERNAME-} && -n ${REDIS_PASSWORD-} ]]; then
-	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
-elif [[ -n ${REDIS_PASSWORD-} ]]; then
-	REDIS_URL="redis${REDIS_SSL:+s}://:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+if [[ -n ${REDIS_PASSWORD-} ]]; then
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+elif [[ -n ${REDIS_USERNAME-} ]]; then
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 else
 	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
 fi
