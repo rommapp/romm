@@ -212,7 +212,7 @@ start_bin_watcher() {
 }
 
 watchdog_process_pid() {
-	PROCESS=$2
+	PROCESS=$1
 	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
 		# Check if the pid we last wrote to our state file is actually active
 		PID=$(cat "/tmp/${PROCESS}.pid") || true
