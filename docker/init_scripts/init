@@ -198,35 +198,29 @@ start_bin_rq_worker() {
 		high default low &
 }
 
-# function that runs our independent python scripts and creates corresponding PID files,
-start_python() {
-	SCRIPT="${1}"
-	info_log "Starting ${SCRIPT}"
-	python3 "${SCRIPT}.py" &
+start_bin_watcher() {
+	info_log "Starting watcher"
+	watchmedo shell-command \
+		--patterns='**/*' \
+		--ignore-patterns='.DS_Store' \
+		--recursive \
+		--command='uv run python watcher.py "${watch_src_path}" "${watch_dest_path}" "${watch_event_type}" "${watch_object}"' \
+		/romm/library &
 	WATCHER_PID=$!
-	echo "${WATCHER_PID}" >"/tmp/${SCRIPT}.pid"
+	echo "${WATCHER_PID}" >/tmp/watcher.pid
 }
 
 watchdog_process_pid() {
-	TYPE=$1
 	PROCESS=$2
 	if [[ -f "/tmp/${PROCESS}.pid" ]]; then
-		# check if the pid we last wrote to our state file is actually active
+		# Check if the pid we last wrote to our state file is actually active
 		PID=$(cat "/tmp/${PROCESS}.pid") || true
 		if [[ ! -d "/proc/${PID}" ]]; then
-			if [[ ${TYPE} == "bin" ]]; then
-				start_bin_"${PROCESS}"
-			elif [[ ${TYPE} == "python" ]]; then
-				start_python "${PROCESS}"
-			fi
+			start_bin_"${PROCESS}"
 		fi
 	else
-		# start process if we dont have a corresponding PID file
-		if [[ ${TYPE} == "bin" ]]; then
-			start_bin_"${PROCESS}"
-		elif [[ ${TYPE} == "python" ]]; then
-			start_python "${PROCESS}"
-		fi
+		# Start process if we dont have a corresponding PID file
+		start_bin_"${PROCESS}"
 	fi
 }
 
@@ -267,7 +261,7 @@ rm /tmp/*.pid -f
 
 # Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
 if [[ -z ${REDIS_HOST} ]]; then
-	watchdog_process_pid bin valkey-server
+	watchdog_process_pid valkey-server
 else
 	warn_log "REDIS_HOST is set, not starting internal valkey-server"
 fi
@@ -282,21 +276,21 @@ fi
 
 # main loop
 while ! ((exited)); do
-	watchdog_process_pid bin gunicorn
+	watchdog_process_pid gunicorn
 
 	# only start the scheduler if enabled
 	if [[ ${ENABLE_SCHEDULED_RESCAN} == "true" || ${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB} == "true" || ${ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA} == "true" ]]; then
-		watchdog_process_pid bin rq_scheduler
+		watchdog_process_pid rq_scheduler
 	fi
 
-	watchdog_process_pid bin rq_worker
+	watchdog_process_pid rq_worker
 
 	# only start the watcher if enabled
 	if [[ ${ENABLE_RESCAN_ON_FILESYSTEM_CHANGE} == "true" ]]; then
-		watchdog_process_pid python watcher
+		watchdog_process_pid watcher
 	fi
 
-	watchdog_process_pid bin nginx
+	watchdog_process_pid nginx
 
 	# check for died processes every 5 seconds
 	sleep 5
