@@ -44,11 +44,10 @@ RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
 	RQ_REDIS_DB=${REDIS_DB:-0} \
 	RQ_REDIS_SSL=${REDIS_SSL:-0} \
 	rqscheduler \
-	--path /backend \
+	--path /app/backend \
 	--pid /tmp/rq_scheduler.pid &
 
 echo "Starting RQ worker..."
-
 # Build Redis URL properly
 if [[ -n ${REDIS_USERNAME-} && -n ${REDIS_PASSWORD-} ]]; then
 	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
@@ -59,8 +58,8 @@ else
 fi
 
 # Set PYTHONPATH so RQ can find the tasks module
-PYTHONPATH="/backend:${PYTHONPATH-}" rq worker \
-	--path /backend \
+PYTHONPATH="/app/backend:${PYTHONPATH-}" rq worker \
+	--path /app/backend \
 	--pid /tmp/rq_worker.pid \
 	--url "${REDIS_URL}" \
 	high default low &
