@@ -1,11 +1,12 @@
 import os
 import sys
 from datetime import timedelta
-from typing import Literal
 
 import sentry_sdk
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+    HASHEOUS_API_ENABLED,
+    LAUNCHBOX_API_ENABLED,
     LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SENTRY_DSN,
@@ -13,7 +14,12 @@ from config import (
 from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
 from handler.database import db_platform_handler
-from handler.scan_handler import ScanType
+from handler.metadata.igdb_handler import IGDB_API_ENABLED
+from handler.metadata.moby_handler import MOBY_API_ENABLED
+from handler.metadata.ra_handler import RA_API_ENABLED
+from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
+from handler.metadata.ss_handler import SS_API_ENABLED
+from handler.scan_handler import MetadataSource, ScanType
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
@@ -50,7 +56,6 @@ def on_any_event(
     src_path: str,
     _dest_path: str,
     event_type: str,
-    fs_obj: Literal["file", "directory"],
 ):
     if event_type not in valid_events:
         return
@@ -88,18 +93,40 @@ def on_any_event(
     time_delta = timedelta(minutes=RESCAN_ON_FILESYSTEM_CHANGE_DELAY)
     rescan_in_msg = f"rescanning in {hl(str(RESCAN_ON_FILESYSTEM_CHANGE_DELAY), color=CYAN)} minutes."
 
+    source_mapping: dict[str, bool] = {
+        MetadataSource.IGDB: IGDB_API_ENABLED,
+        MetadataSource.SS: SS_API_ENABLED,
+        MetadataSource.MOBY: MOBY_API_ENABLED,
+        MetadataSource.RA: RA_API_ENABLED,
+        MetadataSource.LB: LAUNCHBOX_API_ENABLED,
+        MetadataSource.HASHEOUS: HASHEOUS_API_ENABLED,
+        MetadataSource.SGDB: STEAMGRIDDB_API_ENABLED,
+    }
+
+    metadata_sources = [source for source, flag in source_mapping.items() if flag]
+    if not metadata_sources:
+        log.warning("No metadata sources enabled, skipping rescan")
+        return
+
     # Any change to a platform directory should trigger a full rescan
-    if fs_obj == "directory" and len(event_src_parts) == structure_level + 1:
+    if len(event_src_parts) == structure_level + 1:
         log.info(f"Platform directory changed, {rescan_in_msg}")
-        tasks_scheduler.enqueue_in(time_delta, scan_platforms, [])
+        tasks_scheduler.enqueue_in(
+            time_delta,
+            scan_platforms,
+            [],
+            scan_type=ScanType.UNIDENTIFIED,
+            metadata_sources=metadata_sources,
+        )
+    # Otherwise trigger a rescan for the specific platform
     elif db_platform:
-        # Otherwise trigger a rescan for the specific platform
         log.info(f"Change detected in {hl(fs_slug)} folder, {rescan_in_msg}")
         tasks_scheduler.enqueue_in(
             time_delta,
             scan_platforms,
             [db_platform.id],
             scan_type=ScanType.QUICK,
+            metadata_sources=metadata_sources,
         )
 
 
@@ -107,6 +134,5 @@ if __name__ == "__main__":
     watch_src_path = sys.argv[1]
     watch_dest_path = sys.argv[2]
     watch_event_type = sys.argv[3]
-    watch_object = sys.argv[4]
 
-    on_any_event(watch_src_path, watch_dest_path, watch_event_type, watch_object)  # type: ignore
+    on_any_event(watch_src_path, watch_dest_path, watch_event_type)
