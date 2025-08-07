@@ -170,12 +170,10 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
 def process_7z_file(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
-    fn_hash_read: Callable[[int | None], bytes],
 ) -> None:
     process_file_7z(
         file_path=file_path,
         fn_hash_update=fn_hash_update,
-        fn_hash_read=fn_hash_read,
     )
 
 
@@ -480,7 +478,6 @@ class FSRomsHandler(FSHandler):
                 process_7z_file(
                     file_path=file_path,
                     fn_hash_update=update_hashes,
-                    fn_hash_read=lambda size: sha1_h.digest(),
                 )
 
             elif extension == ".bz2" or file_type == "application/x-bzip2":
