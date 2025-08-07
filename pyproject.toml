@@ -38,7 +38,9 @@ dependencies = [
   "python-socketio == 5.11.1",
   "redis ~= 6.2",
   "rq ~= 2.1",
-  "rq-scheduler ~= 0.14",
+  # TODO: Move back to upstream `rq-scheduler`, when support for username and SSL settings is added.
+  #       Related PR: https://github.com/rq/rq-scheduler/pull/325
+  "rq-scheduler @ git+https://github.com/adamantike/rq-scheduler.git@feat/script-options-username-ssl",
   "sentry-sdk ~= 2.32",
   "starlette-csrf ~= 3.0",
   "streaming-form-data ~= 1.19",
