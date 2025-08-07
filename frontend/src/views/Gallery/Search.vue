@@ -91,14 +91,6 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     } else {
       romsStore.updateLastSelected(index);
     }
-  } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
-    const link = router.resolve({
-      name: ROUTES.ROM,
-      params: { rom: emitData.rom.id },
-    });
-    window.open(link.href, "_blank");
-  } else {
-    router.push({ name: ROUTES.ROM, params: { rom: emitData.rom.id } });
   }
 }
 

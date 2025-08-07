@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterator
 from pathlib import Path
 
 
-def process_file(
+def process_file_7z(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
     fn_hash_read: Callable[[int | None], bytes],
@@ -35,11 +35,11 @@ def process_file(
 
         # Look for the line that contains the actual file entry
         for line in lines:
-            line = line.strip()
-            if "....A" in line:
-                parts = line.split()
-                if len(parts) >= 4:
-                    first_file = parts[-1]  # Last part is the filename
+            attr_pos = line.strip().find("....A")
+            if attr_pos != -1:
+                filename_part = line[attr_pos:].split()
+                if len(filename_part) >= 4:
+                    first_file = " ".join(filename_part[3:])
                     break
 
         if not first_file:
