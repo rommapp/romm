@@ -32,9 +32,27 @@ function handle_termination() {
 trap handle_termination SIGTERM SIGINT
 
 # Start all services in the background
+echo "Starting backend..."
 cd /app/backend
 uv run python main.py &
-OBJC_DISABLE_INITIALIZE_FORK_SAFETY=1 uv run python worker.py &
+
+echo "Starting RQ scheduler..."
+RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
+	RQ_REDIS_PORT=${REDIS_PORT:-6379} \
+	RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
+	RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
+	RQ_REDIS_DB=${REDIS_DB:-0} \
+	RQ_REDIS_SSL=${REDIS_SSL:-0} \
+	rqscheduler \
+	--path /backend \
+	--pid /tmp/rq_scheduler.pid &
+
+echo "Starting RQ worker..."
+rq worker \
+	--path /backend \
+	--pid /tmp/rq_worker.pid \
+	--url "redis${REDIS_SSL:+s}://${REDIS_USERNAME:-""}:${REDIS_PASSWORD:-""}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}" \
+	high default low &
 
 # Start the frontend dev server
 cd /app/frontend

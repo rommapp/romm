@@ -11,6 +11,9 @@ from config import (
     DEV_HOST,
     DEV_PORT,
     DISABLE_CSRF_PROTECTION,
+    ENABLE_SCHEDULED_RESCAN,
+    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
     IS_PYTEST_RUN,
     ROMM_AUTH_SECRET_KEY,
     SENTRY_DSN,
@@ -41,7 +44,11 @@ from handler.auth.hybrid_auth import HybridAuthBackend
 from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
 from logger.log_middleware import LOGGING_CONFIG, CustomLoggingMiddleware
+from logger.logger import log
 from starlette.middleware.authentication import AuthenticationMiddleware
+from tasks.scheduled.scan_library import scan_library_task
+from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
+from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
 from utils import get_version
 from utils.context import (
     ctx_aiohttp_session,
@@ -139,3 +146,16 @@ if __name__ == "__main__":
     # Run application
     app.add_middleware(CustomLoggingMiddleware)
     uvicorn.run("main:app", host=DEV_HOST, port=DEV_PORT, reload=True, access_log=False)
+
+    # Initialize scheduled tasks
+    if ENABLE_SCHEDULED_RESCAN:
+        log.info("Starting scheduled rescan")
+        scan_library_task.init()
+
+    if ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB:
+        log.info("Starting scheduled update switch titledb")
+        update_switch_titledb_task.init()
+
+    if ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:
+        log.info("Starting scheduled update launchbox metadata")
+        update_launchbox_metadata_task.init()
