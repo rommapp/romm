@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     libmagic-dev \
-    p7zip \
+    p7zip-full \
     tzdata \
     libbz2-dev \
     libssl-dev \
