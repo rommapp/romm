@@ -469,18 +469,6 @@ sqlalchemy = [
 ]
 
 [[package]]
-name = "freezegun"
-version = "1.5.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "python-dateutil" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/75/0455fa5029507a2150da59db4f165fbc458ff8bb1c4f4d7e8037a14ad421/freezegun-1.5.2.tar.gz", hash = "sha256:a54ae1d2f9c02dbf42e02c18a3ab95ab4295818b549a34dac55592d72a905181", size = 34855, upload-time = "2025-05-24T12:38:47.051Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/b2/68d4c9b6431121b6b6aa5e04a153cac41dcacc79600ed6e2e7c3382156f5/freezegun-1.5.2-py3-none-any.whl", hash = "sha256:5aaf3ba229cda57afab5bd311f0108d86b6fb119ae89d2cd9c43ec8c1733c85b", size = 18715, upload-time = "2025-05-24T12:38:45.274Z" },
-]
-
-[[package]]
 name = "frozenlist"
 version = "1.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1672,10 +1660,9 @@ wheels = [
 [[package]]
 name = "rq-scheduler"
 version = "0.14.0"
-source = { git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl#42a7a2b8146179cf4578ab1751b80f76c5a0f09e" }
+source = { git = "https://github.com/adamantike/rq-scheduler.git?rev=feat%2Fscript-options-username-ssl#39583cb2a00c6faa12ef34c7277893064a83c4de" }
 dependencies = [
     { name = "crontab" },
-    { name = "freezegun" },
     { name = "python-dateutil" },
     { name = "rq" },
 ]
