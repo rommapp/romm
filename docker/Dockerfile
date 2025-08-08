@@ -53,6 +53,10 @@ RUN uv sync --locked --no-cache
 
 FROM backend-build AS backend-dev-build
 
+# linux-headers is needed to install psutil
+RUN apk add --no-cache \
+    linux-headers
+
 RUN uv sync --locked --no-cache --all-extras
 
 
