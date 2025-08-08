@@ -223,7 +223,6 @@ class IGDBHandler(MetadataHandler):
             "Client-ID": IGDB_CLIENT_ID,
             "Accept": "application/json",
         }
-        self.min_similarity_score: Final = 0.75
 
     @staticmethod
     def check_twitch_token(func):
@@ -343,7 +342,6 @@ class IGDBHandler(MetadataHandler):
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
-            min_similarity_score=self.min_similarity_score,
             remove_punctuation=False,
         )
         if best_match:
@@ -372,7 +370,6 @@ class IGDBHandler(MetadataHandler):
             best_match, best_score = self.find_best_match(
                 search_term,
                 list(games_by_name.keys()),
-                min_similarity_score=self.min_similarity_score,
                 remove_punctuation=False,
             )
             if best_match:

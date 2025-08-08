@@ -77,7 +77,6 @@ def extract_metadata_from_moby_rom(rom: MobyGame) -> MobyMetadata:
 class MobyGamesHandler(MetadataHandler):
     def __init__(self) -> None:
         self.moby_service = MobyGamesService()
-        self.min_similarity_score: Final = 0.75
 
     async def _search_rom(
         self, search_term: str, platform_moby_id: int
@@ -96,7 +95,6 @@ class MobyGamesHandler(MetadataHandler):
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
-            min_similarity_score=self.min_similarity_score,
             remove_punctuation=False,
         )
         if best_match:

@@ -159,7 +159,12 @@ const hashMatches = computed(() => {
               <v-img src="/assets/scrappers/moby.png" />
             </v-avatar>
             <span>{{ rom.moby_id }}</span>
-            <template v-if="rom.moby_metadata?.moby_score">
+            <template
+              v-if="
+                rom.moby_metadata?.moby_score &&
+                rom.moby_metadata.moby_score !== 'None'
+              "
+            >
               <v-divider class="mx-2 border-opacity-25" vertical />
               <span>{{
                 (parseFloat(rom.moby_metadata.moby_score) * 10).toFixed(2)
