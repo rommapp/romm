@@ -3,6 +3,7 @@
 #   - backend-build: Build backend environment
 #   - backend-dev-build: Similar to `backend-build`, but also compiles and installs development dependencies
 #   - rahasher-build: Build RAHasher
+#   - ps3netsrv-build: Build ps3netsrv
 #   - emulator-stage: Fetch and extract emulators
 #   - nginx-build: Build nginx modules
 #   - production-stage: Setup frontend and backend
@@ -79,6 +80,31 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
       ./src/libchdr/deps/zlib-1.3.1/gzwrite.c && \
     make HAVE_CHD=1 -f ./Makefile.RAHasher
 
+# Alpine 3.18's g++ v12 is the latest version that works with ps3netsrv,
+# while g++ v13 fails to compile it
+FROM alpine:3.18 AS ps3netsrv-build
+
+RUN apk add --no-cache \
+    g++ \
+    linux-headers \
+    curl \
+    meson \
+    mbedtls-dev
+
+ARG PS3NETSRV_VERSION=20250501
+ARG PS3NETSRV_URL=https://github.com/aldostools/ps3netsrv/releases/download/${PS3NETSRV_RELEASE}/ps3netsrv_${PS3NETSRV_VERSION}_linux.zip
+
+RUN \
+    echo "Building ps3netsrv from release..." && \
+    curl -sL --output /tmp/ps3netsrv.zip "${PS3NETSRV_URL}" && \
+    unzip /tmp/ps3netsrv.zip -d /tmp && \
+    find "/tmp" -type d -maxdepth 1 -iname "*ps3netsrv_*" -exec mv -f {} "/tmp/ps3netsrv" \; && \
+    cd /tmp/ps3netsrv/src && \
+    meson build --buildtype=release && \
+    ninja -C build/ && \
+    mkdir -p /tmp/ps3netsrv-bin && \
+    cp -v build/ps3netsrv /tmp/ps3netsrv-bin/
+
 
 FROM alpine:${ALPINE_VERSION} AS emulator-stage
 
@@ -152,6 +178,7 @@ COPY --from=python-alias /usr/local/lib/libpython* /usr/local/lib/
 COPY --from=python-alias /usr/local/lib/python${PYTHON_VERSION} /usr/local/lib/python${PYTHON_VERSION}
 
 COPY --from=rahasher-build /RALibretro/bin64/RAHasher /usr/bin/RAHasher
+COPY --from=ps3netsrv-build /tmp/ps3netsrv-bin/ps3netsrv /usr/bin/ps3netsrv
 COPY --from=nginx-build ./nginx/objs/ngx_http_zip_module.so /usr/lib/nginx/modules/
 COPY --from=frontend-build /front/dist ${WEBSERVER_FOLDER}
 

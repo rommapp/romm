@@ -54,6 +54,21 @@ RUN sed -i '22a #include <ctime>' ./src/Util.h \
     && cp ./bin64/RAHasher /usr/bin/RAHasher
 RUN rm -rf /tmp/RALibretro
 
+# Install ps3netsrv
+ARG PS3NETSRV_VERSION=20250501
+ARG PS3NETSRV_URL=https://github.com/aldostools/ps3netsrv/releases/download/${PS3NETSRV_RELEASE}/ps3netsrv_${PS3NETSRV_VERSION}_linux.zip
+
+RUN \
+    echo "Building ps3netsrv from release..." && \
+    curl -sL --output /tmp/ps3netsrv.zip "${PS3NETSRV_URL}" && \
+    unzip /tmp/ps3netsrv.zip -d /tmp && \
+    find "/tmp" -type d -maxdepth 1 -iname "*ps3netsrv_*" -exec mv -f {} "/tmp/ps3netsrv" \; && \
+    cd /tmp/ps3netsrv/src && \
+    meson build --buildtype=release && \
+    ninja -C build/ && \
+    cp -v build/ps3netsrv /usr/bin/ps3netsrv && \
+    rm -rf /tmp/ps3netsrv*
+
 # Install frontend dependencies
 COPY frontend/package.json /app/frontend/
 WORKDIR /app/frontend

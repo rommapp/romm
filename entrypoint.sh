@@ -72,6 +72,19 @@ watchfiles \
 	'uv run python watcher.py' \
 	/app/romm/library &
 
+echo "Starting ps3netsrv..."
+# Create ps3netsrv directory structure with symbolic links
+PS3NETSRV_ROOT="/app/romm/library/ps3netsrv"
+mkdir -p "${PS3NETSRV_ROOT}"
+
+# Create symbolic links for ps3netsrv expected folder structure
+if [[ -d "/app/romm/library/roms/ps3" ]]; then
+	ln -sf "/app/romm/library/roms/ps3" "${PS3NETSRV_ROOT}/GAMES"
+fi
+
+# Start ps3netsrv with the prepared directory
+ps3netsrv "${PS3NETSRV_ROOT}" 38008 * &
+
 # Start the frontend dev server
 cd /app/frontend
 npm run dev &
