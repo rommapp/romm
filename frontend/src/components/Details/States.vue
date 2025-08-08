@@ -120,7 +120,7 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
             'border-selected': selectedStates.some((s) => s.id === state.id),
           }"
           :elevation="isHovering ? 20 : 3"
-          @click="(e) => onCardClick(state, e)"
+          @click="(e: MouseEvent) => onCardClick(state, e)"
         >
           <v-card-text class="pa-2">
             <v-row no-gutters>

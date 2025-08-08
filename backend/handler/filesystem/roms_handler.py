@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import IO, Any, Final, Literal, TypedDict
 
 import magic
-import py7zr
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
@@ -23,13 +22,7 @@ from exceptions.fs_exceptions import (
 from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from py7zr.exceptions import (
-    Bad7zFile,
-    DecompressionError,
-    PasswordRequired,
-    UnsupportedCompressionMethodError,
-)
-from utils.archive_7zip import CallbackIOFactory
+from utils.archive_7zip import process_file_7z
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
 
@@ -177,39 +170,11 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
 def process_7z_file(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
-    fn_hash_read: Callable[[int | None], bytes],
 ) -> None:
-    """Process a 7zip file and use the provided callables to update the calculated hashes.
-
-    7zip files are special, as the py7zr library does not provide a similar interface to the
-    other compression utils. Instead, we must use a factory to intercept the read and write
-    operations of the 7zip file to calculate the hashes.
-
-    Hashes end up being updated by reference in the provided callables, so they will include the
-    final hash when this function returns.
-    """
-
-    try:
-        factory = CallbackIOFactory(
-            on_write=fn_hash_update,
-            on_read=fn_hash_read,
-        )
-        # Provide a file handler to `SevenZipFile` instead of a file path to deactivate the
-        # "parallel" mode in py7zr, which is needed to deterministically calculate the hashes
-        with open(file_path, "rb") as f:
-            with py7zr.SevenZipFile(f, mode="r") as archive:
-                file_list = archive.getnames()
-                for file in file_list:
-                    archive.extract(file, factory=factory)
-                    break  # We only need to read the first file in the archive
-    except (
-        Bad7zFile,
-        DecompressionError,
-        PasswordRequired,
-        UnsupportedCompressionMethodError,
-    ):
-        for chunk in read_basic_file(file_path):
-            fn_hash_update(chunk)
+    process_file_7z(
+        file_path=file_path,
+        fn_hash_update=fn_hash_update,
+    )
 
 
 def read_bz2_file(file_path: Path) -> Iterator[bytes]:
@@ -479,7 +444,6 @@ class FSRomsHandler(FSHandler):
         mime = magic.Magic(mime=True)
         try:
             file_type = mime.from_file(file_path)
-            file_type = None
 
             crc_c = 0
             md5_h = hashlib.md5(usedforsecurity=False)
@@ -513,7 +477,6 @@ class FSRomsHandler(FSHandler):
                 process_7z_file(
                     file_path=file_path,
                     fn_hash_update=update_hashes,
-                    fn_hash_read=lambda size: sha1_h.digest(),
                 )
 
             elif extension == ".bz2" or file_type == "application/x-bzip2":

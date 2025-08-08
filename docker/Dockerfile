@@ -34,13 +34,11 @@ RUN npm run build
 FROM python-alias AS backend-build
 
 # git is needed to install streaming-form-data fork
-# linux-headers is needed to install py7zr
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
     git \
-    linux-headers \
     libpq-dev \
     mariadb-connector-c-dev \
     musl-dev
@@ -54,6 +52,10 @@ RUN uv sync --locked --no-cache
 
 
 FROM backend-build AS backend-dev-build
+
+# linux-headers is needed to install psutil
+RUN apk add --no-cache \
+    linux-headers
 
 RUN uv sync --locked --no-cache --all-extras
 
@@ -85,7 +87,7 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
 FROM alpine:${ALPINE_VERSION} AS emulator-stage
 
 RUN apk add --no-cache \
-    7zip \
+    p7zip \
     wget
 
 ARG EMULATORJS_VERSION=4.2.3
