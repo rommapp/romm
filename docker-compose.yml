@@ -13,6 +13,7 @@ services:
       - ROMM_BASE_PATH=/app/romm
     ports:
       - "3000:3000" # Frontend dev server
+      - "443:443" # HTTPS dev server
       - "${DEV_PORT:-5000}:5000" # Backend API
     volumes:
       - ./backend:/app/backend
@@ -21,6 +22,7 @@ services:
       - /app/frontend/node_modules # Empty directory
       - /app/frontend/dist # Empty directory
       - ./romm_mock:/app/romm
+      - ~/.vite-plugin-mkcert:/app/.vite-plugin-mkcert
     depends_on:
       - romm-db-dev
       - romm-valkey-dev
