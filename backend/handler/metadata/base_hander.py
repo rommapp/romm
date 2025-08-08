@@ -98,26 +98,6 @@ def _normalize_search_term(
 WORD_TOKEN_PATTERN = re.compile(r"\b\w+\b")
 
 
-def wagner_fischer_distance(s1: str, s2: str) -> int:
-    if len(s1) < len(s2):
-        return wagner_fischer_distance(s2, s1)
-
-    if len(s2) == 0:
-        return len(s1)
-
-    previous_row = list(range(len(s2) + 1))
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-
-    return previous_row[-1]
-
-
 class MetadataHandler:
     def __init__(self):
         # Initialize cache data lazily when the handler is first instantiated
@@ -172,7 +152,7 @@ class MetadataHandler:
                 remove_articles=remove_articles,
                 remove_punctuation=remove_punctuation,
             )
-            score = JaroWinkler().similarity(normalized_search_term, game_normalized)
+            score = jaro_winkler.similarity(normalized_search_term, game_normalized)
             if score > best_score:
                 best_score = score
                 best_match = game_name
