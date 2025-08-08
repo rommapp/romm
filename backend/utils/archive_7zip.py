@@ -1,58 +1,86 @@
-from collections.abc import Callable
+# trunk-ignore-all(bandit/B404)
 
-from py7zr import Py7zIO, WriterFactory
+import subprocess
+import tempfile
+from collections.abc import Callable, Iterator
+from pathlib import Path
 
-
-class CallbackIO(Py7zIO):
-    """Py7zIO implementation that calls a callback on write and read."""
-
-    def __init__(
-        self,
-        filename: str,
-        on_write: Callable[[bytes | bytearray], None],
-        on_read: Callable[[int | None], bytes],
-    ):
-        self.filename = filename
-        self.on_write = on_write
-        self.on_read = on_read
-        self._size = 0
-
-    def write(self, s: bytes | bytearray) -> int:
-        length = len(s)
-        self._size += length
-        self.on_write(s)
-        return length
-
-    def read(self, size: int | None = None) -> bytes:
-        return self.on_read(size)
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        return 0
-
-    def flush(self) -> None: ...
-
-    def size(self) -> int:
-        return self._size
+SEVEN_ZIP_PATH = "/usr/bin/7z"
 
 
-class CallbackIOFactory(WriterFactory):
-    """WriterFactory implementation that creates CallbackIO instances."""
+def process_file_7z(
+    file_path: Path,
+    fn_hash_update: Callable[[bytes | bytearray], None],
+) -> None:
+    """
+    Process a 7zip file using the system's 7zip binary and use the provided callables to update the calculated hashes.
 
-    def __init__(
-        self,
-        on_write: Callable[[bytes | bytearray], None],
-        on_read: Callable[[int | None], bytes],
-    ):
-        self.products: dict[str, CallbackIO] = {}
-        self.on_write = on_write
-        self.on_read = on_read
+    Args:
+        file_path: Path to the 7z file
+        fn_hash_update: Callback to update hashes with data chunks
+    """
 
-    def create(self, filename: str) -> CallbackIO:
-        product = CallbackIO(
-            filename=filename, on_write=self.on_write, on_read=self.on_read
+    try:
+        result = subprocess.run(
+            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
         )
-        self.products[filename] = product
-        return product
 
-    def get(self, filename: str) -> Py7zIO:
-        return self.products[filename]
+        lines = result.stdout.split("\n")
+        first_file = None
+
+        for line in lines:
+            if line.strip().startswith("Path"):
+                first_file = line.split(" = ")[1].strip()
+                break
+
+        if not first_file:
+            for chunk in read_basic_file(file_path):
+                fn_hash_update(chunk)
+            return
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Extract only the first file
+            subprocess.run(
+                [
+                    SEVEN_ZIP_PATH,
+                    "e",
+                    str(file_path),
+                    first_file,
+                    f"-o{temp_path}",
+                    "-y",
+                ],
+                capture_output=True,
+                check=True,
+                timeout=60,
+                shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+            )
+
+            extracted_file = temp_path / first_file
+            if extracted_file.exists():
+                with open(extracted_file, "rb") as f:
+                    while chunk := f.read(8192):
+                        fn_hash_update(chunk)
+            else:
+                for chunk in read_basic_file(file_path):
+                    fn_hash_update(chunk)
+
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ):
+        for chunk in read_basic_file(file_path):
+            fn_hash_update(chunk)
+
+
+def read_basic_file(file_path: Path) -> Iterator[bytes]:
+    with open(file_path, "rb") as f:
+        while chunk := f.read(8192):
+            yield chunk
