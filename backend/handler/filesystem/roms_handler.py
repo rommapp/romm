@@ -444,7 +444,6 @@ class FSRomsHandler(FSHandler):
         mime = magic.Magic(mime=True)
         try:
             file_type = mime.from_file(file_path)
-            file_type = None
 
             crc_c = 0
             md5_h = hashlib.md5(usedforsecurity=False)
