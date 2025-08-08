@@ -278,7 +278,6 @@ def extract_metadata_from_ss_rom(rom: SSGame) -> SSMetadata:
 class SSHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ss_service = ScreenScraperService()
-        self.min_similarity_score: Final = 0.75
 
     async def _search_rom(self, search_term: str, platform_ss_id: int) -> SSGame | None:
         if not platform_ss_id:
@@ -296,7 +295,6 @@ class SSHandler(MetadataHandler):
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
-            min_similarity_score=self.min_similarity_score,
             remove_punctuation=False,
         )
         if best_match:

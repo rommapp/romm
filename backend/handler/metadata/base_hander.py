@@ -3,18 +3,20 @@ import json
 import os
 import re
 import unicodedata
-from difflib import SequenceMatcher
 from functools import lru_cache
 from itertools import batched
 from typing import Final, NotRequired, TypedDict
 
 from handler.redis_handler import async_cache, sync_cache
 from logger.logger import log
+from strsimpy.jaro_winkler import JaroWinkler
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
     update_switch_titledb_task,
 )
+
+jarowinkler = JaroWinkler()
 
 
 def conditionally_set_cache(
@@ -133,70 +135,6 @@ class MetadataHandler:
     ) -> str:
         return _normalize_search_term(name, remove_articles, remove_punctuation)
 
-    def calculate_text_similarity(
-        self,
-        normalized_search_term: str,
-        game_name: str,
-        remove_articles: bool = True,
-        remove_punctuation: bool = True,
-    ) -> float:
-        """
-        Calculate similarity between search term and game name using multiple metrics.
-        Returns a score between 0 and 1, where 1 is a perfect match.
-
-        Args:
-            search_term: The search term to compare
-            game_name: The game name to compare against
-
-        Returns:
-            Similarity score between 0 and 1
-        """
-        game_normalized = self.normalize_search_term(
-            game_name,
-            remove_articles=remove_articles,
-            remove_punctuation=remove_punctuation,
-        )
-
-        # Exact match gets the highest score
-        if normalized_search_term == game_normalized:
-            return 1.0
-
-        # Split into tokens for word-based matching
-        search_tokens = set(WORD_TOKEN_PATTERN.findall(normalized_search_term.lower()))
-        game_tokens = set(WORD_TOKEN_PATTERN.findall(game_normalized.lower()))
-
-        # Calculate token overlap ratio
-        if search_tokens and game_tokens:
-            intersection = search_tokens & game_tokens
-            union = search_tokens | game_tokens
-            token_overlap_ratio = len(intersection) / len(union)
-        else:
-            token_overlap_ratio = 0.0
-
-        # Calculate sequence similarity (better for longer strings)
-        sequence_ratio = SequenceMatcher(
-            None, normalized_search_term, game_normalized
-        ).ratio()
-
-        # Calculate Wagner-Fischer distance (normalized by max length)
-        max_len = max(len(normalized_search_term), len(game_normalized))
-        if max_len > 0:
-            wagner_fischer_ratio = 1 - (
-                wagner_fischer_distance(normalized_search_term, game_normalized)
-                / max_len
-            )
-        else:
-            wagner_fischer_ratio = 1.0
-
-        # Token overlap is most important for game titles
-        final_score = (
-            token_overlap_ratio * 0.5
-            + sequence_ratio * 0.3
-            + wagner_fischer_ratio * 0.2
-        )
-
-        return final_score
-
     def find_best_match(
         self,
         normalized_search_term: str,
@@ -223,12 +161,18 @@ class MetadataHandler:
         best_score = 0.0
 
         for game_name in game_names:
-            score = self.calculate_text_similarity(
-                normalized_search_term,
+            # score = self.calculate_text_similarity(
+            #     normalized_search_term,
+            #     game_name,
+            #     remove_articles=remove_articles,
+            #     remove_punctuation=remove_punctuation,
+            # )
+            game_normalized = self.normalize_search_term(
                 game_name,
                 remove_articles=remove_articles,
                 remove_punctuation=remove_punctuation,
             )
+            score = JaroWinkler().similarity(normalized_search_term, game_normalized)
             if score > best_score:
                 best_score = score
                 best_match = game_name
