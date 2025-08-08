@@ -95,9 +95,6 @@ def _normalize_search_term(
     return name.strip()
 
 
-WORD_TOKEN_PATTERN = re.compile(r"\b\w+\b")
-
-
 class MetadataHandler:
     def __init__(self):
         # Initialize cache data lazily when the handler is first instantiated
@@ -141,18 +138,12 @@ class MetadataHandler:
         best_score = 0.0
 
         for game_name in game_names:
-            # score = self.calculate_text_similarity(
-            #     normalized_search_term,
-            #     game_name,
-            #     remove_articles=remove_articles,
-            #     remove_punctuation=remove_punctuation,
-            # )
             game_normalized = self.normalize_search_term(
                 game_name,
                 remove_articles=remove_articles,
                 remove_punctuation=remove_punctuation,
             )
-            score = jaro_winkler.similarity(normalized_search_term, game_normalized)
+            score = jarowinkler.similarity(normalized_search_term, game_normalized)
             if score > best_score:
                 best_score = score
                 best_match = game_name
