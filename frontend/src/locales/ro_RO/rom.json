@@ -13,10 +13,11 @@
   "completion": "Finalizare",
   "copy-link": "Copiază linkul de descărcare",
   "default": "Implicit",
-  "delete-rom": "Șterge",
+  "delete": "Șterge",
   "details": "Detalii",
   "difficulty": "Dificultate",
-  "edit-rom": "Editează",
+  "download": "Descarcă",
+  "edit": "Editează",
   "file": "Fișier",
   "filename": "Nume fișier",
   "files": "Fișiere",
@@ -58,6 +59,6 @@
   "summary": "Rezumat",
   "switch-version": "Schimbă versiunea",
   "tags": "Etichete",
-  "unmatch-rom": "Dissociază ROM-ul",
+  "unmatch": "Dissociază ROM-ul",
   "version": "Versiune"
 }

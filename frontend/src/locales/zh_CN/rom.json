@@ -13,10 +13,11 @@
   "completion": "完成度",
   "copy-link": "复制下载链接",
   "default": "默认",
-  "delete-rom": "删除",
+  "delete": "删除",
   "details": "详情",
   "difficulty": "难度",
-  "edit-rom": "编辑",
+  "download": "下载",
+  "edit": "编辑",
   "file": "文件",
   "filename": "文件名称",
   "files": "文件集",
@@ -59,5 +60,5 @@
   "summary": "概要",
   "switch-version": "切换版本",
   "tags": "标签",
-  "unmatch-rom": "未匹配的 ROM"
+  "unmatch": "未匹配的 ROM"
 }

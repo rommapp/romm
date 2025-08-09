@@ -13,10 +13,11 @@
   "completion": "完成度",
   "copy-link": "複製下載鏈接",
   "default": "預設",
-  "delete-rom": "刪除",
+  "delete": "刪除",
   "details": "詳情",
   "difficulty": "難度",
-  "edit-rom": "編輯",
+  "download": "下載",
+  "edit": "編輯",
   "file": "檔案",
   "filename": "檔案名稱",
   "files": "檔案",
@@ -59,5 +60,5 @@
   "summary": "概要",
   "switch-version": "切换版本",
   "tags": "標籤",
-  "unmatch-rom": "清除匹配資料"
+  "unmatch": "清除匹配資料"
 }

@@ -14,6 +14,7 @@ import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
@@ -31,6 +32,7 @@ const collectionsStore = storeCollections();
 const { favoriteCollection } = storeToRefs(collectionsStore);
 const route = useRoute();
 const heartbeat = storeHeartbeat();
+const { t } = useI18n();
 
 function scrollToTop() {
   window.scrollTo({
@@ -187,7 +189,7 @@ async function onDownload() {
         @click.stop="selectAllRoms"
       />
       <v-btn
-        title="Add to favourites"
+        :title="t('rom.add-to-fav')"
         key="3"
         color="toplayer"
         elevation="8"
@@ -198,7 +200,7 @@ async function onDownload() {
         @click="addToFavourites"
       />
       <v-btn
-        title="Remove from favourites"
+        :title="t('rom.remove-from-fav')"
         key="4"
         color="toplayer"
         elevation="8"
@@ -209,7 +211,7 @@ async function onDownload() {
         @click="removeFromFavourites"
       />
       <v-btn
-        title="Add to collection"
+        :title="t('rom.add-to-collection')"
         key="5"
         color="toplayer"
         elevation="8"
@@ -222,7 +224,7 @@ async function onDownload() {
         "
       />
       <v-btn
-        title="Remove from collection"
+        :title="t('rom.remove-from-collection')"
         key="6"
         color="toplayer"
         elevation="8"
@@ -238,7 +240,7 @@ async function onDownload() {
         "
       />
       <v-btn
-        title="Download roms"
+        :title="t('rom.download')"
         key="7"
         color="toplayer"
         elevation="8"
@@ -249,7 +251,7 @@ async function onDownload() {
         @click="onDownload"
       />
       <v-btn
-        title="Refresh metadata"
+        :title="t('rom.refresh-metadata')"
         key="8"
         v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
@@ -261,7 +263,7 @@ async function onDownload() {
         @click="onScan"
       />
       <v-btn
-        title="Delete roms"
+        :title="t('rom.delete')"
         key="9"
         v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
