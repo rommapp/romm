@@ -167,7 +167,7 @@ async function onDownload() {
       </template>
 
       <v-btn
-        title="Unselect all"
+        :title="t('rom.unselect-all')"
         key="1"
         color="toplayer"
         elevation="8"
@@ -178,7 +178,7 @@ async function onDownload() {
         @click.stop="resetSelection"
       />
       <v-btn
-        title="Select all"
+        :title="t('rom.select-all')"
         key="2"
         color="toplayer"
         elevation="8"

@@ -51,6 +51,7 @@
   "rename-file-part4": "a",
   "rename-file-part5": "I tag del nome file non saranno influenzati",
   "results-found": "Risultati trovati",
+  "select-all": "Seleziona tutto",
   "select-cover-image": "Seleziona un'immagine di copertina",
   "set-as-default": "Imposta rom come predefinita",
   "size": "Dimenzioni",
@@ -60,5 +61,5 @@
   "switch-version": "Cambia versione",
   "tags": "Tag",
   "unmatch": "Rimuovi associazione rom",
-  "version": "Versione"
+  "unselect-all": "Deseleziona tutto"
 }

@@ -51,6 +51,7 @@
   "rename-file-part4": "to",
   "rename-file-part5": "File name tags won't be affected",
   "results-found": "Results found",
+  "select-all": "Select all",
   "select-cover-image": "Select a cover image",
   "set-as-default": "Set ROM as default",
   "size": "Size",
@@ -59,5 +60,6 @@
   "summary": "Summary",
   "switch-version": "Switch version",
   "tags": "Tags",
-  "unmatch": "Unmatch ROM"
+  "unmatch": "Unmatch ROM",
+  "unselect-all": "Unselect all"
 }

@@ -30,7 +30,6 @@
   "manual": "手册",
   "manual-match": "手动匹配",
   "my-notes": "我的笔记",
-  "name": "名称",
   "no-metadata-source": "未启用元数据源",
   "no-saves-found": "未找到存档",
   "no-states-found": "未找到状态",
@@ -52,6 +51,7 @@
   "rename-file-part4": "至",
   "rename-file-part5": "文件名标签不会受到影响",
   "results-found": "搜索结果",
+  "select-all": "选择所有",
   "select-cover-image": "选择封面图片",
   "set-as-default": "将 ROM 设置为默认",
   "size": "容量",
@@ -60,5 +60,6 @@
   "summary": "概要",
   "switch-version": "切换版本",
   "tags": "标签",
-  "unmatch": "未匹配的 ROM"
+  "unmatch": "未匹配的 ROM",
+  "unselect-all": "取消选择所有"
 }
