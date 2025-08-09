@@ -178,8 +178,9 @@ class RAHandler(MetadataHandler):
             )
             roms = json.loads(json_file_bytes.decode("utf-8"))
 
+        ra_hash_lower = ra_hash.lower()
         for r in roms:
-            if ra_hash in r.get("Hashes", ()):
+            if any(ra_hash_lower == h.lower() for h in r.get("Hashes", ())):
                 return r
 
         return None
