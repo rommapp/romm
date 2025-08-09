@@ -51,6 +51,7 @@
   "rename-file-part4": "in",
   "rename-file-part5": "Tags im Dateinamen werden nicht verändert",
   "results-found": "Gefundene Ergebnisse",
+  "select-all": "Alles auswählen",
   "select-cover-image": "Wähle ein Coverbild",
   "set-as-default": "ROM als Standard setzen",
   "size": "Größe",
@@ -59,5 +60,6 @@
   "summary": "Zusammenfassung",
   "switch-version": "Version wechseln",
   "tags": "Tags",
-  "unmatch": "Zuweisung aufheben"
+  "unmatch": "Zuweisung aufheben",
+  "unselect-all": "Alles abwählen"
 }

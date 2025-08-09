@@ -54,6 +54,15 @@ for lang_dir in lang_dirs:
             print(f"  In {filename}, missing keys: {', '.join(missing_keys)}")
             has_errors = True
 
+        extra_keys = []
+        for key in lang_data:
+            if key not in en_data:
+                extra_keys.append(key)
+
+        if extra_keys:
+            print(f"  In {filename}, extra keys: {', '.join(extra_keys)}")
+            has_errors = True
+
 if has_errors:
     print("\n❌ Translation check failed!")
     sys.exit(1)

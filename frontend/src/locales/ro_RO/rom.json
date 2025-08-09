@@ -51,6 +51,7 @@
   "rename-file-part4": "la",
   "rename-file-part5": "Etichetele din numele fișierului nu vor fi afectate",
   "results-found": "Rezultate găsite",
+  "select-all": "Selectează toate",
   "select-cover-image": "Selectează o imagine de copertă",
   "set-as-default": "Setează ca ROM implicit",
   "size": "Dimensiune",
@@ -60,5 +61,5 @@
   "switch-version": "Schimbă versiunea",
   "tags": "Etichete",
   "unmatch": "Dissociază ROM-ul",
-  "version": "Versiune"
+  "unselect-all": "Deselectează toate"
 }
