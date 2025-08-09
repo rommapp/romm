@@ -31,7 +31,7 @@ class SGDBRom(TypedDict):
 class SGDBBaseHandler(MetadataHandler):
     def __init__(self) -> None:
         self.sgdb_service = SteamGridDBService()
-        self.min_similarity_score: Final = 0.95
+        self.min_similarity_score: Final = 0.98
 
     async def get_details(self, search_term: str) -> list[SGDBResult]:
         if not STEAMGRIDDB_API_ENABLED:

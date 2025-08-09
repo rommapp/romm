@@ -16,6 +16,7 @@ import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 
 const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
 const emit = defineEmits(["menu-open", "menu-close"]);
@@ -25,6 +26,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const auth = storeAuth();
+const { t } = useI18n();
 
 const computedSize = computed(() => {
   return props.sizeActionBar === 1 ? "small" : "x-small";
@@ -66,7 +68,7 @@ watch(menuOpen, (val) => {
         variant="text"
         rounded="0"
         @click.prevent="romApi.downloadRom({ rom })"
-        :aria-label="`Download ${rom.name}`"
+        :aria-label="`${t('rom.download')} ${rom.name}`"
       />
     </v-col>
     <v-col

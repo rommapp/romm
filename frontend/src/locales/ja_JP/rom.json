@@ -13,10 +13,11 @@
   "completion": "完了度",
   "copy-link": "ダウンロードリンクをコピー",
   "default": "デフォルト",
-  "delete-rom": "削除",
+  "delete": "削除",
   "details": "詳細",
   "difficulty": "難易度",
-  "edit-rom": "編集",
+  "download": "ダウンロード",
+  "edit": "編集",
   "file": "ファイル",
   "filename": "ファイル名",
   "files": "ファイル",
@@ -58,5 +59,5 @@
   "summary": "結果",
   "switch-version": "バージョン切り替え",
   "tags": "タグ",
-  "unmatch-rom": "検索結果無し"
+  "unmatch": "検索結果無し"
 }
