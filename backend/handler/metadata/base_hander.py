@@ -9,11 +9,14 @@ from typing import Final, NotRequired, TypedDict
 
 from handler.redis_handler import async_cache, sync_cache
 from logger.logger import log
+from strsimpy.jaro_winkler import JaroWinkler
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
     update_switch_titledb_task,
 )
+
+jarowinkler = JaroWinkler()
 
 
 def conditionally_set_cache(
@@ -108,6 +111,51 @@ class MetadataHandler:
         self, name: str, remove_articles: bool = True, remove_punctuation: bool = True
     ) -> str:
         return _normalize_search_term(name, remove_articles, remove_punctuation)
+
+    def find_best_match(
+        self,
+        normalized_search_term: str,
+        game_names: list[str],
+        min_similarity_score: float = 0.75,
+        remove_articles: bool = True,
+        remove_punctuation: bool = True,
+    ) -> tuple[str | None, float]:
+        """
+        Find the best matching game name from a list of candidates.
+
+        Args:
+            search_term: The search term to match
+            game_names: List of game names to check against
+            min_similarity_score: Minimum similarity score to consider a match
+
+        Returns:
+            Tuple of (best_match_name, similarity_score) or (None, 0.0) if no good match
+        """
+        if not game_names:
+            return None, 0.0
+
+        best_match = None
+        best_score = 0.0
+
+        for game_name in game_names:
+            game_normalized = self.normalize_search_term(
+                game_name,
+                remove_articles=remove_articles,
+                remove_punctuation=remove_punctuation,
+            )
+            score = jarowinkler.similarity(normalized_search_term, game_normalized)
+            if score > best_score:
+                best_score = score
+                best_match = game_name
+
+                # Early exit for perfect match
+                if score == 1.0:
+                    break
+
+        if best_score >= min_similarity_score:
+            return best_match, best_score
+
+        return None, 0.0
 
     async def _ps2_opl_format(self, match: re.Match[str], search_term: str) -> str:
         serial_code = match.group(1)

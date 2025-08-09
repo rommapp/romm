@@ -5,7 +5,7 @@ import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-SEVEN_ZIP_PATH = "/usr/bin/7z"
+SEVEN_ZIP_PATH = "/usr/bin/7zz"
 
 
 def process_file_7z(

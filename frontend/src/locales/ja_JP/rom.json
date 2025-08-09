@@ -13,10 +13,11 @@
   "completion": "完了度",
   "copy-link": "ダウンロードリンクをコピー",
   "default": "デフォルト",
-  "delete-rom": "削除",
+  "delete": "削除",
   "details": "詳細",
   "difficulty": "難易度",
-  "edit-rom": "編集",
+  "download": "ダウンロード",
+  "edit": "編集",
   "file": "ファイル",
   "filename": "ファイル名",
   "files": "ファイル",
@@ -50,6 +51,7 @@
   "rename-file-part4": "変更後",
   "rename-file-part5": "ファイル名タグは変更されません",
   "results-found": "検索結果",
+  "select-all": "すべて選択",
   "select-cover-image": "カバー画像を選択",
   "set-as-default": "ROMをデフォルトに設定",
   "size": "サイズ",
@@ -58,5 +60,6 @@
   "summary": "結果",
   "switch-version": "バージョン切り替え",
   "tags": "タグ",
-  "unmatch-rom": "検索結果無し"
+  "unmatch": "検索結果無し",
+  "unselect-all": "すべて選択解除"
 }

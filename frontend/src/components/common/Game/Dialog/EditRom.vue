@@ -348,7 +348,7 @@ function closeDialog() {
                 variant="flat"
                 @click="unmatchRom"
               >
-                {{ t("rom.unmatch-rom") }}
+                {{ t("rom.unmatch") }}
               </v-btn>
             </div>
           </v-col>
