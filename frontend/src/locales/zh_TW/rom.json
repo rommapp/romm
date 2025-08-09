@@ -13,10 +13,11 @@
   "completion": "完成度",
   "copy-link": "複製下載鏈接",
   "default": "預設",
-  "delete-rom": "刪除",
+  "delete": "刪除",
   "details": "詳情",
   "difficulty": "難度",
-  "edit-rom": "編輯",
+  "download": "下載",
+  "edit": "編輯",
   "file": "檔案",
   "filename": "檔案名稱",
   "files": "檔案",
@@ -29,7 +30,6 @@
   "manual": "手册",
   "manual-match": "手動匹配",
   "my-notes": "我的筆記",
-  "name": "名稱",
   "no-metadata-source": "未啟用元數據來源",
   "no-saves-found": "未找到存檔",
   "no-states-found": "未找到即時存檔",
@@ -51,6 +51,7 @@
   "rename-file-part4": "至",
   "rename-file-part5": "檔案名稱標籤不會受到影響",
   "results-found": "搜尋结果",
+  "select-all": "選擇所有",
   "select-cover-image": "選擇封面圖片",
   "set-as-default": "將 ROM 設為預設",
   "size": "容量",
@@ -59,5 +60,6 @@
   "summary": "概要",
   "switch-version": "切换版本",
   "tags": "標籤",
-  "unmatch-rom": "清除匹配資料"
+  "unmatch": "清除匹配資料",
+  "unselect-all": "取消選擇所有"
 }

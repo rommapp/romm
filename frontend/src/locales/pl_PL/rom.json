@@ -13,10 +13,11 @@
   "completion": "Ukończenie",
   "copy-link": "Kopiuj link do pobrania",
   "default": "Ustaw jako domyślne",
-  "delete-rom": "Usuń",
+  "delete": "Usuń",
   "details": "Szczegóły",
   "difficulty": "Poziom trudności",
-  "edit-rom": "Edytuj",
+  "download": "Pobierz",
+  "edit": "Edytuj",
   "file": "Plik",
   "filename": "Nazwa pliku",
   "files": "Pliki",
@@ -50,6 +51,7 @@
   "rename-file-part4": "na",
   "rename-file-part5": "Tagi w nazwie pliku nie zostaną zmienione",
   "results-found": "Znalezione wyniki",
+  "select-all": "Wybierz wszystkie",
   "select-cover-image": "Wybierz obraz okładki",
   "set-as-default": "Ustaw ROM jako domyślny",
   "size": "Rozmiar",
@@ -58,5 +60,6 @@
   "summary": "Podsumowanie",
   "switch-version": "Zmień wersję",
   "tags": "Tagi",
-  "unmatch-rom": "Odłącz ROM"
+  "unmatch": "Odłącz ROM",
+  "unselect-all": "Odznacz wszystkie"
 }

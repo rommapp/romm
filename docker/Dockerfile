@@ -87,7 +87,7 @@ RUN git clone --recursive --branch "${RALIBRETRO_VERSION}" --depth 1 https://git
 FROM alpine:${ALPINE_VERSION} AS emulator-stage
 
 RUN apk add --no-cache \
-    p7zip \
+    7zip \
     wget
 
 ARG EMULATORJS_VERSION=4.2.3
@@ -140,7 +140,7 @@ RUN apk add --no-cache \
     libmagic \
     mariadb-connector-c \
     libpq \
-    p7zip \
+    7zip \
     tzdata \
     valkey
 

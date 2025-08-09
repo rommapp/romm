@@ -216,21 +216,21 @@ class HasheousHandler(MetadataHandler):
         if not HASHEOUS_API_ENABLED:
             return fallback_rom
 
-        first_file = next(
-            (
-                file
-                for file in files
-                if file.file_size_bytes is not None
-                and file.file_size_bytes > 0
-                and (
-                    file.file_extension
-                    in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[platform_slug]
-                    if platform_slug in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
-                    else True
-                )
-            ),
-            None,
-        )
+        filtered_files = [
+            file
+            for file in files
+            if file.file_size_bytes is not None
+            and file.file_size_bytes > 0
+            and (
+                file.file_extension
+                in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG[platform_slug]
+                if platform_slug in ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG
+                else True
+            )
+        ]
+
+        first_file = max(filtered_files, key=lambda f: f.file_size_bytes, default=None)
+
         if first_file is None:
             return fallback_rom
 

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.13"
 resolution-markers = [
     "platform_python_implementation != 'PyPy'",
@@ -1559,6 +1559,7 @@ dependencies = [
     { name = "sqlalchemy", extra = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"] },
     { name = "starlette-csrf" },
     { name = "streaming-form-data" },
+    { name = "strsimpy" },
     { name = "types-colorama" },
     { name = "types-passlib" },
     { name = "types-pyyaml" },
@@ -1630,6 +1631,7 @@ requires-dist = [
     { name = "sqlalchemy", extras = ["mariadb-connector", "mysql-connector", "postgresql-psycopg"], specifier = "~=2.0" },
     { name = "starlette-csrf", specifier = "~=3.0" },
     { name = "streaming-form-data", specifier = "~=1.19" },
+    { name = "strsimpy", specifier = ">=0.2.1" },
     { name = "types-colorama", specifier = "~=0.4" },
     { name = "types-passlib", specifier = "~=1.7" },
     { name = "types-pyyaml", specifier = "~=6.0" },
@@ -1841,6 +1843,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/cf/b732e4a9cea5aa3397f8fb73f53dbb34f7a7ad48ef4baf51b470e6fd396c/streaming_form_data-1.19.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:b9e64cb7a5ba2519d607d09e2f1cd9f36fb03b0e44aebedb21982624e1eb71e3", size = 620679, upload-time = "2025-01-10T18:33:05.379Z" },
     { url = "https://files.pythonhosted.org/packages/19/54/c494c1d7d6b87868b1ab98d7eb8f202a717618172718df18bce0e45178e0/streaming_form_data-1.19.1-cp313-cp313-win32.whl", hash = "sha256:65b6e9a6a65a5992d9aa734874f0d1124330ec346d9c073b7f00925dfb1601f1", size = 191975, upload-time = "2025-01-10T18:33:06.528Z" },
     { url = "https://files.pythonhosted.org/packages/5d/53/a709d8925a0e48bc4904f12e1f619b0295042c06d66aacaa213f7a18a927/streaming_form_data-1.19.1-cp313-cp313-win_amd64.whl", hash = "sha256:e2dee016f1db735cd91e97421340cd3799f9fd46b1e39e4a11d6215c7cbe1edc", size = 201927, upload-time = "2025-01-10T18:33:07.6Z" },
+]
+
+[[package]]
+name = "strsimpy"
+version = "0.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/7e/5ccf2edfa1e97154dbf3119fd240b1f5fbe32ad1edd1db5f7a94d3f7a037/strsimpy-0.2.1.tar.gz", hash = "sha256:0842eb57f7af86c882a59a1bc8721ec2580a267e563fd0503ced2972040372c9", size = 24403, upload-time = "2021-09-10T09:14:20.405Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fc/90/bd55a4b18f4b75a76e32f444975d2c869d692eb23897d116d47122f88d1a/strsimpy-0.2.1-py3-none-any.whl", hash = "sha256:d676a440d5d3dbcf5ba92d01814a03a218776ce07bd7a8185da7019e04cf9ba7", size = 45870, upload-time = "2021-09-10T09:14:18.944Z" },
 ]
 
 [[package]]
