@@ -263,7 +263,7 @@ rm /tmp/*.pid -f
 if [[ -z ${REDIS_HOST} ]]; then
 	watchdog_process_pid valkey-server
 else
-	warn_log "REDIS_HOST is set, not starting internal valkey-server"
+	info_log "REDIS_HOST is set, not starting internal valkey-server"
 fi
 
 # Run needed database migrations once at startup
