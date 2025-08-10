@@ -1,3 +1,4 @@
+import json
 import sys
 from typing import Final
 
@@ -8,6 +9,7 @@ from config import (
     DB_NAME,
     DB_PASSWD,
     DB_PORT,
+    DB_QUERY_JSON,
     DB_USER,
     LIBRARY_BASE_PATH,
     ROMM_BASE_PATH,
@@ -95,6 +97,14 @@ class ConfigManager:
             )
             sys.exit(3)
 
+        query: dict[str, str] = {}
+        if DB_QUERY_JSON:
+            try:
+                query = json.loads(DB_QUERY_JSON)
+            except ValueError as exc:
+                log.critical(f"Invalid JSON in DB_QUERY_JSON: {exc}")
+                sys.exit(3)
+
         return URL.create(
             drivername=driver,
             username=DB_USER,
@@ -102,6 +112,7 @@ class ConfigManager:
             host=DB_HOST,
             port=DB_PORT,
             database=DB_NAME,
+            query=query,
         )
 
     def _parse_config(self):
