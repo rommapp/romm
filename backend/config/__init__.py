@@ -29,12 +29,15 @@ ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
 # DATABASE
-DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
-DB_PORT: Final = int(os.environ.get("DB_PORT", 3306))
-DB_USER: Final = os.environ.get("DB_USER")
-DB_PASSWD: Final = os.environ.get("DB_PASSWD")
-DB_NAME: Final = os.environ.get("DB_NAME", "romm")
-ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
+DB_HOST: Final[str | None] = os.environ.get("DB_HOST", "127.0.0.1") or None
+DB_PORT: Final[int | None] = (
+    int(os.environ.get("DB_PORT", 3306)) if os.environ.get("DB_PORT") != "" else None
+)
+DB_USER: Final[str | None] = os.environ.get("DB_USER")
+DB_PASSWD: Final[str | None] = os.environ.get("DB_PASSWD")
+DB_NAME: Final[str] = os.environ.get("DB_NAME", "romm")
+DB_QUERY_JSON: Final[str | None] = os.environ.get("DB_QUERY_JSON")
+ROMM_DB_DRIVER: Final[str] = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # REDIS
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "127.0.0.1")
