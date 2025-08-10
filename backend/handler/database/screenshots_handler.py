@@ -1,14 +1,43 @@
 from collections.abc import Sequence
+from functools import partial
 
 from decorators.database import begin_session
 from models.assets import Screenshot
-from sqlalchemy import and_, delete, select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import Delete, Select, Update
 
 from .base_handler import DBBaseHandler
 
 
 class DBScreenshotsHandler(DBBaseHandler):
+    def filter[QueryT: Select[tuple[Screenshot]] | Update | Delete](
+        self,
+        query: QueryT,
+        *,
+        filenames: Sequence[str] = (),
+        filenames_no_ext: Sequence[str] = (),
+        rom_ids: Sequence[int] = (),
+        user_ids: Sequence[int] = (),
+        exclude_filenames: Sequence[str] = (),
+        exclude_filenames_no_ext: Sequence[str] = (),
+    ) -> QueryT:
+        if filenames:
+            query = query.filter(Screenshot.file_name.in_(filenames))
+        if filenames_no_ext:
+            query = query.filter(Screenshot.file_name_no_ext.in_(filenames_no_ext))
+        if rom_ids:
+            query = query.filter(Screenshot.rom_id.in_(rom_ids))
+        if user_ids:
+            query = query.filter(Screenshot.user_id.in_(user_ids))
+        if exclude_filenames:
+            query = query.filter(Screenshot.file_name.not_in(exclude_filenames))
+        if exclude_filenames_no_ext:
+            query = query.filter(
+                Screenshot.file_name_no_ext.not_in(exclude_filenames_no_ext)
+            )
+        return query
+
     @begin_session
     def add_screenshot(
         self, screenshot: Screenshot, session: Session = None
@@ -16,18 +45,27 @@ class DBScreenshotsHandler(DBBaseHandler):
         return session.merge(screenshot)
 
     @begin_session
-    def get_screenshot(self, id, session: Session = None) -> Screenshot | None:
-        return session.get(Screenshot, id)
+    def get_screenshot(
+        self,
+        *,
+        filename: str | None = None,
+        filename_no_ext: str | None = None,
+        rom_id: int | None = None,
+        user_id: int | None = None,
+        session: Session = None,
+    ) -> Screenshot | None:
+        query = self.filter(
+            select(Screenshot),
+            filenames=[filename] if filename is not None else (),
+            filenames_no_ext=[filename_no_ext] if filename_no_ext is not None else (),
+            rom_ids=[rom_id] if rom_id is not None else (),
+            user_ids=[user_id] if user_id is not None else (),
+        )
+        return session.scalars(query.limit(1)).first()
 
     @begin_session
-    def get_screenshot_by_filename(
-        self, rom_id: int, user_id: int, file_name: str, session: Session = None
-    ) -> Screenshot | None:
-        return session.scalars(
-            select(Screenshot)
-            .filter_by(rom_id=rom_id, user_id=user_id, file_name=file_name)
-            .limit(1)
-        ).first()
+    def get_screenshot_by_id(self, id, session: Session = None) -> Screenshot | None:
+        return session.get(Screenshot, id)
 
     @begin_session
     def update_screenshot(
@@ -57,25 +95,17 @@ class DBScreenshotsHandler(DBBaseHandler):
         screenshots_to_keep: list[str],
         session: Session = None,
     ) -> Sequence[Screenshot]:
-        missing_screenshots = session.scalars(
-            select(Screenshot).filter(
-                and_(
-                    Screenshot.rom_id == rom_id,
-                    Screenshot.user_id == user_id,
-                    Screenshot.file_name.not_in(screenshots_to_keep),
-                )
-            )
-        ).all()
+        query_fn = partial(
+            self.filter,
+            rom_ids=[rom_id],
+            user_ids=[user_id],
+            exclude_filenames=screenshots_to_keep,
+        )
+
+        missing_screenshots = session.scalars(query_fn(query=select(Screenshot))).all()
 
         session.execute(
-            update(Screenshot)
-            .where(
-                and_(
-                    Screenshot.rom_id == rom_id,
-                    Screenshot.user_id == user_id,
-                    Screenshot.file_name.not_in(screenshots_to_keep),
-                )
-            )
+            query_fn(query=update(Screenshot))
             .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
