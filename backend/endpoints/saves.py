@@ -107,8 +107,10 @@ async def add_save(
             platform_fs_slug=rom.platform_slug,
             rom_id=rom.id,
         )
-        db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
-            rom_id=rom.id, user_id=request.user.id, file_name=screenshotFile.filename
+        db_screenshot = db_screenshot_handler.get_screenshot(
+            filename=screenshotFile.filename,
+            rom_id=rom.id,
+            user_id=request.user.id,
         )
         if db_screenshot:
             db_screenshot = db_screenshot_handler.update_screenshot(
@@ -193,10 +195,10 @@ async def update_save(request: Request, id: int) -> SaveSchema:
             platform_fs_slug=db_save.rom.platform_slug,
             rom_id=db_save.rom.id,
         )
-        db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
+        db_screenshot = db_screenshot_handler.get_screenshot(
+            filename=screenshotFile.filename,
             rom_id=db_save.rom.id,
             user_id=request.user.id,
-            file_name=screenshotFile.filename,
         )
         if db_screenshot:
             db_screenshot = db_screenshot_handler.update_screenshot(

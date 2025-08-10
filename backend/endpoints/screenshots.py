@@ -65,8 +65,10 @@ async def add_screenshot(
         platform_fs_slug=rom.platform_slug,
         rom_id=rom.id,
     )
-    db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
-        rom_id=rom.id, user_id=current_user.id, file_name=screenshotFile.filename
+    db_screenshot = db_screenshot_handler.get_screenshot(
+        filename=screenshotFile.filename,
+        rom_id=rom.id,
+        user_id=current_user.id,
     )
     if db_screenshot:
         db_screenshot = db_screenshot_handler.update_screenshot(
