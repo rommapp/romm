@@ -75,6 +75,7 @@ class FSResourcesHandler(FSHandler):
                             await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
+            return None
 
         if size == CoverSize.SMALL:
             try:
