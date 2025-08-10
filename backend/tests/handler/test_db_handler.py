@@ -196,14 +196,16 @@ def test_screenshots(screenshot: Screenshot, platform: Platform, admin_user: Use
     assert rom is not None
     assert len(rom.screenshots) == 2
 
-    new_screenshot = db_screenshot_handler.get_screenshot(id=rom.screenshots[0].id)
+    new_screenshot = db_screenshot_handler.get_screenshot_by_id(
+        id=rom.screenshots[0].id
+    )
     assert new_screenshot is not None
     assert new_screenshot.file_name == "test_screenshot.png"
 
     db_screenshot_handler.update_screenshot(
         new_screenshot.id, {"file_name": "test_screenshot_2.png"}
     )
-    new_screenshot = db_screenshot_handler.get_screenshot(id=new_screenshot.id)
+    new_screenshot = db_screenshot_handler.get_screenshot_by_id(id=new_screenshot.id)
     assert new_screenshot is not None
     assert new_screenshot.file_name == "test_screenshot_2.png"
 

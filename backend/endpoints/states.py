@@ -107,8 +107,10 @@ async def add_state(
             platform_fs_slug=rom.platform_slug,
             rom_id=rom.id,
         )
-        db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
-            rom_id=rom.id, user_id=request.user.id, file_name=screenshotFile.filename
+        db_screenshot = db_screenshot_handler.get_screenshot(
+            filename=screenshotFile.filename,
+            rom_id=rom.id,
+            user_id=request.user.id,
         )
         if db_screenshot:
             db_screenshot = db_screenshot_handler.update_screenshot(
@@ -195,10 +197,10 @@ async def update_state(request: Request, id: int) -> StateSchema:
             platform_fs_slug=db_state.rom.platform_slug,
             rom_id=db_state.rom.id,
         )
-        db_screenshot = db_screenshot_handler.get_screenshot_by_filename(
+        db_screenshot = db_screenshot_handler.get_screenshot(
+            filename=screenshotFile.filename,
             rom_id=db_state.rom.id,
             user_id=request.user.id,
-            file_name=screenshotFile.filename,
         )
         if db_screenshot:
             db_screenshot = db_screenshot_handler.update_screenshot(
