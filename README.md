@@ -103,7 +103,7 @@ Here are a few projects that we think you might like:
   <div dir="auto">
     <a href="https://news.ycombinator.com/item?id=44247964" target="_blank"><img src=".github/resources/hackernews_badge.svg" width="250px" alt="hackernews badge"></a>
     &nbsp;
-    <a href="https://app.aikido.dev/audit-report/external/NzayAUgNoqiMuiy7p7yNvI0U/request" target="_blank"><img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" /></a>
+    <span><img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" /></span>
   </div>
 </div>
 
