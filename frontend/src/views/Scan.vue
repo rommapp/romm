@@ -65,12 +65,13 @@ watch(
   { deep: true },
 );
 
-// Watch for new ROMs added
+const platformRomCounts = computed(() =>
+  scanningPlatforms.value.map((p) => p.roms.length),
+);
+
 watch(
-  () => scanningPlatforms.value.map((p) => p.roms.length),
-  () => {
-    scrollToBottom();
-  },
+  () => platformRomCounts.value,
+  () => scrollToBottom(),
   { deep: true },
 );
 
