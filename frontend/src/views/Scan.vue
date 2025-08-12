@@ -20,7 +20,7 @@ const scanningStore = storeScanning();
 const { scanning, scanningPlatforms, scanStats } = storeToRefs(scanningStore);
 const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
-const platformsToScan = ref<Platform[]>([]);
+const platformsToScan = ref<number[]>([]);
 const panels = ref<number[]>([]);
 
 const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
@@ -101,7 +101,7 @@ async function scan() {
   );
 
   socket.emit("scan", {
-    platforms: platformsToScan.value.map((p) => p.id),
+    platforms: platformsToScan.value,
     type: scanType.value,
     apis: metadataSources.value.map((s) => s.value),
   });
@@ -120,18 +120,17 @@ async function stopScan() {
   <v-row class="align-center pt-4 px-4" no-gutters>
     <!-- Platform selector -->
     <v-col cols="12" md="3" lg="4" class="px-1">
-      <!-- TODO: add 'ALL' default option -->
       <v-select
         v-model="platformsToScan"
         :items="platforms.filteredPlatforms"
         :menu-props="{ maxHeight: 650 }"
         :label="t('common.platforms')"
         item-title="name"
+        item-value="id"
         prepend-inner-icon="mdi-controller"
         variant="outlined"
         density="comfortable"
         multiple
-        return-object
         clearable
         hide-details
         chips
