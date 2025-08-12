@@ -193,7 +193,7 @@ class FSHandler:
             ext = self.parse_file_extension(file_name)
 
             # Exclude the file if it has no extension or the extension is in the excluded list.
-            if not ext or ext in excluded_extensions:
+            if ext and ext.lower() in excluded_extensions:
                 excluded_files.append(file_name)
 
             # Additionally, check if the file name mathes a pattern in the excluded list.
