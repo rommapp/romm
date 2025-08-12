@@ -206,7 +206,7 @@ start_bin_watcher() {
 	info_log "Starting watcher"
 	watchfiles \
 		--target-type command \
-		'python3 watcher.py' \
+		"opentelemetry-instrument --service_name '${OTEL_SERVICE_NAME_PREFIX-}watcher' python3 watcher.py" \
 		/romm/library &
 	WATCHER_PID=$!
 	echo "${WATCHER_PID}" >/tmp/watcher.pid
