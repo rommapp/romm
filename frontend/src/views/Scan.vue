@@ -4,11 +4,11 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import socket from "@/services/socket";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
-import storePlatforms, { type Platform } from "@/stores/platforms";
+import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
 import { ROUTES } from "@/plugins/router";
 import { storeToRefs } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref, watch, nextTick } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
@@ -43,6 +43,15 @@ watch(metadataOptions, (newOptions) => {
   );
 });
 
+function scrollToBottom() {
+  nextTick(() => {
+    window.scrollTo({
+      top: document.body.scrollHeight,
+      behavior: "smooth",
+    });
+  });
+}
+
 // Adding each new scanned platform to panelIndex to be open by default
 watch(
   scanningPlatforms,
@@ -50,6 +59,17 @@ watch(
     panels.value = scanningPlatforms.value
       .map((p, index) => (p.roms.length > 0 ? index : -1))
       .filter((index) => index !== -1);
+
+    scrollToBottom();
+  },
+  { deep: true },
+);
+
+// Watch for new ROMs added
+watch(
+  () => scanningPlatforms.value.map((p) => p.roms.length),
+  () => {
+    scrollToBottom();
   },
   { deep: true },
 );
