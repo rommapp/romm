@@ -89,7 +89,9 @@ start_bin_gunicorn() {
 	# commands to start our main application and store its PID to check for crashes
 	info_log "Starting backend"
 
-	gunicorn \
+	opentelemetry-instrument \
+		--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
+		gunicorn \
 		--bind=0.0.0.0:5000 \
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
