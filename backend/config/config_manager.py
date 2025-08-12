@@ -120,18 +120,24 @@ class ConfigManager:
 
         self.config = Config(
             EXCLUDED_PLATFORMS=pydash.get(self._raw_config, "exclude.platforms", []),
-            EXCLUDED_SINGLE_EXT=pydash.get(
-                self._raw_config, "exclude.roms.single_file.extensions", []
-            ),
+            EXCLUDED_SINGLE_EXT=[
+                e.lower()
+                for e in pydash.get(
+                    self._raw_config, "exclude.roms.single_file.extensions", []
+                )
+            ],
             EXCLUDED_SINGLE_FILES=pydash.get(
                 self._raw_config, "exclude.roms.single_file.names", []
             ),
             EXCLUDED_MULTI_FILES=pydash.get(
                 self._raw_config, "exclude.roms.multi_file.names", []
             ),
-            EXCLUDED_MULTI_PARTS_EXT=pydash.get(
-                self._raw_config, "exclude.roms.multi_file.parts.extensions", []
-            ),
+            EXCLUDED_MULTI_PARTS_EXT=[
+                e.lower()
+                for e in pydash.get(
+                    self._raw_config, "exclude.roms.multi_file.parts.extensions", []
+                )
+            ],
             EXCLUDED_MULTI_PARTS_FILES=pydash.get(
                 self._raw_config, "exclude.roms.multi_file.parts.names", []
             ),
