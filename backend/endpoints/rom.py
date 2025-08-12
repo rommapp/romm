@@ -814,10 +814,10 @@ async def add_rom_manuals(
         raise RomNotFoundInDatabaseException(id)
 
     manuals_path = f"{rom.fs_resources_path}/manual"
-    file_location = fs_rom_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
+    file_location = fs_resource_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
     log.info(f"Uploading manual to {hl(str(file_location))}")
 
-    await fs_rom_handler.make_directory(manuals_path)
+    await fs_resource_handler.make_directory(manuals_path)
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
