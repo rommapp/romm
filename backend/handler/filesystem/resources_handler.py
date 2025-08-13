@@ -275,6 +275,10 @@ class FSResourcesHandler(FSHandler):
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
+        if self.file_exists(path):
+            log.debug(f"Badge {path} already exists, skipping download")
+            return
+
         try:
             async with httpx_client.stream("GET", url, timeout=120) as response:
                 if response.status_code == status.HTTP_200_OK:
