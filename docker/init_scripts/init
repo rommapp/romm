@@ -284,6 +284,7 @@ else
 	error_log "Failed to run database migrations"
 fi
 
+# Startup process requires database and cache to be already available
 run_startup
 
 # main loop
