@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
 from functools import cached_property
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Final
 
-from handler.metadata.base_hander import conditionally_set_cache
 from handler.redis_handler import sync_cache
 from models.base import (
     FILE_EXTENSION_MAX_LENGTH,
@@ -19,6 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 if TYPE_CHECKING:
     from models.platform import Platform
 
+FIRMWARE_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
 KNOWN_BIOS_KEY = "romm:known_bios_files"
 
 
@@ -46,13 +46,6 @@ class Firmware(BaseModel):
     platform: Mapped[Platform] = relationship(lazy="joined", back_populates="firmware")
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-        conditionally_set_cache(
-            KNOWN_BIOS_KEY, "known_bios_files.json", os.path.dirname(__file__)
-        )
 
     @property
     def platform_slug(self) -> str:
