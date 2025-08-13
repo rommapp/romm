@@ -80,8 +80,8 @@ def process_file_7z(
             )
 
             # Get the first file in temp_path
-            extracted_file = next(temp_path.iterdir())
-            if extracted_file.exists():
+            extracted_file = next(temp_path.iterdir(), None)
+            if extracted_file and extracted_file.exists():
                 with open(extracted_file, "rb") as f:
                     while chunk := f.read(FILE_READ_CHUNK_SIZE):
                         fn_hash_update(chunk)
