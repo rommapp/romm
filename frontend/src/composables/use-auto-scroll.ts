@@ -40,7 +40,7 @@ export const useAutoScroll = (
     // Auto-scroll on content changes
     observer = new MutationObserver((e: MutationRecord[]) => {
       if (!config.always && isUserScrolled) return;
-      if (e[e.length - 1].addedNodes.length != 1) return;
+      if (e[e.length - 1].addedNodes.length === 0) return;
       scrollToBottom();
     });
 
