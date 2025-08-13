@@ -141,15 +141,13 @@ def read_tar_file(
 ) -> Iterator[bytes]:
     try:
         with tarfile.open(file_path, mode) as f:
-            for member in f.getmembers():
-                # Ignore directories and any other non-regular files
-                if not member.isfile():
-                    continue
+            regular_files = [member for member in f.getmembers() if member.isfile()]
 
-                largest_file = max(f.getmembers(), key=lambda x: x.size)
-                with f.extractfile(largest_file) as ef:  # type: ignore
-                    while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                        yield chunk
+            # Find the largest file among regular files only
+            largest_file = max(regular_files, key=lambda x: x.size)
+            with f.extractfile(largest_file) as ef:  # type: ignore
+                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk

@@ -79,7 +79,8 @@ def process_file_7z(
                 shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
             )
 
-            extracted_file = temp_path / largest_file.split("/")[-1]
+            # Get the first file in temp_path
+            extracted_file = next(temp_path.iterdir())
             if extracted_file.exists():
                 with open(extracted_file, "rb") as f:
                     while chunk := f.read(FILE_READ_CHUNK_SIZE):
