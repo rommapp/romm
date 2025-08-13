@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# trunk-ignore-all(shellcheck/SC2016)
 
 set -o errexit           # treat errors as fatal
 set -o nounset           # treat unset variables as an error
@@ -64,6 +63,15 @@ warn_log() {
 error_log() {
 	echo -e "${RED}ERROR:    ${BLUE}[RomM]${LIGHTMAGENTA}[init]${CYAN}[$(date +"%Y-%m-%d %T")]${RESET}" "${@}" || true
 	exit 1
+}
+
+# Commands to run initial startup tasks
+run_startup() {
+	if ! PYTHONPATH="/backend:${PYTHONPATH-}" opentelemetry-instrument \
+		--service_name "${OTEL_SERVICE_NAME_PREFIX-}startup" \
+		python3 /backend/startup.py; then
+		error_log "Startup script failed, exiting"
+	fi
 }
 
 wait_for_gunicorn_socket() {
@@ -182,7 +190,7 @@ start_bin_rq_scheduler() {
 
 # Commands to start RQ worker
 start_bin_rq_worker() {
-	info_log "Starting rq worker"
+	info_log "Starting RQ worker"
 
 	# Build Redis URL properly
 	local redis_url
@@ -275,6 +283,8 @@ if alembic upgrade head; then
 else
 	error_log "Failed to run database migrations"
 fi
+
+run_startup
 
 # main loop
 while ! ((exited)); do
