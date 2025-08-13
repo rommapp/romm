@@ -1,6 +1,6 @@
 import json
 import re
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from handler.metadata.base_hander import (
@@ -20,7 +20,6 @@ from handler.metadata.base_hander import (
     MetadataHandler,
     UniversalPlatformSlug,
     _normalize_search_term,
-    conditionally_set_cache,
 )
 from handler.redis_handler import async_cache
 
@@ -98,73 +97,12 @@ class TestNormalizeSearchTerm:
         assert cache_info2.hits == cache_info1.hits + 1
 
 
-class TestConditionallySetCache:
-    """Test the conditionally_set_cache function."""
-
-    @patch("handler.metadata.base_hander.sync_cache")
-    def test_cache_not_exists_loads_data(self, mock_cache):
-        """Test loading data when cache doesn't exist."""
-        mock_cache.exists.return_value = False
-
-        mock_pipeline = MagicMock()
-        mock_cache.pipeline.return_value.__enter__.return_value = mock_pipeline
-        mock_cache.pipeline.return_value.__exit__.return_value = None
-
-        conditionally_set_cache(MAME_XML_KEY, "mame_index.json")
-
-        mock_cache.exists.assert_called_once_with(MAME_XML_KEY)
-        mock_cache.pipeline.assert_called_once()
-        mock_pipeline.hset.assert_called()
-        mock_pipeline.execute.assert_called_once()
-
-    @patch("handler.metadata.base_hander.sync_cache")
-    def test_cache_exists_skips_loading(self, mock_cache):
-        """Test skipping load when cache already exists."""
-        mock_cache.exists.return_value = True
-
-        conditionally_set_cache(MAME_XML_KEY, "mame_index.json")
-
-        mock_cache.exists.assert_called_once_with(MAME_XML_KEY)
-        mock_cache.pipeline.assert_not_called()
-
-    @patch("handler.metadata.base_hander.sync_cache")
-    def test_exception_handling(self, mock_cache):
-        """Test exception handling when file loading fails."""
-        mock_cache.exists.return_value = False
-
-        conditionally_set_cache(MAME_XML_KEY, "nonexistent.json")
-
-        mock_cache.pipeline.assert_not_called()
-
-
-class TestMetadataHandlerInit:
-    """Test MetadataHandler initialization."""
-
-    @patch("handler.metadata.base_hander.conditionally_set_cache")
-    def test_init_calls_cache_setup(self, mock_conditionally_set_cache):
-        """Test that initialization calls cache setup for all required indexes."""
-        MetadataHandler()
-
-        expected_calls = [
-            (MAME_XML_KEY, "mame_index.json"),
-            (PS2_OPL_KEY, "ps2_opl_index.json"),
-            (PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json"),
-            (PS2_SERIAL_INDEX_KEY, "ps2_serial_index.json"),
-            (PSP_SERIAL_INDEX_KEY, "psp_serial_index.json"),
-        ]
-
-        assert mock_conditionally_set_cache.call_count == 5
-        for call_args in mock_conditionally_set_cache.call_args_list:
-            assert call_args[0] in expected_calls
-
-
 class TestMetadataHandlerMethods:
     """Test MetadataHandler instance methods."""
 
     @pytest.fixture
     def handler(self):
-        with patch("handler.metadata.base_hander.conditionally_set_cache"):
-            return MetadataHandler()
+        return MetadataHandler()
 
     def test_normalize_cover_url_with_url(self, handler: MetadataHandler):
         """Test URL normalization with valid URL."""
