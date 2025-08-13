@@ -232,8 +232,11 @@ class ConfigManager:
             sys.exit(3)
 
     def get_config(self) -> Config:
-        with open(self.config_file) as config_file:
-            self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
+        try:
+            with open(self.config_file) as config_file:
+                self._raw_config = yaml.load(config_file, Loader=SafeLoader) or {}
+        except FileNotFoundError as err:
+            raise ConfigNotReadableException() from err
 
         self._parse_config()
         self._validate_config()
