@@ -2,16 +2,19 @@
 
 import subprocess
 import tempfile
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from pathlib import Path
 
+from logger.logger import log
+
 SEVEN_ZIP_PATH = "/usr/bin/7zz"
+FILE_READ_CHUNK_SIZE = 1024 * 8
 
 
 def process_file_7z(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
-) -> None:
+) -> bool:
     """
     Process a 7zip file using the system's 7zip binary and use the provided callables to update the calculated hashes.
 
@@ -31,28 +34,42 @@ def process_file_7z(
         )
 
         lines = result.stdout.split("\n")
-        first_file = None
+
+        largest_file = None
+        largest_size = 0
+        current_file = None
+        current_size = 0
 
         for line in lines:
-            if line.strip().startswith("Path"):
-                first_file = line.split(" = ")[1].strip()
-                break
+            line = line.strip()
+            if line.startswith("Path = "):
+                current_file = line.split(" = ")[1].strip()
+            elif line.startswith("Size = "):
+                try:
+                    current_size = int(line.split(" = ")[1].strip())
+                except ValueError:
+                    current_size = 0
+            elif line.startswith("Attributes = "):
+                # Check if this is a file (not a folder)
+                attrs = line.split(" = ")[1].strip()
+                if current_file and not attrs.startswith("D"):  # D indicates directory
+                    if current_size > largest_size:
+                        largest_size = current_size
+                        largest_file = current_file
 
-        if not first_file:
-            for chunk in read_basic_file(file_path):
-                fn_hash_update(chunk)
-            return
+        if not largest_file:
+            return False
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
+            log.debug(f"Extracting {largest_file} from {file_path}...")
 
-            # Extract only the first file
+            temp_path = Path(temp_dir)
             subprocess.run(
                 [
                     SEVEN_ZIP_PATH,
                     "e",
                     str(file_path),
-                    first_file,
+                    largest_file,
                     f"-o{temp_path}",
                     "-y",
                 ],
@@ -62,25 +79,20 @@ def process_file_7z(
                 shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
             )
 
-            extracted_file = temp_path / first_file
-            if extracted_file.exists():
+            # Get the first file in temp_path
+            extracted_file = next(temp_path.iterdir(), None)
+            if extracted_file and extracted_file.exists():
                 with open(extracted_file, "rb") as f:
-                    while chunk := f.read(8192):
+                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
                         fn_hash_update(chunk)
-            else:
-                for chunk in read_basic_file(file_path):
-                    fn_hash_update(chunk)
+
+                return True
+            return False
 
     except (
         subprocess.TimeoutExpired,
         subprocess.CalledProcessError,
         FileNotFoundError,
-    ):
-        for chunk in read_basic_file(file_path):
-            fn_hash_update(chunk)
-
-
-def read_basic_file(file_path: Path) -> Iterator[bytes]:
-    with open(file_path, "rb") as f:
-        while chunk := f.read(8192):
-            yield chunk
+    ) as e:
+        log.error(f"Error processing 7z file: {e}")
+        return False

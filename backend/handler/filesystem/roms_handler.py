@@ -125,13 +125,11 @@ def read_basic_file(file_path: os.PathLike[str]) -> Iterator[bytes]:
 def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
     try:
         with zipfile.ZipFile(file, "r") as z:
-            for file in z.namelist():
-                with z.open(file, "r") as f:
-                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                        yield chunk
-
-                    # We only need to read the first file in the archive
-                    return None
+            # Find the biggest file in the archive
+            largest_file = max(z.infolist(), key=lambda x: x.file_size)
+            with z.open(largest_file, "r") as f:
+                while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
     except zipfile.BadZipFile:
         if isinstance(file, Path):
             for chunk in read_basic_file(file):
@@ -143,21 +141,13 @@ def read_tar_file(
 ) -> Iterator[bytes]:
     try:
         with tarfile.open(file_path, mode) as f:
-            for member in f.getmembers():
-                # Ignore directories and any other non-regular files
-                if not member.isfile():
-                    continue
+            regular_files = [member for member in f.getmembers() if member.isfile()]
 
-                # Ignore metadata files created by macOS
-                if member.name.startswith("._"):
-                    continue
-
-                with f.extractfile(member) as ef:  # type: ignore
-                    while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                        yield chunk
-
-                # We only need to read the first file in the archive
-                return None
+            # Find the largest file among regular files only
+            largest_file = max(regular_files, key=lambda x: x.size)
+            with f.extractfile(largest_file) as ef:  # type: ignore
+                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk
@@ -171,10 +161,13 @@ def process_7z_file(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
 ) -> None:
-    process_file_7z(
+    processed = process_file_7z(
         file_path=file_path,
         fn_hash_update=fn_hash_update,
     )
+    if not processed:
+        for chunk in read_basic_file(file_path):
+            fn_hash_update(chunk)
 
 
 def read_bz2_file(file_path: Path) -> Iterator[bytes]:
