@@ -11,6 +11,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref, watch, nextTick } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { debounce } from "lodash";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 
@@ -59,19 +60,19 @@ watch(
     panels.value = scanningPlatforms.value
       .map((p, index) => (p.roms.length > 0 ? index : -1))
       .filter((index) => index !== -1);
-
-    scrollToBottom();
   },
   { deep: true },
 );
 
-const platformRomCounts = computed(() =>
-  scanningPlatforms.value.map((p) => p.roms.length),
+const platformRomCounts = computed(
+  () =>
+    scanningPlatforms.value.length +
+    scanningPlatforms.value.reduce((acc, p) => acc + p.roms.length, 0),
 );
 
 watch(
   () => platformRomCounts.value,
-  () => scrollToBottom(),
+  debounce(() => scrollToBottom(), 100),
   { deep: true },
 );
 
