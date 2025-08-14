@@ -269,6 +269,12 @@ trap 'exited=1 && shutdown' SIGINT SIGTERM EXIT
 # clear any leftover PID files
 rm /tmp/*.pid -f
 
+# Disable OpenTelemetry if no OTEL_ prefixed environment variables are set
+if ! printenv | grep -q '^OTEL_'; then
+	info_log "No OpenTelemetry environment variables found, disabling OpenTelemetry SDK"
+	export OTEL_SDK_DISABLED=true
+fi
+
 # Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
 if [[ -z ${REDIS_HOST} ]]; then
 	watchdog_process_pid valkey-server
