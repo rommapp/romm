@@ -1,5 +1,4 @@
 import os
-import secrets
 from typing import Final
 
 import yarl
@@ -9,7 +8,7 @@ load_dotenv()
 
 
 def str_to_bool(value: str) -> bool:
-    return value.lower() in ("true", "1")
+    return value.strip().lower() in ("1", "true", "yes", "on")
 
 
 ROMM_BASE_URL = os.environ.get("ROMM_BASE_URL", "http://0.0.0.0")
@@ -98,9 +97,8 @@ HASHEOUS_API_ENABLED: Final = str_to_bool(
 TGDB_API_ENABLED: Final = str_to_bool(os.environ.get("TGDB_API_ENABLED", "false"))
 
 # AUTH
-ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
-    "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
-)
+ROMM_AUTH_SECRET_KEY: Final = os.environ.get("ROMM_AUTH_SECRET_KEY")
+
 SESSION_MAX_AGE_SECONDS: Final = int(
     os.environ.get("SESSION_MAX_AGE_SECONDS", 14 * 24 * 60 * 60)
 )  # 14 days, in seconds
