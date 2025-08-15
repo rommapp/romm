@@ -9,7 +9,7 @@ import { nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
-const RUFFLE_VERSION = "0.1.0-nightly.2024.12.28";
+const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
 const DEFAULT_BACKGROUND_COLOR = "#0D1117";
 
 const { t } = useI18n();
