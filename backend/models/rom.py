@@ -22,8 +22,10 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
+    select,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
@@ -224,6 +226,13 @@ class Rom(BaseModel):
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
+    fs_size_bytes: Mapped[int] = column_property(
+        select(func.sum(RomFile.file_size_bytes))
+        .where(RomFile.rom_id == id)
+        .correlate_except(RomFile)
+        .scalar_subquery()
+    )
+
     @property
     def platform_slug(self) -> str:
         return self.platform.slug
@@ -271,10 +280,6 @@ class Rom(BaseModel):
         ):
             return True
         return False
-
-    @cached_property
-    def fs_size_bytes(self) -> int:
-        return sum(f.file_size_bytes for f in self.files)
 
     @property
     def fs_resources_path(self) -> str:

@@ -4,7 +4,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
@@ -55,6 +55,14 @@ class Platform(BaseModel):
         select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
     )
 
+    fs_size_bytes: Mapped[int] = column_property(
+        select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
+        .select_from(RomFile.__table__.join(Rom.__table__, RomFile.rom_id == Rom.id))
+        .where(Rom.platform_id == id)
+        .correlate_except(RomFile, Rom)
+        .scalar_subquery()
+    )
+
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @property
@@ -71,12 +79,6 @@ class Platform(BaseModel):
     @property
     def is_identified(self) -> bool:
         return not self.is_unidentified
-
-    @cached_property
-    def fs_size_bytes(self) -> int:
-        from handler.database import db_stats_handler
-
-        return db_stats_handler.get_platform_filesize(self.id)
 
     @cached_property
     def igdb_slug(self) -> str | None:
