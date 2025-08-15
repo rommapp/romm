@@ -275,6 +275,13 @@ if ! printenv | grep -q '^OTEL_'; then
 	export OTEL_SDK_DISABLED=true
 fi
 
+# Set ROMM_AUTH_SECRET_KEY if not already set
+if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
+	ROMM_AUTH_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+	info_log "ROMM_AUTH_SECRET_KEY not set, generating random secret key"
+	export ROMM_AUTH_SECRET_KEY
+fi
+
 # Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
 if [[ -z ${REDIS_HOST} ]]; then
 	watchdog_process_pid valkey-server
