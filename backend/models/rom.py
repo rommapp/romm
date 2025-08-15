@@ -22,8 +22,10 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
+    select,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
@@ -193,6 +195,8 @@ class Rom(BaseModel):
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
     ra_hash: Mapped[str | None] = mapped_column(String(length=100))
 
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
@@ -222,7 +226,12 @@ class Rom(BaseModel):
         back_populates="roms",
     )
 
-    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+    fs_size_bytes: Mapped[int] = column_property(
+        select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
+        .where(RomFile.rom_id == id)
+        .correlate_except(RomFile)
+        .scalar_subquery()
+    )
 
     @property
     def platform_slug(self) -> str:
@@ -261,20 +270,9 @@ class Rom(BaseModel):
 
     @cached_property
     def multi(self) -> bool:
-        # TODO: Improve multi game detection as this is a very basic check
-        if len(self.files) > 1:
-            return True
-        if (
-            self.files
-            and len(self.files) > 0
-            and len(self.files[0].full_path.split("/")) > 3
-        ):
-            return True
-        return False
-
-    @cached_property
-    def fs_size_bytes(self) -> int:
-        return sum(f.file_size_bytes for f in self.files)
+        return len(self.files) > 1 or (
+            len(self.files) > 0 and len(self.files[0].full_path.split("/")) > 3
+        )
 
     @property
     def fs_resources_path(self) -> str:
@@ -296,7 +294,29 @@ class Rom(BaseModel):
             else ""
         )
 
-    # # Metadata fields
+    @property
+    def is_unidentified(self) -> bool:
+        return (
+            not self.igdb_id
+            and not self.moby_id
+            and not self.ss_id
+            and not self.ra_id
+            and not self.launchbox_id
+            and not self.hasheous_id
+        )
+
+    @property
+    def is_identified(self) -> bool:
+        return not self.is_unidentified
+
+    def has_m3u_file(self) -> bool:
+        """
+        Check if the ROM has an M3U file associated with it.
+        This is used for multi-disc games.
+        """
+        return any(file.file_extension.lower() == "m3u" for file in self.files)
+
+    # Metadata fields
     @property
     def youtube_video_id(self) -> str | None:
         igdb_video_id = (
@@ -332,28 +352,6 @@ class Rom(BaseModel):
                     f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
                 )
         return self.ra_metadata
-
-    @property
-    def is_unidentified(self) -> bool:
-        return (
-            not self.igdb_id
-            and not self.moby_id
-            and not self.ss_id
-            and not self.ra_id
-            and not self.launchbox_id
-            and not self.hasheous_id
-        )
-
-    @property
-    def is_identified(self) -> bool:
-        return not self.is_unidentified
-
-    def has_m3u_file(self) -> bool:
-        """
-        Check if the ROM has an M3U file associated with it.
-        This is used for multi-disc games.
-        """
-        return any(file.file_extension.lower() == "m3u" for file in self.files)
 
     def __repr__(self) -> str:
         return self.fs_name
