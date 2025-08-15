@@ -227,7 +227,7 @@ class Rom(BaseModel):
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     fs_size_bytes: Mapped[int] = column_property(
-        select(func.sum(RomFile.file_size_bytes))
+        select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
         .where(RomFile.rom_id == id)
         .correlate_except(RomFile)
         .scalar_subquery()
