@@ -215,6 +215,7 @@ onBeforeUnmount(() => {
                   : rom.igdb_url_cover ||
                     rom.moby_url_cover ||
                     rom.ss_url_cover ||
+                    rom.sgdb_url_cover ||
                     fallbackCoverImage)
               "
               :aspect-ratio="computedAspectRatio"
@@ -228,7 +229,8 @@ onBeforeUnmount(() => {
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
                         !rom.moby_url_cover &&
-                        !rom.ss_url_cover)
+                        !rom.ss_url_cover &&
+                        !rom.sgdb_url_cover)
                     "
                     class="translucent-dark text-white"
                     :class="
