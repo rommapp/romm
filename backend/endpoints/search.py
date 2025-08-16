@@ -116,7 +116,8 @@ async def search_rom(
     for igdb_rom in igdb_matched_roms:
         if igdb_rom["igdb_id"]:
             igdb_name = meta_igdb_handler.normalize_search_term(
-                igdb_rom.get("name", "")
+                igdb_rom.get("name", ""),
+                remove_articles=False,
             )
             merged_dict[igdb_name] = {
                 **igdb_rom,
@@ -128,7 +129,8 @@ async def search_rom(
     for moby_rom in moby_matched_roms:
         if moby_rom["moby_id"]:
             moby_name = meta_moby_handler.normalize_search_term(
-                moby_rom.get("name", "")
+                moby_rom.get("name", ""),
+                remove_articles=False,
             )
             merged_dict[moby_name] = {
                 **moby_rom,
@@ -139,7 +141,10 @@ async def search_rom(
 
     for ss_rom in ss_matched_roms:
         if ss_rom["ss_id"]:
-            ss_name = meta_ss_handler.normalize_search_term(ss_rom.get("name", ""))
+            ss_name = meta_ss_handler.normalize_search_term(
+                ss_rom.get("name", ""),
+                remove_articles=False,
+            )
             merged_dict[ss_name] = {
                 **ss_rom,
                 "platform_id": rom.platform_id,
@@ -150,9 +155,8 @@ async def search_rom(
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:
         return name, await meta_sgdb_handler.get_details_by_names([name])
 
-    # Only get SteamGridDB details for first 5 results
     sgdb_roms = await asyncio.gather(
-        *[get_sgdb_rom(name) for name in list(merged_dict.keys())[:5]]
+        *[get_sgdb_rom(name) for name in list(merged_dict.keys())]
     )
 
     for name, sgdb_rom in sgdb_roms:
