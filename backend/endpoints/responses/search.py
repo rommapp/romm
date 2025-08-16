@@ -6,13 +6,15 @@ class SearchRomSchema(BaseModel):
     igdb_id: int | None = None
     moby_id: int | None = None
     ss_id: int | None = None
-    slug: str
+    sgdb_id: int | None = None
+    platform_id: int
     name: str
-    summary: str
+    slug: str = ""
+    summary: str = ""
     igdb_url_cover: str = ""
     moby_url_cover: str = ""
     ss_url_cover: str = ""
-    platform_id: int
+    sgdb_url_cover: str = ""
 
 
 class SearchCoverSchema(BaseModel):

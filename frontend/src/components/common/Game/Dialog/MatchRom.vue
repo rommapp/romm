@@ -18,7 +18,7 @@ import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: "IGDB" | "Mobygames" | "Screenscraper";
+  name: "IGDB" | "Mobygames" | "Screenscraper" | "SteamGridDB";
   logo_path: string;
 };
 
@@ -146,25 +146,32 @@ function showSources(matchedRom: SearchRomSchema) {
   showSelectSource.value = true;
   selectedMatchRom.value = matchedRom;
   sources.value = [];
-  if (matchedRom.igdb_url_cover || matchedRom.igdb_id) {
+  if (matchedRom.igdb_url_cover) {
     sources.value.push({
       url_cover: matchedRom.igdb_url_cover,
       name: "IGDB",
       logo_path: "/assets/scrappers/igdb.png",
     });
   }
-  if (matchedRom.moby_url_cover || matchedRom.moby_id) {
+  if (matchedRom.moby_url_cover) {
     sources.value.push({
       url_cover: matchedRom.moby_url_cover,
       name: "Mobygames",
       logo_path: "/assets/scrappers/moby.png",
     });
   }
-  if (matchedRom.ss_url_cover || matchedRom.ss_id) {
+  if (matchedRom.ss_url_cover) {
     sources.value.push({
       url_cover: matchedRom.ss_url_cover,
       name: "Screenscraper",
       logo_path: "/assets/scrappers/ss.png",
+    });
+  }
+  if (matchedRom.sgdb_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.sgdb_url_cover,
+      name: "SteamGridDB",
+      logo_path: "/assets/scrappers/sgdb.png",
     });
   }
   if (sources.value.length == 1) {
