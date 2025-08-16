@@ -110,31 +110,28 @@ async def search_rom(
     merged_dict: dict[str, dict] = {}
 
     for igdb_rom in igdb_matched_roms:
-        igdb_name = igdb_rom.get("name", "")
-        if igdb_name:
-            merged_dict[igdb_name] = {
-                **igdb_rom,
-                "igdb_url_cover": igdb_rom.pop("url_cover", ""),
-                **merged_dict.get(igdb_name, {}),
-            }
+        igdb_name = meta_igdb_handler.normalize_search_term(igdb_rom.get("name", ""))
+        merged_dict[igdb_name] = {
+            **igdb_rom,
+            "igdb_url_cover": igdb_rom.pop("url_cover", ""),
+            **merged_dict.get(igdb_name, {}),
+        }
 
     for moby_rom in moby_matched_roms:
-        moby_name = moby_rom.get("name", "")
-        if moby_name:
-            merged_dict[moby_name] = {  # type: ignore
-                **moby_rom,
-                "moby_url_cover": moby_rom.pop("url_cover", ""),
-                **merged_dict.get(moby_name, {}),
-            }
+        moby_name = meta_moby_handler.normalize_search_term(moby_rom.get("name", ""))
+        merged_dict[moby_name] = {
+            **moby_rom,
+            "moby_url_cover": moby_rom.pop("url_cover", ""),
+            **merged_dict.get(moby_name, {}),
+        }
 
     for ss_rom in ss_matched_roms:
-        ss_name = ss_rom.get("name", "")
-        if ss_name:
-            merged_dict[ss_name] = {
-                **ss_rom,
-                "ss_url_cover": ss_rom.pop("url_cover", ""),
-                **merged_dict.get(ss_name, {}),
-            }
+        ss_name = meta_ss_handler.normalize_search_term(ss_rom.get("name", ""))
+        merged_dict[ss_name] = {
+            **ss_rom,
+            "ss_url_cover": ss_rom.pop("url_cover", ""),
+            **merged_dict.get(ss_name, {}),
+        }
 
     matched_roms = [
         {
