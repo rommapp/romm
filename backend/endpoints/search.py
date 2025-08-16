@@ -14,7 +14,7 @@ from handler.metadata import (
 )
 from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
 from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
-from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
+from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED, SGDBRom
 from handler.metadata.ss_handler import SS_API_ENABLED, SSRom
 from handler.scan_handler import get_main_platform_igdb_id
 from logger.formatter import BLUE, CYAN
@@ -147,11 +147,18 @@ async def search_rom(
                 **merged_dict.get(ss_name, {}),
             }
 
-    for name, matched_rom in merged_dict.items():
-        sgdb_rom = await meta_sgdb_handler.get_details_by_names([name])
+    async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:
+        return name, await meta_sgdb_handler.get_details_by_names([name])
+
+    # Only get SteamGridDB details for first 5 results
+    sgdb_roms = await asyncio.gather(
+        *[get_sgdb_rom(name) for name in list(merged_dict.keys())[:5]]
+    )
+
+    for name, sgdb_rom in sgdb_roms:
         if sgdb_rom["sgdb_id"]:
             merged_dict[name] = {
-                **matched_rom,
+                **merged_dict[name],
                 "sgdb_id": sgdb_rom.get("sgdb_id", ""),
                 "sgdb_url_cover": sgdb_rom.get("url_cover", ""),
             }
