@@ -275,7 +275,7 @@ class FSResourcesHandler(FSHandler):
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
-        if self.file_exists(path):
+        if await self.file_exists(path):
             log.debug(f"Badge {path} already exists, skipping download")
             return
 
