@@ -37,7 +37,6 @@ from models.platform import Platform
 from models.rom import Rom, RomFile
 from rq import Worker
 from rq.job import Job
-from sqlalchemy.inspection import inspect
 from utils import emoji
 from utils.context import initialize_context
 
@@ -288,12 +287,15 @@ async def _identify_rom(
     _added_rom.path_cover_l = path_cover_l
     _added_rom.path_screenshots = path_screenshots
     _added_rom.path_manual = path_manual
+
     # Update the scanned rom with the cover and screenshots paths and update database
     db_rom_handler.update_rom(
         _added_rom.id,
         {
-            c: getattr(_added_rom, c)
-            for c in inspect(_added_rom).mapper.column_attrs.keys()
+            "path_cover_s": path_cover_s,
+            "path_cover_l": path_cover_l,
+            "path_screenshots": path_screenshots,
+            "path_manual": path_manual,
         },
     )
 
