@@ -2,7 +2,7 @@ import asyncio
 from typing import Final, NotRequired, TypedDict
 
 from adapters.services.steamgriddb import SteamGridDBService
-from adapters.services.steamgriddb_types import SGDBDimension, SGDBType
+from adapters.services.steamgriddb_types import SGDBDimension, SGDBGame, SGDBType
 from config import STEAMGRIDDB_API_KEY
 from logger.logger import log
 
@@ -61,7 +61,14 @@ class SGDBBaseHandler(MetadataHandler):
                 log.debug(f"Could not find '{search_term}' on SteamGridDB")
                 continue
 
-            games_by_name = {game["name"]: game for game in games}
+            games_by_name: dict[str, SGDBGame] = {}
+            for game in games:
+                if (
+                    game["name"] not in games_by_name
+                    or game["id"] < games_by_name[game["name"]]["id"]
+                ):
+                    games_by_name[game["name"]] = game
+
             best_match, best_score = self.find_best_match(
                 search_term,
                 list(games_by_name.keys()),

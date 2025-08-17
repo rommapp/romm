@@ -131,10 +131,12 @@ class SSRom(BaseRom):
     ss_metadata: NotRequired[SSMetadata]
 
 
+PREFERRED_REGIONS: Final = ["us", "wor", "ss", "eu", "jp"]
+
+
 def build_ss_rom(game: SSGame) -> SSRom:
-    name_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     res_name = ""
-    for region in name_preferred_regions:
+    for region in PREFERRED_REGIONS:
         res_name = next(
             (
                 name["text"]
@@ -155,9 +157,8 @@ def build_ss_rom(game: SSGame) -> SSRom:
         "",
     )
 
-    cover_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     url_cover = ""
-    for region in cover_preferred_regions:
+    for region in PREFERRED_REGIONS:
         url_cover = next(
             (
                 media["url"]
@@ -171,9 +172,8 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if url_cover:
             break
 
-    manual_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     url_manual: str = ""
-    for region in manual_preferred_regions:
+    for region in PREFERRED_REGIONS:
         url_manual = next(
             (
                 media["url"]
@@ -288,9 +288,13 @@ class SSHandler(MetadataHandler):
             system_id=platform_ss_id,
         )
 
-        games_by_name = {
-            name["text"]: rom for rom in roms for name in rom.get("noms", [])
-        }
+        games_by_name: dict[str, SSGame] = {}
+        for rom in roms:
+            for name in rom.get("noms", []):
+                if name["text"] not in games_by_name or int(rom["id"]) < int(
+                    games_by_name[name["text"]]["id"]
+                ):
+                    games_by_name[name["text"]] = rom
 
         best_match, best_score = self.find_best_match(
             search_term,
@@ -303,7 +307,7 @@ class SSHandler(MetadataHandler):
             )
             return games_by_name[best_match]
 
-        return roms[0] if roms else None
+        return None
 
     def get_platform(self, slug: str) -> SSPlatform:
         if slug not in SCREENSAVER_PLATFORM_LIST:

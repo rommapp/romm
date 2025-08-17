@@ -92,7 +92,14 @@ class MobyGamesHandler(MetadataHandler):
         if not roms:
             return None
 
-        games_by_name = {game["title"]: game for game in roms}
+        games_by_name: dict[str, MobyGame] = {}
+        for game in roms:
+            if (
+                game["title"] not in games_by_name
+                or game["game_id"] < games_by_name[game["title"]]["game_id"]
+            ):
+                games_by_name[game["title"]] = game
+
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
