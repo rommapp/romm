@@ -22,7 +22,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection, SmartCollection
-from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -85,8 +84,8 @@ async def add_collection(
     created_collection = db_collection_handler.update_collection(
         _added_collection.id,
         {
-            c: getattr(_added_collection, c)
-            for c in inspect(_added_collection).mapper.column_attrs.keys()
+            "path_cover_s": path_cover_s,
+            "path_cover_l": path_cover_l,
         },
     )
 
