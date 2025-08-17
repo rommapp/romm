@@ -37,7 +37,6 @@ from models.platform import Platform
 from models.rom import Rom, RomFile
 from rq import Worker
 from rq.job import Job
-from sqlalchemy.inspection import inspect
 from utils import emoji
 from utils.context import initialize_context
 
