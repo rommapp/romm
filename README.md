@@ -96,6 +96,8 @@ Here are a few projects that we think you might like:
 - [ES-DE Frontend](https://es-de.org/): Emulator frontend for Linux, macOS and Windows
 - [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
 - [Retrom](https://github.com/JMBeresford/retrom): A centralized game library/collection management service
+- [Drop](https://droposs.org/): Steam-like experience for DRM-free games
+- [LanCommander](https://lancommander.app/): Digital game platform for PC games
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
 <div align="center">
