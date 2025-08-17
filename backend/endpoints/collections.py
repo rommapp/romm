@@ -22,7 +22,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection, SmartCollection
-from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
 router = APIRouter(
