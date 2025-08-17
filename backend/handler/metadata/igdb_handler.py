@@ -338,7 +338,14 @@ class IGDBHandler(MetadataHandler):
             data=f'search "{uc(search_term)}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {game_type_filter};',
         )
 
-        games_by_name = {game["name"]: game for game in roms}
+        games_by_name: dict[str, dict] = {}
+        for game in roms:
+            if (
+                game["name"] not in games_by_name
+                or game["id"] < games_by_name[game["name"]]["id"]
+            ):
+                games_by_name[game["name"]] = game
+
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
@@ -366,17 +373,21 @@ class IGDBHandler(MetadataHandler):
                 f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
             )
 
-            games_by_name = {game["name"]: game for game in extra_roms}
+            extra_games_by_name: dict[str, dict] = {}
+            for game in extra_roms:
+                if game["name"] not in extra_games_by_name:
+                    extra_games_by_name[game["name"]] = game
+
             best_match, best_score = self.find_best_match(
                 search_term,
-                list(games_by_name.keys()),
+                list(extra_games_by_name.keys()),
                 remove_punctuation=False,
             )
             if best_match:
                 log.debug(
                     f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
                 )
-                return games_by_name[best_match]
+                return extra_games_by_name[best_match]
 
             roms.extend(extra_roms)
 
