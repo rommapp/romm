@@ -73,7 +73,6 @@ class SGDBBaseHandler(MetadataHandler):
                 search_term,
                 list(games_by_name.keys()),
                 min_similarity_score=self.min_similarity_score,
-                remove_articles=False,
             )
             if best_match:
                 game_details = await self._get_game_covers(

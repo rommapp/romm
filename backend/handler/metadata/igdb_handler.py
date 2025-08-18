@@ -349,7 +349,6 @@ class IGDBHandler(MetadataHandler):
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
-            remove_punctuation=False,
         )
         if best_match:
             log.debug(
@@ -381,7 +380,6 @@ class IGDBHandler(MetadataHandler):
             best_match, best_score = self.find_best_match(
                 search_term,
                 list(extra_games_by_name.keys()),
-                remove_punctuation=False,
             )
             if best_match:
                 log.debug(

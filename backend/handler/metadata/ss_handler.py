@@ -27,6 +27,8 @@ SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 
 SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
+SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s*")
+PREFERRED_REGIONS: Final = ["us", "wor", "ss", "eu", "jp"]
 
 PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
@@ -129,9 +131,6 @@ class SSMetadata(TypedDict):
 class SSRom(BaseRom):
     ss_id: int | None
     ss_metadata: NotRequired[SSMetadata]
-
-
-PREFERRED_REGIONS: Final = ["us", "wor", "ss", "eu", "jp"]
 
 
 def build_ss_rom(game: SSGame) -> SSRom:
@@ -299,7 +298,6 @@ class SSHandler(MetadataHandler):
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
-            remove_punctuation=False,
         )
         if best_match:
             log.debug(
@@ -395,7 +393,7 @@ class SSHandler(MetadataHandler):
             search_term, remove_punctuation=False
         )
         res = await self._search_rom(
-            normalized_search_term.replace(": ", " - "), platform_ss_id
+            SEARCH_TERM_NORMALIZER.sub(" : ", normalized_search_term), platform_ss_id
         )
 
         # SS API doesn't handle some special characters well

@@ -104,7 +104,6 @@ class MobyGamesHandler(MetadataHandler):
             search_term,
             list(games_by_name.keys()),
             self.min_similarity_score,
-            remove_punctuation=False,
         )
         if best_match:
             log.debug(
