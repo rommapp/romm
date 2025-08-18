@@ -397,9 +397,7 @@ class SSHandler(MetadataHandler):
         )
 
         # SS API doesn't handle some special characters well
-        if not res and (
-            ": " in search_term or " - " in search_term or "/" in search_term
-        ):
+        if not res and " : " in search_term:
             terms = re.split(SEARCH_TERM_SPLIT_PATTERN, search_term)
             res = await self._search_rom(terms[-1], platform_ss_id)
 

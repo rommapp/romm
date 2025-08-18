@@ -115,11 +115,6 @@ class MetadataHandler:
         for game_name in game_names:
             game_name_normalized = self.normalize_search_term(game_name)
             score = jarowinkler.similarity(search_term_normalized, game_name_normalized)
-            print(f"Normalized search term: {search_term_normalized}")
-            print(f"Normalized game name: {game_name_normalized}")
-            print(f"Score: {score}")
-            print(f"Best score: {best_score}")
-            print(f"Best match: {best_match}")
             if score > best_score:
                 best_score = score
                 best_match = game_name
