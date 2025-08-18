@@ -26,8 +26,6 @@ SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER) and bool(SCREENSCRAPER_PASSWORD
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 
-SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
-SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s*")
 PREFERRED_REGIONS: Final = ["us", "wor", "ss", "eu", "jp"]
 
 PS1_SS_ID: Final = 57
@@ -278,7 +276,9 @@ class SSHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ss_service = ScreenScraperService()
 
-    async def _search_rom(self, search_term: str, platform_ss_id: int) -> SSGame | None:
+    async def _search_rom(
+        self, search_term: str, platform_ss_id: int, split_game_name: bool = False
+    ) -> SSGame | None:
         if not platform_ss_id:
             return None
 
@@ -298,6 +298,7 @@ class SSHandler(MetadataHandler):
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
+            split_game_name=split_game_name,
         )
         if best_match:
             log.debug(
@@ -393,13 +394,16 @@ class SSHandler(MetadataHandler):
             search_term, remove_punctuation=False
         )
         res = await self._search_rom(
-            SEARCH_TERM_NORMALIZER.sub(" : ", normalized_search_term), platform_ss_id
+            self.SEARCH_TERM_NORMALIZER.sub(" : ", normalized_search_term),
+            platform_ss_id,
         )
 
         # SS API doesn't handle some special characters well
         if not res and " : " in search_term:
-            terms = re.split(SEARCH_TERM_SPLIT_PATTERN, search_term)
-            res = await self._search_rom(terms[-1], platform_ss_id)
+            terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
+            res = await self._search_rom(
+                terms[-1], platform_ss_id, split_game_name=True
+            )
 
         if not res or not res.get("id"):
             return fallback_rom
