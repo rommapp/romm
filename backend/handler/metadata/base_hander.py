@@ -90,11 +90,9 @@ class MetadataHandler:
 
     def find_best_match(
         self,
-        normalized_search_term: str,
+        search_term: str,
         game_names: list[str],
         min_similarity_score: float = 0.75,
-        remove_articles: bool = True,
-        remove_punctuation: bool = True,
     ) -> tuple[str | None, float]:
         """
         Find the best matching game name from a list of candidates.
@@ -112,14 +110,16 @@ class MetadataHandler:
 
         best_match = None
         best_score = 0.0
+        search_term_normalized = self.normalize_search_term(search_term)
 
         for game_name in game_names:
-            game_normalized = self.normalize_search_term(
-                game_name,
-                remove_articles=remove_articles,
-                remove_punctuation=remove_punctuation,
-            )
-            score = jarowinkler.similarity(normalized_search_term, game_normalized)
+            game_name_normalized = self.normalize_search_term(game_name)
+            score = jarowinkler.similarity(search_term_normalized, game_name_normalized)
+            print(f"Normalized search term: {search_term_normalized}")
+            print(f"Normalized game name: {game_name_normalized}")
+            print(f"Score: {score}")
+            print(f"Best score: {best_score}")
+            print(f"Best match: {best_match}")
             if score > best_score:
                 best_score = score
                 best_match = game_name
