@@ -22,8 +22,6 @@ from .base_hander import UniversalPlatformSlug as UPS
 # Used to display the Mobygames API status in the frontend
 MOBY_API_ENABLED: Final = bool(MOBYGAMES_API_KEY)
 
-SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
-
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
 PSP_MOBY_ID: Final = 46
@@ -80,7 +78,7 @@ class MobyGamesHandler(MetadataHandler):
         self.min_similarity_score = 0.6
 
     async def _search_rom(
-        self, search_term: str, platform_moby_id: int
+        self, search_term: str, platform_moby_id: int, split_game_name: bool = False
     ) -> MobyGame | None:
         if not platform_moby_id:
             return None
@@ -92,12 +90,19 @@ class MobyGamesHandler(MetadataHandler):
         if not roms:
             return None
 
-        games_by_name = {game["title"]: game for game in roms}
+        games_by_name: dict[str, MobyGame] = {}
+        for game in roms:
+            if (
+                game["title"] not in games_by_name
+                or game["game_id"] < games_by_name[game["title"]]["game_id"]
+            ):
+                games_by_name[game["title"]] = game
+
         best_match, best_score = self.find_best_match(
             search_term,
             list(games_by_name.keys()),
             self.min_similarity_score,
-            remove_punctuation=False,
+            split_game_name=split_game_name,
         )
         if best_match:
             log.debug(
@@ -190,17 +195,17 @@ class MobyGamesHandler(MetadataHandler):
         normalized_search_term = self.normalize_search_term(
             search_term, remove_punctuation=False
         )
-        res = await self._search_rom(normalized_search_term, platform_moby_id)
+        res = await self._search_rom(
+            self.SEARCH_TERM_NORMALIZER.sub(": ", normalized_search_term),
+            platform_moby_id,
+        )
 
         # Moby API doesn't handle some special characters well
-        if not res and (
-            ": " in search_term or " - " in search_term or "/" in search_term
-        ):
-            terms = re.split(SEARCH_TERM_SPLIT_PATTERN, search_term)
-            for term in reversed(terms):
-                res = await self._search_rom(term.strip(), platform_moby_id)
-                if res:
-                    break
+        if not res:
+            terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
+            res = await self._search_rom(
+                terms[-1], platform_moby_id, split_game_name=True
+            )
 
         if not res:
             return fallback_rom

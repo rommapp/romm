@@ -80,6 +80,9 @@ def _normalize_search_term(
 
 
 class MetadataHandler:
+    SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
+    SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s*")
+
     def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"
 
@@ -90,11 +93,10 @@ class MetadataHandler:
 
     def find_best_match(
         self,
-        normalized_search_term: str,
+        search_term: str,
         game_names: list[str],
         min_similarity_score: float = 0.75,
-        remove_articles: bool = True,
-        remove_punctuation: bool = True,
+        split_game_name: bool = False,
     ) -> tuple[str | None, float]:
         """
         Find the best matching game name from a list of candidates.
@@ -112,14 +114,18 @@ class MetadataHandler:
 
         best_match = None
         best_score = 0.0
+        search_term_normalized = self.normalize_search_term(search_term)
 
         for game_name in game_names:
-            game_normalized = self.normalize_search_term(
-                game_name,
-                remove_articles=remove_articles,
-                remove_punctuation=remove_punctuation,
-            )
-            score = jarowinkler.similarity(normalized_search_term, game_normalized)
+            game_name_normalized = self.normalize_search_term(game_name)
+
+            # If the game name is split, normalize the last term
+            if split_game_name and re.search(self.SEARCH_TERM_SPLIT_PATTERN, game_name):
+                game_name_normalized = self.normalize_search_term(
+                    re.split(self.SEARCH_TERM_SPLIT_PATTERN, game_name)[-1]
+                )
+
+            score = jarowinkler.similarity(search_term_normalized, game_name_normalized)
             if score > best_score:
                 best_score = score
                 best_match = game_name
