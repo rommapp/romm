@@ -79,10 +79,10 @@ body {
   bottom: 50px !important;
 }
 .max-h-50 {
-  height: unset !important;
+  height: auto !important;
   max-height: 50dvh !important;
 }
 .max-h-70 {
-  height: unset !important;
+  height: auto !important;
   max-height: 70dvh !important;
 }
