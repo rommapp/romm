@@ -199,7 +199,7 @@ class SmartCollection(BaseModel):
         lazy="joined", back_populates="smart_collections"
     )
 
-    def update_roms(self) -> "SmartCollection":
+    def update_properties(self) -> "SmartCollection":
         from handler.database import db_collection_handler
 
         roms = db_collection_handler.get_smart_collection_roms(self, self.user_id)
