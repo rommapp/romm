@@ -47,6 +47,17 @@ class RomFileCategory(enum.StrEnum):
     PROTOTYPE = "prototype"
 
 
+class SiblingRom(BaseModel):
+    __tablename__ = "sibling_roms"
+
+    rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    __table_args__ = (
+        UniqueConstraint("rom_id", "sibling_rom_id", name="unique_sibling_roms"),
+    )
+
+
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
@@ -206,23 +217,23 @@ class Rom(BaseModel):
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
-        lazy="select",
+        lazy="raise",
     )
-    files: Mapped[list[RomFile]] = relationship(lazy="select", back_populates="rom")
-    saves: Mapped[list[Save]] = relationship(lazy="select", back_populates="rom")
-    states: Mapped[list[State]] = relationship(lazy="select", back_populates="rom")
+    files: Mapped[list[RomFile]] = relationship(lazy="raise", back_populates="rom")
+    saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="rom")
+    states: Mapped[list[State]] = relationship(lazy="raise", back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(
-        lazy="select", back_populates="rom"
+        lazy="raise", back_populates="rom"
     )
-    rom_users: Mapped[list[RomUser]] = relationship(lazy="select", back_populates="rom")
+    rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="rom")
     metadatum: Mapped[RomMetadata] = relationship(
-        lazy="select", back_populates="rom", uselist=False
+        lazy="joined", back_populates="rom", uselist=False
     )
     collections: Mapped[list[Collection]] = relationship(
         "Collection",
         secondary="collections_roms",
         collection_class=set,
-        lazy="select",
+        lazy="raise",
         back_populates="roms",
     )
 
@@ -230,6 +241,12 @@ class Rom(BaseModel):
         select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
         .where(RomFile.rom_id == id)
         .correlate_except(RomFile)
+        .scalar_subquery()
+    )
+
+    siblings_count: Mapped[int] = column_property(
+        select(func.count(SiblingRom.rom_id))
+        .where(SiblingRom.rom_id == id)
         .scalar_subquery()
     )
 
@@ -398,14 +415,3 @@ class RomUser(BaseModel):
     @property
     def user__username(self) -> str:
         return self.user.username
-
-
-class SiblingRom(BaseModel):
-    __tablename__ = "sibling_roms"
-
-    rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-
-    __table_args__ = (
-        UniqueConstraint("rom_id", "sibling_rom_id", name="unique_sibling_roms"),
-    )

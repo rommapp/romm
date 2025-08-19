@@ -100,9 +100,13 @@ def with_simple(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
-            selectinload(Rom.rom_users),
-            selectinload(Rom.metadatum),
-            selectinload(Rom.files),
+            selectinload(
+                Rom.rom_users
+            ),  # Display properties for the current user (last_played)
+            selectinload(Rom.metadatum),  # Sort table by metadata (first_release_date)
+            selectinload(
+                Rom.files
+            ),  # Required for multi-file ROM actions and 3DS QR code
         )
         return func(*args, **kwargs)
 

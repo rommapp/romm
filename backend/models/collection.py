@@ -34,7 +34,7 @@ class Collection(BaseModel):
         secondary="collections_roms",
         collection_class=set,
         back_populates="collections",
-        lazy="joined",
+        lazy="raise",
     )
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
