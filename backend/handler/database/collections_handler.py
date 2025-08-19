@@ -9,7 +9,7 @@ from models.collection import (
     VirtualCollection,
 )
 from models.rom import Rom
-from sqlalchemy import delete, insert, literal, or_, select, update
+from sqlalchemy import and_, delete, insert, literal, or_, select, update
 from sqlalchemy.orm import Session
 
 from .base_handler import DBBaseHandler
@@ -147,6 +147,23 @@ class DBCollectionsHandler(DBBaseHandler):
 
         return session.scalars(query).unique().all()
 
+    def _update_smart_collection_with_optimistic_lock(
+        self, session: Session, smart_collection: SmartCollection, data: dict[str, Any]
+    ) -> bool:
+        """Helper method to update smart collection with optimistic locking."""
+        result = session.execute(
+            update(SmartCollection)
+            .where(
+                and_(
+                    SmartCollection.id == smart_collection.id,
+                    SmartCollection.updated_at == smart_collection.updated_at,
+                )
+            )
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+        return result.rowcount > 0
+
     @begin_session
     def update_smart_collection(
         self,
@@ -154,12 +171,22 @@ class DBCollectionsHandler(DBBaseHandler):
         data: dict[str, Any],
         session: Session = None,
     ) -> SmartCollection:
-        session.execute(
-            update(SmartCollection)
-            .where(SmartCollection.id == id)
-            .values(**data)
-            .execution_options(synchronize_session="evaluate")
-        )
+        # Need to get the smart collection from the current session
+        smart_collection = session.get(SmartCollection, id)
+        if not smart_collection:
+            raise ValueError(f"SmartCollection with id {id} not found")
+
+        if not self._update_smart_collection_with_optimistic_lock(
+            session, smart_collection, data
+        ):
+            # Record was modified by another process, try to refresh and retry
+            session.refresh(smart_collection)
+            if not self._update_smart_collection_with_optimistic_lock(
+                session, smart_collection, data
+            ):
+                raise ValueError(
+                    f"SmartCollection {smart_collection.id} was modified by another process"
+                )
 
         return session.query(SmartCollection).filter_by(id=id).one()
 
