@@ -241,50 +241,43 @@ onBeforeUnmount(() => {
       <template v-if="filteredRoms.length > 0">
         <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
           <!-- Gallery cards view -->
-          <v-virtual-scroll
-            :items="filteredRoms"
-            :item-key="(item) => item.id"
-            renderless
+          <v-col
+            v-for="rom in filteredRoms"
+            :key="rom.id"
+            class="pa-1 align-self-end"
+            :cols="views[currentView]['size-cols']"
+            :sm="views[currentView]['size-sm']"
+            :md="views[currentView]['size-md']"
+            :lg="views[currentView]['size-lg']"
+            :xl="views[currentView]['size-xl']"
+            :style="{
+              zIndex:
+                (isHovering && hoveringRomId === rom.id) ||
+                (openedMenu && openedMenuRomId === rom.id)
+                  ? 1100
+                  : 1,
+            }"
           >
-            <template #default="{ item }">
-              <v-col
-                :key="item.id"
-                class="pa-1 align-self-end"
-                :cols="views[currentView]['size-cols']"
-                :sm="views[currentView]['size-sm']"
-                :md="views[currentView]['size-md']"
-                :lg="views[currentView]['size-lg']"
-                :xl="views[currentView]['size-xl']"
-                :style="{
-                  zIndex:
-                    (isHovering && hoveringRomId === item.id) ||
-                    (openedMenu && openedMenuRomId === item.id)
-                      ? 1100
-                      : 1,
-                }"
-              >
-                <game-card
-                  :key="item.updated_at"
-                  :rom="item"
-                  titleOnHover
-                  pointerOnHover
-                  withLink
-                  transformScale
-                  showActionBar
-                  showChips
-                  :withBorderPrimary="selectedRoms?.includes(item)"
-                  :sizeActionBar="currentView"
-                  :enable3DTilt="enable3DEffect"
-                  @click="onGameClick"
-                  @touchstart="onGameTouchStart"
-                  @touchend="onGameTouchEnd"
-                  @hover="onHover"
-                  @openedmenu="onOpenedMenu"
-                  @closedmenu="onClosedMenu"
-                />
-              </v-col>
-            </template>
-          </v-virtual-scroll>
+            <game-card
+              :key="rom.updated_at"
+              :rom="rom"
+              titleOnHover
+              pointerOnHover
+              withLink
+              transformScale
+              showActionBar
+              showChips
+              :withBorderPrimary="selectedRoms?.includes(rom)"
+              :sizeActionBar="currentView"
+              :enable3DTilt="enable3DEffect"
+              @click="onGameClick"
+              @touchstart="onGameTouchStart"
+              @touchend="onGameTouchEnd"
+              @hover="onHover"
+              @openedmenu="onOpenedMenu"
+              @closedmenu="onClosedMenu"
+            />
+          </v-col>
         </v-row>
 
         <!-- Gallery list view -->
