@@ -445,7 +445,9 @@ class DBRomsHandler(DBBaseHandler):
         if group_by_meta_id:
 
             def build_func(provider: str, column: InstrumentedAttribute):
-                return func.concat(provider, "-", column)
+                # Platform ID is required to match sibling ROM logic
+                # We can remove it if/when sibling ROMs become cross-platform
+                return func.concat(provider, "-", Rom.platform_id, "-", column)
 
             # Create a group ID based on metadata IDs, prioritizing in order
             # If no metadata ID exists, use the ROM ID to ensure each ROM is in its own group
