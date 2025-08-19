@@ -1,5 +1,5 @@
 import cronstrue from "cronstrue";
-import type { SimpleRom, DetailedRom } from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
 import { computed } from "vue";
