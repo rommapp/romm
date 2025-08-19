@@ -212,7 +212,7 @@ class Rom(BaseModel):
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
-    platform: Mapped[Platform] = relationship(lazy="immediate", back_populates="roms")
+    platform: Mapped[Platform] = relationship(lazy="joined", back_populates="roms")
     sibling_roms: Mapped[list[Rom]] = relationship(
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",

@@ -52,7 +52,10 @@ class Platform(BaseModel):
 
     # This runs a subquery to get the count of roms for the platform
     rom_count = column_property(
-        select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
+        select(func.count(Rom.id))
+        .where(Rom.platform_id == id)
+        .correlate_except(Rom)
+        .scalar_subquery()
     )
 
     fs_size_bytes: Mapped[int] = column_property(
