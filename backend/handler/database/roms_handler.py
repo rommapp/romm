@@ -13,7 +13,6 @@ from sqlalchemy import (
     String,
     Text,
     and_,
-    case,
     cast,
     delete,
     false,
@@ -25,7 +24,7 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
+from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -78,8 +77,8 @@ EJS_SUPPORTED_PLATFORMS = [
 ]
 
 
-def with_details(func):
-    @functools.wraps(func)
+def with_details(function):
+    @functools.wraps(function)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.saves),
@@ -91,13 +90,13 @@ def with_details(func):
             selectinload(Rom.files),
             selectinload(Rom.collections),
         )
-        return func(*args, **kwargs)
+        return function(*args, **kwargs)
 
     return wrapper
 
 
-def with_simple(func):
-    @functools.wraps(func)
+def with_simple(function):
+    @functools.wraps(function)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             selectinload(
@@ -108,7 +107,7 @@ def with_simple(func):
                 Rom.files
             ),  # Required for multi-file ROM actions and 3DS QR code
         )
-        return func(*args, **kwargs)
+        return function(*args, **kwargs)
 
     return wrapper
 
@@ -447,31 +446,6 @@ class DBRomsHandler(DBBaseHandler):
             query = self.filter_by_verified(query)
 
         if group_by_meta_id:
-
-            def build_func(provider: str, column: InstrumentedAttribute):
-                # Platform ID is required to match sibling ROM logic
-                # We can remove it if/when sibling ROMs become cross-platform
-                return func.concat(provider, "-", Rom.platform_id, "-", column)
-
-            # Create a group ID based on metadata IDs, prioritizing in order
-            # If no metadata ID exists, use the ROM ID to ensure each ROM is in its own group
-            group_id = case(
-                {
-                    Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
-                    Rom.ss_id.isnot(None): build_func("ss", Rom.ss_id),
-                    Rom.moby_id.isnot(None): build_func("moby", Rom.moby_id),
-                    Rom.ra_id.isnot(None): build_func("ra", Rom.ra_id),
-                    Rom.hasheous_id.isnot(None): build_func(
-                        "hasheous", Rom.hasheous_id
-                    ),
-                    Rom.launchbox_id.isnot(None): build_func(
-                        "launchbox", Rom.launchbox_id
-                    ),
-                    Rom.tgdb_id.isnot(None): build_func("tgdb", Rom.tgdb_id),
-                },
-                else_=build_func("romm", Rom.id),
-            )
-
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
             is_main_sibling_order = (
                 func.coalesce(cast(RomUser.is_main_sibling, Integer), 0).desc()
@@ -487,10 +461,23 @@ class DBRomsHandler(DBBaseHandler):
                     RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
                 )
                 .add_columns(
-                    group_id.label("group_id"),
+                    func.coalesce(
+                        func.concat("igdb-", Rom.platform_id, "-", Rom.igdb_id),
+                        func.concat("ss-", Rom.platform_id, "-", Rom.ss_id),
+                        func.concat("moby-", Rom.platform_id, "-", Rom.moby_id),
+                        func.concat("ra-", Rom.platform_id, "-", Rom.ra_id),
+                        func.concat("hasheous-", Rom.platform_id, "-", Rom.hasheous_id),
+                        func.concat(
+                            "launchbox-", Rom.platform_id, "-", Rom.launchbox_id
+                        ),
+                        func.concat("tgdb-", Rom.platform_id, "-", Rom.tgdb_id),
+                        func.concat("romm-", Rom.platform_id, "-", Rom.id),
+                    ).label("group_id")
+                )
+                .add_columns(
                     func.row_number()
                     .over(
-                        partition_by=group_id,
+                        partition_by=text("group_id"),
                         order_by=[is_main_sibling_order, Rom.fs_name_no_ext.asc()],
                     )
                     .label("row_num"),
