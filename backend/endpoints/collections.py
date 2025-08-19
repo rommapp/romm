@@ -131,9 +131,9 @@ async def add_smart_collection(request: Request) -> SmartCollectionSchema:
     )
 
     # Fetch the ROMs to update the database model
-    created_smart_collection.get_roms()
+    smart_collection = created_smart_collection.update_roms()
 
-    return SmartCollectionSchema.model_validate(created_smart_collection)
+    return SmartCollectionSchema.model_validate(smart_collection)
 
 
 @protected_route(router.get, "", [Scope.COLLECTIONS_READ])
@@ -382,9 +382,9 @@ async def update_smart_collection(
     )
 
     # Fetch the ROMs to update the database model
-    updated_smart_collection.get_roms()
+    smart_collection = updated_smart_collection.update_roms()
 
-    return SmartCollectionSchema.model_validate(updated_smart_collection)
+    return SmartCollectionSchema.model_validate(smart_collection)
 
 
 @protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
