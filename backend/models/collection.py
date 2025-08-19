@@ -170,6 +170,9 @@ class VirtualCollection(BaseModel):
     )
 
 
+SMART_COLLECTION_MAX_COVERS = 5
+
+
 class SmartCollection(BaseModel):
     __tablename__ = "smart_collections"
 
@@ -201,8 +204,12 @@ class SmartCollection(BaseModel):
 
         roms = db_collection_handler.get_smart_collection_roms(self, self.user_id)
 
-        roms_with_small_covers = [r for r in roms if r.path_cover_s][:5]
-        roms_with_large_covers = [r for r in roms if r.path_cover_l][:5]
+        roms_with_small_covers = [r for r in roms if r.path_cover_s][
+            :SMART_COLLECTION_MAX_COVERS
+        ]
+        roms_with_large_covers = [r for r in roms if r.path_cover_l][
+            :SMART_COLLECTION_MAX_COVERS
+        ]
 
         return db_collection_handler.update_smart_collection(
             self.id,

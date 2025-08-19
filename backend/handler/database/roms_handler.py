@@ -77,8 +77,8 @@ EJS_SUPPORTED_PLATFORMS = [
 ]
 
 
-def with_details(function):
-    @functools.wraps(function)
+def with_details(func):
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             selectinload(Rom.saves),
@@ -90,13 +90,13 @@ def with_details(function):
             selectinload(Rom.files),
             selectinload(Rom.collections),
         )
-        return function(*args, **kwargs)
+        return func(*args, **kwargs)
 
     return wrapper
 
 
-def with_simple(function):
-    @functools.wraps(function)
+def with_simple(func):
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
             # Display properties for the current user (last_played)
@@ -108,7 +108,7 @@ def with_simple(function):
             # Show sibling rom badges on cards
             selectinload(Rom.sibling_roms),
         )
-        return function(*args, **kwargs)
+        return func(*args, **kwargs)
 
     return wrapper
 
