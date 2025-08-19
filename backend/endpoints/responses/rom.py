@@ -281,38 +281,25 @@ class SiblingRomSchema(BaseModel):
 
 
 class SimpleRomSchema(RomSchema):
-    siblings: list[SiblingRomSchema]
+    siblings_count: int
     rom_user: RomUserSchema
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
         user_id = request.user.id
         db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
-        db_rom.siblings = [  # type: ignore
-            SiblingRomSchema(
-                id=s.id,
-                name=s.name,
-                fs_name_no_tags=s.fs_name_no_tags,
-                fs_name_no_ext=s.fs_name_no_ext,
-            )
-            for s in db_rom.sibling_roms
-        ]
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
-        db_rom.siblings = []  # type: ignore
         return cls.model_validate(db_rom)
-
-    @field_validator("siblings")
-    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
-        return sorted(v, key=lambda x: x.sort_comparator)
 
 
 class DetailedRomSchema(RomSchema):
     merged_ra_metadata: RomRAMetadata | None
     merged_screenshots: list[str]
+    siblings_count: int
     siblings: list[SiblingRomSchema]
     rom_user: RomUserSchema
     user_saves: list[SaveSchema]

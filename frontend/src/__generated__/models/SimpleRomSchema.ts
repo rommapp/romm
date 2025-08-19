@@ -10,7 +10,6 @@ import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
-import type { SiblingRomSchema } from './SiblingRomSchema';
 export type SimpleRomSchema = {
     id: number;
     igdb_id: (number | null);
@@ -65,7 +64,7 @@ export type SimpleRomSchema = {
     created_at: string;
     updated_at: string;
     missing_from_fs: boolean;
-    siblings: Array<SiblingRomSchema>;
+    siblings_count: number;
     rom_user: RomUserSchema;
 };
 
