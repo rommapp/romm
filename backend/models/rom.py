@@ -22,10 +22,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
-    select,
 )
-from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
@@ -157,6 +155,7 @@ class Rom(BaseModel):
     fs_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
     fs_extension: Mapped[str] = mapped_column(String(length=FILE_EXTENSION_MAX_LENGTH))
     fs_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
+    fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))
@@ -235,13 +234,6 @@ class Rom(BaseModel):
         collection_class=set,
         lazy="raise",
         back_populates="roms",
-    )
-
-    fs_size_bytes: Mapped[int] = column_property(
-        select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
-        .where(RomFile.rom_id == id)
-        .correlate_except(RomFile)
-        .scalar_subquery()
     )
 
     @property
