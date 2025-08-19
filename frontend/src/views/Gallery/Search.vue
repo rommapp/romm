@@ -152,53 +152,45 @@ onBeforeUnmount(() => {
   <template v-else>
     <template v-if="filteredRoms.length > 0">
       <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
-        <v-virtual-scroll
-          :items="filteredRoms"
-          :item-key="(item) => item.id"
-          renderless
+        <v-col
+          v-for="rom in filteredRoms"
+          :key="rom.id"
+          class="pa-1 align-self-end"
+          :cols="views[currentView]['size-cols']"
+          :sm="views[currentView]['size-sm']"
+          :md="views[currentView]['size-md']"
+          :lg="views[currentView]['size-lg']"
+          :xl="views[currentView]['size-xl']"
+          :style="{
+            zIndex:
+              (isHovering && hoveringRomId === rom.id) ||
+              (openedMenu && openedMenuRomId === rom.id)
+                ? 1100
+                : 1,
+          }"
         >
-          <template #default="{ item }">
-            <v-col
-              v-for="rom in filteredRoms"
-              :key="rom.id"
-              class="pa-1 align-self-end"
-              :cols="views[currentView]['size-cols']"
-              :sm="views[currentView]['size-sm']"
-              :md="views[currentView]['size-md']"
-              :lg="views[currentView]['size-lg']"
-              :xl="views[currentView]['size-xl']"
-              :style="{
-                zIndex:
-                  (isHovering && hoveringRomId === rom.id) ||
-                  (openedMenu && openedMenuRomId === rom.id)
-                    ? 1100
-                    : 1,
-              }"
-            >
-              <game-card
-                :key="rom.updated_at"
-                :rom="rom"
-                titleOnHover
-                pointerOnHover
-                withLink
-                transformScale
-                showActionBar
-                showChips
-                :withBorderPrimary="
-                  romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
-                "
-                :enable3DTilt="enable3DEffect"
-                :sizeActionBar="currentView"
-                @click="onGameClick"
-                @touchstart="onGameTouchStart"
-                @touchend="onGameTouchEnd"
-                @hover="onHover"
-                @openedmenu="onOpenedMenu"
-                @closedmenu="onClosedMenu"
-              />
-            </v-col>
-          </template>
-        </v-virtual-scroll>
+          <game-card
+            :key="rom.updated_at"
+            :rom="rom"
+            titleOnHover
+            pointerOnHover
+            withLink
+            transformScale
+            showActionBar
+            showChips
+            :withBorderPrimary="
+              romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
+            "
+            :enable3DTilt="enable3DEffect"
+            :sizeActionBar="currentView"
+            @click="onGameClick"
+            @touchstart="onGameTouchStart"
+            @touchend="onGameTouchEnd"
+            @hover="onHover"
+            @openedmenu="onOpenedMenu"
+            @closedmenu="onClosedMenu"
+          />
+        </v-col>
       </v-row>
 
       <!-- Gallery list view -->
