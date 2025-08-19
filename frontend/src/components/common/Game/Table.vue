@@ -223,10 +223,10 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
             <v-icon>mdi-check-decagram-outline</v-icon>
           </v-chip>
           <v-chip
-            v-if="item.siblings_count > 0 && showSiblings"
+            v-if="item.siblings.length > 0 && showSiblings"
             class="translucent-dark text-white mr-1 mb-1 px-1"
             density="compact"
-            :title="`${item.siblings_count} sibling(s)`"
+            :title="`${item.siblings.length} sibling(s)`"
           >
             <v-icon>mdi-card-multiple-outline</v-icon>
           </v-chip>

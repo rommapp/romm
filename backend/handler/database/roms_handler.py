@@ -105,6 +105,8 @@ def with_simple(function):
             selectinload(Rom.metadatum),
             # Required for multi-file ROM actions and 3DS QR code
             selectinload(Rom.files),
+            # Show sibling rom badges on cards
+            selectinload(Rom.sibling_roms),
         )
         return function(*args, **kwargs)
 
