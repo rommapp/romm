@@ -244,13 +244,6 @@ class Rom(BaseModel):
         .scalar_subquery()
     )
 
-    siblings_count: Mapped[int] = column_property(
-        select(func.count(SiblingRom.rom_id))
-        .where(SiblingRom.rom_id == id)
-        .correlate_except(SiblingRom)
-        .scalar_subquery()
-    )
-
     @property
     def platform_slug(self) -> str:
         return self.platform.slug

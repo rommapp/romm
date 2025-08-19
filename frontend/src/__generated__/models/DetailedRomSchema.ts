@@ -73,7 +73,6 @@ export type DetailedRomSchema = {
     missing_from_fs: boolean;
     merged_ra_metadata: (RomRAMetadata | null);
     merged_screenshots: Array<string>;
-    siblings_count: number;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
     user_saves: Array<SaveSchema>;
