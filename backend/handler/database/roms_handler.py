@@ -167,7 +167,7 @@ class DBRomsHandler(DBBaseHandler):
         )
         if smart_collection:
             # Ensure the latest ROMs are loaded
-            smart_collection = smart_collection.update_roms()
+            smart_collection = smart_collection.update_properties()
             return query.filter(Rom.id.in_(smart_collection.rom_ids))
         return query
 
