@@ -132,14 +132,14 @@ class Rom(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    igdb_id: Mapped[int | None]
-    sgdb_id: Mapped[int | None]
-    moby_id: Mapped[int | None]
-    ss_id: Mapped[int | None]
-    ra_id: Mapped[int | None]
-    launchbox_id: Mapped[int | None]
-    hasheous_id: Mapped[int | None]
-    tgdb_id: Mapped[int | None]
+    igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    sgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ss_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ra_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -247,6 +247,7 @@ class Rom(BaseModel):
     siblings_count: Mapped[int] = column_property(
         select(func.count(SiblingRom.rom_id))
         .where(SiblingRom.rom_id == id)
+        .correlate_except(SiblingRom)
         .scalar_subquery()
     )
 
