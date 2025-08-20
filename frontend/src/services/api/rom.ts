@@ -152,13 +152,23 @@ async function getRoms({
 
 async function getRecentRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
-    params: { order_by: "id", order_dir: "desc", limit: 15 },
+    params: {
+      order_by: "id",
+      order_dir: "desc",
+      limit: 15,
+      with_char_index: false,
+    },
   });
 }
 
 async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
-    params: { order_by: "last_played", order_dir: "desc", limit: 15 },
+    params: {
+      order_by: "last_played",
+      order_dir: "desc",
+      limit: 15,
+      with_char_index: false,
+    },
   });
 }
 
