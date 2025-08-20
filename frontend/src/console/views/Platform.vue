@@ -74,7 +74,7 @@
       </div>
     </div>
 
-    <NavigationHint :hints="['Arrow Keys Navigate', 'Enter Select', 'Esc Back']" />
+    <NavigationHint :hints="['(← →) Navigate', '(Enter) Select', '(Backpace) Back']" />
   </div>
 </template>
 <script setup lang="ts">

@@ -96,10 +96,10 @@
               <div
                 v-if="rom?.summary"
                 class="text-[#ddd] text-base leading-6 mb-6 line-clamp-3 cursor-pointer"
-                :class="{ 'ring-2 ring-white/30 rounded-md px-1 -translate-y-0.5': keyboardMode && selected==='description' }"
+                :class="{ 'ring-2 ring-white/30 rounded-md px-1 -translate-y-0.5': selectedZone==='description' }"
                 tabindex="0"
-                @click="showDescription=true"
-                @keydown.enter.prevent="showDescription=true"
+                @click="openDescription()"
+                @keydown.enter.prevent="openDescription()"
               >
                 {{ rom.summary }}
               </div>
@@ -107,7 +107,7 @@
               <div class="flex gap-3 md:gap-4 mb-2">
                 <button
                   class="flex items-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-lg text-base md:text-lg font-semibold min-w-[130px] md:min-w-[140px] justify-center transition-all"
-                  :class="{ 'bg-white text-black hover:bg-[#e5e5e5]': true, 'ring-4 ring-[var(--accent-2)] scale-105': keyboardMode && selected==='play' }"
+                  :class="{ 'bg-white text-black hover:bg-[#e5e5e5]': true, 'ring-4 ring-[var(--accent-2)] scale-105': selectedZone==='play' }"
                   @click="play()"
                 >
                   <span class="text-lg md:text-xl">▶</span>
@@ -115,7 +115,8 @@
                 </button>
                 <button
                   class="bg-white/15 hover:bg-white/25 border border-white/20 text-white px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold"
-                  @click="showDetails=true"
+                  :class="{ 'ring-4 ring-[var(--accent-2)] scale-105': selectedZone==='details' }"
+                  @click="openDetails()"
                 >
                   Details
                 </button>
@@ -138,7 +139,7 @@
                 v-for="(src, idx) in screenshotUrls"
                 :key="`${idx}-${src}`"
                 class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none bg-white/5 border-2 border-white/10 overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.03] hover:shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]"
-                :class="{ 'ring-4 ring-[var(--accent-2)] scale-[1.03]': keyboardMode && selectedShot===idx }"
+                :class="{ 'ring-4 ring-[var(--accent-2)] scale-[1.03]': selectedZone==='shots' && selectedShot===idx }"
                 tabindex="0"
                 @click="openLightbox(idx)"
                 @focus="selectedShot = idx"
@@ -166,7 +167,7 @@
       class="modal-overlay"
       tabindex="0"
       @click="showDescription=false"
-      @keydown.esc.prevent.stop="showDescription=false"
+      ref="descOverlayRef"
     >
       <div
         class="modal-content"
@@ -185,7 +186,7 @@
           <p>{{ rom?.summary }}</p>
         </div>
         <div class="modal-footer">
-          <span class="modal-hint">↑↓ Scroll • Escape to close</span>
+          <span class="modal-hint">↑↓ Scroll • Backspace to close</span>
         </div>
       </div>
     </div>
@@ -195,8 +196,9 @@
       v-if="showDetails"
       class="modal-overlay"
       tabindex="0"
+      ref="detailsOverlayRef"
       @click="showDetails=false"
-      @keydown.esc.prevent.stop="showDetails=false"
+      
     >
       <div
         class="modal-content modal-wide"
@@ -276,7 +278,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <span class="modal-hint">Esc to close</span>
+          <span class="modal-hint">Backspace to close</span>
         </div>
       </div>
     </div>
@@ -290,7 +292,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
@@ -307,12 +309,14 @@ const rom = ref<DetailedRomSchema>();
 const loading = ref(true);
 const error = ref('');
 const unsupported = ref(false);
-const keyboardMode = ref(false);
-const selected = ref<'play'|'description'>('play');
+type FocusZone = 'play'|'description'|'details'|'shots'|'lightbox';
+const selectedZone = ref<FocusZone>('play');
 const showDescription = ref(false);
 const showDetails = ref(false);
 const showLightbox = ref(false);
 const selectedShot = ref(0);
+const descOverlayRef = ref<HTMLElement|null>(null);
+const detailsOverlayRef = ref<HTMLElement|null>(null);
 
 const releaseYear = computed(() => {
   const ts = rom.value?.igdb_metadata?.first_release_date ?? rom.value?.metadatum?.first_release_date;
@@ -342,9 +346,20 @@ const coverUrl = computed(() =>
 
 const coreMap: Record<string,string> = { nes:'nes', snes:'snes', n64:'n64', gb:'gb', gba:'gba', gbc:'gbc', genesis:'segaMD', megadrive:'segaMD', master_system:'sms', sms:'sms', gg:'gg', gamecube:'gc', saturn:'sat', psx:'psx', ps1:'psx', ps2:'ps2', ps3:'ps3', psp:'psp', atari2600:'a26', atari7800:'a78', lynx:'lynx', vb:'vb', wonderswan:'ws', wonderswancolor:'wsc', ngp:'ngp', ngpc:'ngpc', pce:'pce', pcfx:'pcfx', tg16:'pce', sgx:'sgx', msx:'msx', msx2:'msx2' };
 
+function openDescription(){ showDescription.value = true; }
+function openDetails(){ showDetails.value = true; }
+
 const { on } = useInputScope();
 function handleAction(action: InputAction): boolean {
-  // Modal handling first
+  // Lightbox handling
+  if(showLightbox.value){
+    if(action==='moveRight') { selectedShot.value = (selectedShot.value + 1) % Math.max(1, screenshotUrls.value.length); return true; }
+    if(action==='moveLeft') { selectedShot.value = (selectedShot.value - 1 + Math.max(1, screenshotUrls.value.length)) % Math.max(1, screenshotUrls.value.length); return true; }
+    if(action==='back') { showLightbox.value = false; return true; }
+    return false;
+  }
+
+  // Modal handling (description/details)
   if(showDescription.value || showDetails.value){
     if(action==='back'){ showDescription.value=false; showDetails.value=false; return true; }
     if(action==='moveUp' || action==='moveDown'){
@@ -354,19 +369,36 @@ function handleAction(action: InputAction): boolean {
     return false;
   }
 
-  keyboardMode.value = true; window.setTimeout(()=> keyboardMode.value=false, 2000);
-  if(action==='moveLeft' || action==='moveRight' || action==='moveUp' || action==='moveDown'){
-    // toggle main selection; also move screenshot focus when lightbox closed
-    selected.value = selected.value==='play' ? 'description' : 'play';
-    if(!showLightbox.value && screenshotUrls.value.length){
-      if(action==='moveRight') selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length;
-      if(action==='moveLeft') selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length;
-    }
-    return true;
+  // Main focus navigation
+  switch(selectedZone.value){
+    case 'play':
+      if(action==='moveUp' && rom.value?.summary) { selectedZone.value='description'; return true; }
+      if(action==='moveRight') { selectedZone.value='details'; return true; }
+      if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; } return true; }
+      if(action==='confirm') { play(); return true; }
+      if(action==='back') { router.back(); return true; }
+      return false;
+    case 'description':
+      if(action==='moveDown') { selectedZone.value='play'; return true; }
+      if(action==='confirm') { openDescription(); return true; }
+      if(action==='back') { router.back(); return true; }
+      return false;
+    case 'details':
+      if(action==='moveLeft') { selectedZone.value='play'; return true; }
+      if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; } return true; }
+      if(action==='confirm') { openDetails(); return true; }
+      if(action==='back') { router.back(); return true; }
+      return false;
+    case 'shots':
+      if(action==='moveUp') { selectedZone.value='play'; return true; }
+      if(action==='moveRight') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length; } return true; }
+      if(action==='moveLeft') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length; } return true; }
+      if(action==='confirm') { showLightbox.value = true; return true; }
+      if(action==='back') { router.back(); return true; }
+      return false;
+    default:
+      return false;
   }
-  if(action==='confirm'){ if(selected.value==='play') play(); else showDescription.value = true; return true; }
-  if(action==='back'){ router.back(); return true; }
-  return false;
 }
 
 function play(){
@@ -417,7 +449,16 @@ onMounted(async () => {
     rom.value = data;
   }catch(err: unknown){ error.value = err instanceof Error ? err.message : 'Failed to load game'; }
   finally{ loading.value = false; }
+  selectedZone.value = 'play';
   off = on(handleAction);
+});
+// Focus overlays when opened so Esc works even if window handlers exist
+watch(showDescription, (v) => { if(v) nextTick(() => descOverlayRef.value?.focus?.()); });
+watch(showDetails, (v) => { if(v) nextTick(() => detailsOverlayRef.value?.focus?.()); });
+watch(showLightbox, (v) => {
+  if(v) {
+    // Lightbox is its own component; it manages Esc and arrows internally via overlay bindings
+  }
 });
 let off: (() => void) | null = null;
 onUnmounted(() => { off?.(); off = null; });
