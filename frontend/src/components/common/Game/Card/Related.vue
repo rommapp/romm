@@ -31,7 +31,7 @@ const missingCoverImage = computed(() => getMissingCoverImage(props.game.name));
         lazy
       >
         <v-chip
-          class="px-2 position-absolute chip-type text-white translucent-dark"
+          class="px-2 position-absolute chip-type text-white translucent"
           density="compact"
           label
         >
