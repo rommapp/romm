@@ -13,7 +13,6 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { type CollectionType } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";

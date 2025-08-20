@@ -156,7 +156,7 @@ class DBRomsHandler(DBBaseHandler):
         return query
 
     def filter_by_smart_collection_id(
-        self, query: Query, session: Session, smart_collection_id: int
+        self, query: Query, session: Session, smart_collection_id: int, user_id: int
     ):
         from . import db_collection_handler
 
@@ -166,7 +166,7 @@ class DBRomsHandler(DBBaseHandler):
 
         if smart_collection:
             # Ensure the latest ROMs are loaded
-            smart_collection = smart_collection.update_properties()
+            smart_collection = smart_collection.update_properties(user_id)
             return query.filter(Rom.id.in_(smart_collection.rom_ids))
         return query
 
@@ -416,9 +416,9 @@ class DBRomsHandler(DBBaseHandler):
                 query, session, virtual_collection_id
             )
 
-        if smart_collection_id:
+        if smart_collection_id and user_id:
             query = self.filter_by_smart_collection_id(
-                query, session, smart_collection_id
+                query, session, smart_collection_id, user_id
             )
 
         if search_term:
@@ -635,32 +635,32 @@ class DBRomsHandler(DBBaseHandler):
         **kwargs,
     ) -> Sequence[Rom]:
         query = self.get_roms_query(
-            order_by=kwargs.pop("order_by", "name"),
-            order_dir=kwargs.pop("order_dir", "asc"),
-            user_id=kwargs.pop("user_id", None),
+            order_by=kwargs.get("order_by", "name"),
+            order_dir=kwargs.get("order_dir", "asc"),
+            user_id=kwargs.get("user_id", None),
         )
         roms = self.filter_roms(
             query=query,
-            platform_id=kwargs.pop("platform_id", None),
-            collection_id=kwargs.pop("collection_id", None),
-            virtual_collection_id=kwargs.pop("virtual_collection_id", None),
-            search_term=kwargs.pop("search_term", None),
-            matched=kwargs.pop("matched", None),
-            favourite=kwargs.pop("favourite", None),
-            duplicate=kwargs.pop("duplicate", None),
-            playable=kwargs.pop("playable", None),
-            has_ra=kwargs.pop("has_ra", None),
-            missing=kwargs.pop("missing", None),
-            verified=kwargs.pop("verified", None),
-            selected_genre=kwargs.pop("selected_genre", None),
-            selected_franchise=kwargs.pop("selected_franchise", None),
-            selected_collection=kwargs.pop("selected_collection", None),
-            selected_company=kwargs.pop("selected_company", None),
-            selected_age_rating=kwargs.pop("selected_age_rating", None),
-            selected_status=kwargs.pop("selected_status", None),
-            selected_region=kwargs.pop("selected_region", None),
-            selected_language=kwargs.pop("selected_language", None),
-            user_id=kwargs.pop("user_id", None),
+            platform_id=kwargs.get("platform_id", None),
+            collection_id=kwargs.get("collection_id", None),
+            virtual_collection_id=kwargs.get("virtual_collection_id", None),
+            search_term=kwargs.get("search_term", None),
+            matched=kwargs.get("matched", None),
+            favourite=kwargs.get("favourite", None),
+            duplicate=kwargs.get("duplicate", None),
+            playable=kwargs.get("playable", None),
+            has_ra=kwargs.get("has_ra", None),
+            missing=kwargs.get("missing", None),
+            verified=kwargs.get("verified", None),
+            selected_genre=kwargs.get("selected_genre", None),
+            selected_franchise=kwargs.get("selected_franchise", None),
+            selected_collection=kwargs.get("selected_collection", None),
+            selected_company=kwargs.get("selected_company", None),
+            selected_age_rating=kwargs.get("selected_age_rating", None),
+            selected_status=kwargs.get("selected_status", None),
+            selected_region=kwargs.get("selected_region", None),
+            selected_language=kwargs.get("selected_language", None),
+            user_id=kwargs.get("user_id", None),
         )
         return session.scalars(roms).all()
 
