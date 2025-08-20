@@ -232,7 +232,7 @@ onBeforeUnmount(() => {
                         !rom.ss_url_cover &&
                         !rom.sgdb_url_cover)
                     "
-                    class="translucent-dark text-white"
+                    class="translucent text-white"
                     :class="
                       sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
                     "
@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
                     />
                     <v-chip
                       v-if="rom.hasheous_id"
-                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      class="translucent text-white mr-1 mb-1 px-1"
                       density="compact"
                       title="Verified with Hasheous"
                     >
@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
                     </v-chip>
                     <v-chip
                       v-if="rom.siblings.length > 0 && showSiblings"
-                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      class="translucent text-white mr-1 mb-1 px-1"
                       density="compact"
                       :title="`${rom.siblings.length} sibling(s)`"
                     >
@@ -306,13 +306,13 @@ onBeforeUnmount(() => {
                       text="Favorite"
                       color="secondary"
                       density="compact"
-                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      class="translucent text-white mr-1 mb-1 px-1"
                     >
                       <v-icon>mdi-star</v-icon>
                     </v-chip>
                     <v-chip
                       v-if="hasNotes && showChips"
-                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      class="translucent text-white mr-1 mb-1 px-1"
                       density="compact"
                       title="View notes"
                       @click.stop="showNoteDialog"
@@ -333,7 +333,7 @@ onBeforeUnmount(() => {
                       (isOuterHovering || activeMenu) &&
                       !smAndDown
                     "
-                    class="translucent-dark"
+                    class="translucent"
                     @menu-open="handleOpenMenu"
                     @menu-close="handleCloseMenu"
                     :rom="rom"
