@@ -1,5 +1,6 @@
 import functools
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
@@ -74,6 +75,8 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.WONDERSWAN,
     UPS.WONDERSWAN_COLOR,
 ]
+
+STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
 
 
 def with_details(func):
@@ -229,7 +232,7 @@ class DBRomsHandler(DBBaseHandler):
         predicate = Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
         if not value:
             predicate = not_(predicate)
-        return query.join(Rom.platform).filter(predicate)
+        return query.join(Platform).filter(predicate)
 
     def filter_by_has_ra(self, query: Query, value: bool) -> Query:
         predicate = Rom.ra_id.isnot(None)
@@ -463,6 +466,18 @@ class DBRomsHandler(DBBaseHandler):
             group_subquery = (
                 select(base_subquery.c.id)
                 .select_from(base_subquery)
+                .with_only_columns(
+                    base_subquery.c.id,
+                    base_subquery.c.fs_name_no_ext,
+                    base_subquery.c.platform_id,
+                    base_subquery.c.igdb_id,
+                    base_subquery.c.ss_id,
+                    base_subquery.c.moby_id,
+                    base_subquery.c.ra_id,
+                    base_subquery.c.hasheous_id,
+                    base_subquery.c.launchbox_id,
+                    base_subquery.c.tgdb_id,
+                )
                 .outerjoin(
                     RomUser,
                     and_(
@@ -551,7 +566,7 @@ class DBRomsHandler(DBBaseHandler):
             or selected_company
             or selected_age_rating
         ):
-            query = query.join(RomMetadata)
+            query = query.outerjoin(RomMetadata)
 
         if selected_genre:
             query = self.filter_by_genre(query, selected_genre)
@@ -594,7 +609,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
         query: Query = None,
         session: Session = None,
-    ) -> Query[Rom]:
+    ) -> tuple[Query[Rom], Any]:
         if user_id:
             query = query.outerjoin(
                 RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
@@ -613,11 +628,13 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = Rom.name
 
+        order_attr_column = order_attr
+
         # Ignore case when the order attribute is a number
         if isinstance(order_attr.type, (String, Text)):
             # Remove any leading articles
             order_attr = func.trim(
-                func.lower(order_attr).regexp_replace(r"^(the|a|an)\s+", "", "i")
+                func.lower(order_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
             )
 
         if order_dir.lower() == "desc":
@@ -625,7 +642,7 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = order_attr.asc()
 
-        return query.order_by(order_attr)
+        return query.order_by(order_attr), order_attr_column
 
     @begin_session
     def get_roms_scalar(
@@ -634,7 +651,7 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,
         **kwargs,
     ) -> Sequence[Rom]:
-        query = self.get_roms_query(
+        query, _ = self.get_roms_query(
             order_by=kwargs.get("order_by", "name"),
             order_dir=kwargs.get("order_dir", "asc"),
             user_id=kwargs.get("user_id", None),
@@ -666,13 +683,31 @@ class DBRomsHandler(DBBaseHandler):
 
     @begin_session
     def get_char_index(
-        self, query: Query, session: Session = None
+        self, query: Query, order_by_attr: Any, session: Session = None
     ) -> list[Row[tuple[str, int]]]:
+        if isinstance(order_by_attr.type, (String, Text)):
+            # Remove any leading articles
+            order_by_attr = func.trim(
+                func.lower(order_by_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
+            )
+        else:
+            order_by_attr = func.trim(
+                func.lower(Rom.name).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
+            )
+
         # Get the row number and first letter for each item
-        subquery = query.add_columns(
-            func.lower(func.substring(Rom.name, 1, 1)).label("letter"),
-            func.row_number().over(order_by=Rom.name).label("position"),
-        ).subquery()
+        subquery = (
+            query.with_only_columns(Rom.id, Rom.name)
+            .add_columns(  # type: ignore
+                func.substring(
+                    order_by_attr,
+                    1,
+                    1,
+                ).label("letter"),
+                func.row_number().over(order_by=order_by_attr).label("position"),
+            )
+            .subquery()
+        )
 
         # Get the minimum position for each letter
         return (
