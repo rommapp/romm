@@ -13,7 +13,7 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { type CollectionType } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import { isNull } from "lodash";
+import { isNull, throttle } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -141,7 +141,7 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-function onScroll() {
+const onScroll = throttle(() => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
@@ -153,7 +153,7 @@ function onScroll() {
       await fetchRoms();
     }
   }, 100);
-}
+}, 500);
 
 function resetGallery() {
   romsStore.reset();
@@ -241,7 +241,6 @@ onBeforeUnmount(() => {
       <template v-if="filteredRoms.length > 0">
         <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
           <!-- Gallery cards view -->
-          <!-- v-show instead of v-if to avoid recalculate on view change -->
           <v-col
             v-for="rom in filteredRoms"
             :key="rom.id"
@@ -268,9 +267,7 @@ onBeforeUnmount(() => {
               transformScale
               showActionBar
               showChips
-              :withBorderPrimary="
-                romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
-              "
+              :withBorderPrimary="selectedRoms?.includes(rom)"
               :sizeActionBar="currentView"
               :enable3DTilt="enable3DEffect"
               @click="onGameClick"
