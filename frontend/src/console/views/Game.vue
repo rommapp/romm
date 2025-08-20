@@ -23,7 +23,7 @@
     <!-- Main content -->
     <div
       v-else
-      class="relative w-full h-full overflow-y-auto overflow-x-hidden"
+      class="relative w-full h-full overflow-y-auto overflow-x-hidden pb-28 md:pb-32"
     >
       <!-- Backdrop -->
       <div class="absolute inset-0 z-0 overflow-hidden">
@@ -125,31 +125,36 @@
         <!-- SCREENSHOTS -->
         <section
           v-if="screenshotUrls.length"
-          class="relative py-4 md:py-6 bg-black/30 border-t border-white/10"
+          class="fixed bottom-0 inset-x-0 z-30 py-3 md:py-4 bg-black/40 backdrop-blur-md border-t border-white/10"
         >
           <div class="w-full max-w-[1400px] mx-auto px-8 md:px-12 lg:px-16">
-            <h3 class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide mb-3">
+            <h3 class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide mb-4">
               Screenshots
             </h3>
-            <div class="flex gap-3 md:gap-4 overflow-x-auto no-scrollbar pb-1">
-              <img
+            <div class="flex gap-3 md:gap-4 overflow-x-auto no-scrollbar py-6 px-2">
+              <button
                 v-for="(src, idx) in screenshotUrls"
                 :key="`${idx}-${src}`"
-                class="h-28 md:h-36 rounded-md object-cover flex-none bg-white/10 border border-white/10"
-                style="aspect-ratio: 16 / 9"
-                loading="lazy"
-                draggable="false"
-                :src="primaryScreenshotSrc(src)"
-                :data-alt="altScreenshotSrc(src)"
-                :alt="`${rom?.name} screenshot ${idx + 1}`"
-                @error="onScreenshotError"
+                class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none bg-white/5 border-2 border-white/10 overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.03] hover:shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]"
+                :class="{ 'ring-4 ring-[var(--accent-2)] scale-[1.03]': keyboardMode && selectedShot===idx }"
+                tabindex="0"
+                @click="openLightbox(idx)"
+                @focus="selectedShot = idx"
+                @keydown.enter.prevent="openLightbox(idx)"
               >
+                <img
+                  class="w-full h-full object-cover select-none"
+                  loading="lazy"
+                  draggable="false"
+                  :src="primaryScreenshotSrc(src)"
+                  :data-alt="altScreenshotSrc(src)"
+                  :alt="`${rom?.name} screenshot ${idx + 1}`"
+                  @error="onScreenshotError"
+                >
+              </button>
             </div>
           </div>
         </section>
-
-        <!-- DETAILS SHELF -->
-        <!-- Details modal moved; inline section removed -->
       </div>
     </div>
 
@@ -273,6 +278,12 @@
         </div>
       </div>
     </div>
+    <ScreenshotLightbox
+      v-if="showLightbox"
+      :urls="screenshotUrls"
+      :start-index="selectedShot"
+      @close="showLightbox=false"
+    />
   </div>
 </template>
 
@@ -281,6 +292,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
+  import ScreenshotLightbox from '@/console/components/ScreenshotLightbox.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -294,6 +306,8 @@ const keyboardMode = ref(false);
 const selected = ref<'play'|'description'>('play');
 const showDescription = ref(false);
 const showDetails = ref(false);
+const showLightbox = ref(false);
+const selectedShot = ref(0);
 
 const releaseYear = computed(() => {
   const ts = rom.value?.igdb_metadata?.first_release_date ?? rom.value?.metadatum?.first_release_date;
@@ -316,9 +330,9 @@ const screenshotUrls = computed(() => {
   return [...user, ...merged];
 });
 
-// Cover URL with fallbacks for background/poster
+// Cover URL with fallbacks for background/poster (prefer local resources first)
 const coverUrl = computed(() =>
-  rom.value?.url_cover || rom.value?.path_cover_large || rom.value?.path_cover_small || ''
+  rom.value?.path_cover_large || rom.value?.path_cover_small || rom.value?.url_cover || ''
 );
 
 const coreMap: Record<string,string> = { nes:'nes', snes:'snes', n64:'n64', gb:'gb', gba:'gba', gbc:'gbc', genesis:'segaMD', megadrive:'segaMD', master_system:'sms', sms:'sms', gg:'gg', gamecube:'gc', saturn:'sat', psx:'psx', ps1:'psx', ps2:'ps2', ps3:'ps3', psp:'psp', atari2600:'a26', atari7800:'a78', lynx:'lynx', vb:'vb', wonderswan:'ws', wonderswancolor:'wsc', ngp:'ngp', ngpc:'ngpc', pce:'pce', pcfx:'pcfx', tg16:'pce', sgx:'sgx', msx:'msx', msx2:'msx2' };
@@ -332,7 +346,14 @@ function handleKey(e: KeyboardEvent){
   }
   keyboardMode.value = true; window.setTimeout(()=> keyboardMode.value=false, 2000);
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) selected.value = selected.value==='play' ? 'description' : 'play';
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+    // toggle main selection; also move screenshot focus when lightbox closed
+    selected.value = selected.value==='play' ? 'description' : 'play';
+    if(!showLightbox.value && screenshotUrls.value.length){
+      if(e.key==='ArrowRight') selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length;
+      if(e.key==='ArrowLeft') selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length;
+    }
+  }
   if(e.key==='Enter') { if(selected.value==='play') play(); else showDescription.value = true; }
 }
 
@@ -371,6 +392,8 @@ function onScreenshotError(e: Event) {
   // Hide broken image
   img.style.display = 'none';
 }
+
+function openLightbox(i: number){ selectedShot.value = i; showLightbox.value = true; }
 
 onMounted(async () => {
   try{
