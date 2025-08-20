@@ -29,7 +29,6 @@ const unmatchedCoverImage = computed(() =>
     <v-img
       id="background-image"
       :src="currentRom?.path_cover_large || unmatchedCoverImage"
-      lazy
       cover
     >
       <template #error>

@@ -18,11 +18,11 @@ import { useDisplay } from "vuetify";
 import VanillaTilt from "vanilla-tilt";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
-    src?: string;
     aspectRatio?: string | number;
     width?: string | number;
     height?: string | number;
@@ -53,9 +53,9 @@ const props = withDefaults(
     disableViewTransition: false,
     enable3DTilt: false,
     withLink: false,
-    src: "",
   },
 );
+
 const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const romsStore = storeRoms();
@@ -88,13 +88,16 @@ const handleCloseMenu = () => {
   activeMenu.value = false;
   emit("closedmenu");
 };
+
 const galleryViewStore = storeGalleryView();
+const { currentView, defaultAspectRatioCover } = storeToRefs(galleryViewStore);
+
 const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
   const ratio =
     props.aspectRatio ||
     platformsStore.getAspectRatio(props.rom.platform_id) ||
-    galleryViewStore.defaultAspectRatioCover;
+    defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
 const fallbackCoverImage = computed(() =>
@@ -130,6 +133,19 @@ interface TiltHTMLElement extends HTMLElement {
 }
 
 const tiltCard = ref<TiltHTMLElement | null>(null);
+
+const largeCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? currentView.value === 2
+      ? props.rom.path_cover_small
+      : props.rom.path_cover_large
+    : props.rom.igdb_url_cover ||
+      props.rom.moby_url_cover ||
+      props.rom.ss_url_cover,
+);
+const smallCover = computed(() =>
+  romsStore.isSimpleRom(props.rom) ? props.rom.path_cover_small : "",
+);
 
 const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   event.preventDefault();
@@ -208,16 +224,8 @@ onBeforeUnmount(() => {
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
-              :src="
-                src ||
-                (romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_large || fallbackCoverImage
-                  : rom.igdb_url_cover ||
-                    rom.moby_url_cover ||
-                    rom.ss_url_cover ||
-                    rom.sgdb_url_cover ||
-                    fallbackCoverImage)
-              "
+              :lazy-src="smallCover || fallbackCoverImage"
+              :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
             >
               <template v-bind="props" v-if="titleOnHover">
@@ -342,11 +350,7 @@ onBeforeUnmount(() => {
                 </v-expand-transition>
               </div>
               <template #error>
-                <v-img
-                  :src="fallbackCoverImage"
-                  cover
-                  :aspect-ratio="computedAspectRatio"
-                ></v-img>
+                <v-img cover :src="fallbackCoverImage"></v-img>
               </template>
               <template #placeholder>
                 <div class="d-flex align-center justify-center fill-height">
