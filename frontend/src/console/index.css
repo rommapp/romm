@@ -1,0 +1,71 @@
+/* Tailwind entry for console mode (v4) */
+@import "tailwindcss";
+
+:root {
+	--bg-0: #0a0a0a;
+	--bg-1: #111317;
+	--bg-2: #171a21;
+	--fg-0: #e5e7eb;
+	--fg-dim: #a3a3a3;
+	--accent: #3fa9f5;
+	--accent-2: #f8b400;
+	--tile: #1f2430;
+	--tile-hover: #2b3242;
+	--motion-fast: 150ms;
+	--motion-med: 220ms;
+	--motion-slow: 360ms;
+	--elev-1: 0 6px 24px rgba(0,0,0,0.35);
+	--elev-2: 0 10px 32px rgba(0,0,0,0.45);
+}
+
+html, body, #app {
+	height: 100%;
+}
+
+body.console-mode {
+	margin: 0;
+	background: radial-gradient(1200px 800px at 50% -10%, #1b2233, transparent 60%),
+							linear-gradient(180deg, var(--bg-1), var(--bg-2));
+	color: var(--fg-0);
+	font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+	overflow: hidden;
+}
+
+body.console-mode::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	background: repeating-linear-gradient(
+		to bottom,
+		rgba(255,255,255,0.04),
+		rgba(255,255,255,0.04) 1px,
+		rgba(0,0,0,0.05) 1px,
+		rgba(0,0,0,0.05) 3px
+	);
+	mix-blend-mode: overlay;
+	opacity: 0.25;
+}
+
+* { box-sizing: border-box; }
+
+@keyframes shimmer { 0%{ background-position: 200% 0;} 100%{ background-position: -200% 0;} }
+
+/* Hide scrollbars (cross-browser) */
+.no-scrollbar {
+	-ms-overflow-style: none !important; /* IE and Edge */
+	scrollbar-width: none !important; /* Firefox */
+	scrollbar-color: transparent transparent !important; /* Firefox ensure transparent */
+}
+.no-scrollbar::-webkit-scrollbar {
+	width: 0 !important; /* Chrome, Safari */
+	height: 0 !important;
+	display: none !important;
+	background: transparent !important;
+	-webkit-appearance: none !important;
+}
+.no-scrollbar::-webkit-scrollbar:horizontal { height: 0 !important; display: none !important; }
+.no-scrollbar::-webkit-scrollbar-thumb { background: transparent !important; border: none !important; }
+.no-scrollbar::-webkit-scrollbar-track { background: transparent !important; }
+.no-scrollbar::-webkit-scrollbar-corner { background: transparent !important; }
+.no-scrollbar::-webkit-scrollbar-button { width: 0 !important; height: 0 !important; display: none !important; }
