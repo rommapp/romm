@@ -224,6 +224,33 @@ const routes = [
       },
     ],
   },
+  // Console mode (separate UI namespace under /console)
+  {
+    path: "/console",
+    component: () => import("@/console/Layout.vue"),
+    children: [
+      {
+        path: "",
+        name: "console-home",
+        component: () => import("@/console/views/Home.vue"),
+      },
+      {
+        path: "platform/:id",
+        name: "console-platform",
+        component: () => import("@/console/views/Platform.vue"),
+      },
+      {
+        path: "rom/:rom",
+        name: "console-rom",
+        component: () => import("@/console/views/Game.vue"),
+      },
+      {
+        path: "rom/:rom/play",
+        name: "console-play",
+        component: () => import("@/console/views/Play.vue"),
+      },
+    ],
+  },
 ];
 
 interface RoutePermissions {
