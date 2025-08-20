@@ -120,13 +120,10 @@ function onFilterClick(filter: FilterType, value: string) {
                   name: ROUTES.COLLECTION,
                   params: { collection: collection.id },
                 }"
-                size="large"
-                class="mr-1 mt-1 px-0"
+                size="small"
+                class="my-1 mr-2 px-0"
                 label
               >
-                <template #prepend>
-                  <r-avatar :size="38" :collection="collection" />
-                </template>
                 <span class="px-4">{{ collection.name }}</span>
               </v-chip>
             </v-col>

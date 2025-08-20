@@ -4,7 +4,6 @@ from collections.abc import Iterable, Sequence
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from handler.metadata.base_hander import UniversalPlatformSlug as UPS
-from models.collection import Collection, SmartCollection, VirtualCollection
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
@@ -135,11 +134,10 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_collection_id(
         self, query: Query, session: Session, collection_id: int
     ):
-        collection = (
-            session.query(Collection)
-            .filter(Collection.id == collection_id)
-            .one_or_none()
-        )
+        from . import db_collection_handler
+
+        collection = db_collection_handler.get_collection(collection_id)
+
         if collection:
             return query.filter(Rom.id.in_(collection.rom_ids))
         return query
@@ -147,12 +145,12 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_virtual_collection_id(
         self, query: Query, session: Session, virtual_collection_id: str
     ):
-        name, type = VirtualCollection.from_id(virtual_collection_id)
-        v_collection = (
-            session.query(VirtualCollection)
-            .filter(VirtualCollection.name == name, VirtualCollection.type == type)
-            .one_or_none()
+        from . import db_collection_handler
+
+        v_collection = db_collection_handler.get_virtual_collection(
+            virtual_collection_id
         )
+
         if v_collection:
             return query.filter(Rom.id.in_(v_collection.rom_ids))
         return query
@@ -160,11 +158,12 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_smart_collection_id(
         self, query: Query, session: Session, smart_collection_id: int
     ):
-        smart_collection = (
-            session.query(SmartCollection)
-            .filter(SmartCollection.id == smart_collection_id)
-            .one_or_none()
+        from . import db_collection_handler
+
+        smart_collection = db_collection_handler.get_smart_collection(
+            smart_collection_id
         )
+
         if smart_collection:
             # Ensure the latest ROMs are loaded
             smart_collection = smart_collection.update_properties()
@@ -197,11 +196,13 @@ class DBRomsHandler(DBBaseHandler):
         self, query: Query, session: Session, value: bool, user_id: int | None
     ) -> Query:
         """Filter based on whether the rom is in the user's Favourites collection."""
-        favourites_collection = (
-            session.query(Collection)
-            .filter(Collection.name.ilike("favourites"))
-            .filter(Collection.user_id == user_id)
-            .one_or_none()
+        if not user_id:
+            return query
+
+        from . import db_collection_handler
+
+        favourites_collection = db_collection_handler.get_collection_by_name(
+            "favourites", user_id
         )
 
         if favourites_collection:
@@ -457,10 +458,14 @@ class DBRomsHandler(DBBaseHandler):
 
             # Create a subquery that identifies the primary ROM in each group
             # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc)
+            base_subquery = query.subquery()
             group_subquery = (
-                session.query(Rom.id)
+                select(base_subquery.c.id)
                 .outerjoin(
-                    RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
+                    RomUser,
+                    and_(
+                        RomUser.rom_id == base_subquery.c.id, RomUser.user_id == user_id
+                    ),
                 )
                 .add_columns(
                     func.coalesce(
@@ -564,19 +569,6 @@ class DBRomsHandler(DBBaseHandler):
             order_attr = getattr(Rom, order_by)
         else:
             order_attr = Rom.name
-
-        # Handle computed properties
-        if order_by == "fs_size_bytes":
-            subquery = (
-                session.query(
-                    RomFile.rom_id,
-                    func.sum(RomFile.file_size_bytes).label("total_size"),
-                )
-                .group_by(RomFile.rom_id)
-                .subquery()
-            )
-            query = query.outerjoin(subquery, Rom.id == subquery.c.rom_id)
-            order_attr = func.coalesce(subquery.c.total_size, 0)
 
         # Ignore case when the order attribute is a number
         if isinstance(order_attr.type, (String, Text)):

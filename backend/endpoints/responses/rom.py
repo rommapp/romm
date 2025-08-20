@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
-from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
 from handler.metadata.hasheous_handler import HasheousMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
@@ -13,6 +12,7 @@ from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
 from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
 from pydantic import computed_field, field_validator
 
@@ -313,6 +313,24 @@ class SimpleRomSchema(RomSchema):
         return cls.model_validate(db_rom)
 
 
+class UserCollectionSchema(BaseModel):
+    id: int
+    name: str
+
+    @classmethod
+    def for_user(
+        cls, user_id: int, collections: list[Collection]
+    ) -> list["UserCollectionSchema"]:
+        return [
+            UserCollectionSchema(
+                id=c.id,
+                name=c.name,
+            )
+            for c in collections
+            if c.user_id == user_id or c.is_public
+        ]
+
+
 class DetailedRomSchema(RomSchema):
     merged_ra_metadata: RomRAMetadata | None
     merged_screenshots: list[str]
@@ -320,7 +338,7 @@ class DetailedRomSchema(RomSchema):
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
     user_notes: list[UserNotesSchema]
-    user_collections: list[CollectionSchema]
+    user_collections: list[UserCollectionSchema]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
@@ -339,7 +357,7 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
+        db_rom.user_collections = UserCollectionSchema.for_user(  # type: ignore
             user_id, db_rom.collections
         )
         return cls.model_validate(db_rom)
