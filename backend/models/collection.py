@@ -199,10 +199,10 @@ class SmartCollection(BaseModel):
         lazy="joined", back_populates="smart_collections"
     )
 
-    def update_properties(self) -> "SmartCollection":
+    def update_properties(self, user_id: int) -> "SmartCollection":
         from handler.database import db_collection_handler
 
-        roms = db_collection_handler.get_smart_collection_roms(self, self.user_id)
+        roms = db_collection_handler.get_smart_collection_roms(self, user_id)
 
         roms_with_small_covers = [r for r in roms if r.path_cover_s][
             :SMART_COLLECTION_MAX_COVERS
