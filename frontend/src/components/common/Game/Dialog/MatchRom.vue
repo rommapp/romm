@@ -488,7 +488,6 @@ onBeforeUnmount(() => {
                       :src="source.url_cover || missingCoverImage"
                       :aspect-ratio="computedAspectRatio"
                       cover
-                      lazy
                     >
                       <template #placeholder>
                         <div
