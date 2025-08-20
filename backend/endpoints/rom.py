@@ -165,6 +165,10 @@ class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
 @protected_route(router.get, "", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
+    with_char_index: Annotated[
+        bool,
+        Query(description="Whether to get the char index."),
+    ] = True,
     search_term: Annotated[
         str | None,
         Query(description="Search term to filter roms."),
@@ -299,8 +303,12 @@ def get_roms(
     )
 
     # Get the char index for the roms
-    char_index = db_rom_handler.get_char_index(query=query, order_by_attr=order_by_attr)
-    char_index_dict = {char: index for (char, index) in char_index}
+    char_index_dict = {}
+    if with_char_index:
+        char_index = db_rom_handler.with_char_index(
+            query=query, order_by_attr=order_by_attr
+        )
+        char_index_dict = {char: index for (char, index) in char_index}
 
     with sync_session.begin() as session:
         return paginate(

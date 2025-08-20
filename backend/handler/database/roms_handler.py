@@ -682,7 +682,7 @@ class DBRomsHandler(DBBaseHandler):
         return session.scalars(roms).all()
 
     @begin_session
-    def get_char_index(
+    def with_char_index(
         self, query: Query, order_by_attr: Any, session: Session = None
     ) -> list[Row[tuple[str, int]]]:
         if isinstance(order_by_attr.type, (String, Text)):
