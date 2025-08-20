@@ -8,13 +8,13 @@ export type SearchRomSchema = {
     moby_id?: (number | null);
     ss_id?: (number | null);
     sgdb_id?: (number | null);
-    slug: string;
+    platform_id: number;
     name: string;
-    summary: string;
+    slug?: string;
+    summary?: string;
     igdb_url_cover?: string;
     moby_url_cover?: string;
     ss_url_cover?: string;
     sgdb_url_cover?: string;
-    platform_id: number;
 };
 

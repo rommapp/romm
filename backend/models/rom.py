@@ -22,10 +22,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    func,
-    select,
 )
-from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
@@ -45,6 +43,17 @@ class RomFileCategory(enum.StrEnum):
     DEMO = "demo"
     TRANSLATION = "translation"
     PROTOTYPE = "prototype"
+
+
+class SiblingRom(BaseModel):
+    __tablename__ = "sibling_roms"
+
+    rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    __table_args__ = (
+        UniqueConstraint("rom_id", "sibling_rom_id", name="unique_sibling_roms"),
+    )
 
 
 class RomFile(BaseModel):
@@ -121,14 +130,14 @@ class Rom(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    igdb_id: Mapped[int | None]
-    sgdb_id: Mapped[int | None]
-    moby_id: Mapped[int | None]
-    ss_id: Mapped[int | None]
-    ra_id: Mapped[int | None]
-    launchbox_id: Mapped[int | None]
-    hasheous_id: Mapped[int | None]
-    tgdb_id: Mapped[int | None]
+    igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    sgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ss_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ra_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
@@ -146,6 +155,7 @@ class Rom(BaseModel):
     fs_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
     fs_extension: Mapped[str] = mapped_column(String(length=FILE_EXTENSION_MAX_LENGTH))
     fs_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
+    fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))
@@ -201,36 +211,29 @@ class Rom(BaseModel):
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
-    platform: Mapped[Platform] = relationship(lazy="immediate", back_populates="roms")
+    platform: Mapped[Platform] = relationship(lazy="joined", back_populates="roms")
     sibling_roms: Mapped[list[Rom]] = relationship(
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
-        lazy="select",
+        lazy="raise",
     )
-    files: Mapped[list[RomFile]] = relationship(lazy="select", back_populates="rom")
-    saves: Mapped[list[Save]] = relationship(lazy="select", back_populates="rom")
-    states: Mapped[list[State]] = relationship(lazy="select", back_populates="rom")
+    files: Mapped[list[RomFile]] = relationship(lazy="raise", back_populates="rom")
+    saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="rom")
+    states: Mapped[list[State]] = relationship(lazy="raise", back_populates="rom")
     screenshots: Mapped[list[Screenshot]] = relationship(
-        lazy="select", back_populates="rom"
+        lazy="raise", back_populates="rom"
     )
-    rom_users: Mapped[list[RomUser]] = relationship(lazy="select", back_populates="rom")
+    rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="rom")
     metadatum: Mapped[RomMetadata] = relationship(
-        lazy="select", back_populates="rom", uselist=False
+        lazy="joined", back_populates="rom", uselist=False
     )
     collections: Mapped[list[Collection]] = relationship(
         "Collection",
         secondary="collections_roms",
         collection_class=set,
-        lazy="select",
+        lazy="raise",
         back_populates="roms",
-    )
-
-    fs_size_bytes: Mapped[int] = column_property(
-        select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
-        .where(RomFile.rom_id == id)
-        .correlate_except(RomFile)
-        .scalar_subquery()
     )
 
     @property
@@ -398,14 +401,3 @@ class RomUser(BaseModel):
     @property
     def user__username(self) -> str:
         return self.user.username
-
-
-class SiblingRom(BaseModel):
-    __tablename__ = "sibling_roms"
-
-    rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-
-    __table_args__ = (
-        UniqueConstraint("rom_id", "sibling_rom_id", name="unique_sibling_roms"),
-    )
