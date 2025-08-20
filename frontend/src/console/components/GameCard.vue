@@ -5,9 +5,10 @@
     :class="{
       '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]': selected,
     }"
-    @click="emit('click')"
-    @mouseenter="emit('mouseenter')"
-    @focus="emit('focus')"
+  @click="emit('click')"
+  @mouseenter="emit('mouseenter')"
+  @mouseleave="emit('mouseleave')"
+  @focus="emit('focus')"
   >
     <div class="w-full h-[350px] bg-[#2b3242] relative overflow-hidden rounded">
       <img
@@ -57,7 +58,7 @@ import { computed, onMounted, ref } from 'vue';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const props = defineProps<{ rom:any; index:number; selected?:boolean; loaded?:boolean; isRecent?:boolean }>();
 const coverSrc = computed(() => props.rom.path_cover_large || props.rom.path_cover_small || props.rom.url_cover || props.rom.cover_url || props.rom.cover || '');
-const emit = defineEmits(['click','mouseenter','focus','loaded']);
+const emit = defineEmits(['click','mouseenter','mouseleave','focus','loaded']);
 const el = ref<HTMLElement>();
 
 onMounted(() => {

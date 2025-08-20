@@ -1,20 +1,21 @@
 <template>
   <div class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex">
+    <BackButton :text="platformTitle" />
     <div
-      class="fixed inset-0 bg-cover bg-center blur-[40px] saturate-[1.3] opacity-20 scale-105 pointer-events-none"
-      :style="{ backgroundImage: current && (current.path_cover_large||current.path_cover_small||current.url_cover) ? `url(${current.path_cover_large||current.path_cover_small||current.url_cover})` : '' }"
+      class="fixed inset-0 z-0 bg-cover bg-center blur-[40px] saturate-[1.3] scale-105 pointer-events-none"
+      :style="{ backgroundImage: displayCover ? `url('${displayCover}')` : '' }"
     />
-    <div class="fixed inset-0 bg-gradient-to-b from-black/70 via-black/20 to-black/80 pointer-events-none" />
+    <div class="fixed inset-0 z-10 bg-gradient-to-b from-black/80 via-black/40 to-black/95 pointer-events-none" />
 
     <div
-      class="relative z-10 flex-1 min-w-0 pr-[40px]"
+      class="relative z-20 flex-1 min-w-0 pr-[40px]"
       :style="{ width: 'calc(100vw - 40px)' }"
     >
-      <div class="mx-10 md:mx-16 lg:mx-20 xl:mx-28 pt-6">
+      <!-- <div class="mx-10 md:mx-16 lg:mx-20 xl:mx-28 pt-6">
         <h1 class="text-white/90 text-3xl font-bold drop-shadow">
-          {{ current?.platform_name || current?.platform_slug?.toUpperCase() || 'Platform' }}
+          {{ platformTitle }}
         </h1>
-      </div>
+      </div> -->
 
       <div
         v-if="loading"
@@ -37,7 +38,8 @@
         </div>
         <div
           ref="gridRef"
-          class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
+          class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
+          @mouseleave="hoverIndex = null"
         >
           <GameCard
             v-for="(rom,i) in filtered"
@@ -47,7 +49,7 @@
             :selected="i===selectedIndex"
             :loaded="!!loadedMap[rom.id]"
             @click="selectAndOpen(i, rom)"
-            @mouseenter="mouseSelect(i)"
+            @mouseenter="onCardEnter(i)"
             @focus="mouseSelect(i)"
             @loaded="markLoaded(rom.id)"
           />
@@ -56,7 +58,7 @@
     </div>
 
     <div
-      class="w-[40px] bg-black/30 backdrop-blur border-l border-white/10 fixed top-0 right-0 h-screen overflow-hidden z-10 flex-shrink-0"
+      class="w-[40px] bg-black/30 backdrop-blur border-l border-white/10 fixed top-0 right-0 h-screen overflow-hidden z-30 flex-shrink-0"
       :class="{ 'bg-[rgba(248,180,0,0.1)] border-l-[rgba(248,180,0,0.3)]': inAlphabet }"
     >
       <div class="flex flex-col h-screen p-2 items-center justify-evenly">
@@ -81,6 +83,7 @@ import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import GameCard from '@/console/components/GameCard.vue';
 import NavigationHint from '@/console/components/NavigationHint.vue';
+import BackButton from '@/console/components/BackButton.vue';
 import type { SimpleRomSchema } from '@/__generated__/models/SimpleRomSchema';
 
 const route = useRoute();
@@ -91,6 +94,7 @@ const roms = ref<SimpleRomSchema[]>([]);
 const loading = ref(true);
 const error = ref('');
 const selectedIndex = ref(0);
+const hoverIndex = ref<number|null>(null);
 const query = ref('');
 const loadedMap = ref<Record<number, boolean>>({});
 const keyboardMode = ref(false);
@@ -101,12 +105,30 @@ const gridRef = ref<HTMLDivElement>();
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
+const platformTitle = computed(() =>
+  current.value?.platform_name || current.value?.platform_slug?.toUpperCase() || 'Platform'
+);
+
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
   return q ? roms.value.filter(r => (r.name||'').toLowerCase().includes(q)) : roms.value;
 });
 
 const current = computed(() => filtered.value[selectedIndex.value] || filtered.value[0]);
+const displayRom = computed(() => hoverIndex.value != null ? filtered.value[hoverIndex.value] : current.value);
+type MaybeExtraCovers = Partial<{ cover_url: string; cover: string }>;
+const displayCover = computed(() => {
+  const r = displayRom.value as (SimpleRomSchema & MaybeExtraCovers) | undefined;
+  if (!r) return '';
+  return (
+    r.path_cover_large ||
+    r.path_cover_small ||
+    r.url_cover ||
+    r.cover_url ||
+    r.cover ||
+    ''
+  );
+});
 
 function getCols(): number {
   if (!gridRef.value) return 4;
@@ -168,6 +190,7 @@ function handleKey(e: KeyboardEvent){
 }
 
 function mouseSelect(i:number){ if(!keyboardMode.value) selectedIndex.value = i; }
+function onCardEnter(i:number){ hoverIndex.value = i; if(!keyboardMode.value) selectedIndex.value = i; }
 function selectAndOpen(i:number, rom: SimpleRomSchema){ selectedIndex.value = i; router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } }); }
 function jumpToLetter(L:string){ const idx = filtered.value.findIndex(r => (r.name||'').toUpperCase().startsWith(L)); if(idx>=0){ selectedIndex.value = idx; inAlphabet.value=false; keyboardMode.value=true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000); } }
 

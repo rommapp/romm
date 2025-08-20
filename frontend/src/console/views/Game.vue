@@ -25,6 +25,8 @@
       v-else
       class="relative w-full h-full overflow-y-auto overflow-x-hidden pb-28 md:pb-32"
     >
+  <BackButton />
+
       <!-- Backdrop -->
       <div class="absolute inset-0 z-0 overflow-hidden">
         <img
@@ -213,7 +215,7 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
             <div
               v-if="companies.length"
-              class="bg-white/5 border border-white/10 rounded-md p-3 md:p-4"
+              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
             >
               <div class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide">
                 Companies
@@ -224,7 +226,7 @@
             </div>
             <div
               v-if="genres.length"
-              class="bg-white/5 border border-white/10 rounded-md p-3 md:p-4"
+              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
             >
               <div class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide">
                 Genres
@@ -235,7 +237,7 @@
             </div>
             <div
               v-if="releaseYear !== null"
-              class="bg-white/5 border border-white/10 rounded-md p-3 md:p-4"
+              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
             >
               <div class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide">
                 Release Year
@@ -246,7 +248,7 @@
             </div>
             <div
               v-if="regions.length"
-              class="bg-white/5 border border-white/10 rounded-md p-3 md:p-4"
+              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
             >
               <div class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide">
                 Regions
@@ -255,7 +257,7 @@
                 {{ regions.join(', ') }}
               </div>
             </div>
-            <div class="bg-white/5 border border-white/10 rounded-md p-3 md:p-4">
+            <div class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5">
               <div class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide">
                 File Size
               </div>
@@ -263,7 +265,7 @@
                 {{ Math.round((rom?.files?.[0]?.file_size_bytes || 0) / 1024) }} KB
               </div>
             </div>
-            <div class="bg-white/5 border border-white/10 rounded-md p-3 md:p-4">
+            <div class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5">
               <div class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide">
                 File
               </div>
@@ -293,6 +295,7 @@ import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
   import ScreenshotLightbox from '@/console/components/ScreenshotLightbox.vue';
+import BackButton from '@/console/components/BackButton.vue';
 
 const route = useRoute();
 const router = useRouter();
