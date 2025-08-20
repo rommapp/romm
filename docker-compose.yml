@@ -9,7 +9,7 @@ services:
     env_file: .env
     environment:
       - REDIS_HOST=romm-valkey-dev
-      - DB_HOST=romm-db-dev
+      - DB_HOST=${DB_HOST:-romm-db-dev}
       - ROMM_BASE_PATH=/app/romm
     ports:
       - "3000:3000" # Frontend dev server
@@ -42,7 +42,7 @@ services:
     volumes:
       - romm-db-dev:/var/lib/mysql
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "3306:3306"
 
   romm-valkey-dev:
     image: valkey/valkey:8
@@ -58,9 +58,9 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-authentik}
+      POSTGRES_PASSWORD: ${DB_PASSWD:-postgres}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_DB: ${DB_NAME:-authentik}
     volumes:
       - postgres-db:/var/lib/postgresql/data
     ports:
