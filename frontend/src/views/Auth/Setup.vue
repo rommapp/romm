@@ -93,7 +93,7 @@ async function finishWizard() {
 </script>
 
 <template>
-  <v-card class="translucent-dark px-3" width="700">
+  <v-card class="translucent px-3" width="700">
     <v-img src="/assets/isotipo.svg" class="mx-auto mt-6" width="70" />
     <v-stepper :mobile="xs" class="bg-transparent" v-model="step" flat>
       <template #default="{ prev, next }">
