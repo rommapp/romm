@@ -46,7 +46,7 @@
             :key="rom.id"
             :rom="rom"
             :index="i"
-            :selected="i===selectedIndex"
+            :selected="!inAlphabet && i===selectedIndex"
             :loaded="!!loadedMap[rom.id]"
             @click="selectAndOpen(i, rom)"
             @mouseenter="onCardEnter(i)"
@@ -59,14 +59,14 @@
 
     <div
       class="w-[40px] bg-black/30 backdrop-blur border-l border-white/10 fixed top-0 right-0 h-screen overflow-hidden z-30 flex-shrink-0"
-      :class="{ 'bg-[rgba(248,180,0,0.1)] border-l-[rgba(248,180,0,0.3)]': inAlphabet }"
+      :class="{ 'bg-[rgba(248,180,0,0.75)] border-l-[rgba(248,180,0,0.75)]': inAlphabet }"
     >
       <div class="flex flex-col h-screen p-2 items-center justify-evenly">
         <button
           v-for="(L,i) in letters"
           :key="L"
           class="bg-white/5 border border-white/10 text-fgDim rounded w-7 h-7 text-[0.7rem] font-semibold flex items-center justify-center shrink-0 transition-all hover:text-fg0 hover:border-white/30 hover:bg-white/10"
-          :class="{ 'bg-[var(--accent-2)] border-[var(--accent)] text-black shadow-[0_0_0_2px_rgba(248,180,0,0.25)]': inAlphabet && i===alphaIndex }"
+          :class="{ 'bg-[var(--accent-2)] border-[var(--accent)] text-white shadow-[0_0_0_2px_rgba(248,180,0,1)]': inAlphabet && i===alphaIndex }"
           @click="jumpToLetter(L)"
         >
           {{ L }}
@@ -143,6 +143,21 @@ function getCols(): number {
   }
 }
 
+function allCardElements(): HTMLElement[] {
+  const w = window as unknown as { gameCardElements?: HTMLElement[] };
+  const arr = (w.gameCardElements || []).filter(Boolean) as HTMLElement[];
+  if (arr.length) return arr;
+  const qs = gridRef.value?.querySelectorAll?.('button.relative.block.bg-\\[var\\(--tile\\)\\]');
+  return qs ? Array.from(qs) as HTMLElement[] : [];
+}
+
+function sameRow(i: number, j: number): boolean {
+  const els = allCardElements();
+  const a = els[i]; const b = els[j];
+  if (!a || !b) return false;
+  return a.offsetTop === b.offsetTop;
+}
+
 function scrollToSelected(){
   if(!keyboardMode.value || filtered.value.length===0) return;
   requestAnimationFrame(() => {
@@ -157,7 +172,7 @@ function scrollToSelected(){
 watch(selectedIndex, () => { if(keyboardMode.value) scrollToSelected(); });
 
 const { on } = useInputScope();
-const { moveLeft, moveRight, moveUp, moveDown } = useSpatialNav(selectedIndex, getCols, () => filtered.value.length);
+const { moveLeft, moveUp } = useSpatialNav(selectedIndex, getCols, () => filtered.value.length);
 
 function handleAction(action: InputAction): boolean {
   if(!filtered.value.length) return false;
@@ -178,15 +193,22 @@ function handleAction(action: InputAction): boolean {
 
   switch(action){
     case 'moveRight':{
-      const cols = getCols();
-      const atRight = (selectedIndex.value + 1) % cols === 0;
-      const last = selectedIndex.value === filtered.value.length-1;
-      if(atRight || last){ inAlphabet.value = true; alphaIndex.value = 0; }
-      else moveRight();
-      return true; }
+      const next = selectedIndex.value + 1;
+      const count = filtered.value.length;
+      if (next >= count || !sameRow(selectedIndex.value, next)) {
+        inAlphabet.value = true; alphaIndex.value = 0; return true;
+      }
+      selectedIndex.value = next; return true; }
     case 'moveLeft': moveLeft(); return true;
     case 'moveUp': moveUp(); return true;
-    case 'moveDown': moveDown(); return true;
+    case 'moveDown': {
+      const cols = getCols();
+      const count = filtered.value.length;
+      const next = selectedIndex.value + cols;
+      if (next < count) { selectedIndex.value = next; return true; }
+      // If there's a shorter last row, clamp to the last available item instead of a dead cell
+      if (count > 0) { selectedIndex.value = count - 1; return true; }
+      return true; }
   case 'back': router.back(); return true;
     case 'confirm': {
       const rom = filtered.value[selectedIndex.value];
