@@ -211,7 +211,7 @@ function onFilterClick(filter: FilterType, value: string) {
               <template #prev="{ props }">
                 <v-btn
                   icon="mdi-chevron-left"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="props.onClick"
                 />
               </template>
@@ -242,7 +242,7 @@ function onFilterClick(filter: FilterType, value: string) {
               <template #next="{ props }">
                 <v-btn
                   icon="mdi-chevron-right"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="props.onClick"
                 />
               </template>
@@ -261,7 +261,7 @@ function onFilterClick(filter: FilterType, value: string) {
                     <v-btn
                       @click="props.onClick"
                       icon="mdi-chevron-left"
-                      class="translucent-dark"
+                      class="translucent"
                     />
                   </template>
                   <v-carousel-item
@@ -288,7 +288,7 @@ function onFilterClick(filter: FilterType, value: string) {
                   <template #next="{ props }">
                     <v-btn
                       icon="mdi-chevron-right"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="props.onClick"
                     />
                   </template>
