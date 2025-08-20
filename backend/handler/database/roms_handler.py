@@ -448,6 +448,7 @@ class DBRomsHandler(DBBaseHandler):
         if verified:
             query = self.filter_by_verified(query)
 
+        # BEWARE YE WHO ENTERS HERE 💀
         if group_by_meta_id:
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
             is_main_sibling_order = (
@@ -461,31 +462,73 @@ class DBRomsHandler(DBBaseHandler):
             base_subquery = query.subquery()
             group_subquery = (
                 select(base_subquery.c.id)
+                .select_from(base_subquery)
                 .outerjoin(
                     RomUser,
                     and_(
-                        RomUser.rom_id == base_subquery.c.id, RomUser.user_id == user_id
+                        base_subquery.c.id == RomUser.rom_id, RomUser.user_id == user_id
                     ),
                 )
                 .add_columns(
                     func.coalesce(
-                        func.concat("igdb-", Rom.platform_id, "-", Rom.igdb_id),
-                        func.concat("ss-", Rom.platform_id, "-", Rom.ss_id),
-                        func.concat("moby-", Rom.platform_id, "-", Rom.moby_id),
-                        func.concat("ra-", Rom.platform_id, "-", Rom.ra_id),
-                        func.concat("hasheous-", Rom.platform_id, "-", Rom.hasheous_id),
                         func.concat(
-                            "launchbox-", Rom.platform_id, "-", Rom.launchbox_id
+                            "igdb-",
+                            base_subquery.c.platform_id,
+                            "-",
+                            base_subquery.c.igdb_id,
                         ),
-                        func.concat("tgdb-", Rom.platform_id, "-", Rom.tgdb_id),
-                        func.concat("romm-", Rom.platform_id, "-", Rom.id),
+                        func.concat(
+                            "ss-",
+                            base_subquery.c.platform_id,
+                            "-",
+                            base_subquery.c.ss_id,
+                        ),
+                        func.concat(
+                            "moby-",
+                            base_subquery.c.platform_id,
+                            "-",
+                            base_subquery.c.moby_id,
+                        ),
+                        func.concat(
+                            "ra-",
+                            base_subquery.c.platform_id,
+                            "-",
+                            base_subquery.c.ra_id,
+                        ),
+                        func.concat(
+                            "hasheous-",
+                            base_subquery.c.platform_id,
+                            "-",
+                            base_subquery.c.hasheous_id,
+                        ),
+                        func.concat(
+                            "launchbox-",
+                            base_subquery.c.platform_id,
+                            "-",
+                            base_subquery.c.launchbox_id,
+                        ),
+                        func.concat(
+                            "tgdb-",
+                            base_subquery.c.platform_id,
+                            "-",
+                            base_subquery.c.tgdb_id,
+                        ),
+                        func.concat(
+                            "romm-",
+                            base_subquery.c.platform_id,
+                            "-",
+                            base_subquery.c.id,
+                        ),
                     ).label("group_id")
                 )
                 .add_columns(
                     func.row_number()
                     .over(
                         partition_by=text("group_id"),
-                        order_by=[is_main_sibling_order, Rom.fs_name_no_ext.asc()],
+                        order_by=[
+                            is_main_sibling_order,
+                            base_subquery.c.fs_name_no_ext.asc(),
+                        ],
                     )
                     .label("row_num"),
                 )

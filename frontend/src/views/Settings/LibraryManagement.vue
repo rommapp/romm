@@ -48,7 +48,6 @@ const onFilterChange = debounce(
     galleryFilterStore.setFilterMissing(true);
     romsStore.fetchRoms({
       galleryFilter: galleryFilterStore,
-      groupRoms: false,
       concat: false,
     });
 
@@ -83,7 +82,7 @@ async function fetchRoms() {
 
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore, groupRoms: false })
+    .fetchRoms({ galleryFilter: galleryFilterStore })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
@@ -111,7 +110,7 @@ function cleanupAll() {
   romsStore.setLimit(MAX_FETCH_LIMIT);
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms({ galleryFilter: galleryFilterStore, groupRoms: false })
+    .fetchRoms({ galleryFilter: galleryFilterStore })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
