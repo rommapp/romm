@@ -38,9 +38,9 @@ class Platform(BaseModel):
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
-    roms: Mapped[list[Rom]] = relationship(lazy="select", back_populates="platform")
+    roms: Mapped[list[Rom]] = relationship(lazy="raise", back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(
-        lazy="select", back_populates="platform"
+        lazy="raise", back_populates="platform"
     )
 
     aspect_ratio: Mapped[str] = mapped_column(
@@ -52,7 +52,10 @@ class Platform(BaseModel):
 
     # This runs a subquery to get the count of roms for the platform
     rom_count = column_property(
-        select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
+        select(func.count(Rom.id))
+        .where(Rom.platform_id == id)
+        .correlate_except(Rom)
+        .scalar_subquery()
     )
 
     fs_size_bytes: Mapped[int] = column_property(
