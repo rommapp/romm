@@ -16,7 +16,7 @@ import type { Events } from "@/types/emitter";
 import { storeToRefs } from "pinia";
 import { ref, onMounted, inject, onBeforeUnmount, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { debounce } from "lodash";
+import { debounce, throttle } from "lodash";
 
 const { t } = useI18n();
 const tab = ref<"config" | "missing">("config");
@@ -146,7 +146,7 @@ function resetMissingRoms() {
   galleryFilterStore.resetFilters();
 }
 
-function onScroll() {
+const onScroll = throttle(() => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
@@ -158,7 +158,7 @@ function onScroll() {
       await fetchRoms();
     }
   }, 100);
-}
+}, 500);
 
 onMounted(() => {
   resetMissingRoms();
