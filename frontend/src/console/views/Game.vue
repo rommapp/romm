@@ -25,7 +25,7 @@
       v-else
       class="relative w-full h-full overflow-y-auto overflow-x-hidden pb-28 md:pb-32"
     >
-  <BackButton />
+      <BackButton />
 
       <!-- Backdrop -->
       <div class="absolute inset-0 z-0 overflow-hidden">
@@ -290,12 +290,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
   import ScreenshotLightbox from '@/console/components/ScreenshotLightbox.vue';
 import BackButton from '@/console/components/BackButton.vue';
+import { useInputScope } from '@/console/composables/useInputScope';
+import type { InputAction } from '@/console/input/actions';
 
 const route = useRoute();
 const router = useRouter();
@@ -340,24 +342,31 @@ const coverUrl = computed(() =>
 
 const coreMap: Record<string,string> = { nes:'nes', snes:'snes', n64:'n64', gb:'gb', gba:'gba', gbc:'gbc', genesis:'segaMD', megadrive:'segaMD', master_system:'sms', sms:'sms', gg:'gg', gamecube:'gc', saturn:'sat', psx:'psx', ps1:'psx', ps2:'ps2', ps3:'ps3', psp:'psp', atari2600:'a26', atari7800:'a78', lynx:'lynx', vb:'vb', wonderswan:'ws', wonderswancolor:'wsc', ngp:'ngp', ngpc:'ngpc', pce:'pce', pcfx:'pcfx', tg16:'pce', sgx:'sgx', msx:'msx', msx2:'msx2' };
 
-function handleKey(e: KeyboardEvent){
+const { on } = useInputScope();
+function handleAction(action: InputAction): boolean {
+  // Modal handling first
   if(showDescription.value || showDetails.value){
-    if(e.key==='Escape') { e.preventDefault(); e.stopPropagation(); showDescription.value=false; showDetails.value=false; return; }
-    if(e.key==='ArrowUp' || e.key==='ArrowDown'){
-      e.preventDefault(); const body = document.querySelector('.modal-body') as HTMLElement|null; if(!body) return; const amt=40; if(e.key==='ArrowUp') body.scrollTop -= amt; else body.scrollTop += amt; return;
+    if(action==='back'){ showDescription.value=false; showDetails.value=false; return true; }
+    if(action==='moveUp' || action==='moveDown'){
+      const body = document.querySelector('.modal-body') as HTMLElement|null; if(!body) return true;
+      const amt = 40; if(action==='moveUp') body.scrollTop -= amt; else body.scrollTop += amt; return true;
     }
+    return false;
   }
+
   keyboardMode.value = true; window.setTimeout(()=> keyboardMode.value=false, 2000);
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+  if(action==='moveLeft' || action==='moveRight' || action==='moveUp' || action==='moveDown'){
     // toggle main selection; also move screenshot focus when lightbox closed
     selected.value = selected.value==='play' ? 'description' : 'play';
     if(!showLightbox.value && screenshotUrls.value.length){
-      if(e.key==='ArrowRight') selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length;
-      if(e.key==='ArrowLeft') selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length;
+      if(action==='moveRight') selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length;
+      if(action==='moveLeft') selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length;
     }
+    return true;
   }
-  if(e.key==='Enter') { if(selected.value==='play') play(); else showDescription.value = true; }
+  if(action==='confirm'){ if(selected.value==='play') play(); else showDescription.value = true; return true; }
+  if(action==='back'){ router.back(); return true; }
+  return false;
 }
 
 function play(){
@@ -408,8 +417,10 @@ onMounted(async () => {
     rom.value = data;
   }catch(err: unknown){ error.value = err instanceof Error ? err.message : 'Failed to load game'; }
   finally{ loading.value = false; }
-  window.addEventListener('keydown', handleKey);
+  off = on(handleAction);
 });
+let off: (() => void) | null = null;
+onUnmounted(() => { off?.(); off = null; });
 </script>
 
 <style scoped>

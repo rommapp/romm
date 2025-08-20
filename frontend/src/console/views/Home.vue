@@ -60,8 +60,8 @@
                   :index="i"
                   :selected="navigationMode==='systems' && i===selectedIndex"
                   @click="goPlatform(p.id)"
-                  @mouseenter="selectedIndex=i"
-                  @focus="selectedIndex=i"
+                  @mouseenter="focusSystem(i)"
+                  @focus="focusSystem(i)"
                 />
               </div>
             </div>
@@ -103,8 +103,8 @@
                   :selected="navigationMode==='recent' && i===recentIndex"
                   :loaded="true"
                   @click="goGame(g)"
-                  @mouseenter="recentIndex=i"
-                  @focus="recentIndex=i"
+                  @mouseenter="focusRecent(i)"
+                  @focus="focusRecent(i)"
                 />
               </div>
             </div>
@@ -134,7 +134,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import platformApi from '@/services/api/platform';
 import romApi from '@/services/api/rom';
@@ -143,6 +143,8 @@ import GameCard from '@/console/components/GameCard.vue';
 import RIsotipo from '@/components/common/RIsotipo.vue';
 import type { PlatformSchema } from '@/__generated__/models/PlatformSchema';
 import type { SimpleRomSchema } from '@/__generated__/models/SimpleRomSchema';
+import { useInputScope } from '@/console/composables/useInputScope';
+import type { InputAction } from '@/console/input/actions';
 
 const router = useRouter();
 const platforms = ref<PlatformSchema[]>([]);
@@ -156,6 +158,9 @@ const controlIndex = ref(0);
 const systemsRef = ref<HTMLDivElement>();
 const recentRef = ref<HTMLDivElement>();
 const currentBackground = ref('');
+
+function focusSystem(i: number){ navigationMode.value='systems'; selectedIndex.value=i; }
+function focusRecent(i: number){ navigationMode.value='recent'; recentIndex.value=i; }
 
 function onWheelSystems(e: WheelEvent){
   const el = systemsRef.value; if(!el) return;
@@ -181,32 +186,50 @@ function nextRecent(){ recentIndex.value = (recentIndex.value + 1) % recent.valu
 function tickScroll(){ const w = window as unknown as { systemCardElements?: HTMLElement[] }; const el = w.systemCardElements?.[selectedIndex.value]; scrollToSelected(systemsRef.value!, el); }
 function tickRecentScroll(){ const w = window as unknown as { recentGameElements?: HTMLElement[] }; const el = w.recentGameElements?.[recentIndex.value]; scrollToSelected(recentRef.value!, el); }
 
-function handleKeyDown(e: KeyboardEvent){
-  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter'].includes(e.key)) e.preventDefault();
-  switch(e.key){
-    case 'ArrowLeft':
-      if(navigationMode.value==='systems'){ prevSystem(); }
-      else if(navigationMode.value==='recent'){ prevRecent(); }
-      else if(navigationMode.value==='controls'){ controlIndex.value=(controlIndex.value-1+2)%2; }
-      break;
-    case 'ArrowRight':
-      if(navigationMode.value==='systems'){ nextSystem(); }
-      else if(navigationMode.value==='recent'){ nextRecent(); }
-      else if(navigationMode.value==='controls'){ controlIndex.value=(controlIndex.value+1)%2; }
-      break;
-    case 'ArrowUp':
-      if(navigationMode.value==='recent') navigationMode.value='systems';
-      else if(navigationMode.value==='controls') navigationMode.value= recent.value.length>0 ? 'recent' : 'systems';
-      break;
-    case 'ArrowDown':
-      if(navigationMode.value==='systems') navigationMode.value= recent.value.length>0 ? 'recent' : 'controls';
-      else if(navigationMode.value==='recent') navigationMode.value='controls';
-      break;
-    case 'Enter':
-      if(navigationMode.value==='systems' && platforms.value[selectedIndex.value]) router.push({ name:'console-platform', params: { id: platforms.value[selectedIndex.value].id } });
-      else if(navigationMode.value==='recent' && recent.value[recentIndex.value]) router.push({ name:'console-rom', params:{ rom: recent.value[recentIndex.value].id }, query:{ id: recent.value[recentIndex.value].platform_id } });
-      else if(navigationMode.value==='controls') { if(controlIndex.value===0) doLogout(); else toggleFullscreen(); }
-      break;
+const { on } = useInputScope();
+function handleAction(action: InputAction): boolean {
+  switch(action){
+    case 'moveLeft':
+      if(navigationMode.value==='systems'){ prevSystem(); return true; }
+      if(navigationMode.value==='recent'){ prevRecent(); return true; }
+      if(navigationMode.value==='controls'){ controlIndex.value=(controlIndex.value-1+2)%2; return true; }
+      return false;
+    case 'moveRight':
+      if(navigationMode.value==='systems'){ nextSystem(); return true; }
+      if(navigationMode.value==='recent'){ nextRecent(); return true; }
+      if(navigationMode.value==='controls'){ controlIndex.value=(controlIndex.value+1)%2; return true; }
+      return false;
+    case 'moveUp':
+      if(navigationMode.value==='recent') { navigationMode.value='systems'; return true; }
+      if(navigationMode.value==='controls') { navigationMode.value= recent.value.length>0 ? 'recent' : 'systems'; return true; }
+      return false;
+    case 'moveDown':
+      if(navigationMode.value==='systems') { navigationMode.value= recent.value.length>0 ? 'recent' : 'controls'; return true; }
+      if(navigationMode.value==='recent') { navigationMode.value='controls'; return true; }
+      return false;
+    case 'confirm':
+      {
+        // Controls take precedence if active
+        if(navigationMode.value==='controls') { if(controlIndex.value===0) doLogout(); else toggleFullscreen(); return true; }
+
+        // If recent is active or focused, open recent
+        const active = document.activeElement as HTMLElement | null;
+        const recentFocused = !!(active && recentRef.value && recentRef.value.contains(active));
+        if(navigationMode.value==='recent' || recentFocused) {
+          const r = recent.value[recentIndex.value];
+          if(r) { router.push({ name:'console-rom', params:{ rom: r.id }, query:{ id: r.platform_id } }); return true; }
+        }
+
+        // Default/fallback: open currently selected system
+        const sys = platforms.value[selectedIndex.value];
+        if(sys) { router.push({ name:'console-platform', params: { id: sys.id } }); return true; }
+      }
+      return false;
+    case 'back':
+      router.back();
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -246,8 +269,10 @@ onMounted(async () => {
     recent.value = recents.items ?? [];
   }catch(err: unknown){ error.value = err instanceof Error ? err.message : 'Failed to load'; }
   finally{ loading.value = false; }
-  window.addEventListener('keydown', handleKeyDown);
+  off = on(handleAction);
 });
+let off: (() => void) | null = null;
+onUnmounted(() => { off?.(); off = null; });
 </script>
 
 <style scoped>

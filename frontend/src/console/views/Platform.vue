@@ -78,13 +78,16 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import GameCard from '@/console/components/GameCard.vue';
 import NavigationHint from '@/console/components/NavigationHint.vue';
 import BackButton from '@/console/components/BackButton.vue';
 import type { SimpleRomSchema } from '@/__generated__/models/SimpleRomSchema';
+import { useInputScope } from '@/console/composables/useInputScope';
+import type { InputAction } from '@/console/input/actions';
+import { useSpatialNav } from '@/console/composables/useSpatialNav';
 
 const route = useRoute();
 const router = useRouter();
@@ -153,39 +156,43 @@ function scrollToSelected(){
 
 watch(selectedIndex, () => { if(keyboardMode.value) scrollToSelected(); });
 
-function handleKey(e: KeyboardEvent){
-  if(!filtered.value.length) return;
+const { on } = useInputScope();
+const { moveLeft, moveRight, moveUp, moveDown } = useSpatialNav(selectedIndex, getCols, () => filtered.value.length);
+
+function handleAction(action: InputAction): boolean {
+  if(!filtered.value.length) return false;
   keyboardMode.value = true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000);
-  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter'].includes(e.key)) e.preventDefault();
 
   if(inAlphabet.value){
-    if(e.key==='ArrowLeft'){ inAlphabet.value=false; return; }
-    if(e.key==='ArrowUp'){ alphaIndex.value = Math.max(0, alphaIndex.value-1); return; }
-    if(e.key==='ArrowDown'){ alphaIndex.value = Math.min(letters.length-1, alphaIndex.value+1); return; }
-    if(e.key==='Enter'){
+    if(action==='moveLeft'){ inAlphabet.value=false; return true; }
+    if(action==='moveUp'){ alphaIndex.value = Math.max(0, alphaIndex.value-1); return true; }
+    if(action==='moveDown'){ alphaIndex.value = Math.min(letters.length-1, alphaIndex.value+1); return true; }
+    if(action==='confirm'){
       const L = letters[alphaIndex.value];
       const idx = filtered.value.findIndex(r => (r.name||'').toUpperCase().startsWith(L));
       if(idx>=0){ selectedIndex.value = idx; inAlphabet.value=false; }
-      return;
+      return true;
     }
-    return;
+    return true;
   }
 
-  const cols = getCols();
-  switch(e.key){
-    case 'ArrowRight':{
+  switch(action){
+    case 'moveRight':{
+      const cols = getCols();
       const atRight = (selectedIndex.value + 1) % cols === 0;
       const last = selectedIndex.value === filtered.value.length-1;
       if(atRight || last){ inAlphabet.value = true; alphaIndex.value = 0; }
-      else selectedIndex.value = Math.min(filtered.value.length-1, selectedIndex.value+1);
-      break; }
-    case 'ArrowLeft': selectedIndex.value = Math.max(0, selectedIndex.value-1); break;
-    case 'ArrowUp': { const ni = selectedIndex.value - cols; if(ni>=0) selectedIndex.value = ni; break; }
-    case 'ArrowDown': { const ni = selectedIndex.value + cols; if(ni < filtered.value.length) selectedIndex.value = ni; break; }
-    case 'Enter': {
+      else moveRight();
+      return true; }
+    case 'moveLeft': moveLeft(); return true;
+    case 'moveUp': moveUp(); return true;
+    case 'moveDown': moveDown(); return true;
+  case 'back': router.back(); return true;
+    case 'confirm': {
       const rom = filtered.value[selectedIndex.value];
       router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } });
-      break; }
+      return true; }
+    default: return false;
   }
 }
 
@@ -194,6 +201,7 @@ function onCardEnter(i:number){ hoverIndex.value = i; if(!keyboardMode.value) se
 function selectAndOpen(i:number, rom: SimpleRomSchema){ selectedIndex.value = i; router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } }); }
 function jumpToLetter(L:string){ const idx = filtered.value.findIndex(r => (r.name||'').toUpperCase().startsWith(L)); if(idx>=0){ selectedIndex.value = idx; inAlphabet.value=false; keyboardMode.value=true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000); } }
 
+let off: (() => void) | null = null;
 onMounted(async () => {
   try{
     const { data } = await romApi.getRoms({ platformId, limit: 500, orderBy: 'name', orderDir: 'asc' });
@@ -206,8 +214,10 @@ onMounted(async () => {
     }
   }catch(err: unknown){ error.value = err instanceof Error ? err.message : 'Failed to load roms'; }
   finally{ loading.value = false; }
-  window.addEventListener('keydown', handleKey);
+  off = on(handleAction);
 });
+
+onUnmounted(() => { off?.(); off = null; });
 
 function markLoaded(id: number){ loadedMap.value[id] = true; }
 </script>
