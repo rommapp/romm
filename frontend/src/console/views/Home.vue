@@ -230,7 +230,7 @@ watch([navigationMode, selectedIndex, recentIndex, platforms, recent], () => {
     imageUrl = sysImages[p.slug] || sysImages[p.fs_slug] || '';
   } else if(navigationMode.value==='recent' && recent.value[recentIndex.value]){
     const g = recent.value[recentIndex.value];
-    imageUrl = g.url_cover || g.path_cover_large || g.path_cover_small || '';
+    imageUrl = g.path_cover_large || g.path_cover_small || g.url_cover || '';
   } else if(navigationMode.value==='controls' && platforms.value[selectedIndex.value]){
     const p = platforms.value[selectedIndex.value] as PlatformSchema;
     imageUrl = sysImages[p.slug] || sysImages[p.fs_slug] || '';

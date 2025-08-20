@@ -11,9 +11,9 @@
   >
     <div class="w-full h-[350px] bg-[#2b3242] relative overflow-hidden rounded">
       <img
-        v-if="rom.url_cover || rom.cover_url || rom.cover"
+        v-if="coverSrc"
         class="w-full h-full object-cover"
-        :src="rom.url_cover || rom.cover_url || rom.cover"
+        :src="coverSrc"
         :alt="rom.name || rom.title"
         @load="emit('loaded')"
         @error="emit('loaded')"
@@ -53,9 +53,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const props = defineProps<{ rom:any; index:number; selected?:boolean; loaded?:boolean; isRecent?:boolean }>();
+const coverSrc = computed(() => props.rom.path_cover_large || props.rom.path_cover_small || props.rom.url_cover || props.rom.cover_url || props.rom.cover || '');
 const emit = defineEmits(['click','mouseenter','focus','loaded']);
 const el = ref<HTMLElement>();
 

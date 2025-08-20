@@ -2,7 +2,7 @@
   <div class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex">
     <div
       class="fixed inset-0 bg-cover bg-center blur-[40px] saturate-[1.3] opacity-20 scale-105 pointer-events-none"
-      :style="{ backgroundImage: current && (current.url_cover||current.path_cover_large||current.path_cover_small) ? `url(${current.url_cover||current.path_cover_large||current.path_cover_small})` : '' }"
+      :style="{ backgroundImage: current && (current.path_cover_large||current.path_cover_small||current.url_cover) ? `url(${current.path_cover_large||current.path_cover_small||current.url_cover})` : '' }"
     />
     <div class="fixed inset-0 bg-gradient-to-b from-black/70 via-black/20 to-black/80 pointer-events-none" />
 
