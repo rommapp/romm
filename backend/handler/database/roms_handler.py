@@ -697,7 +697,7 @@ class DBRomsHandler(DBBaseHandler):
 
         # Get the row number and first letter for each item
         subquery = (
-            query.with_only_columns(Rom.id, Rom.name)
+            query.with_only_columns(Rom.id, Rom.name)  # type: ignore
             .add_columns(  # type: ignore
                 func.substring(
                     order_by_attr,
