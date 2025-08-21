@@ -6,7 +6,6 @@ import RIsotipo from "@/components/common/RIsotipo.vue";
 import { onMounted, ref, useSlots } from "vue";
 import { useTheme } from "vuetify";
 
-// Props
 withDefaults(
   defineProps<{
     modelValue: boolean;
@@ -62,7 +61,7 @@ onMounted(() => {
     scroll-strategy="block"
     no-click-animation
     persistent
-    z-index="10000"
+    z-index="9999"
     :scrim="theme.name.value == 'dark' ? 'black' : 'white'"
   >
     <v-card :min-height="height" :max-height="height">
@@ -99,7 +98,7 @@ onMounted(() => {
       >
         <v-row
           v-if="loadingCondition"
-          class="justify-center align-center flex-grow-1"
+          class="justify-center align-center flex-grow-1 my-4"
           no-gutters
         >
           <v-progress-circular
@@ -112,13 +111,13 @@ onMounted(() => {
 
         <v-row
           v-if="!loadingCondition && emptyStateCondition"
-          class="justify-center align-center flex-grow-1"
+          class="justify-center align-center flex-grow-1 my-4"
           no-gutters
         >
           <empty-game v-if="emptyStateType == 'game'" />
           <empty-platform v-else-if="emptyStateType == 'platform'" />
           <empty-firmware v-else-if="emptyStateType == 'firmware'" />
-          <slot v-else name="emptyState"></slot>
+          <slot v-else name="empty-state"></slot>
         </v-row>
 
         <slot

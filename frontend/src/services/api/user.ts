@@ -1,4 +1,4 @@
-import type { MessageResponse, UserSchema } from "@/__generated__";
+import type { UserSchema, InviteLinkSchema } from "@/__generated__";
 import api from "@/services/api/index";
 import type { User } from "@/stores/users";
 
@@ -15,11 +15,24 @@ async function createUser({
   email: string;
   role: string;
 }): Promise<{ data: UserSchema }> {
-  return api.post(
-    "/users",
-    {},
-    { params: { username, password, email, role } },
-  );
+  return api.post("/users", { username, password, email, role });
+}
+
+async function createInviteLink({
+  role,
+}: {
+  role: string;
+}): Promise<{ data: InviteLinkSchema }> {
+  return api.post("/users/invite-link", {}, { params: { role } });
+}
+
+async function registerUser(
+  username: string,
+  email: string,
+  password: string,
+  token: string,
+): Promise<{ data: UserSchema }> {
+  return api.post("/users/register", { username, email, password, token });
 }
 
 async function fetchUsers(): Promise<{ data: UserSchema[] }> {
@@ -38,7 +51,7 @@ async function updateUser({
   id,
   avatar,
   ...attrs
-}: UserSchema & {
+}: Partial<UserSchema> & {
   avatar?: File;
   password?: string;
 }): Promise<{ data: UserSchema }> {
@@ -46,31 +59,39 @@ async function updateUser({
     `/users/${id}`,
     {
       avatar: avatar || null,
+      username: attrs.username,
+      password: attrs.password,
+      email: attrs.email,
+      enabled: attrs.enabled,
+      role: attrs.role,
+      ra_username: attrs.ra_username,
     },
     {
       headers: {
-        "Content-Type": avatar ? "multipart/form-data" : "application/json",
-      },
-      params: {
-        username: attrs.username,
-        password: attrs.password,
-        email: attrs.email,
-        enabled: attrs.enabled,
-        role: attrs.role,
+        "Content-Type": avatar
+          ? "multipart/form-data"
+          : "application/x-www-form-urlencoded",
       },
     },
   );
 }
 
-async function deleteUser(user: User): Promise<{ data: MessageResponse }> {
+async function deleteUser(user: User) {
   return api.delete(`/users/${user.id}`);
+}
+
+async function refreshRetroAchievements({ id }: { id: number }) {
+  return api.post(`/users/${id}/ra/refresh`);
 }
 
 export default {
   createUser,
+  createInviteLink,
+  registerUser,
   fetchUsers,
   fetchUser,
   fetchCurrentUser,
   updateUser,
   deleteUser,
+  refreshRetroAchievements,
 };

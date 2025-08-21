@@ -12,20 +12,41 @@ from utils.context import ctx_httpx_client
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)
 
 
-class PeriodicTask(ABC):
+class Task(ABC):
+    """Base class for all RQ tasks."""
+
+    title: str
+    description: str
+    enabled: bool
+    manual_run: bool
+    cron_string: str | None = None
+
     def __init__(
         self,
-        func: str,
-        description,
+        title: str,
+        description: str,
         enabled: bool = False,
+        manual_run: bool = False,
         cron_string: str | None = None,
     ):
-        self.func = func
-        self.description = description or func
+        self.title = title
+        self.description = description or title
         self.enabled = enabled
+        self.manual_run = manual_run
         self.cron_string = cron_string
 
-    def _get_existing_job(self):
+    @abstractmethod
+    async def run(self, *args: Any, **kwargs: Any) -> Any: ...
+
+
+class PeriodicTask(Task, ABC):
+    """Base class for periodic tasks that can be scheduled."""
+
+    def __init__(self, *args: Any, func: str, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.func = func
+
+    def _get_existing_job(self) -> Job | None:
         existing_jobs = tasks_scheduler.get_jobs()
         for job in existing_jobs:
             if isinstance(job, Job) and job.func_name == self.func:
@@ -33,24 +54,32 @@ class PeriodicTask(ABC):
 
         return None
 
-    def init(self):
+    def init(self) -> Job | None:
+        """Initialize the task by scheduling or unscheduling it based on its state.
+
+        Returns the scheduled job if it was successfully scheduled, or None if it was already
+        scheduled or unscheduled.
+        """
         job = self._get_existing_job()
 
         if self.enabled and not job:
             return self.schedule()
         elif job and not self.enabled:
-            return self.unschedule()
+            self.unschedule()
+            return None
+        return None
 
-    @abstractmethod
-    async def run(self, *args: Any, **kwargs: Any) -> Any: ...
+    def schedule(self) -> Job | None:
+        """Schedule the task if it is enabled and not already scheduled.
 
-    def schedule(self):
+        Returns the scheduled job if successful, or None otherwise.
+        """
         if not self.enabled:
             raise SchedulerException(f"Scheduled {self.description} is not enabled.")
 
         if self._get_existing_job():
             log.info(f"{self.description.capitalize()} is already scheduled.")
-            return
+            return None
 
         if self.cron_string:
             return tasks_scheduler.cron(
@@ -61,19 +90,25 @@ class PeriodicTask(ABC):
 
         return None
 
-    def unschedule(self):
-        job = self._get_existing_job()
+    def unschedule(self) -> bool:
+        """Unschedule the task if it is currently scheduled.
 
+        Returns whether the unscheduling was successful.
+        """
+        job = self._get_existing_job()
         if not job:
             log.info(f"{self.description.capitalize()} is not scheduled.")
-            return
+            return False
 
         tasks_scheduler.cancel(job)
         log.info(f"{self.description.capitalize()} unscheduled.")
+        return True
 
 
-class RemoteFilePullTask(PeriodicTask):
-    def __init__(self, *args, url: str, **kwargs):
+class RemoteFilePullTask(PeriodicTask, ABC):
+    """Base class for tasks that pull files from a remote URL."""
+
+    def __init__(self, *args: Any, url: str, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.url = url
 

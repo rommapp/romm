@@ -5,18 +5,18 @@ import storeAuth from "@/stores/auth";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
-import { defaultAvatarPath } from "@/utils";
+import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const user = ref<UserItem | null>(null);
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const auth = storeAuth();
+const validForm = ref(false);
 const usersStore = storeUsers();
 const imagePreviewUrl = ref<string | undefined>("");
 const emitter = inject<Emitter<Events>>("emitter");
@@ -88,106 +88,114 @@ function closeDialog() {
     icon="mdi-pencil-box"
     :width="lgAndUp ? '45vw' : '95vw'"
   >
-    <template #content>
-      <v-row class="align-center pa-2" no-gutters>
-        <v-col cols="12" sm="8">
-          <v-row class="pa-2" no-gutters>
-            <v-col>
-              <v-text-field
-                v-model="user.username"
-                variant="outlined"
-                :label="t('settings.username')"
-                required
-                hide-details
-                clearable
-              />
-            </v-col>
-          </v-row>
-          <v-row class="pa-2" no-gutters>
-            <v-col>
-              <v-text-field
-                v-model="user.password"
-                variant="outlined"
-                :label="t('settings.password')"
-                required
-                hide-details
-                clearable
-              />
-            </v-col>
-          </v-row>
-          <v-row class="pa-2" no-gutters>
-            <v-col>
-              <v-text-field
-                v-model="user.email"
-                variant="outlined"
-                label="email"
-                required
-                hide-details
-                clearable
-              />
-            </v-col>
-          </v-row>
-          <v-row class="pa-2" no-gutters>
-            <v-col>
-              <v-select
-                v-model="user.role"
-                variant="outlined"
-                :items="['viewer', 'editor', 'admin']"
-                :label="t('settings.role')"
-                required
-                hide-details
-              />
-            </v-col>
-          </v-row>
-        </v-col>
-        <v-col cols="12" sm="4">
-          <v-row class="pa-2 justify-center" no-gutters>
-            <v-hover v-slot="{ isHovering, props }">
-              <v-avatar size="190" class="ml-4" v-bind="props">
-                <v-img
-                  :src="
-                    imagePreviewUrl ||
-                    (user.avatar_path
-                      ? `/assets/romm/assets/${user.avatar_path}?ts=${user.updated_at}`
-                      : defaultAvatarPath)
-                  "
-                >
-                  <v-fade-transition>
-                    <div
-                      v-if="isHovering"
-                      class="d-flex translucent cursor-pointer h-100 align-center justify-center text-h4"
-                      @click="triggerFileInput"
-                    >
-                      <v-icon>mdi-pencil</v-icon>
-                    </div>
-                  </v-fade-transition>
-                  <v-file-input
-                    id="file-input"
-                    v-model="user.avatar"
-                    class="file-input text-truncate"
-                    label="Avatar"
-                    prepend-inner-icon="mdi-image"
-                    prepend-icon=""
-                    variant="outlined"
-                    hide-details
-                    @change="previewImage"
-                  />
-                </v-img>
-              </v-avatar>
-            </v-hover>
-          </v-row>
-        </v-col>
+    <template #header>
+      <v-row class="pl-2" no-gutters>
+        {{ t("settings.edit-user") }}
       </v-row>
     </template>
+    <template #content>
+      <v-form v-model="validForm">
+        <v-row class="align-center pa-2" no-gutters>
+          <v-col cols="12" sm="8">
+            <v-text-field
+              v-model="user.username"
+              variant="outlined"
+              :label="t('settings.username')"
+              :rules="usersStore.nameRules"
+              required
+              clearable
+              class="ma-2"
+            />
+            <v-text-field
+              v-model="user.password"
+              variant="outlined"
+              :label="t('settings.password')"
+              :placeholder="t('settings.password-placeholder')"
+              clearable
+              class="ma-2"
+            />
+            <v-text-field
+              v-model="user.email"
+              variant="outlined"
+              :label="t('settings.email')"
+              :rules="usersStore.emailRules"
+              type="email"
+              required
+              clearable
+              class="ma-2"
+            />
+            <v-select
+              v-model="user.role"
+              variant="outlined"
+              :items="['viewer', 'editor', 'admin']"
+              :label="t('settings.role')"
+              required
+              class="ma-2"
+            >
+              <template #selection="{ item }">
+                <v-list-item class="pa-0">
+                  <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+                  {{ item.title }}
+                </v-list-item>
+              </template>
+              <template #item="{ item, props }">
+                <v-list-item v-bind="props" :title="item.title">
+                  <template #prepend>
+                    <v-icon>{{ getRoleIcon(item.title) }}</v-icon>
+                  </template>
+                </v-list-item>
+              </template>
+            </v-select>
+          </v-col>
+          <v-col cols="12" sm="4">
+            <v-row class="pa-2 justify-center" no-gutters>
+              <v-hover v-slot="{ isHovering, props }">
+                <v-avatar size="190" class="ml-4" v-bind="props">
+                  <v-img
+                    :src="
+                      imagePreviewUrl ||
+                      (user.avatar_path
+                        ? `/assets/romm/assets/${user.avatar_path}?ts=${user.updated_at}`
+                        : defaultAvatarPath)
+                    "
+                  >
+                    <v-fade-transition>
+                      <div
+                        v-if="isHovering"
+                        class="d-flex translucent cursor-pointer h-100 align-center justify-center text-h4"
+                        @click="triggerFileInput"
+                      >
+                        <v-icon>mdi-pencil</v-icon>
+                      </div>
+                    </v-fade-transition>
+                    <v-file-input
+                      id="file-input"
+                      v-model="user.avatar"
+                      class="file-input text-truncate"
+                      label="Avatar"
+                      prepend-inner-icon="mdi-image"
+                      prepend-icon=""
+                      variant="outlined"
+                      @change="previewImage"
+                    />
+                  </v-img>
+                </v-avatar>
+              </v-hover>
+            </v-row>
+          </v-col>
+        </v-row>
+      </v-form>
+    </template>
     <template #append>
-      <v-row class="justify-center mb-2" no-gutters>
+      <v-divider />
+      <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
-            :variant="!user.username ? 'plain' : 'flat'"
-            :disabled="!user.username"
+            :variant="!validForm ? 'plain' : 'flat'"
+            :disabled="!validForm"
             class="text-romm-green bg-toplayer"
             @click="editUser"
           >

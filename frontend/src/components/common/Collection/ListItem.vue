@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { Collection, VirtualCollection } from "@/stores/collections";
+import type { CollectionType } from "@/stores/collections";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import { ROUTES } from "@/plugins/router";
+import { computed } from "vue";
 
-// Props
-withDefaults(
+const props = withDefaults(
   defineProps<{
-    collection: Collection | VirtualCollection;
+    collection: CollectionType;
     withTitle?: boolean;
     withDescription?: boolean;
     withRomCount?: boolean;
@@ -19,22 +19,48 @@ withDefaults(
     withLink: false,
   },
 );
+
+const collectionType = computed(() => {
+  if ("filter_criteria" in props.collection) return "smart";
+  if ("type" in props.collection) return "virtual";
+  return "regular";
+});
+
+// Determine the correct route for this collection type
+const collectionRoute = computed(() => {
+  if (!props.withLink || !props.collection) return {};
+
+  if (collectionType.value === "smart") {
+    return {
+      to: {
+        name: ROUTES.SMART_COLLECTION,
+        params: { collection: props.collection.id },
+      },
+    };
+  }
+
+  if (collectionType.value === "virtual") {
+    return {
+      to: {
+        name: ROUTES.VIRTUAL_COLLECTION,
+        params: { collection: props.collection.id },
+      },
+    };
+  }
+
+  return {
+    to: {
+      name: ROUTES.COLLECTION,
+      params: { collection: props.collection.id },
+    },
+  };
+});
 </script>
 
 <template>
   <v-list-item
-    :key="collection.id"
-    v-bind="{
-      ...(withLink && collection
-        ? {
-            to: {
-              name: ROUTES.COLLECTION,
-              params: { collection: collection.id },
-            },
-          }
-        : {}),
-    }"
-    :value="collection.name"
+    v-bind="collectionRoute"
+    :value="`${collectionType}-${collection.id}`"
     rounded
     density="compact"
     class="my-1 py-2"
@@ -42,11 +68,11 @@ withDefaults(
     <template #prepend>
       <r-avatar :size="45" :collection="collection" />
     </template>
-    <v-row v-if="withTitle" no-gutters
-      ><v-col
-        ><span class="text-body-1">{{ collection.name }}</span></v-col
-      ></v-row
-    >
+    <v-row v-if="withTitle" no-gutters>
+      <v-col>
+        <span class="text-body-1">{{ collection.name }}</span>
+      </v-col>
+    </v-row>
     <v-row v-if="withDescription" no-gutters>
       <v-col>
         <span class="text-caption text-grey">{{ collection.description }}</span>

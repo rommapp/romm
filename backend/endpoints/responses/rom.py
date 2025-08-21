@@ -5,11 +5,14 @@ from datetime import datetime, timezone
 from typing import NotRequired, TypedDict, get_type_hints
 
 from endpoints.responses.assets import SaveSchema, ScreenshotSchema, StateSchema
-from endpoints.responses.collection import CollectionSchema
 from fastapi import Request
+from handler.metadata.hasheous_handler import HasheousMetadata
 from handler.metadata.igdb_handler import IGDBMetadata
+from handler.metadata.launchbox_handler import LaunchboxMetadata
 from handler.metadata.moby_handler import MobyMetadata
+from handler.metadata.ra_handler import RAMetadata
 from handler.metadata.ss_handler import SSMetadata
+from models.collection import Collection
 from models.rom import Rom, RomFileCategory, RomUserStatus
 from pydantic import computed_field, field_validator
 
@@ -19,17 +22,32 @@ SORT_COMPARE_REGEX = re.compile(r"^([Tt]he|[Aa]|[Aa]nd)\s")
 
 RomIGDBMetadata = TypedDict(  # type: ignore[misc]
     "RomIGDBMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(IGDBMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(IGDBMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 RomMobyMetadata = TypedDict(  # type: ignore[misc]
     "RomMobyMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(MobyMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(MobyMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 RomSSMetadata = TypedDict(  # type: ignore[misc]
     "RomSSMetadata",
-    dict((k, NotRequired[v]) for k, v in get_type_hints(SSMetadata).items()),
+    {k: NotRequired[v] for k, v in get_type_hints(SSMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomRAMetadata = TypedDict(  # type: ignore[misc]
+    "RomRAMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(RAMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomLaunchboxMetadata = TypedDict(  # type: ignore[misc]
+    "RomLaunchboxMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(LaunchboxMetadata).items()},  # type: ignore[misc]
+    total=False,
+)
+RomHasheousMetadata = TypedDict(  # type: ignore[misc]
+    "RomHasheousMetadata",
+    {k: NotRequired[v] for k, v in get_type_hints(HasheousMetadata).items()},  # type: ignore[misc]
     total=False,
 )
 
@@ -121,12 +139,55 @@ class RomFileSchema(BaseModel):
         from_attributes = True
 
 
+class RomMetadataSchema(BaseModel):
+    rom_id: int
+    genres: list[str]
+    franchises: list[str]
+    collections: list[str]
+    companies: list[str]
+    game_modes: list[str]
+    age_ratings: list[str]
+    first_release_date: int | None
+    average_rating: float | None
+
+    class Config:
+        from_attributes = True
+
+    @field_validator("genres")
+    def sort_genres(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("franchises")
+    def sort_franchises(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("collections")
+    def sort_collections(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("companies")
+    def sort_companies(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("game_modes")
+    def sort_game_modes(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("age_ratings")
+    def sort_age_ratings(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+
 class RomSchema(BaseModel):
     id: int
     igdb_id: int | None
     sgdb_id: int | None
     moby_id: int | None
     ss_id: int | None
+    ra_id: int | None
+    launchbox_id: int | None
+    hasheous_id: int | None
+    tgdb_id: int | None
 
     platform_id: int
     platform_slug: str
@@ -147,19 +208,14 @@ class RomSchema(BaseModel):
     summary: str | None
 
     # Metadata fields
-    first_release_date: int | None
-    youtube_video_id: str | None
-    average_rating: float | None
     alternative_names: list[str]
-    genres: list[str]
-    franchises: list[str]
-    meta_collections: list[str]
-    companies: list[str]
-    game_modes: list[str]
-    age_ratings: list[str]
+    youtube_video_id: str | None
+    metadatum: RomMetadataSchema
     igdb_metadata: RomIGDBMetadata | None
     moby_metadata: RomMobyMetadata | None
     ss_metadata: RomSSMetadata | None
+    launchbox_metadata: RomLaunchboxMetadata | None
+    hasheous_metadata: RomHasheousMetadata | None
 
     path_cover_small: str | None
     path_cover_large: str | None
@@ -170,6 +226,7 @@ class RomSchema(BaseModel):
     url_manual: str | None
 
     is_unidentified: bool
+    is_identified: bool
 
     revision: str | None
     regions: list[str]
@@ -185,9 +242,50 @@ class RomSchema(BaseModel):
     full_path: str
     created_at: datetime
     updated_at: datetime
+    missing_from_fs: bool
+
+    siblings: list[SiblingRomSchema]
+    rom_user: RomUserSchema
 
     class Config:
         from_attributes = True
+
+    @classmethod
+    def populate_properties(cls, db_rom: Rom, request: Request) -> Rom:
+        db_rom.rom_user = RomUserSchema.for_user(request.user.id, db_rom)  # type: ignore
+        db_rom.siblings = [  # type: ignore
+            SiblingRomSchema(
+                id=s.id,
+                name=s.name,
+                fs_name_no_tags=s.fs_name_no_tags,
+                fs_name_no_ext=s.fs_name_no_ext,
+            )
+            for s in db_rom.sibling_roms
+        ]
+        return db_rom
+
+    @classmethod
+    def from_orm_with_request(cls, db_rom: Rom, _request: Request) -> RomSchema:
+        return cls.model_validate(db_rom)
+
+    @field_validator("alternative_names")
+    def sort_alternative_names(cls, v: list[str]) -> list[str]:
+        return sorted(v)
+
+    @field_validator("files")
+    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
+        return sorted(v, key=lambda x: x.file_name)
+
+    @field_validator("siblings")
+    def sort_siblings(cls, v: list[SiblingRomSchema]) -> list[SiblingRomSchema]:
+        return sorted(v, key=lambda x: x.sort_comparator)
+
+
+class SiblingRomSchema(BaseModel):
+    id: int
+    name: str | None
+    fs_name_no_tags: str
+    fs_name_no_ext: str
 
     @computed_field  # type: ignore
     @property
@@ -201,78 +299,52 @@ class RomSchema(BaseModel):
             .lower()
         )
 
-    @classmethod
-    def from_orm_with_request(cls, db_rom: Rom, _request: Request) -> RomSchema:
-        return cls.model_validate(db_rom)
-
-    @field_validator("alternative_names")
-    def sort_alternative_names(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("genres")
-    def sort_genres(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("franchises")
-    def sort_franchises(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("meta_collections")
-    def sort_meta_collections(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("companies")
-    def sort_companies(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("game_modes")
-    def sort_game_modes(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("age_ratings")
-    def sort_age_ratings(cls, v: list[str]) -> list[str]:
-        return sorted(v)
-
-    @field_validator("files")
-    def sort_files(cls, v: list[RomFileSchema]) -> list[RomFileSchema]:
-        return sorted(v, key=lambda x: x.file_name)
-
 
 class SimpleRomSchema(RomSchema):
-    sibling_roms: list[RomSchema]
-    rom_user: RomUserSchema
-
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> SimpleRomSchema:
-        user_id = request.user.id
-        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
+        db_rom = cls.populate_properties(db_rom, request)
         return cls.model_validate(db_rom)
 
     @classmethod
     def from_orm_with_factory(cls, db_rom: Rom) -> SimpleRomSchema:
         db_rom.rom_user = rom_user_schema_factory()  # type: ignore
+        db_rom.siblings = []  # type: ignore
         return cls.model_validate(db_rom)
 
-    @field_validator("sibling_roms")
-    def sort_sibling_roms(cls, v: list[RomSchema]) -> list[RomSchema]:
-        return sorted(v, key=lambda x: x.sort_comparator)
+
+class UserCollectionSchema(BaseModel):
+    id: int
+    name: str
+
+    @classmethod
+    def for_user(
+        cls, user_id: int, collections: list[Collection]
+    ) -> list["UserCollectionSchema"]:
+        return [
+            UserCollectionSchema(
+                id=c.id,
+                name=c.name,
+            )
+            for c in collections
+            if c.user_id == user_id or c.is_public
+        ]
 
 
 class DetailedRomSchema(RomSchema):
+    merged_ra_metadata: RomRAMetadata | None
     merged_screenshots: list[str]
-    sibling_roms: list[RomSchema]
-    rom_user: RomUserSchema
     user_saves: list[SaveSchema]
     user_states: list[StateSchema]
     user_screenshots: list[ScreenshotSchema]
     user_notes: list[UserNotesSchema]
-    user_collections: list[CollectionSchema]
+    user_collections: list[UserCollectionSchema]
 
     @classmethod
     def from_orm_with_request(cls, db_rom: Rom, request: Request) -> DetailedRomSchema:
         user_id = request.user.id
+        db_rom = cls.populate_properties(db_rom, request)
 
-        db_rom.rom_user = RomUserSchema.for_user(user_id, db_rom)  # type: ignore
         db_rom.user_notes = RomUserSchema.notes_for_user(user_id, db_rom)  # type: ignore
         db_rom.user_saves = [  # type: ignore
             SaveSchema.model_validate(s) for s in db_rom.saves if s.user_id == user_id
@@ -285,15 +357,10 @@ class DetailedRomSchema(RomSchema):
             for s in db_rom.screenshots
             if s.user_id == user_id
         ]
-        db_rom.user_collections = CollectionSchema.for_user(  # type: ignore
+        db_rom.user_collections = UserCollectionSchema.for_user(  # type: ignore
             user_id, db_rom.collections
         )
-
         return cls.model_validate(db_rom)
-
-    @field_validator("sibling_roms")
-    def sort_sibling_roms(cls, v: list[RomSchema]) -> list[RomSchema]:
-        return sorted(v, key=lambda x: x.sort_comparator)
 
     @field_validator("user_saves")
     def sort_user_saves(cls, v: list[SaveSchema]) -> list[SaveSchema]:

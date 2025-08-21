@@ -6,14 +6,13 @@ import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const { filterUnmatched } = storeToRefs(galleryFilterStore);
 const emitter = inject<Emitter<Events>>("emitter");
 function setUnmatched() {
   galleryFilterStore.switchFilterUnmatched();
-  emitter?.emit("filter", null);
+  emitter?.emit("filterRoms", null);
 }
 </script>
 
@@ -21,15 +20,14 @@ function setUnmatched() {
   <v-btn
     block
     variant="tonal"
-    :color="filterUnmatched ? 'primary' : 'romm-gray'"
-    @click="setUnmatched()"
+    :color="filterUnmatched ? 'primary' : ''"
+    @click="setUnmatched"
   >
-    <v-icon :color="filterUnmatched ? 'primary' : 'romm-white'"
+    <v-icon :color="filterUnmatched ? 'primary' : ''"
       >mdi-file-find-outline</v-icon
     ><span
       class="ml-2"
       :class="{
-        'text-romm-white': !filterUnmatched,
         'text-primary': filterUnmatched,
       }"
       >{{ t("platform.show-unmatched") }}</span

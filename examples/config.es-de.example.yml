@@ -29,7 +29,7 @@ system:
     amiga: "amiga" # Amiga
     amigacd32: "amiga-cd32" # Amiga CD32
     android: "android" # Android
-    apple2gs: "apple2gs" # Apple IIGD
+    apple2gs: "apple-iigs" # Apple IIGD
     apple2: "appleii" # Apple II
     arcade: "arcade" # Arcade
     arcadia: "arcadia-2001" # Arcadia 2001
@@ -60,7 +60,7 @@ system:
     gb: "gb" # Game Boy
     gba: "gba" # Game Boy Advance
     gbc: "gbc" # Game Boy Color
-    megadrive: "genesis-slash-megadrive" # Genesis/Mega Drive
+    megadrive: "genesis" # Genesis/Mega Drive
     lcdgames: "handheld-electronic-lcd" # Handheld Electronic LCD
     intellivision: "intellivision" # Intellivision
     j2me: "j2me" # J2ME
@@ -86,14 +86,14 @@ system:
     pc98: "pc-9800-series" # PC-9800 Series
     pcfx: "pc-fx" # PC-FX
     pokemini: "pokemon-mini" # Pokémon mini
-    psx: "ps" # PlayStation
+    psx: "psx" # PlayStation
     ps2: "ps2" # PlayStation 2
     ps3: "ps3" # PlayStation 3
-    ps4: "ps4--1" # PlayStation 4
+    ps4: "ps4" # PlayStation 4
     psp: "psp" # PlayStation Portable
     samcoupe: "sam-coupe" # SAM Coupé
     satellaview: "satellaview" # Satellaview
-    mastersystem: "sega-master-system" # SEGA Master System
+    mastersystem: "sms" # SEGA Master System
     sega32x: "sega32" # Sega 32X
     megacd: "segacd" # SEGA CD
     sfc: "sfam" # Super Famicom
@@ -107,8 +107,8 @@ system:
     symbian: "symbian" # Symbian
     ti99: "ti-99" # Texas Instruments TI-99
     trs-80: "trs-80" # TRS-80
-    tg-cd: "turbografx-16-slash-pc-engine-cd" # TurboGrafx CD
-    tg16: "turbografx16--1" # TurboGrafx-16
+    tg-cd: "turbografx-cd" # TurboGrafx CD
+    tg16: "tg16" # TurboGrafx-16
     vectrex: "vectrex" # Vectrex
     vic20: "vic-20" # Commodore VIC-20
     videopac: "videopac-g7400" # Videopac+ G7400
@@ -123,7 +123,8 @@ system:
     xbox: "xbox" # Xbox
     xbox360: "xbox360" # Xbox 360
     zmachine: "z-machine" # Z-machine
-    zx81: "zx80" # ZX80
+    zx80: "zx80" # ZX80
+    zx81: "zx81" # ZX81
     zxspectrum: "zxs" # ZX Spectrum
     naomi: "arcade"
     naomi2: "arcade"

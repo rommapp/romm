@@ -1,0 +1,441 @@
+interactions:
+  - request:
+      body: fields id,name; where slug="n64"; limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer test_token
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "44"
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/platforms
+    response:
+      body:
+        string:
+          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
+          1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
+          \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
+          the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
+          Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
+          \ \"Discord\": \"https://discord.gg/igdb\"\n}\n"
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c0446041af7aaa4-YYZ
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "434"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:49 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - __cf_bm=sjY4VydC64JVy6pLLWORdQkqzHqfYTnRj_1BVvezT2k-1725854449-1.0.1.1-DYMlZ3H_61d3oZPkzh6KHGWvadSErGTz6TuNMVdsJHi1yzTvuwmls_iMvj3h9OQh7ijf1lzdn_yrDncMlSRVCw;
+            path=/; expires=Mon, 09-Sep-24 04:30:49 GMT; domain=.igdb.com; HttpOnly; Secure;
+            SameSite=None
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 a44cf9ed8a499212c53e0b8f57aa31f4.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0blxEVdPHcEiJg=
+        x-amz-cf-id:
+          - LdihAJTohkx0uxEl9Ooa9XmczflSSEvLX6FDjmrnIozW2AM4E6_ZIQ==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-errortype:
+          - AccessDeniedException
+        x-amzn-requestid:
+          - 55e8e242-e61c-4060-9ccf-53dce6802560
+        x-cache:
+          - Error from cloudfront
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: ""
+      headers:
+        accept:
+          - "*/*"
+        accept-encoding:
+          - gzip, deflate, br
+        connection:
+          - keep-alive
+        content-length:
+          - "0"
+        host:
+          - id.twitch.tv
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
+    response:
+      body:
+        string:
+          '{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":5663717,"token_type":"bearer"}
+
+          '
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "93"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:50 GMT
+        Server:
+          - nginx
+        X-Ctxlog-Logid:
+          - 1-66de72f1-7530704306b7aeaf271de9b0
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: fields id,name; where slug="n64"; limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "44"
+        cookie:
+          - __cf_bm=sjY4VydC64JVy6pLLWORdQkqzHqfYTnRj_1BVvezT2k-1725854449-1.0.1.1-DYMlZ3H_61d3oZPkzh6KHGWvadSErGTz6TuNMVdsJHi1yzTvuwmls_iMvj3h9OQh7ijf1lzdn_yrDncMlSRVCw
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/platforms
+    response:
+      body:
+        string: !!binary |
+          IcQAACDwn7d+Jb39LJqgBKGYYCMITtFMUaRRNFANngFoDWViCO97KqOy/E4fhxRl8K0ZAw==
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c044609dfd4aaa4-YYZ
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:50 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        Transfer-Encoding:
+          - chunked
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 20f9576431d2962bf870247ded502538.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bl6FZDvHcEIow=
+        x-amz-cf-id:
+          - s199US7PmuBSeMqMyENeM3JCZwzvSBxdSNB2f9wyLixAIrx8KCewMA==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-remapped-content-length:
+          - "50"
+        x-amzn-remapped-date:
+          - Mon, 09 Sep 2024 04:00:50 GMT
+        x-amzn-requestid:
+          - a544b73f-7c1c-4a6f-8099-3fac7e0c40f8
+        x-cache:
+          - Miss from cloudfront
+        x-count:
+          - "1"
+        x-pool:
+          - slow
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: fields id,name; where slug=""; limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer test_token
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "41"
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/platforms
+    response:
+      body:
+        string:
+          "{\n  \"message\": \"Authorization Failure. Have you tried:\",\n  \"Tip
+          1\":   \"Ensure you are sending Authorization and Client-ID as headers.\",\n
+          \ \"Tip 2\":   \"Ensure Authorization value starts with 'Bearer ', including
+          the space\",\n  \"Tip 3\":   \"Ensure Authorization value ends with the App
+          Access Token you generated, NOT your Client Secret.\",\n  \"Docs\":    \"https://api-docs.igdb.com/#authentication\",\n
+          \ \"Discord\": \"https://discord.gg/igdb\"\n}\n"
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c04460c5e77aaf4-YYZ
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "434"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:50 GMT
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - __cf_bm=Jat24qPjsOoVAfI1A37h2_49j.42qFUxjOdafz_lIOw-1725854450-1.0.1.1-SjDrIXIhTVSb28y.p3eyNCLUgBvBYspDnmFqZjfd1kL5gJfNteebA87hjxDiEOLMcRQJvqaxZvkve6zRc63TiQ;
+            path=/; expires=Mon, 09-Sep-24 04:30:50 GMT; domain=.igdb.com; HttpOnly; Secure;
+            SameSite=None
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 490c6f54e6cd81b80f07ff6be833267e.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bl9HwcPHcEFug=
+        x-amz-cf-id:
+          - iIeGPppNzBbXatePVMUfbeXPILwUgaz05mckVGYtkiRzCxFp2IfhJQ==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-errortype:
+          - AccessDeniedException
+        x-amzn-requestid:
+          - 544a89f3-81e8-40c0-ac90-2b26b8c397db
+        x-cache:
+          - Error from cloudfront
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: ""
+      headers:
+        accept:
+          - "*/*"
+        accept-encoding:
+          - gzip, deflate, br
+        connection:
+          - keep-alive
+        content-length:
+          - "0"
+        host:
+          - id.twitch.tv
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://id.twitch.tv/oauth2/token?client_id=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&client_secret=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&grant_type=client_credentials
+    response:
+      body:
+        string:
+          '{"access_token":"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","expires_in":5390596,"token_type":"bearer"}
+
+          '
+      headers:
+        Access-Control-Allow-Origin:
+          - "*"
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "93"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:51 GMT
+        Server:
+          - nginx
+        X-Ctxlog-Logid:
+          - 1-66de72f3-7c84f02a46fd560c2c982304
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: fields id,name; where slug=""; limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "41"
+        cookie:
+          - __cf_bm=Jat24qPjsOoVAfI1A37h2_49j.42qFUxjOdafz_lIOw-1725854450-1.0.1.1-SjDrIXIhTVSb28y.p3eyNCLUgBvBYspDnmFqZjfd1kL5gJfNteebA87hjxDiEOLMcRQJvqaxZvkve6zRc63TiQ
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/platforms
+    response:
+      body:
+        string: "[]"
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c044611b9d9aaf4-YYZ
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "2"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:51 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 490c6f54e6cd81b80f07ff6be833267e.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bmHH5yPHcEb1Q=
+        x-amz-cf-id:
+          - OgxUiXjH-N9qICjt0piT6tRYtTm5h-gf55rDirrC5ZQ_93is5L8ScA==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-remapped-content-length:
+          - "2"
+        x-amzn-remapped-date:
+          - Mon, 09 Sep 2024 04:00:51 GMT
+        x-amzn-requestid:
+          - 68b59619-9f77-4d4c-81b2-969d547b53a1
+        x-cache:
+          - Miss from cloudfront
+        x-count:
+          - "0"
+        x-pool:
+          - slow
+      status:
+        code: 200
+        message: OK
+  - request:
+      body: fields id,name; where slug=""; limit 200;
+      headers:
+        accept:
+          - application/json
+        accept-encoding:
+          - gzip, deflate, br
+        authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        client-id:
+          - xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        connection:
+          - keep-alive
+        content-length:
+          - "41"
+        cookie:
+          - __cf_bm=Jat24qPjsOoVAfI1A37h2_49j.42qFUxjOdafz_lIOw-1725854450-1.0.1.1-SjDrIXIhTVSb28y.p3eyNCLUgBvBYspDnmFqZjfd1kL5gJfNteebA87hjxDiEOLMcRQJvqaxZvkve6zRc63TiQ
+        host:
+          - api.igdb.com
+        user-agent:
+          - python-httpx/0.27.0
+      method: POST
+      uri: https://api.igdb.com/v4/platform_versions
+    response:
+      body:
+        string: "[]"
+      headers:
+        CF-Cache-Status:
+          - DYNAMIC
+        CF-RAY:
+          - 8c0446145c3aaaf4-YYZ
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "2"
+        Content-Type:
+          - application/json
+        Date:
+          - Mon, 09 Sep 2024 04:00:52 GMT
+        Server:
+          - cloudflare
+        Strict-Transport-Security:
+          - max-age=31536000; includeSubDomains; preload
+        X-Content-Type-Options:
+          - nosniff
+        alt-svc:
+          - h3=":443"; ma=86400
+        via:
+          - 1.1 490c6f54e6cd81b80f07ff6be833267e.cloudfront.net (CloudFront)
+        x-amz-apigw-id:
+          - d0bmLFGePHcET9Q=
+        x-amz-cf-id:
+          - ZZYXxenlmY8Jo8YEVxUfLPZtoN_MynqsJE5vj2PweWkqx7I0mty8Xg==
+        x-amz-cf-pop:
+          - YTO50-P1
+        x-amzn-remapped-content-length:
+          - "2"
+        x-amzn-remapped-date:
+          - Mon, 09 Sep 2024 04:00:52 GMT
+        x-amzn-requestid:
+          - dfab708b-c79c-4bad-b649-1d56870fe813
+        x-cache:
+          - Miss from cloudfront
+        x-count:
+          - "0"
+        x-pool:
+          - slow
+      status:
+        code: 200
+        message: OK
+version: 1

@@ -4,7 +4,6 @@ import storeGalleryView from "@/stores/galleryView";
 import { getMissingCoverImage } from "@/utils/covers";
 import { computed } from "vue";
 
-// Props
 const props = defineProps<{
   game: IGDBRelatedGame;
 }>();
@@ -29,10 +28,9 @@ const missingCoverImage = computed(() => getMissingCoverImage(props.game.name));
         :src="game.cover_url || missingCoverImage"
         :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
         cover
-        lazy
       >
         <v-chip
-          class="px-2 position-absolute chip-type text-white translucent-dark"
+          class="px-2 position-absolute chip-type text-white translucent"
           density="compact"
           label
         >

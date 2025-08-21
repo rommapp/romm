@@ -1,0 +1,390 @@
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer invalid_key
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963ba52e3dbe36ad-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 13:50:09 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=GnRdROZEhzHeGB80TI3Xm2ysNJiSE0CRzhJq%2FOksqtw22DF8hDUZE7P3kP48HP0E1bxvLCnJmcbvckA%2FCzQpWGdkzHuyvrbOZpxltDE%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer invalid_key
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"errors":["Invalid key format"]}'
+      headers:
+        CF-RAY:
+          - 963ba52f3bb036a7-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "49"
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:50:09 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=jriR4bDFn7rpLE4vJt%2Bh293Q8PH3vtjukPKl45PnOlrPChdPs5BcPg0M0ktbIDLZ3jHNdNDPNGonX8TgNozrLWhwpAU0tUl9gG%2BQxSdU4%2B83"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=f04g5p1qlseta58ucl8gm4m1jv; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 13:50:09 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        WWW-Authenticate:
+          - Bearer
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer invalid_key
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963ba53b7dc5a21d-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 13:50:11 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=p6%2FEWt5LymBxMj9hVwjqB7sD8pMIhRmq8TA1AnXvzVgyMRuZE%2BlpCDtRjvPoYOYlTolBvkZ19%2F2cPEzGaoGXIwq1L5wx1sc0ol3FxPQ%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer invalid_key
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"errors":["Invalid key format"]}'
+      headers:
+        CF-RAY:
+          - 963ba53c4fd436b4-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "49"
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:50:11 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=cCfX8aarQozXEGuHHnA9d10OfJWIekhcA3N2xsjh2s4HhGt%2Fcw42nTjgWWWLhU6CQUTwuojMjOBSN9Ry2oVmOle3VY6lqXEbOM63%2BDKxub%2Fb"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=l7n9uu15r2eolpb61s05ritb6n; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 13:50:11 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        WWW-Authenticate:
+          - Bearer
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer invalid_key
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963bb26c8dc536b5-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 13:59:12 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=kdY8QNZlrUZJ%2BMX3%2BAFwasHcuIesOnPKfDe0nVGcuZ9FEkPZBpXvCH7TYotPu4tfNfFg7UosTXZwmnwAYTvjlc577YqgEU54whed9no%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer invalid_key
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"errors":["Invalid key format"]}'
+      headers:
+        CF-RAY:
+          - 963bb26d888c36a4-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "49"
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:59:12 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=MRTBMv7D6B2fAnWUlyr8K11xyKQraub%2FGty8%2Bh7suSM8CkRUfRb6O%2FDRhKX4nxANUb%2BxUPc2c2O85vD1LnQCtVt%2FSPiMNVrRw6tCVDmM%2BNPH"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=7faess7v3i10vagume9rsn9j5v; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 13:59:12 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        WWW-Authenticate:
+          - Bearer
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 401
+        message: Unauthorized
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer invalid_key
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963bb4d98839a211-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 14:00:51 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/grids/game/999999
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=nfhxNJ%2FzrBrl7cItciNeWn0bangAEGR1pqqCvQ2q3V4Fu4rh6XAJcbMs454T04PriTWzyWNppJTmhAGGWKHwVoGqwGfbNu1i4AJHQKc%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer invalid_key
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/grids/game/999999
+    response:
+      body:
+        string: '{"success":false,"errors":["Invalid key format"]}'
+      headers:
+        CF-RAY:
+          - 963bb4da5923a211-YYZ
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Length:
+          - "49"
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 14:00:51 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=j1vlbJENjs6rCUnIgwT1NyYkOlLq1htaxqRHxnVPCqQE3ROoF4F4Wk0m1JHDzj16vVGjpNKUaKzTAgfsdX11NcOFpteQGDzlJIhF3%2BbLGHrV"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=p4p1c1npililcqpr261po7n04a; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 14:00:51 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        WWW-Authenticate:
+          - Bearer
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 401
+        message: Unauthorized
+version: 1

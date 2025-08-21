@@ -59,3 +59,8 @@ READ_SCOPES: Final = list(READ_SCOPES_MAP.keys())
 WRITE_SCOPES: Final = READ_SCOPES + list(WRITE_SCOPES_MAP.keys())
 EDIT_SCOPES: Final = WRITE_SCOPES + list(EDIT_SCOPES_MAP.keys())
 FULL_SCOPES: Final = EDIT_SCOPES + list(FULL_SCOPES_MAP.keys())
+
+
+class TokenPurpose(enum.StrEnum):
+    INVITE = "invite"
+    RESET = "reset"

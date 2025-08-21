@@ -1,7 +1,20 @@
 {
+  "back-to-gallery": "Voltar à galeria",
+  "back-to-game-details": "Voltar aos detalhes do jogo",
+  "clear-cache": "Limpar cache do EmulatorJS",
+  "clear-cache-description": "Não afetará nenhum save ou estado armazenado no servidor.",
+  "clear-cache-title": "Tem certeza de que deseja limpar o cache do EmulatorJS?",
+  "clear-cache-warning": "Isso removerá todos os saves e estados armazenados no navegador.",
   "full-screen": "Tela cheia",
   "play": "Jogar",
-  "reset-session": "Redefinir sessão",
-  "back-to-game-details": "Voltar aos detalhes do jogo",
-  "back-to-gallery": "Voltar à galeria"
+  "quit": "Sair",
+  "save-and-quit": "Salvar e sair",
+  "select-save": "Selecionar save",
+  "change-save": "Alterar save",
+  "deselect-save": "Desmarcar save",
+  "select-state": "Selecionar estado",
+  "change-state": "Alterar estado",
+  "deselect-state": "Desmarcar estado",
+  "background-color": "Cor de fundo",
+  "select-background-color": "Selecionar cor de fundo"
 }

@@ -3,7 +3,12 @@ from __future__ import annotations
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-from models.base import BaseModel
+from models.base import (
+    FILE_EXTENSION_MAX_LENGTH,
+    FILE_NAME_MAX_LENGTH,
+    FILE_PATH_MAX_LENGTH,
+    BaseModel,
+)
 from sqlalchemy import BigInteger, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,12 +21,16 @@ class BaseAsset(BaseModel):
     __abstract__ = True
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    file_name: Mapped[str] = mapped_column(String(length=450))
-    file_name_no_tags: Mapped[str] = mapped_column(String(length=450))
-    file_name_no_ext: Mapped[str] = mapped_column(String(length=450))
-    file_extension: Mapped[str] = mapped_column(String(length=100))
-    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    file_name_no_tags: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    file_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    file_extension: Mapped[str] = mapped_column(
+        String(length=FILE_EXTENSION_MAX_LENGTH)
+    )
+    file_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
     file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
+
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @cached_property
     def full_path(self) -> str:
@@ -50,17 +59,12 @@ class Save(RomAsset):
 
     @cached_property
     def screenshot(self) -> Screenshot | None:
-        from handler.database import db_rom_handler
+        from handler.database import db_screenshot_handler
 
-        db_rom = db_rom_handler.get_rom(self.rom_id)
-        if db_rom is None:
-            return None
-
-        for screenshot in db_rom.screenshots:
-            if screenshot.file_name_no_ext == self.file_name:
-                return screenshot
-
-        return None
+        return db_screenshot_handler.get_screenshot(
+            filename_no_ext=self.file_name_no_ext,
+            rom_id=self.rom_id,
+        )
 
 
 class State(RomAsset):
@@ -74,17 +78,12 @@ class State(RomAsset):
 
     @cached_property
     def screenshot(self) -> Screenshot | None:
-        from handler.database import db_rom_handler
+        from handler.database import db_screenshot_handler
 
-        db_rom = db_rom_handler.get_rom(self.rom_id)
-        if db_rom is None:
-            return None
-
-        for screenshot in db_rom.screenshots:
-            if screenshot.file_name_no_ext == self.file_name:
-                return screenshot
-
-        return None
+        return db_screenshot_handler.get_screenshot(
+            filename_no_ext=self.file_name_no_ext,
+            rom_id=self.rom_id,
+        )
 
 
 class Screenshot(RomAsset):

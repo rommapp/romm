@@ -3,7 +3,6 @@ import storeGalleryView from "@/stores/galleryView";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const galleryViewStore = storeGalleryView();
 const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
@@ -25,6 +24,9 @@ const { activeFirmwareDrawer } = storeToRefs(galleryViewStore);
         v-bind="props"
         icon="mdi-memory"
         :color="activeFirmwareDrawer ? 'primary' : ''"
-        @click="galleryViewStore.switchActiveFirmwareDrawer()" /></template
-  ></v-tooltip>
+        aria-label="Firmwares"
+        @click="galleryViewStore.switchActiveFirmwareDrawer"
+      />
+    </template>
+  </v-tooltip>
 </template>

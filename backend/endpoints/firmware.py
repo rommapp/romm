@@ -1,6 +1,6 @@
-from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, LIBRARY_BASE_PATH
+from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
+from endpoints.responses import BulkOperationResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
 from fastapi import File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -8,6 +8,8 @@ from handler.auth.constants import Scope
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler
 from handler.scan_handler import scan_firmware
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
 from utils.router import APIRouter
 
@@ -18,7 +20,7 @@ router = APIRouter(
 
 
 @protected_route(router.post, "", [Scope.FIRMWARE_WRITE])
-def add_firmware(
+async def add_firmware(
     request: Request,
     platform_id: int,
     files: list[UploadFile] = File(...),  # noqa: B008
@@ -43,23 +45,25 @@ def add_firmware(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    log.info(f"Uploading firmware to {db_platform.fs_slug}")
-
     uploaded_firmware = []
-    firmware_path = fs_firmware_handler.build_upload_file_path(db_platform.fs_slug)
+    firmware_path = fs_firmware_handler.get_firmware_fs_structure(db_platform.fs_slug)
 
     for file in files:
         if not file.filename:
             log.warning("Empty filename, skipping")
             continue
 
-        fs_firmware_handler.write_file(file=file, path=firmware_path)
+        log.info(
+            f"Uploading firmware {hl(file.filename)} to {hl(db_platform.custom_name or db_platform.name, color=BLUE)}"
+        )
+
+        await fs_firmware_handler.write_file(file=file, path=firmware_path)
 
         db_firmware = db_firmware_handler.get_firmware_by_filename(
             platform_id=db_platform.id, file_name=file.filename
         )
         # Scan or update firmware
-        scanned_firmware = scan_firmware(
+        scanned_firmware = await scan_firmware(
             platform=db_platform,
             file_name=file.filename,
             firmware=db_firmware,
@@ -150,7 +154,7 @@ def head_firmware_content(request: Request, id: int, file_name: str):
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    firmware_path = f"{LIBRARY_BASE_PATH}/{firmware.full_path}"
+    firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
     return FileResponse(
         path=firmware_path,
@@ -188,7 +192,7 @@ def get_firmware_content(
         log.error(error)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
 
-    firmware_path = f"{LIBRARY_BASE_PATH}/{firmware.full_path}"
+    firmware_path = fs_firmware_handler.validate_path(firmware.full_path)
 
     return FileResponse(path=firmware_path, filename=firmware.file_name)
 
@@ -196,7 +200,7 @@ def get_firmware_content(
 @protected_route(router.post, "/delete", [Scope.FIRMWARE_WRITE])
 async def delete_firmware(
     request: Request,
-) -> MessageResponse:
+) -> BulkOperationResponse:
     """Delete firmware endpoint
 
     Args:
@@ -207,34 +211,47 @@ async def delete_firmware(
         delete_from_fs (bool, optional): Flag to delete rom from filesystem. Defaults to False.
 
     Returns:
-        MessageResponse: Standard message response
+        BulkOperationResponse: Bulk operation response with details
     """
 
     data: dict = await request.json()
-    firmare_ids: list = data["firmware"]
+    firmware_ids: list = data["firmware"]
     delete_from_fs: list = data["delete_from_fs"]
 
-    for id in firmare_ids:
+    successful_items = 0
+    failed_items = 0
+    errors = []
+
+    for id in firmware_ids:
         firmware = db_firmware_handler.get_firmware(id)
         if not firmware:
-            error = f"Firmware with ID {id} not found"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+            failed_items += 1
+            errors.append(f"Firmware with ID {id} not found")
+            continue
 
-        log.info(f"Deleting {firmware.file_name} from database")
-        db_firmware_handler.delete_firmware(id)
+        try:
+            log.info(f"Deleting {hl(firmware.file_name)} from database")
+            db_firmware_handler.delete_firmware(id)
 
-        if id in delete_from_fs:
-            log.info(f"Deleting {firmware.file_name} from filesystem")
-            try:
-                fs_firmware_handler.remove_file(
-                    file_name=firmware.file_name, file_path=firmware.file_path
-                )
-            except FileNotFoundError as exc:
-                error = f"Firmware file {firmware.file_name} not found for platform {firmware.platform_slug}"
-                log.error(error)
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=error
-                ) from exc
+            if id in delete_from_fs:
+                log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
+                try:
+                    file_path = f"{firmware.file_path}/{firmware.file_name}"
+                    await fs_firmware_handler.remove_file(file_path=file_path)
+                except FileNotFoundError:
+                    error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
+                    log.error(error)
+                    errors.append(error)
+                    failed_items += 1
+                    continue
 
-    return {"msg": f"{len(firmare_ids)} firmware files deleted successfully!"}
+            successful_items += 1
+        except Exception as e:
+            failed_items += 1
+            errors.append(f"Failed to delete firmware {id}: {str(e)}")
+
+    return {
+        "successful_items": successful_items,
+        "failed_items": failed_items,
+        "errors": errors,
+    }

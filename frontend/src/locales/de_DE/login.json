@@ -1,7 +1,16 @@
 {
-  "username": "Benutzername",
-  "password": "Passwort",
   "login": "Einloggen",
   "login-oidc": "Einloggen mit {oidc}",
-  "or": "oder"
+  "or": "oder",
+  "password": "Passwort",
+  "username": "Benutzername",
+  "forgot-password": "Passwort vergessen?",
+  "send-reset-link": "Link zum Zurücksetzen senden",
+  "reset-sent": "Link zum Zurücksetzen wurde gesendet. Kontaktieren Sie Ihren Administrator.",
+  "new-password": "Neues Passwort",
+  "confirm-new-password": "Neues Passwort bestätigen",
+  "reset-password": "Passwort zurücksetzen",
+  "back-to-login": "Zurück zum Login",
+  "setup-wizard": "Einrichtungsassistent",
+  "register": "Registrieren"
 }

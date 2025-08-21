@@ -2,6 +2,10 @@ import cronstrue from "cronstrue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import { computed } from "vue";
+import { useDisplay } from "vuetify";
+import { storeToRefs } from "pinia";
+import storeNavigation from "@/stores/navigation";
 
 /**
  * Views configuration object.
@@ -46,6 +50,25 @@ export const views: Record<
     "size-xl": 12,
   },
 };
+
+/**
+ * Get icon associated to role.
+ *
+ * @param role The role as string.
+ * @returns The mdi icon string.
+ */
+export function getRoleIcon(role: string) {
+  switch (role) {
+    case "admin":
+      return "mdi-shield-crown-outline";
+    case "editor":
+      return "mdi-file-edit-outline";
+    case "viewer":
+      return "mdi-book-open-variant-outline";
+    default:
+      return "mdi-account";
+  }
+}
 
 /**
  * Default path for user avatars.
@@ -95,9 +118,7 @@ export function getDownloadPath({
 }) {
   const queryParams = new URLSearchParams();
   if (fileIDs.length > 0) {
-    fileIDs.forEach((fileId) =>
-      queryParams.append("file_ids", fileId.toString()),
-    );
+    queryParams.append("file_ids", fileIDs.join(","));
   }
   return `/api/roms/${rom.id}/content/${rom.fs_name}?${queryParams.toString()}`;
 }
@@ -109,7 +130,9 @@ export function getDownloadLink({
   rom: SimpleRom;
   fileIDs?: number[];
 }) {
-  return `${window.location.origin}${encodeURI(getDownloadPath({ rom, fileIDs }))}`;
+  return `${window.location.origin}${encodeURI(
+    getDownloadPath({ rom, fileIDs }),
+  )}`;
 }
 
 /**
@@ -314,6 +337,7 @@ export function languageToEmoji(language: string) {
  */
 const _EJS_CORES_MAP = {
   "3do": ["opera"],
+  acpc: ["cap32", "crocods"],
   amiga: ["puae"],
   "amiga-cd32": ["puae"],
   arcade: [
@@ -336,6 +360,8 @@ const _EJS_CORES_MAP = {
   c128: ["vice_x128"],
   "commmodore-128": ["vice_x128"],
   colecovision: ["gearcoleco"],
+  doom: ["prboom"],
+  dos: ["dosbox_pure"],
   jaguar: ["virtualjaguar"],
   lynx: ["handy"],
   "atari-lynx-mkii": ["handy"],
@@ -360,7 +386,8 @@ const _EJS_CORES_MAP = {
   "game-boy-micro": ["mgba"],
   gbc: ["gambatte", "mgba"],
   "pc-fx": ["mednafen_pcfx"],
-  ps: ["pcsx_rearmed", "mednafen_psx_hw"],
+  psx: ["pcsx_rearmed", "mednafen_psx_hw"],
+  "philips-cd-i": ["same_cdi"],
   psp: ["ppsspp"],
   segacd: ["genesis_plus_gx", "picodrive"],
   sega32: ["picodrive"],
@@ -371,7 +398,7 @@ const _EJS_CORES_MAP = {
   "sega-master-system-ii": ["genesis_plus_gx", "smsplus"],
   "master-system-super-compact": ["genesis_plus_gx"],
   "master-system-girl": ["genesis_plus_gx"],
-  "genesis-slash-megadrive": ["genesis_plus_gx"],
+  genesis: ["genesis_plus_gx"],
   "sega-mega-drive-2-slash-genesis": ["genesis_plus_gx"],
   "sega-mega-jet": ["genesis_plus_gx"],
   "mega-pc": ["genesis_plus_gx"],
@@ -384,12 +411,13 @@ const _EJS_CORES_MAP = {
   "super-famicom-shvc-001": ["snes9x"],
   "super-famicom-jr-model-shvc-101": ["snes9x"],
   "new-style-super-nes-model-sns-101": ["snes9x"],
-  "turbografx16--1": ["mednafen_pce"],
+  tg16: ["mednafen_pce"],
   "vic-20": ["vice_xvic"],
   virtualboy: ["beetle_vb"],
   wonderswan: ["mednafen_wswan"],
   swancrystal: ["mednafen_wswan"],
   "wonderswan-color": ["mednafen_wswan"],
+  zsx: ["fuse"],
 } as const;
 
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;
@@ -416,7 +444,7 @@ export function getSupportedEJSCores(platformSlug: string): string[] {
  * @returns True if threads are required, false otherwise.
  */
 export function areThreadsRequiredForEJSCore(core: string): boolean {
-  return ["ppsspp"].includes(core);
+  return ["dosbox_pure", "ppsspp"].includes(core);
 }
 
 const canvas = document.createElement("canvas");
@@ -463,7 +491,7 @@ const _EJS_CONTROL_SCHEMES = {
   "sega-master-system-ii": "segaMS",
   "master-system-super-compact": "segaMS",
   "master-system-girl": "segaMS",
-  "genesis-slash-megadrive": "segaMD",
+  genesis: "segaMD",
   "sega-mega-drive-2-slash-genesis": "segaMD",
   "sega-mega-jet": "segaMD",
   "mega-pc": "segaMD",
@@ -565,7 +593,8 @@ export function getTextForStatus(status: PlayingStatus) {
  * @param text The text to convert.
  * @returns The corresponding status key.
  */
-export function getStatusKeyForText(text: string) {
+export function getStatusKeyForText(text: string | null) {
+  if (!text) return null;
   return inverseRomStatusMap[text];
 }
 
@@ -591,4 +620,19 @@ export function is3DSCIARom(rom: SimpleRom): boolean {
   const hasValidFile = get3DSCIAFiles(rom).length > 0;
 
   return hasValidExtension || hasValidFile;
+}
+
+export function calculateMainLayoutWidth() {
+  const { smAndDown } = useDisplay();
+  const navigationStore = storeNavigation();
+  const { mainBarCollapsed } = storeToRefs(navigationStore);
+  const calculatedWidth = computed(() => {
+    return smAndDown.value
+      ? "calc(100% - 16px) !important"
+      : mainBarCollapsed.value
+        ? "calc(100% - 76px) !important"
+        : "calc(100% - 106px) !important";
+  });
+
+  return { calculatedWidth };
 }

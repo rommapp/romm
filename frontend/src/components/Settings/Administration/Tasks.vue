@@ -2,93 +2,121 @@
 import Task from "@/components/Settings/Administration/TaskOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import api from "@/services/api/index";
-import storeHeartbeat from "@/stores/heartbeat";
-import storeRunningTasks from "@/stores/runningTasks";
-import type { Events } from "@/types/emitter";
+import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import { convertCronExperssion } from "@/utils";
-import type { Emitter } from "mitt";
-import { computed, inject } from "vue";
+import { computed, onMounted, ref } from "vue";
 
-// Props
-const emitter = inject<Emitter<Events>>("emitter");
-const heartbeatStore = storeHeartbeat();
-const runningTasks = storeRunningTasks();
-const tasks = computed(() => [
-  {
-    title: heartbeatStore.value.WATCHER.TITLE,
-    description: heartbeatStore.value.WATCHER.MESSAGE,
-    icon: heartbeatStore.value.WATCHER.ENABLED
-      ? "mdi-file-check-outline"
-      : "mdi-file-remove-outline",
-    enabled: heartbeatStore.value.WATCHER.ENABLED,
-  },
-  {
-    title: heartbeatStore.value.SCHEDULER.RESCAN.TITLE,
+const tasks = ref<{
+  watcher: TaskInfo[];
+  scheduled: TaskInfo[];
+  manual: TaskInfo[];
+}>({
+  watcher: [],
+  scheduled: [],
+  manual: [],
+});
+
+const watcherTasks = computed(() =>
+  tasks.value.watcher.map((task) => ({
+    ...task,
+    icon: task.enabled ? "mdi-file-check-outline" : "mdi-file-remove-outline",
+  })),
+);
+
+const scheduledTasks = computed(() =>
+  tasks.value.scheduled.map((task) => ({
+    ...task,
     description:
-      heartbeatStore.value.SCHEDULER.RESCAN.MESSAGE +
-      " " +
-      convertCronExperssion(heartbeatStore.value.SCHEDULER.RESCAN.CRON),
-    icon: heartbeatStore.value.SCHEDULER.RESCAN.ENABLED
-      ? "mdi-clock-check-outline"
-      : "mdi-clock-remove-outline",
-    enabled: heartbeatStore.value.SCHEDULER.RESCAN.ENABLED,
-  },
-  {
-    title: heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.TITLE,
-    description:
-      heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.MESSAGE +
-      " " +
-      convertCronExperssion(heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.CRON),
-    icon: heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.ENABLED
-      ? "mdi-clock-check-outline"
-      : "mdi-clock-remove-outline",
-    enabled: heartbeatStore.value.SCHEDULER.SWITCH_TITLEDB.ENABLED,
-  },
-]);
+      task.description + " " + convertCronExperssion(task.cron_string),
+    icon: task.enabled ? "mdi-clock-check-outline" : "mdi-clock-remove-outline",
+    cron_string: convertCronExperssion(task.cron_string),
+  })),
+);
 
-// Functions
-const runAllTasks = async () => {
-  runningTasks.value = true;
-  const result = await api.post("/tasks/run");
-  runningTasks.value = false;
-  if (result.status !== 200) {
-    return emitter?.emit("snackbarShow", {
-      msg: "Error running tasks",
-      icon: "mdi-close-circle",
-      color: "red",
-    });
-  }
+// Icon mapping for manual tasks
+const getManualTaskIcon = (taskName: string) => {
+  const iconMap: Record<string, string> = {
+    cleanup_orphaned_resources: "mdi-broom",
+  };
+  return iconMap[taskName] || "mdi-play";
+};
 
-  emitter?.emit("snackbarShow", {
-    msg: result.data.msg,
-    icon: "mdi-check-circle",
-    color: "green",
+const manualTasks = computed(() =>
+  tasks.value.manual.map((task) => ({
+    ...task,
+    icon: getManualTaskIcon(task.name),
+  })),
+);
+
+const getAvailableTasks = async () => {
+  await api.get("/tasks").then((response) => {
+    tasks.value = response.data;
   });
 };
+
+onMounted(() => {
+  getAvailableTasks();
+});
 </script>
 <template>
-  <r-section icon="mdi-pulse" title="Tasks">
-    <template #toolbar-append>
-      <v-btn
-        :disabled="runningTasks.value"
-        :loading="runningTasks.value"
-        prepend-icon="mdi-play"
-        variant="outlined"
-        class="text-primary"
-        @click="runAllTasks"
-      >
-        Run All
-      </v-btn>
-    </template>
+  <r-section icon="mdi-pulse" title="Tasks" class="ma-2">
+    <template #toolbar-append> </template>
     <template #content>
-      <v-row no-gutters class="align-center">
-        <v-col cols="12" md="6" v-for="task in tasks">
+      <v-chip
+        label
+        variant="text"
+        prepend-icon="mdi-folder-eye"
+        class="ml-2 mt-1"
+        >Watcher</v-chip
+      >
+      <v-divider class="border-opacity-25 ma-1" />
+      <v-row no-gutters class="align-center py-1">
+        <v-col cols="12" md="6" v-for="task in watcherTasks">
           <task
             class="ma-3"
             :enabled="task.enabled"
             :title="task.title"
             :description="task.description"
             :icon="task.icon"
+          />
+        </v-col>
+      </v-row>
+
+      <v-chip label variant="text" prepend-icon="mdi-clock" class="ml-2 mt-1"
+        >Scheduled</v-chip
+      >
+      <v-divider class="border-opacity-25 ma-1" />
+      <v-row no-gutters class="align-center py-1">
+        <v-col cols="12" md="6" v-for="task in scheduledTasks">
+          <task
+            class="ma-3"
+            :enabled="task.enabled"
+            :title="task.title"
+            :description="task.description"
+            :icon="task.icon"
+            :name="task.name"
+            :manual_run="task.manual_run"
+            :cron_string="task.cron_string"
+          />
+        </v-col>
+      </v-row>
+      <v-row no-gutters class="align-center py-1">
+        <v-chip
+          label
+          variant="text"
+          prepend-icon="mdi-gesture-double-tap"
+          class="ml-2 mt-1"
+          >Manual</v-chip
+        >
+        <v-divider class="border-opacity-25 ma-1" />
+        <v-col cols="12" md="6" v-for="task in manualTasks">
+          <task
+            class="ma-3"
+            :title="task.title"
+            :description="task.description"
+            :icon="task.icon"
+            :name="task.name"
+            :manual_run="task.manual_run"
           />
         </v-col>
       </v-row>

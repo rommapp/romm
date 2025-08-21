@@ -3,6 +3,7 @@ import type { SearchRomSchema } from "@/__generated__";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import romApi from "@/services/api/rom";
+import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -17,11 +18,10 @@ import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: "IGDB" | "Mobygames" | "Screenscraper";
+  name: "IGDB" | "Mobygames" | "Screenscraper" | "SteamGridDB";
   logo_path: string;
 };
 
-// Props
 const { t } = useI18n();
 const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -31,13 +31,14 @@ const galleryViewStore = storeGalleryView();
 const platfotmsStore = storePlatforms();
 const searching = ref(false);
 const route = useRoute();
-const searchTerm = ref("");
+const searchText = ref("");
 const searchBy = ref("Name");
+const searched = ref(false);
 const matchedRoms = ref<SearchRomSchema[]>([]);
 const filteredMatchedRoms = ref<SearchRomSchema[]>();
 const emitter = inject<Emitter<Events>>("emitter");
 const showSelectSource = ref(false);
-const renameAsSource = ref(false);
+const renameFromSource = ref(false);
 const selectedMatchRom = ref<SearchRomSchema>();
 const selectedCover = ref<MatchedSource>();
 const sources = ref<MatchedSource[]>([]);
@@ -58,20 +59,15 @@ emitter?.on("showMatchRomDialog", (romToSearch) => {
 
   // Use name as search term, only when it's matched
   // Otherwise use the filename without tags and extensions
-  searchTerm.value =
+  searchText.value =
     romToSearch.igdb_id || romToSearch.moby_id || romToSearch.ss_id
       ? (romToSearch.name ?? "")
       : romToSearch.fs_name_no_tags;
-
-  if (searchTerm.value) {
-    searchRom();
-  }
 });
 const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
 
-// Functions
 function toggleSourceFilter(source: MatchedSource["name"]) {
   if (source == "IGDB" && heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED) {
     isIGDBFiltered.value = !isIGDBFiltered.value;
@@ -111,7 +107,7 @@ async function searchRom() {
     await romApi
       .searchRom({
         romId: rom.value.id,
-        searchTerm: searchTerm.value,
+        searchTerm: searchText.value,
         searchBy: searchBy.value,
       })
       .then((response) => {
@@ -135,6 +131,7 @@ async function searchRom() {
       })
       .finally(() => {
         searching.value = false;
+        searched.value = true;
       });
   }
 }
@@ -149,25 +146,32 @@ function showSources(matchedRom: SearchRomSchema) {
   showSelectSource.value = true;
   selectedMatchRom.value = matchedRom;
   sources.value = [];
-  if (matchedRom.igdb_url_cover || matchedRom.igdb_id) {
+  if (matchedRom.igdb_url_cover) {
     sources.value.push({
       url_cover: matchedRom.igdb_url_cover,
       name: "IGDB",
       logo_path: "/assets/scrappers/igdb.png",
     });
   }
-  if (matchedRom.moby_url_cover || matchedRom.moby_id) {
+  if (matchedRom.moby_url_cover) {
     sources.value.push({
       url_cover: matchedRom.moby_url_cover,
       name: "Mobygames",
       logo_path: "/assets/scrappers/moby.png",
     });
   }
-  if (matchedRom.ss_url_cover || matchedRom.ss_id) {
+  if (matchedRom.ss_url_cover) {
     sources.value.push({
       url_cover: matchedRom.ss_url_cover,
       name: "Screenscraper",
       logo_path: "/assets/scrappers/ss.png",
+    });
+  }
+  if (matchedRom.sgdb_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.sgdb_url_cover,
+      name: "SteamGridDB",
+      logo_path: "/assets/scrappers/sgdb.png",
     });
   }
   if (sources.value.length == 1) {
@@ -181,16 +185,12 @@ function selectCover(source: MatchedSource) {
 
 function confirm() {
   if (!selectedMatchRom.value || !selectedCover.value) return;
-  updateRom(
-    Object.assign(selectedMatchRom.value, {
-      url_cover: selectedCover.value.url_cover,
-    }),
-  );
+  updateRom(selectedMatchRom.value, selectedCover.value.url_cover);
   closeDialog();
 }
 
 function toggleRenameAsSource() {
-  renameAsSource.value = !renameAsSource.value;
+  renameFromSource.value = !renameFromSource.value;
 }
 
 function backToMatched() {
@@ -198,22 +198,49 @@ function backToMatched() {
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
   sources.value = [];
-  renameAsSource.value = false;
+  renameFromSource.value = false;
 }
 
-async function updateRom(selectedRom: SearchRomSchema) {
+async function updateRom(
+  selectedRom: SearchRomSchema,
+  urlCover: string | undefined,
+) {
   if (!rom.value) return;
 
   show.value = false;
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  Object.assign(rom.value, selectedRom);
+  // Set the properties from the selected rom
+  rom.value = {
+    ...rom.value,
+    fs_name:
+      renameFromSource.value && selectedMatchRom.value
+        ? rom.value.fs_name.replace(
+            rom.value.fs_name_no_ext,
+            selectedMatchRom.value.name,
+          )
+        : rom.value.fs_name,
+    igdb_id: selectedRom.igdb_id || null,
+    moby_id: selectedRom.moby_id || null,
+    ss_id: selectedRom.ss_id || null,
+    name: selectedRom.name || null,
+    slug: selectedRom.slug || null,
+    summary: selectedRom.summary || null,
+    url_cover:
+      urlCover ||
+      selectedRom.igdb_url_cover ||
+      selectedRom.ss_url_cover ||
+      selectedRom.moby_url_cover ||
+      null,
+  };
+
+  // Replace the cover image with a higher resolution
   if (rom.value.url_cover) {
     rom.value.url_cover = rom.value.url_cover.replace("t_cover_big", "t_1080p");
   }
 
   await romApi
-    .updateRom({ rom: rom.value, renameAsSource: renameAsSource.value })
+    .updateRom({ rom: rom.value })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Rom updated successfully!",
@@ -239,12 +266,14 @@ async function updateRom(selectedRom: SearchRomSchema) {
 
 function closeDialog() {
   show.value = false;
+  searching.value = false;
+  searched.value = false;
   searchBy.value = "Name";
   sources.value = [];
   showSelectSource.value = false;
   selectedCover.value = undefined;
   selectedMatchRom.value = undefined;
-  renameAsSource.value = false;
+  renameFromSource.value = false;
 }
 
 onBeforeUnmount(() => {
@@ -259,10 +288,9 @@ onBeforeUnmount(() => {
     icon="mdi-search-web"
     :loading-condition="searching"
     :empty-state-condition="matchedRoms.length == 0"
-    empty-state-type="game"
+    :empty-state-type="searched ? 'game' : undefined"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
-    :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #header>
       <span class="ml-4">{{ t("common.filter") }}:</span>
@@ -357,10 +385,10 @@ onBeforeUnmount(() => {
           <v-text-field
             autofocus
             id="search-text-field"
-            @keyup.enter="searchRom()"
-            @click:clear="searchTerm = ''"
+            @keyup.enter="searchRom"
+            @click:clear="searchText = ''"
             class="bg-toplayer"
-            v-model="searchTerm"
+            v-model="searchText"
             :disabled="searching"
             :label="t('common.search')"
             hide-details
@@ -380,7 +408,7 @@ onBeforeUnmount(() => {
         <v-col>
           <v-btn
             type="submit"
-            @click="searchRom()"
+            @click="searchRom"
             class="bg-toplayer"
             variant="text"
             rounded="0"
@@ -408,6 +436,7 @@ onBeforeUnmount(() => {
             transformScale
             titleOnHover
             pointerOnHover
+            disableViewTransition
           />
         </v-col>
       </v-row>
@@ -459,7 +488,6 @@ onBeforeUnmount(() => {
                       :src="source.url_cover || missingCoverImage"
                       :aspect-ratio="computedAspectRatio"
                       cover
-                      lazy
                     >
                       <template #placeholder>
                         <div
@@ -486,35 +514,38 @@ onBeforeUnmount(() => {
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12">
+          <v-col cols="12" v-if="selectedMatchRom">
             <v-row class="mt-4 text-center" no-gutters>
               <v-col>
                 <v-chip
                   @click="toggleRenameAsSource"
-                  :variant="renameAsSource ? 'flat' : 'outlined'"
-                  :color="renameAsSource ? 'primary' : ''"
+                  variant="text"
                   :disabled="selectedCover == undefined"
-                  ><v-icon class="mr-1">{{
-                    selectedCover && renameAsSource
-                      ? "mdi-checkbox-outline"
-                      : "mdi-checkbox-blank-outline"
-                  }}</v-icon
+                  ><v-icon
+                    :color="renameFromSource ? 'primary' : ''"
+                    class="mr-1"
+                    >{{
+                      selectedCover && renameFromSource
+                        ? "mdi-checkbox-outline"
+                        : "mdi-checkbox-blank-outline"
+                    }}</v-icon
                   >{{
                     t("rom.rename-file-part1", { source: selectedCover?.name })
                   }}</v-chip
                 >
-                <v-list-item v-if="renameAsSource" class="mt-2">
+                <v-list-item v-if="rom && renameFromSource" class="mt-2">
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
                   <span>{{ t("rom.rename-file-part3") }}</span
-                  ><span class="text-primary ml-1"
-                    >{{ rom?.fs_name_no_tags }}.{{ rom?.fs_extension }}</span
-                  >
+                  ><span class="text-primary ml-1">{{ rom.fs_name }}</span>
                   <br />
                   <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
-                  ><span class="text-secondary"
-                    >{{ selectedMatchRom?.name }}.{{ rom?.fs_extension }}</span
-                  >
+                  ><span class="text-secondary">{{
+                    rom.fs_name.replace(
+                      rom.fs_name_no_ext,
+                      selectedMatchRom.name,
+                    )
+                  }}</span>
                   <br />
                   <span class="text-caption font-italic font-weight-bold"
                     >*{{ t("rom.rename-file-part5") }}</span
@@ -523,25 +554,28 @@ onBeforeUnmount(() => {
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12">
-            <v-row no-gutters class="my-4 justify-center">
-              <v-btn-group divided density="compact">
-                <v-btn class="bg-toplayer" @click="backToMatched">
-                  {{ t("common.cancel") }}
-                </v-btn>
-                <v-btn
-                  class="text-romm-green bg-toplayer"
-                  :disabled="selectedCover == undefined"
-                  :variant="selectedCover == undefined ? 'plain' : 'flat'"
-                  @click="confirm"
-                >
-                  {{ t("common.confirm") }}
-                </v-btn>
-              </v-btn-group>
-            </v-row>
-          </v-col>
         </v-row>
       </template>
+    </template>
+    <template #append>
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="backToMatched">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            class="text-romm-green bg-toplayer"
+            :disabled="selectedCover == undefined"
+            :variant="selectedCover == undefined ? 'plain' : 'flat'"
+            @click="confirm"
+          >
+            {{ t("common.confirm") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
+    </template>
+    <template #empty-state>
+      <empty-manual-match />
     </template>
     <template #footer>
       <v-row no-gutters class="text-center">

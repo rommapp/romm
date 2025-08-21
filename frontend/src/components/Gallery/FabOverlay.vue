@@ -13,11 +13,13 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
-// Props
+const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const galleryViewStore = storeGalleryView();
-const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
+const { scrolledToTop } = storeToRefs(galleryViewStore);
 const { selectedRoms } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const fabMenu = ref(false);
@@ -27,11 +29,11 @@ emitter?.on("openFabMenu", (open) => {
 const auth = storeAuth();
 const scanningStore = storeScanning();
 const collectionsStore = storeCollections();
-const { favCollection } = storeToRefs(collectionsStore);
+const { favoriteCollection } = storeToRefs(collectionsStore);
 const route = useRoute();
 const heartbeat = storeHeartbeat();
+const { t } = useI18n();
 
-// Functions
 function scrollToTop() {
   window.scrollTo({
     top: 0,
@@ -53,12 +55,12 @@ async function onScan() {
     platforms: [Number(route.params.platform)],
     roms_ids: romsStore.selectedRoms.map((r) => r.id),
     type: "quick", // Quick scan so we can filter by selected roms
-    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+    apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
   });
 }
 
 function selectAllRoms() {
-  romsStore.setSelection(romsStore.filteredRoms);
+  romsStore.setSelection(romsStore.allRoms);
 }
 
 function resetSelection() {
@@ -67,12 +69,12 @@ function resetSelection() {
 }
 
 async function addToFavourites() {
-  if (!favCollection.value) return;
-  favCollection.value.rom_ids = favCollection.value.rom_ids.concat(
+  if (!favoriteCollection.value) return;
+  favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.concat(
     selectedRoms.value.map((r) => r.id),
   );
   await collectionApi
-    .updateCollection({ collection: favCollection.value as Collection })
+    .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Roms added to favourites successfully!",
@@ -96,15 +98,15 @@ async function addToFavourites() {
 }
 
 async function removeFromFavourites() {
-  if (!favCollection.value) return;
-  favCollection.value.rom_ids = favCollection.value.rom_ids.filter(
+  if (!favoriteCollection.value) return;
+  favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter(
     (value) => !selectedRoms.value.map((r) => r.id).includes(value),
   );
   if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
     romsStore.remove(selectedRoms.value);
   }
   await collectionApi
-    .updateCollection({ collection: favCollection.value as Collection })
+    .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: "Roms removed from favourites successfully!",
@@ -112,8 +114,8 @@ async function removeFromFavourites() {
         color: "green",
         timeout: 2000,
       });
-      favCollection.value = data;
-      collectionsStore.update(data);
+      favoriteCollection.value = data;
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       console.log(error);
@@ -129,84 +131,107 @@ async function removeFromFavourites() {
     });
 }
 
-function onDownload() {
-  romsStore.selectedRoms.forEach((rom, index) => {
-    setTimeout(() => {
-      romApi.downloadRom({ rom });
-    }, index * 100); // Prevents the download from being blocked by the browser
-  });
+async function onDownload() {
+  await romApi.bulkDownloadRoms({ roms: romsStore.selectedRoms });
 }
 </script>
 
 <template>
-  <div class="text-right pa-2 sticky-bottom">
-    <v-scroll-y-reverse-transition>
-      <v-btn
-        icon
-        v-show="!scrolledToTop && currentView != 2"
-        class="border-selected"
-        color="background"
-        elevation="8"
-        size="large"
-        @click="scrollToTop()"
-        ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
-      >
-    </v-scroll-y-reverse-transition>
-
-    <v-speed-dial v-model="fabMenu" transition="slide-y-transition">
-      <template #activator="{ props: menuProps }">
+  <div
+    id="multi-select-overlay"
+    class="text-right sticky-bottom"
+    :class="{
+      'bottom-0': !smAndDown,
+      'bottom-50': smAndDown,
+    }"
+  >
+    <v-speed-dial
+      location="left bottom"
+      transition="fade-transition"
+      v-model="fabMenu"
+    >
+      <template #activator="{ props }">
         <v-fab-transition>
           <v-btn
             v-show="selectedRoms.length > 0"
-            class="ml-2"
+            class="rounded border-selected"
             color="primary"
-            v-bind="menuProps"
+            v-bind="props"
             elevation="8"
             icon
-            size="large"
+            :size="40"
+            rounded="0"
             >{{ selectedRoms.length }}</v-btn
           >
         </v-fab-transition>
       </template>
 
       <v-btn
-        title="Delete roms"
+        :title="t('rom.unselect-all')"
         key="1"
-        v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
         elevation="8"
-        icon
-        size="default"
-        @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
-      >
-        <v-icon color="romm-red"> mdi-delete </v-icon>
-      </v-btn>
-      <v-btn
-        title="Refresh metadata"
-        key="2"
-        v-if="auth.scopes.includes('roms.write')"
-        color="toplayer"
-        elevation="8"
-        icon="mdi-magnify-scan"
-        size="default"
-        @click="onScan"
+        icon="mdi-select"
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click.stop="resetSelection"
       />
       <v-btn
-        title="Download roms"
+        :title="t('rom.select-all')"
+        key="2"
+        color="toplayer"
+        elevation="8"
+        icon="mdi-select-all"
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click.stop="selectAllRoms"
+      />
+      <v-btn
+        :title="t('rom.add-to-fav')"
         key="3"
         color="toplayer"
         elevation="8"
-        icon="mdi-download"
-        size="default"
-        @click="onDownload"
+        icon="mdi-star"
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click="addToFavourites"
       />
       <v-btn
-        title="Remove from collection"
+        :title="t('rom.remove-from-fav')"
         key="4"
         color="toplayer"
         elevation="8"
+        icon="mdi-star-remove-outline"
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click="removeFromFavourites"
+      />
+      <v-btn
+        :title="t('rom.add-to-collection')"
+        key="5"
+        color="toplayer"
+        elevation="8"
+        icon="mdi-bookmark-plus"
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click="
+          emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
+        "
+      />
+      <v-btn
+        :title="t('rom.remove-from-collection')"
+        key="6"
+        color="toplayer"
+        elevation="8"
         icon="mdi-bookmark-remove-outline"
-        size="default"
+        class="rounded"
+        :size="35"
+        rounded="0"
         @click="
           emitter?.emit(
             'showRemoveFromCollectionDialog',
@@ -215,63 +240,81 @@ function onDownload() {
         "
       />
       <v-btn
-        title="Add to collection"
-        key="5"
-        color="toplayer"
-        elevation="8"
-        icon="mdi-bookmark-plus"
-        size="default"
-        @click="
-          emitter?.emit('showAddToCollectionDialog', romsStore.selectedRoms)
-        "
-      />
-      <v-btn
-        title="Remove from favourites"
-        key="6"
-        color="toplayer"
-        elevation="8"
-        icon="mdi-star-remove-outline"
-        size="default"
-        @click="removeFromFavourites"
-      />
-      <v-btn
-        title="Add to favourites"
+        :title="t('rom.download')"
         key="7"
         color="toplayer"
         elevation="8"
-        icon="mdi-star"
-        size="default"
-        @click="addToFavourites"
+        icon="mdi-download"
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click="onDownload"
       />
       <v-btn
-        title="Select all"
+        :title="t('rom.refresh-metadata')"
         key="8"
+        v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
         elevation="8"
-        icon="mdi-select-all"
-        size="default"
-        @click.stop="selectAllRoms"
+        icon="mdi-magnify-scan"
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click="onScan"
       />
       <v-btn
-        title="Unselect all"
+        :title="t('rom.delete')"
         key="9"
+        v-if="auth.scopes.includes('roms.write')"
         color="toplayer"
         elevation="8"
-        icon="mdi-select"
-        size="default"
-        @click.stop="resetSelection"
-      />
+        icon
+        class="rounded"
+        :size="35"
+        rounded="0"
+        @click="emitter?.emit('showDeleteRomDialog', romsStore.selectedRoms)"
+      >
+        <v-icon color="romm-red"> mdi-delete </v-icon>
+      </v-btn>
     </v-speed-dial>
+  </div>
+
+  <div
+    class="text-right sticky-bottom"
+    :class="{
+      'bottom-0': !smAndDown,
+      'bottom-50': smAndDown,
+    }"
+    :style="{
+      'padding-bottom': selectedRoms.length > 0 ? '62px' : '10px',
+    }"
+  >
+    <v-scroll-y-reverse-transition>
+      <v-btn
+        icon
+        v-show="!scrolledToTop"
+        class="border-selected rounded ml-2"
+        color="background"
+        elevation="8"
+        :size="40"
+        rounded="0"
+        @click="scrollToTop"
+        ><v-icon color="primary">mdi-chevron-up</v-icon></v-btn
+      >
+    </v-scroll-y-reverse-transition>
   </div>
 </template>
 <style scoped>
 .sticky-bottom {
   position: fixed;
-  bottom: 0;
   left: 0;
   width: 100%;
-  z-index: 1000;
+  z-index: 9999;
   pointer-events: none;
+  padding-right: 10px !important;
+}
+#multi-select-overlay {
+  padding-bottom: 10px !important;
 }
 .sticky-bottom * {
   pointer-events: auto; /* Re-enables pointer events for all child elements */

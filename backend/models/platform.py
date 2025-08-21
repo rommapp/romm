@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
-from models.rom import Rom
+from models.rom import Rom, RomFile
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
@@ -22,6 +23,10 @@ class Platform(BaseModel):
     sgdb_id: Mapped[int | None]
     moby_id: Mapped[int | None]
     ss_id: Mapped[int | None]
+    ra_id: Mapped[int | None]
+    launchbox_id: Mapped[int | None]
+    hasheous_id: Mapped[int | None]
+    tgdb_id: Mapped[int | None]
     slug: Mapped[str] = mapped_column(String(length=100))
     fs_slug: Mapped[str] = mapped_column(String(length=100))
     name: Mapped[str] = mapped_column(String(length=400))
@@ -32,21 +37,67 @@ class Platform(BaseModel):
     family_slug: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url: Mapped[str | None] = mapped_column(String(length=1000), default="")
     url_logo: Mapped[str | None] = mapped_column(String(length=1000), default="")
-    logo_path: Mapped[str | None] = mapped_column(String(length=1000), default="")
 
-    roms: Mapped[list[Rom]] = relationship(back_populates="platform")
+    roms: Mapped[list[Rom]] = relationship(lazy="raise", back_populates="platform")
     firmware: Mapped[list[Firmware]] = relationship(
-        lazy="selectin", back_populates="platform"
+        lazy="raise", back_populates="platform"
     )
 
     aspect_ratio: Mapped[str] = mapped_column(
         String(length=10), server_default=DEFAULT_COVER_ASPECT_RATIO
     )
 
+    # Temp column to store the old slug from the migration
+    temp_old_slug: Mapped[str | None] = mapped_column(String(length=100), default=None)
+
     # This runs a subquery to get the count of roms for the platform
     rom_count = column_property(
-        select(func.count(Rom.id)).where(Rom.platform_id == id).scalar_subquery()
+        select(func.count(Rom.id))
+        .where(Rom.platform_id == id)
+        .correlate_except(Rom)
+        .scalar_subquery()
     )
+
+    fs_size_bytes: Mapped[int] = column_property(
+        select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
+        .select_from(RomFile.__table__.join(Rom.__table__, RomFile.rom_id == Rom.id))
+        .where(Rom.platform_id == id)
+        .correlate_except(RomFile, Rom)
+        .scalar_subquery()
+    )
+
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    @property
+    def is_unidentified(self) -> bool:
+        return (
+            not self.igdb_id
+            and not self.moby_id
+            and not self.ss_id
+            and not self.launchbox_id
+            and not self.ra_id
+            and not self.hasheous_id
+        )
+
+    @property
+    def is_identified(self) -> bool:
+        return not self.is_unidentified
+
+    @cached_property
+    def igdb_slug(self) -> str | None:
+        from handler.metadata import meta_igdb_handler
+
+        igdb_platform = meta_igdb_handler.get_platform(self.slug)
+
+        return igdb_platform.get("igdb_slug", None)
+
+    @cached_property
+    def moby_slug(self) -> str | None:
+        from handler.metadata import meta_moby_handler
+
+        moby_platform = meta_moby_handler.get_platform(self.slug)
+
+        return moby_platform.get("moby_slug", None)
 
     def __repr__(self) -> str:
         return self.name

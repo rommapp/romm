@@ -12,13 +12,14 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
+import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import { identity } from "lodash";
 
-// Props
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const { smAndDown } = useDisplay();
@@ -28,7 +29,6 @@ const platformsStore = storePlatforms();
 const scanningStore = storeScanning();
 const { scanning } = storeToRefs(scanningStore);
 const { currentPlatform } = storeToRefs(romsStore);
-const { allPlatforms } = storeToRefs(platformsStore);
 const auth = storeAuth();
 const navigationStore = storeNavigation();
 const { activePlatformInfoDrawer } = storeToRefs(navigationStore);
@@ -49,20 +49,36 @@ const aspectRatioOptions = computed(() => [
     size: 1 / 1,
     source: t("platform.old-squared-cases"),
   },
+  {
+    name: "16 / 11",
+    size: 16 / 11,
+    source: t("platform.old-horizontal-cases"),
+  },
 ]);
-const platformInfoFields = [
-  { key: "name", label: t("common.name") },
-  { key: "slug", label: "Slug" },
-  { key: "fs_slug", label: t("platform.filesystem-folder-name") },
-  { key: "category", label: t("platform.category") },
-  { key: "generation", label: t("platform.generation") },
-  { key: "family_name", label: t("platform.family") },
+const tabIndex = computed(() => (activePlatformInfoDrawer.value ? 0 : -1));
+
+const PLATFORM_INFO_FIELDS: {
+  key: keyof Platform;
+  label: string;
+  format: (value: any) => string;
+}[] = [
+  { key: "name", label: t("common.name"), format: identity },
+  { key: "slug", label: t("common.slug"), format: identity },
+  { key: "fs_slug", label: t("settings.folder-name"), format: identity },
+  { key: "category", label: t("platform.category"), format: identity },
+  { key: "generation", label: t("platform.generation"), format: identity },
+  { key: "family_name", label: t("platform.family"), format: identity },
+  {
+    key: "fs_size_bytes",
+    label: t("common.size-on-disk"),
+    format: (fs: number) => formatBytes(fs, 2),
+  },
 ];
+
 const updating = ref(false);
 const updatedPlatform = ref({ ...currentPlatform.value });
 const isEditable = ref(false);
 
-// Functions
 function showEditable() {
   updatedPlatform.value = { ...currentPlatform.value };
   isEditable.value = true;
@@ -89,10 +105,7 @@ async function updatePlatform() {
         color: "green",
       });
       currentPlatform.value = platform;
-      const index = allPlatforms.value.findIndex((p) => p.id === platform.id);
-      if (index !== -1) {
-        allPlatforms.value[index] = platform;
-      }
+      platformsStore.update(platform);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -115,7 +128,7 @@ async function scan() {
   socket.emit("scan", {
     platforms: [romsStore.currentPlatform?.id],
     type: "quick",
-    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+    apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
   });
 }
 
@@ -175,19 +188,18 @@ watch(
     mobile
     floating
     width="500"
+    location="left"
     v-model="activePlatformInfoDrawer"
     :class="{
-      'mx-2 px-1': activePlatformInfoDrawer,
+      'ml-2': activePlatformInfoDrawer,
       'drawer-mobile': smAndDown && activePlatformInfoDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
-    <v-row no-gutters class="justify-center align-center pa-4">
+    <v-row no-gutters class="justify-center align-center pa-2">
       <v-col cols="12">
         <div class="text-center justify-center align-center">
-          <div class="position-absolute append-top-right">
+          <div class="position-absolute append-top-right mr-5">
             <template v-if="auth.scopes.includes('platforms.write')">
               <v-btn
                 v-if="!isEditable"
@@ -195,6 +207,7 @@ watch(
                 class="bg-toplayer"
                 @click="showEditable"
                 size="small"
+                :tabindex="tabIndex"
               >
                 <template #loader>
                   <v-progress-circular
@@ -207,13 +220,18 @@ watch(
                 <v-icon>mdi-pencil</v-icon></v-btn
               >
               <template v-else>
-                <v-btn @click="closeEditable" size="small" class="bg-toplayer"
+                <v-btn
+                  @click="closeEditable"
+                  size="small"
+                  class="bg-toplayer"
+                  :tabindex="tabIndex"
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
-                  @click="updatePlatform()"
+                  @click="updatePlatform"
                   size="small"
                   class="bg-toplayer ml-1"
+                  :tabindex="tabIndex"
                   ><v-icon color="romm-green">mdi-check</v-icon></v-btn
                 >
               </template>
@@ -242,15 +260,19 @@ watch(
               density="compact"
               v-model="updatedPlatform.display_name"
               :readonly="!isEditable"
-              @keyup.enter="updatePlatform()"
+              @keyup.enter="updatePlatform"
+              :tabindex="tabIndex"
             />
           </div>
           <div class="mt-6">
             <v-btn
               class="bg-toplayer my-1"
+              :tabindex="tabIndex"
               @click="emitter?.emit('showUploadRomDialog', currentPlatform)"
             >
-              <v-icon class="text-romm-green mr-2">mdi-upload</v-icon>
+              <v-icon class="text-romm-green mr-2"
+                >mdi-cloud-upload-outline</v-icon
+              >
               {{ t("platform.upload-roms") }}
             </v-btn>
             <v-btn
@@ -258,6 +280,7 @@ watch(
               rounded="4"
               :loading="scanning"
               @click="scan"
+              :tabindex="tabIndex"
               class="ml-2 my-1 bg-toplayer"
             >
               <template #prepend>
@@ -278,11 +301,7 @@ watch(
           </div>
         </div>
         <v-row
-          v-if="
-            currentPlatform.igdb_id ||
-            currentPlatform.moby_id ||
-            currentPlatform.ss_id
-          "
+          v-if="currentPlatform.is_identified"
           class="text-white text-shadow mt-2 text-center"
           no-gutters
         >
@@ -290,8 +309,9 @@ watch(
             <a
               v-if="currentPlatform.igdb_id"
               style="text-decoration: none; color: inherit"
-              :href="`https://www.igdb.com/platforms/${currentPlatform.slug}`"
+              :href="`https://www.igdb.com/platforms/${currentPlatform.igdb_slug}`"
               target="_blank"
+              :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
@@ -301,10 +321,30 @@ watch(
               </v-chip>
             </a>
             <a
-              v-if="currentPlatform.moby_id"
+              v-if="currentPlatform.ss_id"
               style="text-decoration: none; color: inherit"
+              :href="`https://www.screenscraper.fr/gamesinfos.php?plateforme=${currentPlatform.ss_id}`"
               target="_blank"
-              :class="{ 'ml-1': currentPlatform.igdb_id }"
+              class="ml-1"
+              :tabindex="tabIndex"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar class="mr-2" size="30" rounded="0">
+                  <v-img
+                    src="/assets/scrappers/ss.png"
+                    style="margin-left: -2px"
+                  />
+                </v-avatar>
+                <span>{{ currentPlatform.ss_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.moby_slug"
+              style="text-decoration: none; color: inherit"
+              :href="`https://www.mobygames.com/platform/${currentPlatform.moby_slug}`"
+              target="_blank"
+              class="ml-1"
+              :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
@@ -314,40 +354,73 @@ watch(
               </v-chip>
             </a>
             <a
-              v-if="currentPlatform.ss_id"
+              v-if="currentPlatform.ra_id"
               style="text-decoration: none; color: inherit"
-              :href="`https://www.screenscraper.fr/systemeinfos.php?plateforme=${currentPlatform.ss_id}`"
+              :href="`https://retroachievements.org/system/${currentPlatform.ra_id}/games`"
               target="_blank"
-              :class="{
-                'ml-1': currentPlatform.igdb_id || currentPlatform.moby_id,
-              }"
+              class="ml-1"
+              :tabindex="tabIndex"
             >
               <v-chip class="pl-0 mt-1" size="small" @click.stop>
                 <v-avatar class="mr-2" size="30" rounded="0">
-                  <v-img src="/assets/scrappers/ss.png" />
+                  <v-img
+                    src="/assets/scrappers/ra.png"
+                    style="margin-left: -2px"
+                  />
                 </v-avatar>
-                <span>{{ currentPlatform.ss_id }}</span>
+                <span>{{ currentPlatform.ra_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.launchbox_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://gamesdb.launchbox-app.com/platforms/games/${currentPlatform.launchbox_id}`"
+              target="_blank"
+              class="ml-1"
+              :tabindex="tabIndex"
+            >
+              <v-chip class="pl-0 mt-1" size="small" @click.stop>
+                <v-avatar
+                  class="mr-2"
+                  size="25"
+                  rounded="0"
+                  style="background: #185a7c"
+                >
+                  <v-img src="/assets/scrappers/launchbox.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.launchbox_id }}</span>
+              </v-chip>
+            </a>
+            <a
+              v-if="currentPlatform.hasheous_id"
+              style="text-decoration: none; color: inherit"
+              :href="`https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id=${currentPlatform.hasheous_id}`"
+              target="_blank"
+              class="ml-1"
+              :tabindex="tabIndex"
+            >
+              <v-chip
+                class="pl-0 mt-1"
+                size="small"
+                @click.stop
+                title="Hasheous ID"
+              >
+                <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
+                  <v-img src="/assets/scrappers/hasheous.png" />
+                </v-avatar>
+                <span>{{ currentPlatform.hasheous_id }}</span>
               </v-chip>
             </a>
           </v-col>
         </v-row>
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
-          <v-card-text class="pa-4">
-            <template
-              v-for="(field, index) in platformInfoFields"
-              :key="field.key"
-            >
-              <div :class="{ 'mt-4': index !== 0 }">
-                <v-chip size="small" class="mr-2 px-0" label>
-                  <v-chip label>{{ field.label }}</v-chip
-                  ><span class="px-2">{{
-                    currentPlatform[
-                      field.key as keyof typeof currentPlatform
-                    ]?.toString()
-                      ? currentPlatform[
-                          field.key as keyof typeof currentPlatform
-                        ]
-                      : "N/A"
+          <v-card-text class="pa-4 d-flex flex-wrap ga-2">
+            <template v-for="field in PLATFORM_INFO_FIELDS" :key="field.key">
+              <div>
+                <v-chip size="small" class="px-0" label>
+                  <v-chip :tabindex="tabIndex" label>{{ field.label }}</v-chip>
+                  <span class="px-2">{{
+                    field.format(currentPlatform[field.key]) || "N/A"
                   }}</span>
                 </v-chip>
               </div>
@@ -363,6 +436,7 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mx-2"
     >
       <template #content>
         <v-chip
@@ -370,10 +444,12 @@ watch(
           variant="text"
           class="ml-2 mt-2"
           prepend-icon="mdi-aspect-ratio"
+          :tabindex="tabIndex"
           >{{ t("platform.cover-style") }}</v-chip
         >
         <v-divider class="border-opacity-25 mx-2" />
         <v-item-group
+          :tabindex="tabIndex"
           v-model="selectedAspectRatio"
           mandatory
           @update:model-value="setAspectRatio"
@@ -382,7 +458,11 @@ watch(
             no-gutters
             class="text-center justify-center align-center pa-2"
           >
-            <v-col class="pa-2" v-for="aspectRatio in aspectRatioOptions">
+            <v-col
+              cols="6"
+              class="pa-2"
+              v-for="aspectRatio in aspectRatioOptions"
+            >
               <v-item v-slot="{ isSelected, toggle }">
                 <v-card
                   :color="isSelected ? 'primary' : 'romm-gray'"
@@ -422,10 +502,12 @@ watch(
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mt-2 mx-2"
     >
       <template #content>
         <div class="text-center">
           <v-btn
+            :tabindex="tabIndex"
             class="text-romm-red bg-toplayer ma-2"
             variant="flat"
             @click="emitter?.emit('showDeletePlatformDialog', currentPlatform)"
@@ -448,15 +530,5 @@ watch(
 }
 .platform-icon {
   filter: drop-shadow(0px 0px 1px rgba(var(--v-theme-primary)));
-}
-.greyscale {
-  filter: grayscale(100%);
-}
-.drawer-desktop {
-  top: 56px !important;
-}
-.drawer-mobile {
-  top: 110px !important;
-  width: calc(100% - 16px) !important;
 }
 </style>

@@ -1,23 +1,24 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Final
 
-from config import DISABLE_USERPASS_LOGIN, OIDC_ENABLED, OIDC_REDIRECT_URI
+from config import OIDC_ENABLED, OIDC_REDIRECT_URI
 from decorators.auth import oauth
 from endpoints.forms.identity import OAuth2RequestForm
-from endpoints.responses import MessageResponse
 from endpoints.responses.oauth import TokenResponse
 from exceptions.auth_exceptions import (
     AuthCredentialsException,
     OIDCDisabledException,
     OIDCNotConfiguredException,
     UserDisabledException,
-    UserPassDisabledException,
 )
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Body, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from fastapi.security.http import HTTPBasic
 from handler.auth import auth_handler, oauth_handler, oidc_handler
 from handler.database import db_user_handler
+from logger.formatter import CYAN
+from logger.formatter import highlight as hl
+from logger.logger import log
 from utils.router import APIRouter
 
 ACCESS_TOKEN_EXPIRE_MINUTES: Final = 30
@@ -33,7 +34,7 @@ router = APIRouter(
 def login(
     request: Request,
     credentials=Depends(HTTPBasic()),  # noqa
-) -> MessageResponse:
+) -> None:
     """Session login endpoint
 
     Args:
@@ -43,13 +44,7 @@ def login(
     Raises:
         CredentialsException: Invalid credentials
         UserDisabledException: Auth is disabled
-
-    Returns:
-        MessageResponse: Standard message response
     """
-
-    if DISABLE_USERPASS_LOGIN:
-        raise UserPassDisabledException
 
     user = auth_handler.authenticate_user(credentials.username, credentials.password)
     if not user:
@@ -64,23 +59,16 @@ def login(
     now = datetime.now(timezone.utc)
     db_user_handler.update_user(user.id, {"last_login": now, "last_active": now})
 
-    return {"msg": "Successfully logged in"}
 
-
-@router.post("/logout")
-def logout(request: Request) -> MessageResponse:
+@router.post("/logout", status_code=status.HTTP_200_OK)
+def logout(request: Request) -> None:
     """Session logout endpoint
 
     Args:
         request (Request): Fastapi Request object
-
-    Returns:
-        MessageResponse: Standard message response
     """
 
     request.session.clear()
-
-    return {"msg": "Successfully logged out"}
 
 
 @router.post("/token")
@@ -256,8 +244,6 @@ async def auth_openid(request: Request):
     potential_user, _userinfo = (
         await oidc_handler.get_current_active_user_from_openid_token(token)
     )
-    if not potential_user:
-        raise AuthCredentialsException
 
     if not potential_user:
         raise AuthCredentialsException
@@ -274,3 +260,45 @@ async def auth_openid(request: Request):
     )
 
     return RedirectResponse(url="/")
+
+
+@router.post("/forgot-password", status_code=status.HTTP_200_OK)
+def request_password_reset(username: str = Body(..., embed=True)) -> None:
+    """Request a password reset link for the user.
+
+    Args:
+        username (str): Username of the user requesting the reset
+    Returns:
+        None: Returns 200 OK status
+    """
+    user = db_user_handler.get_user_by_username(username)
+
+    if user:
+        auth_handler.generate_password_reset_token(user)
+    else:
+        log.warning(
+            f"Reset password link requested for a user {hl(username, color=CYAN)}, but that username does not exist."
+        )
+
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+def reset_password(
+    token: str = Body(..., embed=True),
+    new_password: str = Body(..., embed=True),
+) -> None:
+    """Reset password using the token.
+
+    Args:
+        token (str): Reset token from the URL
+        new_password (str): New user password
+
+    Returns:
+        None: Returns 200 OK status
+    """
+    user = auth_handler.verify_password_reset_token(token)
+
+    auth_handler.set_user_new_password(user, new_password)
+
+    log.info(
+        f"Password was successfully reset for user {hl(user.username, color=CYAN)}."
+    )

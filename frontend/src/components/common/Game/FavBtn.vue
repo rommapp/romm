@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import collectionApi, {
-  type UpdatedCollection,
-} from "@/services/api/collection";
+import collectionApi from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
@@ -11,24 +9,22 @@ import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject } from "vue";
 
-// Props
 const props = defineProps<{ rom: SimpleRom }>();
 const romsStore = storeRoms();
 const collectionsStore = storeCollections();
-const { favCollection } = storeToRefs(collectionsStore);
+const { favoriteCollection } = storeToRefs(collectionsStore);
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 
-// Functions
 async function switchFromFavourites() {
-  if (!favCollection.value) {
+  if (!favoriteCollection.value) {
     await collectionApi
       .createCollection({
-        collection: { name: "Favourites" } as UpdatedCollection,
+        collection: { name: "Favourites" },
       })
       .then(({ data }) => {
-        collectionsStore.add(data);
-        favCollection.value = data;
+        collectionsStore.addCollection(data);
+        favoriteCollection.value = data;
         emitter?.emit("snackbarShow", {
           msg: `Collection ${data.name} created successfully!`,
           icon: "mdi-check-bold",
@@ -46,31 +42,30 @@ async function switchFromFavourites() {
         return;
       });
   }
-  if (!collectionsStore.isFav(props.rom)) {
-    favCollection.value?.rom_ids.push(props.rom.id);
+  if (!collectionsStore.isFavorite(props.rom)) {
+    favoriteCollection.value?.rom_ids.push(props.rom.id);
   } else {
-    if (favCollection.value) {
-      favCollection.value.rom_ids = favCollection.value.rom_ids.filter(
-        (id) => id !== props.rom.id,
-      );
+    if (favoriteCollection.value) {
+      favoriteCollection.value.rom_ids =
+        favoriteCollection.value.rom_ids.filter((id) => id !== props.rom.id);
       if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
         romsStore.remove([props.rom]);
       }
     }
   }
   await collectionApi
-    .updateCollection({ collection: favCollection.value as Collection })
+    .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: `${props.rom.name} ${
-          collectionsStore.isFav(props.rom) ? "added to" : "removed from"
-        } ${favCollection.value?.name} successfully!`,
+          collectionsStore.isFavorite(props.rom) ? "added to" : "removed from"
+        } ${favoriteCollection.value?.name} successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
-      favCollection.value = data;
-      collectionsStore.update(data);
+      favoriteCollection.value = data;
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       console.log(error);
@@ -96,7 +91,7 @@ async function switchFromFavourites() {
     size="small"
     variant="text"
     ><v-icon color="primary">{{
-      collectionsStore.isFav(rom) ? "mdi-star" : "mdi-star-outline"
+      collectionsStore.isFavorite(rom) ? "mdi-star" : "mdi-star-outline"
     }}</v-icon></v-btn
   >
 </template>

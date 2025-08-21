@@ -1,49 +1,52 @@
 import type { PlatformSchema } from "@/__generated__";
-import { normalizeString, romStatusMap } from "@/utils";
+import { romStatusMap } from "@/utils";
 import { defineStore } from "pinia";
 
 export type Platform = PlatformSchema;
 
-const filters = [
-  "genres",
-  "franchises",
-  "meta_collections",
-  "companies",
-  "age_ratings",
-  "status",
-] as const;
-
-const statusFilters = Object.values(romStatusMap).map((status) => status.text);
-
-export type FilterType = (typeof filters)[number];
+export type FilterType =
+  | "genre"
+  | "franchise"
+  | "collection"
+  | "company"
+  | "ageRating"
+  | "status"
+  | "region"
+  | "language";
 
 const defaultFilterState = {
   activeFilterDrawer: false,
-  searchText: "",
-  filterText: "",
-  filters: filters,
+  searchTerm: null as string | null,
   filterPlatforms: [] as Platform[],
   filterGenres: [] as string[],
   filterFranchises: [] as string[],
   filterCollections: [] as string[],
   filterCompanies: [] as string[],
   filterAgeRatings: [] as string[],
-  filterStatuses: statusFilters,
+  filterRegions: [] as string[],
+  filterLanguages: [] as string[],
+  filterStatuses: Object.values(romStatusMap).map((status) => status.text),
   filterUnmatched: false,
   filterMatched: false,
   filterFavourites: false,
   filterDuplicates: false,
+  filterPlayables: false,
+  filterRA: false,
+  filterMissing: false,
+  filterVerified: false,
   selectedPlatform: null as Platform | null,
   selectedGenre: null as string | null,
   selectedFranchise: null as string | null,
   selectedCollection: null as string | null,
   selectedCompany: null as string | null,
   selectedAgeRating: null as string | null,
+  selectedRegion: null as string | null,
+  selectedLanguage: null as string | null,
   selectedStatus: null as string | null,
 };
 
 export default defineStore("galleryFilter", {
-  state: () => defaultFilterState,
+  state: () => ({ ...defaultFilterState }),
 
   actions: {
     switchActiveFilterDrawer() {
@@ -67,6 +70,12 @@ export default defineStore("galleryFilter", {
     setFilterAgeRatings(ageRatings: string[]) {
       this.filterAgeRatings = ageRatings;
     },
+    setFilterRegions(regions: string[]) {
+      this.filterRegions = regions;
+    },
+    setFilterLanguages(languages: string[]) {
+      this.filterLanguages = languages;
+    },
     setSelectedFilterPlatform(platform: Platform) {
       this.selectedPlatform = platform
         ? this.filterPlatforms.find((p) => p.id === platform.id) || null
@@ -87,53 +96,109 @@ export default defineStore("galleryFilter", {
     setSelectedFilterAgeRating(ageRating: string) {
       this.selectedAgeRating = ageRating;
     },
+    setSelectedFilterRegion(region: string) {
+      this.selectedRegion = region;
+    },
+    setSelectedFilterLanguage(language: string) {
+      this.selectedLanguage = language;
+    },
     setSelectedFilterStatus(status: string) {
       this.selectedStatus = status;
+    },
+    setFilterUnmatched(value: boolean) {
+      this.filterUnmatched = value;
+      this.filterMatched = false;
     },
     switchFilterUnmatched() {
       this.filterUnmatched = !this.filterUnmatched;
       this.filterMatched = false;
     },
-    disableFilterUnmatched() {
+    setFilterMatched(value: boolean) {
+      this.filterMatched = value;
       this.filterUnmatched = false;
     },
     switchFilterMatched() {
       this.filterMatched = !this.filterMatched;
       this.filterUnmatched = false;
     },
-    disableFilterMatched() {
-      this.filterMatched = false;
+    setFilterFavourites(value: boolean) {
+      this.filterFavourites = value;
     },
     switchFilterFavourites() {
       this.filterFavourites = !this.filterFavourites;
     },
-    disableFilterFavourites() {
-      this.filterFavourites = false;
+    setFilterDuplicates(value: boolean) {
+      this.filterDuplicates = value;
     },
     switchFilterDuplicates() {
       this.filterDuplicates = !this.filterDuplicates;
     },
-    disableFilterDuplicates() {
-      this.filterDuplicates = false;
+    setFilterPlayables(value: boolean) {
+      this.filterPlayables = value;
+    },
+    switchFilterPlayables() {
+      this.filterPlayables = !this.filterPlayables;
+    },
+    setFilterRA(value: boolean) {
+      this.filterRA = value;
+    },
+    switchFilterRA() {
+      this.filterRA = !this.filterRA;
+    },
+    setFilterMissing(value: boolean) {
+      this.filterMissing = value;
+    },
+    switchFilterMissing() {
+      this.filterMissing = !this.filterMissing;
+    },
+    setFilterVerified(value: boolean) {
+      this.filterVerified = value;
+    },
+    switchFilterVerified() {
+      this.filterVerified = !this.filterVerified;
     },
     isFiltered() {
       return Boolean(
-        normalizeString(this.filterText).trim() != "" ||
-          this.filterUnmatched ||
+        this.filterUnmatched ||
           this.filterMatched ||
           this.filterFavourites ||
           this.filterDuplicates ||
+          this.filterPlayables ||
+          this.filterRA ||
+          this.filterMissing ||
+          this.filterVerified ||
           this.selectedPlatform ||
           this.selectedGenre ||
           this.selectedFranchise ||
           this.selectedCollection ||
           this.selectedCompany ||
           this.selectedAgeRating ||
+          this.selectedRegion ||
+          this.selectedLanguage ||
           this.selectedStatus,
       );
     },
     reset() {
-      Object.assign(this, defaultFilterState);
+      Object.assign(this, { ...defaultFilterState });
+    },
+    resetFilters() {
+      this.selectedPlatform = null;
+      this.selectedGenre = null;
+      this.selectedFranchise = null;
+      this.selectedCollection = null;
+      this.selectedCompany = null;
+      this.selectedAgeRating = null;
+      this.selectedRegion = null;
+      this.selectedLanguage = null;
+      this.selectedStatus = null;
+      this.filterUnmatched = false;
+      this.filterMatched = false;
+      this.filterFavourites = false;
+      this.filterDuplicates = false;
+      this.filterPlayables = false;
+      this.filterRA = false;
+      this.filterMissing = false;
+      this.filterVerified = false;
     },
   },
 });

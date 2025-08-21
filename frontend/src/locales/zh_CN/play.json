@@ -1,7 +1,20 @@
 {
+  "back-to-gallery": "返回游戏库",
+  "back-to-game-details": "返回游戏详情",
+  "clear-cache": "清除 EmulatorJS 缓存",
+  "clear-cache-description": "这不会影响服务器上存储的任何保存或状态。",
+  "clear-cache-title": "您确定要清除 EmulatorJS 缓存吗？",
+  "clear-cache-warning": "这将删除浏览器中存储的所有保存和状态。",
   "full-screen": "全屏",
   "play": "游玩",
-  "reset-session": "重置会话",
-  "back-to-game-details": "返回游戏详情",
-  "back-to-gallery": "返回游戏库"
+  "quit": "退出",
+  "save-and-quit": "保存并退出",
+  "select-save": "选择存档",
+  "change-save": "更改存档",
+  "deselect-save": "取消选择存档",
+  "select-state": "选择状态",
+  "change-state": "更改状态",
+  "deselect-state": "取消选择状态",
+  "background-color": "背景颜色",
+  "select-background-color": "选择背景颜色"
 }

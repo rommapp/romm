@@ -7,7 +7,6 @@ import { computed, ref } from "vue";
 import { useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const theme = useTheme();
 const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
@@ -26,7 +25,7 @@ const themeOptions = computed(() => [
     icon: "mdi-theme-light-dark",
   },
 ]);
-// Functions
+
 function toggleTheme() {
   localStorage.setItem("settings.theme", selectedTheme.value.toString());
   const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
@@ -38,7 +37,7 @@ function toggleTheme() {
 }
 </script>
 <template>
-  <r-section icon="mdi-brush-variant" :title="t('settings.theme')">
+  <r-section icon="mdi-brush-variant" :title="t('settings.theme')" class="ma-2">
     <template #content>
       <v-item-group
         v-model="selectedTheme"

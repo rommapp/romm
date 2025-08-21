@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from decorators.database import begin_session
 from models.firmware import Firmware
@@ -29,11 +29,12 @@ class DBFirmwareHandler(DBBaseHandler):
         platform_id: int | None = None,
         session: Session = None,
     ) -> Sequence[Firmware]:
-        return session.scalars(
-            select(Firmware)
-            .filter_by(platform_id=platform_id)
-            .order_by(Firmware.file_name.asc())
-        ).all()
+        query = select(Firmware).order_by(Firmware.file_name.asc())
+
+        if platform_id:
+            query = query.filter_by(platform_id=platform_id)
+
+        return session.scalars(query).all()
 
     @begin_session
     def get_firmware_by_filename(
@@ -64,10 +65,10 @@ class DBFirmwareHandler(DBBaseHandler):
         )
 
     @begin_session
-    def purge_firmware(
+    def mark_missing_firmware(
         self, platform_id: int, fs_firmwares_to_keep: list[str], session: Session = None
     ) -> Sequence[Firmware]:
-        purged_firmware = (
+        missing_firmware = (
             session.scalars(
                 select(Firmware)
                 .order_by(Firmware.file_name.asc())
@@ -82,13 +83,14 @@ class DBFirmwareHandler(DBBaseHandler):
             .all()
         )
         session.execute(
-            delete(Firmware)
+            update(Firmware)
             .where(
                 and_(
                     Firmware.platform_id == platform_id,
                     Firmware.file_name.not_in(fs_firmwares_to_keep),
                 )
             )
+            .values(**{"missing_from_fs": True})
             .execution_options(synchronize_session="evaluate")
         )
-        return purged_firmware
+        return missing_firmware

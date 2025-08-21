@@ -1,17 +1,20 @@
 ::-webkit-scrollbar {
-  width: 2px;
-  height: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 12px; /* More rounded */
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: 12px; /* More rounded */
 }
 ::-webkit-scrollbar-thumb {
-  background-color: rgba(164, 82, 254, 0.35);
-  border-radius: 1px;
+  background-color: #a452fe59 transparent;
+  border-radius: 12px; /* More rounded */
   border: transparent;
 }
 
-/* * {
+/* For Firefox */
+* {
   scrollbar-width: thin;
-  scrollbar-color: #202832 rgba(0, 0, 0, 0);
-} */
+  scrollbar-color: #a452fe59 transparent;
+}

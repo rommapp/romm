@@ -15,7 +15,6 @@ import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { xs, mdAndUp, smAndUp } = useDisplay();
 const show = ref(false);
@@ -127,7 +126,7 @@ async function uploadRoms() {
         socket.emit("scan", {
           platforms: [platformId],
           type: "quick",
-          apis: heartbeat.getMetadataOptions().map((s) => s.value),
+          apis: heartbeat.getEnabledMetadataOptions().map((s) => s.value),
         });
       }, 2000);
     })
@@ -165,7 +164,7 @@ function closeDialog() {
   <r-dialog
     @close="closeDialog"
     v-model="show"
-    icon="mdi-upload"
+    icon="mdi-cloud-upload-outline"
     :width="mdAndUp ? '50vw' : '95vw'"
     scroll-content
   >
@@ -220,6 +219,7 @@ function closeDialog() {
             icon=""
             class="text-primary bg-toplayer"
             variant="text"
+            rounded="0"
             @click="triggerFileInput"
           >
             <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
@@ -275,7 +275,8 @@ function closeDialog() {
       </v-data-table-virtual>
     </template>
     <template #append>
-      <v-row class="justify-center mb-2" no-gutters>
+      <v-divider />
+      <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">{{
             t("common.cancel")

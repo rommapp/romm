@@ -3,7 +3,6 @@ import storeGalleryView from "@/stores/galleryView";
 import { views } from "@/utils";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const galleryView = storeGalleryView();
 </script>
@@ -23,6 +22,7 @@ const galleryView = storeGalleryView();
         rounded="0"
         class="mr-0"
         :icon="views[galleryView.currentView]['icon']"
-        @click="galleryView.next()" /></template
+        aria-label="Change view"
+        @click="galleryView.next" /></template
   ></v-tooltip>
 </template>

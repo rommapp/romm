@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, FRONTEND_RESOURCES_PATH
 from decorators.auth import protected_route
@@ -17,7 +17,7 @@ from fastapi import Request
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
-from handler.metadata.base_hander import SWITCH_TITLEDB_REGEX
+from handler.metadata.base_hander import SWITCH_PRODUCT_ID_REGEX, SWITCH_TITLEDB_REGEX
 from models.rom import Rom
 from starlette.datastructures import URLPath
 from utils.router import APIRouter
@@ -51,7 +51,8 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
             continue
 
         category_items = []
-        for rom in db_rom_handler.get_roms(platform_id=p.id):
+        roms = db_rom_handler.get_roms_scalar(platform_id=p.id)
+        for rom in roms:
             category_item = WebrcadeFeedItemSchema(
                 title=rom.name or "",
                 description=rom.summary or "",
@@ -102,7 +103,7 @@ def platforms_webrcade_feed(request: Request) -> WebrcadeFeedSchema:
         title="RomM Feed",
         longTitle="Custom RomM Feed",
         description="Custom feed from your RomM library",
-        thumbnail="https://raw.githubusercontent.com/rommapp/romm/f2dd425d87ad8e21bf47f8258ae5dcf90f56fbc2/frontend/assets/isotipo.svg",
+        thumbnail="https://raw.githubusercontent.com/rommapp/romm/release/.github/resources/isotipo.svg",
         background="https://raw.githubusercontent.com/rommapp/romm/release/.github/resources/screenshots/gallery.png",
         categories=categories,
     )
@@ -134,17 +135,37 @@ async def tinfoil_index_feed(
             error="Nintendo Switch platform not found",
         )
 
-    roms = db_rom_handler.get_roms(platform_id=switch.id)
-
     async def extract_titledb(
         roms: Sequence[Rom],
     ) -> dict[str, TinfoilFeedTitleDBSchema]:
         titledb = {}
         for rom in roms:
-            match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
-            if match:
+            tdb_match = SWITCH_TITLEDB_REGEX.search(rom.fs_name)
+            pid_match = SWITCH_PRODUCT_ID_REGEX.search(rom.fs_name)
+            if tdb_match:
                 _search_term, index_entry = (
-                    await meta_igdb_handler._switch_titledb_format(match, rom.fs_name)
+                    await meta_igdb_handler._switch_titledb_format(
+                        tdb_match, rom.fs_name
+                    )
+                )
+                if index_entry:
+                    titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
+                        id=str(index_entry["nsuId"]),
+                        name=index_entry["name"],
+                        description=index_entry["description"],
+                        size=index_entry["size"],
+                        version=index_entry["version"] or 0,
+                        region=index_entry["region"] or "US",
+                        releaseDate=index_entry["releaseDate"] or 19700101,
+                        rating=index_entry["rating"] or 0,
+                        publisher=index_entry["publisher"] or "",
+                        rank=0,
+                    )
+            elif pid_match:
+                _search_term, index_entry = (
+                    await meta_igdb_handler._switch_productid_format(
+                        pid_match, rom.fs_name
+                    )
                 )
                 if index_entry:
                     titledb[str(index_entry["nsuId"])] = TinfoilFeedTitleDBSchema(
@@ -162,15 +183,23 @@ async def tinfoil_index_feed(
 
         return titledb
 
+    roms = db_rom_handler.get_roms_scalar(platform_id=switch.id)
+
     return TinfoilFeedSchema(
         files=[
             TinfoilFeedFileSchema(
                 url=str(
-                    request.url_for("get_rom_content", id=rom.id, file_name=rom.fs_name)
+                    request.url_for(
+                        "get_romfile_content",
+                        id=rom_file.id,
+                        file_name=rom_file.file_name,
+                    )
                 ),
-                size=rom.fs_size_bytes,
+                size=rom_file.file_size_bytes,
             )
             for rom in roms
+            for rom_file in rom.files
+            if rom_file.file_extension in ["xci", "nsp", "nsz", "xcz", "nro"]
         ],
         directories=[],
         success="RomM Switch Library",

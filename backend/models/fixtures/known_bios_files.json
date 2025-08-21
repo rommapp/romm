@@ -419,43 +419,43 @@
     "md5": "279efd1eae0d358eecd4edc7d9adedf3",
     "sha1": "7aec0134ad6a5177f4056fcb6047083e8e00529b"
   },
-  "turbografx16--1:gecard.pce": {
+  "tg16:gecard.pce": {
     "size": "32768",
     "crc": "51a12d90",
     "md5": "6d2cb14fc3e1f65ceb135633d1694122",
     "sha1": "014881a959e045e00f4db8f52955200865d40280"
   },
-  "turbografx16--1:gexpress.pce": {
+  "tg16:gexpress.pce": {
     "size": "32768",
     "crc": "51a12d90",
     "md5": "6d2cb14fc3e1f65ceb135633d1694122",
     "sha1": "014881a959e045e00f4db8f52955200865d40280"
   },
-  "turbografx16--1:syscard1.pce": {
+  "tg16:syscard1.pce": {
     "size": "262144",
     "crc": "3f9f95a4",
     "md5": "2b7ccb3d86baa18f6402c176f3065082",
     "sha1": "a39a66da7de6ba94ab84d04eef7afeec7d4ee66a"
   },
-  "turbografx16--1:syscard2.pce": {
+  "tg16:syscard2.pce": {
     "size": "262144",
     "crc": "283b74e0",
     "md5": "3cdd6614a918616bfc41c862e889dd79",
     "sha1": "88da02e2503f7c32810f5d93a34849d470742b6d"
   },
-  "turbografx16--1:syscard2u.pce": {
+  "tg16:syscard2u.pce": {
     "size": "262144",
     "crc": "ff2a5ec3",
     "md5": "94279f315e8b52904f65ab3108542afe",
     "sha1": "2bea3dac98f84b2f2f469fa77ea720b8770d598d"
   },
-  "turbografx16--1:syscard3.pce": {
+  "tg16:syscard3.pce": {
     "size": "262144",
     "crc": "6d9a73ef",
     "md5": "38179df8f4ac870017db21ebcbf53114",
     "sha1": "79f5ff55dd10187c7fd7b8daab0b3ffbd1f56a2c"
   },
-  "turbografx16--1:syscard3u.pce": {
+  "tg16:syscard3u.pce": {
     "size": "262144",
     "crc": "2b5b75fe",
     "md5": "0754f903b52e3b3342202bdafb13efa5",
@@ -959,37 +959,37 @@
     "md5": "2efd74e3232ff260e371b99f84024f7f",
     "sha1": "f4f315adcef9b8feb0364c21ab7f0eaf5457f3ed"
   },
-  "genesis-slash-megadrive:areplay.bin": {
+  "genesis:areplay.bin": {
     "size": "32768",
     "crc": "95ff7c3e",
     "md5": "a0028b3043f9d59ceeb03da5b073b30d",
     "sha1": "1e0f246826be4ebc7b99bb3f9de7f1de347122e5"
   },
-  "genesis-slash-megadrive:bios_MD.bin": {
+  "genesis:bios_MD.bin": {
     "size": "2048",
     "crc": "3f888cf4",
     "md5": "d3293ebaaa7f4eb2a6766b68a0fb4609",
     "sha1": "3f50b76b0529db7f79c396b5e808cc0786ffc311"
   },
-  "genesis-slash-megadrive:ggenie.bin": {
+  "genesis:ggenie.bin": {
     "size": "32768",
     "crc": "14dbce4a",
     "md5": "e8af7fe115a75c849f6aab3701e7799b",
     "sha1": "937e1878ebd104f489e6bdbc410a184f79f1144a"
   },
-  "genesis-slash-megadrive:rom.db": {
+  "genesis:rom.db": {
     "size": "17742",
     "crc": "c94e8c8b",
     "md5": "ff4a3572475236e859e3e9ac5c87d1f1",
     "sha1": "02c287d10da6de579af7a4ce73b134bbdf23c970"
   },
-  "genesis-slash-megadrive:sk.bin": {
+  "genesis:sk.bin": {
     "size": "2097152",
     "crc": "0658f691",
     "md5": "4ea493ea4e9f6c9ebfccbdb15110367e",
     "sha1": "88d6499d874dcb5721ff58d76fe1b9af811192e3"
   },
-  "genesis-slash-megadrive:sk2chip.bin": {
+  "genesis:sk2chip.bin": {
     "size": "262144",
     "crc": "4dcfd55c",
     "md5": "b4e76e416b887f4e7413ba76fa735f16",

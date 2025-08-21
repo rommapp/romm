@@ -3,7 +3,6 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
 const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
@@ -24,7 +23,14 @@ const { activeFilterDrawer } = storeToRefs(galleryFilterStore);
         rounded="0"
         v-bind="props"
         icon="mdi-filter-variant"
-        :color="activeFilterDrawer ? 'primary' : ''"
-        @click="galleryFilterStore.switchActiveFilterDrawer()" /></template
+        :color="
+          activeFilterDrawer
+            ? 'primary'
+            : galleryFilterStore.isFiltered()
+              ? 'secondary'
+              : ''
+        "
+        aria-label="Filter"
+        @click="galleryFilterStore.switchActiveFilterDrawer" /></template
   ></v-tooltip>
 </template>

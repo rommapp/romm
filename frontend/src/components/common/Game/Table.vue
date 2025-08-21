@@ -3,11 +3,13 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import romApi from "@/services/api/rom";
 import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeAuth from "@/stores/auth";
+import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   formatBytes,
@@ -19,10 +21,9 @@ import {
 import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { useRouter } from "vue-router";
 
-// Props
 withDefaults(
   defineProps<{
     showPlatformIcon?: boolean;
@@ -37,11 +38,13 @@ const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();
-const { filteredRoms, selectedRoms } = storeToRefs(romsStore);
+const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
+  storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const auth = storeAuth();
+const galleryFilterStore = storeGalleryFilter();
 
 const HEADERS = [
   {
@@ -96,7 +99,6 @@ const HEADERS = [
 
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
-// Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
   romsStore.resetSelection();
@@ -133,12 +135,26 @@ function updateSelectedRom(rom: SimpleRom) {
     romsStore.addToSelection(rom);
   }
 }
+
+type SortBy = { key: keyof SimpleRom; order: "asc" | "desc" }[];
+
+function updateOptions({ sortBy }: { sortBy: SortBy }) {
+  if (!sortBy[0]) return;
+  const { key, order } = sortBy[0];
+
+  romsStore.resetPagination();
+  romsStore.setOrderBy(key);
+  romsStore.setOrderDir(order);
+  romsStore.fetchRoms({ galleryFilter: galleryFilterStore });
+}
 </script>
 
 <template>
   <v-data-table-virtual
+    @update:options="updateOptions"
     @click:row="rowClick"
-    :item-value="(item: SimpleRom) => item"
+    :items-per-page="72"
+    :items-length="fetchTotalRoms"
     :items="filteredRoms"
     :headers="HEADERS"
     v-model="selectedRomIDs"
@@ -146,8 +162,11 @@ function updateSelectedRom(rom: SimpleRom) {
     fixed-header
     fixed-footer
     hide-default-footer
+    :loading="fetchingRoms"
+    :disable-sort="fetchingRoms"
     hover
-    class="rounded"
+    density="compact"
+    class="rounded bg-background"
   >
     <template #header.data-table-select>
       <v-checkbox-btn
@@ -168,17 +187,14 @@ function updateSelectedRom(rom: SimpleRom) {
       />
     </template>
     <template #item.name="{ item }">
-      <v-list-item
-        :min-width="400"
-        class="px-0 py-2"
-        :to="{ name: ROUTES.ROM, params: { rom: item.id } }"
-      >
+      <v-list-item :min-width="400" class="px-0 py-2">
         <template #prepend>
           <platform-icon
+            v-if="showPlatformIcon"
             class="mr-4"
             :size="30"
-            v-if="showPlatformIcon"
             :slug="item.platform_slug"
+            :fs-slug="item.platform_fs_slug"
           />
           <r-avatar-rom :rom="item" />
         </template>
@@ -191,12 +207,28 @@ function updateSelectedRom(rom: SimpleRom) {
           </v-col>
         </v-row>
         <template #append>
+          <missing-from-f-s-icon
+            v-if="item.missing_from_fs"
+            :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
+            class="mr-1 mb-1 px-1"
+            chip
+            chipDensity="compact"
+          />
           <v-chip
-            v-if="item.sibling_roms.length > 0 && showSiblings"
-            class="translucent-dark ml-4"
-            size="x-small"
+            v-if="item.hasheous_id"
+            class="translucent text-white mr-1 mb-1 px-1"
+            density="compact"
+            title="Verified with Hasheous"
           >
-            <span class="text-caption">+{{ item.sibling_roms.length }}</span>
+            <v-icon>mdi-check-decagram-outline</v-icon>
+          </v-chip>
+          <v-chip
+            v-if="item.siblings.length > 0 && showSiblings"
+            class="translucent text-white mr-1 mb-1 px-1"
+            density="compact"
+            :title="`${item.siblings.length} sibling(s)`"
+          >
+            <v-icon>mdi-card-multiple-outline</v-icon>
           </v-chip>
         </template>
       </v-list-item>
@@ -215,20 +247,23 @@ function updateSelectedRom(rom: SimpleRom) {
       <span v-else>-</span>
     </template>
     <template #item.first_release_date="{ item }">
-      <span v-if="item.first_release_date" class="text-no-wrap">{{
-        new Date(item.first_release_date).toLocaleDateString("en-US", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
+      <span v-if="item.metadatum.first_release_date" class="text-no-wrap">{{
+        new Date(item.metadatum.first_release_date).toLocaleDateString(
+          "en-US",
+          {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          },
+        )
       }}</span>
       <span v-else>-</span>
     </template>
     <template #item.average_rating="{ item }">
-      <span v-if="item.average_rating" class="text-no-wrap">{{
+      <span v-if="item.metadatum.average_rating" class="text-no-wrap">{{
         Intl.NumberFormat("en-US", {
           maximumSignificantDigits: 3,
-        }).format(item.average_rating)
+        }).format(item.metadatum.average_rating)
       }}</span>
       <span v-else>-</span>
     </template>
@@ -262,11 +297,11 @@ function updateSelectedRom(rom: SimpleRom) {
         >
           {{ regionToEmoji(region) }}
         </span>
-        <spa class="reglang-super">
+        <span class="reglang-super">
           {{
             item.regions.length > 3 ? `&nbsp;+${item.regions.length - 3}` : ""
           }}
-        </spa>
+        </span>
       </div>
       <span v-else>-</span>
     </template>
@@ -274,8 +309,11 @@ function updateSelectedRom(rom: SimpleRom) {
       <v-btn-group density="compact">
         <fav-btn :rom="item" />
         <v-btn
-          :disabled="downloadStore.value.includes(item.id)"
+          :disabled="
+            downloadStore.value.includes(item.id) || item.missing_from_fs
+          "
           download
+          variant="text"
           size="small"
           @click.stop="romApi.downloadRom({ rom: item })"
         >
@@ -283,6 +321,8 @@ function updateSelectedRom(rom: SimpleRom) {
         </v-btn>
         <v-btn
           v-if="checkIfEJSEmulationSupported(item.platform_slug)"
+          :disabled="item.missing_from_fs"
+          variant="text"
           size="small"
           @click.stop="
             $router.push({
@@ -295,6 +335,8 @@ function updateSelectedRom(rom: SimpleRom) {
         </v-btn>
         <v-btn
           v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
+          :disabled="item.missing_from_fs"
+          variant="text"
           size="small"
           @click.stop="
             $router.push({
@@ -314,7 +356,7 @@ function updateSelectedRom(rom: SimpleRom) {
           location="bottom"
         >
           <template #activator="{ props }">
-            <v-btn v-bind="props" size="small">
+            <v-btn v-bind="props" variant="text" size="small">
               <v-icon>mdi-dots-vertical</v-icon>
             </v-btn>
           </template>

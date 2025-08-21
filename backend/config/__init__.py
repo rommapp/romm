@@ -1,5 +1,4 @@
 import os
-import secrets
 from typing import Final
 
 import yarl
@@ -9,13 +8,17 @@ load_dotenv()
 
 
 def str_to_bool(value: str) -> bool:
-    return value.lower() in ("true", "1")
+    return value.strip().lower() in ("1", "true", "yes", "on")
 
+
+ROMM_BASE_URL = os.environ.get("ROMM_BASE_URL", "http://0.0.0.0")
+ROMM_PORT = int(os.environ.get("ROMM_PORT", 8080))
 
 # GUNICORN
 DEV_MODE: Final = str_to_bool(os.environ.get("DEV_MODE", "false"))
 DEV_HOST: Final = os.environ.get("DEV_HOST", "127.0.0.1")
 DEV_PORT: Final = int(os.environ.get("DEV_PORT", "5000"))
+DEV_SQL_ECHO: Final = str_to_bool(os.environ.get("DEV_SQL_ECHO", "false"))
 
 # PATHS
 ROMM_BASE_PATH: Final = os.environ.get("ROMM_BASE_PATH", "/romm")
@@ -25,12 +28,15 @@ ASSETS_BASE_PATH: Final = f"{ROMM_BASE_PATH}/assets"
 FRONTEND_RESOURCES_PATH: Final = "/assets/romm/resources"
 
 # DATABASE
-DB_HOST: Final = os.environ.get("DB_HOST", "127.0.0.1")
-DB_PORT: Final = int(os.environ.get("DB_PORT", 3306))
-DB_USER: Final = os.environ.get("DB_USER")
-DB_PASSWD: Final = os.environ.get("DB_PASSWD")
-DB_NAME: Final = os.environ.get("DB_NAME", "romm")
-ROMM_DB_DRIVER: Final = os.environ.get("ROMM_DB_DRIVER", "mariadb")
+DB_HOST: Final[str | None] = os.environ.get("DB_HOST", "127.0.0.1") or None
+DB_PORT: Final[int | None] = (
+    int(os.environ.get("DB_PORT", 3306)) if os.environ.get("DB_PORT") != "" else None
+)
+DB_USER: Final[str | None] = os.environ.get("DB_USER")
+DB_PASSWD: Final[str | None] = os.environ.get("DB_PASSWD")
+DB_NAME: Final[str] = os.environ.get("DB_NAME", "romm")
+DB_QUERY_JSON: Final[str | None] = os.environ.get("DB_QUERY_JSON")
+ROMM_DB_DRIVER: Final[str] = os.environ.get("ROMM_DB_DRIVER", "mariadb")
 
 # REDIS
 REDIS_HOST: Final = os.environ.get("REDIS_HOST", "127.0.0.1")
@@ -56,6 +62,9 @@ IGDB_CLIENT_SECRET: Final = os.environ.get(
     "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
 ).strip()
 
+# MOBYGAMES
+MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
+
 # SCREENSCRAPER
 SCREENSCRAPER_USER: Final = os.environ.get("SCREENSCRAPER_USER", "")
 SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
@@ -63,13 +72,36 @@ SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
 # STEAMGRIDDB
 STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
 
-# MOBYGAMES
-MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
+# RETROACHIEVEMENTS
+RETROACHIEVEMENTS_API_KEY: Final = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
+REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
+    os.environ.get("REFRESH_RETROACHIEVEMENTS_CACHE_DAYS", 30)
+)
+
+# LAUNCHBOX
+LAUNCHBOX_API_ENABLED: Final = str_to_bool(
+    os.environ.get("LAUNCHBOX_API_ENABLED", "false")
+)
+
+# PLAYMATCH
+PLAYMATCH_API_ENABLED: Final = str_to_bool(
+    os.environ.get("PLAYMATCH_API_ENABLED", "false")
+)
+
+# HASHEOUS
+HASHEOUS_API_ENABLED: Final = str_to_bool(
+    os.environ.get("HASHEOUS_API_ENABLED", "false")
+)
+
+# THEGAMESDB
+TGDB_API_ENABLED: Final = str_to_bool(os.environ.get("TGDB_API_ENABLED", "false"))
 
 # AUTH
-ROMM_AUTH_SECRET_KEY: Final = os.environ.get(
-    "ROMM_AUTH_SECRET_KEY", secrets.token_hex(32)
-)
+ROMM_AUTH_SECRET_KEY: Final = os.environ.get("ROMM_AUTH_SECRET_KEY")
+
+SESSION_MAX_AGE_SECONDS: Final = int(
+    os.environ.get("SESSION_MAX_AGE_SECONDS", 14 * 24 * 60 * 60)
+)  # 14 days, in seconds
 DISABLE_CSRF_PROTECTION = str_to_bool(
     os.environ.get("DISABLE_CSRF_PROTECTION", "false")
 )
@@ -111,6 +143,13 @@ SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_SWITCH_TITLEDB_CRON",
     "0 4 * * *",  # At 4:00 AM every day
 )
+ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: Final = str_to_bool(
+    os.environ.get("ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA", "false")
+)
+SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON: Final = os.environ.get(
+    "SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON",
+    "0 5 * * *",  # At 5:00 AM every day
+)
 
 # EMULATION
 DISABLE_EMULATOR_JS = str_to_bool(os.environ.get("DISABLE_EMULATOR_JS", "false"))
@@ -124,6 +163,11 @@ KIOSK_MODE = str_to_bool(os.environ.get("KIOSK_MODE", "false"))
 LOGLEVEL: Final = os.environ.get("LOGLEVEL", "INFO").upper()
 FORCE_COLOR: Final = str_to_bool(os.environ.get("FORCE_COLOR", "false"))
 NO_COLOR: Final = str_to_bool(os.environ.get("NO_COLOR", "false"))
+
+# YOUTUBE
+YOUTUBE_BASE_URL: Final = os.environ.get(
+    "YOUTUBE_BASE_URL", "https://www.youtube.com"
+).rstrip("/")
 
 # SENTRY
 SENTRY_DSN: Final = os.environ.get("SENTRY_DSN", None)

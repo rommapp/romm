@@ -11,7 +11,6 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const router = useRouter();
 const { lgAndUp } = useDisplay();
@@ -24,7 +23,6 @@ emitter?.on("showDeleteCollectionDialog", (collectionToDelete) => {
   show.value = true;
 });
 
-// Functions
 async function deleteCollection() {
   if (!collection.value) return;
 
@@ -33,13 +31,13 @@ async function deleteCollection() {
     .deleteCollection({ collection: collection.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: "Collection deleted",
         icon: "mdi-check-bold",
         color: "green",
       });
-      collectionsStore.remove(collection.value as Collection);
+      collectionsStore.removeCollection(collection.value as Collection);
       if (collection.value?.name.toLowerCase() == "favourites") {
-        collectionsStore.setFavCollection(undefined);
+        collectionsStore.setFavoriteCollection(undefined);
       }
     })
     .catch((error) => {
@@ -54,7 +52,7 @@ async function deleteCollection() {
 
   await router.push({ name: ROUTES.HOME });
 
-  collectionsStore.remove(collection.value);
+  collectionsStore.removeCollection(collection.value);
   emitter?.emit("refreshDrawer", null);
   closeDialog();
 }

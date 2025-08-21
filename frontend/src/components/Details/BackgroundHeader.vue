@@ -4,7 +4,6 @@ import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 
-// Props
 const romsStore = storeRoms();
 const { currentRom } = storeToRefs(romsStore);
 const missingCoverImage = computed(() =>
@@ -30,7 +29,6 @@ const unmatchedCoverImage = computed(() =>
     <v-img
       id="background-image"
       :src="currentRom?.path_cover_large || unmatchedCoverImage"
-      lazy
       cover
     >
       <template #error>

@@ -3,8 +3,8 @@ from collections.abc import Collection
 from typing import Any
 from urllib.parse import quote
 
+from anyio import Path
 from fastapi.responses import Response
-from utils.filesystem import AnyPath
 
 
 @dataclasses.dataclass(frozen=True)
@@ -43,7 +43,7 @@ class ZipResponse(Response):
         kwargs["content"] = "\n".join(str(line) for line in content_lines)
         kwargs.setdefault("headers", {}).update(
             {
-                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}; filename=\"{filename}\"",
                 "X-Archive-Files": "zip",
             }
         )
@@ -55,7 +55,7 @@ class FileRedirectResponse(Response):
     """Response class for serving a file download by using the X-Accel-Redirect header."""
 
     def __init__(
-        self, *, download_path: AnyPath, filename: str | None = None, **kwargs: Any
+        self, *, download_path: Path, filename: str | None = None, **kwargs: Any
     ):
         """
         Arguments:
@@ -67,7 +67,7 @@ class FileRedirectResponse(Response):
         filename = filename or download_path.name
         kwargs.setdefault("headers", {}).update(
             {
-                "Content-Disposition": f'attachment; filename="{quote(filename)}"',
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}; filename=\"{quote(filename)}\"",
                 "X-Accel-Redirect": quote(str(download_path)),
             }
         )

@@ -13,7 +13,6 @@ import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
@@ -48,7 +47,7 @@ async function addRomsToCollection() {
         timeout: 2000,
       });
       emitter?.emit("refreshDrawer", null);
-      collectionsStore.update(data);
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       console.log(error);
