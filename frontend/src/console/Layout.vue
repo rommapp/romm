@@ -5,7 +5,6 @@
 </template>
 <script setup lang="ts">
 import { onMounted, onUnmounted, provide } from 'vue';
-// Import Tailwind v4 entry so utilities are available when this layout renders
 import './index.css';
 import { InputBus, InputBusSymbol } from '@/console/input/bus';
 import { attachKeyboard } from '@/console/input/keyboard';
