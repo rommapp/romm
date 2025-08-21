@@ -19,6 +19,7 @@ import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
 import { getSupportedEJSCores, getControlSchemeForPlatform, areThreadsRequiredForEJSCore, getDownloadPath } from '@/utils';
+import firmwareApi from '@/services/api/firmware';
 
 const route = useRoute();
 const router = useRouter();
@@ -27,6 +28,7 @@ const showHint = ref(true);
 let rafId = 0;
 let lastPress: Record<number, number> = { 8: 0, 9: 0 };
 const EXIT_WINDOW_MS = 300;
+const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 function exitEmulator(){
   try{ (window as any).EJS_emulator?.callEvent?.('exit'); }catch{ /* noop */ }
@@ -68,14 +70,26 @@ async function boot(){
 
   // Configure EmulatorJS globals
   const supported = getSupportedEJSCores(r.platform_slug);
-  const core = supported[0];
+  const storedCore = localStorage.getItem(`player:${r.platform_slug}:core`);
+  const core = (storedCore && supported.includes(storedCore)) ? storedCore : supported[0];
   const w = window as any;
   w.EJS_core = core;
   w.EJS_controlScheme = getControlSchemeForPlatform(r.platform_slug);
   w.EJS_threads = areThreadsRequiredForEJSCore(core);
   w.EJS_gameID = r.id;
-  w.EJS_gameUrl = getDownloadPath({ rom: r, fileIDs: [] });
-  w.EJS_biosUrl = '';
+  // Disc selection persistence
+  const storedDisc = localStorage.getItem(`player:${r.id}:disc`);
+  const discId = storedDisc ? parseInt(storedDisc) : null;
+  w.EJS_gameUrl = getDownloadPath({ rom: r, fileIDs: discId ? [discId] : [] });
+  // BIOS selection persistence
+  try {
+    const { data: firmware } = await firmwareApi.getFirmware({ platformId: r.platform_id });
+    const storedBiosID = localStorage.getItem(`player:${r.platform_slug}:bios_id`);
+    const bios = storedBiosID ? firmware.find(f => f.id === parseInt(storedBiosID)) : null;
+    w.EJS_biosUrl = bios ? `/api/firmware/${bios.id}/content/${bios.file_name}` : '';
+  } catch {
+    w.EJS_biosUrl = '';
+  }
   w.EJS_player = '#game';
   w.EJS_color = '#A453FF';
   w.EJS_alignStartButton = 'center';
@@ -84,6 +98,30 @@ async function boot(){
   w.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
   w.EJS_backgroundColor = '#000000';
   w.EJS_defaultOptions = { 'save-state-location': 'browser', rewindEnabled: 'enabled' };
+  // Set a valid game name (affects per-game settings keys)
+  w.EJS_gameName = (r.fs_name_no_tags || r.name || '').replace(INVALID_CHARS_REGEX, '').trim();
+
+  // Ensure a controller is auto-assigned to Player 1 when available
+  w.EJS_onGameStart = () => {
+    const e = (window as any).EJS_emulator;
+    if (!e) return;
+    const assignFirstPad = () => {
+      if (!e.gamepad) return;
+      if (!Array.isArray(e.gamepadSelection)) e.gamepadSelection = ['', '', '', ''];
+      if (!e.gamepad.gamepads || e.gamepad.gamepads.length === 0) return;
+      if (!e.gamepadSelection[0]) {
+        const gp = e.gamepad.gamepads[0];
+        if (gp) {
+          e.gamepadSelection[0] = `${gp.id}_${gp.index}`;
+          e.updateGamepadLabels?.();
+        }
+      }
+    };
+    // Assign immediately if a pad exists
+    assignFirstPad();
+    // Also assign on future connections
+  try { e.gamepad?.on?.('connected', assignFirstPad); } catch { /* noop */ }
+  };
 
   // Load EmulatorJS loader
   const EMULATORJS_VERSION = '4.2.3';
