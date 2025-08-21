@@ -319,7 +319,7 @@ class FSRomsHandler(FSHandler):
             ):
                 # Check if file is excluded
                 ext = self.parse_file_extension(file_name)
-                if not ext or ext in excluded_file_exts:
+                if ext in excluded_file_exts:
                     continue
 
                 if any(
