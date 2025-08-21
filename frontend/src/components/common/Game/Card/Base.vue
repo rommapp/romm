@@ -351,16 +351,6 @@ onBeforeUnmount(() => {
                   :aspect-ratio="computedAspectRatio"
                 ></v-img>
               </template>
-              <template #placeholder>
-                <div class="d-flex align-center justify-center fill-height">
-                  <v-progress-circular
-                    :width="2"
-                    :size="40"
-                    color="primary"
-                    indeterminate
-                  />
-                </div>
-              </template>
             </v-img>
           </v-hover>
         </v-card-text>
@@ -385,18 +375,22 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   transition: max-height 0.5s; /* Add a transition for a smooth effect */
 }
+
 .expand-on-hover:hover {
   max-height: 1000px; /* Adjust to a sufficiently large value to ensure the full expansion */
 }
+
 /* Apply styles to v-expand-transition component */
 .v-expand-transition-enter-active,
 .v-expand-transition-leave-active {
   transition: max-height 0.5s;
 }
+
 .v-expand-transition-enter, .v-expand-transition-leave-to /* .v-expand-transition-leave-active in <2.1.8 */ {
   max-height: 0; /* Set max-height to 0 when entering or leaving */
   overflow: hidden;
 }
+
 .v-img {
   user-select: none; /* Prevents text selection */
   -webkit-user-select: none; /* Safari */
@@ -413,5 +407,11 @@ onBeforeUnmount(() => {
 .v-chip:hover {
   transform: scale(1.1);
   transition: transform 0.2s ease;
+}
+</style>
+
+<style>
+.v-img__img--preload {
+  filter: none !important;
 }
 </style>
