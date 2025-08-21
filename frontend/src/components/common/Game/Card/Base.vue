@@ -356,7 +356,15 @@ onBeforeUnmount(() => {
                   eager
                   :src="smallCover || fallbackCoverImage"
                   :aspect-ratio="computedAspectRatio"
-                ></v-img>
+                >
+                  <template #placeholder>
+                    <v-skeleton-loader
+                      type="image"
+                      class="card-skeleton"
+                      :style="{ aspectRatio: computedAspectRatio }"
+                    />
+                  </template>
+                </v-img>
               </template>
             </v-img>
           </v-hover>
