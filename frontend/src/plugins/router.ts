@@ -240,6 +240,11 @@ const routes = [
         component: () => import("@/console/views/Platform.vue"),
       },
       {
+        path: "collection/:id",
+        name: "console-collection",
+        component: () => import("@/console/views/Collection.vue"),
+      },
+      {
         path: "rom/:rom",
         name: "console-rom",
         component: () => import("@/console/views/Game.vue"),

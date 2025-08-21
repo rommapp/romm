@@ -1,6 +1,6 @@
 <template>
   <div class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex">
-    <BackButton :text="platformTitle" />
+    <BackButton :text="collectionTitle" />
     <div
       class="fixed inset-0 z-0 bg-cover bg-center blur-[40px] saturate-[1.3] scale-105 pointer-events-none"
       :style="{ backgroundImage: displayCover ? `url('${displayCover}')` : '' }"
@@ -11,12 +11,6 @@
       class="relative z-20 flex-1 min-w-0 pr-[40px]"
       :style="{ width: 'calc(100vw - 40px)' }"
     >
-      <!-- <div class="mx-10 md:mx-16 lg:mx-20 xl:mx-28 pt-6">
-        <h1 class="text-white/90 text-3xl font-bold drop-shadow">
-          {{ platformTitle }}
-        </h1>
-      </div> -->
-
       <div
         v-if="loading"
         class="text-center text-fgDim mt-8"
@@ -81,17 +75,19 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
+import collectionApi from '@/services/api/collection';
 import GameCard from '@/console/components/GameCard.vue';
 import NavigationHint from '@/console/components/NavigationHint.vue';
 import BackButton from '@/console/components/BackButton.vue';
 import type { SimpleRomSchema } from '@/__generated__/models/SimpleRomSchema';
+import type { CollectionSchema } from '@/__generated__/models/CollectionSchema';
 import { useInputScope } from '@/console/composables/useInputScope';
 import type { InputAction } from '@/console/input/actions';
 import { useSpatialNav } from '@/console/composables/useSpatialNav';
 
 const route = useRoute();
 const router = useRouter();
-const platformId = Number(route.params.id);
+const collectionId = Number(route.params.id);
 
 const roms = ref<SimpleRomSchema[]>([]);
 const loading = ref(true);
@@ -105,12 +101,11 @@ let keyboardTimeout: number | undefined;
 const inAlphabet = ref(false);
 const alphaIndex = ref(0);
 const gridRef = ref<HTMLDivElement>();
+const collection = ref<CollectionSchema | null>(null);
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
-const platformTitle = computed(() =>
-  current.value?.platform_name || current.value?.platform_slug?.toUpperCase() || 'Platform'
-);
+const collectionTitle = computed(() => collection.value?.name || 'Collection');
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase();
@@ -163,7 +158,7 @@ function scrollToSelected(){
   requestAnimationFrame(() => {
     const w = window as unknown as { gameCardElements?: HTMLElement[] };
     const el = w.gameCardElements?.[selectedIndex.value];
-  const fallback = document.querySelectorAll('.block.bg-\\[var\\(--tile\\)\\]');
+    const fallback = document.querySelectorAll('.block.bg-\\[var\\(--tile\\)\\]');
     const target = el || (fallback[selectedIndex.value] as HTMLElement | undefined);
     if(target?.scrollIntoView) target.scrollIntoView({ behavior:'smooth', block:'center', inline:'nearest' });
   });
@@ -206,13 +201,12 @@ function handleAction(action: InputAction): boolean {
       const count = filtered.value.length;
       const next = selectedIndex.value + cols;
       if (next < count) { selectedIndex.value = next; return true; }
-      // If there's a shorter last row, clamp to the last available item instead of a dead cell
       if (count > 0) { selectedIndex.value = count - 1; return true; }
       return true; }
-  case 'back': router.back(); return true;
+    case 'back': router.back(); return true;
     case 'confirm': {
       const rom = filtered.value[selectedIndex.value];
-      router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } });
+      router.push({ name: 'console-rom', params: { rom: rom.id } });
       return true; }
     default: return false;
   }
@@ -220,15 +214,16 @@ function handleAction(action: InputAction): boolean {
 
 function mouseSelect(i:number){ if(!keyboardMode.value) selectedIndex.value = i; }
 function onCardEnter(i:number){ hoverIndex.value = i; if(!keyboardMode.value) selectedIndex.value = i; }
-function selectAndOpen(i:number, rom: SimpleRomSchema){ selectedIndex.value = i; router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } }); }
+function selectAndOpen(i:number, rom: SimpleRomSchema){ selectedIndex.value = i; router.push({ name: 'console-rom', params: { rom: rom.id } }); }
 function jumpToLetter(L:string){ const idx = filtered.value.findIndex(r => (r.name||'').toUpperCase().startsWith(L)); if(idx>=0){ selectedIndex.value = idx; inAlphabet.value=false; keyboardMode.value=true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000); } }
 
 let off: (() => void) | null = null;
 onMounted(async () => {
   try{
-    const { data } = await romApi.getRoms({ platformId, limit: 500, orderBy: 'name', orderDir: 'asc' });
+    const { data } = await romApi.getRoms({ collectionId, limit: 500, orderBy: 'name', orderDir: 'asc' });
     roms.value = data.items ?? [];
-    // mark those without cover as loaded immediately (no skeleton needed)
+    const { data: col } = await collectionApi.getCollection(collectionId);
+    collection.value = col ?? null;
     for (const r of roms.value) {
       if (!r.url_cover && !r.path_cover_large && !r.path_cover_small) {
         loadedMap.value[r.id] = true;

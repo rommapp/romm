@@ -66,7 +66,7 @@
       </div>
 
       <div class="modal-footer">
-        <span class="modal-hint">← → Navigate • Esc to close</span>
+        <span class="modal-hint">← → Navigate • Backspace to close</span>
       </div>
     </div>
   </div>
@@ -123,12 +123,12 @@ watch(() => props.startIndex, (v) => { if(typeof v==='number') index.value = v; 
 <style scoped>
 /* Match Game.vue modal styling */
 .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; z-index:1100; animation: fadeIn .2s ease; }
-.modal-content{ background:rgba(20,20,20,0.95); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.2); border-radius:16px; max-width:1000px; max-height:75vh; width:90%; overflow:hidden; animation: slideUp .3s ease; }
+.modal-content{ background:rgba(20,20,20,0.95); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.2); border-radius:16px; max-width:1000px; max-height:80vh; width:90%; overflow:hidden; animation: slideUp .3s ease; }
 .modal-header{ display:flex; justify-content:space-between; align-items:center; padding:1.25rem 1.5rem; border-bottom:1px solid rgba(255,255,255,0.1); }
 .modal-header h2{ color:white; font-size:1.25rem; font-weight:600; margin:0; }
 .modal-close{ background:none; border:none; color:#ccc; font-size:2rem; cursor:pointer; padding:0; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:8px; transition:all .2s ease; }
 .modal-close:hover{ background:rgba(255,255,255,0.1); color:white; }
-.modal-body{ padding:0; max-height:calc(75vh - 56px - 52px); /* minus header and footer */ overflow:hidden; }
+.modal-body{ padding:0; max-height:calc(80vh - 56px - 52px); /* minus header and footer */ overflow:hidden; }
 .modal-footer{ padding:0.75rem 1.5rem; border-top:1px solid rgba(255,255,255,0.1); text-align:center; }
 .modal-hint{ color:#888; font-size:.9rem; }
 
@@ -136,7 +136,7 @@ watch(() => props.startIndex, (v) => { if(typeof v==='number') index.value = v; 
 .lightbox{ position:relative; }
 .lightbox-body{ display:flex; align-items:center; justify-content:center; background:transparent; }
 .lightbox-stage{ position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.2); }
-.lightbox-image{ display:block; max-width:90vw; max-height:65vh; object-fit:contain; user-select:none; }
+.lightbox-image{ display:block; max-width:90vw; max-height:62vh; object-fit:contain; user-select:none; }
 .lightbox-fallback{ padding:2rem; color:rgba(255,255,255,0.7); }
 .lightbox-counter{ position:absolute; right:12px; bottom:10px; color:rgba(255,255,255,0.85); font-size:12px; background:rgba(0,0,0,0.5); border-radius:6px; padding:2px 8px; }
 .lightbox-nav{ position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:9999px; background:rgba(0,0,0,0.6); color:rgba(255,255,255,0.9); display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.15); }
