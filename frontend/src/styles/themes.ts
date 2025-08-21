@@ -1,9 +1,11 @@
 const commonColors = {
-  "romm-red": "#da3633",
+  "romm-red": "#DA3633",
   "romm-green": "#3FB950",
-  "romm-white": "#fefdfe",
+  "romm-blue": "#0070F3",
+  "romm-white": "#FEFDFE",
   "romm-gray": "#5D5D5D",
   "romm-black": "#000000",
+  "romm-gold": "#FFD700",
 };
 
 export const dark = {
@@ -27,7 +29,7 @@ export const light = {
   dark: false,
   colors: {
     primary: "#371f69",
-    secondary: "#553e98",
+    secondary: "#553E98",
     accent: "#E1A38D",
     surface: "#FFFFFF",
     background: "#F2F4F8",

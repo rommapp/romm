@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import collectionApi, {
-  type UpdatedCollection,
-} from "@/services/api/collection";
+import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -16,7 +14,6 @@ import { inject } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 
-// Props
 const { t } = useI18n();
 const props = defineProps<{ rom: SimpleRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -24,18 +21,18 @@ const heartbeat = storeHeartbeat();
 const auth = storeAuth();
 const collectionsStore = storeCollections();
 const romsStore = storeRoms();
-const { favCollection } = storeToRefs(collectionsStore);
+const { favoriteCollection } = storeToRefs(collectionsStore);
 const scanningStore = storeScanning();
 
 async function switchFromFavourites() {
-  if (!favCollection.value) {
+  if (!favoriteCollection.value) {
     await collectionApi
       .createCollection({
-        collection: { name: "Favourites" } as UpdatedCollection,
+        collection: { name: "Favourites" },
       })
       .then(({ data }) => {
-        collectionsStore.add(data);
-        favCollection.value = data;
+        collectionsStore.addCollection(data);
+        favoriteCollection.value = data;
         emitter?.emit("snackbarShow", {
           msg: `Collection ${data.name} created successfully!`,
           icon: "mdi-check-bold",
@@ -53,31 +50,30 @@ async function switchFromFavourites() {
         return;
       });
   }
-  if (!collectionsStore.isFav(props.rom)) {
-    favCollection.value?.rom_ids.push(props.rom.id);
+  if (!collectionsStore.isFavorite(props.rom)) {
+    favoriteCollection.value?.rom_ids.push(props.rom.id);
   } else {
-    if (favCollection.value) {
-      favCollection.value.rom_ids = favCollection.value.rom_ids.filter(
-        (id) => id !== props.rom.id,
-      );
+    if (favoriteCollection.value) {
+      favoriteCollection.value.rom_ids =
+        favoriteCollection.value.rom_ids.filter((id) => id !== props.rom.id);
       if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
         romsStore.remove([props.rom]);
       }
     }
   }
   await collectionApi
-    .updateCollection({ collection: favCollection.value as Collection })
+    .updateCollection({ collection: favoriteCollection.value as Collection })
     .then(({ data }) => {
       emitter?.emit("snackbarShow", {
         msg: `${props.rom.name} ${
-          collectionsStore.isFav(props.rom) ? "added to" : "removed from"
-        } ${favCollection.value?.name} successfully!`,
+          collectionsStore.isFavorite(props.rom) ? "added to" : "removed from"
+        } ${favoriteCollection.value?.name} successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,
       });
-      favCollection.value = data;
-      collectionsStore.update(data);
+      favoriteCollection.value = data;
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       console.log(error);
@@ -134,7 +130,7 @@ async function onScan() {
     platforms: [props.rom.platform_id],
     roms_ids: [props.rom.id],
     type: "quick", // Quick scan so we can filter by selected roms
-    apis: heartbeat.getMetadataOptions().map((s) => s.value),
+    apis: heartbeat.getAllMetadataOptions().map((s) => s.value),
   });
 }
 </script>
@@ -165,10 +161,10 @@ async function onScan() {
         @click="emitter?.emit('showEditRomDialog', { ...rom })"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit-rom") }}
+          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit") }}
         </v-list-item-title>
       </v-list-item>
-      <v-list-item class="py-4 pr-5" @click="onScan()">
+      <v-list-item class="py-4 pr-5" @click="onScan">
         <v-list-item-title class="d-flex">
           <v-icon icon="mdi-magnify-scan" class="mr-2" />{{
             t("rom.refresh-metadata")
@@ -195,11 +191,13 @@ async function onScan() {
       <v-list-item-title class="d-flex">
         <v-icon
           :icon="
-            collectionsStore.isFav(rom) ? 'mdi-star-remove-outline' : 'mdi-star'
+            collectionsStore.isFavorite(rom)
+              ? 'mdi-star-remove-outline'
+              : 'mdi-star'
           "
           class="mr-2"
         />{{
-          collectionsStore.isFav(rom)
+          collectionsStore.isFavorite(rom)
             ? t("rom.remove-from-fav")
             : t("rom.add-to-fav")
         }}
@@ -234,7 +232,7 @@ async function onScan() {
         @click="emitter?.emit('showDeleteRomDialog', [rom])"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-delete" class="mr-2" />{{ t("rom.delete-rom") }}
+          <v-icon icon="mdi-delete" class="mr-2" />{{ t("rom.delete") }}
         </v-list-item-title>
       </v-list-item>
     </template>

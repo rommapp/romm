@@ -1,29 +1,32 @@
 <script setup lang="ts">
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
-import storeGalleryFilter from "@/stores/galleryFilter";
 import storeNavigation from "@/stores/navigation";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import { normalizeString } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 
-// Props
 withDefaults(
   defineProps<{
     block?: boolean;
+    height?: string;
+    rounded?: boolean;
+    withTag?: boolean;
   }>(),
   {
     block: false,
+    height: "",
+    rounded: false,
+    withTag: false,
   },
 );
+const { t } = useI18n();
 const navigationStore = storeNavigation();
 const auth = storeAuth();
-const galleryFilter = storeGalleryFilter();
-const isFiltered = normalizeString(galleryFilter.filterText).trim() != "";
 const emitter = inject<Emitter<Events>>("emitter");
 const scanningStore = storeScanning();
 const { scanningPlatforms, scanning } = storeToRefs(scanningStore);
@@ -57,10 +60,6 @@ socket.on("scan:scanning_rom", (rom: SimpleRom) => {
   romsStore.addToRecent(rom);
   if (romsStore.currentPlatform?.id === rom.platform_id) {
     romsStore.add([rom]);
-    romsStore.setFiltered(
-      isFiltered ? romsStore.filteredRoms : romsStore.allRoms,
-      galleryFilter,
-    );
   }
 
   let scannedPlatform = scanningPlatforms.value.find(
@@ -116,23 +115,34 @@ onBeforeUnmount(() => {
 <template>
   <v-btn
     v-if="auth.scopes.includes('platforms.write')"
+    icon
     :block="block"
     variant="flat"
-    rounded="0"
-    icon
     color="background"
-    class="rounded my-1"
+    :height="height"
+    :class="{ rounded: rounded }"
+    class="py-4 bg-background d-flex align-center justify-center"
     @click="navigationStore.goScan"
   >
-    <v-progress-circular
-      v-if="scanning"
-      color="primary"
-      :width="2"
-      :size="20"
-      indeterminate
-    />
-    <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''"
-      >mdi-magnify-scan</v-icon
-    >
+    <div class="d-flex flex-column align-center">
+      <v-progress-circular
+        v-if="scanning"
+        color="primary"
+        :width="2"
+        :size="20"
+        indeterminate
+      />
+      <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''"
+        >mdi-magnify-scan</v-icon
+      >
+      <v-expand-transition>
+        <span
+          v-if="withTag"
+          class="text-caption text-center"
+          :class="{ 'text-primary': $route.name == 'scan' }"
+          >{{ t("scan.scan") }}</span
+        >
+      </v-expand-transition>
+    </div>
   </v-btn>
 </template>

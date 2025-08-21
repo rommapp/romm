@@ -1,83 +1,72 @@
 import asyncio
 import re
-from pathlib import Path
 
+from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from logger.formatter import LIGHTMAGENTA
+from logger.formatter import highlight as hl
 from logger.logger import log
 
-RAHASHER_VALID_HASH_REGEX = re.compile(r"^[0-9a-f]{32}$")
+RAHASHER_VALID_HASH_REGEX = re.compile(r"[0-9a-f]{32}")
 
-# TODO: Centralize standarized platform slugs using StrEnum.
-PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[str, int] = {
-    "3do": 43,
-    "cpc": 37,
-    "acpc": 37,
-    "apple2": 38,
-    "appleii": 38,
-    "arcade": 27,
-    "arcadia-2001": 73,
-    "arduboy": 71,
-    "atari-2600": 25,
-    "atari2600": 25,
-    "atari-7800": 51,
-    "atari7800": 51,
-    "atari-jaguar-cd": 77,
-    "colecovision": 44,
-    "dreamcast": 40,
-    "dc": 40,
-    "gameboy": 4,
-    "gb": 4,
-    "gameboy-advance": 5,
-    "gba": 5,
-    "gameboy-color": 6,
-    "gbc": 6,
-    "game-gear": 15,
-    "gamegear": 15,
-    "gamecube": 16,
-    "ngc": 14,
-    "genesis": 1,
-    "genesis-slash-megadrive": 16,
-    "intellivision": 45,
-    "jaguar": 17,
-    "lynx": 13,
-    "msx": 29,
-    "mega-duck-slash-cougar-boy": 69,
-    "nes": 7,
-    "famicom": 7,
-    "neo-geo-cd": 56,
-    "neo-geo-pocket": 14,
-    "neo-geo-pocket-color": 14,
-    "n64": 2,
-    "nintendo-ds": 18,
-    "nds": 18,
-    "nintendo-dsi": 78,
-    "odyssey-2": 23,
-    "pc-8000": 47,
-    "pc-8800-series": 47,
-    "pc-fx": 49,
-    "psp": 41,
-    "playstation": 12,
-    "ps": 12,
-    "ps2": 21,
-    "pokemon-mini": 24,
-    "saturn": 39,
-    "sega-32x": 10,
-    "sega32": 10,
-    "sega-cd": 9,
-    "segacd": 9,
-    "sega-master-system": 11,
-    "sms": 11,
-    "sg-1000": 33,
-    "snes": 3,
-    "turbografx-cd": 76,
-    "turbografx-16-slash-pc-engine-cd": 76,
-    "turbo-grafx": 8,
-    "turbografx16--1": 8,
-    "vectrex": 26,
-    "virtual-boy": 28,
-    "virtualboy": 28,
-    "watara-slash-quickshot-supervision": 63,
-    "wonderswan": 53,
-    "wonderswan-color": 53,
+PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID: dict[UPS, int] = {
+    UPS._3DO: 43,
+    UPS.ACPC: 37,
+    UPS.APPLEII: 38,
+    UPS.ARCADE: 27,
+    UPS.ARCADIA_2001: 73,
+    UPS.ARDUBOY: 71,
+    UPS.ATARI_JAGUAR_CD: 77,
+    UPS.ATARI2600: 25,
+    UPS.ATARI7800: 51,
+    UPS.COLECOVISION: 44,
+    UPS.DC: 40,
+    UPS.ELEKTOR: 75,
+    UPS.FAIRCHILD_CHANNEL_F: 57,
+    UPS.FAMICOM: 7,
+    UPS.GAMEGEAR: 15,
+    UPS.GB: 4,
+    UPS.GBA: 5,
+    UPS.GBC: 6,
+    UPS.GENESIS: 1,
+    UPS.INTELLIVISION: 45,
+    UPS.INTERTON_VC_4000: 74,
+    UPS.JAGUAR: 17,
+    UPS.LYNX: 13,
+    UPS.MEGA_DUCK_SLASH_COUGAR_BOY: 69,
+    UPS.MSX: 29,
+    UPS.N64: 2,
+    UPS.NDS: 18,
+    UPS.NEO_GEO_CD: 56,
+    UPS.NEO_GEO_POCKET: 14,
+    UPS.NEO_GEO_POCKET_COLOR: 14,
+    UPS.NES: 7,
+    UPS.NGC: 16,
+    UPS.NINTENDO_DSI: 78,
+    UPS.ODYSSEY_2: 23,
+    UPS.PC_8000: 47,
+    UPS.PC_8800_SERIES: 47,
+    UPS.PC_FX: 49,
+    UPS.POKEMON_MINI: 24,
+    UPS.PSX: 12,
+    UPS.PS2: 21,
+    UPS.PSP: 41,
+    UPS.SATURN: 39,
+    UPS.SEGACD: 9,
+    UPS.SEGA32: 10,
+    UPS.SFAM: 3,
+    UPS.SG1000: 33,
+    UPS.SMS: 11,
+    UPS.SNES: 3,
+    UPS.TURBOGRAFX_CD: 76,
+    UPS.TG16: 8,
+    UPS.UZEBOX: 80,
+    UPS.VECTREX: 46,
+    UPS.VIRTUALBOY: 28,
+    UPS.WASM_4: 72,
+    UPS.SUPERVISION: 63,
+    UPS.WIN: 102,
+    UPS.WONDERSWAN: 53,
+    UPS.WONDERSWAN_COLOR: 53,
 }
 
 
@@ -87,41 +76,50 @@ class RAHasherError(Exception): ...
 class RAHasherService:
     """Service to calculate RetroAchievements hashes using RAHasher."""
 
-    async def calculate_hash(self, platform_slug: str, file_path: Path) -> str:
-        platform_id = PLATFORM_SLUG_TO_RETROACHIEVEMENTS_ID.get(platform_slug)
-        if not platform_id:
-            raise RAHasherError(
-                f"Platform not supported by RetroAchievements. {platform_slug=}"
-            )
+    async def calculate_hash(self, platform_id: int, file_path: str) -> str:
+        from handler.metadata.ra_handler import RA_ID_TO_SLUG
 
-        args = (str(platform_id), str(file_path))
-        log.debug("Executing RAHasher with args: %s", args)
-
-        proc = await asyncio.create_subprocess_exec(
-            "RAHasher",
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        log.debug(
+            f"Executing {hl('RAHasher', color=LIGHTMAGENTA)} for platform: {hl(RA_ID_TO_SLUG[platform_id])} - file: {hl(file_path.split('/')[-1])}"
         )
+        args = (str(platform_id), file_path)
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "RAHasher",
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            log.error("RAHasher executable not found in PATH")
+            return ""
+
         return_code = await proc.wait()
         if return_code != 1:
             if proc.stderr is not None:
                 stderr = (await proc.stderr.read()).decode("utf-8")
             else:
                 stderr = None
-            raise RAHasherError(f"RAHasher failed with code {return_code}. {stderr=}")
+            log.error(f"RAHasher failed with code {return_code}. {stderr=}")
+            return ""
 
         if proc.stdout is None:
-            raise RAHasherError("RAHasher did not return a hash.")
+            log.error("RAHasher did not return a hash.")
+            return ""
 
         file_hash = (await proc.stdout.read()).decode("utf-8").strip()
         if not file_hash:
-            raise RAHasherError(
-                f"RAHasher returned an empty hash. {platform_id=}, {file_path=}"
+            log.error(
+                f"RAHasher returned an empty hash for file {file_path} (platform ID: {platform_id})"
             )
-        if not RAHASHER_VALID_HASH_REGEX.match(file_hash):
-            raise RAHasherError(
-                f"RAHasher returned an invalid hash: {file_hash=}, {platform_id=}, {file_path=}"
-            )
+            return ""
 
-        return file_hash
+        match = RAHASHER_VALID_HASH_REGEX.search(file_hash)
+        if not match:
+            log.error(
+                f"RAHasher returned invalid hash {file_hash} for file {file_path} (platform ID: {platform_id}"
+            )
+            return ""
+
+        return match.group(0)

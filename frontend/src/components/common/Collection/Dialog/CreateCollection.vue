@@ -12,10 +12,12 @@ import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { getMissingCoverImage } from "@/utils/covers";
+import { useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 
-// Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
+const router = useRouter();
 const show = ref(false);
 const heartbeat = storeHeartbeat();
 const collection = ref<UpdatedCollection>({ name: "" } as UpdatedCollection);
@@ -71,35 +73,32 @@ async function createCollection() {
 
   emitter?.emit("showLoadingDialog", { loading: true, scrim: true });
 
-  await collectionApi
-    .createCollection({
+  try {
+    const { data } = await collectionApi.createCollection({
       collection: collection.value,
-    })
-    .then(({ data }) => {
-      collectionsStore.add(data);
-      if (data.name.toLowerCase() == "favourites") {
-        collectionsStore.setFavCollection(data);
-      }
-      emitter?.emit("snackbarShow", {
-        msg: `Collection ${data.name} created successfully!`,
-        icon: "mdi-check-bold",
-        color: "green",
-        timeout: 2000,
-      });
-      show.value = false;
-    })
-    .catch((error) => {
-      console.log(error);
-      emitter?.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-    })
-    .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-      closeDialog();
     });
+
+    emitter?.emit("snackbarShow", {
+      msg: `Collection ${data.name} created successfully!`,
+      icon: "mdi-check-bold",
+      color: "green",
+      timeout: 2000,
+    });
+    collectionsStore.addCollection(data);
+    if (data.name.toLowerCase() == "favourites") {
+      collectionsStore.setFavoriteCollection(data);
+    }
+    emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
+    router.push({ name: ROUTES.COLLECTION, params: { collection: data.id } });
+    closeDialog();
+  } catch (error: any) {
+    console.log(error);
+    emitter?.emit("snackbarShow", {
+      msg: error.response.data.detail,
+      icon: "mdi-close-circle",
+      color: "red",
+    });
+  }
 }
 
 function closeDialog() {
@@ -114,8 +113,11 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-bookmark-box-multiple"
-    :width="mdAndUp ? '55vw' : '95vw'"
+    :width="mdAndUp ? '45vw' : '95vw'"
   >
+    <template #header>
+      <v-card-title>{{ t("collection.create-collection") }}</v-card-title>
+    </template>
     <template #content>
       <v-row class="align-center pa-2" no-gutters>
         <v-col cols="12" lg="7" xl="9">
@@ -127,7 +129,7 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="createCollection()"
+                @keyup.enter="createCollection"
               />
             </v-col>
           </v-row>
@@ -140,7 +142,17 @@ function closeDialog() {
                 variant="outlined"
                 required
                 hide-details
-                @keyup.enter="createCollection()"
+                @keyup.enter="createCollection"
+              />
+            </v-col>
+          </v-row>
+          <v-row class="pa-2" no-gutters>
+            <v-col>
+              <v-switch
+                v-model="collection.is_public"
+                :label="t('collection.public-desc')"
+                color="primary"
+                hide-details
               />
             </v-col>
           </v-row>
@@ -160,10 +172,11 @@ function closeDialog() {
                   <v-btn-group divided density="compact">
                     <v-btn
                       :disabled="
-                        !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                        !heartbeat.value.METADATA_SOURCES
+                          ?.STEAMGRIDDB_API_ENABLED
                       "
                       size="small"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="
                         emitter?.emit('showSearchCoverDialog', {
                           term: collection.name as string,
@@ -175,7 +188,7 @@ function closeDialog() {
                     </v-btn>
                     <v-btn
                       size="small"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="triggerFileInput"
                     >
                       <v-icon size="large">mdi-pencil</v-icon>
@@ -190,7 +203,7 @@ function closeDialog() {
                     </v-btn>
                     <v-btn
                       size="small"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="removeArtwork"
                     >
                       <v-icon size="large" class="text-romm-red"
@@ -206,8 +219,9 @@ function closeDialog() {
       </v-row>
     </template>
     <template #append>
-      <v-row class="justify-center mt-4 mb-2" no-gutters>
-        <v-btn-group divided density="compact" rounded="0">
+      <v-divider />
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>

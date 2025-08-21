@@ -1,5 +1,9 @@
 {
-  "404-title": "Seite nicht gefunden",
   "404-subtitle": "Die Seite, die Sie suchen, existiert nicht",
-  "search-for-games": "Suche nach Spielen auf allen Plattformen"
+  "404-title": "Seite nicht gefunden",
+  "search-for-games": "Suche nach Spielen auf allen Plattformen",
+  "manual-match": "Suche nach Spielen bei allen Metadatenanbietern",
+  "home-headline": "Keine Spiele in Ihrer Bibliothek",
+  "home-title": "Führen Sie einen Schnellscan durch, um Spiele auf Ihrem System automatisch zu erkennen",
+  "home-text": "Bereit zum Spielen?"
 }

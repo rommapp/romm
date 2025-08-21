@@ -1,0 +1,109 @@
+interactions:
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://steamgriddb.com/api/v2/search/autocomplete/Mario
+    response:
+      body: {}
+      headers:
+        CF-RAY:
+          - 963865ef9e73a2c3-YUL
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Type:
+          - text/html
+        Date:
+          - Wed, 23 Jul 2025 04:22:41 GMT
+        Location:
+          - https://www.steamgriddb.com/api/v2/search/autocomplete/Mario
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=zkUdYCn%2Bh5KJ4%2BwxN6Ha7ns0cwyNkr5rS2BPcPlG0m5E%2FM3n6pR%2BHqSZRkui%2BytQUu0SecyyoOxMQm7SGBww3ZMpW7Tk4ygjoeb0nHA%3D"}]}'
+        Server:
+          - cloudflare
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 301
+        message: Moved Permanently
+  - request:
+      body: null
+      headers:
+        Accept:
+          - "*/*"
+        Accept-Encoding:
+          - gzip, deflate, br
+        Authorization:
+          - Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        Host:
+          - www.steamgriddb.com
+        User-Agent:
+          - Python/3.13 aiohttp/3.12.14
+      method: GET
+      uri: https://www.steamgriddb.com/api/v2/search/autocomplete/Mario
+    response:
+      body:
+        string:
+          '{"success":true,"data":[{"id":10,"name":"Mario Party 5","verified":true,"types":[],"release_date":1068508800},{"id":51,"name":"Mario''s
+          Picross","verified":true,"types":[],"release_date":795139200},{"id":1266,"name":"Mario
+          Bros.","verified":true,"types":["eshop"],"release_date":425001600},{"id":1681,"name":"Mario
+          Golf: Advance Tour","verified":true,"types":["eshop"],"release_date":1082592000},{"id":12862,"name":"Mario
+          Pinball Land","verified":true,"types":["eshop"],"release_date":1093478400},{"id":21164,"name":"Mario
+          Kart 64","verified":true,"types":["eshop"],"release_date":850521600},{"id":25624,"name":"Mario
+          Kart DS","verified":true,"types":["eshop"],"release_date":1131926400},{"id":25642,"name":"Mario
+          Tennis","verified":true,"types":["eshop"],"release_date":964137600},{"id":29847,"name":"Mario''s
+          Early Years: Fun with Numbers","verified":true,"types":[],"release_date":778377600},{"id":33767,"name":"Mario
+          Party 9","verified":true,"types":[],"release_date":1330646400}]}'
+      headers:
+        CF-RAY:
+          - 963865f08837a2ac-YUL
+        Cache-Control:
+          - no-store, no-cache, must-revalidate
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 04:22:42 GMT
+        Expires:
+          - Thu, 19 Nov 1981 08:52:00 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Pragma:
+          - no-cache
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=uyfaS2i0FtUqdstHe5UxIduv0T9ls74TxoL0LMh5GtHVFY78hE0CbdWngsV%2Fd3XUON1sEzJB%2FAzepsGEMh3YrB8iA%2BKxWVR6lclrfNyOJQir"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - PHPSESSID=2dlv64pgf4nk9n94g0fggujltj; Path=/; Max-Age=604800; Expires=Wed,
+            30 Jul 2025 04:22:42 GMT
+          - PHPSESSID=deleted; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:01 GMT
+        Transfer-Encoding:
+          - chunked
+        alt-svc:
+          - h3=":443"; ma=86400
+      status:
+        code: 200
+        message: OK
+version: 1

@@ -1,58 +1,98 @@
-from typing import Callable
+# trunk-ignore-all(bandit/B404)
 
-from py7zr import Py7zIO, WriterFactory
+import subprocess
+import tempfile
+from collections.abc import Callable
+from pathlib import Path
 
+from logger.logger import log
 
-class CallbackIO(Py7zIO):
-    """Py7zIO implementation that calls a callback on write and read."""
-
-    def __init__(
-        self,
-        filename: str,
-        on_write: Callable[[bytes | bytearray], None],
-        on_read: Callable[[int | None], bytes],
-    ):
-        self.filename = filename
-        self.on_write = on_write
-        self.on_read = on_read
-        self._size = 0
-
-    def write(self, s: bytes | bytearray) -> int:
-        length = len(s)
-        self._size += length
-        self.on_write(s)
-        return length
-
-    def read(self, size: int | None = None) -> bytes:
-        return self.on_read(size)
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        return 0
-
-    def flush(self) -> None: ...
-
-    def size(self) -> int:
-        return self._size
+SEVEN_ZIP_PATH = "/usr/bin/7zz"
+FILE_READ_CHUNK_SIZE = 1024 * 8
 
 
-class CallbackIOFactory(WriterFactory):
-    """WriterFactory implementation that creates CallbackIO instances."""
+def process_file_7z(
+    file_path: Path,
+    fn_hash_update: Callable[[bytes | bytearray], None],
+) -> bool:
+    """
+    Process a 7zip file using the system's 7zip binary and use the provided callables to update the calculated hashes.
 
-    def __init__(
-        self,
-        on_write: Callable[[bytes | bytearray], None],
-        on_read: Callable[[int | None], bytes],
-    ):
-        self.products: dict[str, CallbackIO] = {}
-        self.on_write = on_write
-        self.on_read = on_read
+    Args:
+        file_path: Path to the 7z file
+        fn_hash_update: Callback to update hashes with data chunks
+    """
 
-    def create(self, filename: str) -> CallbackIO:
-        product = CallbackIO(
-            filename=filename, on_write=self.on_write, on_read=self.on_read
+    try:
+        result = subprocess.run(
+            [SEVEN_ZIP_PATH, "l", "-slt", "-ba", str(file_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=60,
+            shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
         )
-        self.products[filename] = product
-        return product
 
-    def get(self, filename: str) -> Py7zIO:
-        return self.products[filename]
+        lines = result.stdout.split("\n")
+
+        largest_file = None
+        largest_size = 0
+        current_file = None
+        current_size = 0
+
+        for line in lines:
+            line = line.strip()
+            if line.startswith("Path = "):
+                current_file = line.split(" = ")[1].strip()
+            elif line.startswith("Size = "):
+                try:
+                    current_size = int(line.split(" = ")[1].strip())
+                except ValueError:
+                    current_size = 0
+            elif line.startswith("Attributes = "):
+                # Check if this is a file (not a folder)
+                attrs = line.split(" = ")[1].strip()
+                if current_file and not attrs.startswith("D"):  # D indicates directory
+                    if current_size > largest_size:
+                        largest_size = current_size
+                        largest_file = current_file
+
+        if not largest_file:
+            return False
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log.debug(f"Extracting {largest_file} from {file_path}...")
+
+            temp_path = Path(temp_dir)
+            subprocess.run(
+                [
+                    SEVEN_ZIP_PATH,
+                    "e",
+                    str(file_path),
+                    largest_file,
+                    f"-o{temp_path}",
+                    "-y",
+                ],
+                capture_output=True,
+                check=True,
+                timeout=60,
+                shell=False,  # trunk-ignore(bandit/B603): 7z path is hardcoded, args are validated
+            )
+
+            # Get the first file in temp_path
+            extracted_file = next(temp_path.iterdir(), None)
+            if extracted_file and extracted_file.exists():
+                with open(extracted_file, "rb") as f:
+                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                        fn_hash_update(chunk)
+
+                return True
+            return False
+
+    except (
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+        FileNotFoundError,
+    ) as e:
+        log.error(f"Error processing 7z file: {e}")
+        return False

@@ -2,7 +2,6 @@
 import storeRoms from "@/stores/roms";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const romsStore = storeRoms();
 </script>
@@ -17,12 +16,13 @@ const romsStore = storeRoms();
   >
     <template #activator="{ props }">
       <v-btn
-        :color="romsStore.selecting ? 'primary' : ''"
+        :color="romsStore.selectingRoms ? 'primary' : ''"
         variant="text"
         rounded="0"
         v-bind="props"
         class="mr-0"
         icon="mdi-select-group"
-        @click="romsStore.isSelecting()" /></template
+        aria-label="Multi select"
+        @click="romsStore.setSelecting" /></template
   ></v-tooltip>
 </template>

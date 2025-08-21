@@ -1,0 +1,21 @@
+{
+  "add-collection": "Dodaj kolekcje",
+  "create-collection": "Utwórz kolekcje",
+  "create-smart-collection": "Utwórz inteligentną kolekcje",
+  "current-filters": "Aktualne filtry",
+  "danger-zone": "Strefa Śmierci",
+  "delete-collection": "Usuń kolekcje",
+  "description": "Opis",
+  "edit-collection": "Edytuj kolekcje",
+  "name": "Nazwa",
+  "owner": "Właściciel",
+  "private": "Prywatne",
+  "private-desc": "Prywatne (Widoczne tylko dla mnie)",
+  "public": "Publiczne",
+  "public-desc": "Publiczne (widoczne dla każdego)",
+  "removing-collection-1": "Usuwanie kolekcji",
+  "removing-collection-2": "z RomM. Czy potwierdzasz?",
+  "removing-smart-collection-1": "Usuwanie inteligentnej kolekcji",
+  "removing-smart-collection-2": "z RomM. Czy potwierdzasz?",
+  "search-collection": "Przeszukaj kolekcje"
+}

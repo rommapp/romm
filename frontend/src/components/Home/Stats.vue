@@ -4,7 +4,6 @@ import { formatBytes } from "@/utils";
 import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const stats = ref({
   PLATFORMS: 0,
@@ -12,10 +11,9 @@ const stats = ref({
   SAVES: 0,
   STATES: 0,
   SCREENSHOTS: 0,
-  FILESIZE: 0,
+  TOTAL_FILESIZE_BYTES: 0,
 });
 
-// Functions
 onBeforeMount(() => {
   api.get("/stats").then(({ data }) => {
     stats.value = data;
@@ -83,7 +81,8 @@ onBeforeMount(() => {
             variant="text"
             label
           >
-            {{ t("common.size-on-disk") }}: {{ formatBytes(stats.FILESIZE, 1) }}
+            {{ t("common.size-on-disk") }}:
+            {{ formatBytes(stats.TOTAL_FILESIZE_BYTES, 1) }}
           </v-chip>
         </v-col>
       </v-row>

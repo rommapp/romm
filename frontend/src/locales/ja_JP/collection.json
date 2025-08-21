@@ -1,0 +1,21 @@
+{
+  "add-collection": "コレクションに追加",
+  "create-collection": "コレクションを作成",
+  "create-smart-collection": "スマートコレクションを作成",
+  "current-filters": "現在のフィルター",
+  "danger-zone": "危険",
+  "delete-collection": "コレクションを削除",
+  "description": "説明",
+  "edit-collection": "コレクションを編集",
+  "name": "名前",
+  "owner": "所有者",
+  "private": "非公開",
+  "private-desc": "非公開(自分だけ表示)",
+  "public": "公開",
+  "public-desc": "公開(全員表示可)",
+  "removing-collection-1": "RomMからコレクションを削除します",
+  "removing-collection-2": "よろしいですか？",
+  "removing-smart-collection-1": "RomMからスマートコレクションを削除します",
+  "removing-smart-collection-2": "よろしいですか？",
+  "search-collection": "コレクションを検索"
+}

@@ -8,7 +8,7 @@
   "homepage": "https://github.com/rommapp/romm",
   "repository": {
     "type": "git",
-    "url": "git+gihub.com/rommapp/romm.git"
+    "url": "git+github.com/rommapp/romm.git"
   },
   "bugs": {
     "url": "https://github.com/rommapp/romm/issues"
@@ -24,47 +24,49 @@
     "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
-    "generate": "openapi --input http://127.0.0.1:5000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
+    "generate": "openapi --input http://127.0.0.1:3000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false"
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
-    "axios": "^1.8.1",
-    "cronstrue": "^2.55.0",
+    "axios": "^1.8.4",
+    "cronstrue": "^2.57.0",
+    "date-fns": "^4.1.0",
     "js-cookie": "^3.0.5",
     "lodash": "^4.17.21",
-    "md-editor-v3": "^5.3.2",
+    "md-editor-v3": "^5.8.4",
     "mitt": "^3.0.1",
-    "nanoid": "^5.1.2",
+    "nanoid": "^5.1.4",
     "pinia": "^3.0.1",
     "qrcode": "^1.5.4",
     "semver": "^7.6.2",
     "socket.io-client": "^4.7.5",
+    "vanilla-tilt": "^1.8.1",
     "vue": "^3.4.27",
-    "vue-i18n": "^11.1.1",
+    "vue-i18n": "^11.1.10",
     "vue-router": "^4.3.2",
     "vue3-pdf-app": "^1.0.3",
-    "vuetify": "^3.7.9"
+    "vuetify": "^3.9.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
     "@types/eslint__js": "^9.14.0",
     "@types/js-cookie": "^3.0.6",
-    "@types/lodash": "^4.17.15",
-    "@types/node": "^22.13.8",
+    "@types/lodash": "^4.17.16",
+    "@types/node": "^22.13.14",
     "@types/qrcode": "^1.5.5",
-    "@types/semver": "^7.5.8",
+    "@types/semver": "^7.7.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/tsconfig": "^0.7.0",
-    "eslint": "^9.21.0",
+    "eslint": "^9.23.0",
     "eslint-plugin-vue": "^9.26.0",
     "globals": "^16.0.0",
     "openapi-typescript-codegen": "^0.29.0",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.25.0",
-    "vite": "^6.1.1",
+    "typescript-eslint": "^8.28.0",
+    "vite": "^6.3.5",
     "vite-plugin-pwa": "^0.21.1",
     "vite-plugin-vuetify": "^2.0.4",
-    "vue-tsc": "^2.1.10"
+    "vue-tsc": "^2.2.8"
   },
   "engines": {
     "node": "18"

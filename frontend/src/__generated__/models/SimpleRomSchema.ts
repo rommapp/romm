@@ -3,17 +3,24 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RomFileSchema } from './RomFileSchema';
+import type { RomHasheousMetadata } from './RomHasheousMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
+import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
+import type { RomMetadataSchema } from './RomMetadataSchema';
 import type { RomMobyMetadata } from './RomMobyMetadata';
-import type { RomSchema } from './RomSchema';
 import type { RomSSMetadata } from './RomSSMetadata';
 import type { RomUserSchema } from './RomUserSchema';
+import type { SiblingRomSchema } from './SiblingRomSchema';
 export type SimpleRomSchema = {
     id: number;
     igdb_id: (number | null);
     sgdb_id: (number | null);
     moby_id: (number | null);
     ss_id: (number | null);
+    ra_id: (number | null);
+    launchbox_id: (number | null);
+    hasheous_id: (number | null);
+    tgdb_id: (number | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -29,19 +36,14 @@ export type SimpleRomSchema = {
     name: (string | null);
     slug: (string | null);
     summary: (string | null);
-    first_release_date: (number | null);
-    youtube_video_id: (string | null);
-    average_rating: (number | null);
     alternative_names: Array<string>;
-    genres: Array<string>;
-    franchises: Array<string>;
-    meta_collections: Array<string>;
-    companies: Array<string>;
-    game_modes: Array<string>;
-    age_ratings: Array<string>;
+    youtube_video_id: (string | null);
+    metadatum: RomMetadataSchema;
     igdb_metadata: (RomIGDBMetadata | null);
     moby_metadata: (RomMobyMetadata | null);
     ss_metadata: (RomSSMetadata | null);
+    launchbox_metadata: (RomLaunchboxMetadata | null);
+    hasheous_metadata: (RomHasheousMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);
@@ -49,6 +51,7 @@ export type SimpleRomSchema = {
     path_manual: (string | null);
     url_manual: (string | null);
     is_unidentified: boolean;
+    is_identified: boolean;
     revision: (string | null);
     regions: Array<string>;
     languages: Array<string>;
@@ -61,8 +64,8 @@ export type SimpleRomSchema = {
     full_path: string;
     created_at: string;
     updated_at: string;
-    sibling_roms: Array<RomSchema>;
+    missing_from_fs: boolean;
+    siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
-    readonly sort_comparator: string;
 };
 

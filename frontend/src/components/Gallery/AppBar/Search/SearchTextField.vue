@@ -1,70 +1,46 @@
 <script setup lang="ts">
-import romApi from "@/services/api/rom";
 import storeRoms from "@/stores/roms";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onMounted, watch } from "vue";
+import { inject, nextTick, onMounted, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
-// Props
-const { xs } = useDisplay();
 const { t } = useI18n();
 const router = useRouter();
 const romsStore = storeRoms();
-const { gettingRoms } = storeToRefs(romsStore);
+const { initialSearch } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const galleryFilterStore = storeGalleryFilter();
-const { searchText } = storeToRefs(galleryFilterStore);
+const { searchTerm } = storeToRefs(galleryFilterStore);
 
 async function fetchRoms() {
-  if (searchText.value) {
-    // Auto hide android keyboard
-    const inputElement = document.getElementById("search-text-field");
-    inputElement?.blur();
-    gettingRoms.value = true;
-
-    // Update URL with search term
-    router.replace({ query: { search: searchText.value } });
-
-    try {
-      const { data } = await romApi.getRoms({ searchTerm: searchText.value });
-      const sortedData = data.sort((a, b) => {
-        return a.platform_name.localeCompare(b.platform_name);
-      });
-      romsStore.set(sortedData);
-      romsStore.setFiltered(sortedData, galleryFilterStore);
-    } catch (error) {
-      emitter?.emit("snackbarShow", {
-        msg: `Couldn't fetch roms: ${error}`,
-        icon: "mdi-close-circle",
-        color: "red",
-        timeout: 4000,
-      });
-      console.error(`Couldn't fetch roms: ${error}`);
-    } finally {
-      gettingRoms.value = false;
-      galleryFilterStore.activeFilterDrawer = false;
-    }
-  }
+  if (searchTerm.value === null) return;
+  initialSearch.value = true;
+  emitter?.emit("filterRoms", null);
 }
 
-onMounted(() => {
-  const { search: searchTerm } = router.currentRoute.value.query;
-  if (searchTerm && searchTerm !== searchText.value) {
-    searchText.value = searchTerm as string;
-    fetchRoms();
-  }
-});
+function clearInput() {
+  searchTerm.value = null;
+}
+
+function resetGallery() {
+  romsStore.setCurrentPlatform(null);
+  romsStore.setCurrentCollection(null);
+  romsStore.reset();
+  galleryFilterStore.resetFilters();
+  galleryFilterStore.activeFilterDrawer = false;
+}
+
+onMounted(() => resetGallery());
 
 watch(
-  router.currentRoute.value.query,
+  () => router.currentRoute.value.query,
   (query) => {
-    if (query.search && query.search !== searchText.value) {
-      searchText.value = query.search as string;
+    if (query.search !== undefined && query.search !== searchTerm.value) {
+      searchTerm.value = query.search as string;
       fetchRoms();
     }
   },
@@ -74,14 +50,15 @@ watch(
 
 <template>
   <v-text-field
-    :density="xs ? 'comfortable' : 'default'"
+    density="default"
     clearable
     autofocus
-    @keyup.enter="fetchRoms"
-    v-model="searchText"
-    :disabled="gettingRoms"
-    :label="t('common.search')"
     hide-details
-    class="bg-toplayer"
+    rounded="0"
+    :label="t('common.search')"
+    v-model="searchTerm"
+    @keyup.enter="fetchRoms"
+    @click:clear="clearInput"
+    @update:model-value="nextTick(fetchRoms)"
   />
 </template>

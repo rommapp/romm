@@ -3,7 +3,6 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { ref, inject } from "vue";
 
-// Props
 const emitter = inject<Emitter<Events>>("emitter");
 const isShowSortBar = ref(false);
 function showSortBar() {

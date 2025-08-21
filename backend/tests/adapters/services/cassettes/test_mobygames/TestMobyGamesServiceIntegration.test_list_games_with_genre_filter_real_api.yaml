@@ -1,0 +1,141 @@
+interactions:
+  - request:
+      body: null
+      headers: {}
+      method: GET
+      uri: https://api.mobygames.com/v1/games?genre=1&format=normal&limit=3
+    response:
+      body:
+        string:
+          '{"games":[{"alternate_titles":[],"description":"<p>Roger Rabbit has
+          been framed for the murder of Marvin Acme, head of the Acme Corporation. Acme''s
+          will states that upon his death, Toon Town would be left to the Toons, but
+          the will is nowhere to be found. You have to find the will and save your wife,
+          Jessica, from Judge Doom and his weasels.</p>\n<p>The game takes place in
+          Hollywood, 1947, where Toons are alive. There are 4 levels in the game, 2
+          of which are driving levels (levels 1 &amp; 3). Roger and Benny the cab have
+          to beat the weasels to the destination, while dodging cars, trams and Judge
+          Doom''s dip which is scattered on the road. There are pick-ups to help you
+          on your way.</p>\n<p>Level 2 is the Ink &amp; Paint Club. The will is on one
+          of the tables. Roger has to pick up all the pieces of paper the penguin waiters
+          put down, whilst avoiding the alcohol and gorilla bouncer.</p>\n<p>Level 4
+          has you in Judge Doom''s warehouse trying to save your wife, Jessica, from
+          the dip truck. You have to use gags to progress and make the weasels laugh
+          themselves to death, literally!</p>","game_id":2,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":9,"genre_name":"Arcade"},{"genre_category":"Other
+          Attributes","genre_category_id":6,"genre_id":82,"genre_name":"Licensed"}],"moby_score":5.9,"moby_url":"https://www.mobygames.com/game/2/who-framed-roger-rabbit/","num_votes":34,"official_url":null,"platforms":[{"first_release_date":"1988","platform_id":2,"platform_name":"DOS"},{"first_release_date":"1988","platform_id":19,"platform_name":"Amiga"},{"first_release_date":"1988","platform_id":24,"platform_name":"Atari
+          ST"},{"first_release_date":"1988","platform_id":27,"platform_name":"Commodore
+          64"},{"first_release_date":"1988","platform_id":31,"platform_name":"Apple
+          II"}],"sample_cover":{"height":700,"image":"https://cdn.mobygames.com/covers/4068119-who-framed-roger-rabbit-amiga-front-cover.jpg","platforms":["Amiga"],"thumbnail_image":"https://cdn.mobygames.com/b59d6706-aba4-11ed-ba50-02420a000199.webp","width":467},"sample_screenshots":[{"caption":"But
+          don''t let the Waiter catch you. (CGA)","height":200,"image":"https://cdn.mobygames.com/screenshots/7288598-who-framed-roger-rabbit-dos-but-dont-let-the-waiter-catch-you-cg.png","thumbnail_image":"https://cdn.mobygames.com/272f1ce8-abf5-11ed-92cb-02420a000132.webp","width":320},{"caption":"The
+          map of the city and where you need to go. Your remaining lives are represented
+          by empty spaces for dip barrels","height":375,"image":"https://cdn.mobygames.com/screenshots/445776-who-framed-roger-rabbit-amiga-the-map-of-the-city-and-where-you-.png","thumbnail_image":"https://cdn.mobygames.com/2750450e-ab6d-11ed-b165-02420a000198.webp","width":640},{"caption":"Title
+          screen","height":375,"image":"https://cdn.mobygames.com/screenshots/445808-who-framed-roger-rabbit-amiga-title-screen.png","thumbnail_image":"https://cdn.mobygames.com/2762b126-ab6d-11ed-b325-02420a00019e.webp","width":640},{"caption":"Pick
+          up the pieces of paper and dodge the gorilla and alcohol","height":375,"image":"https://cdn.mobygames.com/screenshots/445448-who-framed-roger-rabbit-amiga-pick-up-the-pieces-of-paper-and-do.png","thumbnail_image":"https://cdn.mobygames.com/26a9c35a-ab6d-11ed-ba04-02420a00019f.webp","width":640},{"caption":"Roger
+          must collect all the pieces of paper from the table. Avoid the gorilla bouncer
+          (EGA)","height":200,"image":"https://cdn.mobygames.com/screenshots/442192-who-framed-roger-rabbit-dos-roger-must-collect-all-the-pieces-of.png","thumbnail_image":"https://cdn.mobygames.com/2039dc44-ab6d-11ed-9ab3-02420a0001a0.webp","width":320}],"title":"Who
+          Framed Roger Rabbit"},{"alternate_titles":[{"description":"Working title","title":"Squadron"},{"description":"Common
+          abbreviation","title":"WC1"},{"description":"German tag-lined title","title":"Wing
+          Commander: Der 3D-Raumkampf-Simulator"},{"description":"Tag-lined title","title":"Wing
+          Commander: The 3-D Space Combat Simulator"},{"description":"Working title","title":"Wingleader"}],"description":"<p>The
+          Confederation have been at war with the Kilrathi for the past 20 years, and
+          you''re just now joining the Vega campaign. You''re a 2nd Lieutenant just
+          out of the Academy, with some good work under your belt. You''re posted to
+          Tiger''s Claw, the flagship of the Confederation Fleet. Will you help the
+          Confederation to victory, or go down in infamy? </p>\n<p><em>Wing Commander</em>
+          is a space combat simulator interspersed with shipboard dialogs. Onboard the
+          ship, you can save/load game, visit the bar to get the latest gossip, or go
+          on to the next mission briefing, and the 3D space combat part. </p>\n<p>The
+          3D space combat has you sitting in the cockpit, where you control the craft
+          like roll, turn, up/down, afterburner, as well as fire guns and launch missiles.
+          There are four different crafts on the Confed side, each with different flight
+          characteristics and armament. You will have a wingman on each mission, and
+          you should keep the wingman alive as the wingman will help you if you issue
+          the right orders. You can also taunt the enemy. You''ll be fighting several
+          different types of enemy fighters and capital ships, and even combat a few
+          Kilrathi aces. </p>\n<p>When the mission is complete, land back onboard the
+          ship and get ready for the next one. The campaign tree has both winning and
+          losing paths.</p>","game_id":3,"genres":[{"genre_category":"Basic Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":3,"genre_name":"Simulation"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":7,"genre_name":"1st-person"},{"genre_category":"Vehicular
+          Themes","genre_category_id":11,"genre_id":151,"genre_name":"Space flight"},{"genre_category":"Vehicular
+          Themes","genre_category_id":11,"genre_id":159,"genre_name":"Vehicular combat"},{"genre_category":"Setting","genre_category_id":10,"genre_id":8,"genre_name":"Sci-fi
+          / futuristic"}],"moby_score":7.9,"moby_url":"https://www.mobygames.com/game/3/wing-commander/","num_votes":201,"official_url":null,"platforms":[{"first_release_date":"1990","platform_id":2,"platform_name":"DOS"},{"first_release_date":"1992","platform_id":15,"platform_name":"SNES"},{"first_release_date":"1992","platform_id":19,"platform_name":"Amiga"},{"first_release_date":"1994","platform_id":20,"platform_name":"SEGA
+          CD"},{"first_release_date":"1992-12","platform_id":102,"platform_name":"FM
+          Towns"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/6743023-wing-commander-dos-front-cover.jpg","platforms":["DOS"],"thumbnail_image":"https://cdn.mobygames.com/dad1dfd8-abf0-11ed-8a97-02420a00012d.webp","width":560},"sample_screenshots":[{"caption":"The
+          Officers'' Lounge","height":224,"image":"https://cdn.mobygames.com/screenshots/15762759-wing-commander-snes-the-officers-lounge.png","thumbnail_image":"https://cdn.mobygames.com/ed048970-bede-11ed-9c42-02420a000140.webp","width":256},{"caption":"Encountering
+          a Dralthi","height":400,"image":"https://cdn.mobygames.com/screenshots/350994-wing-commander-amiga-encountering-a-dralthi.png","thumbnail_image":"https://cdn.mobygames.com/696381aa-ab6c-11ed-bd13-02420a00019c.webp","width":640},{"caption":"red
+          alert! (EGA)","height":400,"image":"https://cdn.mobygames.com/screenshots/273924-wing-commander-dos-red-alert-ega.png","thumbnail_image":"https://cdn.mobygames.com/bfbe68d6-ab6b-11ed-89d0-02420a00019d.webp","width":640},{"caption":"Raptor
+          Cockpit","height":200,"image":"https://cdn.mobygames.com/screenshots/6756305-wing-commander-dos-raptor-cockpit.png","thumbnail_image":"https://cdn.mobygames.com/f5d649ea-abf0-11ed-902e-02420a00012d.webp","width":320},{"caption":"Rapier
+          Cockpit","height":200,"image":"https://cdn.mobygames.com/screenshots/6756317-wing-commander-dos-rapier-cockpit.png","thumbnail_image":"https://cdn.mobygames.com/f6a3bd4e-abf0-11ed-902e-02420a00012d.webp","width":320}],"title":"Wing
+          Commander"},{"alternate_titles":[],"description":"<p>Take control of a mechanical
+          digging machine as you tunnel your way through the earth, searching for valuable
+          gems and the even more valuable bags of gold! But watch out for Nobbins and
+          Hobbins, and don''t be careless enough to let the bags of gold crush you!</p>\n<p><em>Digger</em>
+          is an arcade game combining elements of the popular arcade games <a href=\"https://www.mobygames.com/game/139/dig-dug/\">Dig
+          Dug</a> and <a href=\"https://www.mobygames.com/game/9764/mr-do/\">Mr. Do!</a>.
+          Players control the titular ''Digger'' that can tunnel through dirt with ease.
+          The goal of each level is to gather up each of the gems, which allows you
+          to progress to the next stage. However, Nobbins and Hobbins are also lurking
+          within the levels - Nobbins are fairly slow, but transform into Hobbins which
+          are much quicker. The enemies can only chase Digger through the tunnels he
+          creates - they cannot dig through the dirt themselves.</p>\n<p>Digger''s defenses
+          consist of being able to shoot a single, rechargeable shot in the direction
+          he is facing with F1 (which recharges after about thirty seconds), crushing
+          his foes by digging underneath a gold bag and letting it plummet down, crushing
+          anything in its path, or by collecting the bonus cherry that sometimes appears,
+          causing Digger to become temporarily invincible.</p>","game_id":18,"genres":[{"genre_category":"Basic
+          Genres","genre_category_id":1,"genre_id":1,"genre_name":"Action"},{"genre_category":"Perspective","genre_category_id":2,"genre_id":17,"genre_name":"Side
+          view"},{"genre_category":"Visual Presentation","genre_category_id":12,"genre_id":133,"genre_name":"Fixed
+          / flip-screen"},{"genre_category":"Gameplay","genre_category_id":4,"genre_id":9,"genre_name":"Arcade"}],"moby_score":7.2,"moby_url":"https://www.mobygames.com/game/18/digger/","num_votes":55,"official_url":null,"platforms":[{"first_release_date":"1983","platform_id":4,"platform_name":"PC
+          Booter"}],"sample_cover":{"height":800,"image":"https://cdn.mobygames.com/covers/3944239-digger-pc-booter-front-cover.jpg","platforms":["PC
+          Booter"],"thumbnail_image":"https://cdn.mobygames.com/6bec59b8-aba0-11ed-9e18-02420a00019a.webp","width":511},"sample_screenshots":[{"caption":"Level
+          8 (If you manage to complete this level you will return to level 6)","height":200,"image":"https://cdn.mobygames.com/screenshots/173445-digger-pc-booter-level-8-if-you-manage-to-complete-this-level-yo.png","thumbnail_image":"https://cdn.mobygames.com/f6ca57dc-ab6a-11ed-b042-02420a00019f.webp","width":320},{"caption":"Title","height":200,"image":"https://cdn.mobygames.com/screenshots/1778002-digger-pc-booter-title.png","thumbnail_image":"https://cdn.mobygames.com/27bfa1a0-ab78-11ed-837d-02420a00019b.webp","width":320},{"caption":"Level
+          6","height":200,"image":"https://cdn.mobygames.com/screenshots/1777003-digger-pc-booter-level-6.png","thumbnail_image":"https://cdn.mobygames.com/25bf187c-ab78-11ed-87d1-02420a000197.webp","width":320},{"caption":"Level
+          2","height":200,"image":"https://cdn.mobygames.com/screenshots/1778183-digger-pc-booter-level-2.png","thumbnail_image":"https://cdn.mobygames.com/280f1c76-ab78-11ed-837d-02420a00019b.webp","width":320},{"caption":"Level
+          3","height":200,"image":"https://cdn.mobygames.com/screenshots/1778600-digger-pc-booter-level-3.png","thumbnail_image":"https://cdn.mobygames.com/28ebf54c-ab78-11ed-837d-02420a00019b.webp","width":320}],"title":"Digger"}]}
+
+          '
+      headers:
+        CF-RAY:
+          - 963b92ff4e91a234-YYZ
+        Cf-Cache-Status:
+          - DYNAMIC
+        Connection:
+          - keep-alive
+        Content-Encoding:
+          - br
+        Content-Security-Policy:
+          - frame-ancestors 'none';
+        Content-Type:
+          - application/json
+        Date:
+          - Wed, 23 Jul 2025 13:37:45 GMT
+        Nel:
+          - '{"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}'
+        Ratelimit-Limit:
+          - "720"
+        Ratelimit-Policy:
+          - 1;w=1, 720;w=3600
+        Ratelimit-Remaining:
+          - "215"
+        Ratelimit-Reset:
+          - "1335"
+        Report-To:
+          - '{"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=BwegzCAuSTI5MVyTG8jRXPkRZIOn8xEpx4aT6R0AEQ4u2nIVDtf96724abi6IJJ9AVUudEArfXGjvcW6EeQbM7ZnHmg09vHHgEjoO7e2"}]}'
+        Server:
+          - cloudflare
+        Set-Cookie:
+          - session-www=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xxxxxx.xxxxxxxxxxxxxxxxxxxxxx;
+            HttpOnly; SameSite=Lax; Path=/; Domain=mobygames.com
+        Transfer-Encoding:
+          - chunked
+        Vary:
+          - Cookie
+        X-Frame-Options:
+          - DENY
+        X-Xss-Protection:
+          - 1; mode=block
+      status:
+        code: 200
+        message: OK
+version: 1

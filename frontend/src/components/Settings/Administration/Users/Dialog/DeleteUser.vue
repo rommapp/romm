@@ -9,7 +9,6 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const user = ref<UserItem | null>(null);
 const show = ref(false);
 const usersStore = storeUsers();
@@ -20,7 +19,6 @@ emitter?.on("showDeleteUserDialog", (userToDelete) => {
   show.value = true;
 });
 
-// Functions
 async function deleteUser() {
   if (!user.value) return;
 
@@ -80,7 +78,7 @@ function closeDialog() {
       <v-row class="justify-center mb-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog"> Cancel </v-btn>
-          <v-btn class="bg-toplayer text-romm-red" @click="deleteUser()">
+          <v-btn class="bg-toplayer text-romm-red" @click="deleteUser">
             Confirm
           </v-btn>
         </v-btn-group>

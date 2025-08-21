@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
+import DeleteSmartCollectionDialog from "@/components/common/Collection/Dialog/DeleteSmartCollection.vue";
 import RSection from "@/components/common/RSection.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
 import storeCollection from "@/stores/collections";
@@ -17,7 +18,6 @@ import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import { getCollectionCoverImage } from "@/utils/covers";
 
-// Props
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -52,7 +52,6 @@ emitter?.on("updateUrlCover", (url_cover) => {
   setArtwork(url_cover);
 });
 
-// Functions
 function showEditable() {
   updatedCollection.value = { ...currentCollection.value } as UpdatedCollection;
   imagePreviewUrl.value = "";
@@ -111,7 +110,7 @@ async function updateCollection() {
         color: "green",
       });
       currentCollection.value = data;
-      collectionsStore.update(data);
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
@@ -136,17 +135,15 @@ async function updateCollection() {
     width="500"
     v-model="activeCollectionInfoDrawer"
     :class="{
-      'mx-2 px-1': activeCollectionInfoDrawer,
+      'ml-2': activeCollectionInfoDrawer,
       'drawer-mobile': smAndDown && activeCollectionInfoDrawer,
-      'drawer-desktop': !smAndDown,
     }"
-    class="bg-surface border-0 rounded my-2 py-1"
-    style="height: unset"
+    class="bg-surface rounded mt-4 mb-2 pa-1 unset-height"
   >
-    <v-row no-gutters class="justify-center align-center pa-4">
+    <v-row no-gutters class="justify-center align-center pa-2">
       <v-col style="max-width: 240px" cols="12">
         <div class="text-center justify-center align-center">
-          <div class="position-absolute append-top-right">
+          <div class="position-absolute append-top-right mr-5">
             <template
               v-if="
                 currentCollection.user__username === auth.user?.username &&
@@ -175,7 +172,7 @@ async function updateCollection() {
                   ><v-icon color="romm-red">mdi-close</v-icon></v-btn
                 >
                 <v-btn
-                  @click="updateCollection()"
+                  @click="updateCollection"
                   size="small"
                   class="bg-toplayer ml-1"
                   ><v-icon color="romm-green">mdi-check</v-icon></v-btn
@@ -191,14 +188,14 @@ async function updateCollection() {
             :src="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
-              <v-btn-group divided density="compact">
+              <v-btn-group rounded="0" divided density="compact">
                 <v-btn
                   title="Search for cover in SteamGridDB"
                   :disabled="
-                    !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED
+                    !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
                   "
                   size="small"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="
                     emitter?.emit('showSearchCoverDialog', {
                       term: currentCollection.name as string,
@@ -211,10 +208,10 @@ async function updateCollection() {
                 <v-btn
                   title="Upload custom cover"
                   size="small"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="triggerFileInput"
                 >
-                  <v-icon size="large">mdi-upload</v-icon>
+                  <v-icon size="large">mdi-cloud-upload-outline</v-icon>
                   <v-file-input
                     id="file-input"
                     v-model="updatedCollection.artwork"
@@ -227,7 +224,7 @@ async function updateCollection() {
                 <v-btn
                   title="Remove cover"
                   size="small"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="removeArtwork"
                 >
                   <v-icon size="large" class="text-romm-red">mdi-delete</v-icon>
@@ -273,7 +270,7 @@ async function updateCollection() {
               required
               density="compact"
               hide-details
-              @keyup.enter="updateCollection()"
+              @keyup.enter="updateCollection"
             />
             <v-text-field
               class="mt-4"
@@ -283,7 +280,7 @@ async function updateCollection() {
               required
               density="compact"
               hide-details
-              @keyup.enter="updateCollection()"
+              @keyup.enter="updateCollection"
             />
             <v-switch
               class="mt-2"
@@ -304,12 +301,9 @@ async function updateCollection() {
       </v-col>
       <v-col cols="12">
         <v-card class="mt-4 bg-toplayer fill-width" elevation="0">
-          <v-card-text class="pa-4">
-            <template
-              v-for="(field, index) in collectionInfoFields"
-              :key="field.key"
-            >
-              <div :class="{ 'mt-4': index !== 0 }">
+          <v-card-text class="pa-4 d-flex">
+            <template v-for="field in collectionInfoFields" :key="field.key">
+              <div>
                 <v-chip size="small" class="mr-2 px-0" label>
                   <v-chip label>{{ field.label }}</v-chip
                   ><span class="px-2">{{
@@ -339,6 +333,7 @@ async function updateCollection() {
       elevation="0"
       titleDivider
       bgColor="bg-toplayer"
+      class="mx-2"
     >
       <template #content>
         <div class="text-center">
@@ -358,18 +353,12 @@ async function updateCollection() {
   </v-navigation-drawer>
 
   <delete-collection-dialog />
+  <delete-smart-collection-dialog />
 </template>
 <style scoped>
 .append-top-right {
   top: 0.3rem;
   right: 0.3rem;
   z-index: 1;
-}
-.drawer-desktop {
-  top: 56px !important;
-}
-.drawer-mobile {
-  top: 110px !important;
-  width: calc(100% - 16px) !important;
 }
 </style>

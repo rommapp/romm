@@ -1,17 +1,31 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 
-// Props
-withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
-  rail: false,
-});
+withDefaults(
+  defineProps<{
+    platform: Platform;
+    withLink?: boolean;
+    showRomCount?: boolean;
+  }>(),
+  {
+    withLink: false,
+    showRomCount: true,
+  },
+);
 </script>
 
 <template>
   <v-list-item
-    :to="{ name: ROUTES.PLATFORM, params: { platform: platform.id } }"
+    v-bind="{
+      ...(withLink
+        ? {
+            to: { name: ROUTES.PLATFORM, params: { platform: platform.id } },
+          }
+        : {}),
+    }"
     :value="platform.slug"
     rounded
     density="compact"
@@ -23,24 +37,7 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
         :name="platform.name"
         :fs-slug="platform.fs_slug"
         :size="40"
-      >
-        <v-tooltip
-          location="bottom"
-          class="tooltip"
-          transition="fade-transition"
-          text="Not found"
-          open-delay="500"
-          ><template #activator="{ props }">
-            <div
-              v-if="!platform.igdb_id && !platform.moby_id && !platform.ss_id"
-              v-bind="props"
-              class="not-found-icon"
-            >
-              ⚠️
-            </div>
-          </template>
-        </v-tooltip></platform-icon
-      >
+      />
     </template>
     <v-row no-gutters
       ><v-col
@@ -52,18 +49,18 @@ withDefaults(defineProps<{ platform: Platform; rail?: boolean }>(), {
         <span class="text-caption text-grey">{{ platform.fs_slug }}</span>
       </v-col>
     </v-row>
-    <template #append>
+    <template v-if="showRomCount" #append>
+      <missing-from-f-s-icon
+        v-if="platform.missing_from_fs"
+        text="Missing platform from filesystem"
+        chip
+        chip-label
+        chipDensity="compact"
+        class="ml-2"
+      />
       <v-chip class="ml-2" size="x-small" label>
         {{ platform.rom_count }}
       </v-chip>
     </template>
   </v-list-item>
 </template>
-
-<style scoped>
-.not-found-icon {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-}
-</style>

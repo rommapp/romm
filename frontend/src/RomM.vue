@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import languageStore from "@/stores/language";
-import MainAppBar from "@/components/common/Navigation/MainAppBar.vue";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { locale } = useI18n();
 const storeLanguage = languageStore();
 const { defaultLanguage, languages } = storeToRefs(storeLanguage);
@@ -20,7 +18,7 @@ storeLanguage.setLanguage(selectedLanguage.value);
 
 <template>
   <v-app>
-    <v-main height="100dvh">
+    <v-main>
       <router-view />
     </v-main>
   </v-app>

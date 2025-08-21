@@ -6,27 +6,17 @@ class SystemDict(TypedDict):
     SHOW_SETUP_WIZARD: bool
 
 
-class WatcherDict(TypedDict):
-    ENABLED: bool
-    TITLE: str
-    MESSAGE: str
-
-
-class TaskDict(WatcherDict):
-    CRON: str
-
-
-class SchedulerDict(TypedDict):
-    RESCAN: TaskDict
-    SWITCH_TITLEDB: TaskDict
-
-
 class MetadataSourcesDict(TypedDict):
     ANY_SOURCE_ENABLED: bool
     IGDB_API_ENABLED: bool
     MOBY_API_ENABLED: bool
     SS_API_ENABLED: bool
-    STEAMGRIDDB_ENABLED: bool
+    STEAMGRIDDB_API_ENABLED: bool
+    RA_API_ENABLED: bool
+    LAUNCHBOX_API_ENABLED: bool
+    PLAYMATCH_API_ENABLED: bool
+    HASHEOUS_API_ENABLED: bool
+    TGDB_API_ENABLED: bool
 
 
 class FilesystemDict(TypedDict):
@@ -41,6 +31,7 @@ class EmulationDict(TypedDict):
 class FrontendDict(TypedDict):
     UPLOAD_TIMEOUT: int
     DISABLE_USERPASS_LOGIN: bool
+    YOUTUBE_BASE_URL: str
 
 
 class OIDCDict(TypedDict):
@@ -50,8 +41,6 @@ class OIDCDict(TypedDict):
 
 class HeartbeatResponse(TypedDict):
     SYSTEM: SystemDict
-    WATCHER: WatcherDict
-    SCHEDULER: SchedulerDict
     METADATA_SOURCES: MetadataSourcesDict
     FILESYSTEM: FilesystemDict
     EMULATION: EmulationDict

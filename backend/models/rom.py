@@ -6,7 +6,12 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
-from models.base import BaseModel
+from models.base import (
+    FILE_EXTENSION_MAX_LENGTH,
+    FILE_NAME_MAX_LENGTH,
+    FILE_PATH_MAX_LENGTH,
+    BaseModel,
+)
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
@@ -19,7 +24,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from utils.database import CustomJSON, safe_float, safe_int
+from utils.database import CustomJSON
 
 if TYPE_CHECKING:
     from models.assets import Save, Screenshot, State
@@ -40,27 +45,84 @@ class RomFileCategory(enum.StrEnum):
     PROTOTYPE = "prototype"
 
 
+class SiblingRom(BaseModel):
+    __tablename__ = "sibling_roms"
+
+    rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    __table_args__ = (
+        UniqueConstraint("rom_id", "sibling_rom_id", name="unique_sibling_roms"),
+    )
+
+
 class RomFile(BaseModel):
     __tablename__ = "rom_files"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     rom_id: Mapped[int] = mapped_column(ForeignKey("roms.id", ondelete="CASCADE"))
-    file_name: Mapped[str] = mapped_column(String(length=450))
-    file_path: Mapped[str] = mapped_column(String(length=1000))
+    file_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    file_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
     file_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
     last_modified: Mapped[float | None] = mapped_column(default=None)
     crc_hash: Mapped[str | None] = mapped_column(String(100))
     md5_hash: Mapped[str | None] = mapped_column(String(100))
     sha1_hash: Mapped[str | None] = mapped_column(String(100))
+    ra_hash: Mapped[str | None] = mapped_column(String(100))
     category: Mapped[RomFileCategory | None] = mapped_column(
         Enum(RomFileCategory), default=None
     )
 
-    rom: Mapped[Rom] = relationship(lazy="joined")
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="files")
+
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
+
+    @cached_property
+    def file_name_no_tags(self) -> str:
+        from handler.filesystem import fs_rom_handler
+
+        return fs_rom_handler.get_file_name_with_no_tags(self.file_name)
+
+    @cached_property
+    def file_name_no_ext(self) -> str:
+        from handler.filesystem import fs_rom_handler
+
+        return fs_rom_handler.get_file_name_with_no_extension(self.file_name)
+
+    @cached_property
+    def file_extension(self) -> str:
+        from handler.filesystem import fs_rom_handler
+
+        return fs_rom_handler.parse_file_extension(self.file_name)
+
+    def file_name_for_download(self, rom: Rom, hidden_folder: bool = False) -> str:
+        # This needs a trailing slash in the path to work!
+        return self.full_path.replace(
+            f"{rom.full_path}/", ".hidden/" if hidden_folder else ""
+        )
+
+
+class RomMetadata(BaseModel):
+    __tablename__ = "roms_metadata"
+
+    rom_id: Mapped[int] = mapped_column(
+        ForeignKey("roms.id", ondelete="CASCADE"), primary_key=True
+    )
+
+    genres: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    franchises: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    collections: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    companies: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    game_modes: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    age_ratings: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    first_release_date: Mapped[int | None] = mapped_column(BigInteger(), default=None)
+    average_rating: Mapped[float | None] = mapped_column(default=None)
+
+    rom: Mapped[Rom] = relationship(lazy="joined", back_populates="metadatum")
 
 
 class Rom(BaseModel):
@@ -68,22 +130,32 @@ class Rom(BaseModel):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    igdb_id: Mapped[int | None]
-    sgdb_id: Mapped[int | None]
-    moby_id: Mapped[int | None]
-    ss_id: Mapped[int | None]
+    igdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    sgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    moby_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ss_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    ra_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    launchbox_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    hasheous_id: Mapped[int | None] = mapped_column(Integer(), default=None)
+    tgdb_id: Mapped[int | None] = mapped_column(Integer(), default=None)
 
     __table_args__ = (
         Index("idx_roms_igdb_id", "igdb_id"),
         Index("idx_roms_moby_id", "moby_id"),
         Index("idx_roms_ss_id", "ss_id"),
+        Index("idx_roms_ra_id", "ra_id"),
+        Index("idx_roms_sgdb_id", "sgdb_id"),
+        Index("idx_roms_launchbox_id", "launchbox_id"),
+        Index("idx_roms_hasheous_id", "hasheous_id"),
+        Index("idx_roms_tgdb_id", "tgdb_id"),
     )
 
-    fs_name: Mapped[str] = mapped_column(String(length=450))
-    fs_name_no_tags: Mapped[str] = mapped_column(String(length=450))
-    fs_name_no_ext: Mapped[str] = mapped_column(String(length=450))
-    fs_extension: Mapped[str] = mapped_column(String(length=100))
-    fs_path: Mapped[str] = mapped_column(String(length=1000))
+    fs_name: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_name_no_tags: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_name_no_ext: Mapped[str] = mapped_column(String(length=FILE_NAME_MAX_LENGTH))
+    fs_extension: Mapped[str] = mapped_column(String(length=FILE_EXTENSION_MAX_LENGTH))
+    fs_path: Mapped[str] = mapped_column(String(length=FILE_PATH_MAX_LENGTH))
+    fs_size_bytes: Mapped[int] = mapped_column(BigInteger(), default=0)
 
     name: Mapped[str | None] = mapped_column(String(length=350))
     slug: Mapped[str | None] = mapped_column(String(length=400))
@@ -95,6 +167,15 @@ class Rom(BaseModel):
         CustomJSON(), default=dict
     )
     ss_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    ra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    launchbox_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        CustomJSON(), default=dict
+    )
+    hasheous_metadata: Mapped[dict[str, Any] | None] = mapped_column(
         CustomJSON(), default=dict
     )
 
@@ -109,40 +190,49 @@ class Rom(BaseModel):
         Text, default="", doc="URL to manual stored in ScreenScraper"
     )
 
-    revision: Mapped[str | None] = mapped_column(String(length=100))
-    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
-
     path_screenshots: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
     url_screenshots: Mapped[list[str] | None] = mapped_column(
         CustomJSON(), default=[], doc="URLs to screenshots stored in IGDB"
     )
 
+    revision: Mapped[str | None] = mapped_column(String(length=100))
+    regions: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    languages: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+    tags: Mapped[list[str] | None] = mapped_column(CustomJSON(), default=[])
+
     crc_hash: Mapped[str | None] = mapped_column(String(length=100))
     md5_hash: Mapped[str | None] = mapped_column(String(length=100))
     sha1_hash: Mapped[str | None] = mapped_column(String(length=100))
+    ra_hash: Mapped[str | None] = mapped_column(String(length=100))
+
+    missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     platform_id: Mapped[int] = mapped_column(
         ForeignKey("platforms.id", ondelete="CASCADE")
     )
 
-    platform: Mapped[Platform] = relationship(lazy="immediate")
+    platform: Mapped[Platform] = relationship(lazy="joined", back_populates="roms")
     sibling_roms: Mapped[list[Rom]] = relationship(
         secondary="sibling_roms",
         primaryjoin="Rom.id == SiblingRom.rom_id",
         secondaryjoin="Rom.id == SiblingRom.sibling_rom_id",
+        lazy="raise",
     )
-    files: Mapped[list[RomFile]] = relationship(lazy="immediate", back_populates="rom")
-    saves: Mapped[list[Save]] = relationship(back_populates="rom")
-    states: Mapped[list[State]] = relationship(back_populates="rom")
-    screenshots: Mapped[list[Screenshot]] = relationship(back_populates="rom")
-    rom_users: Mapped[list[RomUser]] = relationship(back_populates="rom")
-
+    files: Mapped[list[RomFile]] = relationship(lazy="raise", back_populates="rom")
+    saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="rom")
+    states: Mapped[list[State]] = relationship(lazy="raise", back_populates="rom")
+    screenshots: Mapped[list[Screenshot]] = relationship(
+        lazy="raise", back_populates="rom"
+    )
+    rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="rom")
+    metadatum: Mapped[RomMetadata] = relationship(
+        lazy="joined", back_populates="rom", uselist=False
+    )
     collections: Mapped[list[Collection]] = relationship(
         "Collection",
         secondary="collections_roms",
         collection_class=set,
+        lazy="raise",
         back_populates="roms",
     )
 
@@ -176,20 +266,16 @@ class Rom(BaseModel):
 
     @cached_property
     def merged_screenshots(self) -> list[str]:
-        screenshots = [s.download_path for s in self.screenshots]
         if self.path_screenshots:
-            screenshots += [
-                f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots
-            ]
-        return screenshots
+            return [f"{FRONTEND_RESOURCES_PATH}/{s}" for s in self.path_screenshots]
+
+        return []
 
     @cached_property
     def multi(self) -> bool:
-        return len(self.files) > 1
-
-    @cached_property
-    def fs_size_bytes(self) -> int:
-        return sum(f.file_size_bytes for f in self.files)
+        return len(self.files) > 1 or (
+            len(self.files) > 0 and len(self.files[0].full_path.split("/")) > 3
+        )
 
     @property
     def fs_resources_path(self) -> str:
@@ -211,12 +297,43 @@ class Rom(BaseModel):
             else ""
         )
 
+    @property
+    def is_unidentified(self) -> bool:
+        return (
+            not self.igdb_id
+            and not self.moby_id
+            and not self.ss_id
+            and not self.ra_id
+            and not self.launchbox_id
+            and not self.hasheous_id
+        )
+
+    @property
+    def is_identified(self) -> bool:
+        return not self.is_unidentified
+
+    def has_m3u_file(self) -> bool:
+        """
+        Check if the ROM has an M3U file associated with it.
+        This is used for multi-disc games.
+        """
+        return any(file.file_extension.lower() == "m3u" for file in self.files)
+
     # Metadata fields
     @property
-    def youtube_video_id(self) -> str:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("youtube_video_id", "")
-        return ""
+    def youtube_video_id(self) -> str | None:
+        igdb_video_id = (
+            self.igdb_metadata.get("youtube_video_id", None)
+            if self.igdb_metadata
+            else None
+        )
+        lb_video_id = (
+            self.launchbox_metadata.get("youtube_video_id", None)
+            if self.launchbox_metadata
+            else None
+        )
+
+        return igdb_video_id or lb_video_id
 
     @property
     def alternative_names(self) -> list[str]:
@@ -228,92 +345,16 @@ class Rom(BaseModel):
         )
 
     @property
-    def first_release_date(self) -> int | None:
-        if self.igdb_metadata:
-            return safe_int(self.igdb_metadata.get("first_release_date") or 0) * 1000
-        elif self.ss_metadata:
-            return safe_int(self.ss_metadata.get("first_release_date") or 0) * 1000
-
-        return None
-
-    @property
-    def average_rating(self) -> float | None:
-        igdb_rating = (
-            safe_float(self.igdb_metadata.get("total_rating") or 0)
-            if self.igdb_metadata
-            else 0.0
-        )
-        moby_rating = (
-            safe_float(self.moby_metadata.get("moby_score") or 0)
-            if self.moby_metadata
-            else 0.0
-        )
-        ss_rating = (
-            safe_float(self.ss_metadata.get("ss_score") or 0)
-            if self.ss_metadata
-            else 0.0
-        )
-
-        ratings = [r for r in [igdb_rating, moby_rating * 10, ss_rating] if r != 0.0]
-
-        return sum(ratings) / len([r for r in ratings if r]) if any(ratings) else None
-
-    @property
-    def genres(self) -> list[str]:
-        return (
-            (self.igdb_metadata or {}).get("genres", None)
-            or (self.moby_metadata or {}).get("genres", None)
-            or (self.ss_metadata or {}).get("genres", None)
-            or []
-        )
-
-    @property
-    def franchises(self) -> list[str]:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("franchises", [])
-        elif self.ss_metadata:
-            return self.ss_metadata.get("franchises", [])
-        return []
-
-    @property
-    def meta_collections(self) -> list[str]:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("collections", [])
-        return []
-
-    @property
-    def companies(self) -> list[str]:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("companies", [])
-        elif self.ss_metadata:
-            return self.ss_metadata.get("companies", [])
-        return []
-
-    @property
-    def game_modes(self) -> list[str]:
-        if self.igdb_metadata:
-            return self.igdb_metadata.get("game_modes", [])
-        elif self.ss_metadata:
-            return self.ss_metadata.get("game_modes", [])
-        return []
-
-    @property
-    def age_ratings(self) -> list[str]:
-        if self.igdb_metadata:
-            return [r["rating"] for r in self.igdb_metadata.get("age_ratings", [])]
-        return []
-
-    @property
-    def is_unidentified(self) -> bool:
-        return not self.igdb_id and not self.moby_id and not self.ss_id
-
-    @property
-    def is_partially_identified(self) -> bool:
-        return not self.is_unidentified and not self.is_fully_identified
-
-    @property
-    def is_fully_identified(self) -> bool:
-        return bool(self.igdb_id) and bool(self.moby_id) and bool(self.ss_id)
+    def merged_ra_metadata(self) -> dict[str, list] | None:
+        if self.ra_metadata and "achievements" in self.ra_metadata:
+            for achievement in self.ra_metadata.get("achievements", []):
+                achievement["badge_path_lock"] = (
+                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path_lock']}"
+                )
+                achievement["badge_path"] = (
+                    f"{FRONTEND_RESOURCES_PATH}/{achievement['badge_path']}"
+                )
+        return self.ra_metadata
 
     def __repr__(self) -> str:
         return self.fs_name
@@ -360,14 +401,3 @@ class RomUser(BaseModel):
     @property
     def user__username(self) -> str:
         return self.user.username
-
-
-class SiblingRom(BaseModel):
-    __tablename__ = "sibling_roms"
-
-    rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    sibling_rom_id: Mapped[int] = mapped_column(Integer, primary_key=True)
-
-    __table_args__ = (
-        UniqueConstraint("rom_id", "sibling_rom_id", name="unique_sibling_roms"),
-    )

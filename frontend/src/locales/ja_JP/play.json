@@ -1,0 +1,20 @@
+{
+  "back-to-gallery": "ギャラリーへ戻る",
+  "back-to-game-details": "ゲーム詳細へ戻る",
+  "clear-cache": "EmulatorJS キャッシュをクリア",
+  "clear-cache-description": "サーバーに保存されているセーブデータやステートには影響しません。",
+  "clear-cache-title": "EmulatorJS キャッシュをクリアしてもよろしいですか？",
+  "clear-cache-warning": "これにより、ブラウザに保存されているすべてのセーブデータとステートが削除されます。",
+  "full-screen": "全画面",
+  "play": "プレイ",
+  "quit": "終了",
+  "save-and-quit": "保存して終了",
+  "select-save": "セーブデータを選択",
+  "change-save": "セーブデータを変更",
+  "deselect-save": "セーブデータを解除",
+  "select-state": "ステートを選択",
+  "change-state": "ステートを変更",
+  "deselect-state": "ステートを解除",
+  "background-color": "背景色",
+  "select-background-color": "背景色を選択"
+}

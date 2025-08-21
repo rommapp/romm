@@ -1,0 +1,16 @@
+{
+  "login": "Zaloguj się",
+  "login-oidc": "Zaloguj się przez {oidc}",
+  "or": "lub",
+  "password": "Hasło",
+  "username": "Nazwa użytkownika",
+  "forgot-password": "Zapomniałeś hasła?",
+  "send-reset-link": "Wyślij link do resetu",
+  "reset-sent": "Link do resetu został wysłany. Skontaktuj się z administratorem.",
+  "new-password": "Nowe hasło",
+  "confirm-new-password": "Potwierdź nowe hasło",
+  "reset-password": "Zresetuj hasło",
+  "back-to-login": "Powrót do logowania",
+  "setup-wizard": "Kreator konfiguracji",
+  "register": "Zarejestruj się"
+}

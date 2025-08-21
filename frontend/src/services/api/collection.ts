@@ -1,6 +1,9 @@
-import type { MessageResponse } from "@/__generated__";
 import api from "@/services/api/index";
-import type { Collection, VirtualCollection } from "@/stores/collections";
+import type {
+  Collection,
+  VirtualCollection,
+  SmartCollection,
+} from "@/stores/collections";
 
 export type UpdatedCollection = Collection & {
   artwork?: File;
@@ -12,15 +15,43 @@ export const collectionApi = api;
 async function createCollection({
   collection,
 }: {
-  collection: UpdatedCollection;
+  collection: Partial<UpdatedCollection>;
 }): Promise<{ data: Collection }> {
   const formData = new FormData();
+
   formData.append("name", collection.name || "");
   formData.append("description", collection.description || "");
   formData.append("url_cover", collection.url_cover || "");
   formData.append("rom_ids", JSON.stringify(collection.rom_ids));
   if (collection.artwork) formData.append("artwork", collection.artwork);
-  return api.post(`/collections`, formData);
+
+  return api.post(`/collections`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+}
+
+async function createSmartCollection({
+  smartCollection,
+}: {
+  smartCollection: Partial<SmartCollection>;
+}): Promise<{ data: SmartCollection }> {
+  const formData = new FormData();
+
+  formData.append("name", smartCollection.name || "");
+  formData.append("description", smartCollection.description || "");
+  formData.append(
+    "filter_criteria",
+    JSON.stringify(smartCollection.filter_criteria),
+  );
+  formData.append("is_public", String(smartCollection.is_public || false));
+
+  return api.post("/collections/smart", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 }
 
 async function getCollections(): Promise<{ data: Collection[] }> {
@@ -29,12 +60,15 @@ async function getCollections(): Promise<{ data: Collection[] }> {
 
 async function getVirtualCollections({
   type = "collection",
-  limit = 100,
 }: {
   type?: string;
   limit?: number;
 }): Promise<{ data: VirtualCollection[] }> {
-  return api.get("/collections/virtual", { params: { type, limit } });
+  return api.get("/collections/virtual", { params: { type } });
+}
+
+async function getSmartCollections(): Promise<{ data: SmartCollection[] }> {
+  return api.get("/collections/smart");
 }
 
 async function getCollection(id: number): Promise<{ data: Collection }> {
@@ -45,6 +79,12 @@ async function getVirtualCollection(
   id: string,
 ): Promise<{ data: VirtualCollection }> {
   return api.get(`/collections/virtual/${id}`);
+}
+
+async function getSmartCollection(
+  id: number,
+): Promise<{ data: SmartCollection }> {
+  return api.get(`/collections/smart/${id}`);
 }
 
 async function updateCollection({
@@ -61,24 +101,56 @@ async function updateCollection({
   formData.append("rom_ids", JSON.stringify(collection.rom_ids));
   if (collection.artwork) formData.append("artwork", collection.artwork);
   return api.put(`/collections/${collection.id}`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
     params: { is_public: collection.is_public, remove_cover: removeCover },
   });
 }
 
-async function deleteCollection({
-  collection,
+async function updateSmartCollection({
+  smartCollection,
 }: {
-  collection: Collection;
-}): Promise<{ data: MessageResponse }> {
+  smartCollection: SmartCollection;
+}): Promise<{ data: SmartCollection }> {
+  const formData = new FormData();
+
+  formData.append("name", smartCollection.name || "");
+  formData.append("description", smartCollection.description || "");
+  formData.append(
+    "filter_criteria",
+    JSON.stringify(smartCollection.filter_criteria),
+  );
+
+  return api.put(`/collections/smart/${smartCollection.id}`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    params: {
+      is_public: smartCollection.is_public,
+    },
+  });
+}
+
+async function deleteCollection({ collection }: { collection: Collection }) {
   return api.delete(`/collections/${collection.id}`);
+}
+
+async function deleteSmartCollection(id: number) {
+  return api.delete(`/collections/smart/${id}`);
 }
 
 export default {
   createCollection,
+  createSmartCollection,
   getCollections,
   getVirtualCollections,
   getCollection,
   getVirtualCollection,
   updateCollection,
   deleteCollection,
+  getSmartCollections,
+  getSmartCollection,
+  updateSmartCollection,
+  deleteSmartCollection,
 };

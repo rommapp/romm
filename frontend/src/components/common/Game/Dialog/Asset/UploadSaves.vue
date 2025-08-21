@@ -8,7 +8,6 @@ import type { Emitter } from "mitt";
 import { inject, nextTick, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { xs, mdAndUp } = useDisplay();
 const show = ref(false);
 const filesToUpload = ref<File[]>([]);
@@ -54,13 +53,15 @@ async function uploadSaves() {
   saveApi
     .uploadSaves({
       rom: rom.value,
-      saves: filesToUpload.value,
+      savesToUpload: filesToUpload.value.map((saveFile) => ({
+        saveFile,
+      })),
     })
-    .then(({ data }) => {
-      const { saves, uploaded } = data;
+    .then((data) => {
+      const saves = data;
 
       emitter?.emit("snackbarShow", {
-        msg: `Uploaded ${uploaded} files successfully!`,
+        msg: `Uploaded ${saves.length} files successfully!`,
         icon: "mdi-check-bold",
         color: "green",
         timeout: 2000,

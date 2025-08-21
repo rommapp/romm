@@ -17,8 +17,8 @@ import {
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
@@ -28,6 +28,7 @@ const qrCodeIcon = ref("mdi-qrcode");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const auth = storeAuth();
+const { t } = useI18n();
 
 const platformSlug = computed(() =>
   props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
@@ -47,7 +48,6 @@ const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
 
-// Functions
 async function copyDownloadLink(rom: DetailedRom) {
   const downloadLink = getDownloadLink({
     rom,
@@ -69,38 +69,45 @@ async function copyDownloadLink(rom: DetailedRom) {
 
 <template>
   <div>
-    <v-btn-group divided density="compact" rounded="0" class="d-flex flex-row">
+    <v-btn-group divided density="compact" class="d-flex flex-row">
       <v-btn
+        :disabled="downloadStore.value.includes(rom.id) || rom.missing_from_fs"
         class="flex-grow-1"
-        :disabled="downloadStore.value.includes(rom.id)"
         @click="
           romApi.downloadRom({
             rom,
             fileIDs: downloadStore.fileIDsToDownload,
           })
         "
+        :aria-label="`Download ${rom.name}`"
       >
         <v-tooltip
           activator="parent"
           location="top"
           transition="fade-transition"
           open-delay="1000"
-          >Download game</v-tooltip
+          >{{ t("rom.download") }} {{ rom.name }}</v-tooltip
         >
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
-      <v-btn class="flex-grow-1" @click="copyDownloadLink(rom)">
+      <v-btn
+        :disabled="rom.missing_from_fs"
+        :aria-label="`Copy download link ${rom.name}`"
+        class="flex-grow-1"
+        @click="copyDownloadLink(rom)"
+      >
         <v-tooltip
           activator="parent"
           location="top"
           transition="fade-transition"
           open-delay="1000"
-          >Copy download link</v-tooltip
+          >{{ t("rom.copy-link") }}</v-tooltip
         >
         <v-icon icon="mdi-content-copy" />
       </v-btn>
       <v-btn
         v-if="ejsEmulationSupported"
+        :disabled="rom.missing_from_fs"
         class="flex-grow-1"
         @click="
           $router.push({
@@ -108,11 +115,13 @@ async function copyDownloadLink(rom: DetailedRom) {
             params: { rom: rom?.id },
           })
         "
+        :aria-label="`Play ${rom.name}`"
       >
         <v-icon :icon="playInfoIcon" />
       </v-btn>
       <v-btn
         v-if="ruffleEmulationSupported"
+        :disabled="rom.missing_from_fs"
         class="flex-grow-1"
         @click="
           $router.push({
@@ -120,13 +129,16 @@ async function copyDownloadLink(rom: DetailedRom) {
             params: { rom: rom?.id },
           })
         "
+        :aria-label="`Play ${rom.name}`"
       >
         <v-icon :icon="playInfoIcon" />
       </v-btn>
       <v-btn
         v-if="is3DSRom"
+        :disabled="rom.missing_from_fs"
         class="flex-grow-1"
         @click="emitter?.emit('showQRCodeDialog', rom)"
+        :aria-label="`Show ${rom.name} QR code`"
       >
         <v-icon :icon="qrCodeIcon" />
       </v-btn>
@@ -139,7 +151,11 @@ async function copyDownloadLink(rom: DetailedRom) {
         location="bottom"
       >
         <template #activator="{ props: menuProps }">
-          <v-btn class="flex-grow-1" v-bind="menuProps">
+          <v-btn
+            :aria-label="`${rom.name} admin menu`"
+            class="flex-grow-1"
+            v-bind="menuProps"
+          >
             <v-icon icon="mdi-dots-vertical" size="large" />
           </v-btn>
         </template>

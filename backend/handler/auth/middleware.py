@@ -1,6 +1,7 @@
 import time
 from collections import namedtuple
 
+from config import SESSION_MAX_AGE_SECONDS
 from joserfc import jwt
 from joserfc.errors import BadSignatureError
 from joserfc.jwk import OctKey
@@ -15,7 +16,7 @@ class CustomCSRFMiddleware(CSRFMiddleware):
         # Skip CSRF check if not an HTTP request, like websockets
         if scope["type"] != "http":
             await self.app(scope, receive, send)
-            return
+            return None
 
         request = Request(scope, receive)
 
@@ -23,7 +24,7 @@ class CustomCSRFMiddleware(CSRFMiddleware):
         auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
         if auth_scheme == "bearer" or auth_scheme == "basic":
             await self.app(scope, receive, send)
-            return
+            return None
 
         await super().__call__(scope, receive, send)
 
@@ -37,7 +38,7 @@ class SessionMiddleware:
         app: ASGIApp,
         secret_key: str | Secret | SecretKey,
         session_cookie: str = "session",
-        max_age: int = 14 * 24 * 60 * 60,  # 14 days, in seconds
+        max_age: int = SESSION_MAX_AGE_SECONDS,
         same_site: str = "lax",
         https_only: bool = False,
         jwt_alg: str = "HS256",
@@ -66,8 +67,10 @@ class SessionMiddleware:
                 )
             ),
         )
-        assert token.claims == {"1": 2}, "wrong crypto setup"
-        assert token.header == {"typ": "JWT", "alg": jwt_alg}, "wrong crypto setup"
+        if token.claims != {"1": 2} or token.header != {"typ": "JWT", "alg": jwt_alg}:
+            raise ValueError(
+                "Invalid crypto setup, check your secret key and algorithm configuration"
+            )
 
         self.session_cookie = session_cookie
         self.max_age = max_age
@@ -94,7 +97,7 @@ class SessionMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):  # pragma: no cover
             await self.app(scope, receive, send)
-            return
+            return None
 
         connection = HTTPConnection(scope)
         initial_session_was_empty = True

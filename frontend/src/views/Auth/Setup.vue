@@ -9,8 +9,9 @@ import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useI18n } from "vue-i18n";
 
-// Props
+const { t } = useI18n();
 const { xs } = useDisplay();
 const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
@@ -39,7 +40,19 @@ const metadataOptions = computed(() => [
     name: "SteamgridDB",
     value: "sgdb",
     logo_path: "/assets/scrappers/sgdb.png",
-    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_ENABLED,
+    disabled: !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED,
+  },
+  {
+    name: "RetroAchievements",
+    value: "ra",
+    logo_path: "/assets/scrappers/ra.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.RA_API_ENABLED,
+  },
+  {
+    name: "Hasheous",
+    value: "hasheous",
+    logo_path: "/assets/scrappers/hasheous.png",
+    disabled: !heartbeat.value.METADATA_SOURCES?.HASHEOUS_API_ENABLED,
   },
 ]);
 const defaultAdminUser = ref({
@@ -57,7 +70,6 @@ const filledAdminUser = computed(
 const isFirstStep = computed(() => step.value == 1);
 const isLastStep = computed(() => step.value == 2);
 
-// Functions
 async function finishWizard() {
   await userApi
     .createUser(defaultAdminUser.value)
@@ -81,7 +93,7 @@ async function finishWizard() {
 </script>
 
 <template>
-  <v-card class="translucent-dark px-3" width="700">
+  <v-card class="translucent px-3" width="700">
     <v-img src="/assets/isotipo.svg" class="mx-auto mt-6" width="70" />
     <v-stepper :mobile="xs" class="bg-transparent" v-model="step" flat>
       <template #default="{ prev, next }">
@@ -115,7 +127,7 @@ async function finishWizard() {
                     <v-form @submit.prevent>
                       <v-text-field
                         v-model="defaultAdminUser.username"
-                        label="Username *"
+                        :label="`${t('settings.username')} *`"
                         type="text"
                         required
                         autocomplete="on"
@@ -124,7 +136,7 @@ async function finishWizard() {
                       />
                       <v-text-field
                         v-model="defaultAdminUser.email"
-                        label="Email"
+                        :label="`${t('settings.email')} *`"
                         type="text"
                         required
                         autocomplete="on"
@@ -133,7 +145,7 @@ async function finishWizard() {
                       />
                       <v-text-field
                         v-model="defaultAdminUser.password"
-                        label="Password *"
+                        :label="`${t('settings.password')} *`"
                         :type="visiblePassword ? 'text' : 'password'"
                         required
                         autocomplete="on"
@@ -202,6 +214,7 @@ async function finishWizard() {
             <v-btn
               class="text-white text-shadow"
               @click="!isLastStep ? next() : finishWizard()"
+              @keydown.enter="!isLastStep ? next() : finishWizard()"
             >
               {{ !isLastStep ? "Next" : "Finish" }}
             </v-btn>

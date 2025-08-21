@@ -3,6 +3,8 @@ import RDialog from "@/components/common/RDialog.vue";
 import platformApi from "@/services/api/platform";
 import storePlatforms, { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
+import configApi from "@/services/api/config";
+import storeConfig from "@/stores/config";
 import { ROUTES } from "@/plugins/router";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import type { Emitter } from "mitt";
@@ -11,20 +13,20 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const router = useRouter();
 const { lgAndUp } = useDisplay();
 const platformsStore = storePlatforms();
+const configStore = storeConfig();
 const platform = ref<Platform | null>(null);
 const show = ref(false);
+const excludeOnDelete = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showDeletePlatformDialog", (platformToDelete) => {
   platform.value = platformToDelete;
   show.value = true;
 });
 
-// Functions
 async function deletePlatform() {
   if (!platform.value) return;
 
@@ -33,10 +35,17 @@ async function deletePlatform() {
     .deletePlatform({ platform: platform.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: "Platform deleted",
         icon: "mdi-check-bold",
         color: "green",
       });
+      if (excludeOnDelete.value && platform.value) {
+        configApi.addExclusion({
+          exclusionValue: platform.value.fs_slug,
+          exclusionType: "EXCLUDED_PLATFORMS",
+        });
+        configStore.addExclusion("EXCLUDED_PLATFORMS", platform.value.fs_slug);
+      }
     })
     .catch((error) => {
       console.log(error);
@@ -57,6 +66,7 @@ async function deletePlatform() {
 
 function closeDialog() {
   show.value = false;
+  excludeOnDelete.value = false;
 }
 </script>
 <template>
@@ -85,6 +95,18 @@ function closeDialog() {
       </v-row>
     </template>
     <template #append>
+      <v-row class="justify-center text-center pa-2" no-gutters>
+        <v-col>
+          <v-chip @click="excludeOnDelete = !excludeOnDelete" variant="text"
+            ><v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">{{
+              excludeOnDelete
+                ? "mdi-checkbox-outline"
+                : "mdi-checkbox-blank-outline"
+            }}</v-icon>
+            {{ t("common.exclude-on-delete") }}
+          </v-chip>
+        </v-col>
+      </v-row>
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
           <v-btn class="bg-toplayer" @click="closeDialog">

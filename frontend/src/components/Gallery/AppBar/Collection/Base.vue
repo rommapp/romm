@@ -1,62 +1,48 @@
 <script setup lang="ts">
-import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
+import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import CollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/CollectionInfoDrawer.vue";
-import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
-import FilterTextField from "@/components/Gallery/AppBar/common/FilterTextField.vue";
-import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
+import SmartCollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/SmartCollectionInfoDrawer.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
-import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
-import { storeToRefs } from "pinia";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
+import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import { computed } from "vue";
 
-// Props
-const { xs, smAndDown } = useDisplay();
+const { xs } = useDisplay();
 const navigationStore = storeNavigation();
 const romsStore = storeRoms();
-const { currentCollection } = storeToRefs(romsStore);
+const { currentCollection, currentVirtualCollection, currentSmartCollection } =
+  storeToRefs(romsStore);
+
+// Get the currently active collection (any type)
+const activeCollection = computed(() => {
+  return (
+    currentCollection.value ||
+    currentVirtualCollection.value ||
+    currentSmartCollection.value
+  );
+});
 </script>
 
 <template>
-  <v-app-bar
-    elevation="0"
-    density="compact"
-    class="ma-2"
-    :class="{
-      'gallery-app-bar-mobile': smAndDown,
-      'gallery-app-bar-desktop': !smAndDown,
-    }"
-    rounded
-  >
+  <base-gallery-app-bar show-platforms-filter :show-search-bar="!xs">
     <template #prepend>
       <r-avatar
+        v-if="activeCollection"
         @click="navigationStore.switchActiveCollectionInfoDrawer"
         class="collection-icon cursor-pointer"
-        v-if="currentCollection"
         :size="45"
-        :collection="currentCollection"
+        :collection="activeCollection"
       />
-      <filter-btn />
     </template>
-    <filter-text-field v-if="!xs" />
-    <template #append>
-      <selecting-btn />
-      <gallery-view-btn />
-    </template>
-  </v-app-bar>
+  </base-gallery-app-bar>
 
   <collection-info-drawer />
-  <filter-drawer />
+  <smart-collection-info-drawer />
 </template>
 
 <style scoped>
-.gallery-app-bar-desktop {
-  width: calc(100% - 76px) !important;
-}
-.gallery-app-bar-mobile {
-  width: calc(100% - 16px) !important;
-}
 .collection-icon {
   transition:
     filter 0.15s ease-in-out,

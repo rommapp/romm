@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import base64
 import json
+from typing import TYPE_CHECKING, Any
 
 from config import FRONTEND_RESOURCES_PATH
 from models.base import BaseModel
-from models.rom import Rom
-from models.user import User
 from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import CustomJSON
+
+if TYPE_CHECKING:
+    from models.rom import Rom
+    from models.user import User
 
 
 class Collection(BaseModel):
@@ -23,19 +26,19 @@ class Collection(BaseModel):
     path_cover_l: Mapped[str | None] = mapped_column(Text, default="")
     path_cover_s: Mapped[str | None] = mapped_column(Text, default="")
     url_cover: Mapped[str | None] = mapped_column(
-        Text, default="", doc="URL to cover image stored in IGDB"
+        Text, default="", doc="URL of cover pulled from metadata providers"
     )
 
-    roms: Mapped[list[Rom]] = relationship(
+    roms: Mapped[list["Rom"]] = relationship(
         "Rom",
         secondary="collections_roms",
         collection_class=set,
         back_populates="collections",
-        lazy="joined",
+        lazy="raise",
     )
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    user: Mapped[User] = relationship(lazy="joined", back_populates="collections")
+    user: Mapped["User"] = relationship(lazy="joined", back_populates="collections")
 
     @property
     def user__username(self) -> str:
@@ -165,3 +168,80 @@ class VirtualCollection(BaseModel):
             name="unique_virtual_collection_name_type",
         ),
     )
+
+
+SMART_COLLECTION_MAX_COVERS = 5
+
+
+class SmartCollection(BaseModel):
+    __tablename__ = "smart_collections"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    name: Mapped[str] = mapped_column(String(length=400))
+    description: Mapped[str | None] = mapped_column(Text)
+    is_public: Mapped[bool] = mapped_column(default=False)
+    rom_count: Mapped[int] = mapped_column(default=0)
+    rom_ids: Mapped[list[int]] = mapped_column(
+        CustomJSON(), default=[], doc="Rom IDs that belong to this smart collection"
+    )
+    path_covers_small: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
+    path_covers_large: Mapped[list[str]] = mapped_column(CustomJSON(), default=[])
+
+    filter_criteria: Mapped[dict[str, Any]] = mapped_column(
+        CustomJSON(),
+        default=dict,
+        doc="JSON object containing all filter criteria for the smart collection",
+    )
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    user: Mapped["User"] = relationship(
+        lazy="joined", back_populates="smart_collections"
+    )
+
+    def update_properties(self, user_id: int) -> "SmartCollection":
+        from handler.database import db_collection_handler
+
+        roms = db_collection_handler.get_smart_collection_roms(self, user_id)
+
+        roms_with_small_covers = [r for r in roms if r.path_cover_s][
+            :SMART_COLLECTION_MAX_COVERS
+        ]
+        roms_with_large_covers = [r for r in roms if r.path_cover_l][
+            :SMART_COLLECTION_MAX_COVERS
+        ]
+
+        return db_collection_handler.update_smart_collection(
+            self.id,
+            {
+                "rom_count": len(roms),
+                "rom_ids": [rom.id for rom in roms],
+                "path_covers_small": [
+                    f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
+                    for r in roms_with_small_covers
+                ],
+                "path_covers_large": [
+                    f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
+                    for r in roms_with_large_covers
+                ],
+            },
+        )
+
+    @property
+    def user__username(self) -> str:
+        return self.user.username
+
+    @property
+    def path_cover_small(self) -> str | None:
+        return None
+
+    @property
+    def path_cover_large(self) -> str | None:
+        return None
+
+    @property
+    def filter_summary(self) -> str:
+        return json.dumps(self.filter_criteria)
+
+    def __repr__(self) -> str:
+        return self.name

@@ -1,0 +1,21 @@
+{
+  "add-collection": "Adaugă colecție",
+  "create-collection": "Creează colecție",
+  "create-smart-collection": "Creează colecție inteligentă",
+  "current-filters": "Filtrele actuale",
+  "danger-zone": "Zonă periculoasă",
+  "delete-collection": "Șterge colecția",
+  "description": "Descriere",
+  "edit-collection": "Editează colecția",
+  "name": "Nume",
+  "owner": "Proprietar",
+  "private": "Privat",
+  "private-desc": "Privat (vizibil doar pentru mine)",
+  "public": "Public",
+  "public-desc": "Public (vizibil pentru toți)",
+  "removing-collection-1": "Confirmă eliminarea",
+  "removing-collection-2": "colecției din RomM?",
+  "removing-smart-collection-1": "Confirmă eliminarea colecției inteligente",
+  "removing-smart-collection-2": "din RomM?",
+  "search-collection": "Caută în colecție"
+}

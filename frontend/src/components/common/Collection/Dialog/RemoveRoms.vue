@@ -14,7 +14,6 @@ import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 
-// Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);
@@ -52,7 +51,7 @@ async function removeRomsFromCollection() {
         timeout: 2000,
       });
       emitter?.emit("refreshDrawer", null);
-      collectionsStore.update(data);
+      collectionsStore.updateCollection(data);
     })
     .catch((error) => {
       console.log(error);

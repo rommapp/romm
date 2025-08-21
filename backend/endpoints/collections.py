@@ -1,12 +1,13 @@
 import json
 from io import BytesIO
-from shutil import rmtree
 
-from anyio import Path
-from config import RESOURCES_BASE_PATH
+from config import str_to_bool
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
-from endpoints.responses.collection import CollectionSchema, VirtualCollectionSchema
+from endpoints.responses.collection import (
+    CollectionSchema,
+    SmartCollectionSchema,
+    VirtualCollectionSchema,
+)
 from exceptions.endpoint_exceptions import (
     CollectionAlreadyExistsException,
     CollectionNotFoundInDatabaseException,
@@ -17,10 +18,10 @@ from handler.auth.constants import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler
 from handler.filesystem.base_handler import CoverSize
+from logger.formatter import BLUE
+from logger.formatter import highlight as hl
 from logger.logger import log
-from models.collection import Collection
-from PIL import Image
-from sqlalchemy.inspection import inspect
+from models.collection import Collection, SmartCollection
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -62,20 +63,13 @@ async def add_collection(
 
     if artwork is not None and artwork.filename is not None:
         file_ext = artwork.filename.split(".")[-1]
+        artwork_content = BytesIO(await artwork.read())
         (
             path_cover_l,
             path_cover_s,
-            artwork_path,
-        ) = await fs_resource_handler.build_artwork_path(_added_collection, file_ext)
-
-        artwork_content = BytesIO(await artwork.read())
-        file_location_small = Path(f"{artwork_path}/small.{file_ext}")
-        file_location_large = Path(f"{artwork_path}/big.{file_ext}")
-        with Image.open(artwork_content) as img:
-            img.save(file_location_large)
-            fs_resource_handler.resize_cover_to_small(
-                img, save_path=file_location_small
-            )
+        ) = await fs_resource_handler.store_artwork(
+            _added_collection, artwork_content, file_ext
+        )
     else:
         path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
             entity=_added_collection,
@@ -90,12 +84,56 @@ async def add_collection(
     created_collection = db_collection_handler.update_collection(
         _added_collection.id,
         {
-            c: getattr(_added_collection, c)
-            for c in inspect(_added_collection).mapper.column_attrs.keys()
+            "path_cover_s": path_cover_s,
+            "path_cover_l": path_cover_l,
         },
     )
 
     return CollectionSchema.model_validate(created_collection)
+
+
+@protected_route(router.post, "/smart", [Scope.COLLECTIONS_WRITE])
+async def add_smart_collection(request: Request) -> SmartCollectionSchema:
+    """Create smart collection endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        SmartCollectionSchema: Just created smart collection
+    """
+
+    data = await request.form()
+
+    # Parse filter criteria from JSON string
+    try:
+        filter_criteria = json.loads(str(data.get("filter_criteria", "{}")))
+    except json.JSONDecodeError as e:
+        raise ValueError("Invalid JSON for filter_criteria field") from e
+
+    cleaned_data = {
+        "name": str(data.get("name", "")),
+        "description": str(data.get("description", "")),
+        "filter_criteria": filter_criteria,
+        "is_public": str_to_bool(str(data.get("is_public", "false"))),
+        "user_id": request.user.id,
+    }
+
+    db_smart_collection = db_collection_handler.get_smart_collection_by_name(
+        cleaned_data["name"], request.user.id
+    )
+
+    if db_smart_collection:
+        raise CollectionAlreadyExistsException(cleaned_data["name"])
+
+    created_smart_collection = db_collection_handler.add_smart_collection(
+        SmartCollection(**cleaned_data)
+    )
+
+    # Fetch the ROMs to update the database model
+    smart_collection = created_smart_collection.update_properties(request.user.id)
+
+    return SmartCollectionSchema.model_validate(smart_collection)
 
 
 @protected_route(router.get, "", [Scope.COLLECTIONS_READ])
@@ -133,6 +171,24 @@ def get_virtual_collections(
     virtual_collections = db_collection_handler.get_virtual_collections(type, limit)
 
     return [VirtualCollectionSchema.model_validate(vc) for vc in virtual_collections]
+
+
+@protected_route(router.get, "/smart", [Scope.COLLECTIONS_READ])
+def get_smart_collections(request: Request) -> list[SmartCollectionSchema]:
+    """Get smart collections endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+
+    Returns:
+        list[SmartCollectionSchema]: List of smart collections
+    """
+
+    smart_collections = db_collection_handler.get_smart_collections(request.user.id)
+
+    return SmartCollectionSchema.for_user(
+        request.user.id, [s for s in smart_collections]
+    )
 
 
 @protected_route(router.get, "/{id}", [Scope.COLLECTIONS_READ])
@@ -173,6 +229,25 @@ def get_virtual_collection(request: Request, id: str) -> VirtualCollectionSchema
     return VirtualCollectionSchema.model_validate(virtual_collection)
 
 
+@protected_route(router.get, "/smart/{id}", [Scope.COLLECTIONS_READ])
+def get_smart_collection(request: Request, id: int) -> SmartCollectionSchema:
+    """Get smart collection endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Smart collection id
+
+    Returns:
+        SmartCollectionSchema: Smart collection
+    """
+
+    smart_collection = db_collection_handler.get_smart_collection(id)
+    if not smart_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    return SmartCollectionSchema.model_validate(smart_collection)
+
+
 @protected_route(router.put, "/{id}", [Scope.COLLECTIONS_WRITE])
 async def update_collection(
     request: Request,
@@ -187,7 +262,7 @@ async def update_collection(
         request (Request): Fastapi Request object
 
     Returns:
-        MessageResponse: Standard message response
+        CollectionSchema: Updated collection
     """
 
     data = await request.form()
@@ -215,44 +290,43 @@ async def update_collection(
     }
 
     if remove_cover:
-        cleaned_data.update(fs_resource_handler.remove_cover(collection))
+        cleaned_data.update(await fs_resource_handler.remove_cover(collection))
         cleaned_data.update({"url_cover": ""})
     else:
         if artwork is not None and artwork.filename is not None:
             file_ext = artwork.filename.split(".")[-1]
+            artwork_content = BytesIO(await artwork.read())
             (
                 path_cover_l,
                 path_cover_s,
-                artwork_path,
-            ) = await fs_resource_handler.build_artwork_path(collection, file_ext)
+            ) = await fs_resource_handler.store_artwork(
+                collection, artwork_content, file_ext
+            )
 
-            cleaned_data["path_cover_l"] = path_cover_l
-            cleaned_data["path_cover_s"] = path_cover_s
-
-            artwork_content = BytesIO(await artwork.read())
-            file_location_small = Path(f"{artwork_path}/small.{file_ext}")
-            file_location_large = Path(f"{artwork_path}/big.{file_ext}")
-            with Image.open(artwork_content) as img:
-                img.save(file_location_large)
-                fs_resource_handler.resize_cover_to_small(
-                    img, save_path=file_location_small
-                )
-
-            cleaned_data.update({"url_cover": ""})
+            cleaned_data.update(
+                {
+                    "url_cover": "",
+                    "path_cover_s": path_cover_s,
+                    "path_cover_l": path_cover_l,
+                }
+            )
         else:
-            if data.get("url_cover", "") != collection.url_cover or not (
-                await fs_resource_handler.cover_exists(collection, CoverSize.BIG)
+            if data.get(
+                "url_cover", ""
+            ) != collection.url_cover or not fs_resource_handler.cover_exists(
+                collection, CoverSize.BIG
             ):
-                cleaned_data.update(
-                    {"url_cover": data.get("url_cover", collection.url_cover)}
-                )
                 path_cover_s, path_cover_l = await fs_resource_handler.get_cover(
                     entity=collection,
                     overwrite=True,
                     url_cover=data.get("url_cover", ""),  # type: ignore
                 )
                 cleaned_data.update(
-                    {"path_cover_s": path_cover_s, "path_cover_l": path_cover_l}
+                    {
+                        "url_cover": data.get("url_cover", collection.url_cover),
+                        "path_cover_s": path_cover_s,
+                        "path_cover_l": path_cover_l,
+                    }
                 )
 
     updated_collection = db_collection_handler.update_collection(
@@ -262,8 +336,59 @@ async def update_collection(
     return CollectionSchema.model_validate(updated_collection)
 
 
+@protected_route(router.put, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
+async def update_smart_collection(
+    request: Request,
+    id: int,
+    is_public: bool | None = None,
+) -> SmartCollectionSchema:
+    """Update smart collection endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Smart collection id
+
+    Returns:
+        SmartCollectionSchema: Updated smart collection
+    """
+
+    data = await request.form()
+
+    smart_collection = db_collection_handler.get_smart_collection(id)
+    if not smart_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if smart_collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    # Parse filter criteria if provided
+    filter_criteria = smart_collection.filter_criteria
+    if "filter_criteria" in data:
+        try:
+            filter_criteria = json.loads(str(data["filter_criteria"]))
+        except json.JSONDecodeError as e:
+            raise ValueError("Invalid JSON for filter_criteria field") from e
+
+    cleaned_data = {
+        "name": str(data.get("name", smart_collection.name)),
+        "description": str(data.get("description", smart_collection.description)),
+        "filter_criteria": filter_criteria,
+        "is_public": is_public if is_public is not None else smart_collection.is_public,
+        "user_id": request.user.id,
+    }
+
+    updated_smart_collection = db_collection_handler.update_smart_collection(
+        id, cleaned_data
+    )
+
+    # Fetch the ROMs to update the database model
+    smart_collection = updated_smart_collection.update_properties(request.user.id)
+
+    return SmartCollectionSchema.model_validate(smart_collection)
+
+
 @protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_collections(request: Request, id: int) -> MessageResponse:
+async def delete_collection(request: Request, id: int) -> None:
     """Delete collections endpoint
 
     Args:
@@ -274,9 +399,6 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
 
     Raises:
         HTTPException: Collection not found
-
-    Returns:
-        MessageResponse: Standard message response
     """
 
     collection = db_collection_handler.get_collection(id)
@@ -284,12 +406,33 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
     if not collection:
         raise CollectionNotFoundInDatabaseException(id)
 
-    log.info(f"Deleting {collection.name} from database")
+    log.info(f"Deleting {hl(collection.name, color=BLUE)} from database")
     db_collection_handler.delete_collection(id)
 
     try:
-        rmtree(f"{RESOURCES_BASE_PATH}/{collection.fs_resources_path}")
+        await fs_resource_handler.remove_directory(collection.fs_resources_path)
     except FileNotFoundError:
-        log.error(f"Couldn't find resources to delete for {collection.name}")
+        log.error(
+            f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"
+        )
 
-    return {"msg": f"{collection.name} deleted successfully!"}
+
+@protected_route(router.delete, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
+async def delete_smart_collection(request: Request, id: int) -> None:
+    """Delete smart collection endpoint
+
+    Args:
+        request (Request): Fastapi Request object
+        id (int): Smart collection id
+    """
+
+    smart_collection = db_collection_handler.get_smart_collection(id)
+
+    if not smart_collection:
+        raise CollectionNotFoundInDatabaseException(id)
+
+    if smart_collection.user_id != request.user.id:
+        raise CollectionPermissionError(id)
+
+    log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
+    db_collection_handler.delete_smart_collection(id)

@@ -7,7 +7,7 @@ export type Platform = PlatformSchema;
 export default defineStore("platforms", {
   state: () => ({
     allPlatforms: [] as Platform[],
-    searchText: "" as string,
+    filterText: "" as string,
   }),
 
   getters: {
@@ -17,27 +17,31 @@ export default defineStore("platforms", {
       all
         .filter((p) => p.rom_count > 0)
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
-    filteredPlatforms: ({ allPlatforms: all, searchText }) =>
+    filteredPlatforms: ({ allPlatforms: all, filterText }) =>
       all
         .filter(
           (p) =>
             p.rom_count > 0 &&
-            p.display_name.toLowerCase().includes(searchText.toLowerCase()),
+            p.display_name.toLowerCase().includes(filterText.toLowerCase()),
         )
         .sort((a, b) => a.display_name.localeCompare(b.display_name)),
   },
   actions: {
     _reorder() {
-      this.allPlatforms = this.allPlatforms.sort((a, b) => {
+      this.allPlatforms = uniqBy(this.allPlatforms, "id").sort((a, b) => {
         return a.name.localeCompare(b.name);
       });
-      this.allPlatforms = uniqBy(this.allPlatforms, "id");
     },
     set(platforms: Platform[]) {
       this.allPlatforms = platforms;
     },
     add(platform: Platform) {
       this.allPlatforms.push(platform);
+      this._reorder();
+    },
+    update(platform: Platform) {
+      const index = this.allPlatforms.findIndex((p) => p.id === platform.id);
+      this.allPlatforms[index] = platform;
       this._reorder();
     },
     has(id: number) {
@@ -54,12 +58,13 @@ export default defineStore("platforms", {
     getAspectRatio(platformId: number): number {
       const platform = this.allPlatforms.find((p) => p.id === platformId);
       return platform && platform.aspect_ratio
-        ? parseFloat(eval(platform.aspect_ratio as string))
+        ? parseInt(platform.aspect_ratio.split("/")[0]) /
+            parseInt(platform.aspect_ratio.split("/")[1])
         : 2 / 3;
     },
     reset() {
       this.allPlatforms = [] as Platform[];
-      this.searchText = "";
+      this.filterText = "";
     },
   },
 });

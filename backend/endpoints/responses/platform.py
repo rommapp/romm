@@ -13,22 +13,31 @@ class PlatformSchema(BaseModel):
     fs_slug: str
     rom_count: int
     name: str
+    igdb_slug: str | None
+    moby_slug: str | None
     custom_name: str | None = None
     igdb_id: int | None = None
     sgdb_id: int | None = None
     moby_id: int | None = None
+    launchbox_id: int | None = None
     ss_id: int | None = None
+    ra_id: int | None = None
+    hasheous_id: int | None = None
+    tgdb_id: int | None = None
     category: str | None = None
     generation: int | None = None
     family_name: str | None = None
     family_slug: str | None = None
     url: str | None = None
     url_logo: str | None = None
-    logo_path: str | None = None
     firmware: list[FirmwareSchema] = Field(default_factory=list)
     aspect_ratio: str = DEFAULT_COVER_ASPECT_RATIO
     created_at: datetime
     updated_at: datetime
+    fs_size_bytes: int
+    is_unidentified: bool
+    is_identified: bool
+    missing_from_fs: bool
 
     class Config:
         from_attributes = True

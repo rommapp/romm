@@ -11,6 +11,13 @@ import Notification from "@/components/common/Notifications/Notification.vue";
 import UploadProgress from "@/components/common/Notifications/UploadProgress.vue";
 import SearchCoverDialog from "@/components/common/SearchCover.vue";
 import ShowQRCodeDialog from "@/components/common/Game/Dialog/ShowQRCode.vue";
+import UploadSavesDialog from "@/components/common/Game/Dialog/Asset/UploadSaves.vue";
+import UploadStatesDialog from "@/components/common/Game/Dialog/Asset/UploadStates.vue";
+import SelectSaveDialog from "@/components/common/Game/Dialog/Asset/SelectSave.vue";
+import SelectStateDialog from "@/components/common/Game/Dialog/Asset/SelectState.vue";
+import DeleteSavesDialog from "@/components/common/Game/Dialog/Asset/DeleteSaves.vue";
+import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
+import NoteDialog from "@/components/common/Game/Dialog/NoteDialog.vue";
 import collectionApi from "@/services/api/collection";
 import platformApi from "@/services/api/platform";
 import storeCollections from "@/stores/collections";
@@ -21,7 +28,6 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref } from "vue";
 import { isNull } from "lodash";
 
-// Props
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
@@ -46,7 +52,6 @@ const virtualCollectionTypeRef = ref(
     : storedVirtualCollectionType,
 );
 
-// Functions
 onBeforeMount(async () => {
   await platformApi
     .getPlatforms()
@@ -60,8 +65,8 @@ onBeforeMount(async () => {
   await collectionApi
     .getCollections()
     .then(({ data: collections }) => {
-      collectionsStore.set(collections);
-      collectionsStore.setFavCollection(
+      collectionsStore.setCollections(collections);
+      collectionsStore.setFavoriteCollection(
         collections.find(
           (collection) => collection.name.toLowerCase() === "favourites",
         ),
@@ -71,11 +76,20 @@ onBeforeMount(async () => {
       console.error(error);
     });
 
+  await collectionApi
+    .getSmartCollections()
+    .then(({ data: smartCollections }) => {
+      collectionsStore.setSmartCollection(smartCollections);
+    })
+    .catch((error) => {
+      console.error(error);
+    });
+
   if (showVirtualCollections) {
     await collectionApi
       .getVirtualCollections({ type: virtualCollectionTypeRef.value })
       .then(({ data: virtualCollections }) => {
-        collectionsStore.setVirtual(virtualCollections);
+        collectionsStore.setVirtualCollections(virtualCollections);
       });
   }
 
@@ -95,8 +109,16 @@ onBeforeMount(async () => {
   <remove-roms-from-collection-dialog />
   <delete-rom-dialog />
   <edit-user-dialog />
+  <note-dialog />
   <show-q-r-code-dialog />
 
   <new-version-dialog />
   <upload-progress />
+
+  <upload-saves-dialog />
+  <delete-saves-dialog />
+  <upload-states-dialog />
+  <delete-states-dialog />
+  <select-save-dialog />
+  <select-state-dialog />
 </template>
