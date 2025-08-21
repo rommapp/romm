@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import RSection from "@/components/common/RSection.vue";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { views } from "@/utils";
 
 defineProps<{ title: string }>();
@@ -17,7 +18,7 @@ defineProps<{ title: string }>();
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <v-skeleton-loader type="card" />
+          <skeleton type="image" />
         </v-col>
       </v-row>
     </template>
