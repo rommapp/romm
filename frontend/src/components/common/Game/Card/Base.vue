@@ -424,3 +424,52 @@ onBeforeUnmount(() => {
   transition: transform 0.2s ease;
 }
 </style>
+
+<style>
+.card-skeleton .v-skeleton-loader__card-avatar {
+  height: 100%;
+}
+
+.card-skeleton .v-skeleton-loader__image {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.card-skeleton .v-skeleton-loader__avatar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+
+  margin: 4px;
+  min-height: 32px;
+  min-width: 32px;
+  max-height: 32px;
+  max-width: 32px;
+
+  &:after {
+    animation: none;
+  }
+}
+
+.card-skeleton .v-skeleton-loader__chip {
+  position: absolute;
+  font-size: 0.875rem;
+  padding: 0 12px;
+  height: 24px;
+  margin: 4px;
+
+  &:after {
+    animation: none;
+  }
+}
+
+.card-skeleton .v-skeleton-loader__chip:nth-of-type(3) {
+  bottom: 0;
+  right: 4px;
+}
+
+.card-skeleton .v-skeleton-loader__chip:nth-of-type(4) {
+  top: 0;
+  left: 0;
+}
+</style>
