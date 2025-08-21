@@ -219,7 +219,6 @@ onBeforeUnmount(() => {
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
-              :lazy-src="smallCover || fallbackCoverImage"
               :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
             >
@@ -351,6 +350,14 @@ onBeforeUnmount(() => {
                   :aspect-ratio="computedAspectRatio"
                 ></v-img>
               </template>
+              <template #placeholder>
+                <v-img
+                  cover
+                  eager
+                  :src="smallCover || fallbackCoverImage"
+                  :aspect-ratio="computedAspectRatio"
+                ></v-img>
+              </template>
             </v-img>
           </v-hover>
         </v-card-text>
@@ -407,11 +414,5 @@ onBeforeUnmount(() => {
 .v-chip:hover {
   transform: scale(1.1);
   transition: transform 0.2s ease;
-}
-</style>
-
-<style>
-.v-img__img--preload {
-  filter: none !important;
 }
 </style>
