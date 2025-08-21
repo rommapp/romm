@@ -18,7 +18,6 @@ import { useDisplay } from "vuetify";
 import VanillaTilt from "vanilla-tilt";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 
 const props = withDefaults(
   defineProps<{
@@ -90,14 +89,12 @@ const handleCloseMenu = () => {
 };
 
 const galleryViewStore = storeGalleryView();
-const { currentView, defaultAspectRatioCover } = storeToRefs(galleryViewStore);
-
 const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
   const ratio =
     props.aspectRatio ||
     platformsStore.getAspectRatio(props.rom.platform_id) ||
-    defaultAspectRatioCover;
+    galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
 const fallbackCoverImage = computed(() =>
@@ -136,9 +133,7 @@ const tiltCard = ref<TiltHTMLElement | null>(null);
 
 const largeCover = computed(() =>
   romsStore.isSimpleRom(props.rom)
-    ? currentView.value === 2
-      ? props.rom.path_cover_small
-      : props.rom.path_cover_large
+    ? props.rom.path_cover_large
     : props.rom.igdb_url_cover ||
       props.rom.moby_url_cover ||
       props.rom.ss_url_cover,
@@ -350,7 +345,11 @@ onBeforeUnmount(() => {
                 </v-expand-transition>
               </div>
               <template #error>
-                <v-img cover :src="fallbackCoverImage"></v-img>
+                <v-img
+                  cover
+                  :src="fallbackCoverImage"
+                  :aspect-ratio="computedAspectRatio"
+                ></v-img>
               </template>
               <template #placeholder>
                 <div class="d-flex align-center justify-center fill-height">
