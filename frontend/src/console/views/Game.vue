@@ -107,15 +107,15 @@
               <div class="flex gap-3 md:gap-4 mb-2">
                 <button
                   class="flex items-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-lg text-base md:text-lg font-semibold min-w-[130px] md:min-w-[140px] justify-center transition-all"
-                  :class="{ 'bg-white text-black hover:bg-[#e5e5e5]': true, 'ring-4 ring-[var(--accent-2)] scale-105': selectedZone==='play' }"
+                  :class="{ 'bg-white text-black hover:bg-[#e5e5e5]': true, 'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]': selectedZone==='play' }"
                   @click="play()"
                 >
                   <span class="text-lg md:text-xl">▶</span>
                   Play
                 </button>
                 <button
-                  class="bg-white/15 hover:bg-white/25 border border-white/20 text-white px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold"
-                  :class="{ 'ring-4 ring-[var(--accent-2)] scale-105': selectedZone==='details' }"
+                  class="bg-white/15 hover:bg-white/25 border border-white/20 text-white px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold transition-all"
+                  :class="{ 'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]': selectedZone==='details' }"
                   @click="openDetails()"
                 >
                   Details
@@ -125,7 +125,7 @@
           </div>
         </section>
 
-        <!-- SCREENSHOTS -->
+        <!-- SCREENSHOTS (fixed bottom, dark background) -->
         <section
           v-if="screenshotUrls.length"
           class="fixed bottom-0 inset-x-0 z-30 py-3 md:py-4 bg-black/40 backdrop-blur-md border-t border-white/10"
@@ -134,27 +134,30 @@
             <h3 class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide mb-4">
               Screenshots
             </h3>
-            <div class="flex gap-3 md:gap-4 overflow-x-auto no-scrollbar py-6 px-2">
-              <button
-                v-for="(src, idx) in screenshotUrls"
-                :key="`${idx}-${src}`"
-                class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none bg-white/5 border-2 border-white/10 overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.03] hover:shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]"
-                :class="{ 'ring-4 ring-[var(--accent-2)] scale-[1.03]': selectedZone==='shots' && selectedShot===idx }"
-                tabindex="0"
-                @click="openLightbox(idx)"
-                @focus="selectedShot = idx"
-                @keydown.enter.prevent="openLightbox(idx)"
-              >
-                <img
-                  class="w-full h-full object-cover select-none"
-                  loading="lazy"
-                  draggable="false"
-                  :src="primaryScreenshotSrc(src)"
-                  :data-alt="altScreenshotSrc(src)"
-                  :alt="`${rom?.name} screenshot ${idx + 1}`"
-                  @error="onScreenshotError"
+            <div ref="shotsRef" class="w-full overflow-x-auto overflow-y-hidden no-scrollbar">
+              <div class="flex items-center gap-3 md:gap-4 py-6 px-2 min-w-max">
+                <button
+                  v-for="(src, idx) in screenshotUrls"
+                  :key="`${idx}-${src}`"
+                  :ref="el => registerShotEl(el as HTMLElement|null, idx)"
+                  class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none bg-white/5 border-2 border-white/10 overflow-hidden cursor-pointer transition-all duration-200 hover:-translate-y-[2px] hover:scale-[1.03] hover:shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]"
+                  :class="{ 'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]': selectedZone==='shots' && selectedShot===idx }"
+                  tabindex="0"
+                  @click="openLightbox(idx)"
+                  @focus="selectedShot = idx"
+                  @keydown.enter.prevent="openLightbox(idx)"
                 >
-              </button>
+                  <img
+                    class="w-full h-full object-cover select-none"
+                    loading="lazy"
+                    draggable="false"
+                    :src="primaryScreenshotSrc(src)"
+                    :data-alt="altScreenshotSrc(src)"
+                    :alt="`${rom?.name} screenshot ${idx + 1}`"
+                    @error="onScreenshotError"
+                  >
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -194,11 +197,10 @@
     <!-- Details Modal -->
     <div
       v-if="showDetails"
+      ref="detailsOverlayRef"
       class="modal-overlay"
       tabindex="0"
-      ref="detailsOverlayRef"
-      @click="showDetails=false"
-      
+      @click="showDetails=false"    
     >
       <div
         class="modal-content modal-wide"
@@ -315,6 +317,8 @@ const showDescription = ref(false);
 const showDetails = ref(false);
 const showLightbox = ref(false);
 const selectedShot = ref(0);
+const shotsRef = ref<HTMLDivElement|null>(null);
+const shotEls = ref<HTMLElement[]>([]);
 const descOverlayRef = ref<HTMLElement|null>(null);
 const detailsOverlayRef = ref<HTMLElement|null>(null);
 
@@ -374,7 +378,7 @@ function handleAction(action: InputAction): boolean {
     case 'play':
       if(action==='moveUp' && rom.value?.summary) { selectedZone.value='description'; return true; }
       if(action==='moveRight') { selectedZone.value='details'; return true; }
-      if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; } return true; }
+  if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { play(); return true; }
       if(action==='back') { router.back(); return true; }
       return false;
@@ -385,14 +389,14 @@ function handleAction(action: InputAction): boolean {
       return false;
     case 'details':
       if(action==='moveLeft') { selectedZone.value='play'; return true; }
-      if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; } return true; }
+  if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { openDetails(); return true; }
       if(action==='back') { router.back(); return true; }
       return false;
     case 'shots':
       if(action==='moveUp') { selectedZone.value='play'; return true; }
-      if(action==='moveRight') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length; } return true; }
-      if(action==='moveLeft') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length; } return true; }
+  if(action==='moveRight') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length; nextTick(scrollShotsToSelected); } return true; }
+  if(action==='moveLeft') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { showLightbox.value = true; return true; }
       if(action==='back') { router.back(); return true; }
       return false;
@@ -404,6 +408,21 @@ function handleAction(action: InputAction): boolean {
 function play(){
   romApi.updateUserRomProps({ romId, data: {}, updateLastPlayed: true }).catch(()=>{});
   router.push({ name: 'console-play', params: { rom: romId } });
+}
+
+function registerShotEl(el: HTMLElement|null, idx: number){
+  if(!el) return;
+  shotEls.value[idx] = el;
+}
+
+function scrollShotsToSelected(){
+  const container = shotsRef.value;
+  const el = shotEls.value[selectedShot.value];
+  if(!container || !el) return;
+  const cr = container.getBoundingClientRect();
+  const er = el.getBoundingClientRect();
+  const desiredLeft = el.offsetLeft - (cr.width/2) + (er.width/2);
+  container.scrollTo({ left: desiredLeft, behavior: 'smooth' });
 }
 
 // Screenshot URL helpers and error handler

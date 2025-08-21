@@ -41,6 +41,11 @@ export const defaultInputConfig: InputConfig = {
       1: 'back',
       8: 'back',
       9: 'menu',
+      // Standard mapping D-pad (12: Up, 13: Down, 14: Left, 15: Right)
+      12: 'moveUp',
+      13: 'moveDown',
+      14: 'moveLeft',
+      15: 'moveRight',
     },
   },
 };
