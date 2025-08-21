@@ -150,12 +150,15 @@ async function getRoms({
   });
 }
 
+export const RECENT_ROMS_LIMIT = 15;
+export const RECENT_PLAYED_ROMS_LIMIT = 15;
+
 async function getRecentRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
     params: {
       order_by: "id",
       order_dir: "desc",
-      limit: 15,
+      limit: RECENT_ROMS_LIMIT,
       with_char_index: false,
     },
   });
@@ -166,7 +169,7 @@ async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
     params: {
       order_by: "last_played",
       order_dir: "desc",
-      limit: 15,
+      limit: RECENT_PLAYED_ROMS_LIMIT,
       with_char_index: false,
     },
   });

@@ -240,7 +240,10 @@ onBeforeUnmount(() => {
     <template
       v-if="currentPlatform && fetchingRoms && filteredRoms.length === 0"
     >
-      <skeleton :platformId="currentPlatform.id" />
+      <skeleton
+        :platformId="currentPlatform.id"
+        :romCount="currentPlatform.rom_count"
+      />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">

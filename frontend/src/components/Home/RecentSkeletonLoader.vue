@@ -2,6 +2,7 @@
 import RSection from "@/components/common/RSection.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { views } from "@/utils";
+import { RECENT_ROMS_LIMIT } from "@/services/api/rom";
 
 defineProps<{ title: string }>();
 </script>
@@ -10,7 +11,7 @@ defineProps<{ title: string }>();
     <template #content>
       <v-row class="flex-nowrap overflow-x-auto pa-1" no-gutters>
         <v-col
-          v-for="_ in 15"
+          v-for="_ in RECENT_ROMS_LIMIT"
           class="align-self-end pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
