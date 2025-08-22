@@ -11,11 +11,6 @@
       class="relative z-20 flex-1 min-w-0 pr-[40px]"
       :style="{ width: 'calc(100vw - 40px)' }"
     >
-      <!-- <div class="mx-10 md:mx-16 lg:mx-20 xl:mx-28 pt-6">
-        <h1 class="text-white/90 text-3xl font-bold drop-shadow">
-          {{ platformTitle }}
-        </h1>
-      </div> -->
 
       <div
         v-if="loading"
@@ -73,8 +68,7 @@
         </button>
       </div>
     </div>
-
-  <NavigationHint />
+    <NavigationHint />
   </div>
 </template>
 <script setup lang="ts">
@@ -107,8 +101,6 @@ const alphaIndex = ref(0);
 const gridRef = ref<HTMLDivElement>();
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-
-// Navigation hint now self-adapts (controller vs keyboard) inside component
 
 const platformTitle = computed(() =>
   current.value?.platform_name || current.value?.platform_slug?.toUpperCase() || 'Platform'
@@ -186,7 +178,7 @@ function handleAction(action: InputAction): boolean {
     if(action==='moveDown'){ alphaIndex.value = Math.min(letters.length-1, alphaIndex.value+1); return true; }
     if(action==='confirm'){
       const L = letters[alphaIndex.value];
-      const idx = filtered.value.findIndex(r => (r.name||'').toUpperCase().startsWith(L));
+  const idx = filtered.value.findIndex(r => normalizeTitle(r.name||'').startsWith(L));
       if(idx>=0){ selectedIndex.value = idx; inAlphabet.value=false; }
       return true;
     }
@@ -223,7 +215,18 @@ function handleAction(action: InputAction): boolean {
 function mouseSelect(i:number){ if(!keyboardMode.value) selectedIndex.value = i; }
 function onCardEnter(i:number){ hoverIndex.value = i; if(!keyboardMode.value) selectedIndex.value = i; }
 function selectAndOpen(i:number, rom: SimpleRomSchema){ selectedIndex.value = i; router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } }); }
-function jumpToLetter(L:string){ const idx = filtered.value.findIndex(r => (r.name||'').toUpperCase().startsWith(L)); if(idx>=0){ selectedIndex.value = idx; inAlphabet.value=false; keyboardMode.value=true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000); } }
+function jumpToLetter(L:string){
+  const idx = filtered.value.findIndex(r => normalizeTitle(r.name||'').startsWith(L));
+  if(idx>=0){
+    selectedIndex.value = idx; inAlphabet.value=false; keyboardMode.value=true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000);
+  }
+}
+
+function normalizeTitle(name: string): string {
+  const upper = name.toUpperCase();
+  // Ignore common leading articles for alphabet navigation;
+  return upper.replace(/^THE\s+/, '');
+}
 
 let off: (() => void) | null = null;
 onMounted(async () => {
