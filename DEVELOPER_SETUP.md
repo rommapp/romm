@@ -180,7 +180,3 @@ uv run pytest [path/file]
 # the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
 uv run pytest -vv
 ```
-
-```
-
-```
