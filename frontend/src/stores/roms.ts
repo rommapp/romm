@@ -129,8 +129,8 @@ export default defineStore("roms", {
     }: {
       galleryFilter: GalleryFilterStore;
       concat?: boolean;
-    }) {
-      if (this.fetchingRoms) return Promise.resolve();
+    }): Promise<SimpleRom[]> {
+      if (this.fetchingRoms) return Promise.resolve([]);
       this.fetchingRoms = true;
 
       return new Promise((resolve, reject) => {

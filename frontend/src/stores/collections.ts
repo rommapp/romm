@@ -58,51 +58,65 @@ export default defineStore("collections", {
         },
       );
     },
-    fetchCollections() {
-      if (this.fetchingCollections) return;
+    fetchCollections(): Promise<Collection[]> {
+      if (this.fetchingCollections) return Promise.resolve([]);
       this.fetchingCollections = true;
-      collectionApi
-        .getCollections()
-        .then(({ data: collections }) => {
-          this.allCollections = collections;
-        })
-        .catch((error) => {
-          console.error(error);
-        })
-        .finally(() => {
-          this.fetchingCollections = false;
-        });
+
+      return new Promise((resolve, reject) => {
+        collectionApi
+          .getCollections()
+          .then(({ data: collections }) => {
+            this.allCollections = collections;
+            resolve(collections);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingCollections = false;
+          });
+      });
     },
-    fetchSmartCollections() {
-      if (this.fetchingSmartCollections) return;
+    fetchSmartCollections(): Promise<SmartCollection[]> {
+      if (this.fetchingSmartCollections) return Promise.resolve([]);
       this.fetchingSmartCollections = true;
 
-      collectionApi
-        .getSmartCollections()
-        .then(({ data: smartCollections }) => {
-          this.smartCollections = smartCollections;
-        })
-        .catch((error) => {
-          console.error(error);
-        })
-        .finally(() => {
-          this.fetchingSmartCollections = false;
-        });
+      return new Promise((resolve, reject) => {
+        collectionApi
+          .getSmartCollections()
+          .then(({ data: smartCollections }) => {
+            this.smartCollections = smartCollections;
+            resolve(smartCollections);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingSmartCollections = false;
+          });
+      });
     },
-    fetchVirtualCollections(type: string) {
-      if (this.fetchingVirtualCollections) return;
+    fetchVirtualCollections(type: string): Promise<VirtualCollection[]> {
+      if (this.fetchingVirtualCollections) return Promise.resolve([]);
       this.fetchingVirtualCollections = true;
-      collectionApi
-        .getVirtualCollections({ type })
-        .then(({ data: virtualCollections }) => {
-          this.virtualCollections = virtualCollections;
-        })
-        .catch((error) => {
-          console.error(error);
-        })
-        .finally(() => {
-          this.fetchingVirtualCollections = false;
-        });
+
+      return new Promise((resolve, reject) => {
+        collectionApi
+          .getVirtualCollections({ type })
+          .then(({ data: virtualCollections }) => {
+            this.virtualCollections = virtualCollections;
+            resolve(virtualCollections);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingVirtualCollections = false;
+          });
+      });
     },
     setFavoriteCollection(favoriteCollection: Collection | undefined) {
       this.favoriteCollection = favoriteCollection;

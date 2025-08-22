@@ -35,21 +35,25 @@ export default defineStore("platforms", {
         return a.name.localeCompare(b.name);
       });
     },
-    fetchPlatforms() {
-      if (this.fetchingPlatforms) return;
+    fetchPlatforms(): Promise<Platform[]> {
+      if (this.fetchingPlatforms) return Promise.resolve([]);
       this.fetchingPlatforms = true;
 
-      platformApi
-        .getPlatforms()
-        .then(({ data: platforms }) => {
-          this.allPlatforms = platforms;
-        })
-        .catch((error) => {
-          console.error(error);
-        })
-        .finally(() => {
-          this.fetchingPlatforms = false;
-        });
+      return new Promise((resolve, reject) => {
+        platformApi
+          .getPlatforms()
+          .then(({ data: platforms }) => {
+            this.allPlatforms = platforms;
+            resolve(platforms);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingPlatforms = false;
+          });
+      });
     },
     set(platforms: Platform[]) {
       this.allPlatforms = platforms;
