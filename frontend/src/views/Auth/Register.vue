@@ -23,7 +23,7 @@ function register() {
   if (!validForm.value) {
     return;
   }
-  
+
   userApi
     .registerUser(username.value, email.value, password.value, token)
     .then(() => {
@@ -89,10 +89,10 @@ onBeforeMount(() => {
             variant="underlined"
             class="mt-4"
           />
-          <v-btn 
-            type="submit" 
-            class="bg-toplayer mt-4" 
-            variant="text" 
+          <v-btn
+            type="submit"
+            class="bg-toplayer mt-4"
+            variant="text"
             block
             :disabled="!validForm"
           >
