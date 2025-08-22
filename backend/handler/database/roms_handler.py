@@ -5,6 +5,7 @@ from typing import Any
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
@@ -24,7 +25,7 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -83,13 +84,25 @@ def with_details(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
-            selectinload(Rom.saves),
-            selectinload(Rom.states),
-            selectinload(Rom.screenshots),
-            selectinload(Rom.rom_users),
-            selectinload(Rom.sibling_roms),
-            selectinload(Rom.metadatum),
-            selectinload(Rom.files),
+            # Ensure platform is loaded for main ROM objects
+            joinedload(Rom.platform),
+            selectinload(Rom.saves).options(
+                noload(Save.rom),
+                noload(Save.user),
+            ),
+            selectinload(Rom.states).options(
+                noload(State.rom),
+                noload(State.user),
+            ),
+            selectinload(Rom.screenshots).options(
+                noload(Screenshot.rom),
+            ),
+            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            selectinload(Rom.files).options(noload(RomFile.rom)),
+            selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform), noload(Rom.metadatum)
+            ),
             selectinload(Rom.collections),
         )
         return func(*args, **kwargs)
@@ -101,14 +114,18 @@ def with_simple(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
+            # Ensure platform is loaded for main ROM objects
+            joinedload(Rom.platform),
             # Display properties for the current user (last_played)
-            selectinload(Rom.rom_users),
+            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
             # Sort table by metadata (first_release_date)
-            selectinload(Rom.metadatum),
+            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
             # Required for multi-file ROM actions and 3DS QR code
-            selectinload(Rom.files),
+            selectinload(Rom.files).options(noload(RomFile.rom)),
             # Show sibling rom badges on cards
-            selectinload(Rom.sibling_roms),
+            selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform), noload(Rom.metadatum)
+            ),
         )
         return func(*args, **kwargs)
 
