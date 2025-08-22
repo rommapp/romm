@@ -74,7 +74,7 @@
       </div>
     </div>
 
-    <NavigationHint :hints="['(← →) Navigate', '(Enter) Select', '(Backpace) Back']" />
+  <NavigationHint />
   </div>
 </template>
 <script setup lang="ts">
@@ -107,6 +107,8 @@ const alphaIndex = ref(0);
 const gridRef = ref<HTMLDivElement>();
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+// Navigation hint now self-adapts (controller vs keyboard) inside component
 
 const platformTitle = computed(() =>
   current.value?.platform_name || current.value?.platform_slug?.toUpperCase() || 'Platform'
