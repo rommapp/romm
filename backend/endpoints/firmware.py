@@ -239,7 +239,7 @@ async def delete_firmware(
                     file_path = f"{firmware.file_path}/{firmware.file_name}"
                     await fs_firmware_handler.remove_file(file_path=file_path)
                 except FileNotFoundError:
-                    error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
+                    error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform.slug)}"
                     log.error(error)
                     errors.append(error)
                     failed_items += 1
