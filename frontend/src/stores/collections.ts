@@ -6,6 +6,7 @@ import type {
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type { SimpleRom } from "./roms";
+import collectionApi from "@/services/api/collection";
 
 export type Collection = CollectionSchema;
 export type VirtualCollection = VirtualCollectionSchema;
@@ -19,6 +20,9 @@ export default defineStore("collections", {
     smartCollections: [] as SmartCollection[],
     favoriteCollection: {} as Collection | undefined,
     filterText: "" as string,
+    fetchingCollections: false as boolean,
+    fetchingSmartCollections: false as boolean,
+    fetchingVirtualCollections: false as boolean,
   }),
   getters: {
     filteredCollections: ({ allCollections, filterText }) =>
@@ -53,6 +57,52 @@ export default defineStore("collections", {
           return a.name.localeCompare(b.name);
         },
       );
+    },
+    fetchCollections() {
+      if (this.fetchingCollections) return;
+      this.fetchingCollections = true;
+      collectionApi
+        .getCollections()
+        .then(({ data: collections }) => {
+          this.allCollections = collections;
+        })
+        .catch((error) => {
+          console.error(error);
+        })
+        .finally(() => {
+          this.fetchingCollections = false;
+        });
+    },
+    fetchSmartCollections() {
+      if (this.fetchingSmartCollections) return;
+      this.fetchingSmartCollections = true;
+
+      collectionApi
+        .getSmartCollections()
+        .then(({ data: smartCollections }) => {
+          this.smartCollections = smartCollections;
+        })
+        .catch((error) => {
+          console.error(error);
+        })
+        .finally(() => {
+          this.fetchingSmartCollections = false;
+        });
+    },
+    fetchVirtualCollections(type: string) {
+      if (this.fetchingVirtualCollections) return;
+      this.fetchingVirtualCollections = true;
+      collectionApi
+        .getVirtualCollections({ type })
+        .then(({ data: virtualCollections }) => {
+          this.virtualCollections = virtualCollections;
+        })
+        .catch((error) => {
+          console.error(error);
+        })
+        .finally(() => {
+          this.fetchingVirtualCollections = false;
+        });
     },
     setFavoriteCollection(favoriteCollection: Collection | undefined) {
       this.favoriteCollection = favoriteCollection;

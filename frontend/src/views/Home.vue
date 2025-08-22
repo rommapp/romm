@@ -19,12 +19,15 @@ const { t } = useI18n();
 const romsStore = storeRoms();
 const { recentRoms, continuePlayingRoms } = storeToRefs(romsStore);
 const platformsStore = storePlatforms();
-const { filledPlatforms } = storeToRefs(platformsStore);
+const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 const collectionsStore = storeCollections();
 const {
   filteredCollections,
   filteredVirtualCollections,
   filteredSmartCollections,
+  fetchingCollections,
+  fetchingSmartCollections,
+  fetchingVirtualCollections,
 } = storeToRefs(collectionsStore);
 
 function getSettingValue(key: string, defaultValue: boolean = true): boolean {
@@ -45,6 +48,10 @@ const fetchingContinuePlaying = ref(false);
 
 const isEmpty = computed(
   () =>
+    !fetchingPlatforms.value &&
+    !fetchingCollections.value &&
+    !fetchingSmartCollections.value &&
+    !fetchingVirtualCollections.value &&
     !fetchingRecentAdded.value &&
     !fetchingContinuePlaying.value &&
     recentRoms.value.length === 0 &&
@@ -116,13 +123,15 @@ onMounted(async () => {
     </template>
 
     <template v-if="showPlatforms">
-      <platforms-skeleton v-if="filledPlatforms.length === 0" />
+      <platforms-skeleton
+        v-if="fetchingPlatforms && filledPlatforms.length === 0"
+      />
       <platforms v-else-if="filledPlatforms.length > 0" class="ma-2" />
     </template>
 
     <template v-if="showCollections">
       <recent-added-skeleton
-        v-if="filteredCollections.length === 0"
+        v-if="fetchingCollections && filteredCollections.length === 0"
         :title="t('common.collections')"
         class="ma-2"
       />
@@ -137,7 +146,7 @@ onMounted(async () => {
 
     <template v-if="showSmartCollections">
       <recent-added-skeleton
-        v-if="filteredSmartCollections.length === 0"
+        v-if="fetchingSmartCollections && filteredSmartCollections.length === 0"
         :title="t('common.smart-collections')"
         class="ma-2"
       />
@@ -152,7 +161,9 @@ onMounted(async () => {
 
     <template v-if="showVirtualCollections">
       <recent-added-skeleton
-        v-if="filteredVirtualCollections.length === 0"
+        v-if="
+          fetchingVirtualCollections && filteredVirtualCollections.length === 0
+        "
         :title="t('common.virtual-collections')"
         class="ma-2"
       />
