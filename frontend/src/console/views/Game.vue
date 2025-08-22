@@ -167,10 +167,10 @@
     <!-- Modal -->
     <div
       v-if="showDescription"
+      ref="descOverlayRef"
       class="modal-overlay"
       tabindex="0"
       @click="showDescription=false"
-      ref="descOverlayRef"
     >
       <div
         class="modal-content"

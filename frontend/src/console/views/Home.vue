@@ -1,5 +1,8 @@
 <template>
-  <div ref="scrollContainerRef" class="relative h-screen overflow-y-auto overflow-x-hidden bg-gradient-to-b from-bg1 to-bg2">
+  <div
+    ref="scrollContainerRef"
+    class="relative h-screen overflow-y-auto overflow-x-hidden bg-gradient-to-b from-bg1 to-bg2"
+  >
     <div
       class="fixed inset-0 z-0 bg-cover bg-center blur-3xl saturate-150 opacity-40 scale-110 transition-all duration-700 pointer-events-none"
       :style="{ backgroundImage: currentBackground ? `url(${currentBackground})` : 'none' }"
@@ -72,8 +75,8 @@
         </section>
 
         <section
-          ref="recentSectionRef"
           v-if="recent.length>0"
+          ref="recentSectionRef"
           class="px-8 pb-8"
         >
           <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow">
@@ -116,8 +119,8 @@
         </section>
 
         <section
-          ref="collectionsSectionRef"
           v-if="collections.length>0"
+          ref="collectionsSectionRef"
           class="px-8 pb-8"
         >
           <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow">
@@ -191,6 +194,7 @@ import GameCard from '@/console/components/GameCard.vue';
 import CollectionCard from '@/console/components/CollectionCard.vue';
 import RIsotipo from '@/components/common/RIsotipo.vue';
 import type { PlatformSchema } from '@/__generated__/models/PlatformSchema';
+import { SUPPORTED_WEB_PLATFORM_SET } from '@/console/constants/platforms';
 import type { SimpleRomSchema } from '@/__generated__/models/SimpleRomSchema';
 import type { CollectionSchema } from '@/__generated__/models/CollectionSchema';
 import { useInputScope } from '@/console/composables/useInputScope';
@@ -331,7 +335,9 @@ watch([navigationMode, selectedIndex, recentIndex, collectionsIndex, platforms, 
 onMounted(async () => {
   try{
     const { data: plats } = await platformApi.getPlatforms();
-    platforms.value = plats;
+    // Filter to only web-playable systems & hide those with zero roms.
+    // NOTE: Adjust WEB_PLAYABLE_SLUGS to match the definitive supported set.
+  platforms.value = plats.filter(p => p.rom_count > 0 && (SUPPORTED_WEB_PLATFORM_SET.has(p.slug) || SUPPORTED_WEB_PLATFORM_SET.has(p.fs_slug)));
     const { data: recents } = await romApi.getRecentPlayedRoms();
     recent.value = recents.items ?? [];
   const { data: cols } = await collectionApi.getCollections();
