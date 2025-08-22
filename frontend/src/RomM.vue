@@ -18,8 +18,14 @@ storeLanguage.setLanguage(selectedLanguage.value);
 
 <template>
   <v-app>
-    <v-main>
+    <v-main id="main" class="no-transition">
       <router-view />
     </v-main>
   </v-app>
 </template>
+
+<style scoped>
+#main.no-transition {
+  transition: none;
+}
+</style>
