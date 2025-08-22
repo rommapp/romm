@@ -5,7 +5,7 @@ from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
 from sqlalchemy import delete, or_, select, update
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy.orm import Query, Session, joinedload
 
 from .base_handler import DBBaseHandler
 
@@ -14,7 +14,7 @@ def with_firmware(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Platform).options(
-            selectinload(Platform.firmware),
+            joinedload(Platform.firmware),
         )
         return func(*args, **kwargs)
 
