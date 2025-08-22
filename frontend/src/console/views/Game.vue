@@ -121,11 +121,54 @@
                   Details
                 </button>
               </div>
+
+              <div 
+                v-if="rom?.user_states?.length"
+                class="mt-4"
+              >
+                <h3 class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2">
+                  SAVE STATES
+                </h3>
+                <div
+                  ref="statesRef"
+                  class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
+                >
+                  <div class="flex items-center gap-3 py-1 px-2 min-w-max">
+                    <button
+                      v-for="(st,i) in rom.user_states"
+                      :key="st.id"
+                      :ref="el => registerStateEl(el as HTMLElement|null, i)"
+                      class="group relative rounded-md overflow-hidden flex flex-col bg-white/5 border border-white/10 hover:bg-white/10 transition-all w-[140px] h-[80px]"
+                      :class="{ 'ring-2 ring-[var(--accent-2)] scale-[1.05] shadow-[0_0_0_2px_var(--accent-2)]': selectedZone==='states' && selectedStateIndex===i }"
+                      :aria-label="'State from ' + relativeTime(st.updated_at)"
+                      @click="startWithState(i)"
+                    >
+                      <div
+                        v-if="!st.screenshot?.download_path"
+                        class="absolute inset-0 flex items-center justify-center text-[10px] text-white/40 font-medium select-none"
+                      >
+                        STATE
+                      </div>
+                      <img
+                        v-else
+                        :src="st.screenshot.download_path"
+                        :alt="'State screenshot ' + (i+1)"
+                        class="w-full h-full object-cover select-none pointer-events-none"
+                        draggable="false"
+                        loading="lazy"
+                      >
+                      <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-black/0 px-2 pt-4 pb-1 text-[10px] text-white/80 tracking-wide flex justify-between items-end">
+                        <span class="truncate max-w-[90%]">{{ relativeTime(st.updated_at) }}</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- SCREENSHOTS (fixed bottom, dark background) -->
+        <!-- SCREENSHOTS -->
         <section
           v-if="screenshotUrls.length"
           class="fixed bottom-0 inset-x-0 z-30 py-3 md:py-4 bg-black/40 backdrop-blur-md border-t border-white/10"
@@ -134,7 +177,10 @@
             <h3 class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide mb-4">
               Screenshots
             </h3>
-            <div ref="shotsRef" class="w-full overflow-x-auto overflow-y-hidden no-scrollbar">
+            <div 
+              ref="shotsRef"
+              class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
+            >
               <div class="flex items-center gap-3 md:gap-4 py-6 px-2 min-w-max">
                 <button
                   v-for="(src, idx) in screenshotUrls"
@@ -295,6 +341,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
+import { formatDistanceToNow } from 'date-fns';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
@@ -311,14 +358,17 @@ const rom = ref<DetailedRomSchema>();
 const loading = ref(true);
 const error = ref('');
 const unsupported = ref(false);
-type FocusZone = 'play'|'description'|'details'|'shots'|'lightbox';
+type FocusZone = 'play'|'description'|'details'|'shots'|'lightbox'|'states';
 const selectedZone = ref<FocusZone>('play');
+const selectedStateIndex = ref(0);
 const showDescription = ref(false);
 const showDetails = ref(false);
 const showLightbox = ref(false);
 const selectedShot = ref(0);
 const shotsRef = ref<HTMLDivElement|null>(null);
 const shotEls = ref<HTMLElement[]>([]);
+const statesRef = ref<HTMLDivElement|null>(null);
+const stateEls = ref<HTMLElement[]>([]);
 const descOverlayRef = ref<HTMLElement|null>(null);
 const detailsOverlayRef = ref<HTMLElement|null>(null);
 
@@ -375,10 +425,12 @@ function handleAction(action: InputAction): boolean {
 
   // Main focus navigation
   switch(selectedZone.value){
-    case 'play':
+  case 'play':
       if(action==='moveUp' && rom.value?.summary) { selectedZone.value='description'; return true; }
       if(action==='moveRight') { selectedZone.value='details'; return true; }
-  if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }
+      if(action==='moveDown') { 
+    if(rom.value?.user_states?.length){ selectedZone.value='states'; selectedStateIndex.value = 0; return true; }
+    if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { play(); return true; }
       if(action==='back') { router.back(); return true; }
       return false;
@@ -389,14 +441,24 @@ function handleAction(action: InputAction): boolean {
       return false;
     case 'details':
       if(action==='moveLeft') { selectedZone.value='play'; return true; }
-  if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }
+      if(action==='moveDown') { 
+        if(rom.value?.user_states?.length){ selectedZone.value='states'; selectedStateIndex.value = 0; return true; }
+        if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { openDetails(); return true; }
       if(action==='back') { router.back(); return true; }
       return false;
-    case 'shots':
+    case 'states':
       if(action==='moveUp') { selectedZone.value='play'; return true; }
-  if(action==='moveRight') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length; nextTick(scrollShotsToSelected); } return true; }
-  if(action==='moveLeft') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length; nextTick(scrollShotsToSelected); } return true; }
+      if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value=0; nextTick(scrollShotsToSelected); } return true; }
+  if(action==='moveRight') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value + 1) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
+  if(action==='moveLeft') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value - 1 + rom.value.user_states.length) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
+      if(action==='confirm') { startWithState(selectedStateIndex.value); return true; }
+      if(action==='back') { router.back(); return true; }
+      return false;
+    case 'shots':
+      if(action==='moveUp') { selectedZone.value = rom.value?.user_states?.length ? 'states' : 'play'; return true; }
+      if(action==='moveRight') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length; nextTick(scrollShotsToSelected); } return true; }
+      if(action==='moveLeft') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { showLightbox.value = true; return true; }
       if(action==='back') { router.back(); return true; }
       return false;
@@ -407,7 +469,21 @@ function handleAction(action: InputAction): boolean {
 
 function play(){
   romApi.updateUserRomProps({ romId, data: {}, updateLastPlayed: true }).catch(()=>{});
-  router.push({ name: 'console-play', params: { rom: romId } });
+  const query: Record<string, number> = {};
+  if(currentStateId.value) query.state = currentStateId.value;
+  router.push({ name: 'console-play', params: { rom: romId }, query: Object.keys(query).length ? query : undefined });
+}
+
+const currentStateId = computed(() => rom.value?.user_states?.[selectedStateIndex.value]?.id);
+
+function relativeTime(d: string | Date){
+  try{ return formatDistanceToNow(new Date(d), { addSuffix: true }); }catch{ return ''; }
+}
+
+function startWithState(i: number){
+  if(!rom.value?.user_states?.[i]) return;
+  selectedStateIndex.value = i;
+  play();
 }
 
 function registerShotEl(el: HTMLElement|null, idx: number){
@@ -415,9 +491,24 @@ function registerShotEl(el: HTMLElement|null, idx: number){
   shotEls.value[idx] = el;
 }
 
+function registerStateEl(el: HTMLElement|null, idx: number){
+  if(!el) return;
+  stateEls.value[idx] = el;
+}
+
 function scrollShotsToSelected(){
   const container = shotsRef.value;
   const el = shotEls.value[selectedShot.value];
+  if(!container || !el) return;
+  const cr = container.getBoundingClientRect();
+  const er = el.getBoundingClientRect();
+  const desiredLeft = el.offsetLeft - (cr.width/2) + (er.width/2);
+  container.scrollTo({ left: desiredLeft, behavior: 'smooth' });
+}
+
+function scrollStatesToSelected(){
+  const container = statesRef.value;
+  const el = stateEls.value[selectedStateIndex.value];
   if(!container || !el) return;
   const cr = container.getBoundingClientRect();
   const er = el.getBoundingClientRect();

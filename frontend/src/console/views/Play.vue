@@ -24,6 +24,8 @@ import firmwareApi from '@/services/api/firmware';
 const route = useRoute();
 const router = useRouter();
 const romId = Number(route.params.rom);
+const initialSaveId = route.query.save ? Number(route.query.save) : null;
+const initialStateId = route.query.state ? Number(route.query.state) : null;
 const showHint = ref(true);
 let rafId = 0;
 let lastPress: Record<number, number> = { 8: 0, 9: 0 };
@@ -66,6 +68,8 @@ async function boot(){
   // Fetch rom details
   const { data: rom } = await romApi.getRom({ romId });
   const r = rom as DetailedRomSchema;
+  const selectedInitialSave = initialSaveId ? r.user_saves?.find(s => s.id === initialSaveId) : null;
+  const selectedInitialState = initialStateId ? r.user_states?.find(s => s.id === initialStateId) : null;
   document.title = `${r.name} | Play`;
 
   // Configure EmulatorJS globals
@@ -77,6 +81,13 @@ async function boot(){
   w.EJS_controlScheme = getControlSchemeForPlatform(r.platform_slug);
   w.EJS_threads = areThreadsRequiredForEJSCore(core);
   w.EJS_gameID = r.id;
+  if(initialSaveId){
+    // Persist chosen save ID for later logic (EmulatorJS integration for loading server saves would go here)
+    try{ localStorage.setItem(`player:${r.id}:initial_save_id`, String(initialSaveId)); }catch{/* ignore */}
+  }
+  if(initialStateId){
+    try{ localStorage.setItem(`player:${r.id}:initial_state_id`, String(initialStateId)); }catch{/* ignore */}
+  }
   // Disc selection persistence
   const storedDisc = localStorage.getItem(`player:${r.id}:disc`);
   const discId = storedDisc ? parseInt(storedDisc) : null;
@@ -105,6 +116,14 @@ async function boot(){
   w.EJS_onGameStart = () => {
     const e = (window as any).EJS_emulator;
     if (!e) return;
+    const waitForGameManager = async () => {
+      const deadline = Date.now() + 5000; // 5s timeout
+      while(Date.now() < deadline){
+        if(e?.gameManager?.FS && e.gameManager.getSaveFilePath){ return true; }
+        await new Promise(r=>setTimeout(r,100));
+      }
+      return false;
+    };
     const assignFirstPad = () => {
       if (!e.gamepad) return;
       if (!Array.isArray(e.gamepadSelection)) e.gamepadSelection = ['', '', '', ''];
@@ -121,6 +140,48 @@ async function boot(){
     assignFirstPad();
     // Also assign on future connections
   try { e.gamepad?.on?.('connected', assignFirstPad); } catch { /* noop */ }
+
+    (async () => {
+      const ready = await waitForGameManager();
+      if(!ready){
+        console.warn('[ConsolePlay] Game manager not ready for save/state injection');
+        return;
+      }
+      const gm = e.gameManager;
+      // Load SAVE (battery / SRAM) if provided
+      if(selectedInitialSave?.download_path){
+        try {
+          const resp = await fetch(selectedInitialSave.download_path);
+          if(!resp.ok) throw new Error('Failed to fetch save');
+          const buf = new Uint8Array(await resp.arrayBuffer());
+          try {
+            const FS = gm.FS;
+            const path = gm.getSaveFilePath();
+            // Ensure dirs
+            const segs = path.split('/');
+            let accum = '';
+            for(let i=0;i<segs.length-1;i++){ if(!segs[i]) continue; accum += '/' + segs[i]; if(!FS.analyzePath(accum).exists) FS.mkdir(accum); }
+            if(FS.analyzePath(path).exists) FS.unlink(path);
+            FS.writeFile(path, buf);
+            gm.loadSaveFiles?.();
+            console.info('[ConsolePlay] Loaded server save into path', path);
+          } catch(err){ console.warn('[ConsolePlay] Failed writing save file', err); }
+        } catch(err){ console.warn('[ConsolePlay] Save download failed', err); }
+      }
+      // Load STATE if provided (fast-forward once core running)
+      if(selectedInitialState?.download_path){
+        try {
+          const resp = await fetch(selectedInitialState.download_path);
+          if(!resp.ok) throw new Error('Failed to fetch state');
+          const buf = new Uint8Array(await resp.arrayBuffer());
+          // Some cores need a couple frames; delay slightly
+          setTimeout(()=>{
+            try { gm.loadState?.(buf); console.info('[ConsolePlay] Applied server state'); }
+            catch(err){ console.warn('[ConsolePlay] Applying state failed', err); }
+          }, 500);
+        } catch(err){ console.warn('[ConsolePlay] State download failed', err); }
+      }
+    })();
   };
 
   // Load EmulatorJS loader
