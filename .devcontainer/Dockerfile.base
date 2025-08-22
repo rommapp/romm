@@ -7,6 +7,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install system dependencies
+# trunk-ignore(hadolint/DL3008)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     make \
@@ -35,6 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install nvm
 ENV NVM_DIR="/root/.nvm"
+# trunk-ignore(hadolint/DL4006)
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
     && . "$NVM_DIR/nvm.sh" \
     && nvm install 18.20.8 \
