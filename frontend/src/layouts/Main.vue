@@ -50,14 +50,19 @@ const virtualCollectionTypeRef = ref(
 );
 
 onBeforeMount(async () => {
-  platformsStore.fetchPlatforms();
-  collectionsStore.fetchCollections();
-  collectionsStore.fetchSmartCollections();
-  if (showVirtualCollections) {
-    collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
-  }
+  await Promise.all([
+    platformsStore.fetchPlatforms(),
+    collectionsStore.fetchCollections(),
+    collectionsStore.fetchSmartCollections(),
+    showVirtualCollections &&
+      collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value),
+  ]);
 
   navigationStore.reset();
+
+  // Hack to prevent main page transition on first load
+  const main = document.getElementById("main");
+  if (main) main.classList.remove("no-transition");
 });
 </script>
 
