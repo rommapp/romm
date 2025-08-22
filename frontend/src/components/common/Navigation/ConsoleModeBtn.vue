@@ -23,7 +23,7 @@ withDefaults(
     :height="height"
     :class="{ rounded: rounded }"
     class="py-4 bg-background d-flex align-center justify-center"
-    @click="$router.push({ name: 'console-home' })"
+    @click="enterConsoleMode"
   >
     <div class="d-flex flex-column align-center">
       <v-icon :color="$route.path.startsWith('/console') ? 'primary' : ''">
@@ -41,3 +41,23 @@ withDefaults(
     </div>
   </v-btn>
 </template>
+
+<script lang="ts">
+export default {
+  methods: {
+    async enterConsoleMode(){
+      try {
+        // navigate first so route guards run promptly
+        this.$router.push({ name: 'console-home' });
+        const docEl = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
+        if (!document.fullscreenElement && docEl.requestFullscreen) {
+          // Attempt fullscreen after a small delay to allow navigation transition
+          setTimeout(() => {
+            docEl.requestFullscreen?.().catch(()=>{/* ignore */});
+          }, 50);
+        }
+      } catch { /* swallow */ }
+    },
+  },
+};
+</script>
