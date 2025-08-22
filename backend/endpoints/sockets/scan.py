@@ -33,6 +33,7 @@ from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from rq import Worker
@@ -95,11 +96,22 @@ async def _identify_firmware(
         firmware=firmware,
     )
 
+    is_verified = Firmware.verify_file_hashes(
+        platform_slug=platform.slug,
+        file_name=fs_fw,
+        file_size_bytes=scanned_firmware.file_size_bytes,
+        md5_hash=scanned_firmware.md5_hash,
+        sha1_hash=scanned_firmware.sha1_hash,
+        crc_hash=scanned_firmware.crc_hash,
+    )
+
     scan_stats.scanned_firmware += 1
     scan_stats.added_firmware += 1 if not firmware else 0
 
     scanned_firmware.missing_from_fs = False
+    scanned_firmware.is_verified = is_verified
     db_firmware_handler.add_firmware(scanned_firmware)
+
     return scan_stats
 
 
