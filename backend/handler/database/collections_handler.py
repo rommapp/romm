@@ -11,7 +11,7 @@ from models.collection import (
 )
 from models.rom import Rom
 from sqlalchemy import delete, insert, literal, or_, select, update
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy.orm import Query, Session, noload, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -26,7 +26,7 @@ def with_roms(func):
                 Rom.path_cover_s,
                 Rom.path_cover_l,
             )
-            .noload(Rom.platform)
+            .options(noload(Rom.platform), noload(Rom.metadatum))
         )
         return func(*args, **kwargs)
 
