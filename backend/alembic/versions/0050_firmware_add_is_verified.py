@@ -40,9 +40,11 @@ def upgrade() -> None:
             verified_firmware_ids.append(firmware.id)
 
     op.execute("UPDATE firmware SET is_verified = 0")
-    op.execute(
-        f"UPDATE firmware SET is_verified = 1 WHERE id IN ({','.join(map(str, verified_firmware_ids))})"
-    )
+    if verified_firmware_ids:
+        op.execute(
+            # trunk-ignore(bandit/B608)
+            f"UPDATE firmware SET is_verified = 1 WHERE id IN ({','.join(map(str, verified_firmware_ids))})"
+        )
 
     with op.batch_alter_table("firmware", schema=None) as batch_op:
         batch_op.alter_column("is_verified", existing_type=sa.Boolean(), nullable=False)
