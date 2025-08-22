@@ -51,14 +51,6 @@ class Firmware(BaseModel):
     def platform_slug(self) -> str:
         return self.platform.slug
 
-    @property
-    def platform_fs_slug(self) -> str:
-        return self.platform.fs_slug
-
-    @property
-    def platform_name(self) -> str:
-        return self.platform.name
-
     @cached_property
     def is_verified(self) -> bool:
         cache_entry = sync_cache.hget(
