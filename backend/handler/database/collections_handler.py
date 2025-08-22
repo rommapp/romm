@@ -11,7 +11,7 @@ from models.collection import (
 )
 from models.rom import Rom
 from sqlalchemy import delete, insert, literal, or_, select, update
-from sqlalchemy.orm import Query, Session, selectinload
+from sqlalchemy.orm import Query, Session, joinedload
 
 from .base_handler import DBBaseHandler
 
@@ -20,7 +20,13 @@ def with_roms(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Collection).options(
-            selectinload(Collection.roms),
+            joinedload(Collection.roms)
+            .load_only(
+                Rom.id,
+                Rom.path_cover_s,
+                Rom.path_cover_l,
+            )
+            .noload(Rom.platform)
         )
         return func(*args, **kwargs)
 
