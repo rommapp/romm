@@ -11,7 +11,9 @@ const storedPlatforms = localStorage.getItem("settings.gridPlatforms");
 const gridPlatforms = ref(
   isNull(storedPlatforms) ? false : storedPlatforms === "true",
 );
+const PLATFORM_SKELETON_COUNT = 12;
 </script>
+
 <template>
   <r-section icon="mdi-shimmer" :title="t('common.platforms')">
     <template #toolbar-append>
@@ -24,7 +26,7 @@ const gridPlatforms = ref(
         no-gutters
       >
         <v-col
-          v-for="_ in 12"
+          v-for="_ in PLATFORM_SKELETON_COUNT"
           class="align-self-end pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
