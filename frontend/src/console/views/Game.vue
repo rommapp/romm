@@ -174,7 +174,7 @@
           class="fixed bottom-0 inset-x-0 z-30 py-3 md:py-4 bg-black/40 backdrop-blur-md border-t border-white/10"
         >
           <div class="w-full max-w-[1400px] mx-auto px-8 md:px-12 lg:px-16">
-            <h3 class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide mb-4">
+            <h3 class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide">
               Screenshots
             </h3>
             <div 
