@@ -70,7 +70,7 @@ cp env.template .env
 
 ```sh
 # https://mariadb.com/docs/skysql-previous-release/connect/programming-languages/c/install/#Installation_via_Package_Repository_(Linux):
-sudo apt install libmariadb3 libmariadb-dev libpq-dev
+sudo apt update && sudo apt install libmariadb3 libmariadb-dev libpq-dev build-essential make -y
 
 # Build and configure RAHasher (optional)
 # This is only required to calculate RA hashes
@@ -81,7 +81,7 @@ git checkout 1.8.0
 git submodule update --init --recursive
 sed -i '22a #include <ctime>' ./src/Util.h
 make HAVE_CHD=1 -f ./Makefile.RAHasher
-cp ./bin64/RAHasher /usr/bin/RAHasher
+sudo cp ./bin64/RAHasher /usr/bin/RAHasher
 ```
 
 #### - Install python dependencies
@@ -96,11 +96,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 Then create the virtual environment and install the dependencies using uv:
 
-````sh
+```sh
 uv venv
 source .venv/bin/activate
 uv sync --all-extras --dev
-``
+```
 
 #### - Spin up the database and other services
 
@@ -180,4 +180,7 @@ uv run pytest [path/file]
 # the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
 uv run pytest -vv
 ```
-````
+
+```
+
+```

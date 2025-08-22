@@ -1,7 +1,7 @@
 # trunk-ignore-all(trivy)
 # trunk-ignore-all(checkov)
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 # Prevent interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -54,30 +54,14 @@ RUN sed -i '22a #include <ctime>' ./src/Util.h \
     && cp ./bin64/RAHasher /usr/bin/RAHasher
 RUN rm -rf /tmp/RALibretro
 
-# Install frontend dependencies
-COPY frontend/package.json /app/frontend/
-WORKDIR /app/frontend
-RUN npm install
-
-# Set working directory
-WORKDIR /app
-
 # Install uv for the non-root user
 COPY --from=ghcr.io/astral-sh/uv:0.7.19 /uv /uvx /usr/local/bin/
 
 # Install Python
 RUN uv python install 3.13
 
-# Copy project files (including pyproject.toml and uv.lock)
-COPY pyproject.toml uv.lock* .python-version /app/
-
-# Install Python dependencies
-RUN uv sync --all-extras
-
-ENV PATH="/app/.venv/bin:${PATH}"
-
 # Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
+COPY .devcontainer/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

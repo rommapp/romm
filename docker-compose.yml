@@ -4,7 +4,7 @@ services:
   romm-dev:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: .devcontainer/Dockerfile
     container_name: romm-dev
     env_file: .env
     environment:
