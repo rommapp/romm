@@ -13,7 +13,7 @@ services:
       - ROMM_BASE_PATH=/app/romm
     ports:
       - "3000:3000" # Frontend dev server
-      - "${DEV_PORT:-5000}:5000" # Backend API
+      - "${DEV_PORT:-5050}:5050" # Backend API
     volumes:
       - ./backend:/app/backend
       - /app/backend/romm_mock # Empty directory
