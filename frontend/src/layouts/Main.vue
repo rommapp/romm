@@ -54,8 +54,9 @@ onBeforeMount(async () => {
     platformsStore.fetchPlatforms(),
     collectionsStore.fetchCollections(),
     collectionsStore.fetchSmartCollections(),
-    showVirtualCollections &&
-      collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value),
+    showVirtualCollections
+      ? collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value)
+      : Promise.resolve(),
   ]);
 
   navigationStore.reset();
