@@ -23,16 +23,12 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount, onMounted, ref } from "vue";
+import { inject, onBeforeMount, ref } from "vue";
 import { isNull } from "lodash";
-import { useRoute } from "vue-router";
-import { ROUTES } from "@/plugins/router";
 
-const route = useRoute();
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
-const fetchedType = ref<string | null>(null);
 
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
