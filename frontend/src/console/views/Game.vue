@@ -235,7 +235,13 @@
           <p>{{ rom?.summary }}</p>
         </div>
         <div class="modal-footer">
-          <span class="modal-hint">↑↓ Scroll • Backspace to close</span>
+          <NavigationText 
+            :show-navigation="true" 
+            :show-select="false" 
+            :show-back="true"
+            :show-toggle-favorite="false"
+            :show-menu="false"
+          />
         </div>
       </div>
     </div>
@@ -326,7 +332,13 @@
           </div>
         </div>
         <div class="modal-footer">
-          <span class="modal-hint">Backspace to close</span>
+          <NavigationText 
+            :show-navigation="false" 
+            :show-select="false" 
+            :show-back="true"
+            :show-toggle-favorite="false"
+            :show-menu="false"
+          />
         </div>
       </div>
     </div>
@@ -335,6 +347,14 @@
       :urls="screenshotUrls"
       :start-index="selectedShot"
       @close="showLightbox=false"
+    />
+    
+    <NavigationHint 
+      :show-navigation="true"
+      :show-select="true"
+      :show-back="true"
+      :show-toggle-favorite="false"
+      :show-menu="false"
     />
   </div>
 </template>
@@ -345,8 +365,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
-  import ScreenshotLightbox from '@/console/components/ScreenshotLightbox.vue';
+import ScreenshotLightbox from '@/console/components/ScreenshotLightbox.vue';
 import BackButton from '@/console/components/BackButton.vue';
+import NavigationText from '@/console/components/NavigationText.vue';
+import NavigationHint from '@/console/components/NavigationHint.vue';
 import { useInputScope } from '@/console/composables/useInputScope';
 import type { InputAction } from '@/console/input/actions';
 import { getCoreForPlatform } from '@/console/constants/cores';
@@ -448,6 +470,7 @@ function handleAction(action: InputAction): boolean {
       return false;
     case 'details':
       if(action==='moveLeft') { selectedZone.value='play'; return true; }
+      if(action==='moveUp') { selectedZone.value='description'; return true; }
       if(action==='moveDown') { 
         if(rom.value?.user_states?.length){ selectedZone.value='states'; selectedStateIndex.value = 0; return true; }
         if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }

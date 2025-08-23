@@ -79,6 +79,17 @@
         >
           {{ saveError }}
         </p>
+        
+        <!-- Navigation Hints -->
+        <div class="mt-4 pt-3 border-t border-white/10">
+          <NavigationText 
+            :show-navigation="true" 
+            :show-select="true" 
+            :show-back="true"
+            :show-toggle-favorite="false"
+            :show-menu="false"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -92,6 +103,7 @@ import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema
 import { getSupportedEJSCores, getControlSchemeForPlatform, areThreadsRequiredForEJSCore, getDownloadPath } from '@/utils';
 import firmwareApi from '@/services/api/firmware';
 import { useInputScope } from '@/console/composables/useInputScope';
+import NavigationText from '@/console/components/NavigationText.vue';
 import api from '@/services/api';
 
 const route = useRoute();

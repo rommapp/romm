@@ -66,7 +66,13 @@
       </div>
 
       <div class="modal-footer">
-        <span class="modal-hint">← → Navigate • Backspace to close</span>
+        <NavigationText 
+          :show-navigation="true" 
+          :show-select="false" 
+          :show-back="true"
+          :show-toggle-favorite="false"
+          :show-menu="false"
+        />
       </div>
     </div>
   </div>
@@ -74,6 +80,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import NavigationText from './NavigationText.vue';
 
 const props = defineProps<{ urls: string[]; startIndex?: number }>();
 const emit = defineEmits(['close']);
