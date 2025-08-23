@@ -20,17 +20,15 @@ storeLanguage.setLanguage(selectedLanguage.value);
   <v-app>
     <v-main id="main" class="no-transition">
       <router-view v-slot="{ Component }">
-        <template v-if="Component">
-          <component :is="Component" />
-        </template>
-        <template v-else>
-          <div id="app-loading-logo">
+        <component :is="Component" />
+        <Transition name="fade" mode="out-in">
+          <div v-if="!Component" id="app-loading-logo">
             <img
               src="/assets/logos/romm_logo_xbox_one_circle_grayscale.svg"
               alt="Romm Logo"
             />
           </div>
-        </template>
+        </Transition>
       </router-view>
     </v-main>
   </v-app>
@@ -39,5 +37,15 @@ storeLanguage.setLanguage(selectedLanguage.value);
 <style scoped>
 #main.no-transition {
   transition: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
