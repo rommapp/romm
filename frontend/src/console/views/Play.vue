@@ -141,8 +141,8 @@ function showPrompt(){
 
 function handleExitAction(action: string){
   if(!showExitPrompt.value) return false;
-  if(action==='moveUp'){ moveExitFocus(1); return true; }
-  if(action==='moveDown'){ moveExitFocus(-1); return true; }
+  if(action==='moveUp'){ moveExitFocus(-1); return true; }
+  if(action==='moveDown'){ moveExitFocus(1); return true; }
   if(action==='confirm'){ activateExitOption(exitOptions[focusedExitIndex.value].id); return true; }
   if(action==='back'){ cancelExit(); return true; }
   return false;
@@ -296,8 +296,6 @@ function attachGamepadExit(options?: { windowMs?: number }) {
           showPrompt();
         }
       } else {
-        if (edge(BTN.UP))   moveExitFocus(1);
-        if (edge(BTN.DOWN)) moveExitFocus(-1);
         if (edge(BTN.A))    activateExitOption(exitOptions[focusedExitIndex.value].id);
         if (edge(BTN.B))    cancelExit();
       }
