@@ -8,18 +8,91 @@
       v-if="showHint"
       class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-white/80 border border-white/10"
     >
-      Press Start + Select (or F10) to exit
+      Press Start + Select (or Backspace) to exit
+    </div>
+
+    <!-- Exit Prompt Modal -->
+    <div
+      v-if="showExitPrompt"
+      class="absolute inset-0 z-50 flex items-center justify-center"
+    >
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div class="relative w-full max-w-[560px] mx-auto bg-gradient-to-br from-zinc-900/95 to-zinc-800/95 border border-white/10 rounded-2xl shadow-[0_12px_48px_-4px_rgba(0,0,0,0.7)] pa-10 md:p-9 flex flex-col gap-6 focus:outline-none">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold tracking-wide text-white drop-shadow">
+            Exit Game
+          </h2>
+          <button
+            :disabled="savingState"
+            class="text-white/50 hover:text-white transition-colors text-lg"
+            @click="cancelExit()"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="flex flex-col gap-3">
+          <div
+            v-for="(opt,i) in exitOptions"
+            :key="opt.id"
+            class="group relative rounded-lg px-4 py-3 border transition-all cursor-pointer select-none"
+            :class="[
+              savingState && opt.id!=='save' ? 'opacity-40 cursor-not-allowed' : '',
+              focusedExitIndex===i ? 'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)]' : 'border-white/10 bg-white/5 hover:bg-white/10'
+            ]"
+            role="button"
+            :aria-selected="focusedExitIndex===i"
+            @click="activateExitOption(opt.id)"
+          >
+            <div class="flex items-center gap-3">
+              <div class="flex-1">
+                <div
+                  :class="focusedExitIndex===i ? 'text-white' : 'text-white/90'"
+                  class="font-semibold text-sm tracking-wide"
+                >
+                  {{ opt.label }}
+                  <span
+                    v-if="opt.id==='save' && savingState"
+                    class="ml-2 text-[10px] font-medium tracking-wide animate-pulse text-[var(--accent-2)]"
+                  >
+                    SAVING…
+                  </span>
+                </div>
+                <div
+                  v-if="opt.desc"
+                  class="text-xs mt-0.5 text-white/50"
+                >
+                  {{ opt.desc }}
+                </div>
+              </div>
+              <div
+                v-if="focusedExitIndex===i"
+                class="text-[var(--accent-2)] text-xs font-medium tracking-wider"
+              >
+                {{ savingState && opt.id==='save' ? 'SAVING' : '' }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <p
+          v-if="saveError"
+          class="text-xs text-red-400 font-medium"
+        >
+          {{ saveError }}
+        </p>
+      </div>
     </div>
   </div>
 </template>
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
 import { getSupportedEJSCores, getControlSchemeForPlatform, areThreadsRequiredForEJSCore, getDownloadPath } from '@/utils';
 import firmwareApi from '@/services/api/firmware';
+import { useInputScope } from '@/console/composables/useInputScope';
+import api from '@/services/api';
 
 const route = useRoute();
 const router = useRouter();
@@ -27,47 +100,234 @@ const romId = Number(route.params.rom);
 const initialSaveId = route.query.save ? Number(route.query.save) : null;
 const initialStateId = route.query.state ? Number(route.query.state) : null;
 const showHint = ref(true);
+const showExitPrompt = ref(false);
+const savingState = ref(false);
+const saveError = ref('');
+const focusedExitIndex = ref(0);
+let pausedByPrompt = false;
+const exitOptions = [
+  { id: 'save', label: 'Save & Exit', desc: 'Save current state, then quit' },
+  { id: 'nosave', label: 'Exit Without Saving', desc: 'Leave immediately, progress since last save state is lost' },
+  { id: 'cancel', label: 'Cancel', desc: 'Return to the game' }
+];
+const { on: onInputScope } = useInputScope();
+let exitScopeOff: (()=>void)|null = null;
+let romCache: DetailedRomSchema | null = null;
 let rafId = 0;
 let lastPress: Record<number, number> = { 8: 0, 9: 0 };
-const EXIT_WINDOW_MS = 300;
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
-function exitEmulator(){
+function immediateExit(){
   try{ (window as any).EJS_emulator?.callEvent?.('exit'); }catch{ /* noop */ }
   router.back();
 }
 
+function showPrompt(){
+  if(showExitPrompt.value) return; // already open
+  showExitPrompt.value = true;
+  saveError.value='';
+  focusedExitIndex.value = 0;
+  try {
+    const emu = (window as any).EJS_emulator;
+    emu.pause();
+    pausedByPrompt = true;
+  } catch { /* noop */ }
+  
+  nextTick(()=>{
+    exitScopeOff?.();
+    exitScopeOff = onInputScope(handleExitAction);
+  });
+}
+
+function handleExitAction(action: string){
+  if(!showExitPrompt.value) return false;
+  if(action==='moveUp'){ moveExitFocus(1); return true; }
+  if(action==='moveDown'){ moveExitFocus(-1); return true; }
+  if(action==='confirm'){ activateExitOption(exitOptions[focusedExitIndex.value].id); return true; }
+  if(action==='back'){ cancelExit(); return true; }
+  return false;
+}
+
+async function saveAndExit() {
+  if(savingState.value) return;
+  savingState.value = true;
+  
+  try {
+    const emu = (window as any).EJS_emulator;
+    // CRITICAL: The game must be RUNNING for screenshot to work!
+    // We paused it in showPrompt(), so we need to resume it first
+    console.info('Resuming game before screenshot (emujs expects running game)');
+    if(emu.paused) {
+      try {
+        emu.play();
+        // Wait a moment for the game to fully resume
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch(resumeErr) {
+        console.warn('Failed to resume game:', resumeErr);
+      }
+    }
+    
+    const screenshotFile = await emu.gameManager.screenshot();
+    const stateFile = emu.gameManager.getState();
+
+    // Upload using original saveState utility
+    await uploadState(stateFile, screenshotFile);
+    
+    // Clean exit
+    immediateExit();
+    
+  } catch (error) {
+    saveError.value = `Save failed: ${error}`;
+  } finally {
+    savingState.value = false;
+  }
+}
+
+async function uploadState(stateFile: Uint8Array, screenshotFile: Uint8Array) {
+  const filename = `${romCache!.fs_name_no_ext.trim()} [${new Date().toISOString().replace(/[:.]/g, "-").replace("T", " ").replace("Z", "")}]`;
+  
+  try {
+    const stateApi = await import('@/services/api/state');
+    
+    const uploadedStates = await stateApi.default.uploadStates({
+      rom: romCache!,
+      emulator: (window as any).EJS_core,
+      statesToUpload: [
+        {
+          stateFile: new File([stateFile], `${filename}.state`, {
+            type: "application/octet-stream",
+          }),
+          screenshotFile: new File([screenshotFile], `${filename}.png`, {
+            type: "application/octet-stream",
+          }),
+        },
+      ],
+    });
+
+    const uploadedState = uploadedStates[0];
+    if (uploadedState.status == "fulfilled") {
+      if (romCache) romCache.user_states.unshift(uploadedState.value);
+      return uploadedState.value;
+    } else {
+      throw new Error('State upload was rejected');
+    }
+  } catch (error) {
+    console.error('stateApi upload failed:', error);
+    throw error;
+  }
+}
+
+function cancelExit(){
+  const emu = (window as any).EJS_emulator;
+  showExitPrompt.value = false;
+  if(pausedByPrompt){
+    emu.play();
+    pausedByPrompt = false;
+  }
+  // Reset combo detection timestamps so start+select works again right away
+  lastPress[8] = 0; lastPress[9] = 0;
+  exitScopeOff?.(); exitScopeOff=null;
+}
+
+function activateExitOption(id: string){
+  if(savingState.value && id!=='save') return; // block other actions while saving
+  if(id==='save') { saveAndExit(); }
+  else if(id==='nosave') { immediateExit(); }
+  else { cancelExit(); }
+}
+
+function moveExitFocus(delta: number){
+  const total = exitOptions.length; 
+  focusedExitIndex.value = (focusedExitIndex.value + delta + total) % total;
+}
+
 function attachKeyboardExit(){
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'F10') { e.preventDefault(); exitEmulator(); }
+    if (e.key === 'Backspace') { e.preventDefault(); showPrompt(); }
   };
   window.addEventListener('keydown', onKey);
   return () => window.removeEventListener('keydown', onKey);
 }
 
-function attachGamepadExit(){
+function attachGamepadExit(options?: { windowMs?: number }) {
+  const EXIT_WINDOW_MS = options?.windowMs ?? 200;
+  const BTN = { A: 0, B: 1, SELECT: 8, START: 9, UP: 12, DOWN: 13 } as const;
+
+  // Per-pad state so we don't combine the input from other pads
+  interface PadState {
+    prev: boolean[];
+    lastEdge: Record<number, number>;
+  }
+  const padState: Record<number, PadState> = {};
+
+  let running = true;
+
   const loop = () => {
     const pads = navigator.getGamepads?.() || [];
     const now = performance.now();
-    for(const pad of pads){
-      if(!pad) continue;
-      const sel = pad.buttons[8]?.pressed; // Select
-      const start = pad.buttons[9]?.pressed; // Start
-      if(sel) lastPress[8] = now; if(start) lastPress[9] = now;
-      if(sel && start && Math.abs(lastPress[8]-lastPress[9]) <= EXIT_WINDOW_MS){
-        exitEmulator(); return; 
+
+    for (const pad of pads) {
+      if (!pad) continue;
+      const st = (padState[pad.index] ??= {
+        prev: new Array(pad.buttons.length).fill(false),
+        lastEdge: {},
+      });
+
+      const pressed = (i: number) => !!pad.buttons[i]?.pressed;
+      const edge = (i: number) => pressed(i) && !st.prev[i];
+
+      // Exit combo detection (start + select)
+      if (!showExitPrompt.value) {
+        let combo = false;
+
+        // If either Start or Select edges, stamp its edge time
+        if (edge(BTN.SELECT)) {
+          st.lastEdge[BTN.SELECT] = now;
+          const tOther = st.lastEdge[BTN.START] ?? -Infinity;
+          if (now - tOther <= EXIT_WINDOW_MS) combo = true;
+        }
+        if (edge(BTN.START)) {
+          st.lastEdge[BTN.START] = now;
+          const tOther = st.lastEdge[BTN.SELECT] ?? -Infinity;
+          if (now - tOther <= EXIT_WINDOW_MS) combo = true;
+        }
+
+        if (combo) {
+          showPrompt();
+        }
+      } else {
+        if (edge(BTN.UP))   moveExitFocus(1);
+        if (edge(BTN.DOWN)) moveExitFocus(-1);
+        if (edge(BTN.A))    activateExitOption(exitOptions[focusedExitIndex.value].id);
+        if (edge(BTN.B))    cancelExit();
+      }
+      for (let i = 0; i < pad.buttons.length; i++) {
+        st.prev[i] = !!pad.buttons[i]?.pressed;
       }
     }
-    rafId = requestAnimationFrame(loop);
+    if (running) {
+      rafId = requestAnimationFrame(loop);
+    }
   };
+
   rafId = requestAnimationFrame(loop);
-  return () => cancelAnimationFrame(rafId);
+
+  return () => {
+    running = false;
+    if (rafId != null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  };
 }
+
+watch(showExitPrompt, (v)=>{ if(!v){ exitScopeOff?.(); exitScopeOff=null; } });
 
 async function boot(){
   // Fetch rom details
   const { data: rom } = await romApi.getRom({ romId });
   const r = rom as DetailedRomSchema;
+  romCache = r;
   const selectedInitialSave = initialSaveId ? r.user_saves?.find(s => s.id === initialSaveId) : null;
   const selectedInitialState = initialStateId ? r.user_states?.find(s => s.id === initialStateId) : null;
   document.title = `${r.name} | Play`;
@@ -82,7 +342,7 @@ async function boot(){
   w.EJS_threads = areThreadsRequiredForEJSCore(core);
   w.EJS_gameID = r.id;
   if(initialSaveId){
-    // Persist chosen save ID for later logic (EmulatorJS integration for loading server saves would go here)
+    // Persist chosen save ID for later logic
     try{ localStorage.setItem(`player:${r.id}:initial_save_id`, String(initialSaveId)); }catch{/* ignore */}
   }
   if(initialStateId){
@@ -102,15 +362,74 @@ async function boot(){
     w.EJS_biosUrl = '';
   }
   w.EJS_player = '#game';
+  w.EJS_Buttons = {
+    playPause: false,
+    restart: false,
+    mute: false,
+    settings: false,
+    fullscreen: false,
+    saveState: false,
+    loadState: false,
+    screenRecord: false,
+    gamepad: false,
+    cheat: false,
+    volume: false,
+    saveSavFiles: false,
+    loadSavFiles: false,
+    quickSave: false,
+    quickLoad: false,
+    screenshot: false,
+    cacheManager: false,
+    exitEmulation: false
+}
   w.EJS_color = '#A453FF';
   w.EJS_alignStartButton = 'center';
   w.EJS_startOnLoaded = true;
-  w.EJS_fullscreenOnLoaded = true;
+//   w.EJS_fullscreenOnLoaded = true;
   w.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
-  w.EJS_backgroundColor = '#000000';
+  w.EJS_backgroundColor = '#000000'; // Match original which uses theme colors, but #000000 should work fine
   w.EJS_defaultOptions = { 'save-state-location': 'browser', rewindEnabled: 'enabled' };
   // Set a valid game name (affects per-game settings keys)
   w.EJS_gameName = (r.fs_name_no_tags || r.name || '').replace(INVALID_CHARS_REGEX, '').trim();
+
+  // Set up EmulatorJS callbacks
+  w.EJS_onSaveState = async function({ state: stateFile, screenshot: screenshotFile }: { state: Uint8Array, screenshot: Uint8Array }) {
+    try {
+      const formData = new FormData();
+      formData.append('stateFile', new Blob([stateFile]), 'state.save');
+      formData.append('screenshotFile', new Blob([screenshotFile], {type: 'image/png'}), 'screenshot.png');
+      
+      await api.post('/states', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        params: { 
+          rom_id: r.id,
+          emulator: 'emulatorjs'
+        }
+      });
+    } catch(err) {
+      console.error('EJS_onSaveState callback failed:', err);
+    }
+  };
+
+  w.EJS_onSaveSave = async function({ save: saveFile, screenshot: screenshotFile }: { save: Uint8Array, screenshot: Uint8Array }) {
+    console.info('EJS_onSaveSave callback triggered', 'saveFile:', saveFile?.length, 'screenshotFile:', screenshotFile?.length);
+    try {
+      // If I decide to handle save files later, I will implement it here
+      console.info('Save file callback executed');
+    } catch(err) {
+      console.error('EJS_onSaveSave callback failed:', err);
+    }
+  };
+
+  w.EJS_onLoadState = async function() {
+    console.info('[ConsolePlay] EJS_onLoadState callback triggered');
+    // State loading UI would go here if needed
+  };
+
+  w.EJS_onLoadSave = async function() {
+    console.info('[ConsolePlay] EJS_onLoadSave callback triggered');
+    // Save loading UI would go here if needed
+  };
 
   // Ensure a controller is auto-assigned to Player 1 when available
   w.EJS_onGameStart = () => {
@@ -144,7 +463,7 @@ async function boot(){
     (async () => {
       const ready = await waitForGameManager();
       if(!ready){
-        console.warn('[ConsolePlay] Game manager not ready for save/state injection');
+        console.warn('Game manager not ready for save/state injection');
         return;
       }
       const gm = e.gameManager;

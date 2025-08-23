@@ -383,14 +383,12 @@ const genres = computed(() => rom.value?.igdb_metadata?.genres ?? rom.value?.met
 const regions = computed(() => rom.value?.regions ?? []);
 const firstRegion = computed(() => regions.value[0] || '');
 
-// Build screenshot URLs: API serves two sources — merged_screenshots (IGDB/etc) as absolute URLs,
-// and user_screenshots with a download_path served by backend. Prefer user first, then merged.
+// Build screenshot URLs: Only use merged_screenshots from IGDB/external sources,
+// excluding user_screenshots from resources/roms/[id]/screenshots (like save state screenshots).
 const screenshotUrls = computed(() => {
-  const user = (rom.value?.user_screenshots || [])
-    .map(s => s.download_path || s.full_path)
-    .filter(Boolean);
+  // Only return merged screenshots from IGDB/external sources, exclude user screenshots
   const merged = rom.value?.merged_screenshots || [];
-  return [...user, ...merged];
+  return merged;
 });
 
 // Cover URL with fallbacks for background/poster (prefer local resources first)
@@ -470,7 +468,10 @@ function handleAction(action: InputAction): boolean {
 function play(){
   romApi.updateUserRomProps({ romId, data: {}, updateLastPlayed: true }).catch(()=>{});
   const query: Record<string, number> = {};
-  if(currentStateId.value) query.state = currentStateId.value;
+  // Only pass state if we're in the states zone (explicitly selected a state)
+  if(selectedZone.value === 'states' && currentStateId.value) {
+    query.state = currentStateId.value;
+  }
   router.push({ name: 'console-play', params: { rom: romId }, query: Object.keys(query).length ? query : undefined });
 }
 
