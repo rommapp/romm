@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
     ...loadEnv(mode, "../", envPrefixes),
     ...loadEnv(mode, "./", envPrefixes),
   };
+
   const backendPort = env.DEV_PORT ?? "5000";
   const allowedHosts = env.VITE_ALLOWED_HOSTS == "true" ? true : false;
 
