@@ -29,6 +29,8 @@ export const defaultInputConfig: InputConfig = {
     Backspace: 'back',
     f: 'toggleFavorite',
     F: 'toggleFavorite',
+    x: 'delete',
+    X: 'delete',
     Tab: undefined,
   },
   gamepad: {
@@ -40,6 +42,7 @@ export const defaultInputConfig: InputConfig = {
     buttons: {
       0: 'confirm',
       1: 'back',
+      2: 'delete',
       3: 'toggleFavorite',
       8: 'back',
       9: 'menu',

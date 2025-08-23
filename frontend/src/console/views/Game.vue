@@ -357,6 +357,7 @@
       :show-back="true"
       :show-toggle-favorite="false"
       :show-menu="false"
+      :show-delete="selectedZone === 'states' && rom?.user_states?.length > 0"
     />
   </div>
 </template>
@@ -366,6 +367,7 @@ import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { formatDistanceToNow } from 'date-fns';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
+import stateApi from '@/services/api/state';
 import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema';
 import ScreenshotLightbox from '@/console/components/ScreenshotLightbox.vue';
 import BackButton from '@/console/components/BackButton.vue';
@@ -485,6 +487,7 @@ function handleAction(action: InputAction): boolean {
   if(action==='moveRight') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value + 1) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
   if(action==='moveLeft') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value - 1 + rom.value.user_states.length) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
       if(action==='confirm') { startWithState(selectedStateIndex.value); return true; }
+      if(action==='delete') { deleteState(selectedStateIndex.value); return true; }
       if(action==='back') { goBackToPlatform(); return true; }
       return false;
     case 'shots':
@@ -519,6 +522,26 @@ function startWithState(i: number){
   if(!rom.value?.user_states?.[i]) return;
   selectedStateIndex.value = i;
   play();
+}
+
+async function deleteState(i: number){
+  if(!rom.value?.user_states?.[i]) return;
+  const state = rom.value.user_states[i];
+  try {
+    await stateApi.deleteStates({ states: [state] });
+    // Remove the state from the local array
+    rom.value.user_states.splice(i, 1);
+    // Adjust selected index if needed
+    if (selectedStateIndex.value >= rom.value.user_states.length) {
+      selectedStateIndex.value = Math.max(0, rom.value.user_states.length - 1);
+    }
+    // If no more states, switch focus back to play button
+    if (rom.value.user_states.length === 0) {
+      selectedZone.value = 'play';
+    }
+  } catch (error) {
+    console.error('Failed to delete save state:', error);
+  }
 }
 
 function registerShotEl(el: HTMLElement|null, idx: number){

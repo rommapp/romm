@@ -6,6 +6,7 @@
       :show-back="showBack"
       :show-toggle-favorite="showToggleFavorite"
       :show-menu="showMenu"
+      :show-delete="showDelete"
     />
   </div>
 </template>
@@ -19,6 +20,7 @@ interface Props {
   showBack?: boolean;
   showToggleFavorite?: boolean;
   showMenu?: boolean;
+  showDelete?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -26,6 +28,7 @@ withDefaults(defineProps<Props>(), {
   showSelect: true,
   showBack: true,
   showToggleFavorite: false,
-  showMenu: false
+  showMenu: false,
+  showDelete: false
 });
 </script>

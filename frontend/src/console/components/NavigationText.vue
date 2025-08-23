@@ -37,6 +37,13 @@
         <FaceButtons highlight="west" />
         <span class="font-medium tracking-wide">Menu</span>
       </div>
+      <div
+        v-if="showDelete"
+        class="flex items-center gap-2"
+      >
+        <FaceButtons highlight="west" />
+        <span class="font-medium tracking-wide">Delete</span>
+      </div>
     </template>
     <!-- Keyboard Mode -->
     <template v-else>
@@ -75,6 +82,13 @@
         <span class="keycap">X</span>
         <span class="font-medium tracking-wide">Menu</span>
       </div>
+      <div
+        v-if="showDelete"
+        class="flex items-center gap-2"
+      >
+        <span class="keycap">X</span>
+        <span class="font-medium tracking-wide">Delete</span>
+      </div>
     </template>
   </div>
 </template>
@@ -89,6 +103,7 @@ interface Props {
   showBack?: boolean;
   showToggleFavorite?: boolean;
   showMenu?: boolean;
+  showDelete?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -96,7 +111,8 @@ withDefaults(defineProps<Props>(), {
   showSelect: true,
   showBack: true,
   showToggleFavorite: false,
-  showMenu: false
+  showMenu: false,
+  showDelete: false
 });
 
 const hasController = ref(false);
