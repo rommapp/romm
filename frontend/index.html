@@ -33,16 +33,21 @@
       }
 
       #app-loading-logo {
+        position: fixed;
+        top: 0;
+        left: 0;
         display: flex;
-        width: 100vw;
-        height: 100vh;
         justify-content: center;
         align-items: center;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1020 !important;
+        background-color: rgba(13, 17, 23) !important;
       }
 
       #app-loading-logo img {
-        width: 25%;
-        height: 25%;
+        width: 30%;
+        height: 30%;
         opacity: 0.1;
       }
     </style>
