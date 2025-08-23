@@ -2,30 +2,48 @@
   <div class="fixed bottom-4 right-20 flex items-center gap-10 bg-black/80 px-8 py-3 rounded-lg backdrop-blur text-white/70 text-[12px] z-[100] pointer-events-none select-none border border-white/10">
     <!-- Controller Mode -->
     <template v-if="hasController">
-      <div class="flex items-center gap-2">
+      <div
+        v-if="showNavigation"
+        class="flex items-center gap-2"
+      >
         <DPadIcon class="w-8 h-8 opacity-80" />
         <span class="font-medium tracking-wide">Navigation</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div
+        v-if="showSelect"
+        class="flex items-center gap-2"
+      >
         <FaceButtons highlight="south" />
         <span class="font-medium tracking-wide">Select</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div
+        v-if="showBack"
+        class="flex items-center gap-2"
+      >
         <FaceButtons highlight="east" />
         <span class="font-medium tracking-wide">Back</span>
       </div>
     </template>
     <!-- Keyboard Mode -->
     <template v-else>
-      <div class="flex items-center gap-2">
+      <div
+        v-if="showNavigation"
+        class="flex items-center gap-2"
+      >
         <ArrowKeysIcon />
         <span class="font-medium tracking-wide">Navigation</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div
+        v-if="showSelect"
+        class="flex items-center gap-2"
+      >
         <span class="keycap">Enter</span>
         <span class="font-medium tracking-wide">Select</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div
+        v-if="showBack"
+        class="flex items-center gap-2"
+      >
         <span class="keycap">Bkspc</span>
         <span class="font-medium tracking-wide">Back</span>
       </div>
@@ -36,6 +54,18 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, defineComponent, h } from 'vue';
 /* eslint-disable vue/one-component-per-file */
+
+interface Props {
+  showNavigation?: boolean;
+  showSelect?: boolean;
+  showBack?: boolean;
+}
+
+withDefaults(defineProps<Props>(), {
+  showNavigation: true,
+  showSelect: true,
+  showBack: true
+});
 
 const hasController = ref(false);
 let rafId = 0;

@@ -162,10 +162,10 @@
         </section>
       </div>
 
-      <div class="fixed bottom-4 right-4 z-20 flex gap-2">
+      <div class="fixed top-4 right-4 z-20 flex gap-2">
         <button
           class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
-          :class="[{ 'bg-white/10 border-white/40 -translate-y-0.5 shadow-lg': navigationMode==='controls' && controlIndex===0 }]"
+          :class="{ 'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5': navigationMode==='controls' && controlIndex===0 }"
           title="Exit Console Mode (F1)"
           @click="exitConsoleMode"
         >
@@ -173,13 +173,15 @@
         </button>
         <button
           class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
-          :class="[{ 'bg-white/10 border-white/40 -translate-y-0.5 shadow-lg': navigationMode==='controls' && controlIndex===1 }]"
+          :class="{ 'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5': navigationMode==='controls' && controlIndex===1 }"
           title="Fullscreen (F11)"
           @click="toggleFullscreen"
         >
           ⛶
         </button>
       </div>
+      
+      <NavigationHint :show-back="false" />
     </div>
   </div>
 </template>
@@ -192,6 +194,7 @@ import collectionApi from '@/services/api/collection';
 import SystemCard from '@/console/components/SystemCard.vue';
 import GameCard from '@/console/components/GameCard.vue';
 import CollectionCard from '@/console/components/CollectionCard.vue';
+import NavigationHint from '@/console/components/NavigationHint.vue';
 import RIsotipo from '@/components/common/RIsotipo.vue';
 import type { PlatformSchema } from '@/__generated__/models/PlatformSchema';
 import { SUPPORTED_WEB_PLATFORM_SET } from '@/console/constants/platforms';
@@ -286,14 +289,15 @@ function handleAction(action: InputAction): boolean {
       if(navigationMode.value==='controls'){ controlIndex.value=(controlIndex.value+1)%2; return true; }
       return false;
     case 'moveUp':
+  if(navigationMode.value==='systems') { navigationMode.value='controls'; return true; }
   if(navigationMode.value==='recent') { navigationMode.value='systems'; scrollToCurrentRow(); return true; }
   if(navigationMode.value==='collections') { navigationMode.value= recent.value.length>0 ? 'recent' : 'systems'; scrollToCurrentRow(); return true; }
-  if(navigationMode.value==='controls') { navigationMode.value= collections.value.length>0 ? 'collections' : (recent.value.length>0 ? 'recent' : 'systems'); scrollToCurrentRow(); return true; }
       return false;
     case 'moveDown':
   if(navigationMode.value==='systems') { navigationMode.value= recent.value.length>0 ? 'recent' : (collections.value.length>0 ? 'collections' : 'controls'); scrollToCurrentRow(); return true; }
   if(navigationMode.value==='recent') { navigationMode.value= collections.value.length>0 ? 'collections' : 'controls'; scrollToCurrentRow(); return true; }
-  if(navigationMode.value==='collections') { navigationMode.value='controls'; return true; }
+if(navigationMode.value==='controls') { navigationMode.value='systems'; return true; }
+
       return false;
     case 'confirm':
       if(navigationMode.value==='systems' && platforms.value[selectedIndex.value]) { router.push({ name:'console-platform', params: { id: platforms.value[selectedIndex.value].id } }); return true; }
