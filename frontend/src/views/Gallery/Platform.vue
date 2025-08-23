@@ -16,7 +16,7 @@ import { views } from "@/utils";
 import type { Emitter } from "mitt";
 import { isNull, throttle } from "lodash";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeMount, onBeforeUnmount, ref, watch } from "vue";
+import { inject, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 
 const route = useRoute();
@@ -161,7 +161,7 @@ function resetGallery() {
   noPlatformError.value = false;
 }
 
-onBeforeMount(async () => {
+onMounted(async () => {
   const routePlatformId = Number(route.params.platform);
   currentCollection.value = null;
 

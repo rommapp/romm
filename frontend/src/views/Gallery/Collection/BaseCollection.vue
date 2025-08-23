@@ -16,7 +16,7 @@ import { views } from "@/utils";
 import { isNull, throttle } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeMount, onBeforeUnmount, ref, watch } from "vue";
+import { inject, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 
 const props = defineProps<{
@@ -163,7 +163,7 @@ function resetGallery() {
   noCollectionError.value = false;
 }
 
-onBeforeMount(async () => {
+onMounted(async () => {
   const routeCollectionId = route.params.collection;
   currentPlatform.value = null;
 
