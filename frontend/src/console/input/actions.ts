@@ -6,6 +6,7 @@ export type InputAction =
   | 'confirm'
   | 'back'
   | 'menu'
+  | 'delete'
   | 'tabNext'
   | 'tabPrev'
   | 'toggleFavorite';
