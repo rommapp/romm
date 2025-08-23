@@ -349,6 +349,7 @@ import type { DetailedRomSchema } from '@/__generated__/models/DetailedRomSchema
 import BackButton from '@/console/components/BackButton.vue';
 import { useInputScope } from '@/console/composables/useInputScope';
 import type { InputAction } from '@/console/input/actions';
+import { getCoreForPlatform } from '@/console/constants/cores';
 
 const route = useRoute();
 const router = useRouter();
@@ -395,8 +396,6 @@ const screenshotUrls = computed(() => {
 const coverUrl = computed(() =>
   rom.value?.path_cover_large || rom.value?.path_cover_small || rom.value?.url_cover || ''
 );
-
-const coreMap: Record<string,string> = { nes:'nes', snes:'snes', n64:'n64', gb:'gb', gba:'gba', gbc:'gbc', genesis:'segaMD', megadrive:'segaMD', master_system:'sms', sms:'sms', gg:'gg', gamecube:'gc', saturn:'sat', psx:'psx', ps1:'psx', ps2:'ps2', ps3:'ps3', psp:'psp', atari2600:'a26', atari7800:'a78', lynx:'lynx', vb:'vb', wonderswan:'ws', wonderswancolor:'wsc', ngp:'ngp', ngpc:'ngpc', pce:'pce', pcfx:'pcfx', tg16:'pce', sgx:'sgx', msx:'msx', msx2:'msx2' };
 
 function openDescription(){ showDescription.value = true; }
 function openDetails(){ showDetails.value = true; }
@@ -564,7 +563,7 @@ onMounted(async () => {
   try{
     const { data } = await romApi.getRom({ romId });
     const slug = (data.platform_slug as string) || (data as unknown as { platform?: string; system?: string }).platform || (data as unknown as { platform?: string; system?: string }).system;
-    const core = (coreMap as Record<string,string>)[slug as string];
+    const core = getCoreForPlatform(slug);
     if(!core) { unsupported.value = true; throw new Error(`Platform ${slug} not supported yet.`); }
     if(!data.files || !data.files.length) throw new Error('No game files found');
     rom.value = data;
