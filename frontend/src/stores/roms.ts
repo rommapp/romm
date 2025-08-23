@@ -219,10 +219,7 @@ export default defineStore("roms", {
         romApi
           .getRecentPlayedRoms()
           .then(({ data: { items } }) => {
-            const filteredItems = items.filter(
-              (rom) => rom.rom_user.last_played,
-            );
-            this.setContinuePlayingRoms(filteredItems);
+            this.setContinuePlayingRoms(items);
             resolve(items);
           })
           .catch((error) => {
