@@ -181,7 +181,9 @@
         </button>
       </div>
       
-      <NavigationHint :show-back="false" />
+      <NavigationHint
+        :show-back="false"
+        :show-toggle-favorite="navigationMode === 'recent'" />
     </div>
   </div>
 </template>
@@ -191,6 +193,8 @@ import { useRouter } from 'vue-router';
 import platformApi from '@/services/api/platform';
 import romApi from '@/services/api/rom';
 import collectionApi from '@/services/api/collection';
+import storeCollections, { type Collection } from '@/stores/collections';
+import { storeToRefs } from 'pinia';
 import SystemCard from '@/console/components/SystemCard.vue';
 import GameCard from '@/console/components/GameCard.vue';
 import CollectionCard from '@/console/components/CollectionCard.vue';
@@ -204,6 +208,8 @@ import { useInputScope } from '@/console/composables/useInputScope';
 import type { InputAction } from '@/console/input/actions';
 
 const router = useRouter();
+const collectionsStore = storeCollections();
+const { favoriteCollection } = storeToRefs(collectionsStore);
 const platforms = ref<PlatformSchema[]>([]);
 const recent = ref<SimpleRomSchema[]>([]);
 const collections = ref<CollectionSchema[]>([]);
@@ -273,31 +279,59 @@ function tickScroll(){ const w = window as unknown as { systemCardElements?: HTM
 function tickRecentScroll(){ const w = window as unknown as { recentGameElements?: HTMLElement[] }; const el = w.recentGameElements?.[recentIndex.value]; scrollToSelected(recentRef.value!, el); }
 function tickCollectionsScroll(){ const w = window as unknown as { collectionCardElements?: HTMLElement[] }; const el = w.collectionCardElements?.[collectionsIndex.value]; scrollToSelected(collectionsRef.value!, el); }
 
+async function toggleFavorite() {
+  let rom: SimpleRomSchema | undefined;
+  
+  if (navigationMode.value === 'recent' && recent.value.length > 0) {
+    rom = recent.value[recentIndex.value];
+  }
+  
+  if (!rom || !favoriteCollection.value) return;
+
+  try {
+    const isCurrentlyFavorite = collectionsStore.isFavorite(rom);
+    
+    if (!isCurrentlyFavorite) {
+      favoriteCollection.value.rom_ids.push(rom.id);
+    } else {
+      favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter((id: number) => id !== rom.id);
+    }
+
+    const { data } = await collectionApi.updateCollection({ 
+      collection: favoriteCollection.value as Collection 
+    });
+    
+    favoriteCollection.value = data;
+    collectionsStore.updateCollection(data);
+  } catch (error) {
+    console.error('Failed to toggle favorite:', error);
+  }
+}
+
 const { on } = useInputScope();
 function handleAction(action: InputAction): boolean {
   switch(action){
     case 'moveLeft':
       if(navigationMode.value==='systems'){ prevSystem(); return true; }
       if(navigationMode.value==='recent'){ prevRecent(); return true; }
-  if(navigationMode.value==='collections'){ prevCollection(); return true; }
+      if(navigationMode.value==='collections'){ prevCollection(); return true; }
       if(navigationMode.value==='controls'){ controlIndex.value=(controlIndex.value-1+2)%2; return true; }
       return false;
     case 'moveRight':
       if(navigationMode.value==='systems'){ nextSystem(); return true; }
       if(navigationMode.value==='recent'){ nextRecent(); return true; }
-  if(navigationMode.value==='collections'){ nextCollection(); return true; }
+      if(navigationMode.value==='collections'){ nextCollection(); return true; }
       if(navigationMode.value==='controls'){ controlIndex.value=(controlIndex.value+1)%2; return true; }
       return false;
     case 'moveUp':
-  if(navigationMode.value==='systems') { navigationMode.value='controls'; return true; }
-  if(navigationMode.value==='recent') { navigationMode.value='systems'; scrollToCurrentRow(); return true; }
-  if(navigationMode.value==='collections') { navigationMode.value= recent.value.length>0 ? 'recent' : 'systems'; scrollToCurrentRow(); return true; }
+      if(navigationMode.value==='systems') { navigationMode.value='controls'; return true; }
+      if(navigationMode.value==='recent') { navigationMode.value='systems'; scrollToCurrentRow(); return true; }
+      if(navigationMode.value==='collections') { navigationMode.value= recent.value.length>0 ? 'recent' : 'systems'; scrollToCurrentRow(); return true; }
       return false;
     case 'moveDown':
-  if(navigationMode.value==='systems') { navigationMode.value= recent.value.length>0 ? 'recent' : (collections.value.length>0 ? 'collections' : 'controls'); scrollToCurrentRow(); return true; }
-  if(navigationMode.value==='recent') { navigationMode.value= collections.value.length>0 ? 'collections' : 'controls'; scrollToCurrentRow(); return true; }
-if(navigationMode.value==='controls') { navigationMode.value='systems'; return true; }
-
+      if(navigationMode.value==='systems') { navigationMode.value= recent.value.length>0 ? 'recent' : (collections.value.length>0 ? 'collections' : 'controls'); scrollToCurrentRow(); return true; }
+      if(navigationMode.value==='recent') { navigationMode.value= collections.value.length>0 ? 'collections' : 'controls'; scrollToCurrentRow(); return true; }
+      if(navigationMode.value==='controls') { navigationMode.value='systems'; return true; }
       return false;
     case 'confirm':
       if(navigationMode.value==='systems' && platforms.value[selectedIndex.value]) { router.push({ name:'console-platform', params: { id: platforms.value[selectedIndex.value].id } }); return true; }
@@ -308,6 +342,12 @@ if(navigationMode.value==='controls') { navigationMode.value='systems'; return t
     case 'back':
       // Disable back button on home screen since this is the root of console mode
       return true;
+    case 'toggleFavorite':
+      if(navigationMode.value === 'recent') {
+        toggleFavorite();
+        return true;
+      }
+      return false;
     default:
       return false;
   }
@@ -349,12 +389,18 @@ onMounted(async () => {
     const { data: plats } = await platformApi.getPlatforms();
     // Filter to only web-playable systems & hide those with zero roms.
     // NOTE: Adjust WEB_PLAYABLE_SLUGS to match the definitive supported set.
-  platforms.value = plats.filter(p => p.rom_count > 0 && (SUPPORTED_WEB_PLATFORM_SET.has(p.slug) || SUPPORTED_WEB_PLATFORM_SET.has(p.fs_slug)));
+    platforms.value = plats.filter(p => p.rom_count > 0 && (SUPPORTED_WEB_PLATFORM_SET.has(p.slug) || SUPPORTED_WEB_PLATFORM_SET.has(p.fs_slug)));
     const { data: recents } = await romApi.getRecentPlayedRoms();
     recent.value = recents.items ?? [];
-  const { data: cols } = await collectionApi.getCollections();
-  collections.value = cols ?? [];
-  }catch(err: unknown){ error.value = err instanceof Error ? err.message : 'Failed to load'; }
+    const { data: cols } = await collectionApi.getCollections();
+    collections.value = cols ?? [];
+  
+    // Initialize collections store for favorites functionality
+    collectionsStore.setCollections(cols ?? []);
+    collectionsStore.setFavoriteCollection(
+    cols?.find(collection => collection.name.toLowerCase() === "favourites")
+  );
+} catch(err: unknown){ error.value = err instanceof Error ? err.message : 'Failed to load'; }
   finally{ loading.value = false; }
   off = on(handleAction);
 });

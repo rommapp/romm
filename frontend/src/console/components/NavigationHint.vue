@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed bottom-4 right-20 flex items-center gap-10 bg-black/80 px-8 py-3 rounded-lg backdrop-blur text-white/70 text-[12px] z-[100] pointer-events-none select-none border border-white/10">
+  <div class="fixed bottom-4 right-20 flex items-center gap-10 bg-black/50 px-8 py-3 rounded-lg backdrop-blur text-white/70 text-[12px] z-[100] pointer-events-none select-none border border-white/10">
     <!-- Controller Mode -->
     <template v-if="hasController">
       <div
@@ -22,6 +22,13 @@
       >
         <FaceButtons highlight="east" />
         <span class="font-medium tracking-wide">Back</span>
+      </div>
+      <div
+        v-if="showToggleFavorite"
+        class="flex items-center gap-2"
+      >
+        <FaceButtons highlight="north" />
+        <span class="font-medium tracking-wide">Favorite</span>
       </div>
     </template>
     <!-- Keyboard Mode -->
@@ -47,6 +54,13 @@
         <span class="keycap">Bkspc</span>
         <span class="font-medium tracking-wide">Back</span>
       </div>
+      <div
+        v-if="showToggleFavorite"
+        class="flex items-center gap-2"
+      >
+        <span class="keycap">F</span>
+        <span class="font-medium tracking-wide">Favorite</span>
+      </div>
     </template>
   </div>
 </template>
@@ -59,12 +73,14 @@ interface Props {
   showNavigation?: boolean;
   showSelect?: boolean;
   showBack?: boolean;
+  showToggleFavorite?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
   showNavigation: true,
   showSelect: true,
-  showBack: true
+  showBack: true,
+  showToggleFavorite: false
 });
 
 const hasController = ref(false);

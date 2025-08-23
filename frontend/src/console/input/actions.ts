@@ -7,6 +7,7 @@ export type InputAction =
   | 'back'
   | 'menu'
   | 'tabNext'
-  | 'tabPrev';
+  | 'tabPrev'
+  | 'toggleFavorite';
 
 export type InputListener = (action: InputAction) => boolean | void;

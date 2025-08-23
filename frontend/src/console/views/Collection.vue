@@ -71,7 +71,7 @@
       </div>
     </div>
 
-    <NavigationHint :hints="['(← →) Navigate', '(Enter) Select', '(Backpace) Back']" />
+        <NavigationHint :show-toggle-favorite="true" />
   </div>
 </template>
 <script setup lang="ts">
@@ -79,6 +79,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import collectionApi from '@/services/api/collection';
+import storeCollections, { type Collection } from '@/stores/collections';
+import { storeToRefs } from 'pinia';
 import GameCard from '@/console/components/GameCard.vue';
 import NavigationHint from '@/console/components/NavigationHint.vue';
 import BackButton from '@/console/components/BackButton.vue';
@@ -91,6 +93,9 @@ import { useSpatialNav } from '@/console/composables/useSpatialNav';
 const route = useRoute();
 const router = useRouter();
 const collectionId = Number(route.params.id);
+
+const collectionsStore = storeCollections();
+const { favoriteCollection } = storeToRefs(collectionsStore);
 
 const roms = ref<SimpleRomSchema[]>([]);
 const loading = ref(true);
@@ -173,6 +178,30 @@ function scrollToSelected(){
 
 watch(selectedIndex, () => { if(keyboardMode.value) scrollToSelected(); });
 
+async function toggleFavorite() {
+  const rom = filtered.value[selectedIndex.value];
+  if (!rom || !favoriteCollection.value) return;
+
+  try {
+    const isCurrentlyFavorite = collectionsStore.isFavorite(rom);
+    
+    if (!isCurrentlyFavorite) {
+      favoriteCollection.value.rom_ids.push(rom.id);
+    } else {
+      favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter((id: number) => id !== rom.id);
+    }
+
+    const { data } = await collectionApi.updateCollection({ 
+      collection: favoriteCollection.value as Collection 
+    });
+    
+    favoriteCollection.value = data;
+    collectionsStore.updateCollection(data);
+  } catch (error) {
+    console.error('Failed to toggle favorite:', error);
+  }
+}
+
 const { on } = useInputScope();
 const { moveLeft, moveUp } = useSpatialNav(selectedIndex, getCols, () => filtered.value.length);
 
@@ -214,6 +243,9 @@ function handleAction(action: InputAction): boolean {
     case 'confirm': {
       const rom = filtered.value[selectedIndex.value];
       router.push({ name: 'console-rom', params: { rom: rom.id } });
+      return true; }
+    case 'toggleFavorite': {
+      toggleFavorite();
       return true; }
     default: return false;
   }

@@ -26,8 +26,9 @@ export const defaultInputConfig: InputConfig = {
     ArrowRight: 'moveRight',
     Enter: 'confirm',
     ' ': 'confirm',
-    // Escape: 'back',
     Backspace: 'back',
+    f: 'toggleFavorite',
+    F: 'toggleFavorite',
     Tab: undefined,
   },
   gamepad: {
@@ -39,6 +40,7 @@ export const defaultInputConfig: InputConfig = {
     buttons: {
       0: 'confirm',
       1: 'back',
+      3: 'toggleFavorite',
       8: 'back',
       9: 'menu',
       // Standard mapping D-pad (12: Up, 13: Down, 14: Left, 15: Right)
