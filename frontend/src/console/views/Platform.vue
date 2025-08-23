@@ -58,7 +58,7 @@
       class="w-[40px] bg-black/30 backdrop-blur border-l border-white/10 fixed top-0 right-0 h-screen overflow-hidden z-30 flex-shrink-0"
       :class="{ 'bg-[rgba(248,180,0,0.75)] border-l-[rgba(248,180,0,0.75)]': inAlphabet }"
     >
-      <div class="flex flex-col h-screen p-2 items-center justify-evenly">
+      <div class="flex flex-col h-screen pa-2 items-center justify-evenly">
         <button
           v-for="(L,i) in letters"
           :key="L"

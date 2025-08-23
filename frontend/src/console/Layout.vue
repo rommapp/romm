@@ -10,18 +10,70 @@
       @wheel.prevent
       @contextmenu.prevent
     />
-    <router-view />
+    <router-view v-slot="{ Component, route }">
+      <transition
+        :name="getTransitionName(route)"
+        mode="out-in"
+        appear
+      >
+        <component 
+          :is="Component" 
+          :key="route.path" 
+        />
+      </transition>
+    </router-view>
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, onUnmounted, provide, ref } from 'vue';
+import { onMounted, onUnmounted, provide, ref, watch } from 'vue';
+import { useRoute, type RouteLocationNormalized } from 'vue-router';
 import './index.css';
 import { InputBus, InputBusSymbol } from '@/console/input/bus';
 import { attachKeyboard } from '@/console/input/keyboard';
 import { attachGamepad } from '@/console/input/gamepad';
 
+const currentRoute = useRoute();
 const bus = new InputBus();
 provide(InputBusSymbol, bus);
+
+// Define route hierarchy for transition direction logic
+const routeHierarchy = {
+  'console-home': 0,
+  'console-platform': 1,
+  'console-collection': 1,
+  'console-rom': 2,
+  'console-play': 3,
+};
+
+let previousRoute: string | null = null;
+
+// Determine transition based on navigation direction and route type
+function getTransitionName(route: RouteLocationNormalized): string {
+  const currentName = route.name as string;
+  const currentLevel = routeHierarchy[currentName as keyof typeof routeHierarchy] ?? 1;
+  const previousLevel = previousRoute ? (routeHierarchy[previousRoute as keyof typeof routeHierarchy] ?? 1) : 0;
+  
+  // Special case for play mode (slide up/down)
+  if (currentName === 'console-play' || previousRoute === 'console-play') {
+    return currentLevel > previousLevel ? 'slide-up' : 'slide-down';
+  }
+  
+  // General navigation (slide left/right)
+  if (currentLevel > previousLevel) {
+    return 'slide-left'; // Going deeper (forward)
+  } else if (currentLevel < previousLevel) {
+    return 'slide-right'; // Going back
+  } else {
+    return 'fade'; // Same level or first load
+  }
+}
+
+// Track route changes for transition direction
+watch(() => currentRoute.name, (newName, oldName) => {
+  if (oldName) {
+    previousRoute = oldName as string;
+  }
+});
 
 let detachKeyboard: (() => void) | null = null;
 let detachGamepad: (() => void) | null = null;
