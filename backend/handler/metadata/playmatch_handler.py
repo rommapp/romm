@@ -82,7 +82,7 @@ class PlaymatchHandler:
             )
             res.raise_for_status()
             return res.json()
-        except (httpx.HTTPStatusError, httpx.ConnectError) as exc:
+        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout) as exc:
             log.warning("Connection error: can't connect to Playmatch", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

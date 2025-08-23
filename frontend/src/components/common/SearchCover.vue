@@ -2,26 +2,24 @@
 import type { SearchCoverSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
 import sgdbApi from "@/services/api/sgdb";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import storeGalleryView from "@/stores/galleryView";
-import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeUnmount, ref } from "vue";
 import { useDisplay } from "vuetify";
 
 const { lgAndUp } = useDisplay();
+const galleryViewStore = storeGalleryView();
 const show = ref(false);
 const searching = ref(false);
 const searchText = ref("");
 const coverType = ref("all");
 const covers = ref<SearchCoverSchema[]>([]);
 const filteredCovers = ref<SearchCoverSchema[]>();
-const galleryViewStore = storeGalleryView();
 const panels = ref([0]);
+
 const emitter = inject<Emitter<Events>>("emitter");
-const coverAspectRatio = ref(
-  parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
-);
 emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
   searchText.value = term;
   show.value = true;
@@ -29,6 +27,10 @@ emitter?.on("showSearchCoverDialog", ({ term, aspectRatio = null }) => {
   if (aspectRatio) coverAspectRatio.value = aspectRatio;
   if (searchText.value) searchCovers();
 });
+
+const coverAspectRatio = ref(
+  parseFloat(galleryViewStore.defaultAspectRatioCover.toString()),
+);
 
 async function searchCovers() {
   covers.value = [];
@@ -199,16 +201,7 @@ onBeforeUnmount(() => {
                       ></v-img>
                     </template>
                     <template #placeholder>
-                      <div
-                        class="d-flex align-center justify-center fill-height"
-                      >
-                        <v-progress-circular
-                          :width="2"
-                          :size="40"
-                          color="primary"
-                          indeterminate
-                        />
-                      </div>
+                      <skeleton :aspectRatio="coverAspectRatio" type="image" />
                     </template>
                   </v-img>
                 </v-hover>

@@ -6,6 +6,7 @@ import Sources from "@/components/common/Game/Card/Sources.vue";
 import storePlatforms from "@/stores/platforms";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
@@ -356,7 +357,15 @@ onBeforeUnmount(() => {
                   eager
                   :src="smallCover || fallbackCoverImage"
                   :aspect-ratio="computedAspectRatio"
-                ></v-img>
+                >
+                  <template #placeholder>
+                    <skeleton
+                      :platformId="rom.platform_id"
+                      :aspectRatio="computedAspectRatio"
+                      type="image"
+                    />
+                  </template>
+                </v-img>
               </template>
             </v-img>
           </v-hover>

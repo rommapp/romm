@@ -18,8 +18,6 @@ import SelectStateDialog from "@/components/common/Game/Dialog/Asset/SelectState
 import DeleteSavesDialog from "@/components/common/Game/Dialog/Asset/DeleteSaves.vue";
 import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
 import NoteDialog from "@/components/common/Game/Dialog/NoteDialog.vue";
-import collectionApi from "@/services/api/collection";
-import platformApi from "@/services/api/platform";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
@@ -33,8 +31,7 @@ const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
-  const { data: platformData } = await platformApi.getPlatforms();
-  platformsStore.set(platformData);
+  platformsStore.fetchPlatforms();
 });
 
 const showVirtualCollections = isNull(
@@ -53,47 +50,20 @@ const virtualCollectionTypeRef = ref(
 );
 
 onBeforeMount(async () => {
-  await platformApi
-    .getPlatforms()
-    .then(({ data: platforms }) => {
-      platformsStore.set(platforms);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
-  await collectionApi
-    .getCollections()
-    .then(({ data: collections }) => {
-      collectionsStore.setCollections(collections);
-      collectionsStore.setFavoriteCollection(
-        collections.find(
-          (collection) => collection.name.toLowerCase() === "favourites",
-        ),
-      );
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
-  await collectionApi
-    .getSmartCollections()
-    .then(({ data: smartCollections }) => {
-      collectionsStore.setSmartCollection(smartCollections);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
-  if (showVirtualCollections) {
-    await collectionApi
-      .getVirtualCollections({ type: virtualCollectionTypeRef.value })
-      .then(({ data: virtualCollections }) => {
-        collectionsStore.setVirtualCollections(virtualCollections);
-      });
-  }
+  await Promise.all([
+    platformsStore.fetchPlatforms(),
+    collectionsStore.fetchCollections(),
+    collectionsStore.fetchSmartCollections(),
+    showVirtualCollections
+      ? collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value)
+      : Promise.resolve(),
+  ]);
 
   navigationStore.reset();
+
+  // Hack to prevent main page transition on first load
+  const main = document.getElementById("main");
+  if (main) main.classList.remove("no-transition");
 });
 </script>
 
