@@ -59,10 +59,9 @@ class Platform(BaseModel):
     )
 
     fs_size_bytes: Mapped[int] = column_property(
-        select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
-        .select_from(RomFile.__table__.join(Rom.__table__, RomFile.rom_id == Rom.id))
+        select(func.coalesce(func.sum(Rom.fs_size_bytes), 0))
         .where(Rom.platform_id == id)
-        .correlate_except(RomFile, Rom)
+        .correlate_except(Rom)
         .scalar_subquery()
     )
 
