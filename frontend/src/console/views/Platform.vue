@@ -1,6 +1,9 @@
 <template>
   <div class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex">
-    <BackButton :text="platformTitle" />
+    <BackButton 
+      :text="platformTitle" 
+      :on-back="goBackToHome" 
+    />
     <div
       class="fixed inset-0 z-0 bg-cover bg-center blur-[40px] saturate-[1.3] scale-105 pointer-events-none"
       :style="{ backgroundImage: displayCover ? `url('${displayCover}')` : '' }"
@@ -11,7 +14,6 @@
       class="relative z-20 flex-1 min-w-0 pr-[40px]"
       :style="{ width: 'calc(100vw - 40px)' }"
     >
-
       <div
         v-if="loading"
         class="text-center text-fgDim mt-8"
@@ -101,6 +103,10 @@ const alphaIndex = ref(0);
 const gridRef = ref<HTMLDivElement>();
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+function goBackToHome() {
+  router.push({ name: 'console-home' });
+}
 
 const platformTitle = computed(() =>
   current.value?.platform_name || current.value?.platform_slug?.toUpperCase() || 'Platform'
@@ -203,7 +209,7 @@ function handleAction(action: InputAction): boolean {
       // If there's a shorter last row, clamp to the last available item instead of a dead cell
       if (count > 0) { selectedIndex.value = count - 1; return true; }
       return true; }
-  case 'back': router.back(); return true;
+  case 'back': router.push({ name: 'console-home' }); return true;
     case 'confirm': {
       const rom = filtered.value[selectedIndex.value];
       router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } });

@@ -119,7 +119,7 @@ const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 function immediateExit(){
   try{ (window as any).EJS_emulator?.callEvent?.('exit'); }catch{ /* noop */ }
-  router.back();
+  router.push({ name: 'console-rom', params: { rom: romId } });
 }
 
 function showPrompt(){

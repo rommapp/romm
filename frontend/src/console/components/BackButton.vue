@@ -23,11 +23,18 @@
 import { toRefs } from 'vue';
 import { useRouter } from 'vue-router';
 
-const props = defineProps<{ text?: string }>();
-const { text } = toRefs(props);
+const props = defineProps<{ 
+  text?: string;
+  onBack?: () => void;
+}>();
+const { text, onBack } = toRefs(props);
 
 const router = useRouter();
 function goBack(){
-  router.back();
+  if (onBack?.value) {
+    onBack.value();
+  } else {
+    router.back();
+  }
 }
 </script>

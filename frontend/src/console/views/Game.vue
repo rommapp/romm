@@ -25,7 +25,7 @@
       v-else
       class="relative w-full h-full overflow-y-auto overflow-x-hidden pb-28 md:pb-32"
     >
-      <BackButton />
+      <BackButton :on-back="goBackToPlatform" />
 
       <!-- Backdrop -->
       <div class="absolute inset-0 z-0 overflow-hidden">
@@ -401,6 +401,16 @@ const coreMap: Record<string,string> = { nes:'nes', snes:'snes', n64:'n64', gb:'
 function openDescription(){ showDescription.value = true; }
 function openDetails(){ showDetails.value = true; }
 
+// Navigate back to the platform page using the ROM's platform_id
+function goBackToPlatform() {
+  if (rom.value?.platform_id) {
+    router.push({ name: 'console-platform', params: { id: rom.value.platform_id } });
+  } else {
+    // Fallback to home if platform_id is not available
+    router.push({ name: 'console-home' });
+  }
+}
+
 const { on } = useInputScope();
 function handleAction(action: InputAction): boolean {
   // Lightbox handling
@@ -430,12 +440,12 @@ function handleAction(action: InputAction): boolean {
     if(rom.value?.user_states?.length){ selectedZone.value='states'; selectedStateIndex.value = 0; return true; }
     if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { play(); return true; }
-      if(action==='back') { router.back(); return true; }
+      if(action==='back') { goBackToPlatform(); return true; }
       return false;
     case 'description':
       if(action==='moveDown') { selectedZone.value='play'; return true; }
       if(action==='confirm') { openDescription(); return true; }
-      if(action==='back') { router.back(); return true; }
+      if(action==='back') { goBackToPlatform(); return true; }
       return false;
     case 'details':
       if(action==='moveLeft') { selectedZone.value='play'; return true; }
@@ -443,7 +453,7 @@ function handleAction(action: InputAction): boolean {
         if(rom.value?.user_states?.length){ selectedZone.value='states'; selectedStateIndex.value = 0; return true; }
         if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value = 0; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { openDetails(); return true; }
-      if(action==='back') { router.back(); return true; }
+      if(action==='back') { goBackToPlatform(); return true; }
       return false;
     case 'states':
       if(action==='moveUp') { selectedZone.value='play'; return true; }
@@ -451,14 +461,14 @@ function handleAction(action: InputAction): boolean {
   if(action==='moveRight') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value + 1) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
   if(action==='moveLeft') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value - 1 + rom.value.user_states.length) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
       if(action==='confirm') { startWithState(selectedStateIndex.value); return true; }
-      if(action==='back') { router.back(); return true; }
+      if(action==='back') { goBackToPlatform(); return true; }
       return false;
     case 'shots':
       if(action==='moveUp') { selectedZone.value = rom.value?.user_states?.length ? 'states' : 'play'; return true; }
       if(action==='moveRight') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value + 1) % screenshotUrls.value.length; nextTick(scrollShotsToSelected); } return true; }
       if(action==='moveLeft') { if(screenshotUrls.value.length){ selectedShot.value = (selectedShot.value - 1 + screenshotUrls.value.length) % screenshotUrls.value.length; nextTick(scrollShotsToSelected); } return true; }
       if(action==='confirm') { showLightbox.value = true; return true; }
-      if(action==='back') { router.back(); return true; }
+      if(action==='back') { goBackToPlatform(); return true; }
       return false;
     default:
       return false;
