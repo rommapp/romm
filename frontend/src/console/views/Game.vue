@@ -70,7 +70,7 @@
               </h1>
 
               <div class="flex flex-wrap items-center gap-2 md:gap-4 mb-5 text-sm">
-                <span class="bg-[var(--accent-2)] text-black px-3 py-1 rounded text-xs font-semibold">
+                <span class="bg-[var(--accent)] text-white px-3 py-1 rounded text-xs font-semibold">
                   {{ rom?.platform_name || (rom?.platform_slug||'RETRO')?.toString().toUpperCase() }}
                 </span>
                 <span
@@ -107,14 +107,16 @@
               <div class="flex gap-3 md:gap-4 mb-2">
                 <button
                   class="flex items-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-lg text-base md:text-lg font-semibold min-w-[130px] md:min-w-[140px] justify-center transition-all"
-                  :class="{ 'bg-white text-black hover:bg-[#e5e5e5]': true, 'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]': selectedZone==='play' }"
+                  style="background-color: var(--accent) !important; color: white !important;"
+                  :class="{ 'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]': selectedZone==='play' }"
                   @click="play()"
                 >
                   <span class="text-lg md:text-xl">▶</span>
                   Play
                 </button>
                 <button
-                  class="bg-white/15 hover:bg-white/25 border border-white/20 text-white px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold transition-all"
+                  class="px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold transition-all"
+                  style="background-color: var(--accent-3) !important; color: white !important; border: none !important;"
                   :class="{ 'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]': selectedZone==='details' }"
                   @click="openDetails()"
                 >
