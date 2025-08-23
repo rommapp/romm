@@ -51,6 +51,8 @@ const virtualCollectionTypeRef = ref(
 );
 
 function unhackNavbar() {
+  document.removeEventListener("network-quiesced", unhackNavbar);
+
   // Hack to prevent main page transition on first load
   const main = document.getElementById("main");
   if (main) main.classList.remove("no-transition");

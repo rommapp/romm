@@ -16,7 +16,7 @@ import { views } from "@/utils";
 import { isNull, throttle } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 
 const props = defineProps<{
