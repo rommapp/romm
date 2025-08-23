@@ -33,7 +33,26 @@
         v-if="!loaded"
         class="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10 bg-[length:200%_100%] animate-[shimmer_1.2s_linear_infinite]"
       />
-      <div class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-b from-transparent to-black/75 text-[#eaeaea] text-sm leading-tight z-10">
+      
+      <!-- Favorite star icon -->
+      <div
+        v-if="isFavorited"
+        class="absolute top-2 right-2 z-20"
+      >
+        <div class="bg-black/50 backdrop-blur-sm rounded-full">
+          <v-icon 
+            size="27" 
+            style="color: #BDA5CF"
+          >
+            mdi-star
+          </v-icon>
+        </div>
+      </div>
+      
+      <div 
+        v-if="!coverSrc"
+        class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-b from-transparent to-black/75 text-[#eaeaea] text-sm leading-tight z-10"
+      >
         <div class="font-medium truncate">
           {{ rom.name || rom.title }}
         </div>
@@ -54,11 +73,19 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import storeCollections from '@/stores/collections';
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const props = defineProps<{ rom:any; index:number; selected?:boolean; loaded?:boolean; isRecent?:boolean }>();
 const coverSrc = computed(() => props.rom.path_cover_large || props.rom.path_cover_small || props.rom.url_cover || props.rom.cover_url || props.rom.cover || '');
 const emit = defineEmits(['click','mouseenter','focus','loaded']);
 const el = ref<HTMLElement>();
+
+// Check if this game is in the favorites collection
+const collectionsStore = storeCollections();
+const isFavorited = computed(() => {
+  return collectionsStore.isFavorite(props.rom);
+});
 
 onMounted(() => {
   if(!el.value) return;
