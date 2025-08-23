@@ -27,7 +27,7 @@
     <style>
       html,
       body {
-        background-color: rgba(13, 17, 23) !important;
+        background-color: rgba(242, 244, 248) !important;
         overflow-y: auto;
         margin: 0 !important;
       }
@@ -42,13 +42,31 @@
         width: 100vw;
         height: 100vh;
         z-index: 1020 !important;
-        background-color: rgba(13, 17, 23) !important;
+        background-color: rgba(242, 244, 248) !important;
       }
 
       #app-loading-logo img {
         width: 30%;
         height: 30%;
         opacity: 0.1;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background-color: rgba(13, 17, 23) !important;
+        }
+
+        #app-loading-logo {
+          background-color: rgba(13, 17, 23) !important;
+        }
+      }
+
+      @media (max-width: 960px) {
+        #app-loading-logo img {
+          width: 50%;
+          height: 50%;
+        }
       }
     </style>
 
