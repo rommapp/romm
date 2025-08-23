@@ -23,7 +23,7 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount, onMounted, ref } from "vue";
+import { inject, onBeforeMount, ref } from "vue";
 import { isNull } from "lodash";
 import { useRoute } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -55,6 +55,8 @@ const virtualCollectionTypeRef = ref(
 );
 
 function fetchData() {
+  document.removeEventListener("network-quiesced", fetchData);
+
   if (fetchedType.value !== "platform") {
     platformsStore.fetchPlatforms();
   }
@@ -70,7 +72,9 @@ function fetchData() {
 
   navigationStore.reset();
 
-  document.removeEventListener("network-quiesced", fetchData);
+  // Hack to prevent main page transition on first load
+  const main = document.getElementById("main");
+  if (main) main.classList.remove("no-transition");
 }
 
 onBeforeMount(async () => {
@@ -92,12 +96,6 @@ onBeforeMount(async () => {
     platformsStore.fetchPlatforms();
     fetchedType.value = "platform";
   }
-});
-
-onMounted(() => {
-  // Hack to prevent main page transition on first load
-  const main = document.getElementById("main");
-  if (main) main.classList.remove("no-transition");
 });
 </script>
 
