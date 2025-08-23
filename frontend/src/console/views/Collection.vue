@@ -1,6 +1,9 @@
 <template>
   <div class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex">
-    <BackButton :text="collectionTitle" />
+    <BackButton 
+      :text="collectionTitle" 
+      :on-back="goBackToHome" 
+    />
     <div
       class="fixed inset-0 z-0 bg-cover bg-center blur-[40px] saturate-[1.3] scale-105 pointer-events-none"
       :style="{ backgroundImage: displayCover ? `url('${displayCover}')` : '' }"
@@ -105,6 +108,10 @@ const collection = ref<CollectionSchema | null>(null);
 
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
+function goBackToHome() {
+  router.push({ name: 'console-home' });
+}
+
 const collectionTitle = computed(() => collection.value?.name || 'Collection');
 
 const filtered = computed(() => {
@@ -203,7 +210,7 @@ function handleAction(action: InputAction): boolean {
       if (next < count) { selectedIndex.value = next; return true; }
       if (count > 0) { selectedIndex.value = count - 1; return true; }
       return true; }
-    case 'back': router.back(); return true;
+    case 'back': router.push({ name: 'console-home' }); return true;
     case 'confirm': {
       const rom = filtered.value[selectedIndex.value];
       router.push({ name: 'console-rom', params: { rom: rom.id } });

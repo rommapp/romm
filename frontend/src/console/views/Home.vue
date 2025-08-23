@@ -166,8 +166,8 @@
         <button
           class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
           :class="[{ 'bg-white/10 border-white/40 -translate-y-0.5 shadow-lg': navigationMode==='controls' && controlIndex===0 }]"
-          title="Logout (F1)"
-          @click="doLogout"
+          title="Exit Console Mode (F1)"
+          @click="exitConsoleMode"
         >
           ⏻
         </button>
@@ -243,7 +243,15 @@ function scrollToCurrentRow(){
   }
 }
 
-function doLogout(){ router.push({ name:'login' }); }
+// Exit console mode by exiting fullscreen and navigating to main RomM interface
+function exitConsoleMode() {
+  // Exit fullscreen if currently in fullscreen
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+  }
+  router.push({ name: 'home' });
+}
+
 function toggleFullscreen(){ const de = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> }; if(!document.fullscreenElement) de.requestFullscreen?.(); else document.exitFullscreen?.(); }
 function goPlatform(id:number){ router.push({ name: 'console-platform', params: { id } }); }
 function goGame(g: SimpleRomSchema){ router.push({ name: 'console-rom', params: { rom: g.id }, query: { id: g.platform_id } }); }
@@ -291,10 +299,10 @@ function handleAction(action: InputAction): boolean {
       if(navigationMode.value==='systems' && platforms.value[selectedIndex.value]) { router.push({ name:'console-platform', params: { id: platforms.value[selectedIndex.value].id } }); return true; }
       if(navigationMode.value==='recent' && recent.value[recentIndex.value]) { router.push({ name:'console-rom', params:{ rom: recent.value[recentIndex.value].id }, query:{ id: recent.value[recentIndex.value].platform_id } }); return true; }
       if(navigationMode.value==='collections' && collections.value[collectionsIndex.value]) { router.push({ name:'console-collection', params: { id: collections.value[collectionsIndex.value].id } }); return true; }
-      if(navigationMode.value==='controls') { if(controlIndex.value===0) doLogout(); else toggleFullscreen(); return true; }
+      if(navigationMode.value==='controls') { if(controlIndex.value===0) exitConsoleMode(); else toggleFullscreen(); return true; }
       return false;
     case 'back':
-      router.back();
+      // Disable back button on home screen since this is the root of console mode
       return true;
     default:
       return false;
