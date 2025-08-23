@@ -25,10 +25,15 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, onMounted, ref } from "vue";
 import { isNull } from "lodash";
+import { useRoute } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 
+const route = useRoute();
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
+const fetchedType = ref<string | null>(null);
+
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
   platformsStore.fetchPlatforms();
@@ -50,20 +55,43 @@ const virtualCollectionTypeRef = ref(
 );
 
 function fetchData() {
-  platformsStore.fetchPlatforms();
-  collectionsStore.fetchCollections();
-  collectionsStore.fetchSmartCollections();
-  showVirtualCollections
-    ? collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value)
-    : Promise.resolve();
+  if (fetchedType.value !== "platform") {
+    platformsStore.fetchPlatforms();
+  }
+  if (fetchedType.value !== "collection") {
+    collectionsStore.fetchCollections();
+  }
+  if (fetchedType.value !== "smart") {
+    collectionsStore.fetchSmartCollections();
+  }
+  if (fetchedType.value !== "virtual") {
+    collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
+  }
 
   navigationStore.reset();
 
   document.removeEventListener("network-quiesced", fetchData);
 }
 
-onBeforeMount(() => {
+onBeforeMount(async () => {
   document.addEventListener("network-quiesced", fetchData);
+
+  if (route.name == ROUTES.COLLECTION) {
+    collectionsStore.fetchCollections();
+    fetchedType.value = "collection";
+  } else if (
+    showVirtualCollections &&
+    route.name == ROUTES.VIRTUAL_COLLECTION
+  ) {
+    collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
+    fetchedType.value = "virtual";
+  } else if (route.name == ROUTES.SMART_COLLECTION) {
+    collectionsStore.fetchSmartCollections();
+    fetchedType.value = "smart";
+  } else {
+    platformsStore.fetchPlatforms();
+    fetchedType.value = "platform";
+  }
 });
 
 onMounted(() => {
