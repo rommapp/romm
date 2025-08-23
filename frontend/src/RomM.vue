@@ -21,6 +21,7 @@ storeLanguage.setLanguage(selectedLanguage.value);
     <v-main id="main" class="no-transition">
       <router-view v-slot="{ Component }">
         <component :is="Component" />
+        <!-- Fade out the app loading logo -->
         <Transition name="fade" mode="out-in">
           <div v-if="!Component" id="app-loading-logo">
             <img
@@ -41,7 +42,7 @@ storeLanguage.setLanguage(selectedLanguage.value);
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.5s ease;
+  transition: opacity 0.35s ease;
 }
 
 .fade-enter-from,
