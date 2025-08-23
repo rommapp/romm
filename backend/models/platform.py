@@ -4,7 +4,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
-from models.rom import Rom, RomFile
+from models.rom import Rom
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
