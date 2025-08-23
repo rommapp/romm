@@ -16,7 +16,7 @@ import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, nextTick, onMounted, watch } from "vue";
+import { inject, nextTick, onBeforeMount, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
@@ -210,7 +210,7 @@ function setFilters() {
   ]);
 }
 
-onMounted(async () => {
+onBeforeMount(async () => {
   const {
     search: urlSearch,
     filterMatched: urlFilteredMatch,

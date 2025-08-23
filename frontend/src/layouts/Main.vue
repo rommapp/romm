@@ -23,7 +23,7 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount, ref } from "vue";
+import { inject, onBeforeMount, onMounted, ref } from "vue";
 import { isNull } from "lodash";
 
 const navigationStore = storeNavigation();
@@ -49,18 +49,24 @@ const virtualCollectionTypeRef = ref(
     : storedVirtualCollectionType,
 );
 
-onBeforeMount(async () => {
-  await Promise.all([
-    platformsStore.fetchPlatforms(),
-    collectionsStore.fetchCollections(),
-    collectionsStore.fetchSmartCollections(),
-    showVirtualCollections
-      ? collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value)
-      : Promise.resolve(),
-  ]);
+function fetchData() {
+  platformsStore.fetchPlatforms();
+  collectionsStore.fetchCollections();
+  collectionsStore.fetchSmartCollections();
+  showVirtualCollections
+    ? collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value)
+    : Promise.resolve();
 
   navigationStore.reset();
 
+  document.removeEventListener("network-quiesced", fetchData);
+}
+
+onBeforeMount(() => {
+  document.addEventListener("network-quiesced", fetchData);
+});
+
+onMounted(() => {
   // Hack to prevent main page transition on first load
   const main = document.getElementById("main");
   if (main) main.classList.remove("no-transition");
