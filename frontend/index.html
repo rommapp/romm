@@ -15,7 +15,38 @@
   </head>
 
   <body>
-    <div id="app" />
+    <div id="app">
+      <div id="app-loading-logo">
+        <img
+          src="/assets/logos/romm_logo_xbox_one_circle_grayscale.svg"
+          alt="Romm Logo"
+        />
+      </div>
+    </div>
+
+    <style>
+      html,
+      body {
+        background-color: rgba(13, 17, 23) !important;
+        overflow-y: auto;
+        margin: 0 !important;
+      }
+
+      #app-loading-logo {
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+        justify-content: center;
+        align-items: center;
+      }
+
+      #app-loading-logo img {
+        width: 25%;
+        height: 25%;
+        opacity: 0.1;
+      }
+    </style>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

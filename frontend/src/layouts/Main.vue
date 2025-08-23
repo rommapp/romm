@@ -23,7 +23,7 @@ import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { inject, onBeforeMount, ref } from "vue";
+import { inject, onBeforeMount, onMounted, ref } from "vue";
 import { isNull } from "lodash";
 import { useRoute } from "vue-router";
 import { ROUTES } from "@/plugins/router";
@@ -54,48 +54,23 @@ const virtualCollectionTypeRef = ref(
     : storedVirtualCollectionType,
 );
 
-function fetchData() {
-  document.removeEventListener("network-quiesced", fetchData);
-
-  if (fetchedType.value !== "platform") {
-    platformsStore.fetchPlatforms();
-  }
-  if (fetchedType.value !== "collection") {
-    collectionsStore.fetchCollections();
-  }
-  if (fetchedType.value !== "smart") {
-    collectionsStore.fetchSmartCollections();
-  }
-  if (fetchedType.value !== "virtual") {
-    collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
-  }
-
-  navigationStore.reset();
-
+function unhackNavbar() {
   // Hack to prevent main page transition on first load
   const main = document.getElementById("main");
   if (main) main.classList.remove("no-transition");
 }
 
 onBeforeMount(async () => {
-  document.addEventListener("network-quiesced", fetchData);
+  document.addEventListener("network-quiesced", unhackNavbar);
 
-  if (route.name == ROUTES.COLLECTION) {
-    collectionsStore.fetchCollections();
-    fetchedType.value = "collection";
-  } else if (
-    showVirtualCollections &&
-    route.name == ROUTES.VIRTUAL_COLLECTION
-  ) {
+  platformsStore.fetchPlatforms();
+  collectionsStore.fetchCollections();
+  collectionsStore.fetchSmartCollections();
+  if (showVirtualCollections) {
     collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
-    fetchedType.value = "virtual";
-  } else if (route.name == ROUTES.SMART_COLLECTION) {
-    collectionsStore.fetchSmartCollections();
-    fetchedType.value = "smart";
-  } else {
-    platformsStore.fetchPlatforms();
-    fetchedType.value = "platform";
   }
+
+  navigationStore.reset();
 });
 </script>
 

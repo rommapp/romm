@@ -19,7 +19,19 @@ storeLanguage.setLanguage(selectedLanguage.value);
 <template>
   <v-app>
     <v-main id="main" class="no-transition">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <template v-if="Component">
+          <component :is="Component" />
+        </template>
+        <template v-else>
+          <div id="app-loading-logo">
+            <img
+              src="/assets/logos/romm_logo_xbox_one_circle_grayscale.svg"
+              alt="Romm Logo"
+            />
+          </div>
+        </template>
+      </router-view>
     </v-main>
   </v-app>
 </template>
