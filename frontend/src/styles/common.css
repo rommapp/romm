@@ -2,6 +2,7 @@ html,
 body {
   background-color: rgba(var(--v-theme-background)) !important;
   overflow-y: auto;
+  margin: 0 !important;
 }
 .main-layout {
   z-index: 1010 !important;
