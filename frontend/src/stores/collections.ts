@@ -6,6 +6,7 @@ import type {
 import { uniqBy } from "lodash";
 import { defineStore } from "pinia";
 import type { SimpleRom } from "./roms";
+import collectionApi from "@/services/api/collection";
 
 export type Collection = CollectionSchema;
 export type VirtualCollection = VirtualCollectionSchema;
@@ -19,6 +20,9 @@ export default defineStore("collections", {
     smartCollections: [] as SmartCollection[],
     favoriteCollection: {} as Collection | undefined,
     filterText: "" as string,
+    fetchingCollections: false as boolean,
+    fetchingSmartCollections: false as boolean,
+    fetchingVirtualCollections: false as boolean,
   }),
   getters: {
     filteredCollections: ({ allCollections, filterText }) =>
@@ -53,6 +57,66 @@ export default defineStore("collections", {
           return a.name.localeCompare(b.name);
         },
       );
+    },
+    fetchCollections(): Promise<Collection[]> {
+      if (this.fetchingCollections) return Promise.resolve([]);
+      this.fetchingCollections = true;
+
+      return new Promise((resolve, reject) => {
+        collectionApi
+          .getCollections()
+          .then(({ data: collections }) => {
+            this.allCollections = collections;
+            resolve(collections);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingCollections = false;
+          });
+      });
+    },
+    fetchSmartCollections(): Promise<SmartCollection[]> {
+      if (this.fetchingSmartCollections) return Promise.resolve([]);
+      this.fetchingSmartCollections = true;
+
+      return new Promise((resolve, reject) => {
+        collectionApi
+          .getSmartCollections()
+          .then(({ data: smartCollections }) => {
+            this.smartCollections = smartCollections;
+            resolve(smartCollections);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingSmartCollections = false;
+          });
+      });
+    },
+    fetchVirtualCollections(type: string): Promise<VirtualCollection[]> {
+      if (this.fetchingVirtualCollections) return Promise.resolve([]);
+      this.fetchingVirtualCollections = true;
+
+      return new Promise((resolve, reject) => {
+        collectionApi
+          .getVirtualCollections({ type })
+          .then(({ data: virtualCollections }) => {
+            this.virtualCollections = virtualCollections;
+            resolve(virtualCollections);
+          })
+          .catch((error) => {
+            console.error(error);
+            reject(error);
+          })
+          .finally(() => {
+            this.fetchingVirtualCollections = false;
+          });
+      });
     },
     setFavoriteCollection(favoriteCollection: Collection | undefined) {
       this.favoriteCollection = favoriteCollection;

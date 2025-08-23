@@ -42,41 +42,36 @@ class Firmware(BaseModel):
     crc_hash: Mapped[str] = mapped_column(String(length=100))
     md5_hash: Mapped[str] = mapped_column(String(length=100))
     sha1_hash: Mapped[str] = mapped_column(String(length=100))
+    is_verified: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     platform: Mapped[Platform] = relationship(lazy="joined", back_populates="firmware")
 
     missing_from_fs: Mapped[bool] = mapped_column(default=False, nullable=False)
 
-    @property
-    def platform_slug(self) -> str:
-        return self.platform.slug
-
-    @property
-    def platform_fs_slug(self) -> str:
-        return self.platform.fs_slug
-
-    @property
-    def platform_name(self) -> str:
-        return self.platform.name
-
-    @cached_property
-    def is_verified(self) -> bool:
-        cache_entry = sync_cache.hget(
-            KNOWN_BIOS_KEY, f"{self.platform_slug}:{self.file_name}"
-        )
-        if cache_entry:
-            cache_json = json.loads(cache_entry)
-            return self.file_size_bytes == int(cache_json.get("size", 0)) and (
-                self.md5_hash == cache_json.get("md5")
-                or self.sha1_hash == cache_json.get("sha1")
-                or self.crc_hash == cache_json.get("crc")
-            )
-
-        return False
-
     @cached_property
     def full_path(self) -> str:
         return f"{self.file_path}/{self.file_name}"
+
+    @classmethod
+    def verify_file_hashes(
+        cls,
+        platform_slug: str,
+        file_name: str,
+        file_size_bytes: int,
+        md5_hash: str,
+        sha1_hash: str,
+        crc_hash: str,
+    ) -> bool:
+        cache_entry = sync_cache.hget(KNOWN_BIOS_KEY, f"{platform_slug}:{file_name}")
+        if cache_entry:
+            cache_json = json.loads(cache_entry)
+            return file_size_bytes == int(cache_json.get("size", 0)) and (
+                md5_hash == cache_json.get("md5")
+                or sha1_hash == cache_json.get("sha1")
+                or crc_hash == cache_json.get("crc")
+            )
+
+        return False
 
     def __repr__(self) -> str:
         return self.file_name

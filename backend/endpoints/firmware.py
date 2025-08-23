@@ -11,6 +11,7 @@ from handler.scan_handler import scan_firmware
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.firmware import Firmware
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -69,13 +70,27 @@ async def add_firmware(
             firmware=db_firmware,
         )
 
+        is_verified = Firmware.verify_file_hashes(
+            platform_slug=db_platform.slug,
+            file_name=file.filename,
+            file_size_bytes=scanned_firmware.file_size_bytes,
+            md5_hash=scanned_firmware.md5_hash,
+            sha1_hash=scanned_firmware.sha1_hash,
+            crc_hash=scanned_firmware.crc_hash,
+        )
+
         if db_firmware:
             db_firmware_handler.update_firmware(
-                db_firmware.id, {"file_size_bytes": scanned_firmware.file_size_bytes}
+                db_firmware.id,
+                {
+                    "file_size_bytes": scanned_firmware.file_size_bytes,
+                    "is_verified": is_verified,
+                },
             )
             continue
 
         scanned_firmware.platform_id = db_platform.id
+        scanned_firmware.is_verified = is_verified
         db_firmware_handler.add_firmware(scanned_firmware)
         uploaded_firmware.append(scanned_firmware)
 
@@ -239,7 +254,7 @@ async def delete_firmware(
                     file_path = f"{firmware.file_path}/{firmware.file_name}"
                     await fs_firmware_handler.remove_file(file_path=file_path)
                 except FileNotFoundError:
-                    error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
+                    error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform.slug)}"
                     log.error(error)
                     errors.append(error)
                     failed_items += 1

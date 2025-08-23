@@ -234,8 +234,10 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noCollectionError">
     <gallery-app-bar-collection />
-    <template v-if="fetchingRoms && filteredRoms.length === 0">
-      <skeleton />
+    <template
+      v-if="currentCollection && fetchingRoms && filteredRoms.length === 0"
+    >
+      <skeleton :romCount="currentCollection.rom_count" />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">

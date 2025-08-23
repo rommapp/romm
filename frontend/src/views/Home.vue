@@ -5,7 +5,8 @@ import { useI18n } from "vue-i18n";
 import Stats from "@/components/Home/Stats.vue";
 import Collections from "@/components/Home/Collections.vue";
 import Platforms from "@/components/Home/Platforms.vue";
-import RecentSkeletonLoader from "@/components/Home/RecentSkeletonLoader.vue";
+import PlatformsSkeleton from "@/components/Home/PlatformsSkeleton.vue";
+import RecentAddedSkeleton from "@/components/Home/RecentAddedSkeleton.vue";
 import RecentAdded from "@/components/Home/RecentAdded.vue";
 import ContinuePlaying from "@/components/Home/ContinuePlaying.vue";
 import EmptyHome from "@/components/Home/EmptyHome.vue";
@@ -16,15 +17,17 @@ import storeRoms from "@/stores/roms";
 
 const { t } = useI18n();
 const romsStore = storeRoms();
-const { recentRoms, continuePlayingRoms: recentPlayedRoms } =
-  storeToRefs(romsStore);
+const { recentRoms, continuePlayingRoms } = storeToRefs(romsStore);
 const platformsStore = storePlatforms();
-const { filledPlatforms } = storeToRefs(platformsStore);
+const { filledPlatforms, fetchingPlatforms } = storeToRefs(platformsStore);
 const collectionsStore = storeCollections();
 const {
   filteredCollections,
   filteredVirtualCollections,
   filteredSmartCollections,
+  fetchingCollections,
+  fetchingSmartCollections,
+  fetchingVirtualCollections,
 } = storeToRefs(collectionsStore);
 
 function getSettingValue(key: string, defaultValue: boolean = true): boolean {
@@ -45,26 +48,18 @@ const fetchingContinuePlaying = ref(false);
 
 const isEmpty = computed(
   () =>
+    !fetchingPlatforms.value &&
+    !fetchingCollections.value &&
+    !fetchingSmartCollections.value &&
+    !fetchingVirtualCollections.value &&
+    !fetchingRecentAdded.value &&
+    !fetchingContinuePlaying.value &&
     recentRoms.value.length === 0 &&
-    recentPlayedRoms.value.length === 0 &&
+    continuePlayingRoms.value.length === 0 &&
     filledPlatforms.value.length === 0 &&
     filteredCollections.value.length === 0 &&
     filteredVirtualCollections.value.length === 0 &&
     filteredSmartCollections.value.length === 0,
-);
-
-const showRecentSkeleton = computed(
-  () =>
-    showRecentRoms &&
-    fetchingRecentAdded.value &&
-    recentRoms.value.length === 0,
-);
-
-const showContinuePlayingSkeleton = computed(
-  () =>
-    showContinuePlaying &&
-    fetchingContinuePlaying.value &&
-    recentPlayedRoms.value.length === 0,
 );
 
 const fetchRecentRoms = async (): Promise<void> => {
@@ -102,63 +97,83 @@ onMounted(async () => {
 </script>
 
 <template>
-  <template v-if="fetchingRecentAdded || fetchingContinuePlaying">
-    <div class="d-flex align-center justify-center fill-height">
-      <v-progress-circular
-        color="primary"
-        :width="4"
-        size="120"
-        indeterminate
-      />
-    </div>
-  </template>
-  <template v-if="!fetchingRecentAdded && !fetchingContinuePlaying">
-    <template v-if="!isEmpty">
-      <stats v-if="showStats" />
-      <recent-skeleton-loader
-        v-if="showRecentSkeleton"
+  <empty-home v-if="isEmpty" />
+  <template v-else>
+    <stats v-if="showStats" />
+
+    <template v-if="showRecentRoms">
+      <recent-added-skeleton
+        v-if="fetchingRecentAdded && recentRoms.length === 0"
         :title="t('home.recently-added')"
         class="ma-2"
       />
-      <recent-added
-        v-else-if="recentRoms.length > 0 && showRecentRoms"
-        class="ma-2"
-      />
-      <recent-skeleton-loader
-        v-if="showContinuePlayingSkeleton"
+      <recent-added v-else-if="recentRoms.length > 0" class="ma-2" />
+    </template>
+
+    <template v-if="showContinuePlaying">
+      <recent-added-skeleton
+        v-if="fetchingContinuePlaying && continuePlayingRoms.length === 0"
         :title="t('home.continue-playing')"
         class="ma-2"
       />
       <continue-playing
-        v-else-if="recentPlayedRoms.length > 0 && showContinuePlaying"
+        v-else-if="continuePlayingRoms.length > 0"
         class="ma-2"
       />
-      <platforms
-        v-if="filledPlatforms.length > 0 && showPlatforms"
+    </template>
+
+    <template v-if="showPlatforms">
+      <platforms-skeleton
+        v-if="fetchingPlatforms && filledPlatforms.length === 0"
+      />
+      <platforms v-else-if="filledPlatforms.length > 0" class="ma-2" />
+    </template>
+
+    <template v-if="showCollections">
+      <recent-added-skeleton
+        v-if="fetchingCollections && filteredCollections.length === 0"
+        :title="t('common.collections')"
         class="ma-2"
       />
       <collections
-        v-if="filteredCollections.length > 0 && showCollections"
+        v-if="filteredCollections.length > 0"
         :collections="filteredCollections"
         :title="t('common.collections')"
         setting="gridCollections"
         class="ma-2"
       />
+    </template>
+
+    <template v-if="showSmartCollections">
+      <recent-added-skeleton
+        v-if="fetchingSmartCollections && filteredSmartCollections.length === 0"
+        :title="t('common.smart-collections')"
+        class="ma-2"
+      />
       <collections
-        v-if="filteredSmartCollections.length > 0 && showSmartCollections"
+        v-if="filteredSmartCollections.length > 0"
         :collections="filteredSmartCollections"
         :title="t('common.smart-collections')"
         setting="gridSmartCollections"
         class="ma-2"
       />
+    </template>
+
+    <template v-if="showVirtualCollections">
+      <recent-added-skeleton
+        v-if="
+          fetchingVirtualCollections && filteredVirtualCollections.length === 0
+        "
+        :title="t('common.virtual-collections')"
+        class="ma-2"
+      />
       <collections
-        v-if="filteredVirtualCollections.length > 0 && showVirtualCollections"
+        v-if="filteredVirtualCollections.length > 0"
         :collections="filteredVirtualCollections"
         :title="t('common.virtual-collections')"
         setting="gridVirtualCollections"
         class="ma-2"
       />
     </template>
-    <empty-home v-else />
   </template>
 </template>
