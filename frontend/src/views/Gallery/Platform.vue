@@ -299,12 +299,12 @@ onBeforeUnmount(() => {
         </v-row>
 
         <load-more-btn :fetchRoms="fetchRoms" />
-        <fab-overlay />
       </template>
       <template v-else>
         <empty-game v-if="filteredPlatforms.length > 0 && !fetchingRoms" />
       </template>
     </template>
+    <fab-overlay />
   </template>
 
   <empty-platform v-else />
