@@ -644,6 +644,7 @@ onUnmounted(() => { off?.(); off = null; });
 .modal-body{ padding:2rem; max-height:50vh; overflow-y:auto; scroll-behavior:smooth; }
 .modal-footer{ padding:1rem 2rem; border-top:1px solid rgba(255,255,255,0.1); text-align:center; }
 .modal-hint{ color:#888; font-size:.9rem; }
+.modal-overlay:focus, .modal-content:focus { outline: none; }
 @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 @keyframes slideUp { from{ opacity:0; transform: translateY(20px); } to{ opacity:1; transform: translateY(0);} }
 </style>
