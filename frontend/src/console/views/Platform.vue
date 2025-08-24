@@ -71,7 +71,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
-import collectionApi from '@/services/api/collection';
+import useFavoriteToggle from '@/composables/useFavoriteToggle';
 import GameCard from '@/console/components/GameCard.vue';
 import NavigationHint from '@/console/components/NavigationHint.vue';
 import BackButton from '@/console/components/BackButton.vue';
@@ -79,15 +79,12 @@ import type { SimpleRomSchema } from '@/__generated__/models/SimpleRomSchema';
 import { useInputScope } from '@/console/composables/useInputScope';
 import type { InputAction } from '@/console/input/actions';
 import { useSpatialNav } from '@/console/composables/useSpatialNav';
-import storeCollections, { type Collection } from '@/stores/collections';
-import { storeToRefs } from 'pinia';
 
 const route = useRoute();
 const router = useRouter();
 const platformId = Number(route.params.id);
 
-const collectionsStore = storeCollections();
-const { favoriteCollection } = storeToRefs(collectionsStore);
+const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 
 const roms = ref<SimpleRomSchema[]>([]);
 const loading = ref(true);
@@ -201,7 +198,11 @@ function handleAction(action: InputAction): boolean {
       router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } });
       return true; }
     case 'toggleFavorite': {
-      toggleFavorite();
+      const rom = filtered.value[selectedIndex.value];
+      if(rom){
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        toggleFavoriteComposable(rom as any);
+      }
       return true; }
     default: return false;
   }
@@ -223,29 +224,6 @@ function normalizeTitle(name: string): string {
   return upper.replace(/^THE\s+/, '');
 }
 
-async function toggleFavorite() {
-  const rom = filtered.value[selectedIndex.value];
-  if (!rom || !favoriteCollection.value) return;
-
-  try {
-    const isCurrentlyFavorite = collectionsStore.isFavorite(rom);
-    
-    if (!isCurrentlyFavorite) {
-      favoriteCollection.value.rom_ids.push(rom.id);
-    } else {
-      favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter((id: number) => id !== rom.id);
-    }
-
-    const { data } = await collectionApi.updateCollection({ 
-      collection: favoriteCollection.value as Collection 
-    });
-    
-    favoriteCollection.value = data;
-    collectionsStore.updateCollection(data);
-  } catch (error) {
-    console.error('Failed to toggle favorite:', error);
-  }
-}
 
 let off: (() => void) | null = null;
 onMounted(async () => {

@@ -188,8 +188,8 @@ import { useRouter } from 'vue-router';
 import platformApi from '@/services/api/platform';
 import romApi from '@/services/api/rom';
 import collectionApi from '@/services/api/collection';
-import storeCollections, { type Collection } from '@/stores/collections';
-import { storeToRefs } from 'pinia';
+import storeCollections from '@/stores/collections';
+import useFavoriteToggle from '@/composables/useFavoriteToggle';
 import SystemCard from '@/console/components/SystemCard.vue';
 import GameCard from '@/console/components/GameCard.vue';
 import CollectionCard from '@/console/components/CollectionCard.vue';
@@ -204,7 +204,6 @@ import type { InputAction } from '@/console/input/actions';
 
 const router = useRouter();
 const collectionsStore = storeCollections();
-const { favoriteCollection } = storeToRefs(collectionsStore);
 const platforms = ref<PlatformSchema[]>([]);
 const recent = ref<SimpleRomSchema[]>([]);
 const collections = ref<CollectionSchema[]>([]);
@@ -246,7 +245,6 @@ function scrollToCurrentRow(){
   }
 }
 
-// Exit console mode by exiting fullscreen and navigating to main RomM interface
 function exitConsoleMode() {
   if (document.fullscreenElement) {
     document.exitFullscreen?.();
@@ -272,34 +270,7 @@ function tickScroll(){ const w = window as unknown as { systemCardElements?: HTM
 function tickRecentScroll(){ const w = window as unknown as { recentGameElements?: HTMLElement[] }; const el = w.recentGameElements?.[recentIndex.value]; scrollToSelected(recentRef.value!, el); }
 function tickCollectionsScroll(){ const w = window as unknown as { collectionCardElements?: HTMLElement[] }; const el = w.collectionCardElements?.[collectionsIndex.value]; scrollToSelected(collectionsRef.value!, el); }
 
-async function toggleFavorite() {
-  let rom: SimpleRomSchema | undefined;
-  
-  if (navigationMode.value === 'recent' && recent.value.length > 0) {
-    rom = recent.value[recentIndex.value];
-  }
-  
-  if (!rom || !favoriteCollection.value) return;
-
-  try {
-    const isCurrentlyFavorite = collectionsStore.isFavorite(rom);
-    
-    if (!isCurrentlyFavorite) {
-      favoriteCollection.value.rom_ids.push(rom.id);
-    } else {
-      favoriteCollection.value.rom_ids = favoriteCollection.value.rom_ids.filter((id: number) => id !== rom.id);
-    }
-
-    const { data } = await collectionApi.updateCollection({ 
-      collection: favoriteCollection.value as Collection 
-    });
-    
-    favoriteCollection.value = data;
-    collectionsStore.updateCollection(data);
-  } catch (error) {
-    console.error('Failed to toggle favorite:', error);
-  }
-}
+const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 
 const { on } = useInputScope();
 function handleAction(action: InputAction): boolean {
@@ -335,8 +306,9 @@ function handleAction(action: InputAction): boolean {
     case 'back':
       return true;
     case 'toggleFavorite':
-      if(navigationMode.value === 'recent') {
-        toggleFavorite();
+      if(navigationMode.value === 'recent' && recent.value[recentIndex.value]) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        toggleFavoriteComposable(recent.value[recentIndex.value] as any);
         return true;
       }
       return false;
@@ -349,7 +321,6 @@ onMounted(async () => {
   try{
     const { data: plats } = await platformApi.getPlatforms();
     // Filter to only web-playable systems & hide those with zero roms.
-    // NOTE: Adjust WEB_PLAYABLE_SLUGS to match the definitive supported set.
     platforms.value = plats.filter(p => p.rom_count > 0 && (SUPPORTED_WEB_PLATFORM_SET.has(p.slug) || SUPPORTED_WEB_PLATFORM_SET.has(p.fs_slug)));
     const { data: recents } = await romApi.getRecentPlayedRoms();
     recent.value = recents.items ?? [];
