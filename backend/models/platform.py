@@ -4,7 +4,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 
 from models.base import BaseModel
-from models.rom import Rom, RomFile
+from models.rom import Rom
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Mapped, column_property, mapped_column, relationship
 
@@ -59,10 +59,9 @@ class Platform(BaseModel):
     )
 
     fs_size_bytes: Mapped[int] = column_property(
-        select(func.coalesce(func.sum(RomFile.file_size_bytes), 0))
-        .select_from(RomFile.__table__.join(Rom.__table__, RomFile.rom_id == Rom.id))
+        select(func.coalesce(func.sum(Rom.fs_size_bytes), 0))
         .where(Rom.platform_id == id)
-        .correlate_except(RomFile, Rom)
+        .correlate_except(Rom)
         .scalar_subquery()
     )
 

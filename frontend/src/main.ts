@@ -21,18 +21,22 @@ async function initializeData() {
   try {
     const { data: heartbeatData } = await api.get("/heartbeat");
     heartbeat.set(heartbeatData);
+  } catch (heartbeatError) {
+    console.error("Error fetching heartbeat: ", heartbeatError);
+  }
 
-    try {
-      const { data: userData } = await userApi.fetchCurrentUser();
-      auth.setUser(userData);
-    } catch (userError) {
-      console.error("Error loading user: ", userError);
-    }
+  try {
+    const { data: userData } = await userApi.fetchCurrentUser();
+    auth.setUser(userData);
+  } catch (userError) {
+    console.error("Error loading user: ", userError);
+  }
 
+  try {
     const { data: configData } = await api.get("/config");
     configStore.set(configData);
-  } catch (error) {
-    console.error("Error during initialization: ", error);
+  } catch (configError) {
+    console.error("Error fetching config: ", configError);
   }
 }
 

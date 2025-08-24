@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from "vue";
+import { onBeforeMount, ref, computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import Stats from "@/components/Home/Stats.vue";
@@ -10,7 +10,6 @@ import RecentAddedSkeleton from "@/components/Home/RecentAddedSkeleton.vue";
 import RecentAdded from "@/components/Home/RecentAdded.vue";
 import ContinuePlaying from "@/components/Home/ContinuePlaying.vue";
 import EmptyHome from "@/components/Home/EmptyHome.vue";
-import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
@@ -62,37 +61,17 @@ const isEmpty = computed(
     filteredSmartCollections.value.length === 0,
 );
 
-const fetchRecentRoms = async (): Promise<void> => {
-  try {
-    fetchingRecentAdded.value = true;
-    const {
-      data: { items },
-    } = await romApi.getRecentRoms();
-    romsStore.setRecentRoms(items);
-  } catch (error) {
-    console.error("Failed to fetch recent ROMs:", error);
-  } finally {
-    fetchingRecentAdded.value = false;
-  }
-};
+onBeforeMount(async () => {
+  fetchingRecentAdded.value = true;
+  fetchingContinuePlaying.value = true;
 
-const fetchContinuePlayingRoms = async (): Promise<void> => {
-  try {
-    fetchingContinuePlaying.value = true;
-    const {
-      data: { items },
-    } = await romApi.getRecentPlayedRoms();
-    const filteredItems = items.filter((rom) => rom.rom_user.last_played);
-    romsStore.setContinuePlayingRoms(filteredItems);
-  } catch (error) {
-    console.error("Failed to fetch continue playing ROMs:", error);
-  } finally {
-    fetchingContinuePlaying.value = false;
-  }
-};
+  await Promise.all([
+    romsStore.fetchRecentRoms(),
+    romsStore.fetchContinuePlayingRoms(),
+  ]);
 
-onMounted(async () => {
-  await Promise.all([fetchRecentRoms(), fetchContinuePlayingRoms()]);
+  fetchingRecentAdded.value = false;
+  fetchingContinuePlaying.value = false;
 });
 </script>
 
