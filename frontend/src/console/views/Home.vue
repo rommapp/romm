@@ -30,9 +30,9 @@
       <div v-else>
         <section
           ref="platformsSectionRef"
-          class="px-8 pb-2"
+          class="pb-2"
         >
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow">
+          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
             Platforms
           </h2>
           <div class="relative h-[220px]">
@@ -53,7 +53,7 @@
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >
-              <div class="flex items-center gap-6 h-full px-8 min-w-max">
+              <div class="flex items-center gap-6 h-full px-12 min-w-max">
                 <SystemCard
                   v-for="(p,i) in platforms"
                   :key="p.id"
@@ -71,9 +71,9 @@
         <section
           v-if="recent.length>0"
           ref="recentSectionRef"
-          class="px-8 pb-8"
+          class="pb-8"
         >
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow">
+          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
             Recently Played
           </h2>
           <div class="relative h-[400px]">
@@ -94,7 +94,7 @@
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >
-              <div class="flex items-center gap-4 h-full px-8 min-w-max">
+              <div class="flex items-center gap-4 h-full px-12 min-w-max">
                 <GameCard
                   v-for="(g,i) in recent"
                   :key="`${g.platform_id}-${g.id}`"
@@ -114,9 +114,9 @@
         <section
           v-if="collections.length>0"
           ref="collectionsSectionRef"
-          class="px-8 pb-8"
+          class="pb-8"
         >
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow">
+          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
             Collections
           </h2>
           <div class="relative h-[400px]">
@@ -137,7 +137,7 @@
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >
-              <div class="flex items-center gap-4 h-full px-8 min-w-max">
+              <div class="flex items-center gap-4 h-full px-12 min-w-max">
                 <CollectionCard
                   v-for="(c,i) in collections"
                   :key="`collection-${c.id}`"
