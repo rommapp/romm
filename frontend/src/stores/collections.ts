@@ -18,7 +18,7 @@ export default defineStore("collections", {
     allCollections: [] as Collection[],
     virtualCollections: [] as VirtualCollection[],
     smartCollections: [] as SmartCollection[],
-    favoriteCollection: {} as Collection | undefined,
+    favoriteCollection: undefined as Collection | undefined,
     filterText: "" as string,
     fetchingCollections: false as boolean,
     fetchingSmartCollections: false as boolean,
@@ -67,6 +67,8 @@ export default defineStore("collections", {
           .getCollections()
           .then(({ data: collections }) => {
             this.allCollections = collections;
+            const fav = collections.find((c) => c.is_favorite);
+            if (fav) this.favoriteCollection = fav;
             resolve(collections);
           })
           .catch((error) => {
