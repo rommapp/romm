@@ -2,6 +2,7 @@
   <div
     ref="scrollContainerRef"
     class="relative h-screen overflow-y-auto overflow-x-hidden"
+    @wheel.prevent
   >
     <div class="relative h-full flex flex-col">
       <div class="mt-8 ml-8 flex items-center gap-3 select-none pb-3">
@@ -50,7 +51,7 @@
             <div
               ref="systemsRef"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
-              @wheel.prevent="onWheelSystems"
+              @wheel.prevent
             >
               <div class="flex items-center gap-6 h-full px-8 min-w-max">
                 <SystemCard
@@ -60,7 +61,6 @@
                   :index="i"
                   :selected="navigationMode==='systems' && i===selectedIndex"
                   @click="goPlatform(p.id)"
-                  @mouseenter="selectedIndex=i"
                   @focus="selectedIndex=i"
                 />
               </div>
@@ -92,7 +92,7 @@
             <div
               ref="recentRef"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
-              @wheel.prevent="onWheelRecent"
+              @wheel.prevent
             >
               <div class="flex items-center gap-4 h-full px-8 min-w-max">
                 <GameCard
@@ -104,7 +104,6 @@
                   :selected="navigationMode==='recent' && i===recentIndex"
                   :loaded="true"
                   @click="goGame(g)"
-                  @mouseenter="recentIndex=i"
                   @focus="recentIndex=i"
                 />
               </div>
@@ -136,7 +135,7 @@
             <div
               ref="collectionsRef"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
-              @wheel.prevent="onWheelCollections"
+              @wheel.prevent
             >
               <div class="flex items-center gap-4 h-full px-8 min-w-max">
                 <CollectionCard
@@ -147,7 +146,6 @@
                   :selected="navigationMode==='collections' && i===collectionsIndex"
                   :loaded="true"
                   @click="goCollection(c.id)"
-                  @mouseenter="collectionsIndex=i"
                   @focus="collectionsIndex=i"
                 />
               </div>
@@ -183,7 +181,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import platformApi from '@/services/api/platform';
 import romApi from '@/services/api/rom';
@@ -201,6 +199,9 @@ import type { SimpleRomSchema } from '@/__generated__/models/SimpleRomSchema';
 import type { CollectionSchema } from '@/__generated__/models/CollectionSchema';
 import { useInputScope } from '@/console/composables/useInputScope';
 import type { InputAction } from '@/console/input/actions';
+import { useSpatialNav } from '@/console/composables/useSpatialNav';
+import { useRovingDom } from '@/console/composables/useRovingDom';
+import { useConsoleNavStore } from '@/stores/consoleNav';
 
 const router = useRouter();
 const collectionsStore = storeCollections();
@@ -209,11 +210,12 @@ const recent = ref<SimpleRomSchema[]>([]);
 const collections = ref<CollectionSchema[]>([]);
 const loading = ref(true);
 const error = ref('');
-const navigationMode = ref<'systems'|'recent'|'collections'|'controls'>('systems');
-const selectedIndex = ref(0);
-const recentIndex = ref(0);
-const collectionsIndex = ref(0);
-const controlIndex = ref(0);
+const navStore = useConsoleNavStore();
+const navigationMode = ref<'systems'|'recent'|'collections'|'controls'>(navStore.navigationMode);
+const selectedIndex = ref(navStore.platformIndex);
+const recentIndex = ref(navStore.recentIndex);
+const collectionsIndex = ref(navStore.collectionsIndex);
+const controlIndex = ref(navStore.controlIndex);
 const scrollContainerRef = ref<HTMLDivElement>();
 const systemsRef = ref<HTMLDivElement>();
 const recentRef = ref<HTMLDivElement>();
@@ -221,19 +223,6 @@ const collectionsRef = ref<HTMLDivElement>();
 const platformsSectionRef = ref<HTMLElement>();
 const recentSectionRef = ref<HTMLElement>();
 const collectionsSectionRef = ref<HTMLElement>();
-
-function onWheelSystems(e: WheelEvent){
-  const el = systemsRef.value; if(!el) return;
-  el.scrollLeft += (e.deltaY || e.deltaX);
-}
-function onWheelRecent(e: WheelEvent){
-  const el = recentRef.value; if(!el) return;
-  el.scrollLeft += (e.deltaY || e.deltaX);
-}
-function onWheelCollections(e: WheelEvent){
-  const el = collectionsRef.value; if(!el) return;
-  el.scrollLeft += (e.deltaY || e.deltaX);
-}
 
 function scrollToCurrentRow(){
   const behavior: ScrollBehavior = 'smooth';
@@ -257,18 +246,25 @@ function goPlatform(id:number){ router.push({ name: 'console-platform', params: 
 function goGame(g: SimpleRomSchema){ router.push({ name: 'console-rom', params: { rom: g.id }, query: { id: g.platform_id } }); }
 function goCollection(id: number){ router.push({ name: 'console-collection', params: { id } }); }
 
-function scrollToSelected(container: HTMLDivElement|undefined, el: HTMLElement|undefined){ if(!container||!el) return; const cr=container.getBoundingClientRect(); const er=el.getBoundingClientRect(); const left= el.offsetLeft - (cr.width/2) + (er.width/2); container.scrollTo({ left, behavior:'smooth' }); }
+// Accessors for legacy global arrays registered elsewhere (SystemCard/GameCard/CollectionCard components)
+const systemElementAt = (i: number) => (window as unknown as { systemCardElements?: HTMLElement[] }).systemCardElements?.[i];
+const recentElementAt = (i: number) => (window as unknown as { recentGameElements?: HTMLElement[] }).recentGameElements?.[i];
+const collectionElementAt = (i: number) => (window as unknown as { collectionCardElements?: HTMLElement[] }).collectionCardElements?.[i];
 
-function prevSystem(){ selectedIndex.value = (selectedIndex.value - 1 + platforms.value.length) % platforms.value.length; tickScroll(); }
-function nextSystem(){ selectedIndex.value = (selectedIndex.value + 1) % platforms.value.length; tickScroll(); }
-function prevRecent(){ recentIndex.value = (recentIndex.value - 1 + recent.value.length) % recent.value.length; tickRecentScroll(); }
-function nextRecent(){ recentIndex.value = (recentIndex.value + 1) % recent.value.length; tickRecentScroll(); }
-function prevCollection(){ collectionsIndex.value = (collectionsIndex.value - 1 + collections.value.length) % collections.value.length; tickCollectionsScroll(); }
-function nextCollection(){ collectionsIndex.value = (collectionsIndex.value + 1) % collections.value.length; tickCollectionsScroll(); }
+const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(selectedIndex, () => platforms.value.length || 1, () => platforms.value.length);
+const { moveLeft: moveRecentLeft, moveRight: moveRecentRight } = useSpatialNav(recentIndex, () => recent.value.length || 1, () => recent.value.length);
+const { moveLeft: moveCollectionLeft, moveRight: moveCollectionRight } = useSpatialNav(collectionsIndex, () => collections.value.length || 1, () => collections.value.length);
 
-function tickScroll(){ const w = window as unknown as { systemCardElements?: HTMLElement[] }; const el = w.systemCardElements?.[selectedIndex.value]; scrollToSelected(systemsRef.value!, el); }
-function tickRecentScroll(){ const w = window as unknown as { recentGameElements?: HTMLElement[] }; const el = w.recentGameElements?.[recentIndex.value]; scrollToSelected(recentRef.value!, el); }
-function tickCollectionsScroll(){ const w = window as unknown as { collectionCardElements?: HTMLElement[] }; const el = w.collectionCardElements?.[collectionsIndex.value]; scrollToSelected(collectionsRef.value!, el); }
+function prevSystem(){ const before = selectedIndex.value; moveSystemLeft(); if(selectedIndex.value===before) selectedIndex.value = Math.max(0, platforms.value.length-1); }
+function nextSystem(){ const before = selectedIndex.value; moveSystemRight(); if(selectedIndex.value===before) selectedIndex.value = 0; }
+function prevRecent(){ const before = recentIndex.value; moveRecentLeft(); if(recentIndex.value===before) recentIndex.value = Math.max(0, recent.value.length-1); }
+function nextRecent(){ const before = recentIndex.value; moveRecentRight(); if(recentIndex.value===before) recentIndex.value = 0; }
+function prevCollection(){ const before = collectionsIndex.value; moveCollectionLeft(); if(collectionsIndex.value===before) collectionsIndex.value = Math.max(0, collections.value.length-1); }
+function nextCollection(){ const before = collectionsIndex.value; moveCollectionRight(); if(collectionsIndex.value===before) collectionsIndex.value = 0; }
+
+useRovingDom(selectedIndex, systemElementAt, { inline: 'center', block: 'nearest' });
+useRovingDom(recentIndex, recentElementAt, { inline: 'center', block: 'nearest' });
+useRovingDom(collectionsIndex, collectionElementAt, { inline: 'center', block: 'nearest' });
 
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 
@@ -334,11 +330,37 @@ onMounted(async () => {
   );
 } catch(err: unknown){ error.value = err instanceof Error ? err.message : 'Failed to load'; }
   finally{ loading.value = false; }
+  // restore indexs within bounds after data load (in case counts shrank)
+  if(selectedIndex.value >= platforms.value.length) selectedIndex.value = 0;
+  if(recentIndex.value >= recent.value.length) recentIndex.value = 0;
+  if(collectionsIndex.value >= collections.value.length) collectionsIndex.value = 0;
+  await nextTick();
+  // vertical scroll to the correct section
+  scrollToCurrentRow();
+  // horizontal centering
+  const elGetters: Record<string, () => HTMLElement | undefined> = {
+    systems: () => systemElementAt(selectedIndex.value),
+    recent: () => recentElementAt(recentIndex.value),
+    collections: () => collectionElementAt(collectionsIndex.value),
+  };
+  const activeGetter = elGetters[navigationMode.value];
+  try{ activeGetter?.()?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'instant' as ScrollBehavior }); }catch{/* ignore */}
   off = on(handleAction);
 });
 let off: (() => void) | null = null;
-onUnmounted(() => { off?.(); off = null; });
+onUnmounted(() => { 
+  // persist current state
+  navStore.setHomeState({
+    platformIndex: selectedIndex.value,
+    recentIndex: recentIndex.value,
+    collectionsIndex: collectionsIndex.value,
+    controlIndex: controlIndex.value,
+    navigationMode: navigationMode.value,
+  });
+  off?.(); off = null; 
+});
 </script>
 
 <style scoped>
+button:focus { outline: none; }
 </style>

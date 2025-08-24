@@ -7,7 +7,6 @@
         '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]': selected,
       }"
       @click="emit('click')"
-      @mouseenter="emit('mouseenter')"
       @focus="emit('focus')"
     >
       <div class="w-full h-[350px] bg-[#2b3242] relative overflow-hidden rounded">
@@ -68,8 +67,10 @@
         </div>
       </div>
     </button>
-    <div class="mt-2 w-full text-center text-sm font-medium px-1 line-clamp-2 select-none"
-      :class="selected ? 'text-[var(--accent-2)] drop-shadow' : 'text-[#eaeaea]'">
+    <div
+      class="mt-2 w-full text-center text-sm font-medium px-1 line-clamp-2 select-none"
+      :class="selected ? 'text-[var(--accent-2)] drop-shadow' : 'text-[#eaeaea]'"
+    >
       {{ collection.name }}
     </div>
   </div>
@@ -126,4 +127,5 @@ onMounted(() => {
 
 <style>
 @keyframes shimmer { 0%{ background-position: 200% 0;} 100%{ background-position: -200% 0;} }
+button:focus { outline: none; }
 </style>

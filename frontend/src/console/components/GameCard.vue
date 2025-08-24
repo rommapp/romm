@@ -7,7 +7,6 @@
       'w-[250px] shrink-0': isRecent,
     }"
     @click="emit('click')"
-    @mouseenter="emit('mouseenter')"
     @focus="emit('focus')"
   >
     <div class="w-full h-[350px] bg-[#2b3242] relative overflow-hidden rounded">
