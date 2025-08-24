@@ -1,8 +1,3 @@
-/**
- * Mapping of platform slugs to EmulatorJS core names
- * This maps RomM platform slugs to the corresponding emulator cores
- * that EmulatorJS uses to run games for each platform.
- */
 export const EMULATOR_CORE_MAP: Record<string, string> = {
   // Arcade
   arcade: 'mame2003_plus',
