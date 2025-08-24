@@ -171,10 +171,19 @@ body.console-mode::before {
 	transition: inherit;
 }
 
-/* Console root wrapper - force black background for transitions */
 .console-root {
-	background: #38286A !important;
+	background: url('/assets/auth_background.svg') center/cover fixed, #38286A !important;
 	min-height: 100vh;
 	width: 100%;
 }
 
+.console-root::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	background: rgba(0,0,0,0.65);
+	pointer-events: none;
+	z-index: 0;
+}
+
+.console-root > * { position: relative; z-index: 1; }

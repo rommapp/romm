@@ -5,13 +5,7 @@
       :on-back="goBackToHome" 
     />
     <div
-      class="fixed inset-0 z-0 bg-cover bg-center blur-[40px] saturate-[1.3] scale-105 pointer-events-none"
-      :style="{ backgroundImage: displayCover ? `url('${displayCover}')` : '' }"
-    />
-    <div class="fixed inset-0 z-10 bg-gradient-to-b from-black/80 via-black/40 to-black/95 pointer-events-none" />
-
-    <div
-      class="relative z-20 flex-1 min-w-0 pr-[40px]"
+      class="relative flex-1 min-w-0 pr-[40px]"
       :style="{ width: 'calc(100vw - 40px)' }"
     >
       <div
@@ -124,20 +118,6 @@ const filtered = computed(() => {
 });
 
 const current = computed(() => filtered.value[selectedIndex.value] || filtered.value[0]);
-const displayRom = computed(() => hoverIndex.value != null ? filtered.value[hoverIndex.value] : current.value);
-type MaybeExtraCovers = Partial<{ cover_url: string; cover: string }>;
-const displayCover = computed(() => {
-  const r = displayRom.value as (SimpleRomSchema & MaybeExtraCovers) | undefined;
-  if (!r) return '';
-  return (
-    r.path_cover_large ||
-    r.path_cover_small ||
-    r.url_cover ||
-    r.cover_url ||
-    r.cover ||
-    ''
-  );
-});
 
 function getCols(): number {
   if (!gridRef.value) return 4;

@@ -1,15 +1,9 @@
 <template>
   <div
     ref="scrollContainerRef"
-    class="relative h-screen overflow-y-auto overflow-x-hidden bg-gradient-to-b from-bg1 to-bg2"
+    class="relative h-screen overflow-y-auto overflow-x-hidden"
   >
-    <div
-      class="fixed inset-0 z-0 bg-cover bg-center blur-3xl saturate-150 opacity-40 scale-110 transition-all duration-700 pointer-events-none"
-      :style="{ backgroundImage: currentBackground ? `url(${currentBackground})` : 'none' }"
-    />
-    <div class="fixed inset-0 z-10 bg-gradient-to-b from-black/35 via-black/55 to-black/75 pointer-events-none" />
-
-    <div class="relative z-20 h-full flex flex-col">
+    <div class="relative h-full flex flex-col">
       <div class="mt-8 ml-8 flex items-center gap-3 select-none pb-3">
         <RIsotipo
           :size="40"
@@ -183,12 +177,13 @@
       
       <NavigationHint
         :show-back="false"
-        :show-toggle-favorite="navigationMode === 'recent'" />
+        :show-toggle-favorite="navigationMode === 'recent'"
+      />
     </div>
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import platformApi from '@/services/api/platform';
 import romApi from '@/services/api/rom';
@@ -227,7 +222,6 @@ const collectionsRef = ref<HTMLDivElement>();
 const platformsSectionRef = ref<HTMLElement>();
 const recentSectionRef = ref<HTMLElement>();
 const collectionsSectionRef = ref<HTMLElement>();
-const currentBackground = ref('');
 
 function onWheelSystems(e: WheelEvent){
   const el = systemsRef.value; if(!el) return;
@@ -254,7 +248,6 @@ function scrollToCurrentRow(){
 
 // Exit console mode by exiting fullscreen and navigating to main RomM interface
 function exitConsoleMode() {
-  // Exit fullscreen if currently in fullscreen
   if (document.fullscreenElement) {
     document.exitFullscreen?.();
   }
@@ -340,7 +333,6 @@ function handleAction(action: InputAction): boolean {
       if(navigationMode.value==='controls') { if(controlIndex.value===0) exitConsoleMode(); else toggleFullscreen(); return true; }
       return false;
     case 'back':
-      // Disable back button on home screen since this is the root of console mode
       return true;
     case 'toggleFavorite':
       if(navigationMode.value === 'recent') {
@@ -352,37 +344,6 @@ function handleAction(action: InputAction): boolean {
       return false;
   }
 }
-
-watch([navigationMode, selectedIndex, recentIndex, collectionsIndex, platforms, recent, collections], () => {
-  let imageUrl = '';
-  const sysImages: Record<string,string|undefined> = {
-  arcade: '/systems/arcade.webp',
-    mame: '/systems/arcade.webp',
-    nes: '/systems/nes.webp',
-    snes: '/systems/snes.webp',
-    n64: '/systems/n64.webp',
-    gb: '/systems/gbc.webp',
-    gba: '/systems/gba.webp',
-    gbc: '/systems/gbc.webp',
-    genesis: '/systems/genesis.webp',
-    megadrive: '/systems/genesis.webp',
-    psp: '/systems/psp.webp',
-  };
-  if(navigationMode.value==='systems' && platforms.value[selectedIndex.value]){
-    const p = platforms.value[selectedIndex.value] as PlatformSchema;
-    imageUrl = sysImages[p.slug] || sysImages[p.fs_slug] || '';
-  } else if(navigationMode.value==='recent' && recent.value[recentIndex.value]){
-    const g = recent.value[recentIndex.value];
-    imageUrl = g.path_cover_large || g.path_cover_small || g.url_cover || '';
-  } else if(navigationMode.value==='collections' && collections.value[collectionsIndex.value]){
-    const c = collections.value[collectionsIndex.value];
-    imageUrl = c.path_cover_large || c.path_cover_small || c.url_cover || '';
-  } else if(navigationMode.value==='controls' && platforms.value[selectedIndex.value]){
-    const p = platforms.value[selectedIndex.value] as PlatformSchema;
-    imageUrl = sysImages[p.slug] || sysImages[p.fs_slug] || '';
-  }
-  currentBackground.value = imageUrl || '';
-});
 
 onMounted(async () => {
   try{
