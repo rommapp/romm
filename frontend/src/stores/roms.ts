@@ -201,6 +201,32 @@ export default defineStore("roms", {
           });
       });
     },
+    fetchRecentRoms(): Promise<SimpleRom[]> {
+      return new Promise((resolve, reject) => {
+        romApi
+          .getRecentRoms()
+          .then(({ data: { items } }) => {
+            this.setRecentRoms(items);
+            resolve(items);
+          })
+          .catch((error) => {
+            reject(error);
+          });
+      });
+    },
+    fetchContinuePlayingRoms(): Promise<SimpleRom[]> {
+      return new Promise((resolve, reject) => {
+        romApi
+          .getRecentPlayedRoms()
+          .then(({ data: { items } }) => {
+            this.setContinuePlayingRoms(items);
+            resolve(items);
+          })
+          .catch((error) => {
+            reject(error);
+          });
+      });
+    },
     add(roms: SimpleRom[]) {
       this.allRoms = this.allRoms.concat(roms);
     },

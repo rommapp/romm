@@ -29,6 +29,7 @@ import { isNull } from "lodash";
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
+
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
   platformsStore.fetchPlatforms();
@@ -49,21 +50,25 @@ const virtualCollectionTypeRef = ref(
     : storedVirtualCollectionType,
 );
 
-onBeforeMount(async () => {
-  await Promise.all([
-    platformsStore.fetchPlatforms(),
-    collectionsStore.fetchCollections(),
-    collectionsStore.fetchSmartCollections(),
-    showVirtualCollections
-      ? collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value)
-      : Promise.resolve(),
-  ]);
-
-  navigationStore.reset();
+function unhackNavbar() {
+  document.removeEventListener("network-quiesced", unhackNavbar);
 
   // Hack to prevent main page transition on first load
   const main = document.getElementById("main");
   if (main) main.classList.remove("no-transition");
+}
+
+onBeforeMount(async () => {
+  document.addEventListener("network-quiesced", unhackNavbar);
+
+  platformsStore.fetchPlatforms();
+  collectionsStore.fetchCollections();
+  collectionsStore.fetchSmartCollections();
+  if (showVirtualCollections) {
+    collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
+  }
+
+  navigationStore.reset();
 });
 </script>
 
