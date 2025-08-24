@@ -187,3 +187,10 @@ body.console-mode::before {
 }
 
 .console-root > * { position: relative; z-index: 1; }
+
+.play-root { 
+	position: fixed !important;
+	inset: 0 !important;
+	z-index: 70 !important;
+	transform: none !important;
+}

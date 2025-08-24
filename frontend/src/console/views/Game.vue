@@ -484,8 +484,8 @@ function handleAction(action: InputAction): boolean {
     case 'states':
       if(action==='moveUp') { selectedZone.value='play'; return true; }
       if(action==='moveDown') { if(screenshotUrls.value.length){ selectedZone.value='shots'; selectedShot.value=0; nextTick(scrollShotsToSelected); } return true; }
-  if(action==='moveRight') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value + 1) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
-  if(action==='moveLeft') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value - 1 + rom.value.user_states.length) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
+      if(action==='moveRight') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value + 1) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
+      if(action==='moveLeft') { if(rom.value?.user_states){ selectedStateIndex.value = (selectedStateIndex.value - 1 + rom.value.user_states.length) % rom.value.user_states.length; nextTick(scrollStatesToSelected); return true; } }
       if(action==='confirm') { startWithState(selectedStateIndex.value); return true; }
       if(action==='delete') { deleteState(selectedStateIndex.value); return true; }
       if(action==='back') { goBackToPlatform(); return true; }

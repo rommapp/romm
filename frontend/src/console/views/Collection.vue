@@ -36,7 +36,6 @@
         <div
           ref="gridRef"
           class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
-          @mouseleave="hoverIndex = null"
         >
           <GameCard
             v-for="(rom,i) in filtered"
@@ -46,7 +45,6 @@
             :selected="!inAlphabet && i===selectedIndex"
             :loaded="!!loadedMap[rom.id]"
             @click="selectAndOpen(i, rom)"
-            @mouseenter="onCardEnter(i)"
             @focus="mouseSelect(i)"
             @loaded="markLoaded(rom.id)"
           />
@@ -71,7 +69,7 @@
       </div>
     </div>
 
-        <NavigationHint :show-toggle-favorite="true" />
+  <NavigationHint :show-toggle-favorite="true" />
   </div>
 </template>
 <script setup lang="ts">
@@ -101,7 +99,6 @@ const roms = ref<SimpleRomSchema[]>([]);
 const loading = ref(true);
 const error = ref('');
 const selectedIndex = ref(0);
-const hoverIndex = ref<number|null>(null);
 const query = ref('');
 const loadedMap = ref<Record<number, boolean>>({});
 const keyboardMode = ref(false);
@@ -125,7 +122,7 @@ const filtered = computed(() => {
 });
 
 const current = computed(() => filtered.value[selectedIndex.value] || filtered.value[0]);
-const displayRom = computed(() => hoverIndex.value != null ? filtered.value[hoverIndex.value] : current.value);
+const displayRom = computed(() => current.value);
 type MaybeExtraCovers = Partial<{ cover_url: string; cover: string }>;
 const displayCover = computed(() => {
   const r = displayRom.value as (SimpleRomSchema & MaybeExtraCovers) | undefined;
@@ -252,7 +249,6 @@ function handleAction(action: InputAction): boolean {
 }
 
 function mouseSelect(i:number){ if(!keyboardMode.value) selectedIndex.value = i; }
-function onCardEnter(i:number){ hoverIndex.value = i; if(!keyboardMode.value) selectedIndex.value = i; }
 function selectAndOpen(i:number, rom: SimpleRomSchema){ selectedIndex.value = i; router.push({ name: 'console-rom', params: { rom: rom.id } }); }
 function jumpToLetter(L:string){ const idx = filtered.value.findIndex(r => (r.name||'').toUpperCase().startsWith(L)); if(idx>=0){ selectedIndex.value = idx; inAlphabet.value=false; keyboardMode.value=true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000); } }
 

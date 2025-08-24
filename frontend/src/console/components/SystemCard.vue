@@ -7,7 +7,6 @@
     }"
     :style="{ '--system-bg': theme.background, '--system-accent': theme.accent }"
     @click="emit('click')"
-    @mouseenter="emit('mouseenter')"
     @focus="emit('focus')"
   >
     <div

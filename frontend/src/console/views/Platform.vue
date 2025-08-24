@@ -1,5 +1,8 @@
 <template>
-  <div class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex">
+  <div
+    class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex"
+    @wheel.prevent
+  >
     <BackButton 
       :text="platformTitle" 
       :on-back="goBackToHome" 
@@ -30,7 +33,7 @@
         <div
           ref="gridRef"
           class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
-          @mouseleave="hoverIndex = null"
+          @wheel.prevent
         >
           <GameCard
             v-for="(rom,i) in filtered"
@@ -40,7 +43,6 @@
             :selected="!inAlphabet && i===selectedIndex"
             :loaded="!!loadedMap[rom.id]"
             @click="selectAndOpen(i, rom)"
-            @mouseenter="onCardEnter(i)"
             @focus="mouseSelect(i)"
             @loaded="markLoaded(rom.id)"
           />
@@ -68,7 +70,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import romApi from '@/services/api/rom';
 import useFavoriteToggle from '@/composables/useFavoriteToggle';
@@ -79,6 +81,8 @@ import type { SimpleRomSchema } from '@/__generated__/models/SimpleRomSchema';
 import { useInputScope } from '@/console/composables/useInputScope';
 import type { InputAction } from '@/console/input/actions';
 import { useSpatialNav } from '@/console/composables/useSpatialNav';
+import { useRovingDom } from '@/console/composables/useRovingDom';
+import { useConsoleNavStore } from '@/stores/consoleNav';
 
 const route = useRoute();
 const router = useRouter();
@@ -89,12 +93,10 @@ const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 const roms = ref<SimpleRomSchema[]>([]);
 const loading = ref(true);
 const error = ref('');
-const selectedIndex = ref(0);
-const hoverIndex = ref<number|null>(null);
+const navStore = useConsoleNavStore();
+const selectedIndex = ref(navStore.getPlatformGameIndex(platformId));
 const query = ref('');
 const loadedMap = ref<Record<number, boolean>>({});
-const keyboardMode = ref(false);
-let keyboardTimeout: number | undefined;
 const inAlphabet = ref(false);
 const alphaIndex = ref(0);
 const gridRef = ref<HTMLDivElement>();
@@ -102,6 +104,8 @@ const gridRef = ref<HTMLDivElement>();
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 function goBackToHome() {
+  // persist platform-level selection
+  navStore.setPlatformGameIndex(platformId, selectedIndex.value);
   router.push({ name: 'console-home' });
 }
 
@@ -126,40 +130,15 @@ function getCols(): number {
   }
 }
 
-function allCardElements(): HTMLElement[] {
-  const w = window as unknown as { gameCardElements?: HTMLElement[] };
-  const arr = (w.gameCardElements || []).filter(Boolean) as HTMLElement[];
-  if (arr.length) return arr;
-  const qs = gridRef.value?.querySelectorAll?.('button.relative.block.bg-\\[var\\(--tile\\)\\]');
-  return qs ? Array.from(qs) as HTMLElement[] : [];
-}
-
-function sameRow(i: number, j: number): boolean {
-  const els = allCardElements();
-  const a = els[i]; const b = els[j];
-  if (!a || !b) return false;
-  return a.offsetTop === b.offsetTop;
-}
-
-function scrollToSelected(){
-  if(!keyboardMode.value || filtered.value.length===0) return;
-  requestAnimationFrame(() => {
-    const w = window as unknown as { gameCardElements?: HTMLElement[] };
-    const el = w.gameCardElements?.[selectedIndex.value];
-  const fallback = document.querySelectorAll('.block.bg-\\[var\\(--tile\\)\\]');
-    const target = el || (fallback[selectedIndex.value] as HTMLElement | undefined);
-    if(target?.scrollIntoView) target.scrollIntoView({ behavior:'smooth', block:'center', inline:'nearest' });
-  });
-}
-
-watch(selectedIndex, () => { if(keyboardMode.value) scrollToSelected(); });
+// Selected element access (legacy global registration by GameCard components)
+const cardElementAt = (i:number) => (window as unknown as { gameCardElements?: HTMLElement[] }).gameCardElements?.[i];
+useRovingDom(selectedIndex, (i) => cardElementAt(i), { block: 'center', inline: 'nearest' });
 
 const { on } = useInputScope();
-const { moveLeft, moveUp } = useSpatialNav(selectedIndex, getCols, () => filtered.value.length);
+const { moveLeft, moveRight, moveUp, moveDown: moveDownBasic } = useSpatialNav(selectedIndex, getCols, () => filtered.value.length);
 
 function handleAction(action: InputAction): boolean {
   if(!filtered.value.length) return false;
-  keyboardMode.value = true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000);
 
   if(inAlphabet.value){
     if(action==='moveLeft'){ inAlphabet.value=false; return true; }
@@ -171,28 +150,34 @@ function handleAction(action: InputAction): boolean {
       if(idx>=0){ selectedIndex.value = idx; inAlphabet.value=false; }
       return true;
     }
+    if(action==='back'){ inAlphabet.value=false; return true; }
     return true;
   }
 
   switch(action){
-    case 'moveRight':{
-      const next = selectedIndex.value + 1;
-      const count = filtered.value.length;
-      if (next >= count || !sameRow(selectedIndex.value, next)) {
-        inAlphabet.value = true; alphaIndex.value = 0; return true;
-      }
-      selectedIndex.value = next; return true; }
+    case 'moveRight': {
+      const before = selectedIndex.value;
+      moveRight();
+      if (selectedIndex.value === before) { // could not move further right in row
+        inAlphabet.value = true; alphaIndex.value = 0; }
+      return true; }
     case 'moveLeft': moveLeft(); return true;
     case 'moveUp': moveUp(); return true;
     case 'moveDown': {
-      const cols = getCols();
-      const count = filtered.value.length;
-      const next = selectedIndex.value + cols;
-      if (next < count) { selectedIndex.value = next; return true; }
-      // If there's a shorter last row, clamp to the last available item instead of a dead cell
-      if (count > 0) { selectedIndex.value = count - 1; return true; }
+      const before = selectedIndex.value;
+      moveDownBasic();
+      if (selectedIndex.value === before) {
+        // Could not move directly (likely staggered shorter last row). If a lower row exists, clamp to last item.
+        const cols = getCols();
+        const count = filtered.value.length;
+        const totalRows = Math.ceil(count / cols);
+        const currentRow = Math.floor(before / cols);
+        if (totalRows > currentRow + 1) {
+          selectedIndex.value = count - 1; // jump to last available item on final (short) row
+        }
+      }
       return true; }
-  case 'back': router.push({ name: 'console-home' }); return true;
+    case 'back': router.push({ name: 'console-home' }); return true;
     case 'confirm': {
       const rom = filtered.value[selectedIndex.value];
       router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } });
@@ -208,13 +193,12 @@ function handleAction(action: InputAction): boolean {
   }
 }
 
-function mouseSelect(i:number){ if(!keyboardMode.value) selectedIndex.value = i; }
-function onCardEnter(i:number){ hoverIndex.value = i; if(!keyboardMode.value) selectedIndex.value = i; }
+function mouseSelect(i:number){ selectedIndex.value = i; }
 function selectAndOpen(i:number, rom: SimpleRomSchema){ selectedIndex.value = i; router.push({ name: 'console-rom', params: { rom: rom.id }, query: { id: platformId } }); }
 function jumpToLetter(L:string){
   const idx = filtered.value.findIndex(r => normalizeTitle(r.name||'').startsWith(L));
   if(idx>=0){
-    selectedIndex.value = idx; inAlphabet.value=false; keyboardMode.value=true; window.clearTimeout(keyboardTimeout); keyboardTimeout = window.setTimeout(()=> keyboardMode.value=false, 3000);
+  selectedIndex.value = idx; inAlphabet.value=false;
   }
 }
 
@@ -238,10 +222,18 @@ onMounted(async () => {
     }
   }catch(err: unknown){ error.value = err instanceof Error ? err.message : 'Failed to load roms'; }
   finally{ loading.value = false; }
+  // restore index
+  if(selectedIndex.value >= filtered.value.length) selectedIndex.value = 0;
+  await nextTick();
+  try { cardElementAt(selectedIndex.value)?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' as ScrollBehavior }); } catch { /* ignore */ }
   off = on(handleAction);
 });
 
 onUnmounted(() => { off?.(); off = null; });
+onUnmounted(() => { navStore.setPlatformGameIndex(platformId, selectedIndex.value); });
 
 function markLoaded(id: number){ loadedMap.value[id] = true; }
 </script>
+<style scoped>
+button:focus { outline: none; }
+</style>

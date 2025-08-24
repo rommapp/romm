@@ -4,11 +4,17 @@
     <div
       v-if="mouseHidden"
       class="fixed inset-0 z-50 cursor-none"
+      aria-hidden="true"
       @mousemove="onMouseActivity"
+      @pointermove="onMouseActivity"
       @mousedown.prevent
+      @mouseup.prevent
       @click.prevent
+      @pointerdown.prevent
+      @pointerup.prevent
       @wheel.prevent
       @contextmenu.prevent
+      @dragstart.prevent
     />
     <router-view v-slot="{ Component, route }">
       <transition
@@ -79,10 +85,12 @@ let detachKeyboard: (() => void) | null = null;
 let detachGamepad: (() => void) | null = null;
 const mouseHidden = ref(false);
 let idleTimer: number | undefined;
+const HIDE_DELAY_MS = 100;
 const onMouseActivity = () => {
-  mouseHidden.value = false;
+  // Show cursor (remove shield) then schedule hide
+  if (mouseHidden.value) mouseHidden.value = false;
   window.clearTimeout(idleTimer);
-  idleTimer = window.setTimeout(() => { mouseHidden.value = true; }, 2000);
+  idleTimer = window.setTimeout(() => { mouseHidden.value = true; }, HIDE_DELAY_MS);
 };
 const docHandler = () => onMouseActivity();
 onMounted(() => document.body.classList.add('console-mode'));
@@ -98,8 +106,16 @@ onMounted(() => {
   document.addEventListener('wheel', docHandler, { passive: true });
   document.addEventListener('touchstart', docHandler, { passive: true });
 });
+// Toggle a body class for global cursor hiding (covers any nested explicit cursor styles)
+watch(mouseHidden, hidden => {
+  if (hidden) document.body.classList.add('mouse-hidden');
+  else document.body.classList.remove('mouse-hidden');
+});
+// Ensure correct initial class
+watch(mouseHidden, () => {}, { immediate: true });
 onUnmounted(() => {
   document.body.classList.remove('console-mode');
+  document.body.classList.remove('mouse-hidden');
   // teardown input attachments
   detachKeyboard?.();
   detachGamepad?.();
@@ -110,4 +126,6 @@ onUnmounted(() => {
   window.clearTimeout(idleTimer);
 });
 </script>
-<style></style>
+<style>
+body.console-mode.mouse-hidden, body.console-mode.mouse-hidden * { cursor: none !important; }
+</style>

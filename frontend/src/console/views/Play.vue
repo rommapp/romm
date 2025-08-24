@@ -1,9 +1,30 @@
 <template>
-  <div class="fixed inset-0 bg-black text-white">
+  <div class="play-root fixed inset-0 bg-black text-white z-[70]">
     <div
       id="game"
       class="w-full h-full"
     />
+    <div
+      v-if="loaderStatus!=='loaded'"
+      class="absolute inset-0 flex items-center justify-center pointer-events-none"
+    >
+      <div class="text-center text-white/70 text-sm bg-black/50 px-4 py-3 rounded border border-white/10 backdrop-blur">
+        <template v-if="loaderStatus==='idle' || loaderStatus==='loading-local'">
+          Loading emulator…
+        </template>
+        <template v-else-if="loaderStatus==='loading-cdn'">
+          Loading emulator (CDN)…
+        </template>
+        <template v-else-if="loaderStatus==='failed'">
+          <div class="text-red-300 font-medium">
+            Failed to load emulator
+          </div>
+          <div class="mt-1 text-[11px] max-w-xs leading-snug break-words">
+            {{ loaderError }}
+          </div>
+        </template>
+      </div>
+    </div>
     <div
       v-if="showHint"
       class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-white/80 border border-white/10"
@@ -116,6 +137,8 @@ const showExitPrompt = ref(false);
 const savingState = ref(false);
 const saveError = ref('');
 const focusedExitIndex = ref(0);
+const loaderError = ref('');
+const loaderStatus = ref<'idle'|'loading-local'|'loading-cdn'|'loaded'|'failed'>('idle');
 let pausedByPrompt = false;
 const exitOptions = [
   { id: 'save', label: 'Save & Exit', desc: 'Save current state, then quit' },
@@ -513,21 +536,50 @@ async function boot(){
     })();
   };
 
-  // Load EmulatorJS loader
+  // Allow route transition animation to settle
+  await new Promise(r=>setTimeout(r, 50));
+
   const EMULATORJS_VERSION = '4.2.3';
   const LOCAL_PATH = '/assets/emulatorjs/data/';
   const CDN_PATH = `https://cdn.emulatorjs.org/${EMULATORJS_VERSION}/data/`;
-  try{
-    const res = await fetch(`${LOCAL_PATH}loader.js`);
-    const type = res.headers.get('content-type') || '';
-    if (!res.ok || !type.includes('javascript')) throw new Error('Invalid local loader.js');
-    w.EJS_pathtodata = LOCAL_PATH;
-    const js = await res.text();
-    const script = document.createElement('script'); script.textContent = js; document.body.appendChild(script);
-  }catch{
-    console.warn('Local EmulatorJS failed, falling back to CDN');
-    w.EJS_pathtodata = CDN_PATH;
-    const script = document.createElement('script'); script.src = `${CDN_PATH}loader.js`; document.body.appendChild(script);
+
+  function loadScript(src: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed loading ' + src));
+      document.body.appendChild(s);
+    });
+  }
+
+  async function attemptLoad(path: string, label: 'local'|'cdn') {
+    loaderStatus.value = label === 'local' ? 'loading-local' : 'loading-cdn';
+    w.EJS_pathtodata = path;
+    await loadScript(`${path}loader.js`);
+  }
+
+  try {
+    try {
+      await attemptLoad(LOCAL_PATH, 'local');
+    } catch (e) {
+      console.warn('[Play] Local loader failed, trying CDN', e);
+      await attemptLoad(CDN_PATH, 'cdn');
+    }
+    // Wait for emulator bootstrap
+    const startDeadline = Date.now() + 8000; // 8s
+    while(!(window as any).EJS_emulator && Date.now() < startDeadline){
+      await new Promise(r=>setTimeout(r,100));
+    }
+    if(!(window as any).EJS_emulator){
+      throw new Error('Emulator did not initialize (EJS_emulator missing)');
+    }
+    loaderStatus.value = 'loaded';
+  } catch(err) {
+    loaderStatus.value = 'failed';
+    loaderError.value = (err as Error).message || 'Failed to load emulator';
+    console.error('[Play] Emulator load failure:', err);
   }
 
   // Hide the hint after a short delay
@@ -536,7 +588,10 @@ async function boot(){
 
 let detachKey: (() => void) | null = null;
 let detachPad: (() => void) | null = null;
+let booted = false;
 onMounted(async () => {
+  if(booted) return; // guard against duplicate mounts
+  booted = true;
   await boot();
   detachKey = attachKeyboardExit();
   detachPad = attachGamepadExit();
