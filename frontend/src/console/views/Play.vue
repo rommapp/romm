@@ -40,7 +40,7 @@ const exitOptions = [
   },
   { id: "cancel", label: "Cancel", desc: "Return to the game" },
 ];
-const { on: onInputScope } = useInputScope();
+const { subscribe } = useInputScope();
 let exitScopeOff: (() => void) | null = null;
 let romCache: DetailedRomSchema | null = null;
 let rafId: number | null = 0;
@@ -71,7 +71,7 @@ function showPrompt() {
 
   nextTick(() => {
     exitScopeOff?.();
-    exitScopeOff = onInputScope(handleExitAction);
+    exitScopeOff = subscribe(handleExitAction);
   });
 }
 

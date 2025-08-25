@@ -28,7 +28,7 @@ const collectionsStore = storeCollections();
 const storeConsole = consoleStore();
 const { navigationMode } = storeToRefs(storeConsole);
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
-const { on } = useInputScope();
+const { subscribe } = useInputScope();
 
 const platforms = ref<PlatformSchema[]>([]);
 const recent = ref<SimpleRomSchema[]>([]);
@@ -367,7 +367,7 @@ onMounted(async () => {
     collectionElementAt(collectionsIndex.value),
   );
 
-  off = on(handleAction);
+  off = subscribe(handleAction);
 });
 
 let off: (() => void) | null = null;
