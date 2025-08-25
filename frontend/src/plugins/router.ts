@@ -34,6 +34,11 @@ export const ROUTES = {
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   NOT_FOUND: "404",
+  CONSOLE_HOME: "console-home",
+  CONSOLE_PLATFORM: "console-platform",
+  CONSOLE_COLLECTION: "console-collection",
+  CONSOLE_ROM: "console-rom",
+  CONSOLE_PLAY: "console-play",
 } as const;
 
 const routes = [
@@ -231,27 +236,27 @@ const routes = [
     children: [
       {
         path: "",
-        name: "console-home",
+        name: ROUTES.CONSOLE_HOME,
         component: () => import("@/console/views/Home.vue"),
       },
       {
         path: "platform/:id",
-        name: "console-platform",
+        name: ROUTES.CONSOLE_PLATFORM,
         component: () => import("@/console/views/GamesList.vue"),
       },
       {
         path: "collection/:id",
-        name: "console-collection",
+        name: ROUTES.CONSOLE_COLLECTION,
         component: () => import("@/console/views/GamesList.vue"),
       },
       {
         path: "rom/:rom",
-        name: "console-rom",
+        name: ROUTES.CONSOLE_ROM,
         component: () => import("@/console/views/Game.vue"),
       },
       {
         path: "rom/:rom/play",
-        name: "console-play",
+        name: ROUTES.CONSOLE_PLAY,
         component: () => import("@/console/views/Play.vue"),
       },
     ],
