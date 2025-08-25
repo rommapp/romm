@@ -1,3 +1,64 @@
+<script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { computed, onMounted, ref, watchEffect } from "vue";
+import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
+import { getFavoriteCoverImage } from "@/utils/covers";
+
+const props = defineProps<{
+  collection: CollectionSchema;
+  index: number;
+  selected?: boolean;
+  loaded?: boolean;
+}>();
+const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
+const el = ref<HTMLElement>();
+
+const isFavorite = computed(() => props.collection.is_favorite);
+const coverSrc = computed(
+  () =>
+    props.collection.path_cover_large ||
+    props.collection.path_cover_small ||
+    props.collection.url_cover ||
+    "",
+);
+
+// Composite favourite logic (two diagonally split images)
+const firstCover = ref("");
+const secondCover = ref("");
+const compositeReady = ref(false);
+
+watchEffect(() => {
+  if (!isFavorite.value) {
+    compositeReady.value = false;
+    return;
+  }
+  const large = props.collection.path_covers_large || [];
+  const small = props.collection.path_covers_small || [];
+  // Choose source list preferring large
+  const source = large.length ? large : small;
+  if (source.length >= 2) {
+    const shuffled = [...source].sort(() => Math.random() - 0.5);
+    firstCover.value = shuffled[0];
+    secondCover.value = shuffled[1];
+  } else if (source.length === 1) {
+    firstCover.value = source[0];
+    secondCover.value = getFavoriteCoverImage(props.collection.name);
+  } else {
+    const gen = getFavoriteCoverImage(props.collection.name);
+    firstCover.value = gen;
+    secondCover.value = gen;
+  }
+  compositeReady.value = true;
+});
+
+onMounted(() => {
+  if (!el.value) return;
+  (window as any).collectionCardElements =
+    (window as any).collectionCardElements || [];
+  (window as any).collectionCardElements[props.index] = el.value;
+});
+</script>
+
 <template>
   <div class="flex flex-col items-center w-[250px] shrink-0">
     <button
@@ -83,67 +144,6 @@
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { computed, onMounted, ref, watchEffect } from "vue";
-import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import { getFavoriteCoverImage } from "@/utils/covers";
-
-const props = defineProps<{
-  collection: CollectionSchema;
-  index: number;
-  selected?: boolean;
-  loaded?: boolean;
-}>();
-const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
-const el = ref<HTMLElement>();
-
-const isFavorite = computed(() => props.collection.is_favorite);
-const coverSrc = computed(
-  () =>
-    props.collection.path_cover_large ||
-    props.collection.path_cover_small ||
-    props.collection.url_cover ||
-    "",
-);
-
-// Composite favourite logic (two diagonally split images)
-const firstCover = ref("");
-const secondCover = ref("");
-const compositeReady = ref(false);
-
-watchEffect(() => {
-  if (!isFavorite.value) {
-    compositeReady.value = false;
-    return;
-  }
-  const large = props.collection.path_covers_large || [];
-  const small = props.collection.path_covers_small || [];
-  // Choose source list preferring large
-  const source = large.length ? large : small;
-  if (source.length >= 2) {
-    const shuffled = [...source].sort(() => Math.random() - 0.5);
-    firstCover.value = shuffled[0];
-    secondCover.value = shuffled[1];
-  } else if (source.length === 1) {
-    firstCover.value = source[0];
-    secondCover.value = getFavoriteCoverImage(props.collection.name);
-  } else {
-    const gen = getFavoriteCoverImage(props.collection.name);
-    firstCover.value = gen;
-    secondCover.value = gen;
-  }
-  compositeReady.value = true;
-});
-
-onMounted(() => {
-  if (!el.value) return;
-  (window as any).collectionCardElements =
-    (window as any).collectionCardElements || [];
-  (window as any).collectionCardElements[props.index] = el.value;
-});
-</script>
 
 <style>
 @keyframes shimmer {

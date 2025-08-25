@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { ROUTES } from "@/plugins/router";
+import { useRoute, useRouter } from "vue-router";
+
 withDefaults(
   defineProps<{
     block?: boolean;
@@ -13,7 +16,22 @@ withDefaults(
     withTag: false,
   },
 );
+
+const router = useRouter();
+const route = useRoute();
+
+function enterConsoleMode() {
+  // Navigate first so route guards run promptly
+  router.push({ name: ROUTES.CONSOLE_HOME });
+  if (!document.fullscreenElement) {
+    // Attempt fullscreen after a small delay to allow navigation transition
+    setTimeout(() => {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }, 50);
+  }
+}
 </script>
+
 <template>
   <v-btn
     icon
@@ -26,14 +44,14 @@ withDefaults(
     @click="enterConsoleMode"
   >
     <div class="d-flex flex-column align-center">
-      <v-icon :color="$route.path.startsWith('/console') ? 'primary' : ''">
+      <v-icon :color="route.path.startsWith('/console') ? 'primary' : ''">
         mdi-television-play
       </v-icon>
       <v-expand-transition>
         <span
           v-if="withTag"
           class="text-caption text-center"
-          :class="{ 'text-primary': $route.path.startsWith('/console') }"
+          :class="{ 'text-primary': route.path.startsWith('/console') }"
         >
           Play
         </span>
@@ -41,29 +59,3 @@ withDefaults(
     </div>
   </v-btn>
 </template>
-
-<script lang="ts">
-export default {
-  methods: {
-    async enterConsoleMode() {
-      try {
-        // navigate first so route guards run promptly
-        this.$router.push({ name: "console-home" });
-        const docEl = document.documentElement as HTMLElement & {
-          requestFullscreen?: () => Promise<void>;
-        };
-        if (!document.fullscreenElement && docEl.requestFullscreen) {
-          // Attempt fullscreen after a small delay to allow navigation transition
-          setTimeout(() => {
-            docEl.requestFullscreen?.().catch(() => {
-              /* ignore */
-            });
-          }, 50);
-        }
-      } catch {
-        /* swallow */
-      }
-    },
-  },
-};
-</script>

@@ -11,7 +11,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref, watch, type DefineComponent } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import { useAutoScroll } from "@/composables/use-auto-scroll";
+import { useAutoScroll } from "@/composables/useAutoScroll";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 

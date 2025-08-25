@@ -1,3 +1,18 @@
+<script setup lang="ts">
+import { useRouter } from "vue-router";
+
+const props = defineProps<{
+  text?: string;
+  onBack?: () => void;
+}>();
+
+const router = useRouter();
+
+function goBack() {
+  props.onBack?.() ?? router.back();
+}
+</script>
+
 <template>
   <div
     class="absolute top-4 left-4 z-30 inline-flex items-center pointer-events-none"
@@ -12,27 +27,8 @@
     <span
       v-if="text"
       class="ml-3 text-white/90 text-3xl font-bold drop-shadow select-none"
-      >{{ text }}</span
     >
+      {{ text }}
+    </span>
   </div>
 </template>
-
-<script setup lang="ts">
-import { toRefs } from "vue";
-import { useRouter } from "vue-router";
-
-const props = defineProps<{
-  text?: string;
-  onBack?: () => void;
-}>();
-const { text, onBack } = toRefs(props);
-
-const router = useRouter();
-function goBack() {
-  if (onBack?.value) {
-    onBack.value();
-  } else {
-    router.back();
-  }
-}
-</script>
