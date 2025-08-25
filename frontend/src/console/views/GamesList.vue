@@ -78,6 +78,7 @@ import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { useRovingDom } from "@/console/composables/useRovingDom";
 import { useConsoleNavStore } from "@/stores/consoleNav";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
+import type { SimpleRom } from "@/stores/roms";
 
 const route = useRoute();
 const router = useRouter();
@@ -257,7 +258,8 @@ function handleAction(action: InputAction): boolean {
     case "toggleFavorite": {
       const rom = filtered.value[selectedIndex.value];
       if (rom) {
-        toggleFavoriteComposable(rom as unknown as Record<string, unknown>);
+        // Cast SimpleRomSchema (generated) to store SimpleRom (alias) – shapes align
+        toggleFavoriteComposable(rom as unknown as SimpleRom);
       }
       return true;
     }
