@@ -25,42 +25,6 @@ body,
   background: #38286a;
 }
 
-body.console-mode {
-  margin: 0;
-  background: #38286a;
-  color: var(--fg-0);
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Ubuntu,
-    Cantarell,
-    Noto Sans,
-    "Helvetica Neue",
-    Arial,
-    "Apple Color Emoji",
-    "Segoe UI Emoji";
-  overflow: hidden;
-}
-
-body.console-mode::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.04),
-    rgba(255, 255, 255, 0.04) 1px,
-    rgba(0, 0, 0, 0.05) 1px,
-    rgba(0, 0, 0, 0.05) 3px
-  );
-  mix-blend-mode: overlay;
-  opacity: 0.25;
-}
-
 * {
   box-sizing: border-box;
 }

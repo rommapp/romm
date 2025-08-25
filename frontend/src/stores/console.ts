@@ -1,8 +1,9 @@
+import { ROUTES } from "@/plugins/router";
 import { defineStore } from "pinia";
 
 export type NavigationMode = "systems" | "recent" | "collections" | "controls";
 
-export const useConsoleNavStore = defineStore("consoleNav", {
+export default defineStore("console", {
   state: () => ({
     platformIndex: 0,
     recentIndex: 0,
@@ -14,6 +15,19 @@ export const useConsoleNavStore = defineStore("consoleNav", {
     perPlatformScrollTop: {} as Record<number, number>,
     perCollectionScrollTop: {} as Record<number, number>,
   }),
+  getters: {
+    consoleMode: (state) => {
+      // @ts-expect-error PiniaCustomProperties
+      const { name } = state.$router.currentRoute.value;
+      return (
+        name === ROUTES.CONSOLE_HOME ||
+        name === ROUTES.CONSOLE_PLATFORM ||
+        name === ROUTES.CONSOLE_COLLECTION ||
+        name === ROUTES.CONSOLE_ROM ||
+        name === ROUTES.CONSOLE_PLAY
+      );
+    },
+  },
   actions: {
     setHomeState(payload: {
       platformIndex?: number;

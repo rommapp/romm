@@ -195,8 +195,9 @@ import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { useRovingDom } from "@/console/composables/useRovingDom";
-import { useConsoleNavStore } from "@/stores/consoleNav";
+import consoleStore from "@/stores/console";
 import { ROUTES } from "@/plugins/router";
+import { storeToRefs } from "pinia";
 
 const router = useRouter();
 const collectionsStore = storeCollections();
@@ -205,14 +206,12 @@ const recent = ref<SimpleRomSchema[]>([]);
 const collections = ref<CollectionSchema[]>([]);
 const loading = ref(true);
 const error = ref("");
-const navStore = useConsoleNavStore();
-const navigationMode = ref<"systems" | "recent" | "collections" | "controls">(
-  navStore.navigationMode,
-);
-const selectedIndex = ref(navStore.platformIndex);
-const recentIndex = ref(navStore.recentIndex);
-const collectionsIndex = ref(navStore.collectionsIndex);
-const controlIndex = ref(navStore.controlIndex);
+const storeConsole = consoleStore();
+const { navigationMode } = storeToRefs(storeConsole);
+const selectedIndex = ref(storeConsole.platformIndex);
+const recentIndex = ref(storeConsole.recentIndex);
+const collectionsIndex = ref(storeConsole.collectionsIndex);
+const controlIndex = ref(storeConsole.controlIndex);
 const scrollContainerRef = ref<HTMLDivElement>();
 const systemsRef = ref<HTMLDivElement>();
 const recentRef = ref<HTMLDivElement>();
@@ -536,7 +535,7 @@ onMounted(async () => {
 let off: (() => void) | null = null;
 onUnmounted(() => {
   // persist current state
-  navStore.setHomeState({
+  storeConsole.setHomeState({
     platformIndex: selectedIndex.value,
     recentIndex: recentIndex.value,
     collectionsIndex: collectionsIndex.value,

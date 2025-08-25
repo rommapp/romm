@@ -76,14 +76,14 @@ import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { useRovingDom } from "@/console/composables/useRovingDom";
-import { useConsoleNavStore } from "@/stores/consoleNav";
+import consoleStore from "@/stores/console";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import type { SimpleRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
 
 const route = useRoute();
 const router = useRouter();
-const navStore = useConsoleNavStore();
+const storeConsole = consoleStore();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 
 const isCollection = computed(() => route.name === ROUTES.CONSOLE_COLLECTION);
@@ -107,20 +107,23 @@ const gridRef = ref<HTMLDivElement>();
 
 // init selection from store
 if (platformId.value != null) {
-  selectedIndex.value = navStore.getPlatformGameIndex(platformId.value);
+  selectedIndex.value = storeConsole.getPlatformGameIndex(platformId.value);
 }
 if (collectionId.value != null) {
-  selectedIndex.value = navStore.getCollectionGameIndex(collectionId.value);
+  selectedIndex.value = storeConsole.getCollectionGameIndex(collectionId.value);
 }
 
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 function persistIndex() {
   if (platformId.value != null) {
-    navStore.setPlatformGameIndex(platformId.value, selectedIndex.value);
+    storeConsole.setPlatformGameIndex(platformId.value, selectedIndex.value);
   }
   if (collectionId.value != null) {
-    navStore.setCollectionGameIndex(collectionId.value, selectedIndex.value);
+    storeConsole.setCollectionGameIndex(
+      collectionId.value,
+      selectedIndex.value,
+    );
   }
 }
 

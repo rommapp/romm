@@ -63,6 +63,7 @@ let detachGamepad: (() => void) | null = null;
 const mouseHidden = ref(false);
 let idleTimer: number | undefined;
 const HIDE_DELAY_MS = 100;
+
 const onMouseActivity = () => {
   // Show cursor (remove shield) then schedule hide
   if (mouseHidden.value) mouseHidden.value = false;
@@ -71,37 +72,37 @@ const onMouseActivity = () => {
     mouseHidden.value = true;
   }, HIDE_DELAY_MS);
 };
-const docHandler = () => onMouseActivity();
-onMounted(() => document.body.classList.add("console-mode"));
+
+// Toggle class for global cursor hiding (covers any nested explicit cursor styles)
+watch(mouseHidden, (hidden) => {
+  const app = document.querySelector("#application");
+  if (app) app.classList.toggle("mouse-hidden", hidden);
+});
+
 onMounted(() => {
   // Establish a root input scope so child views can subscribe safely
   bus.pushScope();
   detachKeyboard = attachKeyboard(bus);
   detachGamepad = attachGamepad(bus);
+
   // Mouse idle/hide across all console views
   onMouseActivity();
-  document.addEventListener("mousemove", docHandler, { passive: true });
-  document.addEventListener("mousedown", docHandler, { passive: true });
-  document.addEventListener("wheel", docHandler, { passive: true });
-  document.addEventListener("touchstart", docHandler, { passive: true });
+  document.addEventListener("mousemove", onMouseActivity, { passive: true });
+  document.addEventListener("mousedown", onMouseActivity, { passive: true });
+  document.addEventListener("wheel", onMouseActivity, { passive: true });
+  document.addEventListener("touchstart", onMouseActivity, { passive: true });
 });
-// Toggle a body class for global cursor hiding (covers any nested explicit cursor styles)
-watch(mouseHidden, (hidden) => {
-  if (hidden) document.body.classList.add("mouse-hidden");
-  else document.body.classList.remove("mouse-hidden");
-});
-// Ensure correct initial class
-watch(mouseHidden, () => {}, { immediate: true });
+
 onUnmounted(() => {
-  document.body.classList.remove("console-mode");
-  document.body.classList.remove("mouse-hidden");
-  // teardown input attachments
+  const app = document.querySelector("#application");
+  if (app) app.classList.remove("mouse-hidden");
+
   detachKeyboard?.();
   detachGamepad?.();
-  document.removeEventListener("mousemove", docHandler as EventListener);
-  document.removeEventListener("mousedown", docHandler as EventListener);
-  document.removeEventListener("wheel", docHandler as EventListener);
-  document.removeEventListener("touchstart", docHandler as EventListener);
+  document.removeEventListener("mousemove", onMouseActivity as EventListener);
+  document.removeEventListener("mousedown", onMouseActivity as EventListener);
+  document.removeEventListener("wheel", onMouseActivity as EventListener);
+  document.removeEventListener("touchstart", onMouseActivity as EventListener);
   window.clearTimeout(idleTimer);
 });
 </script>
@@ -131,10 +132,3 @@ onUnmounted(() => {
     </router-view>
   </div>
 </template>
-
-<style>
-body.console-mode.mouse-hidden,
-body.console-mode.mouse-hidden * {
-  cursor: none !important;
-}
-</style>
