@@ -423,6 +423,7 @@ import NavigationHint from "@/console/components/NavigationHint.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { getCoreForPlatform } from "@/console/constants/cores";
+import { ROUTES } from "@/plugins/router";
 
 const route = useRoute();
 const router = useRouter();
@@ -500,16 +501,20 @@ function openDetails() {
 function goBackToPlatform() {
   const qp = route.query as Record<string, string | undefined>;
   if (qp.collection) {
-    router.push({ name: "console-collection", params: { id: qp.collection } });
+    router.push({
+      name: ROUTES.CONSOLE_COLLECTION,
+      params: { id: qp.collection },
+    });
     return;
   }
+
   if (rom.value?.platform_id) {
     router.push({
-      name: "console-platform",
+      name: ROUTES.CONSOLE_PLATFORM,
       params: { id: rom.value.platform_id },
     });
   } else {
-    router.push({ name: "console-home" });
+    router.push({ name: ROUTES.CONSOLE_HOME });
   }
 }
 
@@ -728,7 +733,7 @@ function play() {
     query.collection = Number(origin.collection);
   }
   router.push({
-    name: "console-play",
+    name: ROUTES.CONSOLE_PLAY,
     params: { rom: romId },
     query: Object.keys(query).length ? query : undefined,
   });

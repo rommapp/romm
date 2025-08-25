@@ -132,6 +132,7 @@ import firmwareApi from "@/services/api/firmware";
 import { useInputScope } from "@/console/composables/useInputScope";
 import NavigationText from "@/console/components/NavigationText.vue";
 import api from "@/services/api";
+import { ROUTES } from "@/plugins/router";
 
 const route = useRoute();
 const router = useRouter();
@@ -170,7 +171,7 @@ function immediateExit() {
   } catch {
     /* noop */
   }
-  router.push({ name: "console-rom", params: { rom: romId } });
+  router.push({ name: ROUTES.CONSOLE_ROM, params: { rom: romId } });
 }
 
 function showPrompt() {

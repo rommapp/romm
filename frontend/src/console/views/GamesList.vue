@@ -79,13 +79,14 @@ import { useRovingDom } from "@/console/composables/useRovingDom";
 import { useConsoleNavStore } from "@/stores/consoleNav";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import type { SimpleRom } from "@/stores/roms";
+import { ROUTES } from "@/plugins/router";
 
 const route = useRoute();
 const router = useRouter();
 const navStore = useConsoleNavStore();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 
-const isCollection = computed(() => route.name === "console-collection");
+const isCollection = computed(() => route.name === ROUTES.CONSOLE_COLLECTION);
 const platformId = computed(() =>
   isCollection.value ? null : Number(route.params.id),
 );
@@ -125,7 +126,7 @@ function persistIndex() {
 
 function navigateBack() {
   persistIndex();
-  router.push({ name: "console-home" });
+  router.push({ name: ROUTES.CONSOLE_HOME });
 }
 
 const headerTitle = computed(() => {
@@ -249,7 +250,7 @@ function handleAction(action: InputAction): boolean {
       if (platformId.value != null) query.id = platformId.value;
       if (isCollection.value) query.collection = collectionId.value!;
       router.push({
-        name: "console-rom",
+        name: ROUTES.CONSOLE_ROM,
         params: { rom: rom.id },
         query: Object.keys(query).length ? query : undefined,
       });
@@ -278,7 +279,7 @@ function selectAndOpen(i: number, rom: SimpleRomSchema) {
   if (platformId.value != null) query.id = platformId.value;
   if (isCollection.value) query.collection = collectionId.value!;
   router.push({
-    name: "console-rom",
+    name: ROUTES.CONSOLE_ROM,
     params: { rom: rom.id },
     query: Object.keys(query).length ? query : undefined,
   });

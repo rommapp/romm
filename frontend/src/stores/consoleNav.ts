@@ -1,16 +1,14 @@
 import { defineStore } from "pinia";
 
+export type NavigationMode = "systems" | "recent" | "collections" | "controls";
+
 export const useConsoleNavStore = defineStore("consoleNav", {
   state: () => ({
     platformIndex: 0,
     recentIndex: 0,
     collectionsIndex: 0,
     controlIndex: 0,
-    navigationMode: "systems" as
-      | "systems"
-      | "recent"
-      | "collections"
-      | "controls",
+    navigationMode: "systems" as NavigationMode,
     perPlatformGameIndex: {} as Record<number, number>,
     perCollectionGameIndex: {} as Record<number, number>,
     perPlatformScrollTop: {} as Record<number, number>,
@@ -22,7 +20,7 @@ export const useConsoleNavStore = defineStore("consoleNav", {
       recentIndex?: number;
       collectionsIndex?: number;
       controlIndex?: number;
-      navigationMode?: "systems" | "recent" | "collections" | "controls";
+      navigationMode?: NavigationMode;
     }) {
       if (payload.platformIndex !== undefined)
         this.platformIndex = payload.platformIndex;

@@ -1,47 +1,22 @@
-<template>
-  <div class="min-h-screen text-white console-root relative">
-    <!-- Shield overlay to neutralize mouse input while hidden; movement wakes it -->
-    <div
-      v-if="mouseHidden"
-      class="fixed inset-0 z-50 cursor-none"
-      aria-hidden="true"
-      @mousemove="onMouseActivity"
-      @pointermove="onMouseActivity"
-      @mousedown.prevent
-      @mouseup.prevent
-      @click.prevent
-      @pointerdown.prevent
-      @pointerup.prevent
-      @wheel.prevent
-      @contextmenu.prevent
-      @dragstart.prevent
-    />
-    <router-view v-slot="{ Component, route }">
-      <transition :name="getTransitionName(route)" mode="out-in" appear>
-        <component :is="Component" :key="route.path" />
-      </transition>
-    </router-view>
-  </div>
-</template>
 <script setup lang="ts">
 import { onMounted, onUnmounted, provide, ref, watch } from "vue";
 import { useRoute, type RouteLocationNormalized } from "vue-router";
-import "./index.css";
 import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import { attachKeyboard } from "@/console/input/keyboard";
 import { attachGamepad } from "@/console/input/gamepad";
+import { ROUTES } from "@/plugins/router";
 
-const currentRoute = useRoute();
+const route = useRoute();
 const bus = new InputBus();
 provide(InputBusSymbol, bus);
 
 // Define route hierarchy for transition direction logic
 const routeHierarchy = {
-  "console-home": 0,
-  "console-platform": 1,
-  "console-collection": 1,
-  "console-rom": 2,
-  "console-play": 3,
+  [ROUTES.CONSOLE_HOME]: 0,
+  [ROUTES.CONSOLE_PLATFORM]: 1,
+  [ROUTES.CONSOLE_COLLECTION]: 1,
+  [ROUTES.CONSOLE_ROM]: 2,
+  [ROUTES.CONSOLE_PLAY]: 3,
 };
 
 let previousRoute: string | null = null;
@@ -56,7 +31,10 @@ function getTransitionName(route: RouteLocationNormalized): string {
     : 0;
 
   // Special case for play mode (slide up/down)
-  if (currentName === "console-play" || previousRoute === "console-play") {
+  if (
+    currentName === ROUTES.CONSOLE_PLAY ||
+    previousRoute === ROUTES.CONSOLE_PLAY
+  ) {
     return currentLevel > previousLevel ? "slide-up" : "slide-down";
   }
 
@@ -72,7 +50,7 @@ function getTransitionName(route: RouteLocationNormalized): string {
 
 // Track route changes for transition direction
 watch(
-  () => currentRoute.name,
+  () => route.name,
   (newName, oldName) => {
     if (oldName) {
       previousRoute = oldName as string;
@@ -127,6 +105,33 @@ onUnmounted(() => {
   window.clearTimeout(idleTimer);
 });
 </script>
+
+<template>
+  <div class="min-h-screen text-white console-root relative">
+    <!-- Shield overlay to neutralize mouse input while hidden; movement wakes it -->
+    <div
+      v-if="mouseHidden"
+      class="fixed inset-0 z-50 cursor-none"
+      aria-hidden="true"
+      @mousemove="onMouseActivity"
+      @pointermove="onMouseActivity"
+      @mousedown.prevent
+      @mouseup.prevent
+      @click.prevent
+      @pointerdown.prevent
+      @pointerup.prevent
+      @wheel.prevent
+      @contextmenu.prevent
+      @dragstart.prevent
+    />
+    <router-view v-slot="{ Component, route }">
+      <transition :name="getTransitionName(route)" mode="out-in" appear>
+        <component :is="Component" :key="route.path" />
+      </transition>
+    </router-view>
+  </div>
+</template>
+
 <style>
 body.console-mode.mouse-hidden,
 body.console-mode.mouse-hidden * {
