@@ -196,6 +196,7 @@ import type { InputAction } from "@/console/input/actions";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { useRovingDom } from "@/console/composables/useRovingDom";
 import { useConsoleNavStore } from "@/stores/consoleNav";
+import { ROUTES } from "@/plugins/router";
 
 const router = useRouter();
 const collectionsStore = storeCollections();
@@ -252,17 +253,17 @@ function toggleFullscreen() {
   else document.exitFullscreen?.();
 }
 function goPlatform(id: number) {
-  router.push({ name: "console-platform", params: { id } });
+  router.push({ name: ROUTES.CONSOLE_PLATFORM, params: { id } });
 }
 function goGame(g: SimpleRomSchema) {
   router.push({
-    name: "console-rom",
+    name: ROUTES.CONSOLE_ROM,
     params: { rom: g.id },
     query: { id: g.platform_id },
   });
 }
 function goCollection(id: number) {
-  router.push({ name: "console-collection", params: { id } });
+  router.push({ name: ROUTES.CONSOLE_COLLECTION, params: { id } });
 }
 
 // Accessors for legacy global arrays registered elsewhere (SystemCard/GameCard/CollectionCard components)
@@ -425,7 +426,7 @@ function handleAction(action: InputAction): boolean {
         platforms.value[selectedIndex.value]
       ) {
         router.push({
-          name: "console-platform",
+          name: ROUTES.CONSOLE_PLATFORM,
           params: { id: platforms.value[selectedIndex.value].id },
         });
         return true;
@@ -435,7 +436,7 @@ function handleAction(action: InputAction): boolean {
         recent.value[recentIndex.value]
       ) {
         router.push({
-          name: "console-rom",
+          name: ROUTES.CONSOLE_ROM,
           params: { rom: recent.value[recentIndex.value].id },
           query: { id: recent.value[recentIndex.value].platform_id },
         });
@@ -446,7 +447,7 @@ function handleAction(action: InputAction): boolean {
         collections.value[collectionsIndex.value]
       ) {
         router.push({
-          name: "console-collection",
+          name: ROUTES.CONSOLE_COLLECTION,
           params: { id: collections.value[collectionsIndex.value].id },
         });
         return true;

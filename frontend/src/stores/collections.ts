@@ -67,8 +67,11 @@ export default defineStore("collections", {
           .getCollections()
           .then(({ data: collections }) => {
             this.allCollections = collections;
+
+            // Set the favorite collection
             const fav = collections.find((c) => c.is_favorite);
             if (fav) this.favoriteCollection = fav;
+
             resolve(collections);
           })
           .catch((error) => {

@@ -100,7 +100,7 @@ start_bin_gunicorn() {
 	opentelemetry-instrument \
 		--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
 		gunicorn \
-		--bind=0.0.0.0:5000 \
+		--bind=0.0.0.0:"${DEV_PORT:-5000}" \
 		--bind=unix:/tmp/gunicorn.sock \
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
