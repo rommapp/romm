@@ -1,4 +1,5 @@
 import type { InputAction, InputListener } from "./actions";
+import { sfxForAction, playSfx } from "../utils/sfx";
 
 export class InputBus {
   private scopes: Array<Set<InputListener>> = [];
@@ -32,12 +33,20 @@ export class InputBus {
       const scope = this.scopes[i];
       for (const l of Array.from(scope).reverse()) {
         const handled = l(action);
-        if (handled) return true;
+        if (handled) {
+          const kind = sfxForAction(action);
+            if (kind) playSfx(kind);
+          return true;
+        }
       }
     }
     for (const l of Array.from(this.globalShortcuts).reverse()) {
       const handled = l(action);
-      if (handled) return true;
+      if (handled) {
+        const kind = sfxForAction(action);
+        if (kind) playSfx(kind);
+        return true;
+      }
     }
     return false;
   }
