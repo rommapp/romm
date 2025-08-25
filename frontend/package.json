@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
+    "@vueuse/core": "^13.7.0",
     "axios": "^1.8.4",
     "cronstrue": "^2.57.0",
     "date-fns": "^4.1.0",
