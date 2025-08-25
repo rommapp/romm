@@ -1,9 +1,9 @@
-import { storeToRefs } from 'pinia';
-import collectionApi from '@/services/api/collection';
-import storeCollections, { type Collection } from '@/stores/collections';
-import storeRoms, { type SimpleRom } from '@/stores/roms';
-import type { Events } from '@/types/emitter';
-import type { Emitter } from 'mitt';
+import { storeToRefs } from "pinia";
+import collectionApi from "@/services/api/collection";
+import storeCollections, { type Collection } from "@/stores/collections";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
 
 export function useFavoriteToggle(emitter?: Emitter<Events>) {
   const collectionsStore = storeCollections();
@@ -18,13 +18,15 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
     }
     if (favoriteCollection.value) return favoriteCollection.value;
     // Create if still missing
-    const { data } = await collectionApi.createCollection({ collection: { name: 'Favourites', rom_ids: [] } });
+    const { data } = await collectionApi.createCollection({
+      collection: { name: "Favourites", rom_ids: [] },
+    });
     collectionsStore.addCollection(data);
     collectionsStore.setFavoriteCollection(data);
-    emitter?.emit('snackbarShow', {
+    emitter?.emit("snackbarShow", {
       msg: `Collection ${data.name} created successfully!`,
-      icon: 'mdi-check-bold',
-      color: 'green',
+      icon: "mdi-check-bold",
+      color: "green",
       timeout: 2000,
     });
     return data;
@@ -36,7 +38,7 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
 
   async function toggleFavorite(rom: SimpleRom) {
     const fav = await ensureFavoriteCollection();
-  if (!fav.rom_ids) (fav as Collection).rom_ids = [] as unknown as number[]; // ensure array exists
+    if (!fav.rom_ids) (fav as Collection).rom_ids = [] as unknown as number[]; // ensure array exists
 
     const currentlyFav = fav.rom_ids.includes(rom.id);
     if (currentlyFav) {
@@ -49,35 +51,43 @@ export function useFavoriteToggle(emitter?: Emitter<Events>) {
     }
 
     try {
-      const { data } = await collectionApi.updateCollection({ collection: fav as Collection });
+      const { data } = await collectionApi.updateCollection({
+        collection: fav as Collection,
+      });
       collectionsStore.updateCollection(data);
       collectionsStore.setFavoriteCollection(data);
-      emitter?.emit('snackbarShow', {
-        msg: `${rom.name} ${currentlyFav ? 'removed from' : 'added to'} ${data.name} successfully!`,
-        icon: 'mdi-check-bold',
-        color: 'green',
+      emitter?.emit("snackbarShow", {
+        msg: `${rom.name} ${currentlyFav ? "removed from" : "added to"} ${data.name} successfully!`,
+        icon: "mdi-check-bold",
+        color: "green",
         timeout: 2000,
       });
-  } catch (error: unknown) {
+    } catch (error: unknown) {
       // Rollback
       if (currentlyFav) {
         fav.rom_ids.push(rom.id);
       } else {
         fav.rom_ids = fav.rom_ids.filter((id) => id !== rom.id);
       }
-      const detail = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      emitter?.emit('snackbarShow', {
-        msg: detail || 'Failed to update favourites',
-        icon: 'mdi-close-circle',
-        color: 'red',
+      const detail = (error as { response?: { data?: { detail?: string } } })
+        ?.response?.data?.detail;
+      emitter?.emit("snackbarShow", {
+        msg: detail || "Failed to update favourites",
+        icon: "mdi-close-circle",
+        color: "red",
       });
       throw error;
     } finally {
-      emitter?.emit('showLoadingDialog', { loading: false, scrim: false });
+      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     }
   }
 
-  return { favoriteCollection, ensureFavoriteCollection, toggleFavorite, isFavorite };
+  return {
+    favoriteCollection,
+    ensureFavoriteCollection,
+    toggleFavorite,
+    isFavorite,
+  };
 }
 
 export default useFavoriteToggle;

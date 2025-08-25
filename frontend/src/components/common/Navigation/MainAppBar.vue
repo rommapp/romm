@@ -123,12 +123,7 @@ function collapse() {
       block
       tabindex="7"
     />
-    <console-mode-btn
-      :withTag="!mainBarCollapsed"
-      rounded
-      class="mt-2"
-      block
-    />
+    <console-mode-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
       <upload-btn

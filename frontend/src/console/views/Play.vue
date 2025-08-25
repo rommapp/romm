@@ -222,7 +222,7 @@ async function saveAndExit() {
     // CRITICAL: The game must be RUNNING for screenshot to work!
     // We paused it in showPrompt(), so we need to resume it first
     console.info(
-      "Resuming game before screenshot (emujs expects running game)"
+      "Resuming game before screenshot (emujs expects running game)",
     );
     if (emu.paused) {
       try {
@@ -434,7 +434,7 @@ async function boot() {
     try {
       localStorage.setItem(
         `player:${r.id}:initial_save_id`,
-        String(initialSaveId)
+        String(initialSaveId),
       );
     } catch {
       /* ignore */
@@ -444,7 +444,7 @@ async function boot() {
     try {
       localStorage.setItem(
         `player:${r.id}:initial_state_id`,
-        String(initialStateId)
+        String(initialStateId),
       );
     } catch {
       /* ignore */
@@ -460,7 +460,7 @@ async function boot() {
       platformId: r.platform_id,
     });
     const storedBiosID = localStorage.getItem(
-      `player:${r.platform_slug}:bios_id`
+      `player:${r.platform_slug}:bios_id`,
     );
     const bios = storedBiosID
       ? firmware.find((f) => f.id === parseInt(storedBiosID))
@@ -521,7 +521,7 @@ async function boot() {
       formData.append(
         "screenshotFile",
         new Blob([screenshotFile], { type: "image/png" }),
-        "screenshot.png"
+        "screenshot.png",
       );
 
       await api.post("/states", formData, {
@@ -548,7 +548,7 @@ async function boot() {
       "saveFile:",
       saveFile?.length,
       "screenshotFile:",
-      screenshotFile?.length
+      screenshotFile?.length,
     );
     try {
       // If I decide to handle save files later, I will implement it here

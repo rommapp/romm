@@ -206,7 +206,7 @@ const loading = ref(true);
 const error = ref("");
 const navStore = useConsoleNavStore();
 const navigationMode = ref<"systems" | "recent" | "collections" | "controls">(
-  navStore.navigationMode
+  navStore.navigationMode,
 );
 const selectedIndex = ref(navStore.platformIndex);
 const recentIndex = ref(navStore.recentIndex);
@@ -279,18 +279,18 @@ const collectionElementAt = (i: number) =>
 const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(
   selectedIndex,
   () => platforms.value.length || 1,
-  () => platforms.value.length
+  () => platforms.value.length,
 );
 const { moveLeft: moveRecentLeft, moveRight: moveRecentRight } = useSpatialNav(
   recentIndex,
   () => recent.value.length || 1,
-  () => recent.value.length
+  () => recent.value.length,
 );
 const { moveLeft: moveCollectionLeft, moveRight: moveCollectionRight } =
   useSpatialNav(
     collectionsIndex,
     () => collections.value.length || 1,
-    () => collections.value.length
+    () => collections.value.length,
   );
 
 function prevSystem() {
@@ -403,8 +403,8 @@ function handleAction(action: InputAction): boolean {
           recent.value.length > 0
             ? "recent"
             : collections.value.length > 0
-            ? "collections"
-            : "controls";
+              ? "collections"
+              : "controls";
         scrollToCurrentRow();
         return true;
       }
@@ -482,7 +482,7 @@ onMounted(async () => {
       (p) =>
         p.rom_count > 0 &&
         (SUPPORTED_WEB_PLATFORM_SET.has(p.slug) ||
-          SUPPORTED_WEB_PLATFORM_SET.has(p.fs_slug))
+          SUPPORTED_WEB_PLATFORM_SET.has(p.fs_slug)),
     );
     const { data: recents } = await romApi.getRecentPlayedRoms();
     recent.value = recents.items ?? [];
@@ -492,7 +492,9 @@ onMounted(async () => {
     // Initialize collections store for favorites functionality
     collectionsStore.setCollections(cols ?? []);
     collectionsStore.setFavoriteCollection(
-      cols?.find((collection) => collection.name.toLowerCase() === "favourites")
+      cols?.find(
+        (collection) => collection.name.toLowerCase() === "favourites",
+      ),
     );
   } catch (err: unknown) {
     error.value = err instanceof Error ? err.message : "Failed to load";
@@ -510,7 +512,7 @@ onMounted(async () => {
   // helper to center an element inside a horizontal scroll container without affecting vertical scroll
   function centerInCarousel(
     container: HTMLElement | undefined | null,
-    el: HTMLElement | undefined | null
+    el: HTMLElement | undefined | null,
   ) {
     if (!container || !el) return;
     // Only adjust if content wider than container
@@ -518,7 +520,7 @@ onMounted(async () => {
     const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
     container.scrollLeft = Math.max(
       0,
-      Math.min(target, container.scrollWidth - container.clientWidth)
+      Math.min(target, container.scrollWidth - container.clientWidth),
     );
   }
   // Center each carousel to its stored index (even if not currently focused) for visual continuity
@@ -526,7 +528,7 @@ onMounted(async () => {
   centerInCarousel(recentRef.value, recentElementAt(recentIndex.value));
   centerInCarousel(
     collectionsRef.value,
-    collectionElementAt(collectionsIndex.value)
+    collectionElementAt(collectionsIndex.value),
   );
   off = on(handleAction);
 });

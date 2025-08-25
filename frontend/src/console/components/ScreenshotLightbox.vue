@@ -77,8 +77,8 @@ const emit = defineEmits(["close"]);
 const index = ref(
   Math.min(
     Math.max(props.startIndex ?? 0, 0),
-    Math.max(props.urls.length - 1, 0)
-  )
+    Math.max(props.urls.length - 1, 0),
+  ),
 );
 const triedAlt = ref(false);
 const animateIn = ref(true);
@@ -137,7 +137,7 @@ watch(
   () => props.startIndex,
   (v) => {
     if (typeof v === "number") index.value = v;
-  }
+  },
 );
 </script>
 

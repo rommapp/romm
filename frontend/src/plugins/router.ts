@@ -237,12 +237,12 @@ const routes = [
       {
         path: "platform/:id",
         name: "console-platform",
-  component: () => import("@/console/views/GamesList.vue"),
+        component: () => import("@/console/views/GamesList.vue"),
       },
       {
         path: "collection/:id",
         name: "console-collection",
-  component: () => import("@/console/views/GamesList.vue"),
+        component: () => import("@/console/views/GamesList.vue"),
       },
       {
         path: "rom/:rom",

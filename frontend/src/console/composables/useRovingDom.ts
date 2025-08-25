@@ -11,7 +11,7 @@ interface RovingOptions {
 export function useRovingDom(
   index: Ref<number>,
   getEl: (i: number) => HTMLElement | undefined,
-  opts: RovingOptions = {}
+  opts: RovingOptions = {},
 ) {
   const {
     scroll = true,
@@ -46,6 +46,6 @@ export function useRovingDom(
         }
       }
     },
-    { immediate: true }
+    { immediate: true },
   );
 }

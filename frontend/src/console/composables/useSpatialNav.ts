@@ -3,7 +3,7 @@ import type { Ref } from "vue";
 export function useSpatialNav(
   selectedIndex: Ref<number>,
   getCols: () => number,
-  getCount: () => number
+  getCount: () => number,
 ) {
   const moveLeft = () => {
     selectedIndex.value = Math.max(0, selectedIndex.value - 1);

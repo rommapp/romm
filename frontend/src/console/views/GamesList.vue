@@ -87,10 +87,10 @@ const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 
 const isCollection = computed(() => route.name === "console-collection");
 const platformId = computed(() =>
-  isCollection.value ? null : Number(route.params.id)
+  isCollection.value ? null : Number(route.params.id),
 );
 const collectionId = computed(() =>
-  isCollection.value ? Number(route.params.id) : null
+  isCollection.value ? Number(route.params.id) : null,
 );
 
 const roms = ref<SimpleRomSchema[]>([]);
@@ -147,7 +147,7 @@ const filtered = computed(() => {
 });
 
 const current = computed(
-  () => filtered.value[selectedIndex.value] || filtered.value[0]
+  () => filtered.value[selectedIndex.value] || filtered.value[0],
 );
 
 function getCols(): number {
@@ -195,7 +195,7 @@ function handleAction(action: InputAction): boolean {
     if (action === "confirm") {
       const L = letters[alphaIndex.value];
       const idx = filtered.value.findIndex((r) =>
-        normalizeTitle(r.name || "").startsWith(L)
+        normalizeTitle(r.name || "").startsWith(L),
       );
       if (idx >= 0) {
         selectedIndex.value = idx;
@@ -285,7 +285,7 @@ function selectAndOpen(i: number, rom: SimpleRomSchema) {
 }
 function jumpToLetter(L: string) {
   const idx = filtered.value.findIndex((r) =>
-    normalizeTitle(r.name || "").startsWith(L)
+    normalizeTitle(r.name || "").startsWith(L),
   );
   if (idx >= 0) {
     selectedIndex.value = idx;
@@ -316,7 +316,7 @@ onMounted(async () => {
       });
       roms.value = data.items ?? [];
       const { data: col } = await collectionApi.getCollection(
-        collectionId.value
+        collectionId.value,
       );
       collection.value = col ?? null;
     }
