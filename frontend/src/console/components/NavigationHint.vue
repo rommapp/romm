@@ -1,5 +1,7 @@
 <template>
-  <div class="fixed bottom-4 right-20 bg-black/50 px-8 py-3 rounded-lg backdrop-blur border border-white/10 z-[100] pointer-events-none select-none">
+  <div
+    class="fixed bottom-4 right-20 bg-black/50 px-8 py-3 rounded-lg backdrop-blur border border-white/10 z-[100] pointer-events-none select-none"
+  >
     <NavigationText
       :show-navigation="showNavigation"
       :show-select="showSelect"
@@ -12,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import NavigationText from './NavigationText.vue';
+import NavigationText from "./NavigationText.vue";
 
 interface Props {
   showNavigation?: boolean;
@@ -29,6 +31,6 @@ withDefaults(defineProps<Props>(), {
   showBack: true,
   showToggleFavorite: false,
   showMenu: false,
-  showDelete: false
+  showDelete: false,
 });
 </script>
