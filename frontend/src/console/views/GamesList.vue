@@ -103,7 +103,7 @@ useRovingDom(selectedIndex, (i) => cardElementAt(i), {
   inline: "nearest",
 });
 
-const { on } = useInputScope();
+const { subscribe } = useInputScope();
 const {
   moveLeft,
   moveRight,
@@ -276,7 +276,7 @@ onMounted(async () => {
   } catch {
     /* ignore */
   }
-  off = on(handleAction);
+  off = subscribe(handleAction);
 });
 
 onUnmounted(() => {

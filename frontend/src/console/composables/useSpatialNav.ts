@@ -24,5 +24,6 @@ export function useSpatialNav(
     const ni = selectedIndex.value + cols;
     if (ni < getCount()) selectedIndex.value = ni;
   };
+
   return { moveLeft, moveRight, moveUp, moveDown };
 }

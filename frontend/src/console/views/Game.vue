@@ -518,7 +518,7 @@ function goBackToPlatform() {
   }
 }
 
-const { on } = useInputScope();
+const { subscribe } = useInputScope();
 function handleAction(action: InputAction): boolean {
   // Lightbox handling
   if (showLightbox.value) {
@@ -865,7 +865,7 @@ onMounted(async () => {
     loading.value = false;
   }
   selectedZone.value = "play";
-  off = on(handleAction);
+  off = subscribe(handleAction);
 });
 // Focus overlays when opened so Esc works even if window handlers exist
 watch(showDescription, (v) => {

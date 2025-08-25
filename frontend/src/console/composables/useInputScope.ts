@@ -3,16 +3,33 @@ import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import type { InputListener } from "@/console/input/actions";
 
 export function useInputScope() {
-  const bus = inject<InputBus>(InputBusSymbol)!;
-  let pop: (() => void) | null = null;
+  const bus = inject<InputBus>(InputBusSymbol);
+
+  if (!bus) {
+    throw new Error(
+      "useInputScope must be used within a component that provides InputBus",
+    );
+  }
+
+  let unsubscribe: (() => void) | null = null;
+
   onMounted(() => {
-    pop = bus.pushScope();
-  });
-  onUnmounted(() => {
-    pop?.();
-    pop = null;
+    unsubscribe = bus.pushScope();
   });
 
-  const on = (listener: InputListener) => bus.subscribe(listener);
-  return { bus, on };
+  onUnmounted(() => {
+    if (unsubscribe) {
+      unsubscribe();
+      unsubscribe = null;
+    }
+  });
+
+  const subscribe = (listener: InputListener) => {
+    return bus.subscribe(listener);
+  };
+
+  return {
+    bus,
+    subscribe,
+  };
 }
