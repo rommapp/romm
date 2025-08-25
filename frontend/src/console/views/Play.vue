@@ -160,7 +160,7 @@ const exitOptions = [
 const { on: onInputScope } = useInputScope();
 let exitScopeOff: (() => void) | null = null;
 let romCache: DetailedRomSchema | null = null;
-let rafId = 0;
+let rafId: number | null = 0;
 let lastPress: Record<number, number> = { 8: 0, 9: 0 };
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 

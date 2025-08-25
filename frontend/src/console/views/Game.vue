@@ -356,9 +356,7 @@
               <div
                 class="text-white text-sm md:text-base leading-6 break-words"
               >
-                {{
-                  Math.round((rom?.files?.[0]?.file_size_bytes || 0) / 1024)
-                }}
+                {{ Math.round((rom?.files?.[0]?.file_size_bytes || 0) / 1024) }}
                 KB
               </div>
             </div>
@@ -402,7 +400,9 @@
       :show-back="true"
       :show-toggle-favorite="false"
       :show-menu="false"
-      :show-delete="selectedZone === 'states' && rom?.user_states?.length > 0"
+      :show-delete="
+        selectedZone === 'states' && (rom?.user_states?.length ?? 0) > 0
+      "
     />
   </div>
 </template>
@@ -838,10 +838,11 @@ onMounted(async () => {
   try {
     const { data } = await romApi.getRom({ romId });
     const slug =
-      (data.platform_slug as string) ||
+      (data.platform_slug as string | undefined) ||
       (data as unknown as { platform?: string; system?: string }).platform ||
-      (data as unknown as { platform?: string; system?: string }).system;
-    const core = getCoreForPlatform(slug);
+      (data as unknown as { platform?: string; system?: string }).system ||
+      "";
+    const core = getCoreForPlatform(slug as string);
     if (!core) {
       unsupported.value = true;
       throw new Error(`Platform ${slug} not supported yet.`);
