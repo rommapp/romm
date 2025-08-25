@@ -1,121 +1,3 @@
-<template>
-  <div class="play-root fixed inset-0 bg-black text-white z-[70]">
-    <div id="game" class="w-full h-full" />
-    <div
-      v-if="loaderStatus !== 'loaded'"
-      class="absolute inset-0 flex items-center justify-center pointer-events-none"
-    >
-      <div
-        class="text-center text-white/70 text-sm bg-black/50 px-4 py-3 rounded border border-white/10 backdrop-blur"
-      >
-        <template
-          v-if="loaderStatus === 'idle' || loaderStatus === 'loading-local'"
-        >
-          Loading emulator…
-        </template>
-        <template v-else-if="loaderStatus === 'loading-cdn'">
-          Loading emulator (CDN)…
-        </template>
-        <template v-else-if="loaderStatus === 'failed'">
-          <div class="text-red-300 font-medium">Failed to load emulator</div>
-          <div class="mt-1 text-[11px] max-w-xs leading-snug break-words">
-            {{ loaderError }}
-          </div>
-        </template>
-      </div>
-    </div>
-    <div
-      v-if="showHint"
-      class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-white/80 border border-white/10"
-    >
-      Press Start + Select (or Backspace) to exit
-    </div>
-
-    <!-- Exit Prompt Modal -->
-    <div
-      v-if="showExitPrompt"
-      class="absolute inset-0 z-50 flex items-center justify-center"
-    >
-      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div
-        class="relative w-full max-w-[560px] mx-auto bg-gradient-to-br from-zinc-900/95 to-zinc-800/95 border border-white/10 rounded-2xl shadow-[0_12px_48px_-4px_rgba(0,0,0,0.7)] pa-10 md:p-9 flex flex-col gap-6 focus:outline-none"
-      >
-        <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold tracking-wide text-white drop-shadow">
-            Exit Game
-          </h2>
-          <button
-            :disabled="savingState"
-            class="text-white/50 hover:text-white transition-colors text-lg"
-            @click="cancelExit()"
-          >
-            ✕
-          </button>
-        </div>
-        <div class="flex flex-col gap-3">
-          <div
-            v-for="(opt, i) in exitOptions"
-            :key="opt.id"
-            class="group relative rounded-lg px-4 py-3 border transition-all cursor-pointer select-none"
-            :class="[
-              savingState && opt.id !== 'save'
-                ? 'opacity-40 cursor-not-allowed'
-                : '',
-              focusedExitIndex === i
-                ? 'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)]'
-                : 'border-white/10 bg-white/5 hover:bg-white/10',
-            ]"
-            role="button"
-            :aria-selected="focusedExitIndex === i"
-            @click="activateExitOption(opt.id)"
-          >
-            <div class="flex items-center gap-3">
-              <div class="flex-1">
-                <div
-                  :class="
-                    focusedExitIndex === i ? 'text-white' : 'text-white/90'
-                  "
-                  class="font-semibold text-sm tracking-wide"
-                >
-                  {{ opt.label }}
-                  <span
-                    v-if="opt.id === 'save' && savingState"
-                    class="ml-2 text-[10px] font-medium tracking-wide animate-pulse text-[var(--accent-2)]"
-                  >
-                    SAVING…
-                  </span>
-                </div>
-                <div v-if="opt.desc" class="text-xs mt-0.5 text-white/50">
-                  {{ opt.desc }}
-                </div>
-              </div>
-              <div
-                v-if="focusedExitIndex === i"
-                class="text-[var(--accent-2)] text-xs font-medium tracking-wider"
-              >
-                {{ savingState && opt.id === "save" ? "SAVING" : "" }}
-              </div>
-            </div>
-          </div>
-        </div>
-        <p v-if="saveError" class="text-xs text-red-400 font-medium">
-          {{ saveError }}
-        </p>
-
-        <!-- Navigation Hints -->
-        <div class="mt-4 pt-3 border-t border-white/10">
-          <NavigationText
-            :show-navigation="true"
-            :show-select="true"
-            :show-back="true"
-            :show-toggle-favorite="false"
-            :show-menu="false"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { onMounted, onUnmounted, ref, watch, nextTick } from "vue";
@@ -735,7 +617,126 @@ onUnmounted(() => {
 });
 </script>
 
-<style>
+<template>
+  <div class="play-root fixed inset-0 bg-black text-white z-[70]">
+    <div id="game" class="w-full h-full" />
+    <div
+      v-if="loaderStatus !== 'loaded'"
+      class="absolute inset-0 flex items-center justify-center pointer-events-none"
+    >
+      <div
+        class="text-center text-white/70 text-sm bg-black/50 px-4 py-3 rounded border border-white/10 backdrop-blur"
+      >
+        <template
+          v-if="loaderStatus === 'idle' || loaderStatus === 'loading-local'"
+        >
+          Loading emulator…
+        </template>
+        <template v-else-if="loaderStatus === 'loading-cdn'">
+          Loading emulator (CDN)…
+        </template>
+        <template v-else-if="loaderStatus === 'failed'">
+          <div class="text-red-300 font-medium">Failed to load emulator</div>
+          <div class="mt-1 text-[11px] max-w-xs leading-snug break-words">
+            {{ loaderError }}
+          </div>
+        </template>
+      </div>
+    </div>
+    <div
+      v-if="showHint"
+      class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-white/80 border border-white/10"
+    >
+      Press Start + Select (or Backspace) to exit
+    </div>
+
+    <!-- Exit Prompt Modal -->
+    <div
+      v-if="showExitPrompt"
+      class="absolute inset-0 z-50 flex items-center justify-center"
+    >
+      <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        class="relative w-full max-w-[560px] mx-auto bg-gradient-to-br from-zinc-900/95 to-zinc-800/95 border border-white/10 rounded-2xl shadow-[0_12px_48px_-4px_rgba(0,0,0,0.7)] pa-10 md:p-9 flex flex-col gap-6 focus:outline-none"
+      >
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold tracking-wide text-white drop-shadow">
+            Exit Game
+          </h2>
+          <button
+            :disabled="savingState"
+            class="text-white/50 hover:text-white transition-colors text-lg"
+            @click="cancelExit()"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="flex flex-col gap-3">
+          <div
+            v-for="(opt, i) in exitOptions"
+            :key="opt.id"
+            class="group relative rounded-lg px-4 py-3 border transition-all cursor-pointer select-none"
+            :class="[
+              savingState && opt.id !== 'save'
+                ? 'opacity-40 cursor-not-allowed'
+                : '',
+              focusedExitIndex === i
+                ? 'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)]'
+                : 'border-white/10 bg-white/5 hover:bg-white/10',
+            ]"
+            role="button"
+            :aria-selected="focusedExitIndex === i"
+            @click="activateExitOption(opt.id)"
+          >
+            <div class="flex items-center gap-3">
+              <div class="flex-1">
+                <div
+                  :class="
+                    focusedExitIndex === i ? 'text-white' : 'text-white/90'
+                  "
+                  class="font-semibold text-sm tracking-wide"
+                >
+                  {{ opt.label }}
+                  <span
+                    v-if="opt.id === 'save' && savingState"
+                    class="ml-2 text-[10px] font-medium tracking-wide animate-pulse text-[var(--accent-2)]"
+                  >
+                    SAVING…
+                  </span>
+                </div>
+                <div v-if="opt.desc" class="text-xs mt-0.5 text-white/50">
+                  {{ opt.desc }}
+                </div>
+              </div>
+              <div
+                v-if="focusedExitIndex === i"
+                class="text-[var(--accent-2)] text-xs font-medium tracking-wider"
+              >
+                {{ savingState && opt.id === "save" ? "SAVING" : "" }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <p v-if="saveError" class="text-xs text-red-400 font-medium">
+          {{ saveError }}
+        </p>
+
+        <!-- Navigation Hints -->
+        <div class="mt-4 pt-3 border-t border-white/10">
+          <NavigationText
+            :show-navigation="true"
+            :show-select="true"
+            :show-back="true"
+            :show-toggle-favorite="false"
+            :show-menu="false"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
 #game {
   width: 100%;
   height: 100%;

@@ -1,3 +1,45 @@
+<script setup lang="ts">
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { computed, onMounted, ref } from "vue";
+import { getPlatformTheme } from "@/console/constants/platforms";
+
+const props = defineProps<{ system: any; index: number; selected?: boolean }>();
+const emit = defineEmits(["click", "mouseenter", "focus"]);
+const imageLoaded = ref(true);
+const el = ref<HTMLElement>();
+
+onMounted(() => {
+  if (el.value) {
+    (window as any).systemCardElements =
+      (window as any).systemCardElements || [];
+    (window as any).systemCardElements[props.index] = el.value;
+  }
+});
+
+const theme = computed(() => {
+  const s: any = props.system || {};
+  const def = getPlatformTheme(s.slug);
+  if (def) {
+    return {
+      name: def.label,
+      shortName: def.shortName || def.label,
+      image: def.image,
+      background: def.background || "linear-gradient(135deg,#2b3242,#1b2233)",
+      accent: def.accent || "#f8b400",
+    };
+  }
+  return {
+    name: s.name,
+    shortName: s.name,
+    image: undefined,
+    background: "linear-gradient(135deg, #2b3242 0%, #1b2233 100%)",
+    accent: "#f8b400",
+  };
+});
+
+const hasImage = computed(() => Boolean((theme.value as any).image));
+</script>
+
 <template>
   <button
     ref="el"
@@ -53,46 +95,3 @@
     </div>
   </button>
 </template>
-
-<script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { computed, onMounted, ref } from "vue";
-import { PLATFORM_THEME_BY_SLUG } from "@/console/constants/platforms";
-
-const props = defineProps<{ system: any; index: number; selected?: boolean }>();
-const emit = defineEmits(["click", "mouseenter", "focus"]);
-const imageLoaded = ref(true);
-const el = ref<HTMLElement>();
-
-onMounted(() => {
-  if (el.value) {
-    (window as any).systemCardElements =
-      (window as any).systemCardElements || [];
-    (window as any).systemCardElements[props.index] = el.value;
-  }
-});
-
-const theme = computed(() => {
-  const s: any = props.system || {};
-  const def =
-    PLATFORM_THEME_BY_SLUG[s.slug] || PLATFORM_THEME_BY_SLUG[s.fs_slug];
-  if (def) {
-    return {
-      name: def.label,
-      shortName: def.shortName || def.label,
-      image: def.image,
-      background: def.background || "linear-gradient(135deg,#2b3242,#1b2233)",
-      accent: def.accent || "#f8b400",
-    };
-  }
-  return {
-    name: s.name,
-    shortName: s.name,
-    image: undefined,
-    background: "linear-gradient(135deg, #2b3242 0%, #1b2233 100%)",
-    accent: "#f8b400",
-  };
-});
-
-const hasImage = computed(() => Boolean((theme.value as any).image));
-</script>

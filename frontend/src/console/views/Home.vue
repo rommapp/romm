@@ -1,179 +1,3 @@
-<template>
-  <div
-    ref="scrollContainerRef"
-    class="relative h-screen overflow-y-auto overflow-x-hidden"
-    @wheel.prevent
-  >
-    <div class="relative h-full flex flex-col">
-      <div class="mt-8 ml-8 flex items-center gap-3 select-none pb-3">
-        <RIsotipo :size="40" :avatar="false" />
-        <div class="text-white/90 font-bold text-[28px] drop-shadow-xl">
-          Console
-        </div>
-      </div>
-
-      <div v-if="loading" class="text-center text-fgDim mt-16">
-        Loading platforms…
-      </div>
-      <div v-else-if="error" class="text-center text-red-400 mt-16">
-        {{ error }}
-      </div>
-      <div v-else>
-        <section ref="platformsSectionRef" class="pb-2">
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
-            Platforms
-          </h2>
-          <div class="relative h-[220px]">
-            <button
-              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="prevSystem"
-            >
-              ◀
-            </button>
-            <button
-              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="nextSystem"
-            >
-              ▶
-            </button>
-            <div
-              ref="systemsRef"
-              class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
-              @wheel.prevent
-            >
-              <div class="flex items-center gap-6 h-full px-12 min-w-max">
-                <SystemCard
-                  v-for="(p, i) in platforms"
-                  :key="p.id"
-                  :system="p"
-                  :index="i"
-                  :selected="
-                    navigationMode === 'systems' && i === selectedIndex
-                  "
-                  @click="goPlatform(p.id)"
-                  @focus="selectedIndex = i"
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="recent.length > 0" ref="recentSectionRef" class="pb-8">
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
-            Recently Played
-          </h2>
-          <div class="relative h-[400px]">
-            <button
-              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="prevRecent"
-            >
-              ◀
-            </button>
-            <button
-              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="nextRecent"
-            >
-              ▶
-            </button>
-            <div
-              ref="recentRef"
-              class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
-              @wheel.prevent
-            >
-              <div class="flex items-center gap-4 h-full px-12 min-w-max">
-                <GameCard
-                  v-for="(g, i) in recent"
-                  :key="`${g.platform_id}-${g.id}`"
-                  :rom="g"
-                  :index="i"
-                  :is-recent="true"
-                  :selected="navigationMode === 'recent' && i === recentIndex"
-                  :loaded="true"
-                  @click="goGame(g)"
-                  @focus="recentIndex = i"
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section
-          v-if="collections.length > 0"
-          ref="collectionsSectionRef"
-          class="pb-8"
-        >
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
-            Collections
-          </h2>
-          <div class="relative h-[400px]">
-            <button
-              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="prevCollection"
-            >
-              ◀
-            </button>
-            <button
-              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="nextCollection"
-            >
-              ▶
-            </button>
-            <div
-              ref="collectionsRef"
-              class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
-              @wheel.prevent
-            >
-              <div class="flex items-center gap-4 h-full px-12 min-w-max">
-                <CollectionCard
-                  v-for="(c, i) in collections"
-                  :key="`collection-${c.id}`"
-                  :collection="c"
-                  :index="i"
-                  :selected="
-                    navigationMode === 'collections' && i === collectionsIndex
-                  "
-                  :loaded="true"
-                  @click="goCollection(c.id)"
-                  @focus="collectionsIndex = i"
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div class="fixed top-4 right-4 z-20 flex gap-2">
-        <button
-          class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
-          :class="{
-            'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5':
-              navigationMode === 'controls' && controlIndex === 0,
-          }"
-          title="Exit Console Mode (F1)"
-          @click="exitConsoleMode"
-        >
-          ⏻
-        </button>
-        <button
-          class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
-          :class="{
-            'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5':
-              navigationMode === 'controls' && controlIndex === 1,
-          }"
-          title="Fullscreen (F11)"
-          @click="toggleFullscreen"
-        >
-          ⛶
-        </button>
-      </div>
-
-      <NavigationHint
-        :show-back="false"
-        :show-toggle-favorite="navigationMode === 'recent'"
-      />
-    </div>
-  </div>
-</template>
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, nextTick } from "vue";
 import { useRouter } from "vue-router";
@@ -188,7 +12,7 @@ import CollectionCard from "@/console/components/CollectionCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
-import { SUPPORTED_WEB_PLATFORM_SET } from "@/console/constants/platforms";
+import { isSupportedPlatform } from "@/console/constants/platforms";
 import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import { useInputScope } from "@/console/composables/useInputScope";
@@ -479,10 +303,7 @@ onMounted(async () => {
     const { data: plats } = await platformApi.getPlatforms();
     // Filter to only web-playable systems & hide those with zero roms.
     platforms.value = plats.filter(
-      (p) =>
-        p.rom_count > 0 &&
-        (SUPPORTED_WEB_PLATFORM_SET.has(p.slug) ||
-          SUPPORTED_WEB_PLATFORM_SET.has(p.fs_slug)),
+      (p) => p.rom_count > 0 && isSupportedPlatform(p.slug),
     );
     const { data: recents } = await romApi.getRecentPlayedRoms();
     recent.value = recents.items ?? [];
@@ -546,6 +367,183 @@ onUnmounted(() => {
   off = null;
 });
 </script>
+
+<template>
+  <div
+    ref="scrollContainerRef"
+    class="relative h-screen overflow-y-auto overflow-x-hidden"
+    @wheel.prevent
+  >
+    <div class="relative h-full flex flex-col">
+      <div class="mt-8 ml-8 flex items-center gap-3 select-none pb-3">
+        <RIsotipo :size="40" :avatar="false" />
+        <div class="text-white/90 font-bold text-[28px] drop-shadow-xl">
+          Console
+        </div>
+      </div>
+
+      <div v-if="loading" class="text-center text-fgDim mt-16">
+        Loading platforms…
+      </div>
+      <div v-else-if="error" class="text-center text-red-400 mt-16">
+        {{ error }}
+      </div>
+      <div v-else>
+        <section ref="platformsSectionRef" class="pb-2">
+          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
+            Platforms
+          </h2>
+          <div class="relative h-[220px]">
+            <button
+              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              @click="prevSystem"
+            >
+              ◀
+            </button>
+            <button
+              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              @click="nextSystem"
+            >
+              ▶
+            </button>
+            <div
+              ref="systemsRef"
+              class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
+              @wheel.prevent
+            >
+              <div class="flex items-center gap-6 h-full px-12 min-w-max">
+                <SystemCard
+                  v-for="(p, i) in platforms"
+                  :key="p.id"
+                  :system="p"
+                  :index="i"
+                  :selected="
+                    navigationMode === 'systems' && i === selectedIndex
+                  "
+                  @click="goPlatform(p.id)"
+                  @focus="selectedIndex = i"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section v-if="recent.length > 0" ref="recentSectionRef" class="pb-8">
+          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
+            Recently Played
+          </h2>
+          <div class="relative h-[400px]">
+            <button
+              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              @click="prevRecent"
+            >
+              ◀
+            </button>
+            <button
+              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              @click="nextRecent"
+            >
+              ▶
+            </button>
+            <div
+              ref="recentRef"
+              class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
+              @wheel.prevent
+            >
+              <div class="flex items-center gap-4 h-full px-12 min-w-max">
+                <GameCard
+                  v-for="(g, i) in recent"
+                  :key="`${g.platform_id}-${g.id}`"
+                  :rom="g"
+                  :index="i"
+                  :is-recent="true"
+                  :selected="navigationMode === 'recent' && i === recentIndex"
+                  :loaded="true"
+                  @click="goGame(g)"
+                  @focus="recentIndex = i"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          v-if="collections.length > 0"
+          ref="collectionsSectionRef"
+          class="pb-8"
+        >
+          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
+            Collections
+          </h2>
+          <div class="relative h-[400px]">
+            <button
+              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              @click="prevCollection"
+            >
+              ◀
+            </button>
+            <button
+              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              @click="nextCollection"
+            >
+              ▶
+            </button>
+            <div
+              ref="collectionsRef"
+              class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
+              @wheel.prevent
+            >
+              <div class="flex items-center gap-4 h-full px-12 min-w-max">
+                <CollectionCard
+                  v-for="(c, i) in collections"
+                  :key="`collection-${c.id}`"
+                  :collection="c"
+                  :index="i"
+                  :selected="
+                    navigationMode === 'collections' && i === collectionsIndex
+                  "
+                  :loaded="true"
+                  @click="goCollection(c.id)"
+                  @focus="collectionsIndex = i"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="fixed top-4 right-4 z-20 flex gap-2">
+        <button
+          class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
+          :class="{
+            'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5':
+              navigationMode === 'controls' && controlIndex === 0,
+          }"
+          title="Exit Console Mode (F1)"
+          @click="exitConsoleMode"
+        >
+          ⏻
+        </button>
+        <button
+          class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
+          :class="{
+            'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5':
+              navigationMode === 'controls' && controlIndex === 1,
+          }"
+          title="Fullscreen (F11)"
+          @click="toggleFullscreen"
+        >
+          ⛶
+        </button>
+      </div>
+
+      <NavigationHint
+        :show-back="false"
+        :show-toggle-favorite="navigationMode === 'recent'"
+      />
+    </div>
+  </div>
+</template>
 
 <style scoped>
 button:focus {
