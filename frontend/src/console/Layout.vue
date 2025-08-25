@@ -46,12 +46,6 @@ const { idle: mouseIdle } = useIdle(100, {
   events: ["mousemove", "mousedown", "wheel", "touchstart"],
 });
 
-watch(mouseIdle, (idle) => {
-  document
-    .querySelector("#application")
-    ?.classList.toggle("mouse-hidden", idle);
-});
-
 let detachKeyboard: (() => void) | null = null;
 let detachGamepad: (() => void) | null = null;
 
@@ -65,8 +59,6 @@ onMounted(() => {
 onUnmounted(() => {
   detachKeyboard?.();
   detachGamepad?.();
-
-  document.querySelector("#application")?.classList.remove("mouse-hidden");
 });
 </script>
 
