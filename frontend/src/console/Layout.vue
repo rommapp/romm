@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, provide, ref, watch } from "vue";
-import { useRoute, type RouteLocationNormalized } from "vue-router";
+import { onMounted, onUnmounted, provide, watch } from "vue";
+import { type RouteLocationNormalized } from "vue-router";
 import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import { attachKeyboard } from "@/console/input/keyboard";
 import { attachGamepad } from "@/console/input/gamepad";
 import { ROUTES } from "@/plugins/router";
+import { useRouter } from "vue-router";
+import { useIdle } from "@vueuse/core";
 
-const route = useRoute();
+const router = useRouter();
 const bus = new InputBus();
 provide(InputBusSymbol, bus);
 
@@ -19,18 +21,16 @@ const routeHierarchy = {
   [ROUTES.CONSOLE_PLAY]: 3,
 };
 
-let previousRoute: string | null = null;
-
-// Determine transition based on navigation direction and route type
 function getTransitionName(route: RouteLocationNormalized): string {
   const currentName = route.name as string;
   const currentLevel =
     routeHierarchy[currentName as keyof typeof routeHierarchy] ?? 1;
+
+  const previousRoute = router.options.history.state.back;
   const previousLevel = previousRoute
     ? (routeHierarchy[previousRoute as keyof typeof routeHierarchy] ?? 1)
     : 0;
 
-  // Special case for play mode (slide up/down)
   if (
     currentName === ROUTES.CONSOLE_PLAY ||
     previousRoute === ROUTES.CONSOLE_PLAY
@@ -38,72 +38,35 @@ function getTransitionName(route: RouteLocationNormalized): string {
     return currentLevel > previousLevel ? "slide-up" : "slide-down";
   }
 
-  // General navigation (slide left/right)
-  if (currentLevel > previousLevel) {
-    return "slide-left"; // Going deeper (forward)
-  } else if (currentLevel < previousLevel) {
-    return "slide-right"; // Going back
-  } else {
-    return "fade"; // Same level or first load
-  }
+  if (currentLevel > previousLevel) return "slide-left";
+  return currentLevel < previousLevel ? "slide-right" : "fade";
 }
 
-// Track route changes for transition direction
-watch(
-  () => route.name,
-  (newName, oldName) => {
-    if (oldName) {
-      previousRoute = oldName as string;
-    }
-  },
-);
+const { idle: mouseIdle } = useIdle(100, {
+  events: ["mousemove", "mousedown", "wheel", "touchstart"],
+});
+
+watch(mouseIdle, (idle) => {
+  document
+    .querySelector("#application")
+    ?.classList.toggle("mouse-hidden", idle);
+});
 
 let detachKeyboard: (() => void) | null = null;
 let detachGamepad: (() => void) | null = null;
-const mouseHidden = ref(false);
-let idleTimer: number | undefined;
-const HIDE_DELAY_MS = 100;
-
-const onMouseActivity = () => {
-  // Show cursor (remove shield) then schedule hide
-  if (mouseHidden.value) mouseHidden.value = false;
-  window.clearTimeout(idleTimer);
-  idleTimer = window.setTimeout(() => {
-    mouseHidden.value = true;
-  }, HIDE_DELAY_MS);
-};
-
-// Toggle class for global cursor hiding (covers any nested explicit cursor styles)
-watch(mouseHidden, (hidden) => {
-  const app = document.querySelector("#application");
-  if (app) app.classList.toggle("mouse-hidden", hidden);
-});
 
 onMounted(() => {
   // Establish a root input scope so child views can subscribe safely
   bus.pushScope();
   detachKeyboard = attachKeyboard(bus);
   detachGamepad = attachGamepad(bus);
-
-  // Mouse idle/hide across all console views
-  onMouseActivity();
-  document.addEventListener("mousemove", onMouseActivity, { passive: true });
-  document.addEventListener("mousedown", onMouseActivity, { passive: true });
-  document.addEventListener("wheel", onMouseActivity, { passive: true });
-  document.addEventListener("touchstart", onMouseActivity, { passive: true });
 });
 
 onUnmounted(() => {
-  const app = document.querySelector("#application");
-  if (app) app.classList.remove("mouse-hidden");
-
   detachKeyboard?.();
   detachGamepad?.();
-  document.removeEventListener("mousemove", onMouseActivity as EventListener);
-  document.removeEventListener("mousedown", onMouseActivity as EventListener);
-  document.removeEventListener("wheel", onMouseActivity as EventListener);
-  document.removeEventListener("touchstart", onMouseActivity as EventListener);
-  window.clearTimeout(idleTimer);
+
+  document.querySelector("#application")?.classList.remove("mouse-hidden");
 });
 </script>
 
@@ -111,11 +74,9 @@ onUnmounted(() => {
   <div class="min-h-screen text-white console-root relative">
     <!-- Shield overlay to neutralize mouse input while hidden; movement wakes it -->
     <div
-      v-if="mouseHidden"
+      v-if="!mouseIdle"
       class="fixed inset-0 z-50 cursor-none"
       aria-hidden="true"
-      @mousemove="onMouseActivity"
-      @pointermove="onMouseActivity"
       @mousedown.prevent
       @mouseup.prevent
       @click.prevent
