@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, onMounted, ref, watchEffect } from "vue";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import { getFavoriteCoverImage } from "@/utils/covers";

@@ -35,11 +35,9 @@ const isFavorited = computed(() => {
 onMounted(() => {
   if (!el.value) return;
 
-  // Use appropriate registry based on context
   if (props.registry === "gamesList") {
     gamesListElementRegistry.registerElement(props.index, el.value);
   } else {
-    // Default to recent registry for backward compatibility
     recentElementRegistry.registerElement(props.index, el.value);
   }
 });

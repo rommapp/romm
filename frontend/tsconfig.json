@@ -17,8 +17,5 @@
       "./src/types/main.d.ts",
       "vite/client"
     ]
-  },
-  "vueCompilerOptions": {
-    "globalTypesPath": "./src/types/__vue_global.d.ts"
   }
 }
