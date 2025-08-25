@@ -307,11 +307,10 @@ async function boot() {
   const storedCore = localStorage.getItem(`player:${r.platform_slug}:core`);
   const core =
     storedCore && supported.includes(storedCore) ? storedCore : supported[0];
-  const w = window as any;
-  w.EJS_core = core;
-  w.EJS_controlScheme = getControlSchemeForPlatform(r.platform_slug);
-  w.EJS_threads = areThreadsRequiredForEJSCore(core);
-  w.EJS_gameID = r.id;
+  window.EJS_core = core;
+  window.EJS_controlScheme = getControlSchemeForPlatform(r.platform_slug);
+  window.EJS_threads = areThreadsRequiredForEJSCore(core);
+  window.EJS_gameID = r.id;
   if (initialSaveId) {
     // Persist chosen save ID for later logic
     try {
@@ -336,7 +335,10 @@ async function boot() {
   // Disc selection persistence
   const storedDisc = localStorage.getItem(`player:${r.id}:disc`);
   const discId = storedDisc ? parseInt(storedDisc) : null;
-  w.EJS_gameUrl = getDownloadPath({ rom: r, fileIDs: discId ? [discId] : [] });
+  window.EJS_gameUrl = getDownloadPath({
+    rom: r,
+    fileIDs: discId ? [discId] : [],
+  });
   // BIOS selection persistence
   try {
     const { data: firmware } = await firmwareApi.getFirmware({
@@ -348,14 +350,14 @@ async function boot() {
     const bios = storedBiosID
       ? firmware.find((f) => f.id === parseInt(storedBiosID))
       : null;
-    w.EJS_biosUrl = bios
+    window.EJS_biosUrl = bios
       ? `/api/firmware/${bios.id}/content/${bios.file_name}`
       : "";
   } catch {
-    w.EJS_biosUrl = "";
+    window.EJS_biosUrl = "";
   }
-  w.EJS_player = "#game";
-  w.EJS_Buttons = {
+  window.EJS_player = "#game";
+  window.EJS_Buttons = {
     playPause: false,
     restart: false,
     mute: false,
@@ -375,23 +377,23 @@ async function boot() {
     cacheManager: false,
     exitEmulation: false,
   };
-  w.EJS_color = "#A453FF";
-  w.EJS_alignStartButton = "center";
-  w.EJS_startOnLoaded = true;
-  //   w.EJS_fullscreenOnLoaded = true;
-  w.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
-  w.EJS_backgroundColor = "#000000"; // Match original which uses theme colors, but #000000 should work fine
-  w.EJS_defaultOptions = {
+  window.EJS_color = "#A453FF";
+  window.EJS_alignStartButton = "center";
+  window.EJS_startOnLoaded = true;
+  //   window.EJS_fullscreenOnLoaded = true;
+  window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
+  window.EJS_backgroundColor = "#000000"; // Match original which uses theme colors, but #000000 should work fine
+  window.EJS_defaultOptions = {
     "save-state-location": "browser",
     rewindEnabled: "enabled",
   };
   // Set a valid game name (affects per-game settings keys)
-  w.EJS_gameName = (r.fs_name_no_tags || r.name || "")
+  window.EJS_gameName = (r.fs_name_no_tags || r.name || "")
     .replace(INVALID_CHARS_REGEX, "")
     .trim();
 
   // Set up EmulatorJS callbacks
-  w.EJS_onSaveState = async function ({
+  window.EJS_onSaveState = async function ({
     state: stateFile,
     screenshot: screenshotFile,
   }: {
@@ -419,7 +421,7 @@ async function boot() {
     }
   };
 
-  w.EJS_onSaveSave = async function ({
+  window.EJS_onSaveSave = async function ({
     save: saveFile,
     screenshot: screenshotFile,
   }: {
@@ -441,18 +443,18 @@ async function boot() {
     }
   };
 
-  w.EJS_onLoadState = async function () {
+  window.EJS_onLoadState = async function () {
     console.info("[ConsolePlay] EJS_onLoadState callback triggered");
     // State loading UI would go here if needed
   };
 
-  w.EJS_onLoadSave = async function () {
+  window.EJS_onLoadSave = async function () {
     console.info("[ConsolePlay] EJS_onLoadSave callback triggered");
     // Save loading UI would go here if needed
   };
 
   // Ensure a controller is auto-assigned to Player 1 when available
-  w.EJS_onGameStart = () => {
+  window.EJS_onGameStart = () => {
     const e = (window as any).EJS_emulator;
     if (!e) return;
     const waitForGameManager = async () => {
@@ -564,7 +566,7 @@ async function boot() {
 
   async function attemptLoad(path: string, label: "local" | "cdn") {
     loaderStatus.value = label === "local" ? "loading-local" : "loading-cdn";
-    w.EJS_pathtodata = path;
+    window.EJS_pathtodata = path;
     await loadScript(`${path}loader.js`);
   }
 

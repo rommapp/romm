@@ -1,67 +1,3 @@
-<template>
-  <div
-    class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex"
-    @wheel.prevent
-  >
-    <BackButton :text="headerTitle" :on-back="navigateBack" />
-    <div
-      class="relative flex-1 min-w-0 pr-[40px]"
-      :style="{ width: 'calc(100vw - 40px)' }"
-    >
-      <div v-if="loading" class="text-center text-fgDim mt-8">
-        Loading games…
-      </div>
-      <div v-else-if="error" class="text-center text-red-400 mt-8">
-        {{ error }}
-      </div>
-      <div v-else>
-        <div v-if="filtered.length === 0" class="text-center text-fgDim p-4">
-          No games found.
-        </div>
-        <div
-          ref="gridRef"
-          class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
-          @wheel.prevent
-        >
-          <GameCard
-            v-for="(rom, i) in filtered"
-            :key="rom.id"
-            :rom="rom"
-            :index="i"
-            :selected="!inAlphabet && i === selectedIndex"
-            :loaded="!!loadedMap[rom.id]"
-            @click="selectAndOpen(i, rom)"
-            @focus="mouseSelect(i)"
-            @loaded="markLoaded(rom.id)"
-          />
-        </div>
-      </div>
-    </div>
-    <div
-      class="w-[40px] bg-black/30 backdrop-blur border-l border-white/10 fixed top-0 right-0 h-screen overflow-hidden z-30 flex-shrink-0"
-      :class="{
-        'bg-[rgba(248,180,0,0.75)] border-l-[rgba(248,180,0,0.75)]': inAlphabet,
-      }"
-    >
-      <div class="flex flex-col h-screen pa-2 items-center justify-evenly">
-        <button
-          v-for="(L, i) in letters"
-          :key="L"
-          class="bg-white/5 border border-white/10 text-fgDim rounded w-7 h-7 text-[0.7rem] font-semibold flex items-center justify-center shrink-0 transition-all hover:text-fg0 hover:border-white/30 hover:bg-white/10"
-          :class="{
-            'bg-[var(--accent-2)] border-[var(--accent)] text-white shadow-[0_0_0_2px_rgba(248,180,0,1)]':
-              inAlphabet && i === alphaIndex,
-          }"
-          @click="jumpToLetter(L)"
-        >
-          {{ L }}
-        </button>
-      </div>
-    </div>
-    <NavigationHint :show-toggle-favorite="true" />
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -76,6 +12,7 @@ import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { useRovingDom } from "@/console/composables/useRovingDom";
+import { gamesListElementRegistry } from "@/console/composables/useElementRegistry";
 import consoleStore from "@/stores/console";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import type { SimpleRom } from "@/stores/roms";
@@ -86,44 +23,45 @@ const router = useRouter();
 const storeConsole = consoleStore();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 
-const isCollection = computed(() => route.name === ROUTES.CONSOLE_COLLECTION);
-const platformId = computed(() =>
-  isCollection.value ? null : Number(route.params.id),
-);
-const collectionId = computed(() =>
-  isCollection.value ? Number(route.params.id) : null,
-);
+const isCollectionRoute = route.name === ROUTES.CONSOLE_COLLECTION;
+const platformId = isCollectionRoute ? null : Number(route.params.id);
+const collectionId = isCollectionRoute ? Number(route.params.id) : null;
 
 const roms = ref<SimpleRomSchema[]>([]);
 const collection = ref<CollectionSchema | null>(null);
 const loading = ref(true);
 const error = ref("");
 const selectedIndex = ref(0);
-const query = ref("");
 const loadedMap = ref<Record<number, boolean>>({});
 const inAlphabet = ref(false);
 const alphaIndex = ref(0);
 const gridRef = ref<HTMLDivElement>();
 
-// init selection from store
-if (platformId.value != null) {
-  selectedIndex.value = storeConsole.getPlatformGameIndex(platformId.value);
+// Initialize selection from store
+if (platformId != null) {
+  selectedIndex.value = storeConsole.getPlatformGameIndex(platformId);
 }
-if (collectionId.value != null) {
-  selectedIndex.value = storeConsole.getCollectionGameIndex(collectionId.value);
+if (collectionId != null) {
+  selectedIndex.value = storeConsole.getCollectionGameIndex(collectionId);
 }
 
-const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+// Generate alphabet letters dynamically based on available games
+const letters = computed(() => {
+  return Array.from(
+    new Set(
+      roms.value
+        .map(({ name }) => name?.charAt(0).toUpperCase() || "")
+        .filter((letter) => /[A-Z0-9]/.test(letter)),
+    ),
+  );
+});
 
 function persistIndex() {
-  if (platformId.value != null) {
-    storeConsole.setPlatformGameIndex(platformId.value, selectedIndex.value);
+  if (platformId != null) {
+    storeConsole.setPlatformGameIndex(platformId, selectedIndex.value);
   }
-  if (collectionId.value != null) {
-    storeConsole.setCollectionGameIndex(
-      collectionId.value,
-      selectedIndex.value,
-    );
+  if (collectionId != null) {
+    storeConsole.setCollectionGameIndex(collectionId, selectedIndex.value);
   }
 }
 
@@ -133,9 +71,10 @@ function navigateBack() {
 }
 
 const headerTitle = computed(() => {
-  if (isCollection.value) {
+  if (isCollectionRoute) {
     return collection.value?.name || "Collection";
   }
+
   return (
     current.value?.platform_name ||
     current.value?.platform_slug?.toUpperCase() ||
@@ -143,15 +82,8 @@ const headerTitle = computed(() => {
   );
 });
 
-const filtered = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  return q
-    ? roms.value.filter((r) => (r.name || "").toLowerCase().includes(q))
-    : roms.value;
-});
-
 const current = computed(
-  () => filtered.value[selectedIndex.value] || filtered.value[0],
+  () => roms.value[selectedIndex.value] || roms.value[0],
 );
 
 function getCols(): number {
@@ -165,9 +97,7 @@ function getCols(): number {
 }
 
 // Selected element access
-const cardElementAt = (i: number) =>
-  (window as unknown as { gameCardElements?: HTMLElement[] })
-    .gameCardElements?.[i];
+const cardElementAt = (i: number) => gamesListElementRegistry.getElement(i);
 useRovingDom(selectedIndex, (i) => cardElementAt(i), {
   block: "center",
   inline: "nearest",
@@ -179,10 +109,10 @@ const {
   moveRight,
   moveUp,
   moveDown: moveDownBasic,
-} = useSpatialNav(selectedIndex, getCols, () => filtered.value.length);
+} = useSpatialNav(selectedIndex, getCols, () => roms.value.length);
 
 function handleAction(action: InputAction): boolean {
-  if (!filtered.value.length) return false;
+  if (!roms.value.length) return false;
   if (inAlphabet.value) {
     if (action === "moveLeft") {
       inAlphabet.value = false;
@@ -193,12 +123,15 @@ function handleAction(action: InputAction): boolean {
       return true;
     }
     if (action === "moveDown") {
-      alphaIndex.value = Math.min(letters.length - 1, alphaIndex.value + 1);
+      alphaIndex.value = Math.min(
+        Array.from(letters.value).length - 1,
+        alphaIndex.value + 1,
+      );
       return true;
     }
     if (action === "confirm") {
-      const L = letters[alphaIndex.value];
-      const idx = filtered.value.findIndex((r) =>
+      const L = Array.from(letters.value)[alphaIndex.value];
+      const idx = roms.value.findIndex((r) =>
         normalizeTitle(r.name || "").startsWith(L),
       );
       if (idx >= 0) {
@@ -234,7 +167,7 @@ function handleAction(action: InputAction): boolean {
       moveDownBasic();
       if (selectedIndex.value === before) {
         const cols = getCols();
-        const count = filtered.value.length;
+        const count = roms.value.length;
         const totalRows = Math.ceil(count / cols);
         const currentRow = Math.floor(before / cols);
         if (totalRows > currentRow + 1) {
@@ -247,11 +180,11 @@ function handleAction(action: InputAction): boolean {
       navigateBack();
       return true;
     case "confirm": {
-      const rom = filtered.value[selectedIndex.value];
+      const rom = roms.value[selectedIndex.value];
       persistIndex();
       const query: Record<string, number> = {};
-      if (platformId.value != null) query.id = platformId.value;
-      if (isCollection.value) query.collection = collectionId.value!;
+      if (platformId != null) query.id = platformId;
+      if (isCollectionRoute) query.collection = collectionId!;
       router.push({
         name: ROUTES.CONSOLE_ROM,
         params: { rom: rom.id },
@@ -260,7 +193,7 @@ function handleAction(action: InputAction): boolean {
       return true;
     }
     case "toggleFavorite": {
-      const rom = filtered.value[selectedIndex.value];
+      const rom = roms.value[selectedIndex.value];
       if (rom) {
         // Cast SimpleRomSchema (generated) to store SimpleRom (alias) – shapes align
         toggleFavoriteComposable(rom as unknown as SimpleRom);
@@ -279,8 +212,8 @@ function selectAndOpen(i: number, rom: SimpleRomSchema) {
   selectedIndex.value = i;
   persistIndex();
   const query: Record<string, number> = {};
-  if (platformId.value != null) query.id = platformId.value;
-  if (isCollection.value) query.collection = collectionId.value!;
+  if (platformId != null) query.id = platformId;
+  if (isCollectionRoute) query.collection = collectionId!;
   router.push({
     name: ROUTES.CONSOLE_ROM,
     params: { rom: rom.id },
@@ -288,7 +221,7 @@ function selectAndOpen(i: number, rom: SimpleRomSchema) {
   });
 }
 function jumpToLetter(L: string) {
-  const idx = filtered.value.findIndex((r) =>
+  const idx = roms.value.findIndex((r) =>
     normalizeTitle(r.name || "").startsWith(L),
   );
   if (idx >= 0) {
@@ -303,25 +236,23 @@ function normalizeTitle(name: string) {
 let off: (() => void) | null = null;
 onMounted(async () => {
   try {
-    if (platformId.value != null) {
+    if (platformId != null) {
       const { data } = await romApi.getRoms({
-        platformId: platformId.value,
+        platformId: platformId,
         limit: 500,
         orderBy: "name",
         orderDir: "asc",
       });
       roms.value = data.items ?? [];
-    } else if (collectionId.value != null) {
+    } else if (collectionId != null) {
       const { data } = await romApi.getRoms({
-        collectionId: collectionId.value,
+        collectionId: collectionId,
         limit: 500,
         orderBy: "name",
         orderDir: "asc",
       });
       roms.value = data.items ?? [];
-      const { data: col } = await collectionApi.getCollection(
-        collectionId.value,
-      );
+      const { data: col } = await collectionApi.getCollection(collectionId);
       collection.value = col ?? null;
     }
     for (const r of roms.value) {
@@ -334,7 +265,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-  if (selectedIndex.value >= filtered.value.length) selectedIndex.value = 0;
+  if (selectedIndex.value >= roms.value.length) selectedIndex.value = 0;
   await nextTick();
   try {
     cardElementAt(selectedIndex.value)?.scrollIntoView({
@@ -358,6 +289,71 @@ function markLoaded(id: number) {
   loadedMap.value[id] = true;
 }
 </script>
+
+<template>
+  <div
+    class="relative min-h-screen overflow-y-auto overflow-x-hidden max-w-[100vw] flex"
+    @wheel.prevent
+  >
+    <BackButton :text="headerTitle" :on-back="navigateBack" />
+    <div
+      class="relative flex-1 min-w-0 pr-[40px]"
+      :style="{ width: 'calc(100vw - 40px)' }"
+    >
+      <div v-if="loading" class="text-center text-fgDim mt-8">
+        Loading games…
+      </div>
+      <div v-else-if="error" class="text-center text-red-400 mt-8">
+        {{ error }}
+      </div>
+      <div v-else>
+        <div v-if="roms.length === 0" class="text-center text-fgDim p-4">
+          No games found.
+        </div>
+        <div
+          ref="gridRef"
+          class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
+          @wheel.prevent
+        >
+          <game-card
+            v-for="(rom, i) in roms"
+            :key="rom.id"
+            :rom="rom"
+            :index="i"
+            :selected="!inAlphabet && i === selectedIndex"
+            :loaded="!!loadedMap[rom.id]"
+            registry="gamesList"
+            @click="selectAndOpen(i, rom)"
+            @focus="mouseSelect(i)"
+            @loaded="markLoaded(rom.id)"
+          />
+        </div>
+      </div>
+    </div>
+    <div
+      class="w-[40px] bg-black/30 backdrop-blur border-l border-white/10 fixed top-0 right-0 h-screen overflow-hidden z-30 flex-shrink-0"
+      :class="{
+        'bg-[rgba(248,180,0,0.75)] border-l-[rgba(248,180,0,0.75)]': inAlphabet,
+      }"
+    >
+      <div class="flex flex-col h-screen pa-2 items-center justify-evenly">
+        <button
+          v-for="(L, i) in letters"
+          :key="L"
+          class="bg-white/5 border border-white/10 text-fgDim rounded w-7 h-7 text-[0.7rem] font-semibold flex items-center justify-center shrink-0 transition-all hover:text-fg0 hover:border-white/30 hover:bg-white/10"
+          :class="{
+            'bg-[var(--accent-2)] border-[var(--accent)] text-white shadow-[0_0_0_2px_rgba(248,180,0,1)]':
+              inAlphabet && i === alphaIndex,
+          }"
+          @click="jumpToLetter(L)"
+        >
+          {{ L }}
+        </button>
+      </div>
+    </div>
+    <NavigationHint :show-toggle-favorite="true" />
+  </div>
+</template>
 
 <style scoped>
 button:focus {

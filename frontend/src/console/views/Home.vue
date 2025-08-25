@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import { onMounted, onUnmounted, ref, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import platformApi from "@/services/api/platform";
@@ -21,17 +22,21 @@ import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { useRovingDom } from "@/console/composables/useRovingDom";
 import consoleStore from "@/stores/console";
 import { ROUTES } from "@/plugins/router";
-import { storeToRefs } from "pinia";
 
 const router = useRouter();
 const collectionsStore = storeCollections();
+const storeConsole = consoleStore();
+const { navigationMode } = storeToRefs(storeConsole);
+const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
+const { on } = useInputScope();
+
 const platforms = ref<PlatformSchema[]>([]);
 const recent = ref<SimpleRomSchema[]>([]);
 const collections = ref<CollectionSchema[]>([]);
 const loading = ref(true);
 const error = ref("");
-const storeConsole = consoleStore();
-const { navigationMode } = storeToRefs(storeConsole);
+
+// Navigation indices
 const selectedIndex = ref(storeConsole.platformIndex);
 const recentIndex = ref(storeConsole.recentIndex);
 const collectionsIndex = ref(storeConsole.collectionsIndex);
@@ -44,62 +49,19 @@ const platformsSectionRef = ref<HTMLElement>();
 const recentSectionRef = ref<HTMLElement>();
 const collectionsSectionRef = ref<HTMLElement>();
 
-function scrollToCurrentRow() {
-  const behavior: ScrollBehavior = "smooth";
-  switch (navigationMode.value) {
-    case "systems":
-      scrollContainerRef.value?.scrollTo({ top: 0, behavior });
-      break;
-    case "recent":
-      recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
-      break;
-    case "collections":
-      collectionsSectionRef.value?.scrollIntoView({ behavior, block: "start" });
-      break;
-    default:
-      break;
-  }
-}
+// Element registries for roving DOM
+import {
+  systemElementRegistry,
+  recentElementRegistry,
+  collectionElementRegistry,
+} from "@/console/composables/useElementRegistry";
 
-function exitConsoleMode() {
-  if (document.fullscreenElement) {
-    document.exitFullscreen?.();
-  }
-  router.push({ name: "home" });
-}
-
-function toggleFullscreen() {
-  const de = document.documentElement as HTMLElement & {
-    requestFullscreen?: () => Promise<void>;
-  };
-  if (!document.fullscreenElement) de.requestFullscreen?.();
-  else document.exitFullscreen?.();
-}
-function goPlatform(id: number) {
-  router.push({ name: ROUTES.CONSOLE_PLATFORM, params: { id } });
-}
-function goGame(g: SimpleRomSchema) {
-  router.push({
-    name: ROUTES.CONSOLE_ROM,
-    params: { rom: g.id },
-    query: { id: g.platform_id },
-  });
-}
-function goCollection(id: number) {
-  router.push({ name: ROUTES.CONSOLE_COLLECTION, params: { id } });
-}
-
-// Accessors for legacy global arrays registered elsewhere (SystemCard/GameCard/CollectionCard components)
-const systemElementAt = (i: number) =>
-  (window as unknown as { systemCardElements?: HTMLElement[] })
-    .systemCardElements?.[i];
-const recentElementAt = (i: number) =>
-  (window as unknown as { recentGameElements?: HTMLElement[] })
-    .recentGameElements?.[i];
+const systemElementAt = (i: number) => systemElementRegistry.getElement(i);
+const recentElementAt = (i: number) => recentElementRegistry.getElement(i);
 const collectionElementAt = (i: number) =>
-  (window as unknown as { collectionCardElements?: HTMLElement[] })
-    .collectionCardElements?.[i];
+  collectionElementRegistry.getElement(i);
 
+// Spatial navigation
 const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(
   selectedIndex,
   () => platforms.value.length || 1,
@@ -117,40 +79,7 @@ const { moveLeft: moveCollectionLeft, moveRight: moveCollectionRight } =
     () => collections.value.length,
   );
 
-function prevSystem() {
-  const before = selectedIndex.value;
-  moveSystemLeft();
-  if (selectedIndex.value === before)
-    selectedIndex.value = Math.max(0, platforms.value.length - 1);
-}
-function nextSystem() {
-  const before = selectedIndex.value;
-  moveSystemRight();
-  if (selectedIndex.value === before) selectedIndex.value = 0;
-}
-function prevRecent() {
-  const before = recentIndex.value;
-  moveRecentLeft();
-  if (recentIndex.value === before)
-    recentIndex.value = Math.max(0, recent.value.length - 1);
-}
-function nextRecent() {
-  const before = recentIndex.value;
-  moveRecentRight();
-  if (recentIndex.value === before) recentIndex.value = 0;
-}
-function prevCollection() {
-  const before = collectionsIndex.value;
-  moveCollectionLeft();
-  if (collectionsIndex.value === before)
-    collectionsIndex.value = Math.max(0, collections.value.length - 1);
-}
-function nextCollection() {
-  const before = collectionsIndex.value;
-  moveCollectionRight();
-  if (collectionsIndex.value === before) collectionsIndex.value = 0;
-}
-
+// Roving DOM setup
 useRovingDom(selectedIndex, systemElementAt, {
   inline: "center",
   block: "nearest",
@@ -164,65 +93,194 @@ useRovingDom(collectionsIndex, collectionElementAt, {
   block: "nearest",
 });
 
-const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
+// Navigation functions
+const navigationFunctions = {
+  systems: {
+    prev: () => {
+      const before = selectedIndex.value;
+      moveSystemLeft();
+      if (selectedIndex.value === before) {
+        selectedIndex.value = Math.max(0, platforms.value.length - 1);
+      }
+    },
+    next: () => {
+      const before = selectedIndex.value;
+      moveSystemRight();
+      if (selectedIndex.value === before) {
+        selectedIndex.value = 0;
+      }
+    },
+    confirm: () => {
+      if (!platforms.value[selectedIndex.value]) return false;
+      router.push({
+        name: ROUTES.CONSOLE_PLATFORM,
+        params: { id: platforms.value[selectedIndex.value].id },
+      });
+      return true;
+    },
+  },
+  recent: {
+    prev: () => {
+      const before = recentIndex.value;
+      moveRecentLeft();
+      if (recentIndex.value === before) {
+        recentIndex.value = Math.max(0, recent.value.length - 1);
+      }
+    },
+    next: () => {
+      const before = recentIndex.value;
+      moveRecentRight();
+      if (recentIndex.value === before) {
+        recentIndex.value = 0;
+      }
+    },
+    confirm: () => {
+      if (!recent.value[recentIndex.value]) return false;
+      router.push({
+        name: ROUTES.CONSOLE_ROM,
+        params: { rom: recent.value[recentIndex.value].id },
+        query: { id: recent.value[recentIndex.value].platform_id },
+      });
+      return true;
+    },
+  },
+  collections: {
+    prev: () => {
+      const before = collectionsIndex.value;
+      moveCollectionLeft();
+      if (collectionsIndex.value === before) {
+        collectionsIndex.value = Math.max(0, collections.value.length - 1);
+      }
+    },
+    next: () => {
+      const before = collectionsIndex.value;
+      moveCollectionRight();
+      if (collectionsIndex.value === before) {
+        collectionsIndex.value = 0;
+      }
+    },
+    confirm: () => {
+      if (!collections.value[collectionsIndex.value]) return false;
+      router.push({
+        name: ROUTES.CONSOLE_COLLECTION,
+        params: { id: collections.value[collectionsIndex.value].id },
+      });
+      return true;
+    },
+  },
+  controls: {
+    prev: () => {
+      controlIndex.value = (controlIndex.value - 1 + 2) % 2;
+    },
+    next: () => {
+      controlIndex.value = (controlIndex.value + 1) % 2;
+    },
+    confirm: () => {
+      controlIndex.value === 0 ? exitConsoleMode() : toggleFullscreen();
+      return true;
+    },
+  },
+};
 
-const { on } = useInputScope();
+function scrollToCurrentRow() {
+  const behavior: ScrollBehavior = "smooth";
+  switch (navigationMode.value) {
+    case "systems":
+      scrollContainerRef.value?.scrollTo({ top: 0, behavior });
+      break;
+    case "recent":
+      recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
+      break;
+    case "collections":
+      collectionsSectionRef.value?.scrollIntoView({ behavior, block: "start" });
+      break;
+  }
+}
+
+function centerInCarousel(
+  container: HTMLElement | undefined | null,
+  el: HTMLElement | undefined | null,
+) {
+  if (!container || !el) return;
+  if (container.scrollWidth <= container.clientWidth) return;
+  const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
+  container.scrollLeft = Math.max(
+    0,
+    Math.min(target, container.scrollWidth - container.clientWidth),
+  );
+}
+
+function exitConsoleMode() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+  }
+  router.push({ name: "home" });
+}
+
+function toggleFullscreen() {
+  document.fullscreenElement
+    ? document.exitFullscreen?.()
+    : document.documentElement.requestFullscreen?.();
+}
+
+// Navigation handlers
+function goPlatform(platformId: number) {
+  router.push({ name: ROUTES.CONSOLE_PLATFORM, params: { id: platformId } });
+}
+
+function goGame(game: SimpleRomSchema) {
+  router.push({
+    name: ROUTES.CONSOLE_ROM,
+    params: { rom: game.id },
+    query: { id: game.platform_id },
+  });
+}
+
+function goCollection(collectionId: number) {
+  router.push({
+    name: ROUTES.CONSOLE_COLLECTION,
+    params: { id: collectionId },
+  });
+}
+
+// Input handling
 function handleAction(action: InputAction): boolean {
+  const currentMode = navigationMode.value;
+
   switch (action) {
     case "moveLeft":
-      if (navigationMode.value === "systems") {
-        prevSystem();
-        return true;
-      }
-      if (navigationMode.value === "recent") {
-        prevRecent();
-        return true;
-      }
-      if (navigationMode.value === "collections") {
-        prevCollection();
-        return true;
-      }
-      if (navigationMode.value === "controls") {
-        controlIndex.value = (controlIndex.value - 1 + 2) % 2;
+      if (currentMode in navigationFunctions) {
+        navigationFunctions[currentMode].prev();
         return true;
       }
       return false;
+
     case "moveRight":
-      if (navigationMode.value === "systems") {
-        nextSystem();
-        return true;
-      }
-      if (navigationMode.value === "recent") {
-        nextRecent();
-        return true;
-      }
-      if (navigationMode.value === "collections") {
-        nextCollection();
-        return true;
-      }
-      if (navigationMode.value === "controls") {
-        controlIndex.value = (controlIndex.value + 1) % 2;
+      if (currentMode in navigationFunctions) {
+        navigationFunctions[currentMode].next();
         return true;
       }
       return false;
+
     case "moveUp":
-      if (navigationMode.value === "systems") {
+      if (currentMode === "systems") {
         navigationMode.value = "controls";
         return true;
       }
-      if (navigationMode.value === "recent") {
+      if (currentMode === "recent") {
         navigationMode.value = "systems";
         scrollToCurrentRow();
         return true;
       }
-      if (navigationMode.value === "collections") {
+      if (currentMode === "collections") {
         navigationMode.value = recent.value.length > 0 ? "recent" : "systems";
         scrollToCurrentRow();
         return true;
       }
       return false;
+
     case "moveDown":
-      if (navigationMode.value === "systems") {
+      if (currentMode === "systems") {
         navigationMode.value =
           recent.value.length > 0
             ? "recent"
@@ -232,67 +290,34 @@ function handleAction(action: InputAction): boolean {
         scrollToCurrentRow();
         return true;
       }
-      if (navigationMode.value === "recent") {
+      if (currentMode === "recent") {
         navigationMode.value =
           collections.value.length > 0 ? "collections" : "controls";
         scrollToCurrentRow();
         return true;
       }
-      if (navigationMode.value === "controls") {
+      if (currentMode === "controls") {
         navigationMode.value = "systems";
         return true;
       }
       return false;
+
     case "confirm":
-      if (
-        navigationMode.value === "systems" &&
-        platforms.value[selectedIndex.value]
-      ) {
-        router.push({
-          name: ROUTES.CONSOLE_PLATFORM,
-          params: { id: platforms.value[selectedIndex.value].id },
-        });
-        return true;
-      }
-      if (
-        navigationMode.value === "recent" &&
-        recent.value[recentIndex.value]
-      ) {
-        router.push({
-          name: ROUTES.CONSOLE_ROM,
-          params: { rom: recent.value[recentIndex.value].id },
-          query: { id: recent.value[recentIndex.value].platform_id },
-        });
-        return true;
-      }
-      if (
-        navigationMode.value === "collections" &&
-        collections.value[collectionsIndex.value]
-      ) {
-        router.push({
-          name: ROUTES.CONSOLE_COLLECTION,
-          params: { id: collections.value[collectionsIndex.value].id },
-        });
-        return true;
-      }
-      if (navigationMode.value === "controls") {
-        if (controlIndex.value === 0) exitConsoleMode();
-        else toggleFullscreen();
-        return true;
+      if (currentMode in navigationFunctions) {
+        return navigationFunctions[currentMode].confirm() ?? false;
       }
       return false;
+
     case "back":
       return true;
+
     case "toggleFavorite":
-      if (
-        navigationMode.value === "recent" &&
-        recent.value[recentIndex.value]
-      ) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        toggleFavoriteComposable(recent.value[recentIndex.value] as any);
+      if (currentMode === "recent" && recent.value[recentIndex.value]) {
+        toggleFavoriteComposable(recent.value[recentIndex.value]);
         return true;
       }
       return false;
+
     default:
       return false;
   }
@@ -300,17 +325,19 @@ function handleAction(action: InputAction): boolean {
 
 onMounted(async () => {
   try {
-    const { data: plats } = await platformApi.getPlatforms();
-    // Filter to only web-playable systems & hide those with zero roms.
+    const [{ data: plats }, { data: recents }, { data: cols }] =
+      await Promise.all([
+        platformApi.getPlatforms(),
+        romApi.getRecentPlayedRoms(),
+        collectionApi.getCollections(),
+      ]);
+
     platforms.value = plats.filter(
       (p) => p.rom_count > 0 && isSupportedPlatform(p.slug),
     );
-    const { data: recents } = await romApi.getRecentPlayedRoms();
     recent.value = recents.items ?? [];
-    const { data: cols } = await collectionApi.getCollections();
     collections.value = cols ?? [];
 
-    // Initialize collections store for favorites functionality
     collectionsStore.setCollections(cols ?? []);
     collectionsStore.setFavoriteCollection(
       cols?.find(
@@ -322,40 +349,30 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-  // restore indexs within bounds after data load (in case counts shrank)
+
+  // Restore indices within bounds
   if (selectedIndex.value >= platforms.value.length) selectedIndex.value = 0;
   if (recentIndex.value >= recent.value.length) recentIndex.value = 0;
   if (collectionsIndex.value >= collections.value.length)
     collectionsIndex.value = 0;
+
   await nextTick();
-  // vertical scroll to the correct section
   scrollToCurrentRow();
-  // helper to center an element inside a horizontal scroll container without affecting vertical scroll
-  function centerInCarousel(
-    container: HTMLElement | undefined | null,
-    el: HTMLElement | undefined | null,
-  ) {
-    if (!container || !el) return;
-    // Only adjust if content wider than container
-    if (container.scrollWidth <= container.clientWidth) return;
-    const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
-    container.scrollLeft = Math.max(
-      0,
-      Math.min(target, container.scrollWidth - container.clientWidth),
-    );
-  }
-  // Center each carousel to its stored index (even if not currently focused) for visual continuity
+
+  // Center carousels
   centerInCarousel(systemsRef.value, systemElementAt(selectedIndex.value));
   centerInCarousel(recentRef.value, recentElementAt(recentIndex.value));
   centerInCarousel(
     collectionsRef.value,
     collectionElementAt(collectionsIndex.value),
   );
+
   off = on(handleAction);
 });
+
 let off: (() => void) | null = null;
+
 onUnmounted(() => {
-  // persist current state
   storeConsole.setHomeState({
     platformIndex: selectedIndex.value,
     recentIndex: recentIndex.value,
@@ -396,13 +413,13 @@ onUnmounted(() => {
           <div class="relative h-[220px]">
             <button
               class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="prevSystem"
+              @click="navigationFunctions.systems.prev"
             >
               ◀
             </button>
             <button
               class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="nextSystem"
+              @click="navigationFunctions.systems.next"
             >
               ▶
             </button>
@@ -435,13 +452,13 @@ onUnmounted(() => {
           <div class="relative h-[400px]">
             <button
               class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="prevRecent"
+              @click="navigationFunctions.recent.prev"
             >
               ◀
             </button>
             <button
               class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="nextRecent"
+              @click="navigationFunctions.recent.next"
             >
               ▶
             </button>
@@ -478,13 +495,13 @@ onUnmounted(() => {
           <div class="relative h-[400px]">
             <button
               class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="prevCollection"
+              @click="navigationFunctions.collections.prev"
             >
               ◀
             </button>
             <button
               class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
-              @click="nextCollection"
+              @click="navigationFunctions.collections.next"
             >
               ▶
             </button>
