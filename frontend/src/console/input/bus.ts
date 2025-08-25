@@ -1,4 +1,4 @@
-import type { InputAction, InputListener } from './actions';
+import type { InputAction, InputListener } from "./actions";
 
 export class InputBus {
   private scopes: Array<Set<InputListener>> = [];
@@ -17,7 +17,7 @@ export class InputBus {
 
   subscribe(listener: InputListener): () => void {
     const top = this.scopes[this.scopes.length - 1];
-    if (!top) throw new Error('No active input scope. Call pushScope() first.');
+    if (!top) throw new Error("No active input scope. Call pushScope() first.");
     top.add(listener);
     return () => top.delete(listener);
   }
@@ -43,4 +43,4 @@ export class InputBus {
   }
 }
 
-export const InputBusSymbol = Symbol('InputBus');
+export const InputBusSymbol = Symbol("InputBus");

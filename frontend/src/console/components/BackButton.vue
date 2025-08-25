@@ -7,30 +7,28 @@
       :aria-label="text ? `Back to ${text}` : 'Back'"
       @click="goBack"
     >
-      <span
-        aria-hidden="true"
-        class="text-lg leading-none"
-      >←</span>
+      <span aria-hidden="true" class="text-lg leading-none">←</span>
     </button>
     <span
       v-if="text"
       class="ml-3 text-white/90 text-3xl font-bold drop-shadow select-none"
-    >{{ text }}</span>
+      >{{ text }}</span
+    >
   </div>
 </template>
 
 <script setup lang="ts">
-import { toRefs } from 'vue';
-import { useRouter } from 'vue-router';
+import { toRefs } from "vue";
+import { useRouter } from "vue-router";
 
-const props = defineProps<{ 
+const props = defineProps<{
   text?: string;
   onBack?: () => void;
 }>();
 const { text, onBack } = toRefs(props);
 
 const router = useRouter();
-function goBack(){
+function goBack() {
   if (onBack?.value) {
     onBack.value();
   } else {

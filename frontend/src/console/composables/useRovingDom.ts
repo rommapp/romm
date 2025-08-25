@@ -1,4 +1,4 @@
-import { watch, type Ref } from 'vue';
+import { watch, type Ref } from "vue";
 
 interface RovingOptions {
   scroll?: boolean; // default true
@@ -8,32 +8,44 @@ interface RovingOptions {
   focus?: boolean; // default true
 }
 
-/**
- * Attaches roving tabindex + optional focus & scrollIntoView behavior to a list/grid of focusable elements.
- * Keeps the currently selected element at tabindex=0 and others at -1 for accessibility.
- */
-export function useRovingDom(index: Ref<number>, getEl: (i: number) => HTMLElement | undefined, opts: RovingOptions = {}) {
+export function useRovingDom(
+  index: Ref<number>,
+  getEl: (i: number) => HTMLElement | undefined,
+  opts: RovingOptions = {}
+) {
   const {
     scroll = true,
-    block = 'center',
-    inline = 'nearest',
-    behavior = 'smooth',
+    block = "center",
+    inline = "nearest",
+    behavior = "smooth",
     focus = true,
   } = opts;
 
-  watch(index, (newIdx, oldIdx) => {
-    if (oldIdx != null) {
-      const prev = getEl(oldIdx);
-      if (prev) prev.setAttribute('tabindex', '-1');
-    }
-    const el = getEl(newIdx);
-    if (!el) return;
-    el.setAttribute('tabindex', '0');
-    if (focus) {
-      try { el.focus({ preventScroll: true }); } catch { /* ignore */ }
-    }
-    if (scroll) {
-      try { el.scrollIntoView({ block, inline, behavior }); } catch { /* ignore */ }
-    }
-  }, { immediate: true });
+  watch(
+    index,
+    (newIdx, oldIdx) => {
+      if (oldIdx != null) {
+        const prev = getEl(oldIdx);
+        if (prev) prev.setAttribute("tabindex", "-1");
+      }
+      const el = getEl(newIdx);
+      if (!el) return;
+      el.setAttribute("tabindex", "0");
+      if (focus) {
+        try {
+          el.focus({ preventScroll: true });
+        } catch {
+          /* ignore */
+        }
+      }
+      if (scroll) {
+        try {
+          el.scrollIntoView({ block, inline, behavior });
+        } catch {
+          /* ignore */
+        }
+      }
+    },
+    { immediate: true }
+  );
 }
