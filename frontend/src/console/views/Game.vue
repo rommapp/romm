@@ -422,8 +422,8 @@ import NavigationText from "@/console/components/NavigationText.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
-import { getCoreForPlatform } from "@/console/constants/cores";
 import { ROUTES } from "@/plugins/router";
+import { getSupportedEJSCores } from "@/utils";
 
 const route = useRoute();
 const router = useRouter();
@@ -851,8 +851,8 @@ onMounted(async () => {
       (data as unknown as { platform?: string; system?: string }).platform ||
       (data as unknown as { platform?: string; system?: string }).system ||
       "";
-    const core = getCoreForPlatform(slug as string);
-    if (!core) {
+    const cores = getSupportedEJSCores(slug);
+    if (!cores.length) {
       unsupported.value = true;
       throw new Error(`Platform ${slug} not supported yet.`);
     }

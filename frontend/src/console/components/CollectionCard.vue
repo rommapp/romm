@@ -145,7 +145,7 @@ onMounted(() => {
   </div>
 </template>
 
-<style>
+<style scoped>
 @keyframes shimmer {
   0% {
     background-position: 200% 0;
@@ -154,6 +154,7 @@ onMounted(() => {
     background-position: -200% 0;
   }
 }
+
 button:focus {
   outline: none;
 }
