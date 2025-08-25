@@ -35,7 +35,7 @@ export class InputBus {
         const handled = l(action);
         if (handled) {
           const kind = sfxForAction(action);
-            if (kind) playSfx(kind);
+          if (kind) playSfx(kind);
           return true;
         }
       }

@@ -105,7 +105,7 @@ const coverSrc = computed(
     props.collection.path_cover_large ||
     props.collection.path_cover_small ||
     props.collection.url_cover ||
-    ""
+    "",
 );
 
 // Composite favourite logic (two diagonally split images)

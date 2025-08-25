@@ -83,7 +83,7 @@ const coverSrc = computed(
     props.rom.url_cover ||
     props.rom.cover_url ||
     props.rom.cover ||
-    ""
+    "",
 );
 const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
 const el = ref<HTMLElement>();

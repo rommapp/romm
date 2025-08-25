@@ -153,7 +153,9 @@
                     <button
                       v-for="(st, i) in rom.user_states"
                       :key="st.id"
-                      :ref="el => registerStateEl(el as HTMLElement|null, i)"
+                      :ref="
+                        (el) => registerStateEl(el as HTMLElement | null, i)
+                      "
                       class="group relative rounded-md overflow-hidden flex flex-col bg-white/5 border border-white/10 transition-all w-[140px] h-[80px]"
                       :class="{
                         'ring-2 ring-[var(--accent-2)] scale-[1.05] shadow-[0_0_0_2px_var(--accent-2)]':
@@ -210,7 +212,7 @@
                 <button
                   v-for="(src, idx) in screenshotUrls"
                   :key="`${idx}-${src}`"
-                  :ref="el => registerShotEl(el as HTMLElement|null, idx)"
+                  :ref="(el) => registerShotEl(el as HTMLElement | null, idx)"
                   class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none bg-white/5 border-2 border-white/10 overflow-hidden cursor-pointer transition-all duration-200"
                   :class="{
                     'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
@@ -460,10 +462,12 @@ const releaseYear = computed(() => {
 });
 const companies = computed(
   () =>
-    rom.value?.igdb_metadata?.companies ?? rom.value?.metadatum?.companies ?? []
+    rom.value?.igdb_metadata?.companies ??
+    rom.value?.metadatum?.companies ??
+    [],
 );
 const genres = computed(
-  () => rom.value?.igdb_metadata?.genres ?? rom.value?.metadatum?.genres ?? []
+  () => rom.value?.igdb_metadata?.genres ?? rom.value?.metadatum?.genres ?? [],
 );
 const regions = computed(() => rom.value?.regions ?? []);
 const firstRegion = computed(() => regions.value[0] || "");
@@ -482,7 +486,7 @@ const coverUrl = computed(
     rom.value?.path_cover_large ||
     rom.value?.path_cover_small ||
     rom.value?.url_cover ||
-    ""
+    "",
 );
 
 function openDescription() {
@@ -731,7 +735,7 @@ function play() {
 }
 
 const currentStateId = computed(
-  () => rom.value?.user_states?.[selectedStateIndex.value]?.id
+  () => rom.value?.user_states?.[selectedStateIndex.value]?.id,
 );
 
 function relativeTime(d: string | Date) {

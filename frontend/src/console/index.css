@@ -29,8 +29,18 @@ body.console-mode {
   margin: 0;
   background: #38286a;
   color: var(--fg-0);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
-    Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji",
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Ubuntu,
+    Cantarell,
+    Noto Sans,
+    "Helvetica Neue",
+    Arial,
+    "Apple Color Emoji",
     "Segoe UI Emoji";
   overflow: hidden;
 }
@@ -199,7 +209,9 @@ body.console-mode::before {
 }
 
 .console-root {
-  background: url("/assets/auth_background.svg") center/cover fixed, #38286a !important;
+  background:
+    url("/assets/auth_background.svg") center/cover fixed,
+    #38286a !important;
   min-height: 100vh;
   width: 100%;
 }

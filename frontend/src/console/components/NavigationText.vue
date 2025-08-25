@@ -177,8 +177,8 @@ const FaceButtons = defineComponent({
             cy: mapping[b].cy,
             r: 4,
             class: b === props.highlight ? "fill-white/70" : "fill-white/15",
-          })
-        )
+          }),
+        ),
       );
   },
 });
@@ -227,7 +227,7 @@ const ArrowKeysIcon = defineComponent({
           key(1, 14, arrows.left), // Left arrow
           key(14, 14, arrows.down), // Down arrow
           key(27, 14, arrows.right), // Right arrow
-        ]
+        ],
       );
   },
 });
@@ -240,8 +240,9 @@ const ArrowKeysIcon = defineComponent({
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
   font-size: 10px;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas,
-    "Liberation Mono", Menlo, monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo,
+    monospace;
   font-weight: 700;
   letter-spacing: 0.05em;
 }

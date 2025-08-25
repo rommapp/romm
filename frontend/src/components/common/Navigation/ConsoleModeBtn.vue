@@ -45,18 +45,24 @@ withDefaults(
 <script lang="ts">
 export default {
   methods: {
-    async enterConsoleMode(){
+    async enterConsoleMode() {
       try {
         // navigate first so route guards run promptly
-        this.$router.push({ name: 'console-home' });
-        const docEl = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
+        this.$router.push({ name: "console-home" });
+        const docEl = document.documentElement as HTMLElement & {
+          requestFullscreen?: () => Promise<void>;
+        };
         if (!document.fullscreenElement && docEl.requestFullscreen) {
           // Attempt fullscreen after a small delay to allow navigation transition
           setTimeout(() => {
-            docEl.requestFullscreen?.().catch(()=>{/* ignore */});
+            docEl.requestFullscreen?.().catch(() => {
+              /* ignore */
+            });
           }, 50);
         }
-      } catch { /* swallow */ }
+      } catch {
+        /* swallow */
+      }
     },
   },
 };

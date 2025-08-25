@@ -290,7 +290,7 @@ export const SUPPORTED_PLATFORMS: SupportedPlatformDef[] = [
   },
 ];
 export const SUPPORTED_WEB_PLATFORM_SET = new Set<string>(
-  SUPPORTED_PLATFORMS.flatMap((p) => p.slugs)
+  SUPPORTED_PLATFORMS.flatMap((p) => p.slugs),
 );
 
 // Map any individual slug/alias to its full theme definition for quick lookup.

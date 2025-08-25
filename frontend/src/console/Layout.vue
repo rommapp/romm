@@ -52,7 +52,7 @@ function getTransitionName(route: RouteLocationNormalized): string {
   const currentLevel =
     routeHierarchy[currentName as keyof typeof routeHierarchy] ?? 1;
   const previousLevel = previousRoute
-    ? routeHierarchy[previousRoute as keyof typeof routeHierarchy] ?? 1
+    ? (routeHierarchy[previousRoute as keyof typeof routeHierarchy] ?? 1)
     : 0;
 
   // Special case for play mode (slide up/down)
@@ -77,7 +77,7 @@ watch(
     if (oldName) {
       previousRoute = oldName as string;
     }
-  }
+  },
 );
 
 let detachKeyboard: (() => void) | null = null;

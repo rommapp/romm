@@ -50,8 +50,8 @@ export function attachGamepad(bus: InputBus) {
               ? defaultInputConfig.gamepad.axisToAction.x.neg
               : defaultInputConfig.gamepad.axisToAction.y.neg
             : axis === "x"
-            ? defaultInputConfig.gamepad.axisToAction.x.pos
-            : defaultInputConfig.gamepad.axisToAction.y.pos;
+              ? defaultInputConfig.gamepad.axisToAction.x.pos
+              : defaultInputConfig.gamepad.axisToAction.y.pos;
         if (st.axesRepeatAt[axis] === 0) {
           bus.dispatch(dirAction);
           st.axesRepeatAt[axis] = t + delay;
