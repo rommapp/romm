@@ -4,6 +4,7 @@ import consoleStore from "@/stores/console";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useIdle } from "@vueuse/core";
 
 const { locale } = useI18n();
 const storeLanguage = languageStore();
@@ -17,10 +18,14 @@ const selectedLanguage = ref(
 );
 locale.value = selectedLanguage.value.value;
 storeLanguage.setLanguage(selectedLanguage.value);
+
+const { idle: mouseIdle } = useIdle(100, {
+  events: ["mousemove", "mousedown", "wheel", "touchstart"],
+});
 </script>
 
 <template>
-  <v-app id="application" :class="{ 'console-mode': consoleMode }">
+  <v-app id="application" :class="{ 'mouse-hidden': consoleMode && mouseIdle }">
     <v-main id="main" class="no-transition">
       <router-view v-slot="{ Component }">
         <component :is="Component" />
@@ -43,8 +48,8 @@ storeLanguage.setLanguage(selectedLanguage.value);
   transition: none;
 }
 
-#application.console-mode.mouse-hidden,
-#application.console-mode.mouse-hidden * {
+#application.mouse-hidden,
+#application.mouse-hidden * {
   cursor: none !important;
 }
 
