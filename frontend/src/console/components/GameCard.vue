@@ -1,3 +1,50 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
+import storeCollections from "@/stores/collections";
+import {
+  recentElementRegistry,
+  gamesListElementRegistry,
+} from "@/console/composables/useElementRegistry";
+
+import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
+
+const props = defineProps<{
+  rom: SimpleRomSchema;
+  index: number;
+  selected?: boolean;
+  loaded?: boolean;
+  isRecent?: boolean;
+  registry?: "recent" | "gamesList";
+}>();
+const coverSrc = computed(
+  () =>
+    props.rom.path_cover_large ||
+    props.rom.path_cover_small ||
+    props.rom.url_cover ||
+    "",
+);
+const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
+const el = ref<HTMLElement>();
+
+// Check if this game is in the favorites collection
+const collectionsStore = storeCollections();
+const isFavorited = computed(() => {
+  return collectionsStore.isFavorite(props.rom);
+});
+
+onMounted(() => {
+  if (!el.value) return;
+
+  // Use appropriate registry based on context
+  if (props.registry === "gamesList") {
+    gamesListElementRegistry.registerElement(props.index, el.value);
+  } else {
+    // Default to recent registry for backward compatibility
+    recentElementRegistry.registerElement(props.index, el.value);
+  }
+});
+</script>
+
 <template>
   <button
     ref="el"
@@ -15,7 +62,7 @@
         v-if="coverSrc"
         class="w-full h-full object-cover"
         :src="coverSrc"
-        :alt="rom.name || rom.title"
+        :alt="rom.name || 'Game'"
         @load="emit('loaded')"
         @error="emit('loaded')"
       />
@@ -49,63 +96,33 @@
         class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-b from-transparent to-black/75 text-[#eaeaea] text-sm leading-tight z-10"
       >
         <div class="font-medium truncate">
-          {{ rom.name || rom.title }}
+          {{ rom.name || "Untitled Game" }}
         </div>
         <div
-          v-if="rom.release_year || rom.developer"
+          v-if="
+            rom.metadatum.first_release_date || rom.metadatum.companies?.length
+          "
           class="text-[#c8c8c8] text-xs opacity-90"
         >
-          {{ rom.release_year }}
-          <template v-if="rom.release_year && rom.developer"> • </template>
-          {{ rom.developer }}
+          {{
+            rom.metadatum.first_release_date
+              ? new Date(rom.metadatum.first_release_date * 1000).getFullYear()
+              : ""
+          }}
+          <template
+            v-if="
+              rom.metadatum.first_release_date &&
+              rom.metadatum.companies?.length
+            "
+          >
+            •
+          </template>
+          {{ rom.metadatum.companies?.[0] || "" }}
         </div>
       </div>
     </div>
   </button>
 </template>
-
-<script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import storeCollections from "@/stores/collections";
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const props = defineProps<{
-  rom: any;
-  index: number;
-  selected?: boolean;
-  loaded?: boolean;
-  isRecent?: boolean;
-}>();
-const coverSrc = computed(
-  () =>
-    props.rom.path_cover_large ||
-    props.rom.path_cover_small ||
-    props.rom.url_cover ||
-    props.rom.cover_url ||
-    props.rom.cover ||
-    "",
-);
-const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
-const el = ref<HTMLElement>();
-
-// Check if this game is in the favorites collection
-const collectionsStore = storeCollections();
-const isFavorited = computed(() => {
-  return collectionsStore.isFavorite(props.rom);
-});
-
-onMounted(() => {
-  if (!el.value) return;
-  if (props.isRecent) {
-    (window as any).recentGameElements =
-      (window as any).recentGameElements || [];
-    (window as any).recentGameElements[props.index] = el.value;
-  } else {
-    (window as any).gameCardElements = (window as any).gameCardElements || [];
-    (window as any).gameCardElements[props.index] = el.value;
-  }
-});
-</script>
 
 <style scoped>
 @keyframes shimmer {

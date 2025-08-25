@@ -3,6 +3,7 @@
 import { computed, onMounted, ref, watchEffect } from "vue";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import { getFavoriteCoverImage } from "@/utils/covers";
+import { collectionElementRegistry } from "@/console/composables/useElementRegistry";
 
 const props = defineProps<{
   collection: CollectionSchema;
@@ -53,9 +54,7 @@ watchEffect(() => {
 
 onMounted(() => {
   if (!el.value) return;
-  (window as any).collectionCardElements =
-    (window as any).collectionCardElements || [];
-  (window as any).collectionCardElements[props.index] = el.value;
+  collectionElementRegistry.registerElement(props.index, el.value);
 });
 </script>
 

@@ -2,11 +2,9 @@ let ctx: AudioContext | null = null;
 function ensureCtx() {
   if (ctx) return ctx;
   if (typeof window === "undefined") return null;
-  const AC: typeof AudioContext | undefined = (
-    window as unknown as { AudioContext?: typeof AudioContext }
-  ).AudioContext;
-  if (!AC) return null;
-  ctx = new AC();
+  if (!window.AudioContext) return null;
+
+  ctx = new window.AudioContext();
   return ctx;
 }
 

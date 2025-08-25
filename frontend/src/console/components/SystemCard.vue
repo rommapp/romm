@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, onMounted, ref } from "vue";
 import { getPlatformTheme } from "@/console/constants/platforms";
+import { systemElementRegistry } from "@/console/composables/useElementRegistry";
 
 const props = defineProps<{ system: any; index: number; selected?: boolean }>();
 const emit = defineEmits(["click", "mouseenter", "focus"]);
@@ -10,9 +11,7 @@ const el = ref<HTMLElement>();
 
 onMounted(() => {
   if (el.value) {
-    (window as any).systemCardElements =
-      (window as any).systemCardElements || [];
-    (window as any).systemCardElements[props.index] = el.value;
+    systemElementRegistry.registerElement(props.index, el.value);
   }
 });
 
