@@ -22,14 +22,12 @@ onMounted(() => {
 
 <template>
   <v-dialog
-    @click:outside="closeDialog"
-    @keydown.esc="closeDialog"
     :model-value="isOpen"
     :width="1000"
     scroll-strategy="block"
     no-click-animation
     persistent
-    z-index="9999"
+    z-index="1000"
     scrim="black"
     class="lightbox-dialog"
   >
