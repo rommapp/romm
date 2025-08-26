@@ -1,74 +1,92 @@
 <script setup lang="ts">
 import { computed, onMounted } from "vue";
 import NavigationText from "./NavigationText.vue";
-import RDialog from "@/components/common/RDialog.vue";
 
 const props = defineProps<{ urls: string[]; startIndex?: number }>();
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["update:modelValue", "close"]);
 
 const isOpen = computed({
   get: () => true,
   set: () => close(),
 });
 
-function close() {
+function closeDialog() {
+  emit("update:modelValue", false);
   emit("close");
 }
 
 onMounted(() => {
-  (document.activeElement as HTMLElement | null)?.blur();
+  (document.activeElement as HTMLElement)?.blur();
 });
 </script>
 
 <template>
-  <r-dialog v-model="isOpen" :width="1000" class="lightbox-dialog">
-    <template #header>
-      <div class="d-flex justify-space-between align-center pa-4">
-        <h2>Screenshots</h2>
+  <v-dialog
+    @click:outside="closeDialog"
+    @keydown.esc="closeDialog"
+    :model-value="isOpen"
+    :width="1000"
+    scroll-strategy="block"
+    no-click-animation
+    persistent
+    z-index="9999"
+    scrim="black"
+    class="lightbox-dialog"
+  >
+    <template #default>
+      <div class="lightbox-header">
+        <h2 class="text-h6">Screenshots</h2>
+        <v-btn
+          icon="mdi-close"
+          aria-label="Close"
+          size="small"
+          @click="closeDialog"
+        />
       </div>
-    </template>
-    <template #content>
-      <div class="position-relative">
-        <v-carousel
-          v-model="props.startIndex"
-          hide-delimiter-background
-          delimiter-icon="mdi-square"
-          show-arrows="hover"
-          hide-delimiters
-          class="dialog-carousel"
+
+      <v-carousel
+        v-model="props.startIndex"
+        hide-delimiter-background
+        delimiter-icon="mdi-square"
+        show-arrows="hover"
+        hide-delimiters
+        class="dialog-carousel"
+      >
+        <template #prev="{ props }">
+          <v-btn
+            v-if="urls.length > 1"
+            icon="mdi-triangle"
+            size="x-small"
+            class="lightbox-nav-prev"
+            @click="props.onClick"
+          />
+        </template>
+
+        <v-carousel-item
+          v-for="screenshot in urls"
+          :key="screenshot"
+          :src="screenshot"
+          contain
         >
-          <template #prev="{ props }">
-            <v-btn
-              v-if="urls.length > 1"
-              icon="mdi-chevron-left"
-              @click="props.onClick"
-            />
+          <template #placeholder>
+            <div class="d-flex justify-center align-center">
+              <v-progress-circular indeterminate />
+            </div>
           </template>
+        </v-carousel-item>
 
-          <v-carousel-item
-            v-for="screenshot in urls"
-            :key="screenshot"
-            :src="screenshot"
-            contain
-          >
-            <template #placeholder>
-              <div class="d-flex justify-center align-center">
-                <v-progress-circular indeterminate />
-              </div>
-            </template>
-          </v-carousel-item>
+        <template #next="{ props }">
+          <v-btn
+            v-if="urls.length > 1"
+            icon="mdi-triangle"
+            size="x-small"
+            class="lightbox-nav-next"
+            @click="props.onClick"
+          />
+        </template>
+      </v-carousel>
 
-          <template #next="{ props }">
-            <v-btn
-              v-if="urls.length > 1"
-              icon="mdi-chevron-right"
-              @click="props.onClick"
-            />
-          </template>
-        </v-carousel>
-      </div>
-
-      <div class="pa-4">
+      <div class="lightbox-footer pa-4">
         <div class="d-flex justify-space-between align-center">
           <navigation-text
             :show-navigation="true"
@@ -77,22 +95,72 @@ onMounted(() => {
             :show-toggle-favorite="false"
             :show-menu="false"
           />
-          <div class="px-2 py-1 text-white bg-black/50 rounded">
+          <div class="px-2 py-1 text-white bg-black/50 rounded-lg text-xs">
             {{ props.startIndex ? props.startIndex + 1 : 1 }} /
             {{ urls.length }}
           </div>
         </div>
       </div>
     </template>
-  </r-dialog>
+  </v-dialog>
 </template>
 
 <style>
+.lightbox-dialog {
+  backdrop-filter: blur(10px);
+}
+
 .lightbox-dialog .v-overlay__content {
   max-height: 80vh;
+  border: 1px solid #333;
+  background-color: #0f0f0f;
+  border-radius: 16px;
+  animation: slideUp 0.3s ease;
+}
+
+.lightbox-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  background-color: #131313;
+  border-bottom: 1px solid #222;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
 }
 
 .dialog-carousel {
   max-width: 1000px;
+}
+
+.lightbox-footer {
+  border-top: 1px solid #222;
+  background-color: #131313;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+.lightbox-nav-prev {
+  transform: rotate(-90deg);
+}
+
+.lightbox-nav-prev i,
+.lightbox-nav-next i {
+  font-size: 12px;
+}
+
+.lightbox-nav-next {
+  transform: rotate(90deg);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>
