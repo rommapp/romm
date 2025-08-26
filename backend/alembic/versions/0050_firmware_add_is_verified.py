@@ -65,15 +65,15 @@ def upgrade() -> None:
         }
         if is_postgresql(connection):
             op.execute(
-                # trunk-ignore(bandit/B608)
                 sa.text(
+                    # trunk-ignore(bandit/B608)
                     f"UPDATE firmware SET is_verified = TRUE WHERE id IN ({placeholders})"
                 ).bindparams(**params)
             )
         else:
             op.execute(
-                # trunk-ignore(bandit/B608)
                 sa.text(
+                    # trunk-ignore(bandit/B608)
                     f"UPDATE firmware SET is_verified = 1 WHERE id IN ({placeholders})"
                 ).bindparams(**params)
             )
