@@ -29,24 +29,27 @@ export class InputBus {
   }
 
   dispatch(action: InputAction): boolean {
-    this.scopes.forEach((scope) => {
-      scope.forEach((listener) => {
+    for (let i = this.scopes.length - 1; i >= 0; i--) {
+      const scope = this.scopes[i];
+      for (const listener of scope) {
         const handled = listener(action);
         if (handled) {
           const kind = sfxForAction(action);
           if (kind) playSfx(kind);
           return true;
         }
-      });
-    });
-    this.globalShortcuts.forEach((listener) => {
+      }
+    }
+
+    for (const listener of this.globalShortcuts) {
       const handled = listener(action);
       if (handled) {
         const kind = sfxForAction(action);
         if (kind) playSfx(kind);
         return true;
       }
-    });
+    }
+
     return false;
   }
 }

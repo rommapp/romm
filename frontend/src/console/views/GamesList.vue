@@ -208,20 +208,7 @@ function handleAction(action: InputAction): boolean {
       navigateBack();
       return true;
     case "confirm": {
-      // Don't navigate if we're in alphabet mode
-      if (inAlphabet.value) {
-        return false;
-      }
-      const rom = roms.value[selectedIndex.value];
-      persistIndex();
-      const query: Record<string, number> = {};
-      if (platformId != null) query.id = platformId;
-      if (isCollectionRoute) query.collection = collectionId!;
-      router.push({
-        name: ROUTES.CONSOLE_ROM,
-        params: { rom: rom.id },
-        query: Object.keys(query).length ? query : undefined,
-      });
+      selectAndOpen(selectedIndex.value, roms.value[selectedIndex.value]);
       return true;
     }
     case "toggleFavorite": {
@@ -240,6 +227,7 @@ function handleAction(action: InputAction): boolean {
 function mouseSelect(i: number) {
   selectedIndex.value = i;
 }
+
 function selectAndOpen(i: number, rom: SimpleRomSchema) {
   selectedIndex.value = i;
   // Don't navigate if we're in alphabet mode
@@ -256,6 +244,7 @@ function selectAndOpen(i: number, rom: SimpleRomSchema) {
     query: Object.keys(query).length ? query : undefined,
   });
 }
+
 function jumpToLetter(L: string) {
   const idx = roms.value.findIndex((r) => {
     const normalized = normalizeTitle(r.name || "");
