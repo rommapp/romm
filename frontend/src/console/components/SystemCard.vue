@@ -1,12 +1,15 @@
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, onMounted, ref } from "vue";
 import { getPlatformTheme } from "@/console/constants/platforms";
 import { systemElementRegistry } from "@/console/composables/useElementRegistry";
+import type { Platform } from "@/stores/platforms";
 
-const props = defineProps<{ system: any; index: number; selected?: boolean }>();
+const props = defineProps<{
+  platform: Platform;
+  index: number;
+  selected?: boolean;
+}>();
 const emit = defineEmits(["click", "mouseenter", "focus"]);
-const imageLoaded = ref(true);
 const el = ref<HTMLElement>();
 
 onMounted(() => {
@@ -16,27 +19,26 @@ onMounted(() => {
 });
 
 const theme = computed(() => {
-  const s: any = props.system || {};
-  const def = getPlatformTheme(s.slug);
-  if (def) {
+  const platformTheme = getPlatformTheme(props.platform.slug);
+  if (platformTheme) {
     return {
-      name: def.label,
-      shortName: def.shortName || def.label,
-      image: def.image,
-      background: def.background || "linear-gradient(135deg,#2b3242,#1b2233)",
-      accent: def.accent || "#f8b400",
+      name: platformTheme.label,
+      shortName: platformTheme.shortName || platformTheme.label,
+      image: platformTheme.image,
+      background:
+        platformTheme.background || "linear-gradient(135deg,#2b3242,#1b2233)",
+      accent: platformTheme.accent || "#f8b400",
     };
   }
+
   return {
-    name: s.name,
-    shortName: s.name,
+    name: props.platform.name,
+    shortName: props.platform.name,
     image: undefined,
     background: "linear-gradient(135deg, #2b3242 0%, #1b2233 100%)",
     accent: "#f8b400",
   };
 });
-
-const hasImage = computed(() => Boolean((theme.value as any).image));
 </script>
 
 <template>
@@ -59,13 +61,23 @@ const hasImage = computed(() => Boolean((theme.value as any).image));
       :style="{ background: 'var(--system-bg)', opacity: 0.9 }"
     />
     <div class="absolute inset-0 flex items-center justify-center">
-      <img
-        v-if="hasImage && imageLoaded"
+      <v-img
+        v-if="theme.image"
         :src="theme.image"
         :alt="theme.name"
         class="w-full h-full object-cover"
-        @error="imageLoaded = false"
-      />
+      >
+        <template #error>
+          <div
+            class="absolute inset-0 flex flex-col items-center justify-center"
+          >
+            <div class="text-2xl mb-2">🎮</div>
+            <div class="text-white font-bold text-center">
+              {{ theme.shortName }}
+            </div>
+          </div>
+        </template>
+      </v-img>
       <div
         v-else
         class="absolute inset-0 flex flex-col items-center justify-center"
@@ -89,7 +101,7 @@ const hasImage = computed(() => Boolean((theme.value as any).image));
       class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/30 to-transparent px-4 py-2 z-10"
     >
       <div class="text-sm text-white/90 text-center font-medium">
-        {{ system.rom_count || 0 }} games
+        {{ platform.rom_count || 0 }} games
       </div>
     </div>
   </button>
