@@ -47,13 +47,30 @@ if (collectionId != null) {
 
 // Generate alphabet letters dynamically based on available games
 const letters = computed(() => {
-  return Array.from(
-    new Set(
-      roms.value
-        .map(({ name }) => name?.charAt(0).toUpperCase() || "")
-        .filter((letter) => /[A-Z0-9]/.test(letter)),
-    ),
-  );
+  const letterSet = new Set<string>();
+
+  roms.value.forEach(({ name }) => {
+    if (!name) return;
+
+    const normalized = normalizeTitle(name);
+    const firstChar = normalized.charAt(0).toUpperCase();
+
+    if (/[A-Z]/.test(firstChar)) {
+      letterSet.add(firstChar);
+    } else if (/[0-9]/.test(firstChar)) {
+      letterSet.add("#");
+    }
+  });
+
+  const result = Array.from(letterSet).sort();
+  // Move # to the beginning if it exists
+  const hashIndex = result.indexOf("#");
+  if (hashIndex > -1) {
+    result.splice(hashIndex, 1);
+    result.unshift("#");
+  }
+
+  return result;
 });
 
 function persistIndex() {
@@ -131,12 +148,23 @@ function handleAction(action: InputAction): boolean {
     }
     if (action === "confirm") {
       const L = Array.from(letters.value)[alphaIndex.value];
-      const idx = roms.value.findIndex((r) =>
-        normalizeTitle(r.name || "").startsWith(L),
-      );
+      const idx = roms.value.findIndex((r) => {
+        const normalized = normalizeTitle(r.name || "");
+        if (L === "#") {
+          return /^[0-9]/.test(normalized);
+        }
+        return normalized.startsWith(L);
+      });
       if (idx >= 0) {
         selectedIndex.value = idx;
-        inAlphabet.value = false;
+        // Stay in alphabet mode, just highlight the game
+        nextTick(() => {
+          cardElementAt(selectedIndex.value)?.scrollIntoView({
+            block: "center",
+            inline: "nearest",
+            behavior: "smooth" as ScrollBehavior,
+          });
+        });
       }
       return true;
     }
@@ -180,6 +208,10 @@ function handleAction(action: InputAction): boolean {
       navigateBack();
       return true;
     case "confirm": {
+      // Don't navigate if we're in alphabet mode
+      if (inAlphabet.value) {
+        return false;
+      }
       const rom = roms.value[selectedIndex.value];
       persistIndex();
       const query: Record<string, number> = {};
@@ -210,6 +242,10 @@ function mouseSelect(i: number) {
 }
 function selectAndOpen(i: number, rom: SimpleRomSchema) {
   selectedIndex.value = i;
+  // Don't navigate if we're in alphabet mode
+  if (inAlphabet.value) {
+    return;
+  }
   persistIndex();
   const query: Record<string, number> = {};
   if (platformId != null) query.id = platformId;
@@ -221,16 +257,20 @@ function selectAndOpen(i: number, rom: SimpleRomSchema) {
   });
 }
 function jumpToLetter(L: string) {
-  const idx = roms.value.findIndex((r) =>
-    normalizeTitle(r.name || "").startsWith(L),
-  );
+  const idx = roms.value.findIndex((r) => {
+    const normalized = normalizeTitle(r.name || "");
+    if (L === "#") {
+      return /^[0-9]/.test(normalized);
+    }
+    return normalized.startsWith(L);
+  });
   if (idx >= 0) {
     selectedIndex.value = idx;
     inAlphabet.value = false;
   }
 }
 function normalizeTitle(name: string) {
-  return name.toUpperCase().replace(/^THE\s+/, "");
+  return name.toUpperCase().replace(/^(THE|A|AN)\s+/, "");
 }
 
 let off: (() => void) | null = null;
