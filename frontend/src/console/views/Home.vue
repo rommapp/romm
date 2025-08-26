@@ -432,7 +432,7 @@ onUnmounted(() => {
                 <SystemCard
                   v-for="(p, i) in platforms"
                   :key="p.id"
-                  :system="p"
+                  :platform="p"
                   :index="i"
                   :selected="
                     navigationMode === 'systems' && i === selectedIndex
