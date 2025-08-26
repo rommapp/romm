@@ -14,6 +14,7 @@ import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import { getSupportedEJSCores } from "@/utils";
 import storeRoms from "@/stores/roms";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 
 type FocusZone =
   | "play"
@@ -61,13 +62,10 @@ const screenshotUrls = computed(() => {
   return rom.value?.merged_screenshots || [];
 });
 
-// Cover URL with fallbacks for background/poster (prefer local resources first)
-const coverUrl = computed(
-  () =>
-    rom.value?.path_cover_large ||
-    rom.value?.path_cover_small ||
-    rom.value?.url_cover ||
-    "",
+const fallbackCoverImage = computed(() =>
+  rom.value?.igdb_id || rom.value?.moby_id || rom.value?.ss_id
+    ? getMissingCoverImage(rom.value?.name || rom.value?.slug || "")
+    : getUnmatchedCoverImage(rom.value?.name || rom.value?.slug || ""),
 );
 
 function openDescription() {
@@ -455,7 +453,7 @@ onUnmounted(() => {
       v-else-if="playerState === 'unsupported'"
       class="m-auto text-red-400 p-4"
     >
-      This platform is not supported in the web player yet.
+      This platform is not yet supported in the web player
     </div>
 
     <!-- Main content -->
@@ -468,8 +466,8 @@ onUnmounted(() => {
       <!-- Backdrop -->
       <div class="absolute inset-0 z-0 overflow-hidden">
         <img
-          v-if="coverUrl"
-          :src="coverUrl"
+          :src="rom?.path_cover_large || fallbackCoverImage"
+          :lazy-src="rom?.path_cover_small || fallbackCoverImage"
           :alt="`${rom?.name} background`"
           class="w-full h-full object-cover blur-xl brightness-75 saturate-[1.25] contrast-110 scale-110"
         />
@@ -486,21 +484,12 @@ onUnmounted(() => {
           >
             <!-- Poster -->
             <div class="shrink-0 self-center md:self-end">
-              <img
-                v-if="coverUrl"
-                :src="coverUrl"
+              <v-img
+                :src="rom?.path_cover_large || fallbackCoverImage"
+                :lazy-src="rom?.path_cover_small || fallbackCoverImage"
                 :alt="`${rom?.name} cover`"
                 class="w-[220px] md:w-[260px] h-auto rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)]"
               />
-              <div
-                v-else
-                class="w-[220px] md:w-[260px] h-[340px] md:h-[380px] rounded-2xl bg-gradient-to-br from-[var(--accent-2)] to-[var(--accent)] flex flex-col items-center justify-center shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)]"
-              >
-                <div class="text-4xl mb-2">🎮</div>
-                <div class="text-6xl font-black text-black/80 drop-shadow">
-                  {{ rom?.name?.charAt(0) || "?" }}
-                </div>
-              </div>
             </div>
 
             <!-- Content -->
@@ -671,9 +660,10 @@ onUnmounted(() => {
                   @keydown.enter.prevent="openLightbox(idx)"
                 >
                   <v-img
-                    class="w-full h-full object-cover select-none"
+                    cover
                     :src="src"
                     :alt="`${rom?.name} screenshot ${idx + 1}`"
+                    class="w-full h-full object-cover select-none"
                   >
                     <template #placeholder>
                       <div
@@ -847,6 +837,7 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
     <ScreenshotLightbox
       v-if="showLightbox"
       :urls="screenshotUrls"
@@ -868,18 +859,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-@keyframes subtleFloat {
-  0%,
-  100% {
-    transform: scale(1.3) translateX(0) translateY(0);
-  }
-  33% {
-    transform: scale(1.32) translateX(-10px) translateY(-5px);
-  }
-  66% {
-    transform: scale(1.31) translateX(8px) translateY(-3px);
-  }
-}
 .modal-overlay {
   position: fixed;
   inset: 0;
