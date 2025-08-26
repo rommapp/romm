@@ -1,13 +1,460 @@
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from "vue";
+import { formatDistanceToNow } from "date-fns";
+import { useRoute, useRouter } from "vue-router";
+import romApi from "@/services/api/rom";
+import stateApi from "@/services/api/state";
+import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
+import ScreenshotLightbox from "@/console/components/ScreenshotLightbox.vue";
+import BackButton from "@/console/components/BackButton.vue";
+import NavigationText from "@/console/components/NavigationText.vue";
+import NavigationHint from "@/console/components/NavigationHint.vue";
+import { useInputScope } from "@/console/composables/useInputScope";
+import type { InputAction } from "@/console/input/actions";
+import { ROUTES } from "@/plugins/router";
+import { getSupportedEJSCores } from "@/utils";
+import storeRoms from "@/stores/roms";
+
+type FocusZone =
+  | "play"
+  | "description"
+  | "details"
+  | "shots"
+  | "lightbox"
+  | "states";
+
+type PlayerState = "loading" | "unsupported" | "error" | "ready";
+
+const romsStore = storeRoms();
+const route = useRoute();
+const router = useRouter();
+
+const rom = ref<DetailedRomSchema | null>(null);
+const playerState = ref<PlayerState>("loading");
+const errorMessage = ref<string | null>(null);
+
+const selectedZone = ref<FocusZone>("play");
+const selectedStateIndex = ref(0);
+const showDescription = ref(false);
+const showDetails = ref(false);
+const showLightbox = ref(false);
+const selectedShot = ref(0);
+const shotsRef = ref<HTMLDivElement | null>(null);
+const shotEls = ref<HTMLElement[]>([]);
+const statesRef = ref<HTMLDivElement | null>(null);
+const stateEls = ref<HTMLElement[]>([]);
+const descOverlayRef = ref<HTMLElement | null>(null);
+const detailsOverlayRef = ref<HTMLElement | null>(null);
+
+const releaseYear = computed(() => {
+  const firstReleaseDate = rom.value?.metadatum?.first_release_date;
+  if (!firstReleaseDate) return null;
+  return new Date(firstReleaseDate * 1000).getFullYear();
+});
+
+const companies = computed(() => rom.value?.metadatum?.companies ?? []);
+const genres = computed(() => rom.value?.metadatum?.genres ?? []);
+const regions = computed(() => rom.value?.regions ?? []);
+
+// Only return merged screenshots from IGDB/external sources, exclude user screenshots
+const screenshotUrls = computed(() => {
+  return rom.value?.merged_screenshots || [];
+});
+
+// Cover URL with fallbacks for background/poster (prefer local resources first)
+const coverUrl = computed(
+  () =>
+    rom.value?.path_cover_large ||
+    rom.value?.path_cover_small ||
+    rom.value?.url_cover ||
+    "",
+);
+
+function openDescription() {
+  showDescription.value = true;
+}
+
+function openDetails() {
+  showDetails.value = true;
+}
+
+function goBackToPlatform() {
+  const qp = route.query as Record<string, string | undefined>;
+  if (qp.collection) {
+    router.push({
+      name: ROUTES.CONSOLE_COLLECTION,
+      params: { id: qp.collection },
+    });
+    return;
+  }
+
+  if (rom.value?.platform_id) {
+    router.push({
+      name: ROUTES.CONSOLE_PLATFORM,
+      params: { id: rom.value.platform_id },
+    });
+  } else {
+    router.push({ name: ROUTES.CONSOLE_HOME });
+  }
+}
+
+const { subscribe } = useInputScope();
+function handleAction(action: InputAction): boolean {
+  // Lightbox handling
+  if (showLightbox.value) {
+    if (action === "moveRight") {
+      selectedShot.value =
+        (selectedShot.value + 1) % Math.max(1, screenshotUrls.value.length);
+      return true;
+    }
+    if (action === "moveLeft") {
+      selectedShot.value =
+        (selectedShot.value - 1 + Math.max(1, screenshotUrls.value.length)) %
+        Math.max(1, screenshotUrls.value.length);
+      return true;
+    }
+    if (action === "back") {
+      showLightbox.value = false;
+      return true;
+    }
+    return false;
+  }
+
+  // Modal handling (description/details)
+  if (showDescription.value || showDetails.value) {
+    if (action === "back") {
+      showDescription.value = false;
+      showDetails.value = false;
+      return true;
+    }
+    // if (action === "moveUp" || action === "moveDown") {
+    //   const body = document.querySelector(".modal-body") as HTMLElement | null;
+    //   if (!body) return true;
+    //   const amt = 40;
+    //   if (action === "moveUp") body.scrollTop -= amt;
+    //   else body.scrollTop += amt;
+    //   return true;
+    // }
+    return false;
+  }
+
+  // Main focus navigation
+  switch (selectedZone.value) {
+    case "play":
+      if (action === "moveUp" && rom.value?.summary) {
+        selectedZone.value = "description";
+        return true;
+      }
+      if (action === "moveRight") {
+        selectedZone.value = "details";
+        return true;
+      }
+      if (action === "moveDown") {
+        if (rom.value?.user_states?.length) {
+          selectedZone.value = "states";
+          selectedStateIndex.value = 0;
+          return true;
+        }
+        if (screenshotUrls.value.length) {
+          selectedZone.value = "shots";
+          selectedShot.value = 0;
+          nextTick(scrollShotsToSelected);
+        }
+        return true;
+      }
+      if (action === "confirm") {
+        play();
+        return true;
+      }
+      if (action === "back") {
+        goBackToPlatform();
+        return true;
+      }
+      return false;
+    case "description":
+      if (action === "moveDown") {
+        selectedZone.value = "play";
+        return true;
+      }
+      if (action === "confirm") {
+        openDescription();
+        return true;
+      }
+      if (action === "back") {
+        goBackToPlatform();
+        return true;
+      }
+      return false;
+    case "details":
+      if (action === "moveLeft") {
+        selectedZone.value = "play";
+        return true;
+      }
+      if (action === "moveUp") {
+        selectedZone.value = "description";
+        return true;
+      }
+      if (action === "moveDown") {
+        if (rom.value?.user_states?.length) {
+          selectedZone.value = "states";
+          selectedStateIndex.value = 0;
+          return true;
+        }
+        if (screenshotUrls.value.length) {
+          selectedZone.value = "shots";
+          selectedShot.value = 0;
+          nextTick(scrollShotsToSelected);
+        }
+        return true;
+      }
+      if (action === "confirm") {
+        openDetails();
+        return true;
+      }
+      if (action === "back") {
+        goBackToPlatform();
+        return true;
+      }
+      return false;
+    case "states":
+      if (action === "moveUp") {
+        selectedZone.value = "play";
+        return true;
+      }
+      if (action === "moveDown") {
+        if (screenshotUrls.value.length) {
+          selectedZone.value = "shots";
+          selectedShot.value = 0;
+          nextTick(scrollShotsToSelected);
+        }
+        return true;
+      }
+      if (action === "moveRight") {
+        if (rom.value?.user_states) {
+          selectedStateIndex.value =
+            (selectedStateIndex.value + 1) % rom.value.user_states.length;
+          nextTick(scrollStatesToSelected);
+          return true;
+        }
+      }
+      if (action === "moveLeft") {
+        if (rom.value?.user_states) {
+          selectedStateIndex.value =
+            (selectedStateIndex.value - 1 + rom.value.user_states.length) %
+            rom.value.user_states.length;
+          nextTick(scrollStatesToSelected);
+          return true;
+        }
+      }
+      if (action === "confirm") {
+        startWithState(selectedStateIndex.value);
+        return true;
+      }
+      if (action === "delete") {
+        deleteState(selectedStateIndex.value);
+        return true;
+      }
+      if (action === "back") {
+        goBackToPlatform();
+        return true;
+      }
+      return false;
+    case "shots":
+      if (action === "moveUp") {
+        selectedZone.value = rom.value?.user_states?.length ? "states" : "play";
+        return true;
+      }
+      if (action === "moveRight") {
+        if (screenshotUrls.value.length) {
+          selectedShot.value =
+            (selectedShot.value + 1) % screenshotUrls.value.length;
+          nextTick(scrollShotsToSelected);
+        }
+        return true;
+      }
+      if (action === "moveLeft") {
+        if (screenshotUrls.value.length) {
+          selectedShot.value =
+            (selectedShot.value - 1 + screenshotUrls.value.length) %
+            screenshotUrls.value.length;
+          nextTick(scrollShotsToSelected);
+        }
+        return true;
+      }
+      if (action === "confirm") {
+        showLightbox.value = true;
+        return true;
+      }
+      if (action === "back") {
+        goBackToPlatform();
+        return true;
+      }
+      return false;
+    default:
+      return false;
+  }
+}
+
+function play() {
+  if (!rom.value) return;
+
+  romApi
+    .updateUserRomProps({
+      romId: rom.value.id,
+      data: {},
+      updateLastPlayed: true,
+    })
+    .catch(() => {});
+
+  const query: Record<string, number> = {};
+
+  // Only pass state if we're in the states zone (explicitly selected a state)
+  if (selectedZone.value === "states" && currentStateId.value) {
+    query.state = currentStateId.value;
+  }
+
+  // Preserve navigation origin (platform id or collection) for back navigation
+  const origin = route.query as Record<string, string | undefined>;
+  if (origin.id) query.id = Number(origin.id);
+  if (origin.collection) query.collection = Number(origin.collection);
+
+  router.push({
+    name: ROUTES.CONSOLE_PLAY,
+    params: { rom: rom.value.id },
+    query: Object.keys(query).length ? query : undefined,
+  });
+}
+
+const currentStateId = computed(
+  () => rom.value?.user_states?.[selectedStateIndex.value]?.id,
+);
+
+function relativeTime(date: string | Date) {
+  return formatDistanceToNow(new Date(date), { addSuffix: true });
+}
+
+function startWithState(index: number) {
+  if (!rom.value?.user_states?.[index]) return;
+  selectedStateIndex.value = index;
+  play();
+}
+
+async function deleteState(index: number) {
+  if (!rom.value?.user_states?.[index]) return;
+  const state = rom.value.user_states[index];
+
+  try {
+    await stateApi.deleteStates({ states: [state] });
+
+    // Remove the state from the local array
+    rom.value.user_states.splice(index, 1);
+    romsStore.update(rom.value);
+
+    // Adjust selected index if needed
+    if (selectedStateIndex.value >= rom.value.user_states.length) {
+      selectedStateIndex.value = Math.max(0, rom.value.user_states.length - 1);
+    }
+
+    // If no more states, switch focus back to play button
+    if (rom.value.user_states.length === 0) {
+      selectedZone.value = "play";
+    }
+  } catch (error) {
+    console.error("Failed to delete save state:", error);
+  }
+}
+
+function registerShotEl(el: HTMLElement | null, idx: number) {
+  if (!el) return;
+  shotEls.value[idx] = el;
+}
+
+function registerStateEl(el: HTMLElement | null, idx: number) {
+  if (!el) return;
+  stateEls.value[idx] = el;
+}
+
+function scrollShotsToSelected() {
+  const container = shotsRef.value;
+  const el = shotEls.value[selectedShot.value];
+  if (!container || !el) return;
+  const cr = container.getBoundingClientRect();
+  const er = el.getBoundingClientRect();
+  const desiredLeft = el.offsetLeft - cr.width / 2 + er.width / 2;
+  container.scrollTo({ left: desiredLeft, behavior: "smooth" });
+}
+
+function scrollStatesToSelected() {
+  const container = statesRef.value;
+  const el = stateEls.value[selectedStateIndex.value];
+  if (!container || !el) return;
+  const cr = container.getBoundingClientRect();
+  const er = el.getBoundingClientRect();
+  const desiredLeft = el.offsetLeft - cr.width / 2 + er.width / 2;
+  container.scrollTo({ left: desiredLeft, behavior: "smooth" });
+}
+
+function openLightbox(index: number) {
+  selectedShot.value = index;
+  showLightbox.value = true;
+}
+
+onMounted(async () => {
+  try {
+    const { data: romData } = await romApi.getRom({
+      romId: parseInt(route.params.rom as string),
+    });
+    const cores = getSupportedEJSCores(romData.platform_slug);
+    if (!cores.length) {
+      playerState.value = "unsupported";
+      throw new Error(`Platform ${romData.platform_slug} not supported yet.`);
+    }
+    if (romData.files.length === 0) {
+      playerState.value = "error";
+      errorMessage.value = "No game files found";
+      throw new Error("No game files found");
+    }
+    rom.value = romData;
+  } catch (err) {
+    playerState.value = "error";
+    errorMessage.value =
+      err instanceof Error ? err.message : "Failed to load game";
+  } finally {
+    playerState.value = "ready";
+  }
+  selectedZone.value = "play";
+  off = subscribe(handleAction);
+});
+
+// Focus overlays when opened so Esc works even if window handlers exist
+watch(showDescription, (v) => {
+  if (v) nextTick(() => descOverlayRef.value?.focus?.());
+});
+watch(showDetails, (v) => {
+  if (v) nextTick(() => detailsOverlayRef.value?.focus?.());
+});
+
+let off: (() => void) | null = null;
+
+onUnmounted(() => {
+  off?.();
+  off = null;
+});
+</script>
+
 <template>
   <div class="w-full h-screen flex flex-col overflow-hidden">
     <!-- States -->
-    <div v-if="loading" class="m-auto text-fg0 text-lg">
+    <div v-if="playerState === 'loading'" class="m-auto text-fg0 text-lg">
       Loading {{ rom?.name || "game" }}…
     </div>
-    <div v-else-if="error" class="m-auto text-red-400 p-4">
-      {{ error }}
+    <div v-else-if="playerState === 'error'" class="m-auto text-red-400 p-4">
+      {{ errorMessage }}
     </div>
-    <div v-else-if="unsupported" class="m-auto text-red-400 p-4">
+    <div
+      v-else-if="playerState === 'unsupported'"
+      class="m-auto text-red-400 p-4"
+    >
       This platform is not supported in the web player yet.
     </div>
 
@@ -81,8 +528,8 @@
                 >
                   {{ releaseYear }}
                 </span>
-                <span v-if="firstRegion" class="text-gray-300 font-medium">
-                  {{ firstRegion }}
+                <span v-if="regions.length" class="text-gray-300 font-medium">
+                  {{ regions[0] }}
                 </span>
                 <span
                   v-if="genres.length"
@@ -223,15 +670,26 @@
                   @focus="selectedShot = idx"
                   @keydown.enter.prevent="openLightbox(idx)"
                 >
-                  <img
+                  <v-img
                     class="w-full h-full object-cover select-none"
-                    loading="lazy"
-                    draggable="false"
-                    :src="primaryScreenshotSrc(src)"
-                    :data-alt="altScreenshotSrc(src)"
+                    :src="src"
                     :alt="`${rom?.name} screenshot ${idx + 1}`"
-                    @error="onScreenshotError"
-                  />
+                  >
+                    <template #placeholder>
+                      <div
+                        class="w-full h-full bg-white/5 border-2 border-white/10 overflow-hidden"
+                      >
+                        <v-icon>mdi-image-outline</v-icon>
+                      </div>
+                    </template>
+                    <template #error>
+                      <div
+                        class="w-full h-full bg-white/5 border-2 border-white/10 overflow-hidden"
+                      >
+                        <v-icon>mdi-image-outline</v-icon>
+                      </div>
+                    </template>
+                  </v-img>
                 </button>
               </div>
             </div>
@@ -408,483 +866,6 @@
     />
   </div>
 </template>
-
-<script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, nextTick } from "vue";
-import { formatDistanceToNow } from "date-fns";
-import { useRoute, useRouter } from "vue-router";
-import romApi from "@/services/api/rom";
-import stateApi from "@/services/api/state";
-import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
-import ScreenshotLightbox from "@/console/components/ScreenshotLightbox.vue";
-import BackButton from "@/console/components/BackButton.vue";
-import NavigationText from "@/console/components/NavigationText.vue";
-import NavigationHint from "@/console/components/NavigationHint.vue";
-import { useInputScope } from "@/console/composables/useInputScope";
-import type { InputAction } from "@/console/input/actions";
-import { ROUTES } from "@/plugins/router";
-import { getSupportedEJSCores } from "@/utils";
-
-const route = useRoute();
-const router = useRouter();
-const romId = Number(route.params.rom);
-
-const rom = ref<DetailedRomSchema>();
-const loading = ref(true);
-const error = ref("");
-const unsupported = ref(false);
-type FocusZone =
-  | "play"
-  | "description"
-  | "details"
-  | "shots"
-  | "lightbox"
-  | "states";
-const selectedZone = ref<FocusZone>("play");
-const selectedStateIndex = ref(0);
-const showDescription = ref(false);
-const showDetails = ref(false);
-const showLightbox = ref(false);
-const selectedShot = ref(0);
-const shotsRef = ref<HTMLDivElement | null>(null);
-const shotEls = ref<HTMLElement[]>([]);
-const statesRef = ref<HTMLDivElement | null>(null);
-const stateEls = ref<HTMLElement[]>([]);
-const descOverlayRef = ref<HTMLElement | null>(null);
-const detailsOverlayRef = ref<HTMLElement | null>(null);
-
-const releaseYear = computed(() => {
-  const ts =
-    rom.value?.igdb_metadata?.first_release_date ??
-    rom.value?.metadatum?.first_release_date;
-  if (!ts) return null;
-  const millis = ts < 10_000_000_000 ? ts * 1000 : ts;
-  return new Date(millis).getFullYear();
-});
-const companies = computed(
-  () =>
-    rom.value?.igdb_metadata?.companies ??
-    rom.value?.metadatum?.companies ??
-    [],
-);
-const genres = computed(
-  () => rom.value?.igdb_metadata?.genres ?? rom.value?.metadatum?.genres ?? [],
-);
-const regions = computed(() => rom.value?.regions ?? []);
-const firstRegion = computed(() => regions.value[0] || "");
-
-// Build screenshot URLs: Only use merged_screenshots from IGDB/external sources,
-// excluding user_screenshots from resources/roms/[id]/screenshots (like save state screenshots).
-const screenshotUrls = computed(() => {
-  // Only return merged screenshots from IGDB/external sources, exclude user screenshots
-  const merged = rom.value?.merged_screenshots || [];
-  return merged;
-});
-
-// Cover URL with fallbacks for background/poster (prefer local resources first)
-const coverUrl = computed(
-  () =>
-    rom.value?.path_cover_large ||
-    rom.value?.path_cover_small ||
-    rom.value?.url_cover ||
-    "",
-);
-
-function openDescription() {
-  showDescription.value = true;
-}
-function openDetails() {
-  showDetails.value = true;
-}
-
-// Navigate back to the platform page using the ROM's platform_id
-function goBackToPlatform() {
-  const qp = route.query as Record<string, string | undefined>;
-  if (qp.collection) {
-    router.push({
-      name: ROUTES.CONSOLE_COLLECTION,
-      params: { id: qp.collection },
-    });
-    return;
-  }
-
-  if (rom.value?.platform_id) {
-    router.push({
-      name: ROUTES.CONSOLE_PLATFORM,
-      params: { id: rom.value.platform_id },
-    });
-  } else {
-    router.push({ name: ROUTES.CONSOLE_HOME });
-  }
-}
-
-const { subscribe } = useInputScope();
-function handleAction(action: InputAction): boolean {
-  // Lightbox handling
-  if (showLightbox.value) {
-    if (action === "moveRight") {
-      selectedShot.value =
-        (selectedShot.value + 1) % Math.max(1, screenshotUrls.value.length);
-      return true;
-    }
-    if (action === "moveLeft") {
-      selectedShot.value =
-        (selectedShot.value - 1 + Math.max(1, screenshotUrls.value.length)) %
-        Math.max(1, screenshotUrls.value.length);
-      return true;
-    }
-    if (action === "back") {
-      showLightbox.value = false;
-      return true;
-    }
-    return false;
-  }
-
-  // Modal handling (description/details)
-  if (showDescription.value || showDetails.value) {
-    if (action === "back") {
-      showDescription.value = false;
-      showDetails.value = false;
-      return true;
-    }
-    if (action === "moveUp" || action === "moveDown") {
-      const body = document.querySelector(".modal-body") as HTMLElement | null;
-      if (!body) return true;
-      const amt = 40;
-      if (action === "moveUp") body.scrollTop -= amt;
-      else body.scrollTop += amt;
-      return true;
-    }
-    return false;
-  }
-
-  // Main focus navigation
-  switch (selectedZone.value) {
-    case "play":
-      if (action === "moveUp" && rom.value?.summary) {
-        selectedZone.value = "description";
-        return true;
-      }
-      if (action === "moveRight") {
-        selectedZone.value = "details";
-        return true;
-      }
-      if (action === "moveDown") {
-        if (rom.value?.user_states?.length) {
-          selectedZone.value = "states";
-          selectedStateIndex.value = 0;
-          return true;
-        }
-        if (screenshotUrls.value.length) {
-          selectedZone.value = "shots";
-          selectedShot.value = 0;
-          nextTick(scrollShotsToSelected);
-        }
-        return true;
-      }
-      if (action === "confirm") {
-        play();
-        return true;
-      }
-      if (action === "back") {
-        goBackToPlatform();
-        return true;
-      }
-      return false;
-    case "description":
-      if (action === "moveDown") {
-        selectedZone.value = "play";
-        return true;
-      }
-      if (action === "confirm") {
-        openDescription();
-        return true;
-      }
-      if (action === "back") {
-        goBackToPlatform();
-        return true;
-      }
-      return false;
-    case "details":
-      if (action === "moveLeft") {
-        selectedZone.value = "play";
-        return true;
-      }
-      if (action === "moveUp") {
-        selectedZone.value = "description";
-        return true;
-      }
-      if (action === "moveDown") {
-        if (rom.value?.user_states?.length) {
-          selectedZone.value = "states";
-          selectedStateIndex.value = 0;
-          return true;
-        }
-        if (screenshotUrls.value.length) {
-          selectedZone.value = "shots";
-          selectedShot.value = 0;
-          nextTick(scrollShotsToSelected);
-        }
-        return true;
-      }
-      if (action === "confirm") {
-        openDetails();
-        return true;
-      }
-      if (action === "back") {
-        goBackToPlatform();
-        return true;
-      }
-      return false;
-    case "states":
-      if (action === "moveUp") {
-        selectedZone.value = "play";
-        return true;
-      }
-      if (action === "moveDown") {
-        if (screenshotUrls.value.length) {
-          selectedZone.value = "shots";
-          selectedShot.value = 0;
-          nextTick(scrollShotsToSelected);
-        }
-        return true;
-      }
-      if (action === "moveRight") {
-        if (rom.value?.user_states) {
-          selectedStateIndex.value =
-            (selectedStateIndex.value + 1) % rom.value.user_states.length;
-          nextTick(scrollStatesToSelected);
-          return true;
-        }
-      }
-      if (action === "moveLeft") {
-        if (rom.value?.user_states) {
-          selectedStateIndex.value =
-            (selectedStateIndex.value - 1 + rom.value.user_states.length) %
-            rom.value.user_states.length;
-          nextTick(scrollStatesToSelected);
-          return true;
-        }
-      }
-      if (action === "confirm") {
-        startWithState(selectedStateIndex.value);
-        return true;
-      }
-      if (action === "delete") {
-        deleteState(selectedStateIndex.value);
-        return true;
-      }
-      if (action === "back") {
-        goBackToPlatform();
-        return true;
-      }
-      return false;
-    case "shots":
-      if (action === "moveUp") {
-        selectedZone.value = rom.value?.user_states?.length ? "states" : "play";
-        return true;
-      }
-      if (action === "moveRight") {
-        if (screenshotUrls.value.length) {
-          selectedShot.value =
-            (selectedShot.value + 1) % screenshotUrls.value.length;
-          nextTick(scrollShotsToSelected);
-        }
-        return true;
-      }
-      if (action === "moveLeft") {
-        if (screenshotUrls.value.length) {
-          selectedShot.value =
-            (selectedShot.value - 1 + screenshotUrls.value.length) %
-            screenshotUrls.value.length;
-          nextTick(scrollShotsToSelected);
-        }
-        return true;
-      }
-      if (action === "confirm") {
-        showLightbox.value = true;
-        return true;
-      }
-      if (action === "back") {
-        goBackToPlatform();
-        return true;
-      }
-      return false;
-    default:
-      return false;
-  }
-}
-
-function play() {
-  romApi
-    .updateUserRomProps({ romId, data: {}, updateLastPlayed: true })
-    .catch(() => {});
-  const query: Record<string, number> = {};
-  // Only pass state if we're in the states zone (explicitly selected a state)
-  if (selectedZone.value === "states" && currentStateId.value) {
-    query.state = currentStateId.value;
-  }
-  // Preserve navigation origin (platform id or collection) for back navigation
-  const origin = route.query as Record<string, string | undefined>;
-  if (origin.id) {
-    query.id = Number(origin.id);
-  }
-  if (origin.collection) {
-    query.collection = Number(origin.collection);
-  }
-  router.push({
-    name: ROUTES.CONSOLE_PLAY,
-    params: { rom: romId },
-    query: Object.keys(query).length ? query : undefined,
-  });
-}
-
-const currentStateId = computed(
-  () => rom.value?.user_states?.[selectedStateIndex.value]?.id,
-);
-
-function relativeTime(d: string | Date) {
-  try {
-    return formatDistanceToNow(new Date(d), { addSuffix: true });
-  } catch {
-    return "";
-  }
-}
-
-function startWithState(i: number) {
-  if (!rom.value?.user_states?.[i]) return;
-  selectedStateIndex.value = i;
-  play();
-}
-
-async function deleteState(i: number) {
-  if (!rom.value?.user_states?.[i]) return;
-  const state = rom.value.user_states[i];
-  try {
-    await stateApi.deleteStates({ states: [state] });
-    // Remove the state from the local array
-    rom.value.user_states.splice(i, 1);
-    // Adjust selected index if needed
-    if (selectedStateIndex.value >= rom.value.user_states.length) {
-      selectedStateIndex.value = Math.max(0, rom.value.user_states.length - 1);
-    }
-    // If no more states, switch focus back to play button
-    if (rom.value.user_states.length === 0) {
-      selectedZone.value = "play";
-    }
-  } catch (error) {
-    console.error("Failed to delete save state:", error);
-  }
-}
-
-function registerShotEl(el: HTMLElement | null, idx: number) {
-  if (!el) return;
-  shotEls.value[idx] = el;
-}
-
-function registerStateEl(el: HTMLElement | null, idx: number) {
-  if (!el) return;
-  stateEls.value[idx] = el;
-}
-
-function scrollShotsToSelected() {
-  const container = shotsRef.value;
-  const el = shotEls.value[selectedShot.value];
-  if (!container || !el) return;
-  const cr = container.getBoundingClientRect();
-  const er = el.getBoundingClientRect();
-  const desiredLeft = el.offsetLeft - cr.width / 2 + er.width / 2;
-  container.scrollTo({ left: desiredLeft, behavior: "smooth" });
-}
-
-function scrollStatesToSelected() {
-  const container = statesRef.value;
-  const el = stateEls.value[selectedStateIndex.value];
-  if (!container || !el) return;
-  const cr = container.getBoundingClientRect();
-  const er = el.getBoundingClientRect();
-  const desiredLeft = el.offsetLeft - cr.width / 2 + er.width / 2;
-  container.scrollTo({ left: desiredLeft, behavior: "smooth" });
-}
-
-// Screenshot URL helpers and error handler
-function primaryScreenshotSrc(u: string): string {
-  // Use backend-provided URLs directly
-  return u;
-}
-function altScreenshotSrc(u: string): string {
-  // If u points to backend-local assets under /assets/, use raw endpoint (/api/raw/assets/<relative>)
-  // Example: /assets/romm/resources/roms/1/3/screenshots/0.jpg?ts=123
-  // becomes: /api/raw/assets/romm/resources/roms/1/3/screenshots/0.jpg?ts=123
-  const [path, qs] = u.split("?");
-  if (path.startsWith("/assets/")) {
-    const relative = path.slice("/assets/".length);
-    return `/api/raw/assets/${relative}${qs ? `?${qs}` : ""}`;
-  }
-  return u;
-}
-function onScreenshotError(e: Event) {
-  const img = e.target as HTMLImageElement;
-  const triedAlt = img.dataset.altTried === "true";
-  if (!triedAlt) {
-    const alt = img.getAttribute("data-alt");
-    if (alt && alt !== img.src) {
-      img.dataset.altTried = "true";
-      img.src = alt;
-      return;
-    }
-  }
-  // Hide broken image
-  img.style.display = "none";
-}
-
-function openLightbox(i: number) {
-  selectedShot.value = i;
-  showLightbox.value = true;
-}
-
-onMounted(async () => {
-  try {
-    const { data } = await romApi.getRom({ romId });
-    const slug =
-      (data.platform_slug as string | undefined) ||
-      (data as unknown as { platform?: string; system?: string }).platform ||
-      (data as unknown as { platform?: string; system?: string }).system ||
-      "";
-    const cores = getSupportedEJSCores(slug);
-    if (!cores.length) {
-      unsupported.value = true;
-      throw new Error(`Platform ${slug} not supported yet.`);
-    }
-    if (!data.files || !data.files.length)
-      throw new Error("No game files found");
-    rom.value = data;
-  } catch (err: unknown) {
-    error.value = err instanceof Error ? err.message : "Failed to load game";
-  } finally {
-    loading.value = false;
-  }
-  selectedZone.value = "play";
-  off = subscribe(handleAction);
-});
-// Focus overlays when opened so Esc works even if window handlers exist
-watch(showDescription, (v) => {
-  if (v) nextTick(() => descOverlayRef.value?.focus?.());
-});
-watch(showDetails, (v) => {
-  if (v) nextTick(() => detailsOverlayRef.value?.focus?.());
-});
-watch(showLightbox, (v) => {
-  if (v) {
-    // Lightbox is its own component; it manages Esc and arrows internally via overlay bindings
-  }
-});
-let off: (() => void) | null = null;
-onUnmounted(() => {
-  off?.();
-  off = null;
-});
-</script>
 
 <style scoped>
 @keyframes subtleFloat {
