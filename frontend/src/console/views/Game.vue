@@ -442,507 +442,472 @@ onUnmounted(() => {
 
 <template>
   <div class="w-full h-screen flex flex-col overflow-hidden">
-    <!-- States -->
-    <div v-if="playerState === 'loading'" class="m-auto text-fg0 text-lg">
-      Loading {{ rom?.name || "game" }}…
-    </div>
-    <div v-else-if="playerState === 'error'" class="m-auto text-red-400 p-4">
-      {{ errorMessage }}
-    </div>
-    <div
-      v-else-if="playerState === 'unsupported'"
-      class="m-auto text-red-400 p-4"
-    >
-      This platform is not yet supported in the web player
-    </div>
-
-    <!-- Main content -->
-    <div
-      v-else
-      class="relative w-full h-full overflow-y-auto overflow-x-hidden pb-28 md:pb-32"
-    >
-      <BackButton :on-back="goBackToPlatform" />
-
-      <!-- Backdrop -->
-      <div class="absolute inset-0 z-0 overflow-hidden">
-        <img
-          :src="rom?.path_cover_large || fallbackCoverImage"
-          :lazy-src="rom?.path_cover_small || fallbackCoverImage"
-          :alt="`${rom?.name} background`"
-          class="w-full h-full object-cover blur-xl brightness-75 saturate-[1.25] contrast-110 scale-110"
-        />
+    <template v-if="!rom">
+      <!-- States -->
+      <div v-if="playerState === 'loading'" class="m-auto text-fg0 text-lg">
+        Loading…
+      </div>
+      <div v-else-if="playerState === 'error'" class="m-auto text-red-400 p-4">
+        {{ errorMessage }}
       </div>
       <div
-        class="absolute inset-0 bg-gradient-to-b from-black/70 via-black/20 to-black/80 pointer-events-none z-0"
-      />
+        v-else-if="playerState === 'unsupported'"
+        class="m-auto text-red-400 p-4"
+      >
+        This platform is not yet supported in the web player
+      </div>
+    </template>
+    <template v-else>
+      <!-- Main content -->
+      <div
+        class="relative w-full h-full overflow-y-auto overflow-x-hidden pb-28 md:pb-32"
+      >
+        <BackButton :on-back="goBackToPlatform" />
 
-      <div class="relative z-10">
-        <!-- HERO -->
-        <section class="relative min-h-[65vh] flex items-end">
-          <div
-            class="w-full max-w-[1400px] mx-auto px-8 md:px-12 lg:px-16 pb-10 flex flex-col md:flex-row gap-8 md:gap-12 items-end"
-          >
-            <!-- Poster -->
-            <div class="shrink-0 self-center md:self-end">
-              <v-img
-                :src="rom?.path_cover_large || fallbackCoverImage"
-                :lazy-src="rom?.path_cover_small || fallbackCoverImage"
-                :alt="`${rom?.name} cover`"
-                class="w-[220px] md:w-[260px] h-auto rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)]"
-              />
-            </div>
+        <!-- Backdrop -->
+        <div class="absolute inset-0 z-0 overflow-hidden">
+          <img
+            :src="rom.path_cover_large || fallbackCoverImage"
+            :lazy-src="rom.path_cover_small || fallbackCoverImage"
+            :alt="`${rom.name} background`"
+            class="w-full h-full object-cover blur-xl brightness-75 saturate-[1.25] contrast-110 scale-110"
+          />
+        </div>
+        <div
+          class="absolute inset-0 bg-gradient-to-b from-black/70 via-black/20 to-black/80 pointer-events-none z-0"
+        />
 
-            <!-- Content -->
-            <div class="flex-1 max-w-[900px]">
-              <h1
-                class="text-white text-4xl md:text-5xl font-extrabold mb-3 drop-shadow"
-              >
-                {{ rom?.name }}
-              </h1>
-
-              <div
-                class="flex flex-wrap items-center gap-2 md:gap-4 mb-5 text-sm"
-              >
-                <span
-                  class="bg-[var(--accent)] text-white px-3 py-1 rounded text-xs font-semibold"
-                >
-                  {{
-                    rom?.platform_name ||
-                    (rom?.platform_slug || "RETRO")?.toString().toUpperCase()
-                  }}
-                </span>
-                <span
-                  v-if="releaseYear !== null"
-                  class="text-gray-300 font-medium"
-                >
-                  {{ releaseYear }}
-                </span>
-                <span v-if="regions.length" class="text-gray-300 font-medium">
-                  {{ regions[0] }}
-                </span>
-                <span
-                  v-if="genres.length"
-                  class="text-gray-300 font-medium truncate max-w-[50%]"
-                >
-                  {{ genres.join(", ") }}
-                </span>
+        <div class="relative z-10">
+          <!-- HERO -->
+          <section class="relative min-h-[65vh] flex items-end">
+            <div
+              class="w-full max-w-[1400px] mx-auto px-8 md:px-12 lg:px-16 pb-10 flex flex-col md:flex-row gap-8 md:gap-12 items-end"
+            >
+              <!-- Poster -->
+              <div class="shrink-0 self-center md:self-end">
+                <v-img
+                  :src="rom.path_cover_large || fallbackCoverImage"
+                  :lazy-src="rom.path_cover_small || fallbackCoverImage"
+                  :alt="`${rom.name} cover`"
+                  class="w-[220px] md:w-[260px] h-auto rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)]"
+                />
               </div>
 
-              <div
-                v-if="rom?.summary"
-                class="text-[#ddd] text-base leading-6 mb-6 line-clamp-3 cursor-pointer"
-                :class="{
-                  'ring-2 ring-white/30 rounded-md px-1 -translate-y-0.5':
-                    selectedZone === 'description',
-                }"
-                tabindex="0"
-                @click="openDescription()"
-                @keydown.enter.prevent="openDescription()"
-              >
-                {{ rom.summary }}
-              </div>
+              <!-- Content -->
+              <div class="flex-1 max-w-[900px]">
+                <h1
+                  class="text-white text-4xl md:text-5xl font-extrabold mb-3 drop-shadow"
+                >
+                  {{ rom.name }}
+                </h1>
 
-              <div class="flex gap-3 md:gap-4 mb-2">
-                <button
-                  class="flex items-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-lg text-base md:text-lg font-semibold min-w-[130px] md:min-w-[140px] justify-center transition-all"
-                  style="
-                    background-color: var(--accent) !important;
-                    color: white !important;
-                  "
-                  :class="{
-                    'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
-                      selectedZone === 'play',
-                  }"
-                  @click="play()"
-                >
-                  <span class="text-lg md:text-xl">▶</span>
-                  Play
-                </button>
-                <button
-                  class="px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold transition-all"
-                  style="
-                    background-color: var(--accent-3) !important;
-                    color: white !important;
-                    border: none !important;
-                  "
-                  :class="{
-                    'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
-                      selectedZone === 'details',
-                  }"
-                  @click="openDetails()"
-                >
-                  Details
-                </button>
-              </div>
-
-              <div v-if="rom?.user_states?.length" class="mt-4">
-                <h3
-                  class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2"
-                >
-                  SAVE STATES
-                </h3>
                 <div
-                  ref="statesRef"
-                  class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
+                  class="flex flex-wrap items-center gap-2 md:gap-4 mb-5 text-sm"
                 >
-                  <div class="flex items-center gap-3 py-1 px-2 min-w-max">
-                    <button
-                      v-for="(st, i) in rom.user_states"
-                      :key="st.id"
-                      :ref="
-                        (el) => registerStateEl(el as HTMLElement | null, i)
-                      "
-                      class="group relative rounded-md overflow-hidden flex flex-col bg-white/5 border border-white/10 transition-all w-[140px] h-[80px]"
-                      :class="{
-                        'ring-2 ring-[var(--accent-2)] scale-[1.05] shadow-[0_0_0_2px_var(--accent-2)]':
-                          selectedZone === 'states' && selectedStateIndex === i,
-                      }"
-                      :aria-label="'State from ' + relativeTime(st.updated_at)"
-                      @click="startWithState(i)"
-                    >
-                      <div
-                        v-if="!st.screenshot?.download_path"
-                        class="absolute inset-0 flex items-center justify-center text-[10px] text-white/40 font-medium select-none"
+                  <span
+                    class="bg-[var(--accent)] text-white px-3 py-1 rounded text-xs font-semibold"
+                  >
+                    {{
+                      rom.platform_name ||
+                      (rom.platform_slug || "RETRO")?.toString().toUpperCase()
+                    }}
+                  </span>
+                  <span
+                    v-if="releaseYear !== null"
+                    class="text-gray-300 font-medium"
+                  >
+                    {{ releaseYear }}
+                  </span>
+                  <span v-if="regions.length" class="text-gray-300 font-medium">
+                    {{ regions[0] }}
+                  </span>
+                  <span
+                    v-if="genres.length"
+                    class="text-gray-300 font-medium truncate max-w-[50%]"
+                  >
+                    {{ genres.join(", ") }}
+                  </span>
+                </div>
+
+                <div
+                  v-if="rom.summary"
+                  class="text-[#ddd] text-base leading-6 mb-6 line-clamp-3 cursor-pointer"
+                  :class="{
+                    'ring-2 ring-white/30 rounded-md px-1 -translate-y-0.5':
+                      selectedZone === 'description',
+                  }"
+                  tabindex="0"
+                  @click="openDescription()"
+                  @keydown.enter.prevent="openDescription()"
+                >
+                  {{ rom.summary }}
+                </div>
+
+                <div class="flex gap-3 md:gap-4 mb-2">
+                  <button
+                    class="flex items-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-lg text-base md:text-lg font-semibold min-w-[130px] md:min-w-[140px] justify-center transition-all"
+                    style="
+                      background-color: var(--accent) !important;
+                      color: white !important;
+                    "
+                    :class="{
+                      'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
+                        selectedZone === 'play',
+                    }"
+                    @click="play()"
+                  >
+                    <span class="text-lg md:text-xl">▶</span>
+                    Play
+                  </button>
+                  <button
+                    class="px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold transition-all"
+                    style="
+                      background-color: var(--accent-3) !important;
+                      color: white !important;
+                      border: none !important;
+                    "
+                    :class="{
+                      'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
+                        selectedZone === 'details',
+                    }"
+                    @click="openDetails()"
+                  >
+                    Details
+                  </button>
+                </div>
+
+                <div v-if="rom.user_states.length > 0" class="mt-4">
+                  <h3
+                    class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2"
+                  >
+                    SAVE STATES
+                  </h3>
+                  <div
+                    ref="statesRef"
+                    class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
+                  >
+                    <div class="flex items-center gap-3 py-1 px-2 min-w-max">
+                      <button
+                        v-for="(st, i) in rom.user_states"
+                        :key="st.id"
+                        :ref="
+                          (el) => registerStateEl(el as HTMLElement | null, i)
+                        "
+                        class="group relative rounded-md overflow-hidden flex flex-col bg-white/5 border border-white/10 transition-all w-[140px] h-[80px]"
+                        :class="{
+                          'ring-2 ring-[var(--accent-2)] scale-[1.05] shadow-[0_0_0_2px_var(--accent-2)]':
+                            selectedZone === 'states' &&
+                            selectedStateIndex === i,
+                        }"
+                        :aria-label="
+                          'State from ' + relativeTime(st.updated_at)
+                        "
+                        @click="startWithState(i)"
                       >
-                        STATE
-                      </div>
-                      <img
-                        v-else
-                        :src="st.screenshot.download_path"
-                        :alt="'State screenshot ' + (i + 1)"
-                        class="w-full h-full object-cover select-none pointer-events-none"
-                        draggable="false"
-                        loading="lazy"
-                      />
-                      <div
-                        class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-black/0 px-2 pt-4 pb-1 text-[10px] text-white/80 tracking-wide flex justify-between items-end"
-                      >
-                        <span class="truncate max-w-[90%]">{{
-                          relativeTime(st.updated_at)
-                        }}</span>
-                      </div>
-                    </button>
+                        <div
+                          v-if="!st.screenshot?.download_path"
+                          class="absolute inset-0 flex items-center justify-center text-[10px] text-white/40 font-medium select-none"
+                        >
+                          STATE
+                        </div>
+                        <img
+                          v-else
+                          :src="st.screenshot.download_path"
+                          :alt="'State screenshot ' + (i + 1)"
+                          class="w-full h-full object-cover select-none pointer-events-none"
+                          draggable="false"
+                          loading="lazy"
+                        />
+                        <div
+                          class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-black/0 px-2 pt-4 pb-1 text-[10px] text-white/80 tracking-wide flex justify-between items-end"
+                        >
+                          <span class="truncate max-w-[90%]">{{
+                            relativeTime(st.updated_at)
+                          }}</span>
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- SCREENSHOTS -->
-        <section
-          v-if="screenshotUrls.length"
-          class="fixed bottom-0 inset-x-0 z-30 py-3 md:py-4 bg-black/40 backdrop-blur-md border-t border-white/10"
-        >
-          <div class="w-full max-w-[1400px] mx-auto px-8 md:px-12 lg:px-16">
-            <h3
-              class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide"
-            >
-              Screenshots
-            </h3>
-            <div
-              ref="shotsRef"
-              class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
-            >
-              <div class="flex items-center gap-3 md:gap-4 py-6 px-2 min-w-max">
-                <button
-                  v-for="(src, idx) in screenshotUrls"
-                  :key="`${idx}-${src}`"
-                  :ref="(el) => registerShotEl(el as HTMLElement | null, idx)"
-                  class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none bg-white/5 border-2 border-white/10 overflow-hidden cursor-pointer transition-all duration-200"
-                  :class="{
-                    'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
-                      selectedZone === 'shots' && selectedShot === idx,
-                  }"
-                  tabindex="0"
-                  @click="openLightbox(idx)"
-                  @focus="selectedShot = idx"
-                  @keydown.enter.prevent="openLightbox(idx)"
-                >
-                  <v-img
-                    cover
-                    :src="src"
-                    :alt="`${rom?.name} screenshot ${idx + 1}`"
-                    class="w-full h-full object-cover select-none"
-                  >
-                    <template #placeholder>
-                      <div
-                        class="w-full h-full bg-white/5 border-2 border-white/10 overflow-hidden"
-                      >
-                        <v-icon>mdi-image-outline</v-icon>
-                      </div>
-                    </template>
-                    <template #error>
-                      <div
-                        class="w-full h-full bg-white/5 border-2 border-white/10 overflow-hidden"
-                      >
-                        <v-icon>mdi-image-outline</v-icon>
-                      </div>
-                    </template>
-                  </v-img>
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <!-- Modal -->
-    <div
-      v-if="showDescription"
-      ref="descOverlayRef"
-      class="modal-overlay"
-      tabindex="0"
-      @click="showDescription = false"
-    >
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h2>{{ rom?.name }} - Description</h2>
-          <button class="modal-close" @click="showDescription = false">
-            ×
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>{{ rom?.summary }}</p>
-        </div>
-        <div class="modal-footer">
-          <NavigationText
-            :show-navigation="true"
-            :show-select="false"
-            :show-back="true"
-            :show-toggle-favorite="false"
-            :show-menu="false"
-          />
-        </div>
-      </div>
-    </div>
-
-    <!-- Details Modal -->
-    <div
-      v-if="showDetails"
-      ref="detailsOverlayRef"
-      class="modal-overlay"
-      tabindex="0"
-      @click="showDetails = false"
-    >
-      <div class="modal-content modal-wide" @click.stop>
-        <div class="modal-header">
-          <h2>{{ rom?.name }} - Details</h2>
-          <button class="modal-close" @click="showDetails = false">×</button>
-        </div>
-        <div class="modal-body">
-          <div
-            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6"
+          <!-- SCREENSHOTS -->
+          <section
+            v-if="screenshotUrls.length"
+            class="fixed bottom-0 inset-x-0 z-30 py-3 md:py-4 bg-black/40 backdrop-blur-md border-t border-white/10"
           >
-            <div
-              v-if="companies.length"
-              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
-            >
-              <div
-                class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+            <div class="w-full max-w-[1400px] mx-auto px-8 md:px-12 lg:px-16">
+              <h3
+                class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide"
               >
-                Companies
-              </div>
+                Screenshots
+              </h3>
               <div
-                class="text-white text-sm md:text-base leading-6 break-words"
+                ref="shotsRef"
+                class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
               >
-                {{ companies.join(", ") }}
-              </div>
-            </div>
-            <div
-              v-if="genres.length"
-              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
-            >
-              <div
-                class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
-              >
-                Genres
-              </div>
-              <div
-                class="text-white text-sm md:text-base leading-6 break-words"
-              >
-                {{ genres.join(", ") }}
-              </div>
-            </div>
-            <div
-              v-if="releaseYear !== null"
-              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
-            >
-              <div
-                class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
-              >
-                Release Year
-              </div>
-              <div
-                class="text-white text-sm md:text-base leading-6 break-words"
-              >
-                {{ releaseYear }}
-              </div>
-            </div>
-            <div
-              v-if="regions.length"
-              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
-            >
-              <div
-                class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
-              >
-                Regions
-              </div>
-              <div
-                class="text-white text-sm md:text-base leading-6 break-words"
-              >
-                {{ regions.join(", ") }}
+                <div
+                  class="flex items-center gap-3 md:gap-4 py-6 px-2 min-w-max"
+                >
+                  <button
+                    v-for="(src, idx) in screenshotUrls"
+                    :key="`${idx}-${src}`"
+                    :ref="(el) => registerShotEl(el as HTMLElement | null, idx)"
+                    class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none bg-white/5 border-2 border-white/10 overflow-hidden cursor-pointer transition-all duration-200"
+                    :class="{
+                      'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
+                        selectedZone === 'shots' && selectedShot === idx,
+                    }"
+                    tabindex="0"
+                    @click="openLightbox(idx)"
+                    @focus="selectedShot = idx"
+                    @keydown.enter.prevent="openLightbox(idx)"
+                  >
+                    <v-img
+                      cover
+                      :src="src"
+                      :alt="`${rom.name} screenshot ${idx + 1}`"
+                      class="w-full h-full object-cover select-none"
+                    >
+                      <template #placeholder>
+                        <div
+                          class="w-full h-full bg-white/5 border-2 border-white/10 overflow-hidden"
+                        >
+                          <v-icon>mdi-image-outline</v-icon>
+                        </div>
+                      </template>
+                      <template #error>
+                        <div
+                          class="w-full h-full bg-white/5 border-2 border-white/10 overflow-hidden"
+                        >
+                          <v-icon>mdi-image-outline</v-icon>
+                        </div>
+                      </template>
+                    </v-img>
+                  </button>
+                </div>
               </div>
             </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Description Modal -->
+      <v-dialog
+        :model-value="showDescription"
+        :width="1000"
+        scroll-strategy="block"
+        no-click-animation
+        persistent
+        z-index="1000"
+        scrim="black"
+        class="lightbox-dialog"
+      >
+        <template #default>
+          <div class="lightbox-header">
+            <h2 class="text-h6">Description</h2>
+            <v-btn
+              icon="mdi-close"
+              aria-label="Close"
+              size="small"
+              @click="showDescription = false"
+            />
+          </div>
+          <div class="pa-4">
+            <p>{{ rom.summary }}</p>
+          </div>
+          <div class="lightbox-footer pa-4">
+            <NavigationText
+              :show-navigation="true"
+              :show-select="false"
+              :show-back="true"
+              :show-toggle-favorite="false"
+              :show-menu="false"
+            />
+          </div>
+        </template>
+      </v-dialog>
+
+      <!-- Details Modal -->
+      <v-dialog
+        :model-value="showDetails"
+        :width="1000"
+        scroll-strategy="block"
+        no-click-animation
+        persistent
+        z-index="1000"
+        scrim="black"
+        class="lightbox-dialog"
+      >
+        <template #default>
+          <div class="lightbox-header">
+            <h2 class="text-h6">Details</h2>
+            <v-btn
+              icon="mdi-close"
+              aria-label="Close"
+              size="small"
+              @click="showDetails = false"
+            />
+          </div>
+          <div class="pa-4">
             <div
-              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+              class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6"
             >
               <div
-                class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                v-if="companies.length"
+                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
               >
-                File Size
+                <div
+                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                >
+                  Companies
+                </div>
+                <div
+                  class="text-white text-sm md:text-base leading-6 break-words"
+                >
+                  {{ companies.join(", ") }}
+                </div>
               </div>
               <div
-                class="text-white text-sm md:text-base leading-6 break-words"
+                v-if="genres.length"
+                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
               >
-                {{ Math.round((rom?.files?.[0]?.file_size_bytes || 0) / 1024) }}
-                KB
+                <div
+                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                >
+                  Genres
+                </div>
+                <div
+                  class="text-white text-sm md:text-base leading-6 break-words"
+                >
+                  {{ genres.join(", ") }}
+                </div>
               </div>
-            </div>
-            <div
-              class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
-            >
               <div
-                class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                v-if="releaseYear !== null"
+                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
               >
-                File
+                <div
+                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                >
+                  Release Year
+                </div>
+                <div
+                  class="text-white text-sm md:text-base leading-6 break-words"
+                >
+                  {{ releaseYear }}
+                </div>
               </div>
               <div
-                class="text-white text-sm md:text-base leading-6 break-words"
+                v-if="regions.length"
+                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
               >
-                {{ rom?.files?.[0]?.file_name || "Unknown" }}
+                <div
+                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                >
+                  Regions
+                </div>
+                <div
+                  class="text-white text-sm md:text-base leading-6 break-words"
+                >
+                  {{ regions.join(", ") }}
+                </div>
+              </div>
+              <div
+                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+              >
+                <div
+                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                >
+                  File Size
+                </div>
+                <div
+                  class="text-white text-sm md:text-base leading-6 break-words"
+                >
+                  {{ Math.round(rom.files[0].file_size_bytes / 1024) }}
+                  KB
+                </div>
+              </div>
+              <div
+                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+              >
+                <div
+                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                >
+                  File
+                </div>
+                <div
+                  class="text-white text-sm md:text-base leading-6 break-words"
+                >
+                  {{ rom.files[0].file_name || "Unknown" }}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <NavigationText
-            :show-navigation="false"
-            :show-select="false"
-            :show-back="true"
-            :show-toggle-favorite="false"
-            :show-menu="false"
-          />
-        </div>
-      </div>
-    </div>
+          <div class="lightbox-footer pa-4">
+            <NavigationText
+              :show-navigation="false"
+              :show-select="false"
+              :show-back="true"
+              :show-toggle-favorite="false"
+              :show-menu="false"
+            />
+          </div>
+        </template>
+      </v-dialog>
 
-    <ScreenshotLightbox
-      v-if="showLightbox"
-      :urls="screenshotUrls"
-      :start-index="selectedShot"
-      @close="showLightbox = false"
-    />
+      <ScreenshotLightbox
+        v-if="showLightbox"
+        :urls="screenshotUrls"
+        :start-index="selectedShot"
+        @close="showLightbox = false"
+      />
 
-    <NavigationHint
-      :show-navigation="true"
-      :show-select="true"
-      :show-back="true"
-      :show-toggle-favorite="false"
-      :show-menu="false"
-      :show-delete="
-        selectedZone === 'states' && (rom?.user_states?.length ?? 0) > 0
-      "
-    />
+      <NavigationHint
+        :show-navigation="true"
+        :show-select="true"
+        :show-back="true"
+        :show-toggle-favorite="false"
+        :show-menu="false"
+        :show-delete="selectedZone === 'states' && rom.user_states.length > 0"
+      />
+    </template>
   </div>
 </template>
 
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+<style>
+.lightbox-dialog {
   backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.2s ease;
 }
-.modal-content {
-  background: rgba(20, 20, 20, 0.95);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+
+.lightbox-dialog .v-overlay__content {
+  max-height: 80vh;
+  border: 1px solid #333;
+  background-color: #0f0f0f;
   border-radius: 16px;
-  max-width: 600px;
-  max-height: 70vh;
-  width: 90%;
-  overflow: hidden;
   animation: slideUp 0.3s ease;
 }
-.modal-content.modal-wide {
-  max-width: 1000px;
-}
-.modal-header {
+
+.lightbox-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.25rem 1.5rem;
+  background-color: #131313;
+  border-bottom: 1px solid #222;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
 }
-.modal-header h2 {
-  color: white;
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0;
+
+.lightbox-footer {
+  border-top: 1px solid #222;
+  background-color: #131313;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
 }
-.modal-close {
-  background: none;
-  border: none;
-  color: #ccc;
-  font-size: 2rem;
-  cursor: pointer;
-  padding: 0;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-.modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-}
-.modal-body {
-  padding: 2rem;
-  max-height: 50vh;
-  overflow-y: auto;
-  scroll-behavior: smooth;
-}
-.modal-footer {
-  padding: 1rem 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  text-align: center;
-}
-.modal-hint {
-  color: #888;
-  font-size: 0.9rem;
-}
-.modal-overlay:focus,
-.modal-content:focus {
-  outline: none;
-}
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+
 @keyframes slideUp {
   from {
     opacity: 0;
