@@ -13,7 +13,7 @@ import {
 import firmwareApi from "@/services/api/firmware";
 import { useInputScope } from "@/console/composables/useInputScope";
 import NavigationText from "@/console/components/NavigationText.vue";
-import { getBezelForPlatform } from "@/console/constants/platforms";
+import { getPlatformTheme } from "@/console/constants/platforms";
 import api from "@/services/api";
 import { ROUTES } from "@/plugins/router";
 
@@ -303,7 +303,7 @@ async function boot() {
     ? r.user_states?.find((s) => s.id === initialStateId)
     : null;
   document.title = `${r.name} | Play`;
-  bezelSrc.value = getBezelForPlatform(r.platform_slug);
+  bezelSrc.value = getPlatformTheme(r.platform_slug)?.bezel || "";
 
   // Configure EmulatorJS globals
   const supported = getSupportedEJSCores(r.platform_slug);
@@ -615,11 +615,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="play-root fixed inset-0 bg-black text-white z-[70] overflow-hidden">
-    <div
-      id="game"
-      class="w-full h-full"
-    />
+  <div
+    class="play-root fixed inset-0 bg-black text-white z-[70] overflow-hidden"
+  >
+    <div id="game" class="w-full h-full" />
     <div
       v-if="bezelSrc !== ''"
       class="pointer-events-none fixed inset-0 flex items-center justify-center z-20 overflow-hidden"
@@ -630,8 +629,8 @@ onUnmounted(() => {
         alt="bezel"
         class="select-none"
         draggable="false"
-        style="height:100vh;max-height:100vh;width:auto;object-fit:cover;"
-      >
+        style="height: 100vh; max-height: 100vh; width: auto; object-fit: cover"
+      />
     </div>
     <div
       v-if="loaderStatus !== 'loaded'"

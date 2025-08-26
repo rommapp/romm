@@ -147,7 +147,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
   famicom: {
     label: "Nintendo Family Computer (Famicom)",
     shortName: "Famicom",
-    image: "/assets/console/default/systems/nes.svg",
+    image: "/assets/console/default/systems/famicom.svg",
     background: "linear-gradient(135deg,#cc2936,#8b1538)",
     accent: "#cc2936",
     bezel: "",
@@ -259,7 +259,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
   sfam: {
     label: "Super Famicom",
     shortName: "SFC",
-    image: "/assets/console/default/systems/snes.svg",
+    image: "/assets/console/default/systems/sfam.svg",
     background: "linear-gradient(135deg,#e22828,#f81414)",
     accent: "#e22828",
     bezel: "",
@@ -302,11 +302,6 @@ export function isSupportedPlatform(slug: string): boolean {
   return Object.keys(_SUPPORTED_PLATFORMS).includes(slug);
 }
 
-export function getPlatformTheme(slug: string): SupportedPlatform {
+export function getPlatformTheme(slug: string): SupportedPlatform | undefined {
   return _SUPPORTED_PLATFORMS[slug];
-}
-
-export function getBezelForPlatform(slug: string): string {
-  if (!slug) return "";
-  return _SUPPORTED_PLATFORMS[slug]?.bezel || "";
 }
