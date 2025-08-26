@@ -4,6 +4,7 @@ export type SupportedPlatform = {
   image: string;
   background: string;
   accent: string;
+  bezel: string;
 };
 
 const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
@@ -13,6 +14,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/3do.svg",
     background: "linear-gradient(135deg,#4e4376,#2b5876)",
     accent: "#6f63b4",
+    bezel: "",
   },
   amiga: {
     label: "Amiga",
@@ -20,6 +22,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/amiga.svg",
     background: "linear-gradient(135deg,#0093e9,#80d0c7)",
     accent: "#33b1ff",
+    bezel: "",
   },
   arcade: {
     label: "Arcade / MAME",
@@ -27,6 +30,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/arcade.svg",
     background: "linear-gradient(135deg,#d73266,#8b1538)",
     accent: "#d73266",
+    bezel: "",
   },
   mame: {
     label: "Arcade / MAME",
@@ -34,6 +38,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/arcade.svg",
     background: "linear-gradient(135deg,#d73266,#8b1538)",
     accent: "#d73266",
+    bezel: "",
   },
   atari2600: {
     label: "Atari 2600",
@@ -41,6 +46,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/atari2600.svg",
     background: "linear-gradient(135deg,#c04848,#480048)",
     accent: "#ff6a6a",
+    bezel: "",
   },
   atari5200: {
     label: "Atari 5200",
@@ -48,6 +54,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/atari5200.svg",
     background: "linear-gradient(135deg,#3a6073,#16222a)",
     accent: "#4fa3c7",
+    bezel: "",
   },
   atari7800: {
     label: "Atari 7800",
@@ -55,6 +62,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/atari7800.svg",
     background: "linear-gradient(135deg,#870000,#190a05)",
     accent: "#ff3030",
+    bezel: "",
   },
   jaguar: {
     label: "Atari Jaguar",
@@ -62,6 +70,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/jaguar.svg",
     background: "linear-gradient(135deg,#000000,#434343)",
     accent: "#ff0015",
+    bezel: "",
   },
   lynx: {
     label: "Atari Lynx",
@@ -69,6 +78,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/lynx.svg",
     background: "linear-gradient(135deg,#485563,#29323c)",
     accent: "#ffa733",
+    bezel: "",
   },
   c64: {
     label: "Commodore 64",
@@ -76,6 +86,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/c64.svg",
     background: "linear-gradient(135deg,#614385,#516395)",
     accent: "#8b7ad6",
+    bezel: "",
   },
   colecovision: {
     label: "ColecoVision",
@@ -83,6 +94,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/coleco.svg",
     background: "linear-gradient(135deg,#134e5e,#71b280)",
     accent: "#34c686",
+    bezel: "",
   },
   doom: {
     label: "DOOM",
@@ -90,6 +102,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/doom.svg",
     background: "linear-gradient(135deg,#636363,#0f0f0f)",
     accent: "#ff9800",
+    bezel: "",
   },
   "neo-geo-pocket": {
     label: "Neo Geo Pocket",
@@ -97,6 +110,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/ngp.svg",
     background: "linear-gradient(135deg,#1e3c72,#2a5298)",
     accent: "#2e6dff",
+    bezel: "",
   },
   "neo-geo-pocket-color": {
     label: "Neo Geo Pocket Color",
@@ -104,6 +118,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/ngpc.svg",
     background: "linear-gradient(135deg,#42275a,#734b6d)",
     accent: "#b667d0",
+    bezel: "",
   },
   dos: {
     label: "MS-DOS",
@@ -111,6 +126,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/dos.svg",
     background: "linear-gradient(135deg,#203a43,#2c5364)",
     accent: "#3fa7d6",
+    bezel: "",
   },
   n64: {
     label: "Nintendo 64",
@@ -118,6 +134,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/n64.svg",
     background: "linear-gradient(135deg,#ffd700,#ff8c00)",
     accent: "#ffd700",
+    bezel: "",
   },
   nes: {
     label: "Nintendo Entertainment System (NES)",
@@ -125,6 +142,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/nes.svg",
     background: "linear-gradient(135deg,#cc2936,#8b1538)",
     accent: "#cc2936",
+    bezel: "",
   },
   famicom: {
     label: "Nintendo Family Computer (Famicom)",
@@ -132,6 +150,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/nes.svg",
     background: "linear-gradient(135deg,#cc2936,#8b1538)",
     accent: "#cc2936",
+    bezel: "",
   },
   nds: {
     label: "Nintendo DS",
@@ -139,6 +158,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/nds.svg",
     background: "linear-gradient(135deg,#56ccf2,#2f80ed)",
     accent: "#2f80ed",
+    bezel: "",
   },
   gb: {
     label: "Game Boy",
@@ -146,6 +166,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/gbc.svg",
     background: "linear-gradient(135deg,#8fbc8f,#556b2f)",
     accent: "#8fbc8f",
+    bezel: "",
   },
   gbc: {
     label: "Game Boy Color",
@@ -153,6 +174,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/gbc.svg",
     background: "linear-gradient(135deg,#20b2aa,#008b8b)",
     accent: "#20b2aa",
+    bezel: "",
   },
   gba: {
     label: "Game Boy Advance",
@@ -160,6 +182,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/gba.svg",
     background: "linear-gradient(135deg,#9370db,#4b0082)",
     accent: "#9370db",
+    bezel: "",
   },
   "pc-fx": {
     label: "PC-FX",
@@ -167,6 +190,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/pcfx.svg",
     background: "linear-gradient(135deg,#41295a,#2f0743)",
     accent: "#b44cff",
+    bezel: "",
   },
   psx: {
     label: "PlayStation (PS)",
@@ -174,6 +198,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/psx.svg",
     background: "linear-gradient(135deg,#4169e1,#191970)",
     accent: "#4169e1",
+    bezel: "",
   },
   sega32: {
     label: "Sega 32X",
@@ -181,6 +206,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/32x.svg",
     background: "linear-gradient(135deg,#f7971e,#ffd200)",
     accent: "#ffbf00",
+    bezel: "",
   },
   segacd: {
     label: "Sega CD",
@@ -188,6 +214,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/segacd.svg",
     background: "linear-gradient(135deg,#2980b9,#2c3e50)",
     accent: "#4fa3ff",
+    bezel: "",
   },
   gamegear: {
     label: "Sega Game Gear",
@@ -195,6 +222,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/gamegear.svg",
     background: "linear-gradient(135deg,#141e30,#243b55)",
     accent: "#4f7fbf",
+    bezel: "",
   },
   sms: {
     label: "Sega Master System",
@@ -202,6 +230,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/sms.svg",
     background: "linear-gradient(135deg,#ff6347,#dc143c)",
     accent: "#ff6347",
+    bezel: "",
   },
   genesis: {
     label: "Sega Genesis / Megadrive",
@@ -209,6 +238,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/genesis.svg",
     background: "linear-gradient(135deg,#1e90ff,#0f4c75)",
     accent: "#1e90ff",
+    bezel: "",
   },
   saturn: {
     label: "Sega Saturn",
@@ -216,6 +246,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/saturn.svg",
     background: "linear-gradient(135deg,#141e30,#243b55)",
     accent: "#4f7fbf",
+    bezel: "",
   },
   snes: {
     label: "Super Nintendo Entertainment System (SNES)",
@@ -223,6 +254,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/snes.svg",
     background: "linear-gradient(135deg,#e22828,#f81414)",
     accent: "#e22828",
+    bezel: "/assets/console/default/bezels/snes.png",
   },
   sfam: {
     label: "Super Famicom",
@@ -230,6 +262,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/snes.svg",
     background: "linear-gradient(135deg,#e22828,#f81414)",
     accent: "#e22828",
+    bezel: "",
   },
   tg16: {
     label: "TurboGrafx-16 / PC Engine",
@@ -237,6 +270,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/pcengine.svg",
     background: "linear-gradient(135deg,#ff9966,#ff5e62)",
     accent: "#ff7b54",
+    bezel: "",
   },
   virtualboy: {
     label: "Virtual Boy",
@@ -244,6 +278,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/virtualboy.svg",
     background: "linear-gradient(135deg,#8e0e00,#1f1c18)",
     accent: "#ff2a2a",
+    bezel: "",
   },
   wonderswan: {
     label: "WonderSwan",
@@ -251,6 +286,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/wonderswan.svg",
     background: "linear-gradient(135deg,#457fca,#5691c8)",
     accent: "#4f8edb",
+    bezel: "",
   },
   "wonderswan-color": {
     label: "WonderSwan Color",
@@ -258,6 +294,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     image: "/assets/console/default/systems/wonderswancolor.svg",
     background: "linear-gradient(135deg,#396afc,#2948ff)",
     accent: "#456dff",
+    bezel: "",
   },
 };
 
@@ -267,4 +304,9 @@ export function isSupportedPlatform(slug: string): boolean {
 
 export function getPlatformTheme(slug: string): SupportedPlatform {
   return _SUPPORTED_PLATFORMS[slug];
+}
+
+export function getBezelForPlatform(slug: string): string {
+  if (!slug) return "";
+  return _SUPPORTED_PLATFORMS[slug]?.bezel || "";
 }
