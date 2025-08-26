@@ -106,11 +106,10 @@ start_bin_gunicorn() {
 		--worker-class uvicorn_worker.UvicornWorker \
 		--workers "${GUNICORN_WORKERS:-1}" \
 		--timeout "${GUNICORN_TIMEOUT:-300}" \
-		--keepalive "${GUNICORN_KEEPALIVE:-2}" \
+		--keep-alive "${GUNICORN_KEEPALIVE:-2}" \
 		--max-requests "${GUNICORN_MAX_REQUESTS:-1000}" \
 		--max-requests-jitter "${GUNICORN_MAX_REQUESTS_JITTER:-100}" \
 		--worker-connections "${GUNICORN_WORKER_CONNECTIONS:-1000}" \
-		--preload-app \
 		--error-logfile - \
 		--log-config /etc/gunicorn/logging.conf \
 		main:app &
