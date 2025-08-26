@@ -267,15 +267,11 @@ onMounted(async () => {
   }
   if (selectedIndex.value >= roms.value.length) selectedIndex.value = 0;
   await nextTick();
-  try {
-    cardElementAt(selectedIndex.value)?.scrollIntoView({
-      block: "center",
-      inline: "nearest",
-      behavior: "instant" as ScrollBehavior,
-    });
-  } catch {
-    /* ignore */
-  }
+  cardElementAt(selectedIndex.value)?.scrollIntoView({
+    block: "center",
+    inline: "nearest",
+    behavior: "instant" as ScrollBehavior,
+  });
   off = subscribe(handleAction);
 });
 

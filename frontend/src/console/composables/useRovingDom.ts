@@ -32,18 +32,12 @@ export function useRovingDom(
       if (!el) return;
       el.setAttribute("tabindex", "0");
       if (focus) {
-        try {
-          el.focus({ preventScroll: true });
-        } catch {
-          /* ignore */
-        }
+        el.focus({ preventScroll: true });
       }
       if (scroll) {
-        try {
+        setTimeout(() => {
           el.scrollIntoView({ block, inline, behavior });
-        } catch {
-          /* ignore */
-        }
+        }, 0);
       }
     },
     { immediate: true },

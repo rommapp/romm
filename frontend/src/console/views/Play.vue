@@ -313,24 +313,16 @@ async function boot() {
   window.EJS_gameID = r.id;
   if (initialSaveId) {
     // Persist chosen save ID for later logic
-    try {
-      localStorage.setItem(
-        `player:${r.id}:initial_save_id`,
-        String(initialSaveId),
-      );
-    } catch {
-      /* ignore */
-    }
+    localStorage.setItem(
+      `player:${r.id}:initial_save_id`,
+      String(initialSaveId),
+    );
   }
   if (initialStateId) {
-    try {
-      localStorage.setItem(
-        `player:${r.id}:initial_state_id`,
-        String(initialStateId),
-      );
-    } catch {
-      /* ignore */
-    }
+    localStorage.setItem(
+      `player:${r.id}:initial_state_id`,
+      String(initialStateId),
+    );
   }
   // Disc selection persistence
   const storedDisc = localStorage.getItem(`player:${r.id}:disc`);
