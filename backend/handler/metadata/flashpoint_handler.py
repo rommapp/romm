@@ -240,12 +240,17 @@ class FlashpointHandler(MetadataHandler):
         log.debug(f"No good match found for '{search_term}' on Flashpoint")
         return FlashpointRom(flashpoint_id=None)
 
-    async def get_matched_roms_by_name(self, search_term: str) -> list[FlashpointRom]:
+    async def get_matched_roms_by_name(self, fs_name: str) -> list[FlashpointRom]:
         """
         Get ROM information by name from Flashpoint.
         """
+        from handler.filesystem import fs_rom_handler
+
         if not FLASHPOINT_API_ENABLED:
             return []
+
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+        search_term = self.normalize_search_term(search_term, remove_punctuation=False)
 
         games = await self.search_games(search_term)
         return [

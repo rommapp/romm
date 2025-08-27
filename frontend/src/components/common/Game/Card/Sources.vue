@@ -48,5 +48,18 @@ defineProps<{ rom: SearchRomSchema }>();
         >
           <v-img src="/assets/scrappers/ss.png" /></v-avatar></template
     ></v-tooltip>
+    <v-tooltip
+      location="top"
+      class="tooltip"
+      transition="fade-transition"
+      text="Flashpoint matched"
+      open-delay="500"
+    >
+      <template #activator="{ props }">
+        <v-avatar v-bind="props" v-if="rom.flashpoint_id" size="30" rounded="1">
+          <v-img src="/assets/scrappers/flashpoint.png" />
+        </v-avatar>
+      </template>
+    </v-tooltip>
   </v-row>
 </template>
