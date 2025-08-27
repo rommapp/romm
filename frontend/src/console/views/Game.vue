@@ -441,7 +441,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-full h-screen flex flex-col overflow-hidden">
+  <div class="w-full h-screen flex flex-col overflow-hidden cursor-none">
     <template v-if="!rom">
       <!-- States -->
       <div v-if="playerState === 'loading'" class="m-auto text-fg0 text-lg">
@@ -880,6 +880,7 @@ onUnmounted(() => {
 <style>
 .lightbox-dialog {
   backdrop-filter: blur(10px);
+  cursor: none;
 }
 
 .lightbox-dialog .v-overlay__content {
@@ -888,6 +889,11 @@ onUnmounted(() => {
   background-color: #0f0f0f;
   border-radius: 16px;
   animation: slideUp 0.3s ease;
+  cursor: none;
+}
+
+.lightbox-dialog * {
+  cursor: none !important;
 }
 
 .lightbox-header {
