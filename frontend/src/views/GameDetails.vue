@@ -72,21 +72,16 @@ async function fetchDetails() {
 }
 
 function handleKeyDown(event: KeyboardEvent) {
-  if (event.key === "ArrowLeft") {
-    const currentIndex = filteredRoms.value.findIndex(
-      (rom) => rom.id === currentRom.value?.id,
-    );
-    if (currentIndex > 0) {
-      router.push(`/rom/${filteredRoms.value[currentIndex - 1].id}`);
-    }
-  }
-  if (event.key === "ArrowRight") {
-    const currentIndex = filteredRoms.value.findIndex(
-      (rom) => rom.id === currentRom.value?.id,
-    );
-    if (currentIndex < filteredRoms.value.length - 1) {
-      router.push(`/rom/${filteredRoms.value[currentIndex + 1].id}`);
-    }
+  const currentIndex = filteredRoms.value.findIndex(
+    (rom) => rom.id === currentRom.value?.id,
+  );
+  if (event.key === "ArrowLeft" && currentIndex > 0) {
+    router.push(`/rom/${filteredRoms.value[currentIndex - 1].id}`);
+  } else if (
+    event.key === "ArrowRight" &&
+    currentIndex < filteredRoms.value.length - 1
+  ) {
+    router.push(`/rom/${filteredRoms.value[currentIndex + 1].id}`);
   }
 }
 
