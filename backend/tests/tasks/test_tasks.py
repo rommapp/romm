@@ -132,7 +132,7 @@ class TestPeriodicTask:
         result = task.schedule()
 
         mock_cron.assert_called_once_with(
-            "0 0 * * *", func="test.function", repeat=None
+            "0 0 * * *", func="test.function", repeat=None, timeout=5 * 60
         )
         assert result == mock_job
 
