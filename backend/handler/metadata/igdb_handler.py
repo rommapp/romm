@@ -1477,7 +1477,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "family_slug": "",
         "generation": -1,
         "id": 82,
-        "name": "Web browser",
+        "name": "Browser (Flash/HTML5)",
         "slug": "browser",
         "url": "https://www.igdb.com/platforms/browser",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
@@ -5095,7 +5095,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     },
     "web-browser": {
         "id": 86,
-        "name": "Web browser",
+        "name": "Browser (Flash/HTML5)",
         "platform_slug": UPS.BROWSER,
         "slug": "web-browser",
         "url": "https://www.igdb.com/platforms/browser/version/web-browser",

@@ -174,6 +174,8 @@ class FlashpointHandler(MetadataHandler):
         :param platform_slug: The platform slug (must be "browser").
         :return: A FlashpointRom object.
         """
+        from handler.filesystem import fs_rom_handler
+
         if not FLASHPOINT_API_ENABLED:
             return FlashpointRom(flashpoint_id=None)
 
@@ -181,7 +183,8 @@ class FlashpointHandler(MetadataHandler):
             return FlashpointRom(flashpoint_id=None)
 
         # Normalize the search term
-        search_term = self.normalize_search_term(fs_name)
+        search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
+        search_term = self.normalize_search_term(search_term, remove_punctuation=False)
 
         # Search for games
         games = await self.search_games(search_term)

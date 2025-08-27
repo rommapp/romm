@@ -194,7 +194,7 @@ class RomSchema(BaseModel):
     launchbox_id: int | None
     hasheous_id: int | None
     tgdb_id: int | None
-    flashpoint_id: int | None
+    flashpoint_id: str | None
 
     platform_id: int
     platform_slug: str
