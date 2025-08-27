@@ -12,6 +12,7 @@ from config import (
     LAUNCHBOX_API_ENABLED,
     LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+    SCAN_TIMEOUT,
     SENTRY_DSN,
 )
 from config.config_manager import config_manager as cm
@@ -133,6 +134,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 [],
                 scan_type=ScanType.UNIDENTIFIED,
                 metadata_sources=metadata_sources,
+                timeout=SCAN_TIMEOUT,
             )
             return
 
@@ -155,6 +157,7 @@ def process_changes(changes: Sequence[Change]) -> None:
                 [db_platform.id],
                 scan_type=ScanType.QUICK,
                 metadata_sources=metadata_sources,
+                timeout=SCAN_TIMEOUT,
             )
 
 
