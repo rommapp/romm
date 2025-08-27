@@ -80,8 +80,14 @@ async function deleteUser(user: User) {
   return api.delete(`/users/${user.id}`);
 }
 
-async function refreshRetroAchievements({ id }: { id: number }) {
-  return api.post(`/users/${id}/ra/refresh`);
+async function refreshRetroAchievements({
+  id,
+  incremental = false,
+}: {
+  id: number;
+  incremental?: boolean;
+}) {
+  return api.post(`/users/${id}/ra/refresh`, { incremental });
 }
 
 export default {
