@@ -80,7 +80,7 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
         },
       },
-      port: env.DEV_HTTPS ? 443 : 3000,
+      port: env.DEV_HTTPS ? 8443 : 3000,
       allowedHosts: ["localhost", "127.0.0.1", "romm.dev"],
       ...(env.DEV_HTTPS
         ? {

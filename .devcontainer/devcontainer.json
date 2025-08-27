@@ -4,9 +4,9 @@
   "service": "romm-dev",
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",
-  "forwardPorts": [443, 3000, 3306, 5000, 6379],
+  "forwardPorts": [8443, 3000, 3306, 5000, 6379],
   "portsAttributes": {
-    "443": {
+    "8443": {
       "label": "HTTPS Dev Server",
       "onAutoForward": "notify"
     },
