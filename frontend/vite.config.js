@@ -82,9 +82,14 @@ export default defineConfig(({ mode }) => {
       },
       port: env.DEV_HTTPS ? 443 : 3000,
       allowedHosts: ["localhost", "127.0.0.1", "romm.dev"],
-      https: {
-        cert: "/app/.vite-plugin-mkcert/dev.pem",
-      },
+      ...(env.DEV_HTTPS
+        ? {
+            https: {
+              cert: "/app/.vite-plugin-mkcert/dev.pem",
+              key: "/app/.vite-plugin-mkcert/dev-key.pem",
+            },
+          }
+        : {}),
     },
   };
 });
