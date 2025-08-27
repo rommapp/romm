@@ -1,6 +1,5 @@
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { onMounted, onUnmounted, ref, watch, nextTick } from "vue";
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import romApi from "@/services/api/rom";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
@@ -22,6 +21,7 @@ const router = useRouter();
 const romId = Number(route.params.rom);
 const initialSaveId = route.query.save ? Number(route.query.save) : null;
 const initialStateId = route.query.state ? Number(route.query.state) : null;
+const romRef = ref<DetailedRomSchema | null>(null);
 const showHint = ref(true);
 const bezelSrc = ref<string>("");
 const showExitPrompt = ref(false);
@@ -32,7 +32,9 @@ const loaderError = ref("");
 const loaderStatus = ref<
   "idle" | "loading-local" | "loading-cdn" | "loaded" | "failed"
 >("idle");
+
 let pausedByPrompt = false;
+
 const exitOptions = [
   { id: "save", label: "Save & Exit", desc: "Save current state, then quit" },
   {
@@ -42,34 +44,30 @@ const exitOptions = [
   },
   { id: "cancel", label: "Cancel", desc: "Return to the game" },
 ];
+
 const { subscribe } = useInputScope();
 let exitScopeOff: (() => void) | null = null;
-let romCache: DetailedRomSchema | null = null;
-let rafId: number | null = 0;
-let lastPress: Record<number, number> = { 8: 0, 9: 0 };
+let requestedAnimationFrame: number | null = null;
+let lastPressedKeys: Record<number, number> = { 8: 0, 9: 0 };
+
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 function immediateExit() {
-  try {
-    (window as any).EJS_emulator?.callEvent?.("exit");
-  } catch {
-    /* noop */
-  }
-  router.push({ name: ROUTES.CONSOLE_ROM, params: { rom: romId } });
+  router
+    .push({ name: ROUTES.CONSOLE_ROM, params: { rom: romId } })
+    .catch((error) => {
+      console.error("Error navigating to console rom", error);
+    });
 }
 
 function showPrompt() {
-  if (showExitPrompt.value) return; // already open
+  if (showExitPrompt.value) return; // Prompt already open
   showExitPrompt.value = true;
   saveError.value = "";
   focusedExitIndex.value = 0;
-  try {
-    const emu = (window as any).EJS_emulator;
-    emu.pause();
-    pausedByPrompt = true;
-  } catch {
-    /* noop */
-  }
+
+  window.EJS_emulator.pause();
+  pausedByPrompt = true;
 
   nextTick(() => {
     exitScopeOff?.();
@@ -103,24 +101,19 @@ async function saveAndExit() {
   savingState.value = true;
 
   try {
-    const emu = (window as any).EJS_emulator;
     // CRITICAL: The game must be RUNNING for screenshot to work!
     // We paused it in showPrompt(), so we need to resume it first
     console.info(
       "Resuming game before screenshot (emujs expects running game)",
     );
-    if (emu.paused) {
-      try {
-        emu.play();
-        // Wait a moment for the game to fully resume
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (resumeErr) {
-        console.warn("Failed to resume game:", resumeErr);
-      }
+    if (window.EJS_emulator.paused) {
+      window.EJS_emulator.play();
+      // Wait a moment for the game to fully resume
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    const screenshotFile = await emu.gameManager.screenshot();
-    const stateFile = emu.gameManager.getState();
+    const screenshotFile = await window.EJS_emulator.gameManager.screenshot();
+    const stateFile = window.EJS_emulator.gameManager.getState();
 
     // Upload using original saveState utility
     await uploadState(stateFile, screenshotFile);
@@ -135,7 +128,8 @@ async function saveAndExit() {
 }
 
 async function uploadState(stateFile: Uint8Array, screenshotFile: Uint8Array) {
-  const filename = `${romCache!.fs_name_no_ext.trim()} [${new Date()
+  if (!romRef.value) return;
+  const filename = `${romRef.value.fs_name_no_ext.trim()} [${new Date()
     .toISOString()
     .replace(/[:.]/g, "-")
     .replace("T", " ")
@@ -145,8 +139,8 @@ async function uploadState(stateFile: Uint8Array, screenshotFile: Uint8Array) {
     const stateApi = await import("@/services/api/state");
 
     const uploadedStates = await stateApi.default.uploadStates({
-      rom: romCache!,
-      emulator: (window as any).EJS_core,
+      rom: romRef.value,
+      emulator: window.EJS_core,
       statesToUpload: [
         {
           stateFile: new File([stateFile], `${filename}.state`, {
@@ -161,7 +155,7 @@ async function uploadState(stateFile: Uint8Array, screenshotFile: Uint8Array) {
 
     const uploadedState = uploadedStates[0];
     if (uploadedState.status == "fulfilled") {
-      if (romCache) romCache.user_states.unshift(uploadedState.value);
+      if (romRef.value) romRef.value.user_states.unshift(uploadedState.value);
       return uploadedState.value;
     } else {
       throw new Error("State upload was rejected");
@@ -173,21 +167,23 @@ async function uploadState(stateFile: Uint8Array, screenshotFile: Uint8Array) {
 }
 
 function cancelExit() {
-  const emu = (window as any).EJS_emulator;
   showExitPrompt.value = false;
   if (pausedByPrompt) {
-    emu.play();
+    window.EJS_emulator.play();
     pausedByPrompt = false;
   }
+
   // Reset combo detection timestamps so start+select works again right away
-  lastPress[8] = 0;
-  lastPress[9] = 0;
+  lastPressedKeys[8] = 0;
+  lastPressedKeys[9] = 0;
   exitScopeOff?.();
   exitScopeOff = null;
 }
 
 function activateExitOption(id: string) {
-  if (savingState.value && id !== "save") return; // block other actions while saving
+  // Block other actions while saving
+  if (savingState.value && id !== "save") return;
+
   if (id === "save") {
     saveAndExit();
   } else if (id === "nosave") {
@@ -269,17 +265,17 @@ function attachGamepadExit(options?: { windowMs?: number }) {
       }
     }
     if (running) {
-      rafId = requestAnimationFrame(loop);
+      requestedAnimationFrame = requestAnimationFrame(loop);
     }
   };
 
-  rafId = requestAnimationFrame(loop);
+  requestedAnimationFrame = requestAnimationFrame(loop);
 
   return () => {
     running = false;
-    if (rafId != null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
+    if (requestedAnimationFrame != null) {
+      cancelAnimationFrame(requestedAnimationFrame);
+      requestedAnimationFrame = null;
     }
   };
 }
@@ -294,63 +290,71 @@ watch(showExitPrompt, (v) => {
 async function boot() {
   // Fetch rom details
   const { data: rom } = await romApi.getRom({ romId });
-  const r = rom as DetailedRomSchema;
-  romCache = r;
+  romRef.value = rom;
+
   const selectedInitialSave = initialSaveId
-    ? r.user_saves?.find((s) => s.id === initialSaveId)
+    ? rom.user_saves?.find((s) => s.id === initialSaveId)
     : null;
+
   const selectedInitialState = initialStateId
-    ? r.user_states?.find((s) => s.id === initialStateId)
+    ? rom.user_states?.find((s) => s.id === initialStateId)
     : null;
-  document.title = `${r.name} | Play`;
-  bezelSrc.value = getPlatformTheme(r.platform_slug)?.bezel || "";
+
+  document.title = `${rom.name} | Play`;
+  bezelSrc.value = getPlatformTheme(rom.platform_slug)?.bezel || "";
 
   // Configure EmulatorJS globals
-  const supported = getSupportedEJSCores(r.platform_slug);
-  const storedCore = localStorage.getItem(`player:${r.platform_slug}:core`);
+  const supported = getSupportedEJSCores(rom.platform_slug);
+  const storedCore = localStorage.getItem(`player:${rom.platform_slug}:core`);
   const core =
     storedCore && supported.includes(storedCore) ? storedCore : supported[0];
+
   window.EJS_core = core;
-  window.EJS_controlScheme = getControlSchemeForPlatform(r.platform_slug);
+  window.EJS_controlScheme = getControlSchemeForPlatform(rom.platform_slug);
   window.EJS_threads = areThreadsRequiredForEJSCore(core);
-  window.EJS_gameID = r.id;
+  window.EJS_gameID = rom.id;
+
   if (initialSaveId) {
     // Persist chosen save ID for later logic
     localStorage.setItem(
-      `player:${r.id}:initial_save_id`,
+      `player:${rom.id}:initial_save_id`,
       String(initialSaveId),
     );
   }
   if (initialStateId) {
     localStorage.setItem(
-      `player:${r.id}:initial_state_id`,
+      `player:${rom.id}:initial_state_id`,
       String(initialStateId),
     );
   }
+
   // Disc selection persistence
-  const storedDisc = localStorage.getItem(`player:${r.id}:disc`);
+  const storedDisc = localStorage.getItem(`player:${rom.id}:disc`);
   const discId = storedDisc ? parseInt(storedDisc) : null;
   window.EJS_gameUrl = getDownloadPath({
-    rom: r,
+    rom: rom,
     fileIDs: discId ? [discId] : [],
   });
+
   // BIOS selection persistence
   try {
     const { data: firmware } = await firmwareApi.getFirmware({
-      platformId: r.platform_id,
+      platformId: rom.platform_id,
     });
     const storedBiosID = localStorage.getItem(
-      `player:${r.platform_slug}:bios_id`,
+      `player:${rom.platform_slug}:bios_id`,
     );
     const bios = storedBiosID
       ? firmware.find((f) => f.id === parseInt(storedBiosID))
       : null;
+
     window.EJS_biosUrl = bios
       ? `/api/firmware/${bios.id}/content/${bios.file_name}`
       : "";
   } catch {
     window.EJS_biosUrl = "";
   }
+
   window.EJS_player = "#game";
   window.EJS_Buttons = {
     playPause: false,
@@ -382,8 +386,9 @@ async function boot() {
     "save-state-location": "browser",
     rewindEnabled: "enabled",
   };
+
   // Set a valid game name (affects per-game settings keys)
-  window.EJS_gameName = (r.fs_name_no_tags || r.name || "")
+  window.EJS_gameName = rom.fs_name_no_tags
     .replace(INVALID_CHARS_REGEX, "")
     .trim();
 
@@ -407,7 +412,7 @@ async function boot() {
       await api.post("/states", formData, {
         headers: { "Content-Type": "multipart/form-data" },
         params: {
-          rom_id: r.id,
+          rom_id: rom.id,
           emulator: "emulatorjs",
         },
       });
@@ -430,6 +435,7 @@ async function boot() {
       "screenshotFile:",
       screenshotFile?.length,
     );
+
     try {
       // If I decide to handle save files later, I will implement it here
       console.info("Save file callback executed");
@@ -450,12 +456,14 @@ async function boot() {
 
   // Ensure a controller is auto-assigned to Player 1 when available
   window.EJS_onGameStart = () => {
-    const e = (window as any).EJS_emulator;
-    if (!e) return;
+    if (!window.EJS_emulator) return;
     const waitForGameManager = async () => {
       const deadline = Date.now() + 5000; // 5s timeout
       while (Date.now() < deadline) {
-        if (e?.gameManager?.FS && e.gameManager.getSaveFilePath) {
+        if (
+          window.EJS_emulator.gameManager?.FS &&
+          window.EJS_emulator.gameManager.getSaveFilePath
+        ) {
           return true;
         }
         await new Promise((r) => setTimeout(r, 100));
@@ -463,26 +471,28 @@ async function boot() {
       return false;
     };
     const assignFirstPad = () => {
-      if (!e.gamepad) return;
-      if (!Array.isArray(e.gamepadSelection))
-        e.gamepadSelection = ["", "", "", ""];
-      if (!e.gamepad.gamepads || e.gamepad.gamepads.length === 0) return;
-      if (!e.gamepadSelection[0]) {
-        const gp = e.gamepad.gamepads[0];
+      if (!window.EJS_emulator.gamepad) return;
+      if (!Array.isArray(window.EJS_emulator.gamepadSelection))
+        window.EJS_emulator.gamepadSelection = ["", "", "", ""];
+      if (
+        !window.EJS_emulator.gamepad.gamepads ||
+        window.EJS_emulator.gamepad.gamepads.length === 0
+      )
+        return;
+      if (!window.EJS_emulator.gamepadSelection[0]) {
+        const gp = window.EJS_emulator.gamepad.gamepads[0];
         if (gp) {
-          e.gamepadSelection[0] = `${gp.id}_${gp.index}`;
-          e.updateGamepadLabels?.();
+          window.EJS_emulator.gamepadSelection[0] = `${gp.id}_${gp.index}`;
+          window.EJS_emulator.updateGamepadLabels?.();
         }
       }
     };
+
     // Assign immediately if a pad exists
     assignFirstPad();
+
     // Also assign on future connections
-    try {
-      e.gamepad?.on?.("connected", assignFirstPad);
-    } catch {
-      /* noop */
-    }
+    window.EJS_emulator.gamepad?.on?.("connected", assignFirstPad);
 
     (async () => {
       const ready = await waitForGameManager();
@@ -490,7 +500,7 @@ async function boot() {
         console.warn("Game manager not ready for save/state injection");
         return;
       }
-      const gm = e.gameManager;
+      const gameManager = window.EJS_emulator.gameManager;
       // Load SAVE (battery / SRAM) if provided
       if (selectedInitialSave?.download_path) {
         try {
@@ -498,8 +508,8 @@ async function boot() {
           if (!resp.ok) throw new Error("Failed to fetch save");
           const buf = new Uint8Array(await resp.arrayBuffer());
           try {
-            const FS = gm.FS;
-            const path = gm.getSaveFilePath();
+            const FS = gameManager.FS;
+            const path = gameManager.getSaveFilePath();
             // Ensure dirs
             const segs = path.split("/");
             let accum = "";
@@ -510,7 +520,7 @@ async function boot() {
             }
             if (FS.analyzePath(path).exists) FS.unlink(path);
             FS.writeFile(path, buf);
-            gm.loadSaveFiles?.();
+            gameManager.loadSaveFiles?.();
             console.info("[ConsolePlay] Loaded server save into path", path);
           } catch (err) {
             console.warn("[ConsolePlay] Failed writing save file", err);
@@ -519,6 +529,7 @@ async function boot() {
           console.warn("[ConsolePlay] Save download failed", err);
         }
       }
+
       // Load STATE if provided (fast-forward once core running)
       if (selectedInitialState?.download_path) {
         try {
@@ -528,7 +539,7 @@ async function boot() {
           // Some cores need a couple frames; delay slightly
           setTimeout(() => {
             try {
-              gm.loadState?.(buf);
+              gameManager.loadState?.(buf);
               console.info("[ConsolePlay] Applied server state");
             } catch (err) {
               console.warn("[ConsolePlay] Applying state failed", err);
@@ -574,10 +585,10 @@ async function boot() {
     }
     // Wait for emulator bootstrap
     const startDeadline = Date.now() + 8000; // 8s
-    while (!(window as any).EJS_emulator && Date.now() < startDeadline) {
+    while (!window.EJS_emulator && Date.now() < startDeadline) {
       await new Promise((r) => setTimeout(r, 100));
     }
-    if (!(window as any).EJS_emulator) {
+    if (!window.EJS_emulator) {
       throw new Error("Emulator did not initialize (EJS_emulator missing)");
     }
     loaderStatus.value = "loaded";
@@ -596,19 +607,19 @@ async function boot() {
 let detachKey: (() => void) | null = null;
 let detachPad: (() => void) | null = null;
 let booted = false;
+
 onMounted(async () => {
-  if (booted) return; // guard against duplicate mounts
+  // Guard against duplicate mounts
+  if (booted) return;
+
   booted = true;
   await boot();
   detachKey = attachKeyboardExit();
   detachPad = attachGamepadExit();
 });
-onUnmounted(() => {
-  try {
-    (window as any).EJS_emulator?.callEvent?.("exit");
-  } catch {
-    /* noop */
-  }
+
+onBeforeUnmount(() => {
+  window.EJS_emulator?.callEvent?.("exit");
   detachKey?.();
   detachPad?.();
 });
@@ -753,6 +764,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
 }
+
 /* Hide the EmulatorJS in-UI exit button */
 #game .ejs_menu_bar .ejs_menu_button:nth-child(-1) {
   display: none;

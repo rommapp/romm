@@ -13,6 +13,7 @@ import { inject, ref, watch } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
@@ -66,7 +67,7 @@ async function removeRomsFromCollection() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       romsStore.resetSelection();
       if (selectedCollection.value?.rom_ids.length == 0) {
-        router.push({ name: "home" });
+        router.push({ name: ROUTES.HOME });
       }
       closeDialog();
     });

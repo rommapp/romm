@@ -20,6 +20,11 @@ import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { useRovingDom } from "@/console/composables/useRovingDom";
+import {
+  systemElementRegistry,
+  recentElementRegistry,
+  collectionElementRegistry,
+} from "@/console/composables/useElementRegistry";
 import consoleStore from "@/stores/console";
 import { ROUTES } from "@/plugins/router";
 
@@ -48,13 +53,6 @@ const collectionsRef = ref<HTMLDivElement>();
 const platformsSectionRef = ref<HTMLElement>();
 const recentSectionRef = ref<HTMLElement>();
 const collectionsSectionRef = ref<HTMLElement>();
-
-// Element registries for roving DOM
-import {
-  systemElementRegistry,
-  recentElementRegistry,
-  collectionElementRegistry,
-} from "@/console/composables/useElementRegistry";
 
 const systemElementAt = (i: number) => systemElementRegistry.getElement(i);
 const recentElementAt = (i: number) => recentElementRegistry.getElement(i);
