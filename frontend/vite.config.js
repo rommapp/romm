@@ -2,6 +2,7 @@
 import vue from "@vitejs/plugin-vue";
 import { VitePWA } from "vite-plugin-pwa";
 import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
+import mkcert from "vite-plugin-mkcert";
 
 // Utilities
 import { URL, fileURLToPath } from "node:url";
@@ -17,7 +18,6 @@ export default defineConfig(({ mode }) => {
   };
 
   const backendPort = env.DEV_PORT ?? "5000";
-  const allowedHosts = env.VITE_ALLOWED_HOSTS == "true" ? true : false;
 
   return {
     build: {
@@ -47,6 +47,11 @@ export default defineConfig(({ mode }) => {
           type: "module",
         },
       }),
+      env.DEV_HTTPS &&
+        mkcert({
+          savePath: "/app/.vite-plugin-mkcert",
+          hosts: ["localhost", "127.0.0.1", "romm.dev"],
+        }),
     ],
     define: {
       "process.env": {},
@@ -76,8 +81,16 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/openapi.json/, "/openapi.json"),
         },
       },
-      port: 3000,
-      allowedHosts: allowedHosts,
+      port: env.DEV_HTTPS ? 8443 : 3000,
+      allowedHosts: ["localhost", "127.0.0.1", "romm.dev"],
+      ...(env.DEV_HTTPS
+        ? {
+            https: {
+              cert: "/app/.vite-plugin-mkcert/dev.pem",
+              key: "/app/.vite-plugin-mkcert/dev-key.pem",
+            },
+          }
+        : {}),
     },
   };
 });
