@@ -24,10 +24,12 @@ import {
   watch,
   defineAsyncComponent,
   onMounted,
+  onBeforeUnmount,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+
 // Dynamic import for PDFViewer
 const PdfViewer = defineAsyncComponent(
   () => import("@/components/Details/PDFViewer.vue"),
@@ -69,6 +71,25 @@ async function fetchDetails() {
     });
 }
 
+function handleKeyDown(event: KeyboardEvent) {
+  if (event.key === "ArrowLeft") {
+    const currentIndex = filteredRoms.value.findIndex(
+      (rom) => rom.id === currentRom.value?.id,
+    );
+    if (currentIndex > 0) {
+      router.push(`/rom/${filteredRoms.value[currentIndex - 1].id}`);
+    }
+  }
+  if (event.key === "ArrowRight") {
+    const currentIndex = filteredRoms.value.findIndex(
+      (rom) => rom.id === currentRom.value?.id,
+    );
+    if (currentIndex < filteredRoms.value.length - 1) {
+      router.push(`/rom/${filteredRoms.value[currentIndex + 1].id}`);
+    }
+  }
+}
+
 onBeforeMount(async () => {
   const romId = parseInt(route.params.rom as string);
 
@@ -93,24 +114,11 @@ onBeforeMount(async () => {
 });
 
 onMounted(() => {
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowLeft") {
-      const currentIndex = filteredRoms.value.findIndex(
-        (rom) => rom.id === currentRom.value?.id,
-      );
-      if (currentIndex > 0) {
-        router.push(`/rom/${filteredRoms.value[currentIndex - 1].id}`);
-      }
-    }
-    if (event.key === "ArrowRight") {
-      const currentIndex = filteredRoms.value.findIndex(
-        (rom) => rom.id === currentRom.value?.id,
-      );
-      if (currentIndex < filteredRoms.value.length - 1) {
-        router.push(`/rom/${filteredRoms.value[currentIndex + 1].id}`);
-      }
-    }
-  });
+  document.addEventListener("keydown", handleKeyDown);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("keydown", handleKeyDown);
 });
 
 watch(
