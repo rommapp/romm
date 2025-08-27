@@ -33,11 +33,12 @@ onMounted(() => {
   >
     <template #default>
       <div class="lightbox-header">
-        <h2 class="text-h6">Screenshots</h2>
+        <h2 class="text-h6 text-white">Screenshots</h2>
         <v-btn
           icon="mdi-close"
           aria-label="Close"
           size="small"
+          color="#131313"
           @click="closeDialog"
         />
       </div>
@@ -56,6 +57,7 @@ onMounted(() => {
             icon="mdi-triangle"
             size="x-small"
             class="lightbox-nav-prev"
+            color="#131313"
             @click="props.onClick"
           />
         </template>
@@ -79,6 +81,7 @@ onMounted(() => {
             icon="mdi-triangle"
             size="x-small"
             class="lightbox-nav-next"
+            color="#131313"
             @click="props.onClick"
           />
         </template>
