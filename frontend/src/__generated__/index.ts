@@ -71,6 +71,7 @@ export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';
 export type { TinfoilFeedTitleDBSchema } from './models/TinfoilFeedTitleDBSchema';
 export type { TokenResponse } from './models/TokenResponse';
+export type { UserCollectionSchema } from './models/UserCollectionSchema';
 export type { UserForm } from './models/UserForm';
 export type { UserNotesSchema } from './models/UserNotesSchema';
 export type { UserSchema } from './models/UserSchema';

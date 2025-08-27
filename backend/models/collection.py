@@ -34,7 +34,7 @@ class Collection(BaseModel):
         secondary="collections_roms",
         collection_class=set,
         back_populates="collections",
-        lazy="joined",
+        lazy="raise",
     )
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
@@ -170,6 +170,9 @@ class VirtualCollection(BaseModel):
     )
 
 
+SMART_COLLECTION_MAX_COVERS = 5
+
+
 class SmartCollection(BaseModel):
     __tablename__ = "smart_collections"
 
@@ -196,37 +199,33 @@ class SmartCollection(BaseModel):
         lazy="joined", back_populates="smart_collections"
     )
 
-    def get_roms(self) -> list["Rom"]:
+    def update_properties(self, user_id: int) -> "SmartCollection":
         from handler.database import db_collection_handler
 
-        roms = db_collection_handler.get_smart_collection_roms(self, self.user_id)
+        roms = db_collection_handler.get_smart_collection_roms(self, user_id)
 
-        # Update the properties based on the list of ROMs
-        self.rom_count = len(roms)
-        self.rom_ids = [rom.id for rom in roms]
-        self.path_covers_small = [
-            f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
-            for r in roms
-            if r.path_cover_s
+        roms_with_small_covers = [r for r in roms if r.path_cover_s][
+            :SMART_COLLECTION_MAX_COVERS
         ]
-        self.path_covers_large = [
-            f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
-            for r in roms
-            if r.path_cover_l
+        roms_with_large_covers = [r for r in roms if r.path_cover_l][
+            :SMART_COLLECTION_MAX_COVERS
         ]
 
-        # Update the database with the new properties
-        db_collection_handler.update_smart_collection(
+        return db_collection_handler.update_smart_collection(
             self.id,
             {
-                "rom_count": self.rom_count,
-                "rom_ids": list(self.rom_ids),
-                "path_covers_small": self.path_covers_small,
-                "path_covers_large": self.path_covers_large,
+                "rom_count": len(roms),
+                "rom_ids": [rom.id for rom in roms],
+                "path_covers_small": [
+                    f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_s}?ts={self.updated_at}"
+                    for r in roms_with_small_covers
+                ],
+                "path_covers_large": [
+                    f"{FRONTEND_RESOURCES_PATH}/{r.path_cover_l}?ts={self.updated_at}"
+                    for r in roms_with_large_covers
+                ],
             },
         )
-
-        return [r for r in roms]
 
     @property
     def user__username(self) -> str:

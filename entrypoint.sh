@@ -1,5 +1,4 @@
 #!/bin/bash
-# trunk-ignore-all(shellcheck/SC2016)
 
 set -e
 
@@ -32,6 +31,12 @@ function handle_termination() {
 
 # Trap SIGTERM and SIGINT signals
 trap handle_termination SIGTERM SIGINT
+
+# Set ROMM_AUTH_SECRET_KEY if not already set
+if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
+	ROMM_AUTH_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+	export ROMM_AUTH_SECRET_KEY
+fi
 
 # Start all services in the background
 echo "Starting backend..."

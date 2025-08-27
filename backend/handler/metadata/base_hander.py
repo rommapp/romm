@@ -1,13 +1,12 @@
 import enum
 import json
-import os
 import re
 import unicodedata
 from functools import lru_cache
-from itertools import batched
+from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 
-from handler.redis_handler import async_cache, sync_cache
+from handler.redis_handler import async_cache
 from logger.logger import log
 from strsimpy.jaro_winkler import JaroWinkler
 from tasks.scheduled.update_switch_titledb import (
@@ -19,22 +18,7 @@ from tasks.scheduled.update_switch_titledb import (
 jarowinkler = JaroWinkler()
 
 
-def conditionally_set_cache(
-    index_key: str, filename: str, parent_dir: str = os.path.dirname(__file__)
-) -> None:
-    try:
-        fixtures_path = os.path.join(parent_dir, "fixtures")
-        if not sync_cache.exists(index_key):
-            index_data = json.loads(open(os.path.join(fixtures_path, filename)).read())
-            with sync_cache.pipeline() as pipe:
-                for data_batch in batched(index_data.items(), 2000, strict=False):
-                    data_map = {k: json.dumps(v) for k, v in dict(data_batch).items()}
-                    pipe.hset(index_key, mapping=data_map)
-                pipe.execute()
-    except Exception as e:
-        # Log the error but don't fail - this allows migrations to run even if Redis is not available
-        log.warning(f"Failed to initialize cache for {index_key}: {e}")
-
+METADATA_FIXTURES_DIR: Final = Path(__file__).parent / "fixtures"
 
 # These are loaded in cache in update_switch_titledb_task
 SWITCH_TITLEDB_REGEX: Final = re.compile(r"(70[0-9]{12})")
@@ -96,13 +80,8 @@ def _normalize_search_term(
 
 
 class MetadataHandler:
-    def __init__(self):
-        # Initialize cache data lazily when the handler is first instantiated
-        conditionally_set_cache(MAME_XML_KEY, "mame_index.json")
-        conditionally_set_cache(PS2_OPL_KEY, "ps2_opl_index.json")
-        conditionally_set_cache(PS1_SERIAL_INDEX_KEY, "ps1_serial_index.json")
-        conditionally_set_cache(PS2_SERIAL_INDEX_KEY, "ps2_serial_index.json")
-        conditionally_set_cache(PSP_SERIAL_INDEX_KEY, "psp_serial_index.json")
+    SEARCH_TERM_SPLIT_PATTERN = re.compile(r"[\:\-\/]")
+    SEARCH_TERM_NORMALIZER = re.compile(r"\s*[:-]\s*")
 
     def normalize_cover_url(self, url: str) -> str:
         return url if not url else f"https:{url.replace('https:', '')}"
@@ -114,11 +93,10 @@ class MetadataHandler:
 
     def find_best_match(
         self,
-        normalized_search_term: str,
+        search_term: str,
         game_names: list[str],
         min_similarity_score: float = 0.75,
-        remove_articles: bool = True,
-        remove_punctuation: bool = True,
+        split_game_name: bool = False,
     ) -> tuple[str | None, float]:
         """
         Find the best matching game name from a list of candidates.
@@ -136,14 +114,18 @@ class MetadataHandler:
 
         best_match = None
         best_score = 0.0
+        search_term_normalized = self.normalize_search_term(search_term)
 
         for game_name in game_names:
-            game_normalized = self.normalize_search_term(
-                game_name,
-                remove_articles=remove_articles,
-                remove_punctuation=remove_punctuation,
-            )
-            score = jarowinkler.similarity(normalized_search_term, game_normalized)
+            game_name_normalized = self.normalize_search_term(game_name)
+
+            # If the game name is split, normalize the last term
+            if split_game_name and re.search(self.SEARCH_TERM_SPLIT_PATTERN, game_name):
+                game_name_normalized = self.normalize_search_term(
+                    re.split(self.SEARCH_TERM_SPLIT_PATTERN, game_name)[-1]
+                )
+
+            score = jarowinkler.similarity(search_term_normalized, game_name_normalized)
             if score > best_score:
                 best_score = score
                 best_match = game_name

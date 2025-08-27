@@ -176,7 +176,7 @@ function closeDialog() {
                           ?.STEAMGRIDDB_API_ENABLED
                       "
                       size="small"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="
                         emitter?.emit('showSearchCoverDialog', {
                           term: collection.name as string,
@@ -188,7 +188,7 @@ function closeDialog() {
                     </v-btn>
                     <v-btn
                       size="small"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="triggerFileInput"
                     >
                       <v-icon size="large">mdi-pencil</v-icon>
@@ -203,7 +203,7 @@ function closeDialog() {
                     </v-btn>
                     <v-btn
                       size="small"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="removeArtwork"
                     >
                       <v-icon size="large" class="text-romm-red"

@@ -90,7 +90,7 @@ watch(
     height="100%"
     class="position-fixed bg-surface mt-4 char-index-toolbar"
     :style="{
-      'max-height': calculatedHeight,
+      height: calculatedHeight,
     }"
   >
     <v-tabs

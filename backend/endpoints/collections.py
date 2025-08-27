@@ -22,7 +22,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection, SmartCollection
-from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -85,8 +84,8 @@ async def add_collection(
     created_collection = db_collection_handler.update_collection(
         _added_collection.id,
         {
-            c: getattr(_added_collection, c)
-            for c in inspect(_added_collection).mapper.column_attrs.keys()
+            "path_cover_s": path_cover_s,
+            "path_cover_l": path_cover_l,
         },
     )
 
@@ -132,9 +131,9 @@ async def add_smart_collection(request: Request) -> SmartCollectionSchema:
     )
 
     # Fetch the ROMs to update the database model
-    created_smart_collection.get_roms()
+    smart_collection = created_smart_collection.update_properties(request.user.id)
 
-    return SmartCollectionSchema.model_validate(created_smart_collection)
+    return SmartCollectionSchema.model_validate(smart_collection)
 
 
 @protected_route(router.get, "", [Scope.COLLECTIONS_READ])
@@ -383,9 +382,9 @@ async def update_smart_collection(
     )
 
     # Fetch the ROMs to update the database model
-    updated_smart_collection.get_roms()
+    smart_collection = updated_smart_collection.update_properties(request.user.id)
 
-    return SmartCollectionSchema.model_validate(updated_smart_collection)
+    return SmartCollectionSchema.model_validate(smart_collection)
 
 
 @protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])

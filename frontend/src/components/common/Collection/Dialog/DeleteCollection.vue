@@ -29,7 +29,7 @@ async function deleteCollection() {
   show.value = false;
   await collectionApi
     .deleteCollection({ collection: collection.value })
-    .then((response) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
         msg: "Collection deleted",
         icon: "mdi-check-bold",

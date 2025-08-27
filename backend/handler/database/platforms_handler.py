@@ -36,6 +36,16 @@ class DBPlatformsHandler(DBBaseHandler):
         return session.scalar(query.filter_by(id=platform.id).limit(1))
 
     @begin_session
+    def update_platform(self, id: int, data: dict, session: Session = None) -> Platform:
+        session.execute(
+            update(Platform)
+            .where(Platform.id == id)
+            .values(**data)
+            .execution_options(synchronize_session="evaluate")
+        )
+        return session.query(Platform).filter_by(id=id).one()
+
+    @begin_session
     @with_firmware
     def get_platform(
         self, id: int, query: Query = None, session: Session = None

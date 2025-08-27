@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# trunk-ignore-all(shellcheck/SC2016)
 
 set -o errexit           # treat errors as fatal
 set -o nounset           # treat unset variables as an error
@@ -16,10 +15,6 @@ ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB
 
 # if REDIS_HOST is set, we assume that an external redis is used
 REDIS_HOST="${REDIS_HOST:=""}"
-
-# set DEFAULT_WEB_CONCURRENCY to 1 if not set by docker env to reduce resource usage
-# (since backend is almost 100% async this won't block anything)
-DEFAULT_WEB_CONCURRENCY=1
 
 # logger colors
 RED='\033[0;31m'
@@ -66,6 +61,15 @@ error_log() {
 	exit 1
 }
 
+# Commands to run initial startup tasks
+run_startup() {
+	if ! PYTHONPATH="/backend:${PYTHONPATH-}" opentelemetry-instrument \
+		--service_name "${OTEL_SERVICE_NAME_PREFIX-}startup" \
+		python3 /backend/startup.py; then
+		error_log "Startup script failed, exiting"
+	fi
+}
+
 wait_for_gunicorn_socket() {
 	debug_log "Waiting for gunicorn socket file..."
 	local retries=60
@@ -89,6 +93,9 @@ start_bin_gunicorn() {
 	# commands to start our main application and store its PID to check for crashes
 	info_log "Starting backend"
 
+	export PYTHONUNBUFFERED=1
+	export PYTHONDONTWRITEBYTECODE=1
+
 	opentelemetry-instrument \
 		--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
 		gunicorn \
@@ -97,7 +104,12 @@ start_bin_gunicorn() {
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
 		--worker-class uvicorn_worker.UvicornWorker \
-		--workers "${WEB_CONCURRENCY:-${DEFAULT_WEB_CONCURRENCY:-1}}" \
+		--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+		--timeout "${WEB_SERVER_TIMEOUT:-300}" \
+		--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+		--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
+		--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
+		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
 		--error-logfile - \
 		--log-config /etc/gunicorn/logging.conf \
 		main:app &
@@ -182,7 +194,7 @@ start_bin_rq_scheduler() {
 
 # Commands to start RQ worker
 start_bin_rq_worker() {
-	info_log "Starting rq worker"
+	info_log "Starting RQ worker"
 
 	# Build Redis URL properly
 	local redis_url
@@ -261,6 +273,19 @@ trap 'exited=1 && shutdown' SIGINT SIGTERM EXIT
 # clear any leftover PID files
 rm /tmp/*.pid -f
 
+# Disable OpenTelemetry if no OTEL_ prefixed environment variables are set
+if ! printenv | grep -q '^OTEL_'; then
+	info_log "No OpenTelemetry environment variables found, disabling OpenTelemetry SDK"
+	export OTEL_SDK_DISABLED=true
+fi
+
+# Set ROMM_AUTH_SECRET_KEY if not already set
+if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
+	ROMM_AUTH_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+	info_log "ROMM_AUTH_SECRET_KEY not set, generating random secret key"
+	export ROMM_AUTH_SECRET_KEY
+fi
+
 # Start Valkey server if REDIS_HOST is not set (which would mean user is using an external Redis/Valkey)
 if [[ -z ${REDIS_HOST} ]]; then
 	watchdog_process_pid valkey-server
@@ -275,6 +300,9 @@ if alembic upgrade head; then
 else
 	error_log "Failed to run database migrations"
 fi
+
+# Startup process requires database and cache to be already available
+run_startup
 
 # main loop
 while ! ((exited)); do

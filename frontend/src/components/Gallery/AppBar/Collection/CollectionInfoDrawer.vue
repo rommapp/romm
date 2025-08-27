@@ -195,7 +195,7 @@ async function updateCollection() {
                     !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
                   "
                   size="small"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="
                     emitter?.emit('showSearchCoverDialog', {
                       term: currentCollection.name as string,
@@ -208,7 +208,7 @@ async function updateCollection() {
                 <v-btn
                   title="Upload custom cover"
                   size="small"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="triggerFileInput"
                 >
                   <v-icon size="large">mdi-cloud-upload-outline</v-icon>
@@ -224,7 +224,7 @@ async function updateCollection() {
                 <v-btn
                   title="Remove cover"
                   size="small"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="removeArtwork"
                 >
                   <v-icon size="large" class="text-romm-red">mdi-delete</v-icon>

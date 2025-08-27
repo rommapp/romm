@@ -11,8 +11,7 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
-import { ROUTES } from "@/plugins/router";
-import { isNull } from "lodash";
+import { isNull, throttle } from "lodash";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -120,7 +119,7 @@ function fetchRoms() {
     });
 }
 
-function onScroll() {
+const onScroll = throttle(() => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
@@ -132,7 +131,7 @@ function onScroll() {
       await fetchRoms();
     }
   }, 100);
-}
+}, 500);
 
 onMounted(async () => {
   scrolledToTop.value = true;
@@ -153,7 +152,6 @@ onBeforeUnmount(() => {
   <template v-else>
     <template v-if="filteredRoms.length > 0">
       <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
-        <!-- Gallery cards view -->
         <v-col
           v-for="rom in filteredRoms"
           :key="rom.id"
