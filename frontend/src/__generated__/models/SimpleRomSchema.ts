@@ -22,7 +22,7 @@ export type SimpleRomSchema = {
     launchbox_id: (number | null);
     hasheous_id: (number | null);
     tgdb_id: (number | null);
-    flashpoint_id: (number | null);
+    flashpoint_id: (string | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;

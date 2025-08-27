@@ -19,7 +19,9 @@ depends_on = None
 
 def upgrade() -> None:
     with op.batch_alter_table("roms", schema=None) as batch_op:
-        batch_op.add_column(sa.Column("flashpoint_id", sa.Integer(), nullable=True))
+        batch_op.add_column(
+            sa.Column("flashpoint_id", sa.String(length=100), nullable=True)
+        )
         batch_op.add_column(
             sa.Column(
                 "flashpoint_metadata",
