@@ -298,7 +298,7 @@ function onFilterClick(filter: FilterType, value: string) {
         </v-row>
       </template>
       <v-row v-if="rom.is_identified">
-        <v-col cols="12" class="mt-4 text-right">
+        <v-col class="mt-4 text-right">
           <div class="text-grey">
             Data provided by
             <template v-for="(source, index) in dataSources" :key="source.name">
