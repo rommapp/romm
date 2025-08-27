@@ -1,7 +1,9 @@
+import datetime
 import json
 from typing import Final, NotRequired, TypedDict
 
 import httpx
+import pydash
 import yarl
 from config import FLASHPOINT_API_ENABLED
 from fastapi import HTTPException, status
@@ -17,28 +19,38 @@ class FlashpointPlatform(TypedDict):
     name: NotRequired[str]
 
 
-class FlashpointMetadata(TypedDict):
+class FlashpointGame(TypedDict):
+    id: str
+    title: str
+    platform: str
+    library: str
     series: str
     developer: str
     publisher: str
     source: str
     tags: list[str]
-    dateAdded: str
-    dateModified: str
-    playMode: str
+    original_description: str
+    date_modified: str
+    date_added: str
+    play_mode: str
     status: str
     version: str
-    releaseDate: str
+    release_date: str
     language: str
     notes: str
 
 
-class FlashpointGame(FlashpointMetadata):
-    id: str
-    title: str
-    summary: str
-    platform: str
-    library: str
+class FlashpointMetadata(TypedDict):
+    franchises: list[str]
+    companies: list[str]
+    source: str
+    genres: list[str]
+    first_release_date: str
+    game_modes: list[str]
+    status: str
+    version: str
+    language: str
+    notes: str
 
 
 class FlashpointRom(TypedDict):
@@ -48,6 +60,30 @@ class FlashpointRom(TypedDict):
     url_cover: NotRequired[str]
     url_screenshots: NotRequired[list[str]]
     flashpoint_metadata: NotRequired[FlashpointMetadata]
+
+
+def extract_flashpoint_metadata(game: FlashpointGame) -> FlashpointMetadata:
+    # Convert from "2003-08-30" format to unix timestamp
+    first_release_date = ""
+    if game.get("release_date"):
+        try:
+            date_obj = datetime.datetime.strptime(game["release_date"], "%Y-%m-%d")
+            first_release_date = str(int(date_obj.timestamp()))
+        except (ValueError, TypeError):
+            first_release_date = ""
+
+    return FlashpointMetadata(
+        franchises=pydash.compact([game["series"]]),
+        companies=pydash.uniq(pydash.compact([game["developer"], game["publisher"]])),
+        source=game["source"],
+        genres=game["tags"],
+        first_release_date=first_release_date,
+        game_modes=pydash.compact([game["play_mode"]]),
+        status=game["status"],
+        version=game["version"],
+        language=game["language"],
+        notes=game["notes"],
+    )
 
 
 class FlashpointHandler(MetadataHandler):
@@ -128,20 +164,22 @@ class FlashpointHandler(MetadataHandler):
                     {
                         "id": game_data["id"],
                         "title": game_data["title"],
-                        "summary": game_data.get("originalDescription", ""),
+                        "original_description": game_data.get(
+                            "originalDescription", ""
+                        ),
                         "platform": game_data.get("platform", ""),
                         "library": game_data.get("library", ""),
-                        "series": game_data.get("series", ""),
+                        "series": game_data.get("series", []),
                         "developer": game_data.get("developer", ""),
                         "publisher": game_data.get("publisher", ""),
                         "source": game_data.get("source", ""),
                         "tags": game_data.get("tags", []),
-                        "dateAdded": game_data.get("dateAdded", ""),
-                        "dateModified": game_data.get("dateModified", ""),
-                        "playMode": game_data.get("playMode", ""),
+                        "date_added": game_data.get("dateAdded", ""),
+                        "date_modified": game_data.get("dateModified", ""),
+                        "play_mode": game_data.get("playMode", ""),
                         "status": game_data.get("status", ""),
                         "version": game_data.get("version", ""),
-                        "releaseDate": game_data.get("releaseDate", ""),
+                        "release_date": game_data.get("releaseDate", ""),
                         "language": game_data.get("language", ""),
                         "notes": game_data.get("notes", ""),
                     }
@@ -215,26 +253,12 @@ class FlashpointHandler(MetadataHandler):
                 return FlashpointRom(
                     flashpoint_id=best_game["id"],
                     name=best_game["title"],
-                    summary=best_game["summary"],
+                    summary=best_game["original_description"],
                     url_cover=f"https://infinity.unstable.life/images/Logos/{best_game['id'][:2]}/{best_game['id'][2:4]}/{best_game['id']}?type=jpg",
                     url_screenshots=[
                         f"https://infinity.unstable.life/images/Screenshots/{best_game['id'][:2]}/{best_game['id'][2:4]}/{best_game['id']}?type=jpg"
                     ],
-                    flashpoint_metadata=FlashpointMetadata(
-                        series=best_game["series"],
-                        developer=best_game["developer"],
-                        publisher=best_game["publisher"],
-                        source=best_game["source"],
-                        tags=best_game["tags"],
-                        dateAdded=best_game["dateAdded"],
-                        dateModified=best_game["dateModified"],
-                        playMode=best_game["playMode"],
-                        status=best_game["status"],
-                        version=best_game["version"],
-                        releaseDate=best_game["releaseDate"],
-                        language=best_game["language"],
-                        notes=best_game["notes"],
-                    ),
+                    flashpoint_metadata=extract_flashpoint_metadata(best_game),
                 )
 
         log.debug(f"No good match found for '{search_term}' on Flashpoint")
@@ -257,26 +281,12 @@ class FlashpointHandler(MetadataHandler):
             FlashpointRom(
                 flashpoint_id=game["id"],
                 name=game["title"],
-                summary=game["summary"],
+                summary=game["original_description"],
                 url_cover=f"https://infinity.unstable.life/images/Logos/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg",
                 url_screenshots=[
                     f"https://infinity.unstable.life/images/Screenshots/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg"
                 ],
-                flashpoint_metadata=FlashpointMetadata(
-                    series=game["series"],
-                    developer=game["developer"],
-                    publisher=game["publisher"],
-                    source=game["source"],
-                    tags=game["tags"],
-                    dateAdded=game["dateAdded"],
-                    dateModified=game["dateModified"],
-                    playMode=game["playMode"],
-                    status=game["status"],
-                    version=game["version"],
-                    releaseDate=game["releaseDate"],
-                    language=game["language"],
-                    notes=game["notes"],
-                ),
+                flashpoint_metadata=extract_flashpoint_metadata(game),
             )
             for game in games
         ]
@@ -318,50 +328,41 @@ class FlashpointHandler(MetadataHandler):
             if not isinstance(game_data, dict):
                 return FlashpointRom(flashpoint_id=None)
 
+            if not game_data["id"]:
+                return FlashpointRom(flashpoint_id=None)
+
             game = FlashpointGame(
-                id=game_data["id"],
-                title=game_data["title"],
-                summary=game_data.get("originalDescription", ""),
-                platform=game_data.get("platform", ""),
-                library=game_data.get("library", ""),
-                series=game_data.get("series", ""),
-                developer=game_data.get("developer", ""),
-                publisher=game_data.get("publisher", ""),
-                source=game_data.get("source", ""),
-                tags=game_data.get("tags", []),
-                dateAdded=game_data.get("dateAdded", ""),
-                dateModified=game_data.get("dateModified", ""),
-                playMode=game_data.get("playMode", ""),
-                status=game_data.get("status", ""),
-                version=game_data.get("version", ""),
-                releaseDate=game_data.get("releaseDate", ""),
-                language=game_data.get("language", ""),
-                notes=game_data.get("notes", ""),
+                {
+                    "id": game_data["id"],
+                    "title": game_data["title"],
+                    "original_description": game_data["originalDescription"],
+                    "platform": game_data["platform"],
+                    "library": game_data["library"],
+                    "series": game_data["series"],
+                    "developer": game_data["developer"],
+                    "publisher": game_data["publisher"],
+                    "source": game_data["source"],
+                    "tags": game_data["tags"],
+                    "date_added": game_data["dateAdded"],
+                    "date_modified": game_data["dateModified"],
+                    "play_mode": game_data["playMode"],
+                    "status": game_data["status"],
+                    "version": game_data["version"],
+                    "release_date": game_data["releaseDate"],
+                    "language": game_data["language"],
+                    "notes": game_data["notes"],
+                }
             )
 
             return FlashpointRom(
                 flashpoint_id=game["id"],
                 name=game["title"],
-                summary=game["summary"],
+                summary=game["original_description"],
                 url_cover=f"https://infinity.unstable.life/images/Logos/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg",
                 url_screenshots=[
                     f"https://infinity.unstable.life/images/Screenshots/{game['id'][:2]}/{game['id'][2:4]}/{game['id']}?type=jpg"
                 ],
-                flashpoint_metadata=FlashpointMetadata(
-                    series=game["series"],
-                    developer=game["developer"],
-                    publisher=game["publisher"],
-                    source=game["source"],
-                    tags=game["tags"],
-                    dateAdded=game["dateAdded"],
-                    dateModified=game["dateModified"],
-                    playMode=game["playMode"],
-                    status=game["status"],
-                    version=game["version"],
-                    releaseDate=game["releaseDate"],
-                    language=game["language"],
-                    notes=game["notes"],
-                ),
+                flashpoint_metadata=extract_flashpoint_metadata(game),
             )
 
         except Exception as exc:

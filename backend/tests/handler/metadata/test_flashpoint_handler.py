@@ -90,16 +90,16 @@ class TestFlashpointHandler:
                     "library": "arcade",
                     "series": "Test Series",
                     "source": "Test Source",
-                    "playMode": "Test Play Mode",
+                    "play_mode": "Test Play Mode",
                     "status": "Test Status",
                     "version": "Test Version",
-                    "releaseDate": "2024-01-01T00:00:00Z",
+                    "release_date": "2024-01-01",
                     "language": "Test Language",
                     "notes": "Test Notes",
                     "tags": ["Action"],
-                    "summary": "A test game description",
-                    "dateAdded": "2024-01-01T00:00:00Z",
-                    "dateModified": "2024-01-01T00:00:00Z",
+                    "original_description": "A test game description",
+                    "date_added": "2024-01-01T00:00:00Z",
+                    "date_modified": "2024-01-01T00:00:00Z",
                 }
             ),
         ]
@@ -116,8 +116,15 @@ class TestFlashpointHandler:
 
             flashpoint_metadata = rom.get("flashpoint_metadata")
             assert flashpoint_metadata is not None
-            assert flashpoint_metadata.get("developer") == "Test Dev"
-            assert flashpoint_metadata.get("publisher") == "Test Pub"
+            assert flashpoint_metadata["companies"] == ["Test Dev", "Test Pub"]
+            assert flashpoint_metadata["franchises"] == ["Test Series"]
+            assert flashpoint_metadata["genres"] == ["Action"]
+            assert flashpoint_metadata["game_modes"] == ["Test Play Mode"]
+            assert flashpoint_metadata["first_release_date"] == "1704060000"
+            assert flashpoint_metadata["status"] == "Test Status"
+            assert flashpoint_metadata["version"] == "Test Version"
+            assert flashpoint_metadata["language"] == "Test Language"
+            assert flashpoint_metadata["notes"] == "Test Notes"
 
     @pytest.mark.asyncio
     async def test_get_rom_unsupported_platform(self):
@@ -143,8 +150,16 @@ class TestFlashpointHandler:
                 "library": "arcade",
                 "tags": ["Action"],
                 "originalDescription": "A test game description",
+                "releaseDate": "2024-01-01",
                 "dateAdded": "2024-01-01T00:00:00Z",
                 "dateModified": "2024-01-01T00:00:00Z",
+                "series": "Test Series",
+                "playMode": "Test Play Mode",
+                "status": "Test Status",
+                "version": "Test Version",
+                "language": "Test Language",
+                "notes": "Test Notes",
+                "source": "Test Source",
             }
         ]
 
