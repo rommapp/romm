@@ -13,7 +13,10 @@ from handler.metadata import (
     meta_sgdb_handler,
     meta_ss_handler,
 )
-from handler.metadata.flashpoint_handler import FlashpointRom
+from handler.metadata.flashpoint_handler import (
+    FLASHPOINT_API_ENABLED,
+    FlashpointRom,
+)
 from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
 from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED, SGDBRom
@@ -52,7 +55,12 @@ async def search_rom(
         list[SearchRomSchema]: List of matched roms
     """
 
-    if not IGDB_API_ENABLED and not SS_API_ENABLED and not MOBY_API_ENABLED:
+    if (
+        not IGDB_API_ENABLED
+        and not SS_API_ENABLED
+        and not MOBY_API_ENABLED
+        and not FLASHPOINT_API_ENABLED
+    ):
         log.error("Search error: No metadata providers enabled")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -126,6 +134,8 @@ async def search_rom(
             )
             merged_dict[igdb_name] = {
                 **igdb_rom,
+                "is_identified": True,
+                "is_unidentified": False,
                 "platform_id": rom.platform_id,
                 "igdb_url_cover": igdb_rom.pop("url_cover", ""),
                 **merged_dict.get(igdb_name, {}),
@@ -139,6 +149,8 @@ async def search_rom(
             )
             merged_dict[moby_name] = {
                 **moby_rom,
+                "is_identified": True,
+                "is_unidentified": False,
                 "platform_id": rom.platform_id,
                 "moby_url_cover": moby_rom.pop("url_cover", ""),
                 **merged_dict.get(moby_name, {}),
@@ -152,6 +164,8 @@ async def search_rom(
             )
             merged_dict[ss_name] = {
                 **ss_rom,
+                "is_identified": True,
+                "is_unidentified": False,
                 "platform_id": rom.platform_id,
                 "ss_url_cover": ss_rom.pop("url_cover", ""),
                 **merged_dict.get(ss_name, {}),
@@ -165,6 +179,8 @@ async def search_rom(
             )
             merged_dict[flashpoint_name] = {
                 **flashpoint_rom,
+                "is_identified": True,
+                "is_unidentified": False,
                 "platform_id": rom.platform_id,
                 "flashpoint_url_cover": flashpoint_rom.pop("url_cover", ""),
                 **merged_dict.get(flashpoint_name, {}),
