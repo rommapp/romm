@@ -6,7 +6,7 @@ from adapters.services.steamgriddb_types import SGDBDimension, SGDBGame, SGDBTyp
 from config import STEAMGRIDDB_API_KEY
 from logger.logger import log
 
-from .base_hander import MetadataHandler
+from .base_handler import MetadataHandler
 
 # Used to display the Mobygames API status in the frontend
 STEAMGRIDDB_API_ENABLED: Final = bool(STEAMGRIDDB_API_KEY)

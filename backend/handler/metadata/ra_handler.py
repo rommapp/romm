@@ -17,8 +17,8 @@ from config import (
 from handler.filesystem import fs_resource_handler
 from models.rom import Rom
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 
 # Used to display the Retroachievements API status in the frontend
 RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY)

@@ -21,7 +21,7 @@ from handler.metadata import (
     meta_ss_handler,
     meta_tgdb_handler,
 )
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from handler.scan_handler import scan_platform
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
