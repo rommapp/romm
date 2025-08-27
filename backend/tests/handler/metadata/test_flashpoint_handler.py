@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from handler.metadata.flashpoint_handler import (
     FLASHPOINT_PLATFORM_LIST,
+    FlashpointGame,
     FlashpointHandler,
 )
 
@@ -55,6 +56,7 @@ class TestFlashpointHandler:
             mock_request.return_value = mock_response
 
             games = await handler.search_games("test")
+            print(games)
 
             assert len(games) == 1
             assert games[0]["id"] == "test-id"
@@ -78,18 +80,28 @@ class TestFlashpointHandler:
         handler = FlashpointHandler()
 
         mock_games = [
-            {
-                "id": "test-id",
-                "title": "Test Game",
-                "developer": "Test Dev",
-                "publisher": "Test Pub",
-                "platform": "Flash",
-                "library": "arcade",
-                "tags": ["Action"],
-                "originalDescription": "A test game description",
-                "dateAdded": "2024-01-01T00:00:00Z",
-                "dateModified": "2024-01-01T00:00:00Z",
-            }
+            FlashpointGame(
+                {
+                    "id": "test-id",
+                    "title": "Test Game",
+                    "developer": "Test Dev",
+                    "publisher": "Test Pub",
+                    "platform": "Flash",
+                    "library": "arcade",
+                    "series": "Test Series",
+                    "source": "Test Source",
+                    "playMode": "Test Play Mode",
+                    "status": "Test Status",
+                    "version": "Test Version",
+                    "releaseDate": "2024-01-01T00:00:00Z",
+                    "language": "Test Language",
+                    "notes": "Test Notes",
+                    "tags": ["Action"],
+                    "summary": "A test game description",
+                    "dateAdded": "2024-01-01T00:00:00Z",
+                    "dateModified": "2024-01-01T00:00:00Z",
+                }
+            ),
         ]
 
         with patch.object(
@@ -101,8 +113,11 @@ class TestFlashpointHandler:
 
             assert rom["flashpoint_id"] == "test-id"
             assert rom.get("name") == "Test Game"
-            assert rom.get("developer") == "Test Dev"
-            assert rom.get("publisher") == "Test Pub"
+
+            flashpoint_metadata = rom.get("flashpoint_metadata")
+            assert flashpoint_metadata is not None
+            assert flashpoint_metadata.get("developer") == "Test Dev"
+            assert flashpoint_metadata.get("publisher") == "Test Pub"
 
     @pytest.mark.asyncio
     async def test_get_rom_unsupported_platform(self):
