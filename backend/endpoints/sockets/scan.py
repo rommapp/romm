@@ -510,7 +510,7 @@ async def scan_platforms(
         if len(missed_platforms) > 0:
             log.warning(f"{hl('Missing')} platforms from filesystem:")
             for p in missed_platforms:
-                log.warning(f" - {p.slug}")
+                log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
         await sm.emit("scan:done", scan_stats.__dict__)
