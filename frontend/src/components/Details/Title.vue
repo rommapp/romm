@@ -269,6 +269,20 @@ const hashMatches = computed(() => {
           </v-chip>
         </a>
         <a
+          v-if="rom.flashpoint_id"
+          style="text-decoration: none; color: inherit"
+          :href="`https://flashpointproject.github.io/flashpoint-database/search/#${rom.flashpoint_id}`"
+          target="_blank"
+          class="mr-1"
+        >
+          <v-chip class="pl-0 mt-1" size="small" title="Flashpoint ID">
+            <v-avatar class="mr-2" size="30" rounded="0">
+              <v-img src="/assets/scrappers/flashpoint.png" />
+            </v-avatar>
+            <span>{{ rom.flashpoint_id }}</span>
+          </v-chip>
+        </a>
+        <a
           v-if="rom.sgdb_id"
           style="text-decoration: none; color: inherit"
           :href="`https://www.steamgriddb.com/game/${rom.sgdb_id}`"

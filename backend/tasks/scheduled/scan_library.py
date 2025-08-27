@@ -1,5 +1,6 @@
 from config import (
     ENABLE_SCHEDULED_RESCAN,
+    FLASHPOINT_API_ENABLED,
     HASHEOUS_API_ENABLED,
     LAUNCHBOX_API_ENABLED,
     SCHEDULED_RESCAN_CRON,
@@ -40,6 +41,7 @@ class ScanLibraryTask(PeriodicTask):
             MetadataSource.LB: LAUNCHBOX_API_ENABLED,
             MetadataSource.HASHEOUS: HASHEOUS_API_ENABLED,
             MetadataSource.SGDB: STEAMGRIDDB_API_ENABLED,
+            MetadataSource.FLASHPOINT: FLASHPOINT_API_ENABLED,
         }
 
         metadata_sources = [source for source, flag in source_mapping.items() if flag]

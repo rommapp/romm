@@ -7,11 +7,13 @@ from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_igdb_handler,
     meta_moby_handler,
     meta_sgdb_handler,
     meta_ss_handler,
 )
+from handler.metadata.flashpoint_handler import FlashpointRom
 from handler.metadata.igdb_handler import IGDB_API_ENABLED, IGDBRom
 from handler.metadata.moby_handler import MOBY_API_ENABLED, MobyGamesRom
 from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED, SGDBRom
@@ -78,6 +80,7 @@ async def search_rom(
     igdb_matched_roms: list[IGDBRom] = []
     moby_matched_roms: list[MobyGamesRom] = []
     ss_matched_roms: list[SSRom] = []
+    flashpoint_matched_roms: list[FlashpointRom] = []
 
     if search_by.lower() == "id":
         try:
@@ -101,6 +104,7 @@ async def search_rom(
             igdb_matched_roms,
             moby_matched_roms,
             ss_matched_roms,
+            flashpoint_matched_roms,
         ) = await asyncio.gather(
             meta_igdb_handler.get_matched_roms_by_name(
                 search_term, get_main_platform_igdb_id(rom.platform)
@@ -109,6 +113,7 @@ async def search_rom(
                 search_term, rom.platform.moby_id
             ),
             meta_ss_handler.get_matched_roms_by_name(search_term, rom.platform.ss_id),
+            meta_flashpoint_handler.get_matched_roms_by_name(rom.fs_name),
         )
 
     merged_dict: dict[str, dict] = {}
@@ -150,6 +155,19 @@ async def search_rom(
                 "platform_id": rom.platform_id,
                 "ss_url_cover": ss_rom.pop("url_cover", ""),
                 **merged_dict.get(ss_name, {}),
+            }
+
+    for flashpoint_rom in flashpoint_matched_roms:
+        if flashpoint_rom["flashpoint_id"]:
+            flashpoint_name = meta_flashpoint_handler.normalize_search_term(
+                flashpoint_rom.get("name", ""),
+                remove_articles=False,
+            )
+            merged_dict[flashpoint_name] = {
+                **flashpoint_rom,
+                "platform_id": rom.platform_id,
+                "flashpoint_url_cover": flashpoint_rom.pop("url_cover", ""),
+                **merged_dict.get(flashpoint_name, {}),
             }
 
     async def get_sgdb_rom(name: str) -> tuple[str, SGDBRom]:

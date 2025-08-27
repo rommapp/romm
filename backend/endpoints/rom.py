@@ -46,6 +46,7 @@ from handler.database.base_handler import sync_session
 from handler.filesystem import fs_resource_handler, fs_rom_handler
 from handler.filesystem.base_handler import CoverSize
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
     meta_moby_handler,
@@ -631,6 +632,7 @@ async def update_rom(
         "moby_id": data.get("moby_id", rom.moby_id),
         "ss_id": data.get("ss_id", rom.ss_id),
         "launchbox_id": data.get("launchbox_id", rom.launchbox_id),
+        "flashpoint_id": data.get("flashpoint_id", rom.flashpoint_id),
     }
 
     if (
@@ -684,6 +686,15 @@ async def update_rom(
             url_screenshots=cleaned_data.get("url_screenshots", []),
         )
         cleaned_data.update({"path_screenshots": path_screenshots})
+
+    if (
+        cleaned_data.get("flashpoint_id", "")
+        and cleaned_data.get("flashpoint_id", "") != rom.flashpoint_id
+    ):
+        flashpoint_rom = await meta_flashpoint_handler.get_rom_by_id(
+            cleaned_data["flashpoint_id"]
+        )
+        cleaned_data.update(flashpoint_rom)
 
     cleaned_data.update(
         {

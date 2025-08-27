@@ -2,6 +2,7 @@
 from typing import TypedDict
 
 from handler.metadata import (
+    meta_flashpoint_handler,
     meta_hasheous_handler,
     meta_igdb_handler,
     meta_launchbox_handler,
@@ -21,6 +22,7 @@ class SupportedPlatform(TypedDict):
     launchbox_id: int | None
     hasheous_id: int | None
     ra_id: int | None
+    flashpoint_slug: str | None
 
 
 if __name__ == "__main__":
@@ -35,9 +37,11 @@ if __name__ == "__main__":
         launchbox_platform = meta_launchbox_handler.get_platform(slug_lower)
         hasheous_platform = meta_hasheous_handler.get_platform(slug_lower)
         ra_platform = meta_ra_handler.get_platform(slug_lower)
+        flashpoint_platform = meta_flashpoint_handler.get_platform(slug_lower)
 
         supported_platforms[slug_lower] = {
-            "name": igdb_platform.get("name", None)
+            "name": flashpoint_platform.get("name", None)
+            or igdb_platform.get("name", None)
             or moby_platform.get("name", None)
             or ss_platform.get("name", None)
             or launchbox_platform.get("name", None)
@@ -51,6 +55,7 @@ if __name__ == "__main__":
             "launchbox_id": launchbox_platform["launchbox_id"],
             "hasheous_id": hasheous_platform["hasheous_id"],
             "ra_id": ra_platform["ra_id"],
+            "flashpoint_slug": flashpoint_platform.get("slug", None),
         }
 
     # Sort platforms by name field
@@ -95,6 +100,11 @@ if __name__ == "__main__":
             (
                 f'<a href="https://retroachievements.org/system/{platform["ra_id"]}/games" target="_blank" rel="noopener norefer"><img alt="retroachivements logo" src="../../resources/metadata_providers/ra.png" height="24px" width="24px"></a>'
                 if platform["ra_id"]
+                else ""
+            ),
+            (
+                f'<a href="https://flashpoint-project.org/platforms/{platform["flashpoint_slug"]}" target="_blank" rel="noopener norefer"><img alt="flashpoint logo" src="../../resources/metadata_providers/flashpoint.png" height="24px" width="24px"></a>'
+                if platform["flashpoint_slug"]
                 else ""
             ),
             " |",

@@ -23,6 +23,7 @@ class TestScanLibraryTask:
     @patch("tasks.scheduled.scan_library.LAUNCHBOX_API_ENABLED", True)
     @patch("tasks.scheduled.scan_library.HASHEOUS_API_ENABLED", False)
     @patch("tasks.scheduled.scan_library.STEAMGRIDDB_API_ENABLED", False)
+    @patch("tasks.scheduled.scan_library.FLASHPOINT_API_ENABLED", False)
     @patch("tasks.scheduled.scan_library.scan_platforms")
     @patch("tasks.scheduled.scan_library.log")
     async def test_run_enabled(self, mock_log, mock_scan_platforms, task):
