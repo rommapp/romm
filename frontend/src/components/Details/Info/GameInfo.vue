@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { type FilterType } from "@/stores/galleryFilter";
 import RDialog from "@/components/common/RDialog.vue";
-import RAvatar from "@/components/common/Collection/RAvatar.vue";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
+import { type DetailedRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -20,8 +19,6 @@ const theme = useTheme();
 const show = ref(false);
 const carousel = ref(0);
 const router = useRouter();
-const romsStore = storeRoms();
-const { currentRom, filteredRoms } = storeToRefs(romsStore);
 const heartbeatStore = storeHeartbeat();
 const { value: heartbeat } = storeToRefs(heartbeatStore);
 const filters = [
@@ -100,22 +97,6 @@ function onFilterClick(filter: FilterType, value: string) {
     name: "search",
     query: { [filter]: value },
   });
-}
-
-const currentRomIndex = computed(() =>
-  filteredRoms.value.findIndex((rom) => rom.id === currentRom.value?.id),
-);
-
-function previousRom() {
-  if (currentRomIndex.value > 0) {
-    router.push(`/rom/${filteredRoms.value[currentRomIndex.value - 1].id}`);
-  }
-}
-
-function nextRom() {
-  if (currentRomIndex.value < filteredRoms.value.length - 1) {
-    router.push(`/rom/${filteredRoms.value[currentRomIndex.value + 1].id}`);
-  }
 }
 </script>
 <template>
@@ -317,31 +298,7 @@ function nextRom() {
         </v-row>
       </template>
       <v-row v-if="rom.is_identified">
-        <v-col cols="6" class="mt-4">
-          <v-btn-group v-if="filteredRoms.length > 1">
-            <v-btn
-              size="small"
-              :disabled="currentRomIndex <= 0"
-              @click="previousRom"
-            >
-              <v-icon>mdi-arrow-left</v-icon>
-              <span class="d-none d-sm-block">{{
-                filteredRoms[currentRomIndex - 1]?.name
-              }}</span>
-            </v-btn>
-            <v-btn
-              size="small"
-              :disabled="currentRomIndex === filteredRoms.length - 1"
-              @click="nextRom"
-            >
-              <span class="d-none d-sm-block">{{
-                filteredRoms[currentRomIndex + 1]?.name
-              }}</span>
-              <v-icon>mdi-arrow-right</v-icon>
-            </v-btn>
-          </v-btn-group>
-        </v-col>
-        <v-col cols="6" class="mt-4 text-right">
+        <v-col cols="12" class="mt-4 text-right">
           <div class="text-grey">
             Data provided by
             <template v-for="(source, index) in dataSources" :key="source.name">

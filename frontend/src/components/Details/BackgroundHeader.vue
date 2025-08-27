@@ -4,10 +4,12 @@ import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 
 const romsStore = storeRoms();
 const { currentRom, filteredRoms } = storeToRefs(romsStore);
 const router = useRouter();
+const { smAndUp } = useDisplay();
 
 const missingCoverImage = computed(() =>
   getMissingCoverImage(
@@ -57,31 +59,30 @@ function nextRom() {
         <v-skeleton-loader class="background-skeleton" type="image" />
       </template>
     </v-img>
-  </v-card>
-  <v-row
-    v-if="filteredRoms.length > 1"
-    no-gutters
-    class="justify-center mt-2 position-absolute top-0 right-0 mr-2"
-  >
-    <v-btn-group>
-      <v-btn size="small" :disabled="currentRomIndex <= 0" @click="previousRom">
+    <v-btn-group
+      v-if="filteredRoms.length > 1"
+      density="compact"
+      class="justify-center mb-2 px-2 position-absolute bottom-0 right-0"
+      :class="{ 'd-flex justify-space-between w-100': !smAndUp }"
+    >
+      <v-btn
+        size="small"
+        density="compact"
+        :disabled="currentRomIndex <= 0"
+        @click="previousRom"
+      >
         <v-icon>mdi-arrow-left</v-icon>
-        <span class="d-none d-sm-block">{{
-          filteredRoms[currentRomIndex - 1].name
-        }}</span>
       </v-btn>
       <v-btn
         size="small"
+        density="compact"
         :disabled="currentRomIndex === filteredRoms.length - 1"
         @click="nextRom"
       >
-        <span class="d-none d-sm-block">{{
-          filteredRoms[currentRomIndex + 1].name
-        }}</span>
         <v-icon>mdi-arrow-right</v-icon>
       </v-btn>
     </v-btn-group>
-  </v-row>
+  </v-card>
 </template>
 
 <style scoped>
