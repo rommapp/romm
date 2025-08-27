@@ -21,7 +21,7 @@ const rules = [
   },
 ];
 
-async function refreshRetroAchievements() {
+async function refreshRetroAchievements(incremental = false) {
   if (!auth.user) return;
 
   syncing.value = true;
@@ -29,6 +29,7 @@ async function refreshRetroAchievements() {
   await userApi
     .refreshRetroAchievements({
       id: auth.user.id,
+      incremental,
     })
     .then(() => {
       emitter?.emit("snackbarShow", {
@@ -113,7 +114,7 @@ watch(
           :disabled="syncing"
           :loading="syncing"
           class="ml-4 text-accent bg-toplayer"
-          @click="refreshRetroAchievements"
+          @click="refreshRetroAchievements(true)"
         >
           <template #loader>
             <v-progress-circular
