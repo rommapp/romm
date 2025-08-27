@@ -104,12 +104,12 @@ start_bin_gunicorn() {
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
 		--worker-class uvicorn_worker.UvicornWorker \
-		--workers "${GUNICORN_WORKERS:-1}" \
-		--timeout "${GUNICORN_TIMEOUT:-300}" \
-		--keep-alive "${GUNICORN_KEEPALIVE:-2}" \
-		--max-requests "${GUNICORN_MAX_REQUESTS:-1000}" \
-		--max-requests-jitter "${GUNICORN_MAX_REQUESTS_JITTER:-100}" \
-		--worker-connections "${GUNICORN_WORKER_CONNECTIONS:-1000}" \
+		--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+		--timeout "${WEB_SERVER_TIMEOUT:-300}" \
+		--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+		--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
+		--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
+		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
 		--error-logfile - \
 		--log-config /etc/gunicorn/logging.conf \
 		main:app &
