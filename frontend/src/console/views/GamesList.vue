@@ -15,7 +15,6 @@ import { useRovingDom } from "@/console/composables/useRovingDom";
 import { gamesListElementRegistry } from "@/console/composables/useElementRegistry";
 import consoleStore from "@/stores/console";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
-import type { SimpleRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
 
 const route = useRoute();
@@ -40,8 +39,7 @@ const gridRef = ref<HTMLDivElement>();
 // Initialize selection from store
 if (platformId != null) {
   selectedIndex.value = storeConsole.getPlatformGameIndex(platformId);
-}
-if (collectionId != null) {
+} else if (collectionId != null) {
   selectedIndex.value = storeConsole.getCollectionGameIndex(collectionId);
 }
 
@@ -76,8 +74,7 @@ const letters = computed(() => {
 function persistIndex() {
   if (platformId != null) {
     storeConsole.setPlatformGameIndex(platformId, selectedIndex.value);
-  }
-  if (collectionId != null) {
+  } else if (collectionId != null) {
     storeConsole.setCollectionGameIndex(collectionId, selectedIndex.value);
   }
 }
@@ -105,6 +102,7 @@ const current = computed(
 
 function getCols(): number {
   if (!gridRef.value) return 4;
+
   try {
     const style = window.getComputedStyle(gridRef.value);
     return Math.max(1, style.gridTemplateColumns.split(" ").length);
@@ -213,10 +211,7 @@ function handleAction(action: InputAction): boolean {
     }
     case "toggleFavorite": {
       const rom = roms.value[selectedIndex.value];
-      if (rom) {
-        // Cast SimpleRomSchema (generated) to store SimpleRom (alias) – shapes align
-        toggleFavoriteComposable(rom as unknown as SimpleRom);
-      }
+      if (rom) toggleFavoriteComposable(rom);
       return true;
     }
     default:
@@ -231,13 +226,14 @@ function mouseSelect(i: number) {
 function selectAndOpen(i: number, rom: SimpleRomSchema) {
   selectedIndex.value = i;
   // Don't navigate if we're in alphabet mode
-  if (inAlphabet.value) {
-    return;
-  }
+  if (inAlphabet.value) return;
+
   persistIndex();
+
   const query: Record<string, number> = {};
   if (platformId != null) query.id = platformId;
   if (isCollectionRoute) query.collection = collectionId!;
+
   router.push({
     name: ROUTES.CONSOLE_ROM,
     params: { rom: rom.id },
@@ -253,16 +249,19 @@ function jumpToLetter(L: string) {
     }
     return normalized.startsWith(L);
   });
+
   if (idx >= 0) {
     selectedIndex.value = idx;
     inAlphabet.value = false;
   }
 }
+
 function normalizeTitle(name: string) {
   return name.toUpperCase().replace(/^(THE|A|AN)\s+/, "");
 }
 
 let off: (() => void) | null = null;
+
 onMounted(async () => {
   try {
     if (platformId != null) {
@@ -294,6 +293,7 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+
   if (selectedIndex.value >= roms.value.length) selectedIndex.value = 0;
   await nextTick();
   cardElementAt(selectedIndex.value)?.scrollIntoView({
