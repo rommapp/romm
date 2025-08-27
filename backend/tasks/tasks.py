@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import httpx
+from config import TASK_TIMEOUT
 from exceptions.task_exceptions import SchedulerException
 from handler.redis_handler import low_prio_queue
 from logger.logger import log
@@ -86,6 +87,7 @@ class PeriodicTask(Task, ABC):
                 self.cron_string,
                 func=self.func,
                 repeat=None,
+                timeout=TASK_TIMEOUT,
             )
 
         return None

@@ -16,10 +16,6 @@ ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB="${ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB
 # if REDIS_HOST is set, we assume that an external redis is used
 REDIS_HOST="${REDIS_HOST:=""}"
 
-# set DEFAULT_WEB_CONCURRENCY to 1 if not set by docker env to reduce resource usage
-# (since backend is almost 100% async this won't block anything)
-DEFAULT_WEB_CONCURRENCY=1
-
 # logger colors
 RED='\033[0;31m'
 LIGHTMAGENTA='\033[0;95m'
@@ -97,6 +93,9 @@ start_bin_gunicorn() {
 	# commands to start our main application and store its PID to check for crashes
 	info_log "Starting backend"
 
+	export PYTHONUNBUFFERED=1
+	export PYTHONDONTWRITEBYTECODE=1
+
 	opentelemetry-instrument \
 		--service_name "${OTEL_SERVICE_NAME_PREFIX-}api" \
 		gunicorn \
@@ -105,7 +104,12 @@ start_bin_gunicorn() {
 		--pid=/tmp/gunicorn.pid \
 		--forwarded-allow-ips="*" \
 		--worker-class uvicorn_worker.UvicornWorker \
-		--workers "${WEB_CONCURRENCY:-${DEFAULT_WEB_CONCURRENCY:-1}}" \
+		--workers "${WEB_SERVER_CONCURRENCY:-1}" \
+		--timeout "${WEB_SERVER_TIMEOUT:-300}" \
+		--keep-alive "${WEB_SERVER_KEEPALIVE:-2}" \
+		--max-requests "${WEB_SERVER_MAX_REQUESTS:-1000}" \
+		--max-requests-jitter "${WEB_SERVER_MAX_REQUESTS_JITTER:-100}" \
+		--worker-connections "${WEB_SERVER_WORKER_CONNECTIONS:-1000}" \
 		--error-logfile - \
 		--log-config /etc/gunicorn/logging.conf \
 		main:app &
