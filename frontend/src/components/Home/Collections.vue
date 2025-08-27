@@ -3,7 +3,7 @@ import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import { type CollectionType } from "@/stores/collections";
 import { views } from "@/utils";
-import { isNull } from "lodash";
+import { isNull, throttle } from "lodash";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -40,14 +40,14 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
   hoveringCollectionId.value = emitData.id;
 }
 
-function onScroll() {
+const onScroll = throttle(() => {
   if (
     window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
     visibleCollections.value < props.collections.length
   ) {
     visibleCollections.value += 72;
   }
-}
+}, 100);
 
 onMounted(() => {
   window.addEventListener("scroll", onScroll);

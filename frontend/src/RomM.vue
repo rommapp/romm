@@ -18,8 +18,35 @@ storeLanguage.setLanguage(selectedLanguage.value);
 
 <template>
   <v-app>
-    <v-main>
-      <router-view />
+    <v-main id="main" class="no-transition">
+      <router-view v-slot="{ Component }">
+        <component :is="Component" />
+        <!-- Fade out the app loading logo -->
+        <Transition name="fade" mode="out-in">
+          <div v-if="!Component" id="app-loading-logo">
+            <img
+              src="/assets/logos/romm_logo_xbox_one_circle_grayscale.svg"
+              alt="Romm Logo"
+            />
+          </div>
+        </Transition>
+      </router-view>
     </v-main>
   </v-app>
 </template>
+
+<style scoped>
+#main.no-transition {
+  transition: none;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.35s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

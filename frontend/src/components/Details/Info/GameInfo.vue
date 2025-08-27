@@ -138,13 +138,10 @@ function nextRom() {
                   name: ROUTES.COLLECTION,
                   params: { collection: collection.id },
                 }"
-                size="large"
-                class="mr-1 mt-1 px-0"
+                size="small"
+                class="my-1 mr-2 px-0"
                 label
               >
-                <template #prepend>
-                  <r-avatar :size="38" :collection="collection" />
-                </template>
                 <span class="px-4">{{ collection.name }}</span>
               </v-chip>
             </v-col>
@@ -232,7 +229,7 @@ function nextRom() {
               <template #prev="{ props }">
                 <v-btn
                   icon="mdi-chevron-left"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="props.onClick"
                 />
               </template>
@@ -263,7 +260,7 @@ function nextRom() {
               <template #next="{ props }">
                 <v-btn
                   icon="mdi-chevron-right"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="props.onClick"
                 />
               </template>
@@ -282,7 +279,7 @@ function nextRom() {
                     <v-btn
                       @click="props.onClick"
                       icon="mdi-chevron-left"
-                      class="translucent-dark"
+                      class="translucent"
                     />
                   </template>
                   <v-carousel-item
@@ -309,7 +306,7 @@ function nextRom() {
                   <template #next="{ props }">
                     <v-btn
                       icon="mdi-chevron-right"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="props.onClick"
                     />
                   </template>

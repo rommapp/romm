@@ -21,7 +21,7 @@ withDefaults(
 <template>
   <v-chip
     v-if="chip"
-    class="translucent-dark"
+    class="translucent"
     :density="chipDensity"
     color="accent"
     :label="chipLabel"

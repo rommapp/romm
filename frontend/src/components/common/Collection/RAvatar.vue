@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { type CollectionType } from "@/stores/collections";
-import storeCollections from "@/stores/collections";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 import { computed, ref, watchEffect } from "vue";
-import { useTheme } from "vuetify";
 
 const props = withDefaults(
   defineProps<{
@@ -65,8 +63,8 @@ watchEffect(() => {
   };
 });
 
-const firstCover = computed(() => memoizedCovers.value.large[0]);
-const secondCover = computed(() => memoizedCovers.value.large[1]);
+const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
+const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
 const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
 const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 </script>
@@ -74,16 +72,44 @@ const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 <template>
   <v-avatar :rounded="0" :size="size">
     <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
-      <template v-if="collection.is_virtual || !collection.path_cover_large">
+      <template
+        v-if="
+          collection.is_virtual ||
+          !collection.path_cover_large ||
+          !collection.path_cover_small
+        "
+      >
         <div class="split-image first-image">
-          <v-img cover :src="firstCover" :aspect-ratio="1 / 1" />
+          <v-img cover :src="firstLargeCover" :aspect-ratio="1 / 1">
+            <template #placeholder>
+              <v-img cover eager :src="firstSmallCover" :aspect-ratio="1 / 1" />
+            </template>
+          </v-img>
         </div>
         <div class="split-image second-image">
-          <v-img cover :src="secondCover" :aspect-ratio="1 / 1" />
+          <v-img cover :src="secondLargeCover" :aspect-ratio="1 / 1">
+            <template #placeholder>
+              <v-img
+                cover
+                eager
+                :src="secondSmallCover"
+                :aspect-ratio="1 / 1"
+              />
+            </template>
+          </v-img>
         </div>
       </template>
       <template v-else>
-        <v-img cover :src="collection.path_cover_large" :aspect-ratio="1 / 1" />
+        <v-img cover :src="collection.path_cover_large" :aspect-ratio="1 / 1">
+          <template #placeholder>
+            <v-img
+              cover
+              eager
+              :src="collection.path_cover_small"
+              :aspect-ratio="1 / 1"
+            />
+          </template>
+        </v-img>
       </template>
     </div>
   </v-avatar>

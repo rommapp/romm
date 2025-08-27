@@ -55,6 +55,13 @@ export default defineStore("roms", {
     filteredRoms: (state) => state.allRoms,
     selectedRoms: (state) =>
       state.allRoms.filter((rom) => state.selectedIDs.has(rom.id)),
+    onGalleryView: (state) =>
+      !!(
+        state.currentPlatform ||
+        state.currentCollection ||
+        state.currentVirtualCollection ||
+        state.currentSmartCollection
+      ),
   },
 
   actions: {
@@ -118,14 +125,12 @@ export default defineStore("roms", {
     },
     fetchRoms({
       galleryFilter,
-      groupRoms,
       concat = true,
     }: {
       galleryFilter: GalleryFilterStore;
-      groupRoms?: boolean;
       concat?: boolean;
-    }) {
-      if (this.fetchingRoms) return Promise.resolve();
+    }): Promise<SimpleRom[]> {
+      if (this.fetchingRoms) return Promise.resolve([]);
       this.fetchingRoms = true;
 
       return new Promise((resolve, reject) => {
@@ -143,7 +148,7 @@ export default defineStore("roms", {
             offset: this.fetchOffset,
             orderBy: this.orderBy,
             orderDir: this.orderDir,
-            groupByMetaId: groupRoms ?? this._shouldGroupRoms(),
+            groupByMetaId: this._shouldGroupRoms() && this.onGalleryView,
           })
           .then(({ data: { items, offset, total, char_index } }) => {
             if (!concat || this.fetchOffset === 0) {
@@ -193,6 +198,32 @@ export default defineStore("roms", {
           })
           .finally(() => {
             this.fetchingRoms = false;
+          });
+      });
+    },
+    fetchRecentRoms(): Promise<SimpleRom[]> {
+      return new Promise((resolve, reject) => {
+        romApi
+          .getRecentRoms()
+          .then(({ data: { items } }) => {
+            this.setRecentRoms(items);
+            resolve(items);
+          })
+          .catch((error) => {
+            reject(error);
+          });
+      });
+    },
+    fetchContinuePlayingRoms(): Promise<SimpleRom[]> {
+      return new Promise((resolve, reject) => {
+        romApi
+          .getRecentPlayedRoms()
+          .then(({ data: { items } }) => {
+            this.setContinuePlayingRoms(items);
+            resolve(items);
+          })
+          .catch((error) => {
+            reject(error);
           });
       });
     },

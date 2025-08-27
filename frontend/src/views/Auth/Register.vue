@@ -2,6 +2,7 @@
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import userApi from "@/services/api/user";
+import storeUsers from "@/stores/users";
 import { inject, ref, onBeforeMount } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -10,13 +11,19 @@ const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
 const router = useRouter();
+const usersStore = storeUsers();
 const token = route.query.token as string;
 const username = ref("");
 const email = ref("");
 const password = ref("");
 const visiblePassword = ref(false);
+const validForm = ref(false);
 
 function register() {
+  if (!validForm.value) {
+    return;
+  }
+
   userApi
     .registerUser(username.value, email.value, password.value, token)
     .then(() => {
@@ -48,17 +55,17 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <v-card class="translucent-dark py-8 px-5" width="500">
+  <v-card class="translucent py-8 px-5" width="500">
     <v-img src="/assets/isotipo.svg" class="mx-auto mb-8" width="80" />
     <v-row class="text-white justify-center mt-2" no-gutters>
       <v-col cols="10">
-        <v-form @submit.prevent="register">
+        <v-form v-model="validForm" @submit.prevent="register">
           <v-text-field
             v-model="username"
             :label="t('settings.username')"
             type="text"
+            :rules="usersStore.nameRules"
             required
-            hide-details
             variant="underlined"
             class="mt-4"
           />
@@ -66,8 +73,8 @@ onBeforeMount(() => {
             v-model="email"
             :label="t('settings.email')"
             type="text"
+            :rules="usersStore.emailRules"
             required
-            hide-details
             variant="underlined"
             class="mt-4"
           />
@@ -75,13 +82,20 @@ onBeforeMount(() => {
             v-model="password"
             :label="t('settings.password')"
             :type="visiblePassword ? 'text' : 'password'"
+            :rules="usersStore.passwordRules"
             required
             :append-inner-icon="visiblePassword ? 'mdi-eye-off' : 'mdi-eye'"
             @click:append-inner="visiblePassword = !visiblePassword"
             variant="underlined"
             class="mt-4"
           />
-          <v-btn type="submit" class="bg-toplayer mt-4" variant="text" block>
+          <v-btn
+            type="submit"
+            class="bg-toplayer mt-4"
+            variant="text"
+            block
+            :disabled="!validForm"
+          >
             <template #prepend>
               <v-icon>mdi-account-check</v-icon>
             </template>

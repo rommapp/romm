@@ -1,14 +1,17 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from decorators.auth import protected_route
 from endpoints.forms.identity import UserForm
 from endpoints.responses.identity import InviteLinkSchema, UserSchema
-from fastapi import Body, Form, HTTPException, Request, status
+from fastapi import Body, Form, HTTPException
+from fastapi import Path as PathVar
+from fastapi import Request, status
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler
 from handler.filesystem import fs_asset_handler
 from handler.metadata import meta_ra_handler
+from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
 from models.user import Role, User
 from utils.router import APIRouter
@@ -139,6 +142,23 @@ def create_user_from_invite(
     """
 
     jti, role = auth_handler.verify_invite_link_token(token)
+
+    # Validate username and password are not empty
+    if not username or not username.strip():
+        msg = "Username cannot be empty"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
+
+    if not password or not password.strip():
+        msg = "Password cannot be empty"
+        log.error(msg)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=msg,
+        )
 
     if db_user_handler.get_user_by_username(username):
         msg = f"Username {username} already exists"
@@ -354,33 +374,42 @@ async def delete_user(request: Request, id: int) -> None:
 
 
 @protected_route(
-    router.post, "/{id}/ra/refresh", [Scope.ME_WRITE], status_code=status.HTTP_200_OK
+    router.post,
+    "/{id}/ra/refresh",
+    [Scope.ME_WRITE],
+    status_code=status.HTTP_200_OK,
+    summary="Refresh RetroAchievements",
+    responses={status.HTTP_404_NOT_FOUND: {}},
 )
-async def refresh_retro_achievements(request: Request, id: int) -> None:
-    """Refresh RetroAchievements data for a user.
-
-    Args:
-        request (Request): FastAPI Request object
-        id (int): User ID
-
-    Raises:
-        HTTPException: User not found or no RetroAchievements username set
-
-    Returns:
-        None: Returns 200 OK status
-    """
+async def refresh_retro_achievements(
+    request: Request,
+    id: Annotated[int, PathVar(description="User internal id.", ge=1)],
+    incremental: Annotated[
+        bool,
+        Body(
+            description="Whether to only retrieve RetroAchievements progression incrementally.",
+            embed=True,
+        ),
+    ] = False,
+) -> None:
+    """Refresh RetroAchievements progression data for a user."""
     user = db_user_handler.get_user(id)
-    if user and user.ra_username:
-        user_progression = await meta_ra_handler.get_user_progression(user.ra_username)
-        db_user_handler.update_user(
-            id,
-            {
-                "ra_progression": user_progression,
-            },
+    if not user or not user.ra_username:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User does not have a RetroAchievements username set",
         )
-        return None
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="User does not have a RetroAchievements username set",
+    user_progression = await meta_ra_handler.get_user_progression(
+        user.ra_username,
+        current_progression=(
+            cast(RAUserProgression | None, user.ra_progression) if incremental else None
+        ),
     )
+    db_user_handler.update_user(
+        id,
+        {
+            "ra_progression": user_progression,
+        },
+    )
+    return None

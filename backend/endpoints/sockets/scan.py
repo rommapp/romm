@@ -33,11 +33,11 @@ from handler.socket_handler import socket_handler
 from logger.formatter import BLUE, LIGHTYELLOW
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile
 from rq import Worker
 from rq.job import Job
-from sqlalchemy.inspection import inspect
 from utils import emoji
 from utils.context import initialize_context
 
@@ -96,11 +96,22 @@ async def _identify_firmware(
         firmware=firmware,
     )
 
+    is_verified = Firmware.verify_file_hashes(
+        platform_slug=platform.slug,
+        file_name=fs_fw,
+        file_size_bytes=scanned_firmware.file_size_bytes,
+        md5_hash=scanned_firmware.md5_hash,
+        sha1_hash=scanned_firmware.sha1_hash,
+        crc_hash=scanned_firmware.crc_hash,
+    )
+
     scan_stats.scanned_firmware += 1
     scan_stats.added_firmware += 1 if not firmware else 0
 
     scanned_firmware.missing_from_fs = False
+    scanned_firmware.is_verified = is_verified
     db_firmware_handler.add_firmware(scanned_firmware)
+
     return scan_stats
 
 
@@ -200,6 +211,7 @@ async def _identify_rom(
         return scan_stats
 
     # Build rom files object before scanning
+    log.debug(f"Calculating file hashes for {rom.fs_name}...")
     rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
         await fs_rom_handler.get_rom_files(rom)
     )
@@ -213,6 +225,7 @@ async def _identify_rom(
         }
     )
 
+    log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
         platform=platform,
@@ -288,12 +301,15 @@ async def _identify_rom(
     _added_rom.path_cover_l = path_cover_l
     _added_rom.path_screenshots = path_screenshots
     _added_rom.path_manual = path_manual
+
     # Update the scanned rom with the cover and screenshots paths and update database
     db_rom_handler.update_rom(
         _added_rom.id,
         {
-            c: getattr(_added_rom, c)
-            for c in inspect(_added_rom).mapper.column_attrs.keys()
+            "path_cover_s": path_cover_s,
+            "path_cover_l": path_cover_l,
+            "path_screenshots": path_screenshots,
+            "path_manual": path_manual,
         },
     )
 
@@ -496,7 +512,7 @@ async def scan_platforms(
         if len(missed_platforms) > 0:
             log.warning(f"{hl('Missing')} platforms from filesystem:")
             for p in missed_platforms:
-                log.warning(f" - {p.slug}")
+                log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
         await sm.emit("scan:done", scan_stats.__dict__)

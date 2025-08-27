@@ -96,7 +96,7 @@ async function loginOIDC() {
 </script>
 
 <template>
-  <v-card class="translucent-dark py-8 px-5" width="500">
+  <v-card class="translucent py-8 px-5" width="500">
     <v-img src="/assets/isotipo.svg" class="mx-auto mb-8" width="80" />
     <v-expand-transition>
       <v-row

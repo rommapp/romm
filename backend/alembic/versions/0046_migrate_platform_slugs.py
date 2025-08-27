@@ -81,7 +81,12 @@ def upgrade() -> None:
             {"new_slug": new_slug.value, "old_slug": old_slug},
         )
         if result.rowcount > 0:
-            cm.add_platform_binding(old_slug, new_slug.value)
+            try:
+                cm.add_platform_binding(old_slug, new_slug.value)
+            except OSError as e:
+                print(
+                    f"Error adding platform binding for {old_slug} to {new_slug.value}: {e}"
+                )
 
 
 def downgrade() -> None:
@@ -94,7 +99,10 @@ def downgrade() -> None:
             {"old_slug": old_slug, "new_slug": new_slug.value},
         )
         if result.rowcount > 0:
-            cm.remove_platform_binding(old_slug)
+            try:
+                cm.remove_platform_binding(old_slug)
+            except OSError as e:
+                print(f"Error removing platform binding for {old_slug}: {e}")
 
     with op.batch_alter_table("users", schema=None) as batch_op:
         batch_op.alter_column(

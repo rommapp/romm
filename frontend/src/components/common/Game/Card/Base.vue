@@ -6,6 +6,7 @@ import Sources from "@/components/common/Game/Card/Sources.vue";
 import storePlatforms from "@/stores/platforms";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import { ROUTES } from "@/plugins/router";
@@ -22,7 +23,6 @@ import type { Emitter } from "mitt";
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
-    src?: string;
     aspectRatio?: string | number;
     width?: string | number;
     height?: string | number;
@@ -53,9 +53,9 @@ const props = withDefaults(
     disableViewTransition: false,
     enable3DTilt: false,
     withLink: false,
-    src: "",
   },
 );
+
 const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const romsStore = storeRoms();
@@ -88,6 +88,7 @@ const handleCloseMenu = () => {
   activeMenu.value = false;
   emit("closedmenu");
 };
+
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
 const computedAspectRatio = computed(() => {
@@ -130,6 +131,17 @@ interface TiltHTMLElement extends HTMLElement {
 }
 
 const tiltCard = ref<TiltHTMLElement | null>(null);
+
+const largeCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_large
+    : props.rom.igdb_url_cover ||
+      props.rom.moby_url_cover ||
+      props.rom.ss_url_cover,
+);
+const smallCover = computed(() =>
+  romsStore.isSimpleRom(props.rom) ? props.rom.path_cover_small : "",
+);
 
 const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   event.preventDefault();
@@ -208,15 +220,7 @@ onBeforeUnmount(() => {
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
-              :src="
-                src ||
-                (romsStore.isSimpleRom(rom)
-                  ? rom.path_cover_large || fallbackCoverImage
-                  : rom.igdb_url_cover ||
-                    rom.moby_url_cover ||
-                    rom.ss_url_cover ||
-                    fallbackCoverImage)
-              "
+              :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
             >
               <template v-bind="props" v-if="titleOnHover">
@@ -228,9 +232,10 @@ onBeforeUnmount(() => {
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
                         !rom.moby_url_cover &&
-                        !rom.ss_url_cover)
+                        !rom.ss_url_cover &&
+                        !rom.sgdb_url_cover)
                     "
-                    class="translucent-dark text-white"
+                    class="translucent text-white"
                     :class="
                       sizeActionBar === 1 ? 'text-subtitle-1' : 'text-caption'
                     "
@@ -285,7 +290,7 @@ onBeforeUnmount(() => {
                     />
                     <v-chip
                       v-if="rom.hasheous_id"
-                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      class="translucent text-white mr-1 mb-1 px-1"
                       density="compact"
                       title="Verified with Hasheous"
                     >
@@ -293,7 +298,7 @@ onBeforeUnmount(() => {
                     </v-chip>
                     <v-chip
                       v-if="rom.siblings.length > 0 && showSiblings"
-                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      class="translucent text-white mr-1 mb-1 px-1"
                       density="compact"
                       :title="`${rom.siblings.length} sibling(s)`"
                     >
@@ -304,13 +309,13 @@ onBeforeUnmount(() => {
                       text="Favorite"
                       color="secondary"
                       density="compact"
-                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      class="translucent text-white mr-1 mb-1 px-1"
                     >
                       <v-icon>mdi-star</v-icon>
                     </v-chip>
                     <v-chip
                       v-if="hasNotes && showChips"
-                      class="translucent-dark text-white mr-1 mb-1 px-1"
+                      class="translucent text-white mr-1 mb-1 px-1"
                       density="compact"
                       title="View notes"
                       @click.stop="showNoteDialog"
@@ -331,7 +336,7 @@ onBeforeUnmount(() => {
                       (isOuterHovering || activeMenu) &&
                       !smAndDown
                     "
-                    class="translucent-dark"
+                    class="translucent"
                     @menu-open="handleOpenMenu"
                     @menu-close="handleCloseMenu"
                     :rom="rom"
@@ -341,20 +346,26 @@ onBeforeUnmount(() => {
               </div>
               <template #error>
                 <v-img
-                  :src="fallbackCoverImage"
                   cover
+                  :src="fallbackCoverImage"
                   :aspect-ratio="computedAspectRatio"
                 ></v-img>
               </template>
               <template #placeholder>
-                <div class="d-flex align-center justify-center fill-height">
-                  <v-progress-circular
-                    :width="2"
-                    :size="40"
-                    color="primary"
-                    indeterminate
-                  />
-                </div>
+                <v-img
+                  cover
+                  eager
+                  :src="smallCover || fallbackCoverImage"
+                  :aspect-ratio="computedAspectRatio"
+                >
+                  <template #placeholder>
+                    <skeleton
+                      :platformId="rom.platform_id"
+                      :aspectRatio="computedAspectRatio"
+                      type="image"
+                    />
+                  </template>
+                </v-img>
               </template>
             </v-img>
           </v-hover>
@@ -380,18 +391,22 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   transition: max-height 0.5s; /* Add a transition for a smooth effect */
 }
+
 .expand-on-hover:hover {
   max-height: 1000px; /* Adjust to a sufficiently large value to ensure the full expansion */
 }
+
 /* Apply styles to v-expand-transition component */
 .v-expand-transition-enter-active,
 .v-expand-transition-leave-active {
   transition: max-height 0.5s;
 }
+
 .v-expand-transition-enter, .v-expand-transition-leave-to /* .v-expand-transition-leave-active in <2.1.8 */ {
   max-height: 0; /* Set max-height to 0 when entering or leaving */
   overflow: hidden;
 }
+
 .v-img {
   user-select: none; /* Prevents text selection */
   -webkit-user-select: none; /* Safari */
