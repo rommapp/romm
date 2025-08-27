@@ -8,8 +8,8 @@ from fastapi import HTTPException, status
 from logger.logger import log
 from utils.context import ctx_httpx_client
 
-from .base_hander import MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 
 
 class FlashpointPlatform(TypedDict):

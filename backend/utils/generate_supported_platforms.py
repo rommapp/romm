@@ -10,7 +10,7 @@ from handler.metadata import (
     meta_ra_handler,
     meta_ss_handler,
 )
-from handler.metadata.base_hander import UniversalPlatformSlug
+from handler.metadata.base_handler import UniversalPlatformSlug
 
 
 class SupportedPlatform(TypedDict):
@@ -40,13 +40,13 @@ if __name__ == "__main__":
         flashpoint_platform = meta_flashpoint_handler.get_platform(slug_lower)
 
         supported_platforms[slug_lower] = {
-            "name": flashpoint_platform.get("name", None)
-            or igdb_platform.get("name", None)
+            "name": igdb_platform.get("name", None)
             or moby_platform.get("name", None)
             or ss_platform.get("name", None)
             or launchbox_platform.get("name", None)
             or hasheous_platform.get("name", None)
             or ra_platform.get("name", None)
+            or flashpoint_platform.get("name", None)
             or slug_lower.replace("-", " ").title(),
             "folder": slug_lower,
             "igdb_slug": igdb_platform.get("igdb_slug", None),
@@ -73,37 +73,37 @@ if __name__ == "__main__":
             f'| {platform["name"]} |',
             f'`{platform["folder"]}` |',
             (
-                f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener norefer"><img alt="igdb logo" src="../../resources/metadata_providers/igdb.png" height="24px" width="24px"></a>'
+                f'<a href="https://www.igdb.com/platforms/{platform["igdb_slug"]}" target="_blank" rel="noopener noreferrer"><img alt="igdb logo" src="../../resources/metadata_providers/igdb.png" height="24px" width="24px"></a>'
                 if platform["igdb_slug"]
                 else ""
             ),
             (
-                f'<a href="https://www.screenscraper.fr/systemeinfos.php?plateforme={platform["ss_id"]}" target="_blank" rel="noopener norefer"><img alt="screenscraper logo" src="../../resources/metadata_providers/ss.png" height="24px" width="24px"></a>'
+                f'<a href="https://www.screenscraper.fr/systemeinfos.php?plateforme={platform["ss_id"]}" target="_blank" rel="noopener noreferrer"><img alt="screenscraper logo" src="../../resources/metadata_providers/ss.png" height="24px" width="24px"></a>'
                 if platform["ss_id"]
                 else ""
             ),
             (
-                f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener norefer"><img alt="mobygames logo" src="../../resources/metadata_providers/moby.png" height="24px" width="24px"></a>'
+                f'<a href="https://www.mobygames.com/platform/{platform["moby_slug"]}" target="_blank" rel="noopener noreferrer"><img alt="mobygames logo" src="../../resources/metadata_providers/moby.png" height="24px" width="24px"></a>'
                 if platform["moby_slug"]
                 else ""
             ),
             (
-                f'<a href="https://gamesdb.launchbox-app.com/platforms/games/{platform["launchbox_id"]}" target="_blank" rel="noopener norefer"><img alt="launchbox logo" src="../../resources/metadata_providers/launchbox.png" height="24px" width="24px"></a>'
+                f'<a href="https://gamesdb.launchbox-app.com/platforms/games/{platform["launchbox_id"]}" target="_blank" rel="noopener noreferrer"><img alt="launchbox logo" src="../../resources/metadata_providers/launchbox.png" height="24px" width="24px"></a>'
                 if platform["launchbox_id"]
                 else ""
             ),
             (
-                f'<a href="https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id={platform["hasheous_id"]}" target="_blank" rel="noopener norefer"><img alt="hasheous logo" src="../../resources/metadata_providers/hasheous.png" height="24px" width="24px"></a>'
+                f'<a href="https://hasheous.org/index.html?page=dataobjectdetail&type=platform&id={platform["hasheous_id"]}" target="_blank" rel="noopener noreferrer"><img alt="hasheous logo" src="../../resources/metadata_providers/hasheous.png" height="24px" width="24px"></a>'
                 if platform["hasheous_id"]
                 else ""
             ),
             (
-                f'<a href="https://retroachievements.org/system/{platform["ra_id"]}/games" target="_blank" rel="noopener norefer"><img alt="retroachivements logo" src="../../resources/metadata_providers/ra.png" height="24px" width="24px"></a>'
+                f'<a href="https://retroachievements.org/system/{platform["ra_id"]}/games" target="_blank" rel="noopener noreferrer"><img alt="retroachivements logo" src="../../resources/metadata_providers/ra.png" height="24px" width="24px"></a>'
                 if platform["ra_id"]
                 else ""
             ),
             (
-                f'<a href="https://flashpoint-project.org/platforms/{platform["flashpoint_slug"]}" target="_blank" rel="noopener norefer"><img alt="flashpoint logo" src="../../resources/metadata_providers/flashpoint.png" height="24px" width="24px"></a>'
+                f'<a href="https://flashpoint-project.org/platforms/{platform["flashpoint_slug"]}" target="_blank" rel="noopener noreferrer"><img alt="flashpoint logo" src="../../resources/metadata_providers/flashpoint.png" height="24px" width="24px"></a>'
                 if platform["flashpoint_slug"]
                 else ""
             ),

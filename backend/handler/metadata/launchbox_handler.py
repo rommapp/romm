@@ -14,8 +14,8 @@ from tasks.scheduled.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
     update_launchbox_metadata_task,
 )
 
-from .base_hander import BaseRom, MetadataHandler
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import BaseRom, MetadataHandler
+from .base_handler import UniversalPlatformSlug as UPS
 
 
 class LaunchboxPlatform(TypedDict):

@@ -4,7 +4,7 @@ from typing import Any
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser

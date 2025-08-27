@@ -1,6 +1,6 @@
 from unittest.mock import AsyncMock
 
-from handler.metadata.base_hander import MAME_XML_KEY, METADATA_FIXTURES_DIR
+from handler.metadata.base_handler import MAME_XML_KEY, METADATA_FIXTURES_DIR
 from handler.redis_handler import async_cache
 from redis.asyncio import Redis as AsyncRedis
 from utils.cache import conditionally_set_cache
