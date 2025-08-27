@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { onMounted, onUnmounted, ref, nextTick } from "vue";
+import { onMounted, onUnmounted, ref, nextTick, watch } from "vue";
 import { useRouter } from "vue-router";
 import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
@@ -77,18 +77,51 @@ const { moveLeft: moveCollectionLeft, moveRight: moveCollectionRight } =
     () => collections.value.length,
   );
 
-// Roving DOM setup
 useRovingDom(selectedIndex, systemElementAt, {
   inline: "center",
   block: "nearest",
+  behavior: "smooth",
+  scroll: false, // handle scrolling manually
 });
 useRovingDom(recentIndex, recentElementAt, {
   inline: "center",
   block: "nearest",
+  behavior: "smooth",
+  scroll: false, // same as above
 });
 useRovingDom(collectionsIndex, collectionElementAt, {
   inline: "center",
   block: "nearest",
+  behavior: "smooth",
+  scroll: false, // same as above
+});
+
+// carousel scrolling that respects vertical scroll state
+watch(selectedIndex, (newIdx) => {
+  if (!isVerticalScrolling) {
+    const el = systemElementAt(newIdx);
+    if (el && systemsRef.value) {
+      centerInCarousel(systemsRef.value, el, "smooth");
+    }
+  }
+});
+
+watch(recentIndex, (newIdx) => {
+  if (!isVerticalScrolling) {
+    const el = recentElementAt(newIdx);
+    if (el && recentRef.value) {
+      centerInCarousel(recentRef.value, el, "smooth");
+    }
+  }
+});
+
+watch(collectionsIndex, (newIdx) => {
+  if (!isVerticalScrolling) {
+    const el = collectionElementAt(newIdx);
+    if (el && collectionsRef.value) {
+      centerInCarousel(collectionsRef.value, el, "smooth");
+    }
+  }
 });
 
 // Navigation functions
@@ -180,32 +213,57 @@ const navigationFunctions = {
   },
 };
 
+let verticalScrollPromise: Promise<void> | null = null;
+let isVerticalScrolling = false;
+
 function scrollToCurrentRow() {
-  const behavior: ScrollBehavior = "smooth";
-  switch (navigationMode.value) {
-    case "systems":
-      scrollContainerRef.value?.scrollTo({ top: 0, behavior });
-      break;
-    case "recent":
-      recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
-      break;
-    case "collections":
-      collectionsSectionRef.value?.scrollIntoView({ behavior, block: "start" });
-      break;
-  }
+  isVerticalScrolling = true;
+
+  // promise resolves when the scroll animation finishes
+  verticalScrollPromise = new Promise((resolve) => {
+    const behavior: ScrollBehavior = "smooth";
+    switch (navigationMode.value) {
+      case "systems":
+        scrollContainerRef.value?.scrollTo({ top: 0, behavior });
+        break;
+      case "recent":
+        recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
+        break;
+      case "collections":
+        collectionsSectionRef.value?.scrollIntoView({
+          behavior,
+          block: "start",
+        });
+        break;
+    }
+
+    // resolve after animation
+    setTimeout(() => {
+      isVerticalScrolling = false;
+      verticalScrollPromise = null;
+      resolve();
+    }, 400); // match smooth scroll duration
+  });
 }
 
 function centerInCarousel(
   container: HTMLElement | undefined | null,
   el: HTMLElement | undefined | null,
+  behavior: ScrollBehavior = "auto",
 ) {
   if (!container || !el) return;
   if (container.scrollWidth <= container.clientWidth) return;
   const target = el.offsetLeft - (container.clientWidth - el.clientWidth) / 2;
-  container.scrollLeft = Math.max(
+  const targetLeft = Math.max(
     0,
     Math.min(target, container.scrollWidth - container.clientWidth),
   );
+
+  if (behavior === "smooth") {
+    container.scrollTo({ left: targetLeft, behavior: "smooth" });
+  } else {
+    container.scrollLeft = targetLeft;
+  }
 }
 
 function exitConsoleMode() {
