@@ -1,37 +1,18 @@
 <script setup lang="ts">
 import Task from "@/components/Settings/Administration/TaskOption.vue";
 import RSection from "@/components/common/RSection.vue";
-import api from "@/services/api/index";
+import taskApi from "@/services/api/task";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
 import { convertCronExperssion } from "@/utils";
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 
-const tasks = ref<{
-  watcher: TaskInfo[];
-  scheduled: TaskInfo[];
-  manual: TaskInfo[];
-}>({
-  watcher: [],
-  scheduled: [],
-  manual: [],
-});
+type ManualTask = TaskInfo & { icon: string };
+type ScheduledTask = TaskInfo & { icon: string; cron_string: string };
+type WatcherTask = TaskInfo & { icon: string };
 
-const watcherTasks = computed(() =>
-  tasks.value.watcher.map((task) => ({
-    ...task,
-    icon: task.enabled ? "mdi-file-check-outline" : "mdi-file-remove-outline",
-  })),
-);
-
-const scheduledTasks = computed(() =>
-  tasks.value.scheduled.map((task) => ({
-    ...task,
-    description:
-      task.description + " " + convertCronExperssion(task.cron_string),
-    icon: task.enabled ? "mdi-clock-check-outline" : "mdi-clock-remove-outline",
-    cron_string: convertCronExperssion(task.cron_string),
-  })),
-);
+const watcherTasks = ref<WatcherTask[]>([]);
+const scheduledTasks = ref<ScheduledTask[]>([]);
+const manualTasks = ref<ManualTask[]>([]);
 
 // Icon mapping for manual tasks
 const getManualTaskIcon = (taskName: string) => {
@@ -41,16 +22,25 @@ const getManualTaskIcon = (taskName: string) => {
   return iconMap[taskName] || "mdi-play";
 };
 
-const manualTasks = computed(() =>
-  tasks.value.manual.map((task) => ({
-    ...task,
-    icon: getManualTaskIcon(task.name),
-  })),
-);
-
 const getAvailableTasks = async () => {
-  await api.get("/tasks").then((response) => {
-    tasks.value = response.data;
+  await taskApi.getTasks().then((response) => {
+    watcherTasks.value = response.data.watcher.map((task) => ({
+      ...task,
+      icon: task.enabled ? "mdi-file-check-outline" : "mdi-file-remove-outline",
+    }));
+    scheduledTasks.value = response.data.scheduled.map((task) => ({
+      ...task,
+      description:
+        task.description + " " + convertCronExperssion(task.cron_string),
+      icon: task.enabled
+        ? "mdi-clock-check-outline"
+        : "mdi-clock-remove-outline",
+      cron_string: convertCronExperssion(task.cron_string),
+    }));
+    manualTasks.value = response.data.manual.map((task) => ({
+      ...task,
+      icon: getManualTaskIcon(task.name),
+    }));
   });
 };
 
@@ -67,8 +57,9 @@ onMounted(() => {
         variant="text"
         prepend-icon="mdi-folder-eye"
         class="ml-2 mt-1"
-        >Watcher</v-chip
       >
+        Watcher
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
         <v-col cols="12" md="6" v-for="task in watcherTasks">
@@ -82,9 +73,9 @@ onMounted(() => {
         </v-col>
       </v-row>
 
-      <v-chip label variant="text" prepend-icon="mdi-clock" class="ml-2 mt-1"
-        >Scheduled</v-chip
-      >
+      <v-chip label variant="text" prepend-icon="mdi-clock" class="ml-2 mt-1">
+        Scheduled
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
         <v-col cols="12" md="6" v-for="task in scheduledTasks">
@@ -106,8 +97,9 @@ onMounted(() => {
           variant="text"
           prepend-icon="mdi-gesture-double-tap"
           class="ml-2 mt-1"
-          >Manual</v-chip
         >
+          Manual
+        </v-chip>
         <v-divider class="border-opacity-25 ma-1" />
         <v-col cols="12" md="6" v-for="task in manualTasks">
           <task

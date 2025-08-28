@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
 
-from config import RESOURCES_BASE_PATH
+from config import (
+    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+    RESOURCES_BASE_PATH,
+    SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
+)
 from logger.logger import log
 from PIL import Image, UnidentifiedImageError
 from tasks.tasks import PeriodicTask
@@ -89,9 +93,9 @@ class ConvertImagesToWebPTask(PeriodicTask):
         super().__init__(
             title="Convert images to WebP",
             description="Convert existing image files (PNG, JPG, BMP, TIFF, GIF) to WebP format for better performance",
-            enabled=True,
+            enabled=ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
             manual_run=True,
-            cron_string=None,
+            cron_string=SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
             func="tasks.scheduled.convert_images_to_webp.convert_images_to_webp_task.run",
         )
         self.resources_path = Path(RESOURCES_BASE_PATH)
