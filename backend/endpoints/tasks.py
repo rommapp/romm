@@ -56,7 +56,7 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
     Args:
         request (Request): FastAPI Request object
     Returns:
-        Dictionary with tasks grouped by their type (scheduled, manual, watcher)
+        GroupedTasksDict: Dictionary with tasks grouped by their type (scheduled, manual, watcher)
     """
     # Initialize the grouped tasks dictionary
     grouped_tasks: GroupedTasksDict = {
