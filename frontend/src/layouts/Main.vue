@@ -17,8 +17,7 @@ import SelectSaveDialog from "@/components/common/Game/Dialog/Asset/SelectSave.v
 import SelectStateDialog from "@/components/common/Game/Dialog/Asset/SelectState.vue";
 import DeleteSavesDialog from "@/components/common/Game/Dialog/Asset/DeleteSaves.vue";
 import DeleteStatesDialog from "@/components/common/Game/Dialog/Asset/DeleteStates.vue";
-import collectionApi from "@/services/api/collection";
-import platformApi from "@/services/api/platform";
+import NoteDialog from "@/components/common/Game/Dialog/NoteDialog.vue";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
@@ -27,14 +26,13 @@ import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref } from "vue";
 import { isNull } from "lodash";
 
-// Props
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const collectionsStore = storeCollections();
+
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("refreshDrawer", async () => {
-  const { data: platformData } = await platformApi.getPlatforms();
-  platformsStore.set(platformData);
+  platformsStore.fetchPlatforms();
 });
 
 const showVirtualCollections = isNull(
@@ -52,46 +50,22 @@ const virtualCollectionTypeRef = ref(
     : storedVirtualCollectionType,
 );
 
-// Functions
+function unhackNavbar() {
+  document.removeEventListener("network-quiesced", unhackNavbar);
+
+  // Hack to prevent main page transition on first load
+  const main = document.getElementById("main");
+  if (main) main.classList.remove("no-transition");
+}
+
 onBeforeMount(async () => {
-  await platformApi
-    .getPlatforms()
-    .then(({ data: platforms }) => {
-      platformsStore.set(platforms);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
+  document.addEventListener("network-quiesced", unhackNavbar);
 
-  await collectionApi
-    .getCollections()
-    .then(({ data: collections }) => {
-      collectionsStore.setCollections(collections);
-      collectionsStore.setFavoriteCollection(
-        collections.find(
-          (collection) => collection.name.toLowerCase() === "favourites",
-        ),
-      );
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
-  await collectionApi
-    .getSmartCollections()
-    .then(({ data: smartCollections }) => {
-      collectionsStore.setSmartCollection(smartCollections);
-    })
-    .catch((error) => {
-      console.error(error);
-    });
-
+  platformsStore.fetchPlatforms();
+  collectionsStore.fetchCollections();
+  collectionsStore.fetchSmartCollections();
   if (showVirtualCollections) {
-    await collectionApi
-      .getVirtualCollections({ type: virtualCollectionTypeRef.value })
-      .then(({ data: virtualCollections }) => {
-        collectionsStore.setVirtualCollections(virtualCollections);
-      });
+    collectionsStore.fetchVirtualCollections(virtualCollectionTypeRef.value);
   }
 
   navigationStore.reset();
@@ -110,6 +84,7 @@ onBeforeMount(async () => {
   <remove-roms-from-collection-dialog />
   <delete-rom-dialog />
   <edit-user-dialog />
+  <note-dialog />
   <show-q-r-code-dialog />
 
   <new-version-dialog />

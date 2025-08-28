@@ -2,12 +2,13 @@
 import type { SearchRomSchema } from "@/__generated__";
 import GameCard from "@/components/common/Game/Card/Base.vue";
 import RDialog from "@/components/common/RDialog.vue";
-import romApi from "@/services/api/rom";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
+import romApi from "@/services/api/rom";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
@@ -18,11 +19,10 @@ import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;
-  name: "IGDB" | "Mobygames" | "Screenscraper";
+  name: "IGDB" | "Mobygames" | "Screenscraper" | "SteamGridDB";
   logo_path: string;
 };
 
-// Props
 const { t } = useI18n();
 const { xs, lgAndUp } = useDisplay();
 const show = ref(false);
@@ -69,7 +69,6 @@ const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
 
-// Functions
 function toggleSourceFilter(source: MatchedSource["name"]) {
   if (source == "IGDB" && heartbeat.value.METADATA_SOURCES.IGDB_API_ENABLED) {
     isIGDBFiltered.value = !isIGDBFiltered.value;
@@ -148,25 +147,32 @@ function showSources(matchedRom: SearchRomSchema) {
   showSelectSource.value = true;
   selectedMatchRom.value = matchedRom;
   sources.value = [];
-  if (matchedRom.igdb_url_cover || matchedRom.igdb_id) {
+  if (matchedRom.igdb_url_cover) {
     sources.value.push({
       url_cover: matchedRom.igdb_url_cover,
       name: "IGDB",
       logo_path: "/assets/scrappers/igdb.png",
     });
   }
-  if (matchedRom.moby_url_cover || matchedRom.moby_id) {
+  if (matchedRom.moby_url_cover) {
     sources.value.push({
       url_cover: matchedRom.moby_url_cover,
       name: "Mobygames",
       logo_path: "/assets/scrappers/moby.png",
     });
   }
-  if (matchedRom.ss_url_cover || matchedRom.ss_id) {
+  if (matchedRom.ss_url_cover) {
     sources.value.push({
       url_cover: matchedRom.ss_url_cover,
       name: "Screenscraper",
       logo_path: "/assets/scrappers/ss.png",
+    });
+  }
+  if (matchedRom.sgdb_url_cover) {
+    sources.value.push({
+      url_cover: matchedRom.sgdb_url_cover,
+      name: "SteamGridDB",
+      logo_path: "/assets/scrappers/sgdb.png",
     });
   }
   if (sources.value.length == 1) {
@@ -286,7 +292,6 @@ onBeforeUnmount(() => {
     :empty-state-type="searched ? 'game' : undefined"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
-    :height="lgAndUp ? '90vh' : '775px'"
   >
     <template #header>
       <span class="ml-4">{{ t("common.filter") }}:</span>
@@ -484,18 +489,12 @@ onBeforeUnmount(() => {
                       :src="source.url_cover || missingCoverImage"
                       :aspect-ratio="computedAspectRatio"
                       cover
-                      lazy
                     >
                       <template #placeholder>
-                        <div
-                          class="d-flex align-center justify-center fill-height"
-                        >
-                          <v-progress-circular
-                            color="primary"
-                            :width="2"
-                            indeterminate
-                          />
-                        </div>
+                        <skeleton
+                          :aspectRatio="computedAspectRatio"
+                          type="image"
+                        />
                       </template>
                       <v-row no-gutters class="text-white pa-1">
                         <v-avatar class="mr-1" size="30" rounded="1">
@@ -551,25 +550,25 @@ onBeforeUnmount(() => {
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12">
-            <v-row no-gutters class="my-4 justify-center">
-              <v-btn-group divided density="compact">
-                <v-btn class="bg-toplayer" @click="backToMatched">
-                  {{ t("common.cancel") }}
-                </v-btn>
-                <v-btn
-                  class="text-romm-green bg-toplayer"
-                  :disabled="selectedCover == undefined"
-                  :variant="selectedCover == undefined ? 'plain' : 'flat'"
-                  @click="confirm"
-                >
-                  {{ t("common.confirm") }}
-                </v-btn>
-              </v-btn-group>
-            </v-row>
-          </v-col>
         </v-row>
       </template>
+    </template>
+    <template #append>
+      <v-row class="justify-center pa-2" no-gutters>
+        <v-btn-group divided density="compact">
+          <v-btn class="bg-toplayer" @click="backToMatched">
+            {{ t("common.cancel") }}
+          </v-btn>
+          <v-btn
+            class="text-romm-green bg-toplayer"
+            :disabled="selectedCover == undefined"
+            :variant="selectedCover == undefined ? 'plain' : 'flat'"
+            @click="confirm"
+          >
+            {{ t("common.confirm") }}
+          </v-btn>
+        </v-btn-group>
+      </v-row>
     </template>
     <template #empty-state>
       <empty-manual-match />
@@ -577,19 +576,18 @@ onBeforeUnmount(() => {
     <template #footer>
       <v-row no-gutters class="text-center">
         <v-col>
-          <v-chip label class="pr-0" size="small"
-            >{{ t("rom.results-found") }}:<v-chip
-              color="primary"
-              class="ml-2 px-2"
-              label
-              >{{ !searching ? matchedRoms.length : ""
-              }}<v-progress-circular
+          <v-chip label class="pr-0" size="small">
+            {{ t("rom.results-found") }}:
+            <v-chip color="primary" class="ml-2 px-2" label>
+              {{ !searching ? matchedRoms.length : "" }}
+              <v-progress-circular
                 v-if="searching"
                 :width="1"
                 :size="10"
                 color="primary"
                 indeterminate
-            /></v-chip>
+              />
+            </v-chip>
           </v-chip>
         </v-col>
       </v-row>

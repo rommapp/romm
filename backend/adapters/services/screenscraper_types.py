@@ -68,7 +68,7 @@ class SSGameMedia(TypedDict):
 
 # https://api.screenscraper.fr/webapi2.php#jeuInfos
 class SSGame(TypedDict):
-    id: str
+    id: int
     romid: str
     notgame: Literal["true", "false"]
     noms: list[SSRegionalText]

@@ -34,13 +34,11 @@ RUN npm run build
 FROM python-alias AS backend-build
 
 # git is needed to install streaming-form-data fork
-# linux-headers is needed to install py7zr
 # libpq-dev is needed to build psycopg-c
 # mariadb-connector-c-dev is needed to build mariadb-connector
 RUN apk add --no-cache \
     gcc \
     git \
-    linux-headers \
     libpq-dev \
     mariadb-connector-c-dev \
     musl-dev
@@ -54,6 +52,10 @@ RUN uv sync --locked --no-cache
 
 
 FROM backend-build AS backend-dev-build
+
+# linux-headers is needed to install psutil
+RUN apk add --no-cache \
+    linux-headers
 
 RUN uv sync --locked --no-cache --all-extras
 
@@ -93,8 +95,8 @@ RUN wget "https://github.com/EmulatorJS/EmulatorJS/releases/download/v${EMULATOR
     7z x -y "${EMULATORJS_VERSION}.7z" -o/emulatorjs && \
     rm -rf "${EMULATORJS_VERSION}.7z";
 
-ARG RUFFLE_VERSION=nightly-2024-12-28
-ARG RUFFLE_FILE=ruffle-nightly-2024_12_28-web-selfhosted.zip
+ARG RUFFLE_VERSION=nightly-2025-08-14
+ARG RUFFLE_FILE=ruffle-nightly-2025_08_14-web-selfhosted.zip
 RUN wget "https://github.com/ruffle-rs/ruffle/releases/download/${RUFFLE_VERSION}/${RUFFLE_FILE}" && \
     unzip -o "${RUFFLE_FILE}" -d /ruffle && \
     rm -f "${RUFFLE_FILE}";
@@ -138,7 +140,7 @@ RUN apk add --no-cache \
     libmagic \
     mariadb-connector-c \
     libpq \
-    p7zip \
+    7zip \
     tzdata \
     valkey
 

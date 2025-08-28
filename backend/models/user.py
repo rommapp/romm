@@ -51,19 +51,17 @@ class User(BaseModel, SimpleUser):
         CustomJSON(), default=dict
     )
 
-    saves: Mapped[list[Save]] = relationship(lazy="select", back_populates="user")
-    states: Mapped[list[State]] = relationship(lazy="select", back_populates="user")
+    saves: Mapped[list[Save]] = relationship(lazy="raise", back_populates="user")
+    states: Mapped[list[State]] = relationship(lazy="raise", back_populates="user")
     screenshots: Mapped[list[Screenshot]] = relationship(
-        lazy="select", back_populates="user"
+        lazy="raise", back_populates="user"
     )
-    rom_users: Mapped[list[RomUser]] = relationship(
-        lazy="select", back_populates="user"
-    )
+    rom_users: Mapped[list[RomUser]] = relationship(lazy="raise", back_populates="user")
     collections: Mapped[list[Collection]] = relationship(
-        lazy="select", back_populates="user"
+        lazy="raise", back_populates="user"
     )
     smart_collections: Mapped[list["SmartCollection"]] = relationship(
-        lazy="select", back_populates="user"
+        lazy="raise", back_populates="user"
     )
 
     @classmethod

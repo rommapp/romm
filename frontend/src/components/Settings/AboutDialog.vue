@@ -7,7 +7,6 @@ import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -16,7 +15,6 @@ emitter?.on("showAboutDialog", () => {
   show.value = true;
 });
 
-// Functions
 function closeDialog() {
   show.value = false;
 }

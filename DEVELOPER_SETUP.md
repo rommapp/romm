@@ -27,7 +27,6 @@ cp env.template .env
 
 ```dotenv
 ROMM_BASE_PATH=/app/romm
-GUNICORN_WORKERS=4
 DEV_MODE=true
 ```
 
@@ -117,13 +116,6 @@ cd backend
 uv run python3 main.py
 ```
 
-#### - Start a worker
-
-```sh
-cd backend
-uv run python3 worker.py
-```
-
 ### Setting up the frontend
 
 #### - Install node.js dependencies
@@ -185,7 +177,6 @@ cd backend
 uv run pytest [path/file]
 # or run the following command to run all tests
 # the -vv switch increases the verbosity of the output, providing more detailed information during test execution.
-# -c specifies the path to a configuration file for pytest.
-uv run pytest -vv -c ../pytest.ini
+uv run pytest -vv
 ```
 ````

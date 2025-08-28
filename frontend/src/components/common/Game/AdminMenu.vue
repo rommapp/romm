@@ -14,7 +14,6 @@ import { inject } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
 
-// Props
 const { t } = useI18n();
 const props = defineProps<{ rom: SimpleRom }>();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -162,7 +161,7 @@ async function onScan() {
         @click="emitter?.emit('showEditRomDialog', rom)"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit-rom") }}
+          <v-icon icon="mdi-pencil-box" class="mr-2" />{{ t("rom.edit") }}
         </v-list-item-title>
       </v-list-item>
       <v-list-item class="py-4 pr-5" @click="onScan">
@@ -233,7 +232,7 @@ async function onScan() {
         @click="emitter?.emit('showDeleteRomDialog', [rom])"
       >
         <v-list-item-title class="d-flex">
-          <v-icon icon="mdi-delete" class="mr-2" />{{ t("rom.delete-rom") }}
+          <v-icon icon="mdi-delete" class="mr-2" />{{ t("rom.delete") }}
         </v-list-item-title>
       </v-list-item>
     </template>

@@ -8,7 +8,6 @@ import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const router = useRouter();
 const romsStore = storeRoms();

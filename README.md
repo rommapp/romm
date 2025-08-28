@@ -96,6 +96,8 @@ Here are a few projects that we think you might like:
 - [ES-DE Frontend](https://es-de.org/): Emulator frontend for Linux, macOS and Windows
 - [Gaseous](https://github.com/gaseous-project/gaseous-server): Another ROM manager with web-based emulator
 - [Retrom](https://github.com/JMBeresford/retrom): A centralized game library/collection management service
+- [Drop](https://droposs.org/): Steam-like experience for DRM-free games
+- [LanCommander](https://lancommander.app/): Digital game platform for PC games
 - [Steam ROM Manager](https://steamgriddb.github.io/steam-rom-manager/): An app for managing ROMs in Steam
 
 <div align="center">
@@ -103,7 +105,7 @@ Here are a few projects that we think you might like:
   <div dir="auto">
     <a href="https://news.ycombinator.com/item?id=44247964" target="_blank"><img src=".github/resources/hackernews_badge.svg" width="250px" alt="hackernews badge"></a>
     &nbsp;
-    <a href="https://app.aikido.dev/audit-report/external/NzayAUgNoqiMuiy7p7yNvI0U/request" target="_blank"><img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" /></a>
+    <span><img src=".github/resources/aikido-badge.png" alt="Aikido Security Audit Report" height="58" /></span>
   </div>
 </div>
 

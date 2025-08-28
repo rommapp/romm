@@ -1,6 +1,7 @@
 {
   "continue-playing-as-grid": "Продолжение игры в виде сетки",
   "continue-playing-as-grid-desc": "Просмотр карточек продолжения игры в виде сетки на главной странице",
+  "edit-user": "Редактировать пользователя",
   "email": "Электронная почта",
   "enable-3d-effect": "Включить 3D-эффект",
   "enable-3d-effect-desc": "Включить 3D-эффект для карточек игр, платформ и коллекций",
@@ -20,6 +21,7 @@
   "language": "Язык",
   "main-platform": "Основная платформа",
   "password": "Пароль",
+  "password-placeholder": "Оставьте пустым, чтобы сохранить текущий пароль",
   "platforms-drawer": "Меню платформ",
   "platforms-drawer-group-by": "Группировать по",
   "platform-version": "Версия платформы",

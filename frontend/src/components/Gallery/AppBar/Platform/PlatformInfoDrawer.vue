@@ -20,7 +20,6 @@ import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import { identity } from "lodash";
 
-// Props
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
 const { smAndDown } = useDisplay();
@@ -80,7 +79,6 @@ const updating = ref(false);
 const updatedPlatform = ref({ ...currentPlatform.value });
 const isEditable = ref(false);
 
-// Functions
 function showEditable() {
   updatedPlatform.value = { ...currentPlatform.value };
   isEditable.value = true;

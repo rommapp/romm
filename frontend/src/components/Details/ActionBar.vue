@@ -17,8 +17,8 @@ import {
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { useI18n } from "vue-i18n";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
@@ -28,6 +28,7 @@ const qrCodeIcon = ref("mdi-qrcode");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
 const auth = storeAuth();
+const { t } = useI18n();
 
 const platformSlug = computed(() =>
   props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
@@ -47,7 +48,6 @@ const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
 });
 
-// Functions
 async function copyDownloadLink(rom: DetailedRom) {
   const downloadLink = getDownloadLink({
     rom,
@@ -86,7 +86,7 @@ async function copyDownloadLink(rom: DetailedRom) {
           location="top"
           transition="fade-transition"
           open-delay="1000"
-          >Download game</v-tooltip
+          >{{ t("rom.download") }} {{ rom.name }}</v-tooltip
         >
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
@@ -101,7 +101,7 @@ async function copyDownloadLink(rom: DetailedRom) {
           location="top"
           transition="fade-transition"
           open-delay="1000"
-          >Copy download link</v-tooltip
+          >{{ t("rom.copy-link") }}</v-tooltip
         >
         <v-icon icon="mdi-content-copy" />
       </v-btn>

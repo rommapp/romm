@@ -4,6 +4,7 @@ from pathlib import Path
 
 import httpx
 from config import RESOURCES_BASE_PATH
+from fastapi import status
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
@@ -66,7 +67,7 @@ class FSResourcesHandler(FSHandler):
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url_cover, timeout=120) as response:
-                if response.status_code == 200:
+                if response.status_code == status.HTTP_200_OK:
                     async with await self.write_file_streamed(
                         path=cover_file, filename=f"{size.value}.png"
                     ) as f:
@@ -74,6 +75,7 @@ class FSResourcesHandler(FSHandler):
                             await f.write(chunk)
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
+            return None
 
         if size == CoverSize.SMALL:
             try:
@@ -182,7 +184,7 @@ class FSResourcesHandler(FSHandler):
             async with httpx_client.stream(
                 "GET", url_screenhot, timeout=120
             ) as response:
-                if response.status_code == 200:
+                if response.status_code == status.HTTP_200_OK:
                     async with await self.write_file_streamed(
                         path=screenshot_path, filename=f"{idx}.jpg"
                     ) as f:
@@ -233,7 +235,7 @@ class FSResourcesHandler(FSHandler):
         httpx_client = ctx_httpx_client.get()
         try:
             async with httpx_client.stream("GET", url_manual, timeout=120) as response:
-                if response.status_code == 200:
+                if response.status_code == status.HTTP_200_OK:
                     async with await self.write_file_streamed(
                         path=manual_path, filename=f"{rom.id}.pdf"
                     ) as f:
@@ -273,9 +275,13 @@ class FSResourcesHandler(FSHandler):
         httpx_client = ctx_httpx_client.get()
         directory, filename = os.path.split(path)
 
+        if await self.file_exists(path):
+            log.debug(f"Badge {path} already exists, skipping download")
+            return
+
         try:
             async with httpx_client.stream("GET", url, timeout=120) as response:
-                if response.status_code == 200:
+                if response.status_code == status.HTTP_200_OK:
                     async with await self.write_file_streamed(
                         path=directory, filename=filename
                     ) as f:

@@ -16,7 +16,7 @@ import type { Events } from "@/types/emitter";
 import { storeToRefs } from "pinia";
 import { ref, onMounted, inject, onBeforeUnmount, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { debounce } from "lodash";
+import { debounce, throttle } from "lodash";
 
 const { t } = useI18n();
 const tab = ref<"config" | "missing">("config");
@@ -46,7 +46,10 @@ const onFilterChange = debounce(
   () => {
     romsStore.resetPagination();
     galleryFilterStore.setFilterMissing(true);
-    romsStore.fetchRoms(galleryFilterStore, false);
+    romsStore.fetchRoms({
+      galleryFilter: galleryFilterStore,
+      concat: false,
+    });
 
     const url = new URL(window.location.href);
     // Update URL with filters
@@ -66,7 +69,7 @@ const onFilterChange = debounce(
   500,
   // If leading and trailing options are true, this is invoked on the trailing edge of
   // the timeout only if the the function is invoked more than once during the wait
-  { leading: true, trailing: true },
+  { leading: false, trailing: true },
 );
 
 async function fetchRoms() {
@@ -79,7 +82,7 @@ async function fetchRoms() {
 
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms(galleryFilterStore, false)
+    .fetchRoms({ galleryFilter: galleryFilterStore })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
@@ -107,13 +110,22 @@ function cleanupAll() {
   romsStore.setLimit(MAX_FETCH_LIMIT);
   galleryFilterStore.setFilterMissing(true);
   romsStore
-    .fetchRoms(galleryFilterStore, false)
+    .fetchRoms({ galleryFilter: galleryFilterStore })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
         scrim: false,
       });
-      emitter?.emit("showDeleteRomDialog", romsStore.filteredRoms);
+      if (filteredRoms.value.length > 0) {
+        emitter?.emit("showDeleteRomDialog", filteredRoms.value);
+      } else {
+        emitter?.emit("snackbarShow", {
+          msg: "No missing ROMs to delete",
+          icon: "mdi-close-circle",
+          color: "red",
+          timeout: 4000,
+        });
+      }
     })
     .catch((error) => {
       console.error("Error fetching missing games:", error);
@@ -134,7 +146,7 @@ function resetMissingRoms() {
   galleryFilterStore.resetFilters();
 }
 
-function onScroll() {
+const onScroll = throttle(() => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
@@ -146,7 +158,7 @@ function onScroll() {
       await fetchRoms();
     }
   }, 100);
-}
+}, 500);
 
 onMounted(() => {
   resetMissingRoms();

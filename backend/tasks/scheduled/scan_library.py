@@ -23,30 +23,30 @@ class ScanLibraryTask(PeriodicTask):
             enabled=ENABLE_SCHEDULED_RESCAN,
             manual_run=False,
             cron_string=SCHEDULED_RESCAN_CRON,
-            func="tasks.scan_library.scan_library_task.run",
+            func="tasks.scheduled.scan_library.scan_library_task.run",
         )
 
     async def run(self):
         if not ENABLE_SCHEDULED_RESCAN:
             log.info("Scheduled library scan not enabled, unscheduling...")
             self.unschedule()
-            return
+            return None
 
-        source_mapping = {
-            IGDB_API_ENABLED: MetadataSource.IGDB,
-            SS_API_ENABLED: MetadataSource.SS,
-            MOBY_API_ENABLED: MetadataSource.MOBY,
-            RA_API_ENABLED: MetadataSource.RA,
-            LAUNCHBOX_API_ENABLED: MetadataSource.LB,
-            HASHEOUS_API_ENABLED: MetadataSource.HASHEOUS,
-            STEAMGRIDDB_API_ENABLED: MetadataSource.SGDB,
+        source_mapping: dict[str, bool] = {
+            MetadataSource.IGDB: IGDB_API_ENABLED,
+            MetadataSource.SS: SS_API_ENABLED,
+            MetadataSource.MOBY: MOBY_API_ENABLED,
+            MetadataSource.RA: RA_API_ENABLED,
+            MetadataSource.LB: LAUNCHBOX_API_ENABLED,
+            MetadataSource.HASHEOUS: HASHEOUS_API_ENABLED,
+            MetadataSource.SGDB: STEAMGRIDDB_API_ENABLED,
         }
 
-        metadata_sources = [source for flag, source in source_mapping.items() if flag]
+        metadata_sources = [source for source, flag in source_mapping.items() if flag]
         if not metadata_sources:
             log.warning("No metadata sources enabled, unscheduling library scan")
             self.unschedule()
-            return
+            return None
 
         log.info("Scheduled library scan started...")
         await scan_platforms(

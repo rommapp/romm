@@ -11,15 +11,13 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { views } from "@/utils";
-import { ROUTES } from "@/plugins/router";
-import { isNull } from "lodash";
+import { isNull, throttle } from "lodash";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 
-// Props
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
@@ -92,14 +90,6 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     } else {
       romsStore.updateLastSelected(index);
     }
-  } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
-    const link = router.resolve({
-      name: ROUTES.ROM,
-      params: { rom: emitData.rom.id },
-    });
-    window.open(link.href, "_blank");
-  } else {
-    router.push({ name: ROUTES.ROM, params: { rom: emitData.rom.id } });
   }
 }
 
@@ -115,7 +105,7 @@ function onGameTouchEnd() {
 
 function fetchRoms() {
   romsStore
-    .fetchRoms(galleryFilterStore)
+    .fetchRoms({ galleryFilter: galleryFilterStore })
     .catch((error) => {
       emitter?.emit("snackbarShow", {
         msg: `Couldn't fetch roms: ${error}`,
@@ -129,7 +119,7 @@ function fetchRoms() {
     });
 }
 
-function onScroll() {
+const onScroll = throttle(() => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
@@ -141,10 +131,9 @@ function onScroll() {
       await fetchRoms();
     }
   }, 100);
-}
+}, 500);
 
 onMounted(async () => {
-  emitter?.emit("filterRoms", null);
   scrolledToTop.value = true;
   window.addEventListener("scroll", onScroll);
 });
@@ -163,7 +152,6 @@ onBeforeUnmount(() => {
   <template v-else>
     <template v-if="filteredRoms.length > 0">
       <v-row v-if="currentView != 2" class="mx-1 my-3 mr-14" no-gutters>
-        <!-- Gallery cards view -->
         <v-col
           v-for="rom in filteredRoms"
           :key="rom.id"

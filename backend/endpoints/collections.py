@@ -3,7 +3,6 @@ from io import BytesIO
 
 from config import str_to_bool
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
 from endpoints.responses.collection import (
     CollectionSchema,
     SmartCollectionSchema,
@@ -23,7 +22,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.collection import Collection, SmartCollection
-from sqlalchemy.inspection import inspect
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -86,8 +84,8 @@ async def add_collection(
     created_collection = db_collection_handler.update_collection(
         _added_collection.id,
         {
-            c: getattr(_added_collection, c)
-            for c in inspect(_added_collection).mapper.column_attrs.keys()
+            "path_cover_s": path_cover_s,
+            "path_cover_l": path_cover_l,
         },
     )
 
@@ -133,9 +131,9 @@ async def add_smart_collection(request: Request) -> SmartCollectionSchema:
     )
 
     # Fetch the ROMs to update the database model
-    created_smart_collection.get_roms()
+    smart_collection = created_smart_collection.update_properties(request.user.id)
 
-    return SmartCollectionSchema.model_validate(created_smart_collection)
+    return SmartCollectionSchema.model_validate(smart_collection)
 
 
 @protected_route(router.get, "", [Scope.COLLECTIONS_READ])
@@ -264,7 +262,7 @@ async def update_collection(
         request (Request): Fastapi Request object
 
     Returns:
-        MessageResponse: Standard message response
+        CollectionSchema: Updated collection
     """
 
     data = await request.form()
@@ -384,13 +382,13 @@ async def update_smart_collection(
     )
 
     # Fetch the ROMs to update the database model
-    updated_smart_collection.get_roms()
+    smart_collection = updated_smart_collection.update_properties(request.user.id)
 
-    return SmartCollectionSchema.model_validate(updated_smart_collection)
+    return SmartCollectionSchema.model_validate(smart_collection)
 
 
 @protected_route(router.delete, "/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_collections(request: Request, id: int) -> MessageResponse:
+async def delete_collection(request: Request, id: int) -> None:
     """Delete collections endpoint
 
     Args:
@@ -401,9 +399,6 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
 
     Raises:
         HTTPException: Collection not found
-
-    Returns:
-        MessageResponse: Standard message response
     """
 
     collection = db_collection_handler.get_collection(id)
@@ -421,19 +416,14 @@ async def delete_collections(request: Request, id: int) -> MessageResponse:
             f"Couldn't find resources to delete for {hl(collection.name, color=BLUE)}"
         )
 
-    return {"msg": f"{collection.name} deleted successfully!"}
-
 
 @protected_route(router.delete, "/smart/{id}", [Scope.COLLECTIONS_WRITE])
-async def delete_smart_collection(request: Request, id: int) -> MessageResponse:
+async def delete_smart_collection(request: Request, id: int) -> None:
     """Delete smart collection endpoint
 
     Args:
         request (Request): Fastapi Request object
         id (int): Smart collection id
-
-    Returns:
-        MessageResponse: Standard message response
     """
 
     smart_collection = db_collection_handler.get_smart_collection(id)
@@ -446,5 +436,3 @@ async def delete_smart_collection(request: Request, id: int) -> MessageResponse:
 
     log.info(f"Deleting {hl(smart_collection.name, color=BLUE)} from database")
     db_collection_handler.delete_smart_collection(id)
-
-    return {"msg": f"{smart_collection.name} deleted successfully!"}

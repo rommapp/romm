@@ -1,6 +1,7 @@
 {
   "continue-playing-as-grid": "Continuar jugando como cuadrícula",
   "continue-playing-as-grid-desc": "Ver tarjetas de continuar jugando como cuadrícula en la página principal",
+  "edit-user": "Editar usuario",
   "email": "Correo electrónico",
   "enable-3d-effect": "Habilitar efecto 3D",
   "enable-3d-effect-desc": "Habilitar efecto 3D para las tarjetas de juego/plataforma/colección",
@@ -20,6 +21,7 @@
   "language": "Idioma",
   "main-platform": "Plataforma principal",
   "password": "Contraseña",
+  "password-placeholder": "Dejar vacío para mantener la contraseña actual",
   "platforms-drawer": "Menú de plataformas",
   "platforms-drawer-group-by": "Agrupar por",
   "platform-version": "Version de la plataforma",

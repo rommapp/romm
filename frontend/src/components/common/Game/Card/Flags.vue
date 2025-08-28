@@ -32,7 +32,7 @@ const playingStatus = computed(() => {
   <v-chip
     v-if="rom.regions.filter(identity).length > 0 && showRegions"
     :title="`Regions: ${rom.regions.join(', ')}`"
-    class="translucent-dark mr-1 mt-1 px-1"
+    class="translucent mr-1 mt-1 px-1"
     :class="{ 'emoji-collection': rom.regions.length > 3 }"
     density="compact"
   >
@@ -43,7 +43,7 @@ const playingStatus = computed(() => {
   <v-chip
     v-if="rom.languages.filter(identity).length > 0 && showLanguages"
     :title="`Languages: ${rom.languages.join(', ')}`"
-    class="translucent-dark mr-1 mt-1 px-1"
+    class="translucent mr-1 mt-1 px-1"
     :class="{ 'emoji-collection': rom.languages.length > 3 }"
     density="compact"
   >
@@ -53,7 +53,7 @@ const playingStatus = computed(() => {
   </v-chip>
   <v-chip
     v-if="playingStatus && showStatus"
-    class="translucent-dark mr-1 mt-1 px-2"
+    class="translucent mr-1 mt-1 px-2"
     density="compact"
     :title="getTextForStatus(playingStatus)"
   >

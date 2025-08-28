@@ -1,3 +1,4 @@
+import asyncio
 import logging.config
 import re
 from collections.abc import AsyncGenerator
@@ -42,6 +43,7 @@ from handler.auth.middleware import CustomCSRFMiddleware, SessionMiddleware
 from handler.socket_handler import socket_handler
 from logger.log_middleware import LOGGING_CONFIG, CustomLoggingMiddleware
 from starlette.middleware.authentication import AuthenticationMiddleware
+from startup import main
 from utils import get_version
 from utils.context import (
     ctx_aiohttp_session,
@@ -132,9 +134,14 @@ app.mount("/ws", socket_handler.socket_app)
 add_pagination(app)
 
 
+# NOTE: This code is only executed when running the application directly, not by Production
+# deployments using Gunicorn.
 if __name__ == "__main__":
     # Run migrations
     alembic.config.main(argv=["upgrade", "head"])
+
+    # Run startup tasks
+    asyncio.run(main())
 
     # Run application
     app.add_middleware(CustomLoggingMiddleware)

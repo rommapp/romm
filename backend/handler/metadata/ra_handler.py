@@ -69,6 +69,7 @@ class RAUserGameProgression(TypedDict):
     max_possible: int | None
     num_awarded: int | None
     num_awarded_hardcore: int | None
+    most_recent_awarded_date: NotRequired[str | None]
     earned_achievements: list[EarnedAchievement]
 
 
@@ -178,8 +179,9 @@ class RAHandler(MetadataHandler):
             )
             roms = json.loads(json_file_bytes.decode("utf-8"))
 
+        ra_hash_lower = ra_hash.lower()
         for r in roms:
-            if ra_hash in r.get("Hashes", ()):
+            if any(ra_hash_lower == h.lower() for h in r.get("Hashes", ())):
                 return r
 
         return None
@@ -262,11 +264,40 @@ class RAHandler(MetadataHandler):
         except KeyError:
             return RAGameRom(ra_id=None)
 
-    async def get_user_progression(self, username: str) -> RAUserProgression:
+    async def get_user_progression(
+        self,
+        username: str,
+        current_progression: RAUserProgression | None = None,
+    ) -> RAUserProgression:
+        """Retrieves the user's RetroAchievements progression.
+
+        If `current_progression` is provided, it will only incrementally update the
+        progression based on new achievements since the last check.
+        """
         game_progressions: list[RAUserGameProgression] = []
+        current_progression_by_game_id: dict[int | None, RAUserGameProgression] = {}
+        if current_progression:
+            current_progression_by_game_id = {
+                p["rom_ra_id"]: p for p in current_progression.get("results", [])
+            }
 
         async for rom in self.ra_service.iter_user_completion_progress(username):
             rom_game_id = rom.get("GameID")
+
+            # If we have current progression data, and number of awarded achievements and most
+            # recent awarded date match, then we can skip fetching progression details.
+            game_current_progression = current_progression_by_game_id.get(rom_game_id)
+            if (
+                game_current_progression
+                and rom["NumAwarded"] == game_current_progression.get("num_awarded")
+                and rom["NumAwardedHardcore"]
+                == game_current_progression.get("num_awarded_hardcore")
+                and rom["MostRecentAwardedDate"]
+                == game_current_progression.get("most_recent_awarded_date")
+            ):
+                game_progressions.append(game_current_progression)
+                continue
+
             earned_achievements: list[EarnedAchievement] = []
             if rom_game_id:
                 result = await self.ra_service.get_user_game_progress(
@@ -292,6 +323,7 @@ class RAHandler(MetadataHandler):
                     max_possible=rom.get("MaxPossible", None),
                     num_awarded=rom.get("NumAwarded", None),
                     num_awarded_hardcore=rom.get("NumAwardedHardcore", None),
+                    most_recent_awarded_date=rom.get("MostRecentAwardedDate", None),
                     earned_achievements=earned_achievements,
                 )
             )

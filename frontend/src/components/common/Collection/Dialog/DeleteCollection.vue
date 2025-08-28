@@ -11,7 +11,6 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const router = useRouter();
 const { lgAndUp } = useDisplay();
@@ -24,16 +23,15 @@ emitter?.on("showDeleteCollectionDialog", (collectionToDelete) => {
   show.value = true;
 });
 
-// Functions
 async function deleteCollection() {
   if (!collection.value) return;
 
   show.value = false;
   await collectionApi
     .deleteCollection({ collection: collection.value })
-    .then((response) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: "Collection deleted",
         icon: "mdi-check-bold",
         color: "green",
       });

@@ -15,9 +15,8 @@ import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { getMissingCoverImage } from "@/utils/covers";
 
-// Props
 const { t } = useI18n();
-const { lgAndUp, smAndDown } = useDisplay();
+const { lgAndUp } = useDisplay();
 const heartbeat = storeHeartbeat();
 const route = useRoute();
 const show = ref(false);
@@ -51,7 +50,6 @@ const missingCoverImage = computed(() =>
   getMissingCoverImage(rom.value?.name || rom.value?.fs_name || ""),
 );
 
-// Functions
 function triggerFileInput(id: string) {
   const fileInput = document.getElementById(id);
   fileInput?.click();
@@ -225,7 +223,7 @@ function closeDialog() {
                       !heartbeat.value.METADATA_SOURCES?.STEAMGRIDDB_API_ENABLED
                     "
                     size="small"
-                    class="translucent-dark"
+                    class="translucent"
                     @click="
                       emitter?.emit('showSearchCoverDialog', {
                         term: rom.name as string,
@@ -237,7 +235,7 @@ function closeDialog() {
                   </v-btn>
                   <v-btn
                     size="small"
-                    class="translucent-dark"
+                    class="translucent"
                     @click="triggerFileInput('cover-file-input')"
                   >
                     <v-icon size="large">mdi-pencil</v-icon>
@@ -252,7 +250,7 @@ function closeDialog() {
                   </v-btn>
                   <v-btn
                     size="small"
-                    class="translucent-dark"
+                    class="translucent"
                     @click="removeArtwork"
                   >
                     <v-icon size="large" class="text-romm-red"
@@ -300,167 +298,158 @@ function closeDialog() {
               variant="outlined"
               class="my-4"
             />
-
-            <v-row no-gutters>
-              <v-col cols="12" sm="6">
-                <v-chip
-                  :variant="rom.has_manual ? 'flat' : 'tonal'"
-                  label
-                  size="large"
-                  class="bg-toplayer px-0"
-                >
-                  <span
-                    class="ml-4"
-                    :class="{
-                      'text-romm-red': !rom.has_manual,
-                      'text-romm-green': rom.has_manual,
-                    }"
-                  >
-                    {{ t("rom.manual") }}
-                    <v-icon class="ml-1">{{
-                      rom.has_manual ? "mdi-check" : "mdi-close"
-                    }}</v-icon>
-                  </span>
-                  <v-btn
-                    @click="triggerFileInput('manual-file-input')"
-                    class="bg-toplayer ml-3"
-                    icon="mdi-cloud-upload-outline"
-                    rounded="0"
-                    size="small"
-                  >
-                    <v-icon size="large">mdi-cloud-upload-outline</v-icon>
-                    <v-file-input
-                      id="manual-file-input"
-                      v-model="manualFiles"
-                      accept="application/pdf"
-                      hide-details
-                      multiple
-                      class="file-input"
-                      @change="uploadManuals"
-                    />
-                  </v-btn>
-                </v-chip>
-                <div v-if="rom.has_manual">
-                  <v-label class="text-caption text-wrap mt-1">
-                    <v-icon size="small" class="text-primary mr-2">
-                      mdi-folder-file-outline
-                    </v-icon>
-                    <span> /romm/resources/{{ rom.path_manual }} </span>
-                  </v-label>
-                </div>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <div class="d-flex justify-end">
-                  <v-btn
-                    :disabled="rom.is_unidentified"
-                    :class="{
-                      'text-romm-red bg-toplayer': !rom.is_unidentified,
-                    }"
-                    variant="flat"
-                    @click="unmatchRom"
-                  >
-                    {{ t("rom.unmatch-rom") }}
-                  </v-btn>
-                </div>
-              </v-col>
-            </v-row>
-
-            <v-expansion-panels class="mt-6">
-              <v-expansion-panel>
-                <v-expansion-panel-title class="bg-toplayer">
-                  <v-icon class="mr-2">mdi-database</v-icon>
-                  {{ t("rom.metadata-ids") }}
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <v-row no-gutters class="my-2">
-                    <v-col cols="12" md="6" xl="4" class="pa-2">
-                      <v-text-field
-                        hide-details
-                        clearable
-                        :model-value="rom.igdb_id?.toString() || null"
-                        label="IGDB ID"
-                        variant="outlined"
-                        @update:model-value="
-                          (value) =>
-                            rom &&
-                            (rom.igdb_id = value ? parseInt(value) : null)
-                        "
-                      />
-                    </v-col>
-                    <v-col cols="12" md="6" xl="4" class="pa-2">
-                      <v-text-field
-                        hide-details
-                        clearable
-                        :model-value="rom.moby_id?.toString() || null"
-                        label="MobyGames ID"
-                        variant="outlined"
-                        @update:model-value="
-                          (value) =>
-                            rom &&
-                            (rom.moby_id = value ? parseInt(value) : null)
-                        "
-                      />
-                    </v-col>
-                    <v-col cols="12" md="6" xl="4" class="pa-2">
-                      <v-text-field
-                        hide-details
-                        clearable
-                        :model-value="rom.ss_id?.toString() || null"
-                        label="ScreenScraper ID"
-                        variant="outlined"
-                        @update:model-value="
-                          (value) =>
-                            rom && (rom.ss_id = value ? parseInt(value) : null)
-                        "
-                      />
-                    </v-col>
-                    <v-col cols="12" md="6" xl="4" class="pa-2">
-                      <v-text-field
-                        hide-details
-                        clearable
-                        :model-value="rom.ra_id?.toString() || null"
-                        label="RetroAchievements ID"
-                        variant="outlined"
-                        @update:model-value="
-                          (value) =>
-                            rom && (rom.ra_id = value ? parseInt(value) : null)
-                        "
-                      />
-                    </v-col>
-                    <v-col cols="12" md="6" xl="4" class="pa-2">
-                      <v-text-field
-                        hide-details
-                        clearable
-                        :model-value="rom.launchbox_id?.toString() || null"
-                        label="LaunchBox ID"
-                        variant="outlined"
-                        @update:model-value="
-                          (value) =>
-                            rom &&
-                            (rom.launchbox_id = value ? parseInt(value) : null)
-                        "
-                      />
-                    </v-col>
-                    <v-col cols="12" md="6" xl="4" class="pa-2">
-                      <v-text-field
-                        hide-details
-                        clearable
-                        :model-value="rom.sgdb_id?.toString() || null"
-                        label="SteamGridDB ID"
-                        variant="outlined"
-                        @update:model-value="
-                          (value) =>
-                            rom &&
-                            (rom.sgdb_id = value ? parseInt(value) : null)
-                        "
-                      />
-                    </v-col>
-                  </v-row>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
+            <v-chip
+              :variant="rom.has_manual ? 'flat' : 'tonal'"
+              label
+              size="large"
+              class="bg-toplayer px-0"
+            >
+              <span
+                class="ml-4"
+                :class="{
+                  'text-romm-red': !rom.has_manual,
+                  'text-romm-green': rom.has_manual,
+                }"
+                >{{ t("rom.manual")
+                }}<v-icon class="ml-1">{{
+                  rom.has_manual ? "mdi-check" : "mdi-close"
+                }}</v-icon></span
+              >
+              <v-btn
+                @click="triggerFileInput('manual-file-input')"
+                class="bg-toplayer ml-3"
+                icon="mdi-cloud-upload-outline"
+                rounded="0"
+                size="small"
+              >
+                <v-icon size="large">mdi-cloud-upload-outline</v-icon>
+                <v-file-input
+                  id="manual-file-input"
+                  v-model="manualFiles"
+                  accept="application/pdf"
+                  hide-details
+                  multiple
+                  class="file-input"
+                  @change="uploadManuals"
+                />
+              </v-btn>
+            </v-chip>
+            <div v-if="rom.has_manual">
+              <v-label class="text-caption text-wrap">
+                <v-icon size="small" class="text-primary mr-2">
+                  mdi-folder-file-outline
+                </v-icon>
+                <span> /romm/resources/{{ rom.path_manual }} </span>
+              </v-label>
+            </div>
+            <div class="mt-6">
+              <v-btn
+                :disabled="rom.is_unidentified"
+                :class="{
+                  'text-romm-red bg-toplayer': !rom.is_unidentified,
+                }"
+                variant="flat"
+                @click="unmatchRom"
+              >
+                {{ t("rom.unmatch") }}
+              </v-btn>
+            </div>
           </v-col>
         </v-row>
+        <v-expansion-panels class="mt-6">
+          <v-expansion-panel>
+            <v-expansion-panel-title class="bg-toplayer">
+              <v-icon class="mr-2">mdi-database</v-icon>
+              {{ t("rom.metadata-ids") }}
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-row no-gutters class="my-2">
+                <v-col cols="12" md="6" xl="4" class="pa-2">
+                  <v-text-field
+                    hide-details
+                    clearable
+                    :model-value="rom.igdb_id?.toString() || null"
+                    label="IGDB ID"
+                    variant="outlined"
+                    @update:model-value="
+                      (value) =>
+                        rom &&
+                        (rom.igdb_id = value ? parseInt(value) : null)
+                    "
+                  />
+                </v-col>
+                <v-col cols="12" md="6" xl="4" class="pa-2">
+                  <v-text-field
+                    hide-details
+                    clearable
+                    :model-value="rom.moby_id?.toString() || null"
+                    label="MobyGames ID"
+                    variant="outlined"
+                    @update:model-value="
+                      (value) =>
+                        rom &&
+                        (rom.moby_id = value ? parseInt(value) : null)
+                    "
+                  />
+                </v-col>
+                <v-col cols="12" md="6" xl="4" class="pa-2">
+                  <v-text-field
+                    hide-details
+                    clearable
+                    :model-value="rom.ss_id?.toString() || null"
+                    label="ScreenScraper ID"
+                    variant="outlined"
+                    @update:model-value="
+                      (value) =>
+                        rom && (rom.ss_id = value ? parseInt(value) : null)
+                    "
+                  />
+                </v-col>
+                <v-col cols="12" md="6" xl="4" class="pa-2">
+                  <v-text-field
+                    hide-details
+                    clearable
+                    :model-value="rom.ra_id?.toString() || null"
+                    label="RetroAchievements ID"
+                    variant="outlined"
+                    @update:model-value="
+                      (value) =>
+                        rom && (rom.ra_id = value ? parseInt(value) : null)
+                    "
+                  />
+                </v-col>
+                <v-col cols="12" md="6" xl="4" class="pa-2">
+                  <v-text-field
+                    hide-details
+                    clearable
+                    :model-value="rom.launchbox_id?.toString() || null"
+                    label="LaunchBox ID"
+                    variant="outlined"
+                    @update:model-value="
+                      (value) =>
+                        rom &&
+                        (rom.launchbox_id = value ? parseInt(value) : null)
+                    "
+                  />
+                </v-col>
+                <v-col cols="12" md="6" xl="4" class="pa-2">
+                  <v-text-field
+                    hide-details
+                    clearable
+                    :model-value="rom.sgdb_id?.toString() || null"
+                    label="SteamGridDB ID"
+                    variant="outlined"
+                    @update:model-value="
+                      (value) =>
+                        rom &&
+                        (rom.sgdb_id = value ? parseInt(value) : null)
+                    "
+                  />
+                </v-col>
+              </v-row>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
       </v-form>
     </template>
     <template #append>

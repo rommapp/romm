@@ -14,7 +14,6 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const navigationStore = storeNavigation();
 const router = useRouter();
@@ -25,14 +24,13 @@ const { activeSettingsDrawer } = storeToRefs(navigationStore);
 const { smAndDown, mdAndUp } = useDisplay();
 const tabIndex = computed(() => (activeSettingsDrawer.value ? 0 : -1));
 
-// Functions
 async function logout() {
-  identityApi.logout().then(async ({ data }) => {
+  identityApi.logout().then(async () => {
     // Refetch CSRF token
     await refetchCSRFToken();
 
     emitter?.emit("snackbarShow", {
-      msg: data.msg,
+      msg: "Logged out successfully",
       icon: "mdi-check-bold",
       color: "green",
     });
@@ -159,7 +157,7 @@ function onClose() {
         :tabindex="tabIndex"
         class="mt-1"
         rounded
-        @click="emitter?.emit('showAboutDialog')"
+        @click="emitter?.emit('showAboutDialog', null)"
         append-icon="mdi-help-circle-outline"
         aria-label="About"
         role="listitem"

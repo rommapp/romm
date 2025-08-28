@@ -13,7 +13,6 @@ import { get } from "lodash";
 import storeHeartbeat from "@/stores/heartbeat";
 import { storeToRefs } from "pinia";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const { xs } = useDisplay();
@@ -94,7 +93,6 @@ const coverImageSource = computed(() => {
   }
 });
 
-// Functions
 function onFilterClick(filter: FilterType, value: string) {
   router.push({
     name: "search",
@@ -122,13 +120,10 @@ function onFilterClick(filter: FilterType, value: string) {
                   name: ROUTES.COLLECTION,
                   params: { collection: collection.id },
                 }"
-                size="large"
-                class="mr-1 mt-1 px-0"
+                size="small"
+                class="my-1 mr-2 px-0"
                 label
               >
-                <template #prepend>
-                  <r-avatar :size="38" :collection="collection" />
-                </template>
                 <span class="px-4">{{ collection.name }}</span>
               </v-chip>
             </v-col>
@@ -168,7 +163,7 @@ function onFilterClick(filter: FilterType, value: string) {
       >
         <v-row no-gutters class="mt-5">
           <v-col cols="3" xl="2" class="text-capitalize">
-            <span>Age Rating</span>
+            <span>{{ t("rom.age-rating") }}</span>
           </v-col>
           <div class="d-flex" :class="{ 'my-2': xs }">
             <v-img
@@ -216,7 +211,7 @@ function onFilterClick(filter: FilterType, value: string) {
               <template #prev="{ props }">
                 <v-btn
                   icon="mdi-chevron-left"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="props.onClick"
                 />
               </template>
@@ -247,7 +242,7 @@ function onFilterClick(filter: FilterType, value: string) {
               <template #next="{ props }">
                 <v-btn
                   icon="mdi-chevron-right"
-                  class="translucent-dark"
+                  class="translucent"
                   @click="props.onClick"
                 />
               </template>
@@ -266,7 +261,7 @@ function onFilterClick(filter: FilterType, value: string) {
                     <v-btn
                       @click="props.onClick"
                       icon="mdi-chevron-left"
-                      class="translucent-dark"
+                      class="translucent"
                     />
                   </template>
                   <v-carousel-item
@@ -293,7 +288,7 @@ function onFilterClick(filter: FilterType, value: string) {
                   <template #next="{ props }">
                     <v-btn
                       icon="mdi-chevron-right"
-                      class="translucent-dark"
+                      class="translucent"
                       @click="props.onClick"
                     />
                   </template>

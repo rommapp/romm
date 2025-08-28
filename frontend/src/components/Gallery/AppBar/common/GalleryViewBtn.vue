@@ -3,7 +3,6 @@ import storeGalleryView from "@/stores/galleryView";
 import { views } from "@/utils";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const galleryView = storeGalleryView();
 </script>

@@ -24,7 +24,6 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 
-// Props
 withDefaults(
   defineProps<{
     showPlatformIcon?: boolean;
@@ -100,7 +99,6 @@ const HEADERS = [
 
 const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 
-// Functions
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
   romsStore.resetSelection();
@@ -147,7 +145,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   romsStore.resetPagination();
   romsStore.setOrderBy(key);
   romsStore.setOrderDir(order);
-  romsStore.fetchRoms(galleryFilterStore, false);
+  romsStore.fetchRoms({ galleryFilter: galleryFilterStore });
 }
 </script>
 
@@ -196,6 +194,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
             class="mr-4"
             :size="30"
             :slug="item.platform_slug"
+            :fs-slug="item.platform_fs_slug"
           />
           <r-avatar-rom :rom="item" />
         </template>
@@ -217,7 +216,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           />
           <v-chip
             v-if="item.hasheous_id"
-            class="translucent-dark text-white mr-1 mb-1 px-1"
+            class="translucent text-white mr-1 mb-1 px-1"
             density="compact"
             title="Verified with Hasheous"
           >
@@ -225,7 +224,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           </v-chip>
           <v-chip
             v-if="item.siblings.length > 0 && showSiblings"
-            class="translucent-dark text-white mr-1 mb-1 px-1"
+            class="translucent text-white mr-1 mb-1 px-1"
             density="compact"
             :title="`${item.siblings.length} sibling(s)`"
           >

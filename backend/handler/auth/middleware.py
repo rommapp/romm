@@ -16,7 +16,7 @@ class CustomCSRFMiddleware(CSRFMiddleware):
         # Skip CSRF check if not an HTTP request, like websockets
         if scope["type"] != "http":
             await self.app(scope, receive, send)
-            return
+            return None
 
         request = Request(scope, receive)
 
@@ -24,7 +24,7 @@ class CustomCSRFMiddleware(CSRFMiddleware):
         auth_scheme = request.headers.get("Authorization", "").split(" ", 1)[0].lower()
         if auth_scheme == "bearer" or auth_scheme == "basic":
             await self.app(scope, receive, send)
-            return
+            return None
 
         await super().__call__(scope, receive, send)
 
@@ -97,7 +97,7 @@ class SessionMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] not in ("http", "websocket"):  # pragma: no cover
             await self.app(scope, receive, send)
-            return
+            return None
 
         connection = HTTPConnection(scope)
         initial_session_was_empty = True

@@ -10,7 +10,6 @@ import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
 
-// Props
 withDefaults(
   defineProps<{
     block?: boolean;
@@ -133,9 +132,9 @@ onBeforeUnmount(() => {
         :size="20"
         indeterminate
       />
-      <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''"
-        >mdi-magnify-scan</v-icon
-      >
+      <v-icon v-else :color="$route.name == 'scan' ? 'primary' : ''">
+        mdi-magnify-scan
+      </v-icon>
       <v-expand-transition>
         <span
           v-if="withTag"

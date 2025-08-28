@@ -12,7 +12,6 @@ import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const show = ref(false);

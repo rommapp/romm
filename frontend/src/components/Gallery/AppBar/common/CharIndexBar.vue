@@ -8,7 +8,6 @@ import { storeToRefs } from "pinia";
 import { inject, watch, computed } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();
 const galleryFilterStore = storeGalleryFilter();
@@ -30,7 +29,7 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms(galleryFilterStore, false)
+    .fetchRoms({ galleryFilter: galleryFilterStore, concat: false })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
@@ -91,7 +90,7 @@ watch(
     height="100%"
     class="position-fixed bg-surface mt-4 char-index-toolbar"
     :style="{
-      'max-height': calculatedHeight,
+      height: calculatedHeight,
     }"
   >
     <v-tabs
