@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from config import RESOURCES_BASE_PATH
 from logger.logger import log
 from PIL import Image, UnidentifiedImageError
-from tasks.tasks import Task
+from tasks.tasks import PeriodicTask
 
 
 @dataclass
@@ -82,7 +82,7 @@ class ImageConverter:
             return False
 
 
-class ConvertImagesToWebPTask(Task):
+class ConvertImagesToWebPTask(PeriodicTask):
     """Task to convert existing images to WebP format."""
 
     def __init__(self):
@@ -92,6 +92,7 @@ class ConvertImagesToWebPTask(Task):
             enabled=True,
             manual_run=True,
             cron_string=None,
+            func="tasks.scheduled.convert_images_to_webp.convert_images_to_webp_task.run",
         )
         self.resources_path = Path(RESOURCES_BASE_PATH)
         self.converter = ImageConverter()
