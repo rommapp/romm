@@ -117,10 +117,11 @@ class ConvertImagesToWebPTask(PeriodicTask):
             log.warning(f"Resources path does not exist: {self.resources_path}")
             return []
 
-        image_files: list[Path] = []
-        for ext in ImageConverter.SUPPORTED_EXTENSIONS:
-            # Only convert cover images
-            image_files.extend(self.resources_path.rglob(f"**/cover/*{ext}"))
+        image_files = [
+            p
+            for p in self.resources_path.rglob("**/cover/*")
+            if p.is_file() and p.suffix.lower() in ImageConverter.SUPPORTED_EXTENSIONS
+        ]
 
         return sorted(image_files)  # Sort for consistent processing order
 

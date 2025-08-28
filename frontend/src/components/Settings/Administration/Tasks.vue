@@ -4,25 +4,32 @@ import RSection from "@/components/common/RSection.vue";
 import { convertCronExperssion } from "@/utils";
 import storeTasks from "@/stores/tasks";
 import { storeToRefs } from "pinia";
+import { computed } from "vue";
 
 const tasksStore = storeTasks();
 const { watcherTasks, scheduledTasks, manualTasks } = storeToRefs(tasksStore);
 
-const watcherTasksUI = watcherTasks.value.map((task) => ({
-  ...task,
-  icon: task.enabled ? "mdi-file-check-outline" : "mdi-file-remove-outline",
-}));
+const watcherTasksUI = computed(() =>
+  watcherTasks.value.map((task) => ({
+    ...task,
+    icon: task.enabled ? "mdi-file-check-outline" : "mdi-file-remove-outline",
+  })),
+);
 
-const scheduledTasksUI = scheduledTasks.value.map((task) => ({
-  ...task,
-  icon: task.enabled ? "mdi-clock-check-outline" : "mdi-clock-remove-outline",
-  cron_string: convertCronExperssion(task.cron_string),
-}));
+const scheduledTasksUI = computed(() =>
+  scheduledTasks.value.map((task) => ({
+    ...task,
+    icon: task.enabled ? "mdi-clock-check-outline" : "mdi-clock-remove-outline",
+    cron_string: convertCronExperssion(task.cron_string),
+  })),
+);
 
-const manualTasksUI = manualTasks.value.map((task) => ({
-  ...task,
-  icon: getManualTaskIcon(task.name),
-}));
+const manualTasksUI = computed(() =>
+  manualTasks.value.map((task) => ({
+    ...task,
+    icon: getManualTaskIcon(task.name),
+  })),
+);
 
 // Icon mapping for manual tasks
 const getManualTaskIcon = (taskName: string) => {

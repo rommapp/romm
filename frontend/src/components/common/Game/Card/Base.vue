@@ -95,6 +95,7 @@ const handleCloseMenu = () => {
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
 const heartbeatStore = storeHeartbeat();
+
 const computedAspectRatio = computed(() => {
   const ratio =
     props.aspectRatio ||
@@ -136,8 +137,9 @@ interface TiltHTMLElement extends HTMLElement {
 
 const tiltCard = ref<TiltHTMLElement | null>(null);
 
-const isWebpEnabled =
-  heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP;
+const isWebpEnabled = computed(
+  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+);
 
 const largeCover = computed(() => {
   if (!romsStore.isSimpleRom(props.rom))
