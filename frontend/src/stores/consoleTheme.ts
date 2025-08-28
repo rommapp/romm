@@ -4,7 +4,7 @@ import { resolveAsset, clearAssetCache } from "@/console/utils/assetResolver";
 
 export const useConsoleTheme = defineStore("consoleTheme", () => {
   const themeName = ref<string>("default");
-  const availableThemes = ["default", "light"];
+  const availableThemes = ["default", "neon"];
 
   function setTheme(newThemeName: string): void {
     clearAssetCache();

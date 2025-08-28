@@ -18,3 +18,7 @@
   --tile: #f1f3f4;
   --tile-hover: #e2e6ea;
 }
+
+.console-root::before {
+  background: rgba(0, 0, 0, 0.15);
+}

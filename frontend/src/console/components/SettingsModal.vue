@@ -25,7 +25,7 @@ const options = [
 
 const themeOptions = [
   { value: "default", label: "Default" },
-  { value: "light", label: "Light" },
+  { value: "neon", label: "Soft Neon" },
 ];
 
 const sfxEnabled = ref(getSfxEnabled());
