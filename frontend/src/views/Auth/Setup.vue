@@ -75,10 +75,8 @@ async function finishWizard() {
     .createUser(defaultAdminUser.value)
     .then(async () => {
       await refetchCSRFToken();
-      await api.get("/heartbeat").then(({ data: heartbeatData }) => {
-        heartbeat.set(heartbeatData);
-        router.push({ name: ROUTES.LOGIN });
-      });
+      await heartbeat.fetchHeartbeat();
+      router.push({ name: ROUTES.LOGIN });
     })
     .catch(({ response, message }) => {
       emitter?.emit("snackbarShow", {
