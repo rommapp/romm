@@ -1,10 +1,11 @@
 import functools
 from collections.abc import Iterable, Sequence
+from typing import Any
 
 from config import ROMM_DB_DRIVER
 from decorators.database import begin_session
 from handler.metadata.base_hander import UniversalPlatformSlug as UPS
-from models.collection import Collection, SmartCollection, VirtualCollection
+from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
@@ -13,7 +14,6 @@ from sqlalchemy import (
     String,
     Text,
     and_,
-    case,
     cast,
     delete,
     false,
@@ -25,7 +25,7 @@ from sqlalchemy import (
     text,
     update,
 )
-from sqlalchemy.orm import InstrumentedAttribute, Query, Session, selectinload
+from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
 
 from .base_handler import DBBaseHandler
 
@@ -77,18 +77,32 @@ EJS_SUPPORTED_PLATFORMS = [
     UPS.WONDERSWAN_COLOR,
 ]
 
+STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
+
 
 def with_details(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
-            selectinload(Rom.saves),
-            selectinload(Rom.states),
-            selectinload(Rom.screenshots),
-            selectinload(Rom.rom_users),
-            selectinload(Rom.sibling_roms),
-            selectinload(Rom.metadatum),
-            selectinload(Rom.files),
+            # Ensure platform is loaded for main ROM objects
+            joinedload(Rom.platform),
+            selectinload(Rom.saves).options(
+                noload(Save.rom),
+                noload(Save.user),
+            ),
+            selectinload(Rom.states).options(
+                noload(State.rom),
+                noload(State.user),
+            ),
+            selectinload(Rom.screenshots).options(
+                noload(Screenshot.rom),
+            ),
+            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            selectinload(Rom.files).options(noload(RomFile.rom)),
+            selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform), noload(Rom.metadatum)
+            ),
             selectinload(Rom.collections),
         )
         return func(*args, **kwargs)
@@ -100,9 +114,18 @@ def with_simple(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         kwargs["query"] = select(Rom).options(
-            selectinload(Rom.rom_users),
-            selectinload(Rom.metadatum),
-            selectinload(Rom.files),
+            # Ensure platform is loaded for main ROM objects
+            joinedload(Rom.platform),
+            # Display properties for the current user (last_played)
+            selectinload(Rom.rom_users).options(noload(RomUser.rom)),
+            # Sort table by metadata (first_release_date)
+            selectinload(Rom.metadatum).options(noload(RomMetadata.rom)),
+            # Required for multi-file ROM actions and 3DS QR code
+            selectinload(Rom.files).options(noload(RomFile.rom)),
+            # Show sibling rom badges on cards
+            selectinload(Rom.sibling_roms).options(
+                noload(Rom.platform), noload(Rom.metadatum)
+            ),
         )
         return func(*args, **kwargs)
 
@@ -131,11 +154,10 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_collection_id(
         self, query: Query, session: Session, collection_id: int
     ):
-        collection = (
-            session.query(Collection)
-            .filter(Collection.id == collection_id)
-            .one_or_none()
-        )
+        from . import db_collection_handler
+
+        collection = db_collection_handler.get_collection(collection_id)
+
         if collection:
             return query.filter(Rom.id.in_(collection.rom_ids))
         return query
@@ -143,26 +165,28 @@ class DBRomsHandler(DBBaseHandler):
     def filter_by_virtual_collection_id(
         self, query: Query, session: Session, virtual_collection_id: str
     ):
-        name, type = VirtualCollection.from_id(virtual_collection_id)
-        v_collection = (
-            session.query(VirtualCollection)
-            .filter(VirtualCollection.name == name, VirtualCollection.type == type)
-            .one_or_none()
+        from . import db_collection_handler
+
+        v_collection = db_collection_handler.get_virtual_collection(
+            virtual_collection_id
         )
+
         if v_collection:
             return query.filter(Rom.id.in_(v_collection.rom_ids))
         return query
 
     def filter_by_smart_collection_id(
-        self, query: Query, session: Session, smart_collection_id: int
+        self, query: Query, session: Session, smart_collection_id: int, user_id: int
     ):
-        smart_collection = (
-            session.query(SmartCollection)
-            .filter(SmartCollection.id == smart_collection_id)
-            .one_or_none()
+        from . import db_collection_handler
+
+        smart_collection = db_collection_handler.get_smart_collection(
+            smart_collection_id
         )
+
         if smart_collection:
-            smart_collection.get_roms()  # Ensure the latest ROMs are loaded
+            # Ensure the latest ROMs are loaded
+            smart_collection = smart_collection.update_properties(user_id)
             return query.filter(Rom.id.in_(smart_collection.rom_ids))
         return query
 
@@ -192,11 +216,13 @@ class DBRomsHandler(DBBaseHandler):
         self, query: Query, session: Session, value: bool, user_id: int | None
     ) -> Query:
         """Filter based on whether the rom is in the user's Favourites collection."""
-        favourites_collection = (
-            session.query(Collection)
-            .filter(Collection.name.ilike("favourites"))
-            .filter(Collection.user_id == user_id)
-            .one_or_none()
+        if not user_id:
+            return query
+
+        from . import db_collection_handler
+
+        favourites_collection = db_collection_handler.get_collection_by_name(
+            "favourites", user_id
         )
 
         if favourites_collection:
@@ -223,7 +249,7 @@ class DBRomsHandler(DBBaseHandler):
         predicate = Platform.slug.in_(EJS_SUPPORTED_PLATFORMS)
         if not value:
             predicate = not_(predicate)
-        return query.join(Rom.platform).filter(predicate)
+        return query.join(Platform).filter(predicate)
 
     def filter_by_has_ra(self, query: Query, value: bool) -> Query:
         predicate = Rom.ra_id.isnot(None)
@@ -410,9 +436,9 @@ class DBRomsHandler(DBBaseHandler):
                 query, session, virtual_collection_id
             )
 
-        if smart_collection_id:
+        if smart_collection_id and user_id:
             query = self.filter_by_smart_collection_id(
-                query, session, smart_collection_id
+                query, session, smart_collection_id, user_id
             )
 
         if search_term:
@@ -442,26 +468,8 @@ class DBRomsHandler(DBBaseHandler):
         if verified:
             query = self.filter_by_verified(query)
 
+        # BEWARE YE WHO ENTERS HERE 💀
         if group_by_meta_id:
-
-            def build_func(provider: str, column: InstrumentedAttribute):
-                if platform_id:
-                    return func.concat(provider, "-", Rom.platform_id, "-", column)
-
-                return func.concat(provider, "-", Rom.platform_id, "-", column)
-
-            group_id = case(
-                {
-                    Rom.igdb_id.isnot(None): build_func("igdb", Rom.igdb_id),
-                    Rom.moby_id.isnot(None): build_func("moby", Rom.moby_id),
-                    Rom.ss_id.isnot(None): build_func("ss", Rom.ss_id),
-                    Rom.launchbox_id.isnot(None): build_func(
-                        "launchbox", Rom.launchbox_id
-                    ),
-                },
-                else_=build_func("romm", Rom.id),
-            )
-
             # Convert NULL is_main_sibling to 0 (false) so it sorts after true values
             is_main_sibling_order = (
                 func.coalesce(cast(RomUser.is_main_sibling, Integer), 0).desc()
@@ -469,25 +477,94 @@ class DBRomsHandler(DBBaseHandler):
                 else literal(1)
             )
 
-            # Create a subquery that identifies the first ROM in each group
+            # Create a subquery that identifies the primary ROM in each group
+            # Priority order: is_main_sibling (desc), then by fs_name_no_ext (asc)
+            base_subquery = query.subquery()
             group_subquery = (
-                session.query(Rom.id)
+                select(base_subquery.c.id)
+                .select_from(base_subquery)
+                .with_only_columns(
+                    base_subquery.c.id,
+                    base_subquery.c.fs_name_no_ext,
+                    base_subquery.c.platform_id,
+                    base_subquery.c.igdb_id,
+                    base_subquery.c.ss_id,
+                    base_subquery.c.moby_id,
+                    base_subquery.c.ra_id,
+                    base_subquery.c.hasheous_id,
+                    base_subquery.c.launchbox_id,
+                    base_subquery.c.tgdb_id,
+                )
                 .outerjoin(
-                    RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
+                    RomUser,
+                    and_(
+                        base_subquery.c.id == RomUser.rom_id, RomUser.user_id == user_id
+                    ),
                 )
                 .add_columns(
-                    group_id.label("group_id"),
                     func.row_number()
                     .over(
-                        partition_by=group_id,
-                        order_by=[is_main_sibling_order, Rom.fs_name_no_ext],
+                        partition_by=func.coalesce(
+                            func.concat(
+                                "igdb-",
+                                base_subquery.c.platform_id,
+                                "-",
+                                base_subquery.c.igdb_id,
+                            ),
+                            func.concat(
+                                "ss-",
+                                base_subquery.c.platform_id,
+                                "-",
+                                base_subquery.c.ss_id,
+                            ),
+                            func.concat(
+                                "moby-",
+                                base_subquery.c.platform_id,
+                                "-",
+                                base_subquery.c.moby_id,
+                            ),
+                            func.concat(
+                                "ra-",
+                                base_subquery.c.platform_id,
+                                "-",
+                                base_subquery.c.ra_id,
+                            ),
+                            func.concat(
+                                "hasheous-",
+                                base_subquery.c.platform_id,
+                                "-",
+                                base_subquery.c.hasheous_id,
+                            ),
+                            func.concat(
+                                "launchbox-",
+                                base_subquery.c.platform_id,
+                                "-",
+                                base_subquery.c.launchbox_id,
+                            ),
+                            func.concat(
+                                "tgdb-",
+                                base_subquery.c.platform_id,
+                                "-",
+                                base_subquery.c.tgdb_id,
+                            ),
+                            func.concat(
+                                "romm-",
+                                base_subquery.c.platform_id,
+                                "-",
+                                base_subquery.c.id,
+                            ),
+                        ),
+                        order_by=[
+                            is_main_sibling_order,
+                            base_subquery.c.fs_name_no_ext.asc(),
+                        ],
                     )
                     .label("row_num"),
                 )
                 .subquery()
             )
 
-            # Add a filter to the original query to only include the first ROM from each group
+            # Add a filter to the original query to only include the primary ROM from each group
             query = query.filter(
                 Rom.id.in_(
                     session.query(group_subquery.c.id).filter(
@@ -503,7 +580,7 @@ class DBRomsHandler(DBBaseHandler):
             or selected_company
             or selected_age_rating
         ):
-            query = query.join(RomMetadata)
+            query = query.outerjoin(RomMetadata)
 
         if selected_genre:
             query = self.filter_by_genre(query, selected_genre)
@@ -546,7 +623,7 @@ class DBRomsHandler(DBBaseHandler):
         user_id: int | None = None,
         query: Query = None,
         session: Session = None,
-    ) -> Query[Rom]:
+    ) -> tuple[Query[Rom], Any]:
         if user_id:
             query = query.outerjoin(
                 RomUser, and_(RomUser.rom_id == Rom.id, RomUser.user_id == user_id)
@@ -565,24 +642,13 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = Rom.name
 
-        # Handle computed properties
-        if order_by == "fs_size_bytes":
-            subquery = (
-                session.query(
-                    RomFile.rom_id,
-                    func.sum(RomFile.file_size_bytes).label("total_size"),
-                )
-                .group_by(RomFile.rom_id)
-                .subquery()
-            )
-            query = query.outerjoin(subquery, Rom.id == subquery.c.rom_id)
-            order_attr = func.coalesce(subquery.c.total_size, 0)
+        order_attr_column = order_attr
 
         # Ignore case when the order attribute is a number
         if isinstance(order_attr.type, (String, Text)):
             # Remove any leading articles
             order_attr = func.trim(
-                func.lower(order_attr).regexp_replace(r"^(the|a|an)\s+", "", "i")
+                func.lower(order_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
             )
 
         if order_dir.lower() == "desc":
@@ -590,7 +656,7 @@ class DBRomsHandler(DBBaseHandler):
         else:
             order_attr = order_attr.asc()
 
-        return query.order_by(order_attr)
+        return query.order_by(order_attr), order_attr_column
 
     @begin_session
     def get_roms_scalar(
@@ -599,45 +665,63 @@ class DBRomsHandler(DBBaseHandler):
         session: Session = None,
         **kwargs,
     ) -> Sequence[Rom]:
-        query = self.get_roms_query(
-            order_by=kwargs.pop("order_by", "name"),
-            order_dir=kwargs.pop("order_dir", "asc"),
-            user_id=kwargs.pop("user_id", None),
+        query, _ = self.get_roms_query(
+            order_by=kwargs.get("order_by", "name"),
+            order_dir=kwargs.get("order_dir", "asc"),
+            user_id=kwargs.get("user_id", None),
         )
         roms = self.filter_roms(
             query=query,
-            platform_id=kwargs.pop("platform_id", None),
-            collection_id=kwargs.pop("collection_id", None),
-            virtual_collection_id=kwargs.pop("virtual_collection_id", None),
-            search_term=kwargs.pop("search_term", None),
-            matched=kwargs.pop("matched", None),
-            favourite=kwargs.pop("favourite", None),
-            duplicate=kwargs.pop("duplicate", None),
-            playable=kwargs.pop("playable", None),
-            has_ra=kwargs.pop("has_ra", None),
-            missing=kwargs.pop("missing", None),
-            verified=kwargs.pop("verified", None),
-            selected_genre=kwargs.pop("selected_genre", None),
-            selected_franchise=kwargs.pop("selected_franchise", None),
-            selected_collection=kwargs.pop("selected_collection", None),
-            selected_company=kwargs.pop("selected_company", None),
-            selected_age_rating=kwargs.pop("selected_age_rating", None),
-            selected_status=kwargs.pop("selected_status", None),
-            selected_region=kwargs.pop("selected_region", None),
-            selected_language=kwargs.pop("selected_language", None),
-            user_id=kwargs.pop("user_id", None),
+            platform_id=kwargs.get("platform_id", None),
+            collection_id=kwargs.get("collection_id", None),
+            virtual_collection_id=kwargs.get("virtual_collection_id", None),
+            search_term=kwargs.get("search_term", None),
+            matched=kwargs.get("matched", None),
+            favourite=kwargs.get("favourite", None),
+            duplicate=kwargs.get("duplicate", None),
+            playable=kwargs.get("playable", None),
+            has_ra=kwargs.get("has_ra", None),
+            missing=kwargs.get("missing", None),
+            verified=kwargs.get("verified", None),
+            selected_genre=kwargs.get("selected_genre", None),
+            selected_franchise=kwargs.get("selected_franchise", None),
+            selected_collection=kwargs.get("selected_collection", None),
+            selected_company=kwargs.get("selected_company", None),
+            selected_age_rating=kwargs.get("selected_age_rating", None),
+            selected_status=kwargs.get("selected_status", None),
+            selected_region=kwargs.get("selected_region", None),
+            selected_language=kwargs.get("selected_language", None),
+            user_id=kwargs.get("user_id", None),
         )
         return session.scalars(roms).all()
 
     @begin_session
-    def get_char_index(
-        self, query: Query, session: Session = None
+    def with_char_index(
+        self, query: Query, order_by_attr: Any, session: Session = None
     ) -> list[Row[tuple[str, int]]]:
+        if isinstance(order_by_attr.type, (String, Text)):
+            # Remove any leading articles
+            order_by_attr = func.trim(
+                func.lower(order_by_attr).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
+            )
+        else:
+            order_by_attr = func.trim(
+                func.lower(Rom.name).regexp_replace(STRIP_ARTICLES_REGEX, "", "i")
+            )
+
         # Get the row number and first letter for each item
-        subquery = query.add_columns(
-            func.lower(func.substring(Rom.name, 1, 1)).label("letter"),
-            func.row_number().over(order_by=Rom.name).label("position"),
-        ).subquery()
+        subquery = (
+            query.with_only_columns(Rom.id, Rom.name)  # type: ignore
+            .add_columns(  # type: ignore
+                func.substring(
+                    order_by_attr,
+                    1,
+                    1,
+                ).label("letter"),
+                func.row_number().over(order_by=order_by_attr).label("position"),
+            )
+            .subquery()
+        )
 
         # Get the minimum position for each letter
         return (

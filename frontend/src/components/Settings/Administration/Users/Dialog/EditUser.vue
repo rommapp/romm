@@ -11,7 +11,6 @@ import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const user = ref<UserItem | null>(null);
 const { lgAndUp } = useDisplay();
@@ -89,6 +88,11 @@ function closeDialog() {
     icon="mdi-pencil-box"
     :width="lgAndUp ? '45vw' : '95vw'"
   >
+    <template #header>
+      <v-row class="pl-2" no-gutters>
+        {{ t("settings.edit-user") }}
+      </v-row>
+    </template>
     <template #content>
       <v-form v-model="validForm">
         <v-row class="align-center pa-2" no-gutters>
@@ -106,8 +110,7 @@ function closeDialog() {
               v-model="user.password"
               variant="outlined"
               :label="t('settings.password')"
-              :rules="usersStore.passwordRules"
-              required
+              :placeholder="t('settings.password-placeholder')"
               clearable
               class="ma-2"
             />

@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { inject, computed } from "vue";
 import type { Events } from "@/types/emitter";
-import api from "@/services/api/index";
+import taskApi from "@/services/api/task";
 import type { Emitter } from "mitt";
 import storeRunningTasks from "@/stores/runningTasks";
 
-// Props
 const props = withDefaults(
   defineProps<{
     enabled?: boolean;
@@ -34,15 +33,14 @@ const isTaskRunning = computed(() =>
   props.name ? runningTasksStore.isTaskRunning(props.name) : false,
 );
 
-// Functions
 function run() {
   if (!props.name) return;
 
   // Add task to running tasks
   runningTasksStore.addTask(props.name);
 
-  api
-    .post(`/tasks/run/${props.name}`)
+  taskApi
+    .runTask(props.name)
     .then(() => {
       emitter?.emit("snackbarShow", {
         msg: `Task '${props.title}' ran successfully!`,

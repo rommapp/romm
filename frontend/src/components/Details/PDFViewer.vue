@@ -3,7 +3,6 @@ import { useTheme, useDisplay } from "vuetify";
 import type { DetailedRom } from "@/stores/roms";
 import VuePdfApp from "vue3-pdf-app";
 
-// Props
 defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();
 const theme = useTheme();

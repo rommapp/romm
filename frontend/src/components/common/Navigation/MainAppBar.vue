@@ -14,12 +14,10 @@ import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
 const { mainBarCollapsed } = storeToRefs(navigationStore);
 
-// Functions
 function collapse() {
   mainBarCollapsed.value = !mainBarCollapsed.value;
   localStorage.setItem(

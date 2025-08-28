@@ -1,0 +1,18 @@
+# Configuration
+**/.env
+
+# Frontend
+**/assets/library/
+**/node_modules/
+
+# Backend
+backend/tests/
+**/venv/
+**/.venv/
+**/.mypy_cache/
+**/.pytest_cache/
+**/__pycache__/
+
+# Testing
+**/romm_test/
+**/romm_mock/

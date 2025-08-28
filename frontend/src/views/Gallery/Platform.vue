@@ -13,20 +13,18 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
-import { isNull } from "lodash";
+import { isNull, throttle } from "lodash";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { onBeforeRouteUpdate, useRoute } from "vue-router";
 
-// Props
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
 const galleryFilterStore = storeGalleryFilter();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const platformsStore = storePlatforms();
-const { allPlatforms } = storeToRefs(platformsStore);
+const { filteredPlatforms } = storeToRefs(platformsStore);
 const romsStore = storeRoms();
 const {
   allRoms,
@@ -38,7 +36,6 @@ const {
   fetchTotalRoms,
 } = storeToRefs(romsStore);
 const noPlatformError = ref(false);
-const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const isHovering = ref(false);
 const hoveringRomId = ref();
@@ -50,7 +47,6 @@ const enable3DEffect = ref(
 );
 let timeout: ReturnType<typeof setTimeout>;
 
-// Functions
 async function fetchRoms() {
   if (fetchingRoms.value) return;
 
@@ -60,7 +56,7 @@ async function fetchRoms() {
   });
 
   romsStore
-    .fetchRoms(galleryFilterStore)
+    .fetchRoms({ galleryFilter: galleryFilterStore })
     .then(() => {
       emitter?.emit("showLoadingDialog", {
         loading: false,
@@ -130,14 +126,6 @@ function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
     } else {
       romsStore.updateLastSelected(index);
     }
-  } else if (emitData.event.metaKey || emitData.event.ctrlKey) {
-    const link = router.resolve({
-      name: ROUTES.ROM,
-      params: { rom: emitData.rom.id },
-    });
-    window.open(link.href, "_blank");
-  } else {
-    router.push({ name: ROUTES.ROM, params: { rom: emitData.rom.id } });
   }
 }
 
@@ -151,7 +139,7 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-function onScroll() {
+const onScroll = throttle(() => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
@@ -163,7 +151,7 @@ function onScroll() {
       await fetchRoms();
     }
   }, 100);
-}
+}, 500);
 
 function resetGallery() {
   romsStore.reset();
@@ -178,7 +166,7 @@ onMounted(async () => {
   currentCollection.value = null;
 
   watch(
-    () => allPlatforms.value,
+    () => filteredPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
         if (platforms.some((platform) => platform.id === routePlatformId)) {
@@ -215,7 +203,7 @@ onBeforeRouteUpdate(async (to, from) => {
   const routePlatformId = Number(to.params.platform);
 
   watch(
-    () => allPlatforms.value,
+    () => filteredPlatforms.value,
     async (platforms) => {
       if (platforms.length > 0) {
         const platform = platforms.find(
@@ -249,8 +237,13 @@ onBeforeUnmount(() => {
 <template>
   <template v-if="!noPlatformError">
     <gallery-app-bar />
-    <template v-if="fetchingRoms && filteredRoms.length === 0">
-      <skeleton />
+    <template
+      v-if="currentPlatform && fetchingRoms && filteredRoms.length === 0"
+    >
+      <skeleton
+        :platformId="currentPlatform.id"
+        :romCount="currentPlatform.rom_count"
+      />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
@@ -274,7 +267,6 @@ onBeforeUnmount(() => {
             }"
           >
             <game-card
-              v-if="currentPlatform"
               :key="rom.updated_at"
               :rom="rom"
               titleOnHover
@@ -307,12 +299,12 @@ onBeforeUnmount(() => {
         </v-row>
 
         <load-more-btn :fetchRoms="fetchRoms" />
-        <fab-overlay />
       </template>
       <template v-else>
-        <empty-game v-if="allPlatforms.length > 0 && !fetchingRoms" />
+        <empty-game v-if="filteredPlatforms.length > 0 && !fetchingRoms" />
       </template>
     </template>
+    <fab-overlay />
   </template>
 
   <empty-platform v-else />

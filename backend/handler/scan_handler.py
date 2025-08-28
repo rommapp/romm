@@ -1,8 +1,7 @@
 import asyncio
-from enum import Enum
+import enum
 from typing import Any
 
-import emoji
 from config.config_manager import config_manager as cm
 from handler.database import db_platform_handler
 from handler.filesystem import fs_asset_handler, fs_firmware_handler
@@ -34,11 +33,13 @@ from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom
 from models.user import User
+from utils import emoji
 
 LOGGER_MODULE_NAME = {"module_name": "scan"}
 
 
-class ScanType(Enum):
+@enum.unique
+class ScanType(enum.StrEnum):
     NEW_PLATFORMS = "new_platforms"
     QUICK = "quick"
     UNIDENTIFIED = "unidentified"
@@ -47,7 +48,8 @@ class ScanType(Enum):
     HASHES = "hashes"
 
 
-class MetadataSource:
+@enum.unique
+class MetadataSource(enum.StrEnum):
     IGDB = "igdb"  # IGDB
     MOBY = "moby"  # MobyGames
     SS = "ss"  # Screenscraper
@@ -168,16 +170,12 @@ async def scan_platform(
         or tgdb_platform["tgdb_id"]
     ):
         log.info(
-            emoji.emojize(
-                f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} :video_game:"
-            ),
+            f"Folder {hl(platform_attrs['slug'])}[{hl(fs_slug, color=LIGHTYELLOW)}] identified as {hl(platform_attrs['name'], color=BLUE)} {emoji.EMOJI_VIDEO_GAME}",
             extra={"module_name": "scan"},
         )
     else:
         log.warning(
-            emoji.emojize(
-                f"Platform {hl(platform_attrs['slug'])} not identified :cross_mark:"
-            ),
+            f"Platform {hl(platform_attrs['slug'])} not identified {emoji.EMOJI_CROSS_MARK}",
             extra=LOGGER_MODULE_NAME,
         )
 
@@ -366,10 +364,8 @@ async def scan_rom(
             h_igdb_id = hasheous_rom.get("igdb_id")
             if h_igdb_id:
                 log.debug(
-                    emoji.emojize(
-                        f"{hl(rom_attrs['fs_name'])} identified by Hasheous as "
-                        f"{hl(str(h_igdb_id), color=BLUE)} :alien_monster:"
-                    ),
+                    f"{hl(rom_attrs['fs_name'])} identified by Hasheous as "
+                    f"{hl(str(h_igdb_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
                 return await meta_igdb_handler.get_rom_by_id(h_igdb_id)
@@ -377,10 +373,8 @@ async def scan_rom(
             # Use Playmatch matches to get the IGDB ID
             if playmatch_rom["igdb_id"] is not None:
                 log.debug(
-                    emoji.emojize(
-                        f"{hl(rom_attrs['fs_name'])} identified by Playmatch as "
-                        f"{hl(str(playmatch_rom["igdb_id"]), color=BLUE)} :alien_monster:"
-                    ),
+                    f"{hl(rom_attrs['fs_name'])} identified by Playmatch as "
+                    f"{hl(str(playmatch_rom["igdb_id"]), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
 
@@ -473,10 +467,8 @@ async def scan_rom(
             h_ra_id = hasheous_rom.get("ra_id")
             if h_ra_id:
                 log.debug(
-                    emoji.emojize(
-                        f"{hl(rom_attrs['fs_name'])} identified by Hasheous as "
-                        f"{hl(str(h_ra_id), color=BLUE)} :alien_monster:"
-                    ),
+                    f"{hl(rom_attrs['fs_name'])} identified by Hasheous as "
+                    f"{hl(str(h_ra_id), color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
                     extra=LOGGER_MODULE_NAME,
                 )
                 return await meta_ra_handler.get_rom_by_id(rom=rom, ra_id=h_ra_id)
@@ -600,7 +592,7 @@ async def scan_rom(
         and not hasheous_handler_rom.get("hasheous_id")
     ):
         log.warning(
-            emoji.emojize(f"{hl(rom_attrs['fs_name'])} not identified :cross_mark:"),
+            f"{hl(rom_attrs['fs_name'])} not identified {emoji.EMOJI_CROSS_MARK}",
             extra=LOGGER_MODULE_NAME,
         )
         return Rom(**rom_attrs)
@@ -632,9 +624,7 @@ async def scan_rom(
         rom_attrs.update({**sgdb_hander_rom})
 
     log.info(
-        emoji.emojize(
-            f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} :alien_monster:"
-        ),
+        f"{hl(rom_attrs['fs_name'])} identified as {hl(rom_attrs['name'], color=BLUE)} {emoji.EMOJI_ALIEN_MONSTER}",
         extra=LOGGER_MODULE_NAME,
     )
     if rom.multi:

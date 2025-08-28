@@ -3,12 +3,10 @@ import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const router = useRouter();
 const version = ref(props.rom.id);
 
-// Functions
 function updateVersion() {
   router.push({
     name: "rom",

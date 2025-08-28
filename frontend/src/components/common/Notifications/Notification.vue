@@ -5,7 +5,6 @@ import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
 
-// Props
 const show = ref(false);
 const { xs } = useDisplay();
 const snackbarStatus = ref<SnackbarStatus>({ msg: "" });

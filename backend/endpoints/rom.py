@@ -15,7 +15,7 @@ from config import (
     str_to_bool,
 )
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
+from endpoints.responses import BulkOperationResponse
 from endpoints.responses.rom import (
     DetailedRomSchema,
     RomFileSchema,
@@ -166,6 +166,10 @@ class CustomLimitOffsetPage[T: BaseModel](LimitOffsetPage[T]):
 @protected_route(router.get, "", [Scope.ROMS_READ])
 def get_roms(
     request: Request,
+    with_char_index: Annotated[
+        bool,
+        Query(description="Whether to get the char index."),
+    ] = True,
     search_term: Annotated[
         str | None,
         Query(description="Search term to filter roms."),
@@ -266,7 +270,7 @@ def get_roms(
     """Retrieve roms."""
 
     # Get the base roms query
-    query = db_rom_handler.get_roms_query(
+    query, order_by_attr = db_rom_handler.get_roms_query(
         user_id=request.user.id,
         order_by=order_by.lower(),
         order_dir=order_dir.lower(),
@@ -300,8 +304,12 @@ def get_roms(
     )
 
     # Get the char index for the roms
-    char_index = db_rom_handler.get_char_index(query=query)
-    char_index_dict = {char: index for (char, index) in char_index}
+    char_index_dict = {}
+    if with_char_index:
+        char_index = db_rom_handler.with_char_index(
+            query=query, order_by_attr=order_by_attr
+        )
+        char_index_dict = {char: index for (char, index) in char_index}
 
     with sync_session.begin() as session:
         return paginate(
@@ -822,10 +830,10 @@ async def add_rom_manuals(
         raise RomNotFoundInDatabaseException(id)
 
     manuals_path = f"{rom.fs_resources_path}/manual"
-    file_location = fs_rom_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
+    file_location = fs_resource_handler.validate_path(f"{manuals_path}/{rom.id}.pdf")
     log.info(f"Uploading manual to {hl(str(file_location))}")
 
-    await fs_rom_handler.make_directory(manuals_path)
+    await fs_resource_handler.make_directory(manuals_path)
 
     parser = StreamingFormDataParser(headers=request.headers)
     parser.register("x-upload-platform", NullTarget())
@@ -882,40 +890,56 @@ async def delete_roms(
             default_factory=list,
         ),
     ],
-) -> MessageResponse:
+) -> BulkOperationResponse:
     """Delete roms."""
+
+    successful_items = 0
+    failed_items = 0
+    errors = []
 
     for id in roms:
         rom = db_rom_handler.get_rom(id)
 
         if not rom:
-            raise RomNotFoundInDatabaseException(id)
-
-        log.info(
-            f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"
-        )
-        db_rom_handler.delete_rom(id)
+            failed_items += 1
+            errors.append(f"ROM with ID {id} not found")
+            continue
 
         try:
-            await fs_resource_handler.remove_directory(rom.fs_resources_path)
-        except FileNotFoundError:
-            log.warning(
-                f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
+            log.info(
+                f"Deleting {hl(str(rom.name or 'ROM'), color=BLUE)} [{hl(rom.fs_name)}] from database"
             )
+            db_rom_handler.delete_rom(id)
 
-        if id in delete_from_fs:
-            log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
             try:
-                file_path = f"{rom.fs_path}/{rom.fs_name}"
-                await fs_rom_handler.remove_file(file_path=file_path)
-            except FileNotFoundError as exc:
-                error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
-                log.error(error)
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=error
-                ) from exc
+                await fs_resource_handler.remove_directory(rom.fs_resources_path)
+            except FileNotFoundError:
+                log.warning(
+                    f"Couldn't find resources to delete for {hl(str(rom.name or 'ROM'), color=BLUE)}"
+                )
 
-    return {"msg": f"{len(roms)} roms deleted successfully!"}
+            if id in delete_from_fs:
+                log.info(f"Deleting {hl(rom.fs_name)} from filesystem")
+                try:
+                    file_path = f"{rom.fs_path}/{rom.fs_name}"
+                    await fs_rom_handler.remove_file(file_path=file_path)
+                except FileNotFoundError:
+                    error = f"Rom file {hl(rom.fs_name)} not found for platform {hl(rom.platform_display_name, color=BLUE)}[{hl(rom.platform_slug)}]"
+                    log.error(error)
+                    errors.append(error)
+                    failed_items += 1
+                    continue
+
+            successful_items += 1
+        except Exception as e:
+            failed_items += 1
+            errors.append(f"Failed to delete ROM {id}: {str(e)}")
+
+    return {
+        "successful_items": successful_items,
+        "failed_items": failed_items,
+        "errors": errors,
+    }
 
 
 @protected_route(

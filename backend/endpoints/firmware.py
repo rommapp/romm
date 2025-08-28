@@ -1,6 +1,6 @@
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
-from endpoints.responses import MessageResponse
+from endpoints.responses import BulkOperationResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
 from fastapi import File, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
@@ -11,6 +11,7 @@ from handler.scan_handler import scan_firmware
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
+from models.firmware import Firmware
 from utils.router import APIRouter
 
 router = APIRouter(
@@ -69,13 +70,27 @@ async def add_firmware(
             firmware=db_firmware,
         )
 
+        is_verified = Firmware.verify_file_hashes(
+            platform_slug=db_platform.slug,
+            file_name=file.filename,
+            file_size_bytes=scanned_firmware.file_size_bytes,
+            md5_hash=scanned_firmware.md5_hash,
+            sha1_hash=scanned_firmware.sha1_hash,
+            crc_hash=scanned_firmware.crc_hash,
+        )
+
         if db_firmware:
             db_firmware_handler.update_firmware(
-                db_firmware.id, {"file_size_bytes": scanned_firmware.file_size_bytes}
+                db_firmware.id,
+                {
+                    "file_size_bytes": scanned_firmware.file_size_bytes,
+                    "is_verified": is_verified,
+                },
             )
             continue
 
         scanned_firmware.platform_id = db_platform.id
+        scanned_firmware.is_verified = is_verified
         db_firmware_handler.add_firmware(scanned_firmware)
         uploaded_firmware.append(scanned_firmware)
 
@@ -200,7 +215,7 @@ def get_firmware_content(
 @protected_route(router.post, "/delete", [Scope.FIRMWARE_WRITE])
 async def delete_firmware(
     request: Request,
-) -> MessageResponse:
+) -> BulkOperationResponse:
     """Delete firmware endpoint
 
     Args:
@@ -211,33 +226,47 @@ async def delete_firmware(
         delete_from_fs (bool, optional): Flag to delete rom from filesystem. Defaults to False.
 
     Returns:
-        MessageResponse: Standard message response
+        BulkOperationResponse: Bulk operation response with details
     """
 
     data: dict = await request.json()
     firmware_ids: list = data["firmware"]
     delete_from_fs: list = data["delete_from_fs"]
 
+    successful_items = 0
+    failed_items = 0
+    errors = []
+
     for id in firmware_ids:
         firmware = db_firmware_handler.get_firmware(id)
         if not firmware:
-            error = f"Firmware with ID {hl(id)} not found"
-            log.error(error)
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error)
+            failed_items += 1
+            errors.append(f"Firmware with ID {id} not found")
+            continue
 
-        log.info(f"Deleting {hl(firmware.file_name)} from database")
-        db_firmware_handler.delete_firmware(id)
+        try:
+            log.info(f"Deleting {hl(firmware.file_name)} from database")
+            db_firmware_handler.delete_firmware(id)
 
-        if id in delete_from_fs:
-            log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
-            try:
-                file_path = f"{firmware.file_path}/{firmware.file_name}"
-                await fs_firmware_handler.remove_file(file_path=file_path)
-            except FileNotFoundError as exc:
-                error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform_slug)}"
-                log.error(error)
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=error
-                ) from exc
+            if id in delete_from_fs:
+                log.info(f"Deleting {hl(firmware.file_name)} from filesystem")
+                try:
+                    file_path = f"{firmware.file_path}/{firmware.file_name}"
+                    await fs_firmware_handler.remove_file(file_path=file_path)
+                except FileNotFoundError:
+                    error = f"Firmware file {hl(firmware.file_name)} not found for platform {hl(firmware.platform.slug)}"
+                    log.error(error)
+                    errors.append(error)
+                    failed_items += 1
+                    continue
 
-    return {"msg": f"{len(firmware_ids)} firmware files deleted successfully!"}
+            successful_items += 1
+        except Exception as e:
+            failed_items += 1
+            errors.append(f"Failed to delete firmware {id}: {str(e)}")
+
+    return {
+        "successful_items": successful_items,
+        "failed_items": failed_items,
+        "errors": errors,
+    }

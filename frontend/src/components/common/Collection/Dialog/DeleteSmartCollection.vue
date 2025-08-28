@@ -11,7 +11,6 @@ import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const router = useRouter();
 const { lgAndUp } = useDisplay();
@@ -24,7 +23,6 @@ emitter?.on("showDeleteSmartCollectionDialog", (smartCollectionToDelete) => {
   show.value = true;
 });
 
-// Functions
 async function deleteSmartCollection() {
   if (!smartCollection.value) return;
 
@@ -32,7 +30,7 @@ async function deleteSmartCollection() {
     .deleteSmartCollection(smartCollection.value.id)
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: "Smart collection deleted",
         icon: "mdi-check-bold",
         color: "green",
       });

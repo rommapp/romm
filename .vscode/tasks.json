@@ -15,15 +15,9 @@
       "problemMatcher": []
     },
     {
-      "label": "Launch worker",
-      "type": "shell",
-      "command": "cd backend && uv run python3 worker.py",
-      "problemMatcher": []
-    },
-    {
       "label": "Execute tests",
       "type": "shell",
-      "command": "cd backend && uv run pytest -vv -c ../pytest.ini",
+      "command": "cd backend && uv run pytest -vv",
       "problemMatcher": []
     },
     {
@@ -40,7 +34,7 @@
     },
     {
       "label": "Launch full stack",
-      "dependsOn": ["Launch frontend", "Launch backend", "Launch worker"],
+      "dependsOn": ["Launch frontend", "Launch backend"],
       "problemMatcher": [],
       "dependsOrder": "parallel"
     }

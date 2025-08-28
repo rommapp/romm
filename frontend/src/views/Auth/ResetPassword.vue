@@ -9,7 +9,6 @@ import { inject, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const auth = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
@@ -21,7 +20,6 @@ const confirmPassword = ref("");
 const visibleNewPassword = ref(false);
 const visibleConfirmNewPassword = ref(false);
 
-// Functions
 async function resetPassword() {
   await identityApi
     .resetPassword(token, newPassword.value)
@@ -55,7 +53,7 @@ async function resetPassword() {
 </script>
 
 <template>
-  <v-card class="translucent-dark py-8 px-5" width="500">
+  <v-card class="translucent py-8 px-5" width="500">
     <v-img src="/assets/isotipo.svg" class="mx-auto mb-8" width="80" />
     <v-row class="text-white justify-center mt-2" no-gutters>
       <v-col cols="10">

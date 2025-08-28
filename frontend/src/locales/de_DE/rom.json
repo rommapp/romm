@@ -13,10 +13,11 @@
   "completion": "Durchgespielt",
   "copy-link": "Download-Link kopieren",
   "default": "Standard",
-  "delete-rom": "Löschen",
+  "delete": "Löschen",
   "details": "Details",
   "difficulty": "Schwierigkeitsgrad",
-  "edit-rom": "Bearbeiten",
+  "download": "Herunterladen",
+  "edit": "Bearbeiten",
   "file": "Datei",
   "filename": "Dateiname",
   "files": "Dateien",
@@ -50,6 +51,7 @@
   "rename-file-part4": "in",
   "rename-file-part5": "Tags im Dateinamen werden nicht verändert",
   "results-found": "Gefundene Ergebnisse",
+  "select-all": "Alles auswählen",
   "select-cover-image": "Wähle ein Coverbild",
   "set-as-default": "ROM als Standard setzen",
   "size": "Größe",
@@ -58,5 +60,6 @@
   "summary": "Zusammenfassung",
   "switch-version": "Version wechseln",
   "tags": "Tags",
-  "unmatch-rom": "Zuweisung aufheben"
+  "unmatch": "Zuweisung aufheben",
+  "unselect-all": "Alles abwählen"
 }

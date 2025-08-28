@@ -4,7 +4,6 @@ import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 
-// Props
 const romsStore = storeRoms();
 const { currentRom } = storeToRefs(romsStore);
 const missingCoverImage = computed(() =>
@@ -21,41 +20,40 @@ const unmatchedCoverImage = computed(() =>
 
 <template>
   <v-card
-    id="background-header"
     elevation="0"
     rounded="0"
+    class="w-100"
     :key="currentRom.updated_at"
     v-if="currentRom"
   >
     <v-img
-      id="background-image"
-      :src="currentRom?.path_cover_large || unmatchedCoverImage"
-      lazy
+      class="background-image"
+      :src="currentRom?.path_cover_small || unmatchedCoverImage"
       cover
     >
       <template #error>
         <v-img :src="missingCoverImage" />
       </template>
       <template #placeholder>
-        <div class="d-flex align-center justify-center fill-height">
-          <v-progress-circular
-            :width="2"
-            :size="40"
-            color="primary"
-            indeterminate
-          />
-        </div>
+        <v-skeleton-loader class="background-skeleton" type="image" />
       </template>
     </v-img>
   </v-card>
 </template>
-<style scoped>
-#background-header {
-  width: 100%;
-}
 
-#background-image {
+<style scoped>
+.background-image {
   height: 18rem;
   filter: blur(30px);
+}
+
+.background-skeleton {
+  height: 18rem;
+}
+</style>
+
+<style>
+.background-skeleton .v-skeleton-loader__image {
+  height: 100%;
 }
 </style>

@@ -417,7 +417,7 @@ const _EJS_CORES_MAP = {
   wonderswan: ["mednafen_wswan"],
   swancrystal: ["mednafen_wswan"],
   "wonderswan-color": ["mednafen_wswan"],
-  "zx-spectrum": ["fuse"],
+  zsx: ["fuse"],
 } as const;
 
 export type EJSPlatformSlug = keyof typeof _EJS_CORES_MAP;

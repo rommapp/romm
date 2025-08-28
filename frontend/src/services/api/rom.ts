@@ -1,5 +1,5 @@
 import type {
-  MessageResponse,
+  BulkOperationResponse,
   SearchRomSchema,
   RomUserSchema,
 } from "@/__generated__";
@@ -13,6 +13,9 @@ import storeHeartbeat from "@/stores/heartbeat";
 import { type CustomLimitOffsetPage_SimpleRomSchema_ as GetRomsResponse } from "@/__generated__/models/CustomLimitOffsetPage_SimpleRomSchema_";
 
 export const romApi = api;
+
+const DOWNLOAD_CLEANUP_DELAY = 100;
+const DOWNLOAD_INTERVAL_DELAY = 300;
 
 async function uploadRoms({
   platformId,
@@ -147,15 +150,28 @@ async function getRoms({
   });
 }
 
+export const RECENT_ROMS_LIMIT = 15;
+export const RECENT_PLAYED_ROMS_LIMIT = 15;
+
 async function getRecentRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
-    params: { order_by: "id", order_dir: "desc", limit: 15 },
+    params: {
+      order_by: "id",
+      order_dir: "desc",
+      limit: RECENT_ROMS_LIMIT,
+      with_char_index: false,
+    },
   });
 }
 
 async function getRecentPlayedRoms(): Promise<{ data: GetRomsResponse }> {
   return api.get("/roms", {
-    params: { order_by: "last_played", order_dir: "desc", limit: 15 },
+    params: {
+      order_by: "last_played",
+      order_dir: "desc",
+      limit: RECENT_PLAYED_ROMS_LIMIT,
+      with_char_index: false,
+    },
   });
 }
 
@@ -185,7 +201,6 @@ async function searchRom({
   });
 }
 
-// Used only for multi-file downloads
 async function downloadRom({
   rom,
   fileIDs = [],
@@ -193,12 +208,30 @@ async function downloadRom({
   rom: SimpleRom;
   fileIDs?: number[];
 }) {
-  const a = document.createElement("a");
-  a.href = getDownloadPath({ rom, fileIDs });
+  return new Promise<void>((resolve) => {
+    const a = document.createElement("a");
+    a.href = getDownloadPath({ rom, fileIDs });
+    a.style.display = "none";
 
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      resolve();
+    }, DOWNLOAD_CLEANUP_DELAY);
+  });
+}
+
+async function bulkDownloadRoms({ roms }: { roms: SimpleRom[] }) {
+  if (roms.length === 0) return;
+
+  for (let i = 0; i < roms.length; i++) {
+    await downloadRom({ rom: roms[i] });
+    await new Promise((resolve) =>
+      setTimeout(resolve, DOWNLOAD_INTERVAL_DELAY),
+    );
+  }
 }
 
 export type UpdateRom = SimpleRom & {
@@ -301,7 +334,7 @@ async function deleteRoms({
 }: {
   roms: SimpleRom[];
   deleteFromFs: number[];
-}): Promise<{ data: MessageResponse }> {
+}): Promise<{ data: BulkOperationResponse }> {
   return api.post("/roms/delete", {
     roms: roms.map((r) => r.id),
     delete_from_fs: deleteFromFs,
@@ -315,6 +348,7 @@ export default {
   getRecentPlayedRoms,
   getRom,
   downloadRom,
+  bulkDownloadRoms,
   searchRom,
   updateRom,
   uploadManuals,

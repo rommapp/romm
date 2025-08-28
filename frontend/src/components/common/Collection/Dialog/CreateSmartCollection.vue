@@ -12,6 +12,7 @@ import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { ROUTES } from "@/plugins/router";
 import { useRouter } from "vue-router";
+import { getStatusKeyForText } from "@/utils";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();
@@ -133,7 +134,9 @@ async function createSmartCollection() {
     if (selectedAgeRating.value)
       filterCriteria.selected_age_rating = selectedAgeRating.value;
     if (selectedStatus.value)
-      filterCriteria.selected_status = selectedStatus.value;
+      filterCriteria.selected_status = getStatusKeyForText(
+        selectedStatus.value,
+      );
     if (selectedRegion.value)
       filterCriteria.selected_region = selectedRegion.value;
     if (selectedLanguage.value)

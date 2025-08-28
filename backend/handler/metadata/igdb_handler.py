@@ -332,40 +332,36 @@ class IGDBHandler(MetadataHandler):
         else:
             game_type_filter = ""
 
-        def is_exact_match(rom: dict, search_term: str) -> bool:
-            search_term_lower = search_term.lower()
-            if rom["slug"].lower() == search_term_lower:
-                return True
-
-            # Check both the ROM name and alternative names for an exact match.
-            rom_names = [rom["name"]] + [
-                alternative_name["name"]
-                for alternative_name in rom.get("alternative_names", [])
-            ]
-
-            return any(
-                (
-                    rom_name.lower() == search_term_lower
-                    or self.normalize_search_term(rom_name) == search_term
-                )
-                for rom_name in rom_names
-            )
-
         log.debug("Searching in games endpoint with game_type %s", game_type_filter)
         roms = await self._request(
             self.games_endpoint,
             data=f'search "{uc(search_term)}"; fields {",".join(self.games_fields)}; where platforms=[{platform_igdb_id}] {game_type_filter};',
         )
-        for rom in roms:
-            # Return early if an exact match is found.
-            if is_exact_match(rom, search_term):
-                return rom
+
+        games_by_name: dict[str, dict] = {}
+        for game in roms:
+            if (
+                game["name"] not in games_by_name
+                or game["id"] < games_by_name[game["name"]]["id"]
+            ):
+                games_by_name[game["name"]] = game
+
+        best_match, best_score = self.find_best_match(
+            search_term,
+            list(games_by_name.keys()),
+        )
+        if best_match:
+            log.debug(
+                f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+            )
+            return games_by_name[best_match]
 
         log.debug("Searching expanded in search endpoint")
         roms_expanded = await self._request(
             self.search_endpoint,
             data=f'fields {",".join(self.search_fields)}; where game.platforms=[{platform_igdb_id}] & (name ~ *"{search_term}"* | alternative_name ~ *"{search_term}"*);',
         )
+
         if roms_expanded:
             log.debug(
                 "Searching expanded in games endpoint for expanded game %s",
@@ -375,14 +371,25 @@ class IGDBHandler(MetadataHandler):
                 self.games_endpoint,
                 f'fields {",".join(self.games_fields)}; where id={roms_expanded[0]["game"]["id"]};',
             )
-            for rom in extra_roms:
-                # Return early if an exact match is found.
-                if is_exact_match(rom, search_term):
-                    return rom
+
+            extra_games_by_name: dict[str, dict] = {}
+            for game in extra_roms:
+                if game["name"] not in extra_games_by_name:
+                    extra_games_by_name[game["name"]] = game
+
+            best_match, best_score = self.find_best_match(
+                search_term,
+                list(extra_games_by_name.keys()),
+            )
+            if best_match:
+                log.debug(
+                    f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+                )
+                return extra_games_by_name[best_match]
 
             roms.extend(extra_roms)
 
-        return roms[0] if roms else None
+        return None
 
     # @check_twitch_token
     # async def get_platforms(self) -> None:
@@ -678,7 +685,7 @@ class TwitchAuth(MetadataHandler):
                 timeout=self.timeout,
             )
 
-            if res.status_code == 400:
+            if res.status_code == status.HTTP_400_BAD_REQUEST:
                 log.critical("IGDB Error: Invalid IGDB_CLIENT_ID or IGDB_CLIENT_SECRET")
                 return ""
 
@@ -2828,7 +2835,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "url": "https://www.igdb.com/platforms/sega-cd",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/pl7w.jpg",
     },
-    UPS.SEGA_CD_32X: {
+    UPS.SEGACD32: {
         "category": "Console",
         "family_name": "Sega",
         "family_slug": "sega",

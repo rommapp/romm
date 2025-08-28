@@ -6,7 +6,6 @@ import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchie
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
-// Props
 const { smAndDown } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
@@ -20,7 +19,6 @@ const achievementsPercentageHardcore = ref(0);
 const showEarned = ref(false);
 const filteredAchievements = ref<RAGameRomAchievement[]>([]);
 
-// Functions
 function toggleShowEarned() {
   showEarned.value = !showEarned.value;
   if (showEarned.value) {
@@ -119,27 +117,30 @@ onMounted(() => {
       buffer-opacity="0.6"
       :buffer-value="achievementsPercentage"
       height="32"
-      ><p class="text-shadow">
+    >
+      <p class="text-shadow">
         {{
           Math.max(
             Math.ceil(achievementsPercentage),
             Math.ceil(achievementsPercentageHardcore),
           )
         }}%
-      </p></v-progress-linear
-    >
+      </p>
+    </v-progress-linear>
   </v-list-item>
   <v-chip
     label
     :color="showEarned ? 'primary' : 'gray'"
     @click="toggleShowEarned"
     class="mt-4"
-    ><template #prepend
-      ><v-icon class="mr-2">{{
-        showEarned ? "mdi-checkbox-outline" : "mdi-checkbox-blank-outline"
-      }}</v-icon></template
-    >{{ t("rom.show-earned-only") }}</v-chip
   >
+    <template #prepend>
+      <v-icon class="mr-2">
+        {{ showEarned ? "mdi-checkbox-outline" : "mdi-checkbox-blank-outline" }}
+      </v-icon>
+    </template>
+    {{ t("rom.show-earned-only") }}
+  </v-chip>
   <v-list v-if="rom.merged_ra_metadata?.achievements" class="bg-background">
     <v-list-item
       v-for="achievement in filteredAchievements"

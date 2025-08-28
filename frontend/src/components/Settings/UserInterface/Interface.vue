@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption.vue";
 import RSection from "@/components/common/RSection.vue";
-import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import { computed, ref } from "vue";
 import { useDisplay } from "vuetify";
 import { isNull } from "lodash";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
 const collectionsStore = storeCollections();
 
-// Initializing refs from localStorage
+// Initialize refs from localStorage
+
 // Home
 const storedShowStats = localStorage.getItem("settings.showStats");
 const showStatsRef = ref(
@@ -210,7 +209,6 @@ const galleryOptions = computed(() => [
   },
 ]);
 
-// Functions to update localStorage
 const setPlatformDrawerGroupBy = (value: string) => {
   platformsGroupByRef.value = value;
   localStorage.setItem("settings.platformsGroupBy", value);
@@ -234,12 +232,7 @@ const toggleShowVirtualCollections = (value: boolean) => {
 const setVirtualCollectionType = async (value: string) => {
   virtualCollectionTypeRef.value = value;
   localStorage.setItem("settings.virtualCollectionType", value);
-
-  await collectionApi
-    .getVirtualCollections({ type: value })
-    .then(({ data: virtualCollections }) => {
-      collectionsStore.setVirtualCollections(virtualCollections);
-    });
+  collectionsStore.fetchVirtualCollections(value);
 };
 
 const toggleShowStats = (value: boolean) => {

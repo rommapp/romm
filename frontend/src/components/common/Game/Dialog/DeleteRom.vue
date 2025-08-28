@@ -13,7 +13,6 @@ import { useRouter, useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
 const router = useRouter();
@@ -45,7 +44,9 @@ async function deleteRoms() {
     .deleteRoms({ roms: roms.value, deleteFromFs: romsToDeleteFromFs.value })
     .then((response) => {
       emitter?.emit("snackbarShow", {
-        msg: response.data.msg,
+        msg: romsToDeleteFromFs.value
+          ? `${response.data.successful_items} roms deleted from filesystem`
+          : `${response.data.successful_items} roms deleted from RomM`,
         icon: "mdi-check-bold",
         color: "green",
       });

@@ -82,5 +82,6 @@ export type Events = {
   selectStateDialog: DetailedRom;
   saveSelected: SaveSchema;
   stateSelected: StateSchema;
-  showAboutDialog;
+  showAboutDialog: null;
+  showNoteDialog: SimpleRom;
 };

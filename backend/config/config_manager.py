@@ -1,3 +1,4 @@
+import json
 import sys
 from typing import Final
 
@@ -8,6 +9,7 @@ from config import (
     DB_NAME,
     DB_PASSWD,
     DB_PORT,
+    DB_QUERY_JSON,
     DB_USER,
     LIBRARY_BASE_PATH,
     ROMM_BASE_PATH,
@@ -95,6 +97,14 @@ class ConfigManager:
             )
             sys.exit(3)
 
+        query: dict[str, str] = {}
+        if DB_QUERY_JSON:
+            try:
+                query = json.loads(DB_QUERY_JSON)
+            except ValueError as exc:
+                log.critical(f"Invalid JSON in DB_QUERY_JSON: {exc}")
+                sys.exit(3)
+
         return URL.create(
             drivername=driver,
             username=DB_USER,
@@ -102,6 +112,7 @@ class ConfigManager:
             host=DB_HOST,
             port=DB_PORT,
             database=DB_NAME,
+            query=query,
         )
 
     def _parse_config(self):
@@ -109,18 +120,24 @@ class ConfigManager:
 
         self.config = Config(
             EXCLUDED_PLATFORMS=pydash.get(self._raw_config, "exclude.platforms", []),
-            EXCLUDED_SINGLE_EXT=pydash.get(
-                self._raw_config, "exclude.roms.single_file.extensions", []
-            ),
+            EXCLUDED_SINGLE_EXT=[
+                e.lower()
+                for e in pydash.get(
+                    self._raw_config, "exclude.roms.single_file.extensions", []
+                )
+            ],
             EXCLUDED_SINGLE_FILES=pydash.get(
                 self._raw_config, "exclude.roms.single_file.names", []
             ),
             EXCLUDED_MULTI_FILES=pydash.get(
                 self._raw_config, "exclude.roms.multi_file.names", []
             ),
-            EXCLUDED_MULTI_PARTS_EXT=pydash.get(
-                self._raw_config, "exclude.roms.multi_file.parts.extensions", []
-            ),
+            EXCLUDED_MULTI_PARTS_EXT=[
+                e.lower()
+                for e in pydash.get(
+                    self._raw_config, "exclude.roms.multi_file.parts.extensions", []
+                )
+            ],
             EXCLUDED_MULTI_PARTS_FILES=pydash.get(
                 self._raw_config, "exclude.roms.multi_file.parts.names", []
             ),
@@ -264,7 +281,7 @@ class ConfigManager:
         platform_bindings = self.config.PLATFORMS_BINDING
         if fs_slug in platform_bindings:
             log.warning(f"Binding for {hl(fs_slug)} already exists")
-            return
+            return None
 
         platform_bindings[fs_slug] = slug
         self.config.PLATFORMS_BINDING = platform_bindings
@@ -285,7 +302,7 @@ class ConfigManager:
         platform_versions = self.config.PLATFORMS_VERSIONS
         if fs_slug in platform_versions:
             log.warning(f"Version for {hl(fs_slug)} already exists")
-            return
+            return None
 
         platform_versions[fs_slug] = slug
         self.config.PLATFORMS_VERSIONS = platform_versions
@@ -308,7 +325,7 @@ class ConfigManager:
             log.warning(
                 f"{hl(exclusion_value)} already excluded in {hl(exclusion_type, color=BLUE)}"
             )
-            return
+            return None
 
         config_item.append(exclusion_value)
         self.config.__setattr__(exclusion_type, config_item)

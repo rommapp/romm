@@ -2,7 +2,6 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { CollectionSchema } from './CollectionSchema';
 import type { RomFileSchema } from './RomFileSchema';
 import type { RomHasheousMetadata } from './RomHasheousMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
@@ -16,6 +15,7 @@ import type { SaveSchema } from './SaveSchema';
 import type { ScreenshotSchema } from './ScreenshotSchema';
 import type { SiblingRomSchema } from './SiblingRomSchema';
 import type { StateSchema } from './StateSchema';
+import type { UserCollectionSchema } from './UserCollectionSchema';
 import type { UserNotesSchema } from './UserNotesSchema';
 export type DetailedRomSchema = {
     id: number;
@@ -71,14 +71,14 @@ export type DetailedRomSchema = {
     created_at: string;
     updated_at: string;
     missing_from_fs: boolean;
-    merged_ra_metadata: (RomRAMetadata | null);
-    merged_screenshots: Array<string>;
     siblings: Array<SiblingRomSchema>;
     rom_user: RomUserSchema;
+    merged_ra_metadata: (RomRAMetadata | null);
+    merged_screenshots: Array<string>;
     user_saves: Array<SaveSchema>;
     user_states: Array<StateSchema>;
     user_screenshots: Array<ScreenshotSchema>;
     user_notes: Array<UserNotesSchema>;
-    user_collections: Array<CollectionSchema>;
+    user_collections: Array<UserCollectionSchema>;
 };
 

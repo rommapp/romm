@@ -2,9 +2,7 @@
 import storeHeartbeat from "@/stores/heartbeat";
 import semver from "semver";
 import { onMounted, ref } from "vue";
-import { useDisplay } from "vuetify";
 
-// Props
 const heartbeat = storeHeartbeat();
 const { VERSION } = heartbeat.value.SYSTEM;
 const GITHUB_VERSION = ref(VERSION);
@@ -14,13 +12,15 @@ function dismissVersionBanner() {
   localStorage.setItem("dismissedVersion", GITHUB_VERSION.value);
   latestVersionDismissed.value = true;
 }
-onMounted(async () => {
+
+async function fetchLatestVersion() {
   try {
     const response = await fetch(
       "https://api.github.com/repos/rommapp/romm/releases/latest",
     );
     const json = await response.json();
     GITHUB_VERSION.value = json.tag_name;
+
     const publishedAt = new Date(json.published_at);
     latestVersionDismissed.value =
       // Hide if the version is not valid
@@ -32,6 +32,12 @@ onMounted(async () => {
   } catch (error) {
     console.error("Failed to fetch latest version from Github", error);
   }
+
+  document.removeEventListener("network-quiesced", fetchLatestVersion);
+}
+
+onMounted(async () => {
+  document.addEventListener("network-quiesced", fetchLatestVersion);
 });
 </script>
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -e
 
 echo "Starting entrypoint script..."
@@ -31,10 +32,50 @@ function handle_termination() {
 # Trap SIGTERM and SIGINT signals
 trap handle_termination SIGTERM SIGINT
 
+# Set ROMM_AUTH_SECRET_KEY if not already set
+if [[ -z ${ROMM_AUTH_SECRET_KEY} ]]; then
+	ROMM_AUTH_SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+	export ROMM_AUTH_SECRET_KEY
+fi
+
 # Start all services in the background
+echo "Starting backend..."
 cd /app/backend
 uv run python main.py &
-OBJC_DISABLE_INITIALIZE_FORK_SAFETY=1 uv run python worker.py &
+
+echo "Starting RQ scheduler..."
+RQ_REDIS_HOST=${REDIS_HOST:-127.0.0.1} \
+	RQ_REDIS_PORT=${REDIS_PORT:-6379} \
+	RQ_REDIS_USERNAME=${REDIS_USERNAME:-""} \
+	RQ_REDIS_PASSWORD=${REDIS_PASSWORD:-""} \
+	RQ_REDIS_DB=${REDIS_DB:-0} \
+	RQ_REDIS_SSL=${REDIS_SSL:-0} \
+	rqscheduler \
+	--path /app/backend \
+	--pid /tmp/rq_scheduler.pid &
+
+echo "Starting RQ worker..."
+# Build Redis URL properly
+if [[ -n ${REDIS_PASSWORD-} ]]; then
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME-}:${REDIS_PASSWORD}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+elif [[ -n ${REDIS_USERNAME-} ]]; then
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_USERNAME}@${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+else
+	REDIS_URL="redis${REDIS_SSL:+s}://${REDIS_HOST:-127.0.0.1}:${REDIS_PORT:-6379}/${REDIS_DB:-0}"
+fi
+
+# Set PYTHONPATH so RQ can find the tasks module
+PYTHONPATH="/app/backend:${PYTHONPATH-}" rq worker \
+	--path /app/backend \
+	--pid /tmp/rq_worker.pid \
+	--url "${REDIS_URL}" \
+	high default low &
+
+echo "Starting watcher..."
+watchfiles \
+	--target-type command \
+	'uv run python watcher.py' \
+	/app/romm/library &
 
 # Start the frontend dev server
 cd /app/frontend

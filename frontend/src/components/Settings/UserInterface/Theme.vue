@@ -7,7 +7,6 @@ import { computed, ref } from "vue";
 import { useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
 
-// Props
 const { t } = useI18n();
 const theme = useTheme();
 const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
@@ -26,7 +25,7 @@ const themeOptions = computed(() => [
     icon: "mdi-theme-light-dark",
   },
 ]);
-// Functions
+
 function toggleTheme() {
   localStorage.setItem("settings.theme", selectedTheme.value.toString());
   const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");

@@ -9,7 +9,6 @@ import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 import { computed } from "vue";
 
-// Props
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();
 const releaseDate = new Date(
@@ -21,7 +20,7 @@ const releaseDate = new Date(
 });
 
 const platformsStore = storePlatforms();
-const { allPlatforms } = storeToRefs(platformsStore);
+const { filteredPlatforms } = storeToRefs(platformsStore);
 
 const hashMatches = computed(() => {
   return [
@@ -82,7 +81,7 @@ const hashMatches = computed(() => {
         >
           <missing-from-f-s-icon
             v-if="
-              allPlatforms.find((p) => p.id === rom.platform_id)
+              filteredPlatforms.find((p) => p.id === rom.platform_id)
                 ?.missing_from_fs
             "
             class="mr-2"
@@ -160,7 +159,12 @@ const hashMatches = computed(() => {
               <v-img src="/assets/scrappers/moby.png" />
             </v-avatar>
             <span>{{ rom.moby_id }}</span>
-            <template v-if="rom.moby_metadata?.moby_score">
+            <template
+              v-if="
+                rom.moby_metadata?.moby_score &&
+                rom.moby_metadata.moby_score !== 'None'
+              "
+            >
               <v-divider class="mx-2 border-opacity-25" vertical />
               <span>{{
                 (parseFloat(rom.moby_metadata.moby_score) * 10).toFixed(2)

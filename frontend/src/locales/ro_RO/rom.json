@@ -13,10 +13,11 @@
   "completion": "Finalizare",
   "copy-link": "Copiază linkul de descărcare",
   "default": "Implicit",
-  "delete-rom": "Șterge",
+  "delete": "Șterge",
   "details": "Detalii",
   "difficulty": "Dificultate",
-  "edit-rom": "Editează",
+  "download": "Descarcă",
+  "edit": "Editează",
   "file": "Fișier",
   "filename": "Nume fișier",
   "files": "Fișiere",
@@ -50,6 +51,7 @@
   "rename-file-part4": "la",
   "rename-file-part5": "Etichetele din numele fișierului nu vor fi afectate",
   "results-found": "Rezultate găsite",
+  "select-all": "Selectează toate",
   "select-cover-image": "Selectează o imagine de copertă",
   "set-as-default": "Setează ca ROM implicit",
   "size": "Dimensiune",
@@ -58,6 +60,6 @@
   "summary": "Rezumat",
   "switch-version": "Schimbă versiunea",
   "tags": "Etichete",
-  "unmatch-rom": "Dissociază ROM-ul",
-  "version": "Versiune"
+  "unmatch": "Dissociază ROM-ul",
+  "unselect-all": "Deselectează toate"
 }

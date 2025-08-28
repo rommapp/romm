@@ -8,6 +8,7 @@ import pydash
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
+from logger.logger import log
 from unidecode import unidecode as uc
 
 from .base_hander import (
@@ -24,6 +25,8 @@ from .base_hander import UniversalPlatformSlug as UPS
 SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER) and bool(SCREENSCRAPER_PASSWORD)
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
+
+PREFERRED_REGIONS: Final = ["us", "wor", "ss", "eu", "jp"]
 
 PS1_SS_ID: Final = 57
 PS2_SS_ID: Final = 58
@@ -129,9 +132,8 @@ class SSRom(BaseRom):
 
 
 def build_ss_rom(game: SSGame) -> SSRom:
-    name_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     res_name = ""
-    for region in name_preferred_regions:
+    for region in PREFERRED_REGIONS:
         res_name = next(
             (
                 name["text"]
@@ -152,9 +154,8 @@ def build_ss_rom(game: SSGame) -> SSRom:
         "",
     )
 
-    cover_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     url_cover = ""
-    for region in cover_preferred_regions:
+    for region in PREFERRED_REGIONS:
         url_cover = next(
             (
                 media["url"]
@@ -168,9 +169,8 @@ def build_ss_rom(game: SSGame) -> SSRom:
         if url_cover:
             break
 
-    manual_preferred_regions = ["us", "wor", "ss", "eu", "jp"]
     url_manual: str = ""
-    for region in manual_preferred_regions:
+    for region in PREFERRED_REGIONS:
         url_manual = next(
             (
                 media["url"]
@@ -276,31 +276,37 @@ class SSHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ss_service = ScreenScraperService()
 
-    async def _search_rom(self, search_term: str, platform_ss_id: int) -> SSGame | None:
+    async def _search_rom(
+        self, search_term: str, platform_ss_id: int, split_game_name: bool = False
+    ) -> SSGame | None:
         if not platform_ss_id:
             return None
-
-        def is_exact_match(rom: SSGame, search_term: str) -> bool:
-            rom_names = [name.get("text", "").lower() for name in rom.get("noms", [])]
-
-            return any(
-                (
-                    rom_name.lower() == search_term.lower()
-                    or self.normalize_search_term(rom_name) == search_term
-                )
-                for rom_name in rom_names
-            )
 
         roms = await self.ss_service.search_games(
             term=quote(uc(search_term), safe="/ "),
             system_id=platform_ss_id,
         )
 
+        games_by_name: dict[str, SSGame] = {}
         for rom in roms:
-            if is_exact_match(rom, search_term):
-                return rom
+            for name in rom.get("noms", []):
+                if name["text"] not in games_by_name or int(rom["id"]) < int(
+                    games_by_name[name["text"]]["id"]
+                ):
+                    games_by_name[name["text"]] = rom
 
-        return roms[0] if roms else None
+        best_match, best_score = self.find_best_match(
+            search_term,
+            list(games_by_name.keys()),
+            split_game_name=split_game_name,
+        )
+        if best_match:
+            log.debug(
+                f"Found match for '{search_term}' -> '{best_match}' (score: {best_score:.3f})"
+            )
+            return games_by_name[best_match]
+
+        return None
 
     def get_platform(self, slug: str) -> SSPlatform:
         if slug not in SCREENSAVER_PLATFORM_LIST:
@@ -387,29 +393,17 @@ class SSHandler(MetadataHandler):
         normalized_search_term = self.normalize_search_term(
             search_term, remove_punctuation=False
         )
-        res = await self._search_rom(normalized_search_term, platform_ss_id)
+        res = await self._search_rom(
+            self.SEARCH_TERM_NORMALIZER.sub(" : ", normalized_search_term),
+            platform_ss_id,
+        )
 
         # SS API doesn't handle some special characters well
-        if not res and (
-            ": " in search_term or " - " in search_term or "/" in search_term
-        ):
-            if ": " in search_term:
-                terms = [
-                    s.strip() for s in search_term.split(":") if len(s.strip()) > 2
-                ]
-            elif " - " in search_term:
-                terms = [
-                    s.strip() for s in search_term.split(" - ") if len(s.strip()) > 2
-                ]
-            else:
-                terms = [
-                    s.strip() for s in search_term.split("/") if len(s.strip()) > 2
-                ]
-
-            for i in range(len(terms) - 1, -1, -1):
-                res = await self._search_rom(terms[i], platform_ss_id)
-                if res:
-                    break
+        if not res and " : " in search_term:
+            terms = re.split(self.SEARCH_TERM_SPLIT_PATTERN, search_term)
+            res = await self._search_rom(
+                terms[-1], platform_ss_id, split_game_name=True
+            )
 
         if not res or not res.get("id"):
             return fallback_rom
@@ -613,7 +607,7 @@ SCREENSAVER_PLATFORM_LIST: dict[UPS, SlugToSSId] = {
     UPS.XBOX360: {"id": 33, "name": "Xbox 360"},
     UPS.XBOXONE: {"id": 34, "name": "Xbox One"},
     UPS.Z_MACHINE: {"id": 215, "name": "Z-Machine"},
-    UPS.ZX_SPECTRUM: {"id": 76, "name": "ZX Spectrum"},
+    UPS.ZXS: {"id": 76, "name": "ZX Spectrum"},
     UPS.ZX81: {"id": 77, "name": "ZX81"},
 }
 

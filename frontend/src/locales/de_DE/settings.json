@@ -1,6 +1,7 @@
 {
   "continue-playing-as-grid": "Weiterspielen als Raster",
   "continue-playing-as-grid-desc": "Zeige die Weiterspielen-Karten als Raster auf der Startseite",
+  "edit-user": "Benutzer bearbeiten",
   "email": "E-Mail",
   "enable-3d-effect": "3D-Effekt aktivieren",
   "enable-3d-effect-desc": "3D-Effekt für die Spiel-/Plattform-/Sammlungskarten aktivieren",
@@ -20,6 +21,7 @@
   "language": "Sprache",
   "main-platform": "Haupt-Plattform",
   "password": "Passwort",
+  "password-placeholder": "Leer lassen, um das aktuelle Passwort beizubehalten",
   "platforms-drawer": "Plattformen-Menü",
   "platforms-drawer-group-by": "Gruppieren nach",
   "platform-version": "Plattform-Version",

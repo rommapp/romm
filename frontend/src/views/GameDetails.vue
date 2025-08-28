@@ -26,7 +26,6 @@ const PdfViewer = defineAsyncComponent(
   () => import("@/components/Details/PDFViewer.vue"),
 );
 
-// Props
 const { t } = useI18n();
 const route = useRoute();
 const tab = ref<
@@ -45,7 +44,6 @@ const romsStore = storeRoms();
 const platformsStore = storePlatforms();
 const { currentRom, fetchingRoms } = storeToRefs(romsStore);
 
-// Functions
 async function fetchDetails() {
   fetchingRoms.value = true;
   await romApi

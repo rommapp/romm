@@ -4,7 +4,6 @@ import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import { ROUTES } from "@/plugins/router";
 import { computed } from "vue";
 
-// Props
 const props = withDefaults(
   defineProps<{
     collection: CollectionType;

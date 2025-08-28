@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import IO, Any, Final, Literal, TypedDict
 
 import magic
-import py7zr
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
@@ -23,13 +22,7 @@ from exceptions.fs_exceptions import (
 from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomFileCategory
-from py7zr.exceptions import (
-    Bad7zFile,
-    DecompressionError,
-    PasswordRequired,
-    UnsupportedCompressionMethodError,
-)
-from utils.archive_7zip import CallbackIOFactory
+from utils.archive_7zip import process_file_7z
 from utils.filesystem import iter_files
 from utils.hashing import crc32_to_hex
 
@@ -132,13 +125,11 @@ def read_basic_file(file_path: os.PathLike[str]) -> Iterator[bytes]:
 def read_zip_file(file: str | os.PathLike[str] | IO[bytes]) -> Iterator[bytes]:
     try:
         with zipfile.ZipFile(file, "r") as z:
-            for file in z.namelist():
-                with z.open(file, "r") as f:
-                    while chunk := f.read(FILE_READ_CHUNK_SIZE):
-                        yield chunk
-
-                    # We only need to read the first file in the archive
-                    return
+            # Find the biggest file in the archive
+            largest_file = max(z.infolist(), key=lambda x: x.file_size)
+            with z.open(largest_file, "r") as f:
+                while chunk := f.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
     except zipfile.BadZipFile:
         if isinstance(file, Path):
             for chunk in read_basic_file(file):
@@ -150,21 +141,13 @@ def read_tar_file(
 ) -> Iterator[bytes]:
     try:
         with tarfile.open(file_path, mode) as f:
-            for member in f.getmembers():
-                # Ignore directories and any other non-regular files
-                if not member.isfile():
-                    continue
+            regular_files = [member for member in f.getmembers() if member.isfile()]
 
-                # Ignore metadata files created by macOS
-                if member.name.startswith("._"):
-                    continue
-
-                with f.extractfile(member) as ef:  # type: ignore
-                    while chunk := ef.read(FILE_READ_CHUNK_SIZE):
-                        yield chunk
-
-                # We only need to read the first file in the archive
-                return
+            # Find the largest file among regular files only
+            largest_file = max(regular_files, key=lambda x: x.size)
+            with f.extractfile(largest_file) as ef:  # type: ignore
+                while chunk := ef.read(FILE_READ_CHUNK_SIZE):
+                    yield chunk
     except tarfile.ReadError:
         for chunk in read_basic_file(file_path):
             yield chunk
@@ -177,37 +160,12 @@ def read_gz_file(file_path: Path) -> Iterator[bytes]:
 def process_7z_file(
     file_path: Path,
     fn_hash_update: Callable[[bytes | bytearray], None],
-    fn_hash_read: Callable[[int | None], bytes],
 ) -> None:
-    """Process a 7zip file and use the provided callables to update the calculated hashes.
-
-    7zip files are special, as the py7zr library does not provide a similar interface to the
-    other compression utils. Instead, we must use a factory to intercept the read and write
-    operations of the 7zip file to calculate the hashes.
-
-    Hashes end up being updated by reference in the provided callables, so they will include the
-    final hash when this function returns.
-    """
-
-    try:
-        factory = CallbackIOFactory(
-            on_write=fn_hash_update,
-            on_read=fn_hash_read,
-        )
-        # Provide a file handler to `SevenZipFile` instead of a file path to deactivate the
-        # "parallel" mode in py7zr, which is needed to deterministically calculate the hashes
-        with open(file_path, "rb") as f:
-            with py7zr.SevenZipFile(f, mode="r") as archive:
-                file_list = archive.getnames()
-                for file in file_list:
-                    archive.extract(file, factory=factory)
-                    break  # We only need to read the first file in the archive
-    except (
-        Bad7zFile,
-        DecompressionError,
-        PasswordRequired,
-        UnsupportedCompressionMethodError,
-    ):
+    processed = process_file_7z(
+        file_path=file_path,
+        fn_hash_update=fn_hash_update,
+    )
+    if not processed:
         for chunk in read_basic_file(file_path):
             fn_hash_update(chunk)
 
@@ -361,7 +319,7 @@ class FSRomsHandler(FSHandler):
             ):
                 # Check if file is excluded
                 ext = self.parse_file_extension(file_name)
-                if not ext or ext in excluded_file_exts:
+                if ext in excluded_file_exts:
                     continue
 
                 if any(
@@ -479,7 +437,6 @@ class FSRomsHandler(FSHandler):
         mime = magic.Magic(mime=True)
         try:
             file_type = mime.from_file(file_path)
-            file_type = None
 
             crc_c = 0
             md5_h = hashlib.md5(usedforsecurity=False)
@@ -513,7 +470,6 @@ class FSRomsHandler(FSHandler):
                 process_7z_file(
                     file_path=file_path,
                     fn_hash_update=update_hashes,
-                    fn_hash_read=lambda size: sha1_h.digest(),
                 )
 
             elif extension == ".bz2" or file_type == "application/x-bzip2":

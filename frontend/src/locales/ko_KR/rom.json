@@ -13,10 +13,11 @@
   "completion": "완료율",
   "copy-link": "다운로드 링크 복사",
   "default": "기본으로",
-  "delete-rom": "삭제",
+  "delete": "삭제",
   "details": "자세히",
   "difficulty": "난이도",
-  "edit-rom": "수정",
+  "download": "다운로드",
+  "edit": "수정",
   "file": "파일",
   "filename": "파일 이름",
   "files": "파일",
@@ -50,6 +51,7 @@
   "rename-file-part4": "에서 다음으로 변경합니다:",
   "rename-file-part5": "파일 이름 태그에는 영향을 주지 않습니다",
   "results-found": "검색 결과",
+  "select-all": "모두 선택",
   "select-cover-image": "커버 이미지 선택",
   "set-as-default": "기본 롬으로 설정",
   "size": "크기",
@@ -58,5 +60,6 @@
   "summary": "요약",
   "switch-version": "버전 전환",
   "tags": "태그",
-  "unmatch-rom": "DB 대응 해제"
+  "unmatch": "DB 대응 해제",
+  "unselect-all": "모두 선택 해제"
 }
