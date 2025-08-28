@@ -1,0 +1,20 @@
+/* Default Console Theme */
+:root {
+  /* Background Colors */
+  --bg-0: #0a0a0a;
+  --bg-1: #111317;
+  --bg-2: #171a21;
+
+  /* Foreground Colors */
+  --fg-0: #e5e7eb;
+  --fg-dim: #a3a3a3;
+
+  /* Accent Colors */
+  --accent: #553f99;
+  --accent-2: #e1a38e;
+  --accent-3: #bda5cf;
+
+  /* UI Elements */
+  --tile: #1f2430;
+  --tile-hover: #2b3242;
+}

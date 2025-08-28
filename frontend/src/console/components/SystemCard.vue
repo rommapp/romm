@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { getPlatformTheme } from "@/console/constants/platforms";
 import { systemElementRegistry } from "@/console/composables/useElementRegistry";
+import { useThemeAssets } from "@/console/composables/useThemeAssets";
 import type { Platform } from "@/stores/platforms";
 
 const props = defineProps<{
@@ -11,6 +12,7 @@ const props = defineProps<{
 }>();
 const emit = defineEmits(["click", "mouseenter", "focus"]);
 const el = ref<HTMLElement>();
+const { getSystemImagePath } = useThemeAssets();
 
 onMounted(() => {
   if (el.value) {
@@ -24,7 +26,7 @@ const theme = computed(() => {
     return {
       name: platformTheme.label,
       shortName: platformTheme.shortName || platformTheme.label,
-      image: platformTheme.image,
+      image: getSystemImagePath(props.platform.slug).value,
       background:
         platformTheme.background || "linear-gradient(135deg,#2b3242,#1b2233)",
       accent: platformTheme.accent || "#f8b400",

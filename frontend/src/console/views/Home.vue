@@ -11,6 +11,7 @@ import SystemCard from "@/console/components/SystemCard.vue";
 import GameCard from "@/console/components/GameCard.vue";
 import CollectionCard from "@/console/components/CollectionCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
+import SettingsModal from "@/console/components/SettingsModal.vue";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
 import { isSupportedPlatform } from "@/console/constants/platforms";
@@ -40,6 +41,7 @@ const recent = ref<SimpleRomSchema[]>([]);
 const collections = ref<CollectionSchema[]>([]);
 const loading = ref(true);
 const error = ref("");
+const showSettings = ref(false);
 
 // Navigation indices
 const selectedIndex = ref(storeConsole.platformIndex);
@@ -201,13 +203,19 @@ const navigationFunctions = {
   },
   controls: {
     prev: () => {
-      controlIndex.value = (controlIndex.value - 1 + 2) % 2;
+      controlIndex.value = (controlIndex.value - 1 + 3) % 3;
     },
     next: () => {
-      controlIndex.value = (controlIndex.value + 1) % 2;
+      controlIndex.value = (controlIndex.value + 1) % 3;
     },
     confirm: () => {
-      controlIndex.value === 0 ? exitConsoleMode() : toggleFullscreen();
+      if (controlIndex.value === 0) {
+        exitConsoleMode();
+      } else if (controlIndex.value === 1) {
+        toggleFullscreen();
+      } else if (controlIndex.value === 2) {
+        showSettings.value = true;
+      }
       return true;
     },
   },
@@ -301,6 +309,16 @@ function goCollection(collectionId: number) {
 
 // Input handling
 function handleAction(action: InputAction): boolean {
+  // settings modal handling
+  if (showSettings.value) {
+    if (action === "back") {
+      showSettings.value = false;
+      return true;
+    }
+    // the modal handles the other actions
+    return false;
+  }
+
   const currentMode = navigationMode.value;
 
   switch (action) {
@@ -608,6 +626,17 @@ onUnmounted(() => {
         >
           ⛶
         </button>
+        <button
+          class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
+          :class="{
+            'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5':
+              navigationMode === 'controls' && controlIndex === 2,
+          }"
+          title="Settings"
+          @click="showSettings = true"
+        >
+          ⚙
+        </button>
       </div>
 
       <NavigationHint
@@ -615,6 +644,7 @@ onUnmounted(() => {
         :show-toggle-favorite="navigationMode === 'recent'"
       />
     </div>
+    <SettingsModal v-model="showSettings" />
   </div>
 </template>
 

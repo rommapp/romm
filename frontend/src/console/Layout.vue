@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, provide, watch } from "vue";
+import { onMounted, onUnmounted, provide } from "vue";
 import { type RouteLocationNormalized } from "vue-router";
 import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import { attachKeyboard } from "@/console/input/keyboard";
 import { attachGamepad } from "@/console/input/gamepad";
+import { initializeSfx } from "@/console/utils/sfx";
 import { ROUTES } from "@/plugins/router";
 import { useRouter } from "vue-router";
 import { useIdle } from "@vueuse/core";
@@ -50,6 +51,8 @@ let detachKeyboard: (() => void) | null = null;
 let detachGamepad: (() => void) | null = null;
 
 onMounted(() => {
+  initializeSfx();
+
   // Establish a root input scope so child views can subscribe safely
   bus.pushScope();
   detachKeyboard = attachKeyboard(bus);
