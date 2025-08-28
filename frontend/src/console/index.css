@@ -178,7 +178,6 @@ body,
   content: "";
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
   pointer-events: none;
   z-index: 0;
 }
