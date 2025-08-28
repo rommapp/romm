@@ -1,3 +1,21 @@
+let sfxEnabled = true;
+
+export function setSfxEnabled(enabled: boolean): void {
+  sfxEnabled = enabled;
+  localStorage.setItem("console-sfx-enabled", enabled ? "true" : "false");
+}
+
+export function getSfxEnabled(): boolean {
+  return sfxEnabled;
+}
+
+export function initializeSfx(): void {
+  const saved = localStorage.getItem("console-sfx-enabled");
+  if (saved !== null) {
+    sfxEnabled = saved === "true";
+  }
+}
+
 let ctx: AudioContext | null = null;
 function ensureCtx() {
   if (ctx) return ctx;
@@ -110,6 +128,8 @@ function playClick(opts: ClickOpts = {}) {
 }
 
 export function playSfx(kind: SfxType) {
+  if (!sfxEnabled) return;
+
   // Lazy resume (required on some browsers until user gesture)
   ensureCtx()
     ?.resume()

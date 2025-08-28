@@ -1,0 +1,20 @@
+/* Light Console Theme */
+:root {
+  /* Background Colors */
+  --bg-0: #ffffff;
+  --bg-1: #f8f9fa;
+  --bg-2: #e9ecef;
+
+  /* Foreground Colors */
+  --fg-0: #212529;
+  --fg-dim: #6c757d;
+
+  /* Accent Colors */
+  --accent: #0d6efd;
+  --accent-2: #fd7e14;
+  --accent-3: #6f42c1;
+
+  /* UI Elements */
+  --tile: #f1f3f4;
+  --tile-hover: #e2e6ea;
+}

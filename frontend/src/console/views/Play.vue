@@ -12,12 +12,13 @@ import {
 import firmwareApi from "@/services/api/firmware";
 import { useInputScope } from "@/console/composables/useInputScope";
 import NavigationText from "@/console/components/NavigationText.vue";
-import { getPlatformTheme } from "@/console/constants/platforms";
+import { useThemeAssets } from "@/console/composables/useThemeAssets";
 import api from "@/services/api";
 import { ROUTES } from "@/plugins/router";
 
 const route = useRoute();
 const router = useRouter();
+const { getBezelImagePath } = useThemeAssets();
 const romId = Number(route.params.rom);
 const initialSaveId = route.query.save ? Number(route.query.save) : null;
 const initialStateId = route.query.state ? Number(route.query.state) : null;
@@ -301,7 +302,7 @@ async function boot() {
     : null;
 
   document.title = `${rom.name} | Play`;
-  bezelSrc.value = getPlatformTheme(rom.platform_slug)?.bezel || "";
+  bezelSrc.value = getBezelImagePath(rom.platform_slug).value;
 
   // Configure EmulatorJS globals
   const supported = getSupportedEJSCores(rom.platform_slug);
@@ -641,6 +642,7 @@ onBeforeUnmount(() => {
         class="select-none"
         draggable="false"
         style="height: 100vh; max-height: 100vh; width: auto; object-fit: cover"
+        @error="bezelSrc = ''"
       />
     </div>
     <div

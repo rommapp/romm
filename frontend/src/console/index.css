@@ -1,16 +1,6 @@
 @import "tailwindcss";
 
 :root {
-  --bg-0: #0a0a0a;
-  --bg-1: #111317;
-  --bg-2: #171a21;
-  --fg-0: #e5e7eb;
-  --fg-dim: #a3a3a3;
-  --accent: #553f99;
-  --accent-2: #e1a38e;
-  --accent-3: #bda5cf;
-  --tile: #1f2430;
-  --tile-hover: #2b3242;
   --motion-fast: 150ms;
   --motion-med: 220ms;
   --motion-slow: 360ms;
@@ -174,7 +164,11 @@ body,
 
 .console-root {
   background:
-    url("/assets/auth_background.svg") center/cover fixed,
+    var(
+        --theme-background,
+        url("/assets/console/default/backgrounds/background.svg")
+      )
+      center/cover fixed,
     #38286a !important;
   min-height: 100vh;
   width: 100%;
