@@ -1,6 +1,6 @@
 {
   "name": "ROMM Development",
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": "../docker-compose.yml",
   "service": "romm-dev",
   "workspaceFolder": "/app",
   "shutdownAction": "stopCompose",
