@@ -142,6 +142,20 @@ const largeCover = computed(() =>
 const smallCover = computed(() =>
   romsStore.isSimpleRom(props.rom) ? props.rom.path_cover_small : "",
 );
+const largeWebpCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_large
+      ? props.rom.path_cover_large.split(".").slice(0, -1).join(".") + ".webp"
+      : ""
+    : "",
+);
+const smallWebpCover = computed(() =>
+  romsStore.isSimpleRom(props.rom)
+    ? props.rom.path_cover_small
+      ? props.rom.path_cover_small.split(".").slice(0, -1).join(".") + ".webp"
+      : ""
+    : "",
+);
 
 const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   event.preventDefault();
@@ -220,7 +234,7 @@ onBeforeUnmount(() => {
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
               :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
-              :src="largeCover || fallbackCoverImage"
+              :src="largeWebpCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
             >
               <template v-bind="props" v-if="titleOnHover">
@@ -344,18 +358,11 @@ onBeforeUnmount(() => {
                   />
                 </v-expand-transition>
               </div>
-              <template #error>
-                <v-img
-                  cover
-                  :src="fallbackCoverImage"
-                  :aspect-ratio="computedAspectRatio"
-                ></v-img>
-              </template>
               <template #placeholder>
                 <v-img
                   cover
                   eager
-                  :src="smallCover || fallbackCoverImage"
+                  :src="smallWebpCover || fallbackCoverImage"
                   :aspect-ratio="computedAspectRatio"
                 >
                   <template #placeholder>
@@ -363,6 +370,30 @@ onBeforeUnmount(() => {
                       :platformId="rom.platform_id"
                       :aspectRatio="computedAspectRatio"
                       type="image"
+                    />
+                  </template>
+                </v-img>
+              </template>
+              <template #error>
+                <v-img
+                  cover
+                  :src="largeCover || fallbackCoverImage"
+                  :aspect-ratio="computedAspectRatio"
+                >
+                  <template #placeholder>
+                    <v-img
+                      cover
+                      eager
+                      :src="smallCover || fallbackCoverImage"
+                      :aspect-ratio="computedAspectRatio"
+                    />
+                  </template>
+                  <template #error>
+                    <v-img
+                      cover
+                      eager
+                      :src="fallbackCoverImage"
+                      :aspect-ratio="computedAspectRatio"
                     />
                   </template>
                 </v-img>

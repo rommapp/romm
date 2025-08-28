@@ -16,7 +16,6 @@ const props = withDefaults(
     showRomCount?: boolean;
     withLink?: boolean;
     enable3DTilt?: boolean;
-    src?: string;
   }>(),
   {
     transformScale: false,
@@ -25,7 +24,6 @@ const props = withDefaults(
     showRomCount: false,
     withLink: false,
     enable3DTilt: false,
-    src: "",
   },
 );
 
@@ -35,6 +33,8 @@ const galleryViewStore = storeGalleryView();
 const memoizedCovers = ref({
   large: ["", ""],
   small: ["", ""],
+  largeWebp: ["", ""],
+  smallWebp: ["", ""],
 });
 
 const collectionCoverImage = computed(() =>
@@ -44,14 +44,6 @@ const collectionCoverImage = computed(() =>
 );
 
 watchEffect(() => {
-  if (props.src) {
-    memoizedCovers.value = {
-      large: [props.src, props.src],
-      small: [props.src, props.src],
-    };
-    return;
-  }
-
   // Check if it's a regular collection with covers or a smart collection with covers
   const isRegularOrSmartWithCovers =
     (!("is_virtual" in props.collection) || !props.collection.is_virtual) &&
@@ -67,6 +59,18 @@ watchEffect(() => {
       small: [
         props.collection.path_cover_small || "",
         props.collection.path_cover_small || "",
+      ],
+      largeWebp: [
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+      ],
+      smallWebp: [
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
       ],
     };
     return;
@@ -86,6 +90,18 @@ watchEffect(() => {
     memoizedCovers.value = {
       large: [collectionCoverImage.value, collectionCoverImage.value],
       small: [collectionCoverImage.value, collectionCoverImage.value],
+      largeWebp: [
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+      ],
+      smallWebp: [
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
+          ".webp" || "",
+      ],
     };
     return;
   }
@@ -96,13 +112,25 @@ watchEffect(() => {
   memoizedCovers.value = {
     large: [shuffledLarge[0], shuffledLarge[1]],
     small: [shuffledSmall[0], shuffledSmall[1]],
+    largeWebp: [
+      shuffledLarge[0].split(".").slice(0, -1).join(".") + ".webp" || "",
+      shuffledLarge[1].split(".").slice(0, -1).join(".") + ".webp" || "",
+    ],
+    smallWebp: [
+      shuffledSmall[0].split(".").slice(0, -1).join(".") + ".webp" || "",
+      shuffledSmall[1].split(".").slice(0, -1).join(".") + ".webp" || "",
+    ],
   };
 });
 
-const firstCover = computed(() => memoizedCovers.value.large[0]);
-const secondCover = computed(() => memoizedCovers.value.large[1]);
+const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
+const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
 const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
 const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
+const firstLargeWebpCover = computed(() => memoizedCovers.value.largeWebp[0]);
+const secondLargeWebpCover = computed(() => memoizedCovers.value.largeWebp[1]);
+const firstSmallWebpCover = computed(() => memoizedCovers.value.smallWebp[0]);
+const secondSmallWebpCover = computed(() => memoizedCovers.value.smallWebp[1]);
 
 // Tilt 3D effect logic
 interface TiltHTMLElement extends HTMLElement {
@@ -202,28 +230,40 @@ onBeforeUnmount(() => {
           <template
             v-if="
               ('is_virtual' in collection && collection.is_virtual) ||
-              !collection.path_cover_large
+              !collection.path_cover_large ||
+              !collection.path_cover_small
             "
           >
             <div class="split-image first-image">
               <v-img
                 cover
-                :src="firstCover"
+                :lazy-src="firstSmallWebpCover"
+                :src="firstLargeWebpCover"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              />
+              >
+                <template #error>
+                  <v-img :lazy-src="firstSmallCover" :src="firstLargeCover" />
+                </template>
+              </v-img>
             </div>
             <div class="split-image second-image">
               <v-img
                 cover
-                :src="secondCover"
+                :lazy-src="secondSmallWebpCover"
+                :src="secondLargeWebpCover"
                 :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
-              />
+              >
+                <template #error>
+                  <v-img :lazy-src="secondSmallCover" :src="secondLargeCover" />
+                </template>
+              </v-img>
             </div>
           </template>
           <template v-else>
             <v-img
               cover
-              :src="src || collection.path_cover_large"
+              :lazy-src="firstSmallWebpCover"
+              :src="firstLargeWebpCover"
               :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
             />
           </template>
