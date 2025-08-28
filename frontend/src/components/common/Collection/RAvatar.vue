@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import storeHeartbeat from "@/stores/heartbeat";
 import { type CollectionType } from "@/stores/collections";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 import { computed, ref, watchEffect } from "vue";
+
+const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 
 const props = withDefaults(
   defineProps<{
@@ -13,12 +17,8 @@ const props = withDefaults(
   },
 );
 
-const memoizedCovers = ref({
-  large: ["", ""],
-  small: ["", ""],
-  largeWebp: ["", ""],
-  smallWebp: ["", ""],
-});
+const heartbeatStore = storeHeartbeat();
+const memoizedCovers = ref(["", ""]);
 
 const collectionCoverImage = computed(() =>
   !props.collection.is_virtual && props.collection.is_favorite
@@ -27,172 +27,78 @@ const collectionCoverImage = computed(() =>
 );
 
 watchEffect(() => {
-  if (
-    !props.collection.is_virtual &&
-    props.collection.path_cover_large &&
-    props.collection.path_cover_small
-  ) {
-    memoizedCovers.value = {
-      large: [
-        props.collection.path_cover_large,
-        props.collection.path_cover_large,
-      ],
-      small: [
-        props.collection.path_cover_small,
-        props.collection.path_cover_small,
-      ],
-      largeWebp: [
-        props.collection.path_cover_large?.split(".").slice(0, -1).join(".") +
-          ".webp" || "",
-        props.collection.path_cover_large?.split(".").slice(0, -1).join(".") +
-          ".webp" || "",
-      ],
-      smallWebp: [
-        props.collection.path_cover_small?.split(".").slice(0, -1).join(".") +
-          ".webp" || "",
-        props.collection.path_cover_small?.split(".").slice(0, -1).join(".") +
-          ".webp" || "",
-      ],
-    };
+  // Check if it's a regular collection with covers or a smart collection with covers
+  const isRegularOrSmartWithCovers =
+    !props.collection.is_virtual && props.collection.path_cover_small;
+
+  const isWebpEnabled =
+    heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP;
+  const pathCoverSmall = isWebpEnabled
+    ? props.collection.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
+    : props.collection.path_cover_small;
+
+  if (isRegularOrSmartWithCovers) {
+    memoizedCovers.value = [pathCoverSmall || "", pathCoverSmall || ""];
     return;
   }
 
-  const largeCoverUrls = props.collection.path_covers_large || [];
-  const smallCoverUrls = props.collection.path_covers_small || [];
+  // Handle virtual collections which have plural covers arrays
+  const smallCoverUrls = props.collection.path_covers_small.map((url) =>
+    isWebpEnabled ? url.replace(EXTENSION_REGEX, ".webp") : url,
+  );
 
-  if (largeCoverUrls.length < 2) {
-    memoizedCovers.value = {
-      large: [collectionCoverImage.value, collectionCoverImage.value],
-      small: [collectionCoverImage.value, collectionCoverImage.value],
-      largeWebp: [
-        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
-          ".webp" || "",
-        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
-          ".webp" || "",
-      ],
-      smallWebp: [
-        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
-          ".webp" || "",
-        collectionCoverImage.value.split(".").slice(0, -1).join(".") +
-          ".webp" || "",
-      ],
-    };
+  if (smallCoverUrls.length < 2) {
+    memoizedCovers.value = [
+      collectionCoverImage.value,
+      collectionCoverImage.value,
+    ];
     return;
   }
 
-  const shuffledLarge = [...largeCoverUrls].sort(() => Math.random() - 0.5);
   const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
-
-  memoizedCovers.value = {
-    large: [shuffledLarge[0], shuffledLarge[1]],
-    small: [shuffledSmall[0], shuffledSmall[1]],
-    largeWebp: [
-      shuffledLarge[0].split(".").slice(0, -1).join(".") + ".webp" || "",
-      shuffledLarge[1].split(".").slice(0, -1).join(".") + ".webp" || "",
-    ],
-    smallWebp: [
-      shuffledSmall[0].split(".").slice(0, -1).join(".") + ".webp" || "",
-      shuffledSmall[1].split(".").slice(0, -1).join(".") + ".webp" || "",
-    ],
-  };
+  memoizedCovers.value = [shuffledSmall[0], shuffledSmall[1]];
 });
 
-const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
-const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
-const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
-const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
-const firstLargeWebpCover = computed(() => memoizedCovers.value.largeWebp[0]);
-const secondLargeWebpCover = computed(() => memoizedCovers.value.largeWebp[1]);
-const firstSmallWebpCover = computed(() => memoizedCovers.value.smallWebp[0]);
-const secondSmallWebpCover = computed(() => memoizedCovers.value.smallWebp[1]);
+const firstCover = computed(() => memoizedCovers.value[0]);
+const secondCover = computed(() => memoizedCovers.value[1]);
 </script>
 
 <template>
   <v-avatar :rounded="0" :size="size">
     <div class="image-container" :style="{ aspectRatio: 1 / 1 }">
-      <template
-        v-if="
-          collection.is_virtual ||
-          !collection.path_cover_large ||
-          !collection.path_cover_small
-        "
-      >
+      <template v-if="collection.is_virtual || !collection.path_cover_small">
         <div class="split-image first-image">
-          <v-img cover :src="firstLargeWebpCover" :aspect-ratio="1 / 1">
+          <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
             <template #placeholder>
-              <v-img
-                cover
-                eager
-                :src="firstSmallWebpCover"
-                :aspect-ratio="1 / 1"
-              />
+              <skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
             <template #error>
-              <v-img cover :src="firstLargeCover" :aspect-ratio="1 / 1">
-                <template #placeholder>
-                  <v-img
-                    cover
-                    eager
-                    :src="firstSmallCover"
-                    :aspect-ratio="1 / 1"
-                  />
-                </template>
-              </v-img>
+              <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />
             </template>
           </v-img>
         </div>
         <div class="split-image second-image">
-          <v-img cover :src="secondLargeCover" :aspect-ratio="1 / 1">
+          <v-img cover :src="secondCover" :aspect-ratio="1 / 1">
             <template #placeholder>
-              <v-img
-                cover
-                eager
-                :src="secondSmallCover"
-                :aspect-ratio="1 / 1"
-              />
+              <skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
             <template #error>
-              <v-img cover :src="secondLargeCover" :aspect-ratio="1 / 1">
-                <template #placeholder>
-                  <v-img
-                    cover
-                    eager
-                    :src="secondSmallCover"
-                    :aspect-ratio="1 / 1"
-                  />
-                </template>
-              </v-img>
+              <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />
             </template>
           </v-img>
         </div>
       </template>
       <template v-else>
-        <v-img cover :src="collection.path_cover_large" :aspect-ratio="1 / 1">
-          <template #placeholder>
-            <v-img
-              cover
-              eager
-              :src="collection.path_cover_small"
-              :aspect-ratio="1 / 1"
-            />
-          </template>
-          <template #error>
-            <v-img
-              cover
-              :src="collection.path_cover_large"
-              :aspect-ratio="1 / 1"
-            >
-              <template #placeholder>
-                <v-img
-                  cover
-                  eager
-                  :src="collection.path_cover_small"
-                  :aspect-ratio="1 / 1"
-                />
-              </template>
-            </v-img>
-          </template>
-        </v-img>
+        <div class="split-image first-image">
+          <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
+            <template #placeholder>
+              <skeleton :aspect-ratio="1 / 1" type="image" />
+            </template>
+            <template #error>
+              <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />
+            </template>
+          </v-img>
+        </div>
       </template>
     </div>
   </v-avatar>

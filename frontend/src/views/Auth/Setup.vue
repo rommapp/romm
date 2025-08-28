@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import router from "@/plugins/router";
-import { refetchCSRFToken } from "@/services/api/index";
+import { refetchCSRFToken } from "@/services/api";
 import userApi from "@/services/api/user";
-import api from "@/services/api/index";
+import api from "@/services/api";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { ROUTES } from "@/plugins/router";

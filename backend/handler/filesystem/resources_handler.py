@@ -3,12 +3,13 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
-from config import RESOURCES_BASE_PATH
+from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from fastapi import status
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
 from PIL import Image, ImageFile, UnidentifiedImageError
+from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -17,6 +18,7 @@ from .base_handler import CoverSize, FSHandler
 class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
+        self.image_converter = ImageConverter()
 
     def get_platform_resources_path(self, platform_id: int) -> str:
         return os.path.join("roms", str(platform_id))
@@ -50,48 +52,6 @@ class FSResourcesHandler(FSHandler):
 
         small_img.save(save_path)
 
-    def _create_webp_version(self, image_path: Path, quality: int = 85) -> Path | None:
-        """Create a WebP version of the given image file.
-        Args:
-            image_path: Path to the original image file
-            quality: WebP quality (0-100, default 85)
-        Returns:
-            Path to the created WebP file
-        """
-        webp_path = image_path.with_suffix(".webp")
-
-        try:
-            with Image.open(image_path) as img:
-                # Convert to RGB if necessary (WebP doesn't support RGBA)
-                if img.mode in ("RGBA", "LA", "P"):
-                    # Create white background for transparent images
-                    background = Image.new("RGB", img.size, (255, 255, 255))
-                    if img.mode == "P":
-                        img = img.convert("RGBA")
-                    background.paste(
-                        img, mask=img.split()[-1] if img.mode == "RGBA" else None
-                    )
-                    img = background
-                elif img.mode != "RGB":
-                    img = img.convert("RGB")
-
-                img.save(webp_path, "WEBP", quality=quality, optimize=True)
-                log.info(f"Created WebP version: {webp_path}")
-                return webp_path
-        except Exception as exc:
-            log.error(f"Failed to create WebP version of {image_path}: {str(exc)}")
-            return None
-
-    def _get_webp_path(self, original_path: Path) -> Path | None:
-        """Get the WebP version path for a given image file.
-        Args:
-            original_path: Path to the original image file
-        Returns:
-            Path to WebP file if it exists, None otherwise
-        """
-        webp_path = original_path.with_suffix(".webp")
-        return webp_path if webp_path.exists() else None
-
     async def _store_cover(
         self, entity: Rom | Collection, url_cover: str, size: CoverSize
     ) -> None:
@@ -115,6 +75,11 @@ class FSResourcesHandler(FSHandler):
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
+
+                    if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                        self.image_converter.convert_to_webp(
+                            self.validate_path(f"{cover_file}/{size.value}.png")
+                        )
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
             return None
@@ -124,6 +89,11 @@ class FSResourcesHandler(FSHandler):
                 image_path = self.validate_path(f"{cover_file}/{size.value}.png")
                 with Image.open(image_path) as img:
                     self.resize_cover_to_small(img, save_path=str(image_path))
+
+                if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                    self.image_converter.convert_to_webp(
+                        self.validate_path(f"{cover_file}/{size.value}.png")
+                    )
             except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None

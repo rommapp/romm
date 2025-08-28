@@ -57,7 +57,7 @@ function editUser() {
       });
       usersStore.update(data);
       if (data.id == auth.user?.id) {
-        auth.setUser(data);
+        auth.setCurrentUser(data);
       }
     })
     .catch(({ response, message }) => {

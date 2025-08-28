@@ -67,6 +67,7 @@ export type { StatsReturn } from './models/StatsReturn';
 export type { SystemDict } from './models/SystemDict';
 export type { TaskExecutionResponse } from './models/TaskExecutionResponse';
 export type { TaskInfo } from './models/TaskInfo';
+export type { TasksDict } from './models/TasksDict';
 export type { TaskStatusResponse } from './models/TaskStatusResponse';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';
