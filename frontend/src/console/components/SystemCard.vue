@@ -27,9 +27,8 @@ const theme = computed(() => {
       name: platformTheme.label,
       shortName: platformTheme.shortName || platformTheme.label,
       image: getSystemImagePath(props.platform.slug).value,
-      background:
-        platformTheme.background || "linear-gradient(135deg,#2b3242,#1b2233)",
-      accent: platformTheme.accent || "#f8b400",
+      background: platformTheme.background,
+      accent: platformTheme.accent,
     };
   }
 
@@ -37,8 +36,8 @@ const theme = computed(() => {
     name: props.platform.name,
     shortName: props.platform.name,
     image: undefined,
-    background: "linear-gradient(135deg, #2b3242 0%, #1b2233 100%)",
-    accent: "#f8b400",
+    background: "var(--console-system-card-bg-fallback)",
+    accent: "var(--console-system-accent-fallback)",
   };
 });
 </script>
@@ -74,7 +73,10 @@ const theme = computed(() => {
             class="absolute inset-0 flex flex-col items-center justify-center"
           >
             <div class="text-2xl mb-2">🎮</div>
-            <div class="text-white font-bold text-center">
+            <div
+              class="font-bold text-center"
+              :style="{ color: 'var(--console-system-card-text)' }"
+            >
               {{ theme.shortName }}
             </div>
           </div>
@@ -86,7 +88,10 @@ const theme = computed(() => {
         :style="{ background: 'var(--system-bg)' }"
       >
         <div class="text-2xl mb-2">🎮</div>
-        <div class="text-white font-bold text-center">
+        <div
+          class="font-bold text-center"
+          :style="{ color: 'var(--console-system-card-text)' }"
+        >
           {{ theme.shortName }}
         </div>
       </div>
@@ -102,7 +107,10 @@ const theme = computed(() => {
     <div
       class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/30 to-transparent px-4 py-2 z-10"
     >
-      <div class="text-sm text-white/90 text-center font-medium">
+      <div
+        class="text-sm text-center font-medium"
+        :style="{ color: 'var(--console-system-card-text)' }"
+      >
         {{ platform.rom_count || 0 }} games
       </div>
     </div>

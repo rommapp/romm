@@ -23,7 +23,11 @@ withDefaults(
 
 <template>
   <div
-    class="fixed bottom-4 right-20 bg-black/50 px-8 py-3 rounded-lg backdrop-blur border border-white/10 z-[100] pointer-events-none select-none"
+    :style="{
+      backgroundColor: 'var(--console-nav-hint-bg)',
+      borderColor: 'var(--console-nav-hint-border)',
+    }"
+    class="fixed bottom-4 right-20 px-8 py-3 rounded-lg backdrop-blur border z-[100] pointer-events-none select-none"
   >
     <navigation-text
       :show-navigation="showNavigation"

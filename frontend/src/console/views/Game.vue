@@ -444,7 +444,11 @@ onUnmounted(() => {
   <div class="w-full h-screen flex flex-col overflow-hidden cursor-none">
     <template v-if="!rom">
       <!-- States -->
-      <div v-if="playerState === 'loading'" class="m-auto text-fg0 text-lg">
+      <div
+        v-if="playerState === 'loading'"
+        class="m-auto text-lg"
+        :style="{ color: 'var(--console-loading-text)' }"
+      >
         Loading…
       </div>
       <div v-else-if="playerState === 'error'" class="m-auto text-red-400 p-4">
@@ -452,7 +456,8 @@ onUnmounted(() => {
       </div>
       <div
         v-else-if="playerState === 'unsupported'"
-        class="m-auto text-red-400 p-4"
+        class="m-auto p-4"
+        :style="{ color: 'var(--console-error-text)' }"
       >
         This platform is not yet supported in the web player
       </div>
@@ -496,7 +501,8 @@ onUnmounted(() => {
               <!-- Content -->
               <div class="flex-1 max-w-[900px]">
                 <h1
-                  class="text-white text-4xl md:text-5xl font-extrabold mb-3 drop-shadow"
+                  class="text-4xl md:text-5xl font-extrabold mb-3 drop-shadow"
+                  :style="{ color: 'var(--console-game-title-text)' }"
                 >
                   {{ rom.name }}
                 </h1>
@@ -505,7 +511,10 @@ onUnmounted(() => {
                   class="flex flex-wrap items-center gap-2 md:gap-4 mb-5 text-sm"
                 >
                   <span
-                    class="bg-[var(--accent)] text-white px-3 py-1 rounded text-xs font-semibold"
+                    class="bg-[var(--console-game-platform-badge-bg)] px-3 py-1 rounded text-xs font-semibold"
+                    :style="{
+                      color: 'var(--console-game-platform-badge-text)',
+                    }"
                   >
                     {{
                       rom.platform_name ||
@@ -514,16 +523,22 @@ onUnmounted(() => {
                   </span>
                   <span
                     v-if="releaseYear !== null"
-                    class="text-gray-300 font-medium"
+                    class="font-medium"
+                    :style="{ color: 'var(--console-game-metadata-text)' }"
                   >
                     {{ releaseYear }}
                   </span>
-                  <span v-if="regions.length" class="text-gray-300 font-medium">
+                  <span
+                    v-if="regions.length"
+                    class="font-medium"
+                    :style="{ color: 'var(--console-game-metadata-text)' }"
+                  >
                     {{ regions[0] }}
                   </span>
                   <span
                     v-if="genres.length"
-                    class="text-gray-300 font-medium truncate max-w-[50%]"
+                    class="font-medium truncate max-w-[50%]"
+                    :style="{ color: 'var(--console-game-metadata-text)' }"
                   >
                     {{ genres.join(", ") }}
                   </span>
@@ -531,7 +546,8 @@ onUnmounted(() => {
 
                 <div
                   v-if="rom.summary"
-                  class="text-[#ddd] text-base leading-6 mb-6 line-clamp-3 cursor-pointer"
+                  class="text-base leading-6 mb-6 line-clamp-3 cursor-pointer"
+                  :style="{ color: 'var(--console-game-description-text)' }"
                   :class="{
                     'ring-2 ring-white/30 rounded-md px-1 -translate-y-0.5':
                       selectedZone === 'description',
@@ -547,11 +563,13 @@ onUnmounted(() => {
                   <button
                     class="flex items-center gap-3 px-6 md:px-8 py-3 md:py-4 rounded-lg text-base md:text-lg font-semibold min-w-[130px] md:min-w-[140px] justify-center transition-all"
                     style="
-                      background-color: var(--accent) !important;
-                      color: white !important;
+                      background-color: var(
+                        --console-game-play-button-bg
+                      ) !important;
+                      color: var(--console-game-play-button-text) !important;
                     "
                     :class="{
-                      'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
+                      'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-play-button-focus-border),_0_0_16px_var(--console-accent-secondary)]':
                         selectedZone === 'play',
                     }"
                     @click="play()"
@@ -562,12 +580,14 @@ onUnmounted(() => {
                   <button
                     class="px-5 md:px-6 py-3 md:py-4 rounded-lg font-semibold transition-all"
                     style="
-                      background-color: var(--accent-3) !important;
-                      color: white !important;
+                      background-color: var(
+                        --console-game-details-button-bg
+                      ) !important;
+                      color: var(--console-game-details-button-text) !important;
                       border: none !important;
                     "
                     :class="{
-                      'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
+                      'scale-105 shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-details-button-focus-border),_0_0_16px_var(--console-game-details-button-focus-border)]':
                         selectedZone === 'details',
                     }"
                     @click="openDetails()"
@@ -578,7 +598,8 @@ onUnmounted(() => {
 
                 <div v-if="rom.user_states.length > 0" class="mt-4">
                   <h3
-                    class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2"
+                    class="text-[10px] uppercase tracking-wider font-semibold mb-2"
+                    :style="{ color: 'var(--console-game-section-header)' }"
                   >
                     SAVE STATES
                   </h3>
@@ -593,9 +614,12 @@ onUnmounted(() => {
                         :ref="
                           (el) => registerStateEl(el as HTMLElement | null, i)
                         "
-                        class="group relative rounded-md overflow-hidden flex flex-col bg-white/5 border border-white/10 transition-all w-[140px] h-[80px]"
+                        :style="{
+                          borderColor: 'var(--console-game-state-card-border)',
+                        }"
+                        class="group relative rounded-md overflow-hidden flex flex-col transition-all w-[140px] h-[80px] border"
                         :class="{
-                          'ring-2 ring-[var(--accent-2)] scale-[1.05] shadow-[0_0_0_2px_var(--accent-2)]':
+                          'ring-2 ring-[var(--console-game-state-card-focus-border)] scale-[1.05] shadow-[0_0_0_2px_var(--console-game-state-card-focus-border)]':
                             selectedZone === 'states' &&
                             selectedStateIndex === i,
                         }"
@@ -606,7 +630,10 @@ onUnmounted(() => {
                       >
                         <div
                           v-if="!st.screenshot?.download_path"
-                          class="absolute inset-0 flex items-center justify-center text-[10px] text-white/40 font-medium select-none"
+                          class="absolute inset-0 flex items-center justify-center text-[10px] font-medium select-none"
+                          :style="{
+                            color: 'var(--console-game-section-header)',
+                          }"
                         >
                           STATE
                         </div>
@@ -636,11 +663,16 @@ onUnmounted(() => {
           <!-- SCREENSHOTS -->
           <section
             v-if="screenshotUrls.length"
-            class="fixed bottom-0 inset-x-0 z-30 py-3 md:py-4 bg-black/40 backdrop-blur-md border-t border-white/10"
+            :style="{
+              backgroundColor: 'var(--console-game-screenshot-panel-bg)',
+              borderTopColor: 'var(--console-game-screenshot-panel-border)',
+            }"
+            class="fixed bottom-0 inset-x-0 z-30 py-3 md:py-4 backdrop-blur-md border-t"
           >
             <div class="w-full max-w-[1400px] mx-auto px-8 md:px-12 lg:px-16">
               <h3
-                class="text-gray-300 text-xs md:text-sm font-semibold uppercase tracking-wide"
+                class="text-xs md:text-sm font-semibold uppercase tracking-wide"
+                :style="{ color: 'var(--console-game-section-header)' }"
               >
                 Screenshots
               </h3>
@@ -655,9 +687,9 @@ onUnmounted(() => {
                     v-for="(src, idx) in screenshotUrls"
                     :key="`${idx}-${src}`"
                     :ref="(el) => registerShotEl(el as HTMLElement | null, idx)"
-                    class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none bg-white/5 border-2 border-white/10 overflow-hidden cursor-pointer transition-all duration-200"
+                    class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none overflow-hidden cursor-pointer transition-all duration-200 border-2"
                     :class="{
-                      'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
+                      'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-screenshot-thumbnail-focus-border),_0_0_16px_var(--console-game-screenshot-thumbnail-focus-border)]':
                         selectedZone === 'shots' && selectedShot === idx,
                     }"
                     tabindex="0"
@@ -673,14 +705,22 @@ onUnmounted(() => {
                     >
                       <template #placeholder>
                         <div
-                          class="w-full h-full bg-white/5 border-2 border-white/10 overflow-hidden"
+                          :style="{
+                            borderColor:
+                              'var(--console-game-screenshot-thumbnail-border)',
+                          }"
+                          class="w-full h-full overflow-hidden border-2"
                         >
                           <v-icon>mdi-image-outline</v-icon>
                         </div>
                       </template>
                       <template #error>
                         <div
-                          class="w-full h-full bg-white/5 border-2 border-white/10 overflow-hidden"
+                          :style="{
+                            borderColor:
+                              'var(--console-game-screenshot-thumbnail-border)',
+                          }"
+                          class="w-full h-full overflow-hidden border-2"
                         >
                           <v-icon>mdi-image-outline</v-icon>
                         </div>
@@ -707,7 +747,9 @@ onUnmounted(() => {
       >
         <template #default>
           <div class="lightbox-header">
-            <h2 class="text-h6">Description</h2>
+            <h2 class="text-h6" :style="{ color: 'var(--console-modal-text)' }">
+              Description
+            </h2>
             <v-btn
               icon="mdi-close"
               aria-label="Close"
@@ -715,7 +757,7 @@ onUnmounted(() => {
               @click="showDescription = false"
             />
           </div>
-          <div class="pa-4">
+          <div class="pa-4" :style="{ color: 'var(--console-modal-text)' }">
             <p>{{ rom.summary }}</p>
           </div>
           <div class="lightbox-footer pa-4">
@@ -725,6 +767,7 @@ onUnmounted(() => {
               :show-back="true"
               :show-toggle-favorite="false"
               :show-menu="false"
+              :is-modal="true"
             />
           </div>
         </template>
@@ -743,7 +786,9 @@ onUnmounted(() => {
       >
         <template #default>
           <div class="lightbox-header">
-            <h2 class="text-h6">Details</h2>
+            <h2 class="text-h6" :style="{ color: 'var(--console-modal-text)' }">
+              Details
+            </h2>
             <v-btn
               icon="mdi-close"
               aria-label="Close"
@@ -757,89 +802,125 @@ onUnmounted(() => {
             >
               <div
                 v-if="companies.length"
-                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+                :style="{
+                  backgroundColor: 'var(--console-modal-tile-bg)',
+                  borderColor: 'var(--console-modal-tile-border)',
+                }"
+                class="rounded-md pa-2 md:p-5 border"
               >
                 <div
-                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                  class="text-xs font-semibold mb-1 uppercase tracking-wide"
+                  :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
                   Companies
                 </div>
                 <div
-                  class="text-white text-sm md:text-base leading-6 break-words"
+                  class="text-sm md:text-base leading-6 break-words"
+                  :style="{ color: 'var(--console-modal-text)' }"
                 >
                   {{ companies.join(", ") }}
                 </div>
               </div>
               <div
                 v-if="genres.length"
-                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+                :style="{
+                  backgroundColor: 'var(--console-modal-tile-bg)',
+                  borderColor: 'var(--console-modal-tile-border)',
+                }"
+                class="rounded-md pa-2 md:p-5 border"
               >
                 <div
-                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                  class="text-xs font-semibold mb-1 uppercase tracking-wide"
+                  :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
                   Genres
                 </div>
                 <div
-                  class="text-white text-sm md:text-base leading-6 break-words"
+                  class="text-sm md:text-base leading-6 break-words"
+                  :style="{ color: 'var(--console-modal-text)' }"
                 >
                   {{ genres.join(", ") }}
                 </div>
               </div>
               <div
                 v-if="releaseYear !== null"
-                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+                :style="{
+                  backgroundColor: 'var(--console-modal-tile-bg)',
+                  borderColor: 'var(--console-modal-tile-border)',
+                }"
+                class="rounded-md pa-2 md:p-5 border"
               >
                 <div
-                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                  class="text-xs font-semibold mb-1 uppercase tracking-wide"
+                  :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
                   Release Year
                 </div>
                 <div
-                  class="text-white text-sm md:text-base leading-6 break-words"
+                  class="text-sm md:text-base leading-6 break-words"
+                  :style="{ color: 'var(--console-modal-text)' }"
                 >
                   {{ releaseYear }}
                 </div>
               </div>
               <div
                 v-if="regions.length"
-                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+                :style="{
+                  backgroundColor: 'var(--console-modal-tile-bg)',
+                  borderColor: 'var(--console-modal-tile-border)',
+                }"
+                class="rounded-md pa-2 md:p-5 border"
               >
                 <div
-                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                  class="text-xs font-semibold mb-1 uppercase tracking-wide"
+                  :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
                   Regions
                 </div>
                 <div
-                  class="text-white text-sm md:text-base leading-6 break-words"
+                  class="text-sm md:text-base leading-6 break-words"
+                  :style="{ color: 'var(--console-modal-text)' }"
                 >
                   {{ regions.join(", ") }}
                 </div>
               </div>
               <div
-                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+                :style="{
+                  backgroundColor: 'var(--console-modal-tile-bg)',
+                  borderColor: 'var(--console-modal-tile-border)',
+                }"
+                class="rounded-md pa-2 md:p-5 border"
               >
                 <div
-                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                  class="text-xs font-semibold mb-1 uppercase tracking-wide"
+                  :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
                   File Size
                 </div>
                 <div
-                  class="text-white text-sm md:text-base leading-6 break-words"
+                  class="text-sm md:text-base leading-6 break-words"
+                  :style="{ color: 'var(--console-modal-text)' }"
                 >
                   {{ Math.round(rom.files[0].file_size_bytes / 1024) }}
                   KB
                 </div>
               </div>
               <div
-                class="bg-white/5 border border-white/10 rounded-md pa-2 md:p-5"
+                :style="{
+                  backgroundColor: 'var(--console-modal-tile-bg)',
+                  borderColor: 'var(--console-modal-tile-border)',
+                }"
+                class="rounded-md pa-2 md:p-5 border"
               >
                 <div
-                  class="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide"
+                  class="text-xs font-semibold mb-1 uppercase tracking-wide"
+                  :style="{ color: 'var(--console-modal-text-secondary)' }"
                 >
                   File
                 </div>
                 <div
-                  class="text-white text-sm md:text-base leading-6 break-words"
+                  class="text-sm md:text-base leading-6 break-words"
+                  :style="{ color: 'var(--console-modal-text)' }"
                 >
                   {{ rom.files[0].file_name || "Unknown" }}
                 </div>
@@ -853,6 +934,7 @@ onUnmounted(() => {
               :show-back="true"
               :show-toggle-favorite="false"
               :show-menu="false"
+              :is-modal="true"
             />
           </div>
         </template>
@@ -885,8 +967,8 @@ onUnmounted(() => {
 
 .lightbox-dialog .v-overlay__content {
   max-height: 80vh;
-  border: 1px solid #333;
-  background-color: #0f0f0f;
+  border: 1px solid var(--console-modal-border);
+  background-color: var(--console-modal-bg);
   border-radius: 16px;
   animation: slideUp 0.3s ease;
   cursor: none;
@@ -901,15 +983,15 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  background-color: #131313;
-  border-bottom: 1px solid #222;
+  background-color: var(--console-modal-header-bg);
+  border-bottom: 1px solid var(--console-modal-border-secondary);
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
 }
 
 .lightbox-footer {
-  border-top: 1px solid #222;
-  background-color: #131313;
+  border-top: 1px solid var(--console-modal-border-secondary);
+  background-color: var(--console-modal-header-bg);
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 16px;
 }

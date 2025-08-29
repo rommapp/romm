@@ -35,6 +35,14 @@ const selectedTheme = computed({
   set: (value: string) => themeStore.setTheme(value),
 });
 
+const iconColor = computed(() => {
+  const computedStyle = getComputedStyle(document.documentElement);
+  return (
+    computedStyle.getPropertyValue("--console-modal-header-bg").trim() ||
+    "#000000"
+  );
+});
+
 function closeModal() {
   emit("update:modelValue", false);
 }
@@ -107,11 +115,14 @@ function getCurrentThemeLabel(): string {
   >
     <template #default>
       <div class="lightbox-header">
-        <h2 class="text-h6 text-white">Console Settings</h2>
+        <h2 class="text-h6" :style="{ color: 'var(--console-modal-text)' }">
+          Console Settings
+        </h2>
         <v-btn
           icon="mdi-close"
           aria-label="Close"
           size="small"
+          :color="iconColor"
           @click="closeModal"
         />
       </div>
@@ -156,6 +167,7 @@ function getCurrentThemeLabel(): string {
           :show-back="true"
           :show-toggle-favorite="false"
           :show-menu="false"
+          :is-modal="true"
         />
       </div>
     </template>
@@ -170,8 +182,8 @@ function getCurrentThemeLabel(): string {
 
 .lightbox-dialog :deep(.v-overlay__content) {
   max-height: 80vh;
-  border: 1px solid #333;
-  background-color: #0f0f0f;
+  border: 1px solid var(--console-modal-border);
+  background-color: var(--console-modal-bg);
   border-radius: 16px;
   animation: slideUp 0.3s ease;
   cursor: none;
@@ -186,15 +198,15 @@ function getCurrentThemeLabel(): string {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  background-color: #131313;
-  border-bottom: 1px solid #222;
+  background-color: var(--console-modal-header-bg);
+  border-bottom: 1px solid var(--console-modal-border-secondary);
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
 }
 
 .lightbox-footer {
-  border-top: 1px solid #222;
-  background-color: #131313;
+  border-top: 1px solid var(--console-modal-border-secondary);
+  background-color: var(--console-modal-header-bg);
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 16px;
 }
@@ -212,22 +224,22 @@ function getCurrentThemeLabel(): string {
   padding: 1rem 1.5rem;
   border: 2px solid transparent;
   border-radius: 12px;
-  background-color: var(--tile);
+  background-color: var(--console-modal-tile-bg);
   transition: all 0.2s ease;
 }
 
 .settings-item-selected {
-  border-color: var(--accent-2);
-  background-color: rgba(225, 163, 142, 0.1);
+  border-color: var(--console-modal-tile-selected-border);
+  background-color: var(--console-modal-tile-selected-bg);
   box-shadow:
-    0 0 0 2px var(--accent-2),
-    0 0 16px rgba(225, 163, 142, 0.3);
+    0 0 0 2px var(--console-modal-tile-selected-border),
+    0 0 16px var(--console-modal-tile-selected-border);
 }
 
 .settings-label {
   font-size: 1.1rem;
   font-weight: 500;
-  color: var(--fg-0);
+  color: var(--console-modal-text);
 }
 
 .settings-value {
@@ -242,14 +254,14 @@ function getCurrentThemeLabel(): string {
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 1rem;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: var(--console-modal-button-bg);
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--console-modal-button-border);
 }
 
 .theme-indicator,
 .sfx-indicator {
-  color: var(--accent-2);
+  color: var(--console-modal-button-indicator);
   font-size: 1.2rem;
   font-weight: bold;
 }
@@ -257,7 +269,7 @@ function getCurrentThemeLabel(): string {
 .theme-name,
 .sfx-status {
   font-weight: 500;
-  color: var(--fg-0);
+  color: var(--console-modal-button-text);
   min-width: 80px;
   text-align: center;
 }

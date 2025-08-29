@@ -66,12 +66,11 @@ export const useConsoleTheme = defineStore("consoleTheme", () => {
     }
   });
 
-  initializeTheme();
-
   return {
     themeName,
     availableThemes,
     themeDisplayName,
     setTheme,
+    initializeTheme,
   };
 });

@@ -650,7 +650,12 @@ onBeforeUnmount(() => {
       class="absolute inset-0 flex items-center justify-center pointer-events-none"
     >
       <div
-        class="text-center text-white/70 text-sm bg-black/50 px-4 py-3 rounded border border-white/10 backdrop-blur"
+        :style="{
+          backgroundColor: 'var(--console-play-hint-bg)',
+          borderColor: 'var(--console-play-hint-border)',
+          color: 'var(--console-play-hint-text)',
+        }"
+        class="text-center text-sm px-4 py-3 rounded border backdrop-blur"
       >
         <template
           v-if="loaderStatus === 'idle' || loaderStatus === 'loading-local'"
@@ -670,7 +675,12 @@ onBeforeUnmount(() => {
     </div>
     <div
       v-if="showHint"
-      class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur px-3 py-1 rounded text-xs text-white/80 border border-white/10"
+      :style="{
+        backgroundColor: 'var(--console-play-hint-bg)',
+        borderColor: 'var(--console-play-hint-border)',
+        color: 'var(--console-play-hint-text)',
+      }"
+      class="absolute top-3 left-1/2 -translate-x-1/2 backdrop-blur px-3 py-1 rounded text-xs border"
     >
       Press Start + Select (or Backspace) to exit
     </div>
@@ -682,15 +692,24 @@ onBeforeUnmount(() => {
     >
       <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        class="relative w-full max-w-[560px] mx-auto bg-gradient-to-br from-zinc-900/95 to-zinc-800/95 border border-white/10 rounded-2xl shadow-[0_12px_48px_-4px_rgba(0,0,0,0.7)] pa-10 md:p-9 flex flex-col gap-6 focus:outline-none"
+        :style="{
+          backgroundColor: 'var(--console-modal-bg)',
+          borderColor: 'var(--console-modal-border)',
+          boxShadow: 'var(--console-modal-shadow)',
+        }"
+        class="relative w-full max-w-[560px] mx-auto rounded-2xl pa-10 md:p-9 flex flex-col gap-6 focus:outline-none border"
       >
         <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold tracking-wide text-white drop-shadow">
+          <h2
+            :style="{ color: 'var(--console-modal-text)' }"
+            class="text-xl font-bold tracking-wide drop-shadow"
+          >
             Exit Game
           </h2>
           <button
             :disabled="savingState"
-            class="text-white/50 hover:text-white transition-colors text-lg"
+            :style="{ color: 'var(--console-modal-text-secondary)' }"
+            class="opacity-50 hover:opacity-100 transition-opacity text-lg"
             @click="cancelExit()"
           >
             ✕
@@ -706,9 +725,20 @@ onBeforeUnmount(() => {
                 ? 'opacity-40 cursor-not-allowed'
                 : '',
               focusedExitIndex === i
-                ? 'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)]'
-                : 'border-white/10 bg-white/5 hover:bg-white/10',
+                ? 'shadow-[0_0_0_2px_var(--console-modal-tile-selected-border),_0_0_18px_-4px_var(--console-modal-tile-selected-border)]'
+                : '',
             ]"
+            :style="
+              focusedExitIndex === i
+                ? {
+                    borderColor: 'var(--console-modal-tile-selected-border)',
+                    backgroundColor: 'var(--console-modal-tile-selected-bg)',
+                  }
+                : {
+                    borderColor: 'var(--console-modal-tile-selected-border)',
+                    backgroundColor: 'var(--console-modal-tile-bg)',
+                  }
+            "
             role="button"
             :aria-selected="focusedExitIndex === i"
             @click="activateExitOption(opt.id)"
@@ -716,26 +746,35 @@ onBeforeUnmount(() => {
             <div class="flex items-center gap-3">
               <div class="flex-1">
                 <div
-                  :class="
-                    focusedExitIndex === i ? 'text-white' : 'text-white/90'
-                  "
+                  :style="{
+                    color:
+                      focusedExitIndex === i
+                        ? 'var(--console-modal-text)'
+                        : 'var(--console-modal-text-secondary)',
+                  }"
                   class="font-semibold text-sm tracking-wide"
                 >
                   {{ opt.label }}
                   <span
                     v-if="opt.id === 'save' && savingState"
-                    class="ml-2 text-[10px] font-medium tracking-wide animate-pulse text-[var(--accent-2)]"
+                    :style="{ color: 'var(--console-play-save-status-text)' }"
+                    class="ml-2 text-[10px] font-medium tracking-wide animate-pulse"
                   >
                     SAVING…
                   </span>
                 </div>
-                <div v-if="opt.desc" class="text-xs mt-0.5 text-white/50">
+                <div
+                  v-if="opt.desc"
+                  :style="{ color: 'var(--console-modal-text-secondary)' }"
+                  class="text-xs mt-0.5 opacity-50"
+                >
                   {{ opt.desc }}
                 </div>
               </div>
               <div
                 v-if="focusedExitIndex === i"
-                class="text-[var(--accent-2)] text-xs font-medium tracking-wider"
+                :style="{ color: 'var(--console-play-save-status-text)' }"
+                class="text-xs font-medium tracking-wider"
               >
                 {{ savingState && opt.id === "save" ? "SAVING" : "" }}
               </div>
@@ -747,13 +786,19 @@ onBeforeUnmount(() => {
         </p>
 
         <!-- Navigation Hints -->
-        <div class="mt-4 pt-3 border-t border-white/10">
+        <div
+          :style="{
+            borderTopColor: 'var(--console-play-save-separator-border)',
+          }"
+          class="mt-4 pt-3 border-t"
+        >
           <NavigationText
             :show-navigation="true"
             :show-select="true"
             :show-back="true"
             :show-toggle-favorite="false"
             :show-menu="false"
+            :is-modal="true"
           />
         </div>
       </div>

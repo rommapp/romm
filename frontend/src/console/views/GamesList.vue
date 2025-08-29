@@ -325,10 +325,18 @@ function markLoaded(id: number) {
       class="relative flex-1 min-w-0 pr-[40px]"
       :style="{ width: 'calc(100vw - 40px)' }"
     >
-      <div v-if="loading" class="text-center text-fgDim mt-8">
+      <div
+        v-if="loading"
+        class="text-center mt-8"
+        :style="{ color: 'var(--console-loading-text)' }"
+      >
         Loading games…
       </div>
-      <div v-else-if="error" class="text-center text-red-400 mt-8">
+      <div
+        v-else-if="error"
+        class="text-center mt-8"
+        :style="{ color: 'var(--console-error-text)' }"
+      >
         {{ error }}
       </div>
       <div v-else>
@@ -356,19 +364,30 @@ function markLoaded(id: number) {
       </div>
     </div>
     <div
-      class="w-[40px] bg-black/30 backdrop-blur border-l border-white/10 fixed top-0 right-0 h-screen overflow-hidden z-30 flex-shrink-0"
-      :class="{
-        'bg-[rgba(248,180,0,0.75)] border-l-[rgba(248,180,0,0.75)]': inAlphabet,
+      class="w-[40px] backdrop-blur fixed top-0 right-0 h-screen overflow-hidden z-30 flex-shrink-0"
+      :style="{
+        backgroundColor: 'var(--console-gameslist-scrollbar-bg)',
       }"
     >
       <div class="flex flex-col h-screen pa-2 items-center justify-evenly">
         <button
           v-for="(L, i) in letters"
           :key="L"
-          class="bg-white/5 border border-white/10 text-fgDim rounded w-7 h-7 text-[0.7rem] font-semibold flex items-center justify-center shrink-0 transition-all hover:text-fg0 hover:border-white/30 hover:bg-white/10"
-          :class="{
-            'bg-[var(--accent-2)] border-[var(--accent)] text-white shadow-[0_0_0_2px_rgba(248,180,0,1)]':
-              inAlphabet && i === alphaIndex,
+          class="rounded w-7 h-7 text-[0.7rem] font-semibold flex items-center justify-center shrink-0 transition-all border"
+          :style="{
+            backgroundColor:
+              inAlphabet && i === alphaIndex
+                ? 'var(--console-gameslist-alphabet-active-bg)'
+                : 'var(--console-gameslist-alphabet-bg)',
+            borderColor: 'var(--console-gameslist-alphabet-border)',
+            color:
+              inAlphabet && i === alphaIndex
+                ? 'var(--console-gameslist-alphabet-active-text)'
+                : 'var(--console-gameslist-alphabet-text)',
+            boxShadow:
+              inAlphabet && i === alphaIndex
+                ? '0 0 0 2px var(--console-gameslist-alphabet-active-bg)'
+                : 'none',
           }"
           @click="jumpToLetter(L)"
         >

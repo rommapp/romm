@@ -10,6 +10,14 @@ const isOpen = computed({
   set: () => close(),
 });
 
+const iconColor = computed(() => {
+  const computedStyle = getComputedStyle(document.documentElement);
+  return (
+    computedStyle.getPropertyValue("--console-modal-header-bg").trim() ||
+    "#000000"
+  );
+});
+
 function closeDialog() {
   emit("update:modelValue", false);
   emit("close");
@@ -33,12 +41,14 @@ onMounted(() => {
   >
     <template #default>
       <div class="lightbox-header">
-        <h2 class="text-h6 text-white">Screenshots</h2>
+        <h2 class="text-h6" :style="{ color: 'var(--console-modal-text)' }">
+          Screenshots
+        </h2>
         <v-btn
           icon="mdi-close"
           aria-label="Close"
           size="small"
-          color="#131313"
+          :color="iconColor"
           @click="closeDialog"
         />
       </div>
@@ -57,7 +67,7 @@ onMounted(() => {
             icon="mdi-triangle"
             size="x-small"
             class="lightbox-nav-prev"
-            color="#131313"
+            :color="iconColor"
             @click="props.onClick"
           />
         </template>
@@ -81,7 +91,7 @@ onMounted(() => {
             icon="mdi-triangle"
             size="x-small"
             class="lightbox-nav-next"
-            color="#131313"
+            :color="iconColor"
             @click="props.onClick"
           />
         </template>
@@ -95,8 +105,15 @@ onMounted(() => {
             :show-back="true"
             :show-toggle-favorite="false"
             :show-menu="false"
+            :is-modal="true"
           />
-          <div class="px-2 py-1 text-white bg-black/50 rounded-lg text-xs">
+          <div
+            :style="{
+              backgroundColor: 'var(--console-modal-header-bg)',
+              color: 'var(--console-modal-text)',
+            }"
+            class="px-2 py-1 rounded-lg text-xs"
+          >
             {{ props.startIndex ? props.startIndex + 1 : 1 }} /
             {{ urls.length }}
           </div>
@@ -113,8 +130,8 @@ onMounted(() => {
 
 .lightbox-dialog .v-overlay__content {
   max-height: 80vh;
-  border: 1px solid #333;
-  background-color: #0f0f0f;
+  border: 1px solid var(--console-modal-border);
+  background-color: var(--console-modal-bg);
   border-radius: 16px;
   animation: slideUp 0.3s ease;
 }
@@ -124,8 +141,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  background-color: #131313;
-  border-bottom: 1px solid #222;
+  background-color: var(--console-modal-header-bg);
+  border-bottom: 1px solid var(--console-modal-border-secondary);
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
 }
@@ -135,8 +152,8 @@ onMounted(() => {
 }
 
 .lightbox-footer {
-  border-top: 1px solid #222;
-  background-color: #131313;
+  border-top: 1px solid var(--console-modal-border-secondary);
+  background-color: var(--console-modal-header-bg);
   border-bottom-left-radius: 16px;
   border-bottom-right-radius: 16px;
 }
