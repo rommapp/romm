@@ -19,7 +19,7 @@ defineProps<{ title: string }>();
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <skeleton type="image" />
+          <skeleton />
         </v-col>
       </v-row>
     </template>

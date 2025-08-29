@@ -109,6 +109,7 @@ const computedAspectRatio = computed(() => {
   height: 24px;
   margin: 4px;
   flex: 1;
+  max-width: unset;
 }
 
 .card-skeleton.show-action-bar {

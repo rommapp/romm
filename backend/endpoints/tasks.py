@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
+    TASK_TIMEOUT,
 )
 from decorators.auth import protected_route
 from endpoints.responses import TaskExecutionResponse, TaskStatusResponse
@@ -144,7 +145,7 @@ async def run_all_tasks(request: Request) -> list[TaskExecutionResponse]:
         )
 
     jobs = [
-        (task_name, low_prio_queue.enqueue(task_instance.run))
+        (task_name, low_prio_queue.enqueue(task_instance.run, job_timeout=TASK_TIMEOUT))
         for task_name, task_instance in runnable_tasks.items()
     ]
 
@@ -185,7 +186,7 @@ async def run_single_task(request: Request, task_name: str) -> TaskExecutionResp
             detail=f"Task '{task_name}' cannot be run",
         )
 
-    job = low_prio_queue.enqueue(task_instance.run)
+    job = low_prio_queue.enqueue(task_instance.run, job_timeout=TASK_TIMEOUT)
 
     return {
         "task_name": task_name,
