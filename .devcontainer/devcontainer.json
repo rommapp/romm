@@ -1,6 +1,5 @@
 {
   "name": "ROMM Development",
-  // Use the repository root docker-compose.yml so the romm-dev service uses the project's root Dockerfile
   "dockerComposeFile": ["../docker-compose.yml"],
   "service": "romm-dev",
   "workspaceFolder": "/app",
