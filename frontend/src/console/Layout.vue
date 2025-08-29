@@ -5,12 +5,14 @@ import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import { attachKeyboard } from "@/console/input/keyboard";
 import { attachGamepad } from "@/console/input/gamepad";
 import { initializeSfx } from "@/console/utils/sfx";
+import { useConsoleTheme } from "@/stores/consoleTheme";
 import { ROUTES } from "@/plugins/router";
 import { useRouter } from "vue-router";
 import { useIdle } from "@vueuse/core";
 
 const router = useRouter();
 const bus = new InputBus();
+const themeStore = useConsoleTheme();
 provide(InputBusSymbol, bus);
 
 // Define route hierarchy for transition direction logic
@@ -51,6 +53,7 @@ let detachKeyboard: (() => void) | null = null;
 let detachGamepad: (() => void) | null = null;
 
 onMounted(() => {
+  themeStore.initializeTheme();
   initializeSfx();
 
   // Establish a root input scope so child views can subscribe safely
@@ -66,7 +69,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen text-white console-root relative">
+  <div
+    class="min-h-screen console-root relative"
+    :style="{ color: 'var(--console-text-primary)' }"
+  >
     <!-- Shield overlay to neutralize mouse input while hidden; movement wakes it -->
     <div
       v-if="!mouseIdle"

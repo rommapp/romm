@@ -46,16 +46,19 @@ onMounted(() => {
 <template>
   <button
     ref="el"
-    class="relative block bg-[var(--tile)] border-2 border-white/10 rounded-md p-0 cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200"
+    class="relative block border-2 border-white/10 rounded-md p-0 cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200"
     :class="{
-      '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
+      '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-card-focus-border),_0_0_16px_var(--console-game-card-focus-border)]':
         selected,
       'w-[250px] shrink-0': isRecent,
     }"
     @click="emit('click')"
     @focus="emit('focus')"
   >
-    <div class="w-full h-[350px] bg-[#2b3242] relative overflow-hidden rounded">
+    <div
+      class="w-full h-[350px] relative overflow-hidden rounded"
+      :style="{ background: 'var(--console-game-card-bg)' }"
+    >
       <img
         v-if="coverSrc"
         class="w-full h-full object-cover"
@@ -66,14 +69,15 @@ onMounted(() => {
       />
       <div
         v-else
-        class="w-full h-full bg-gradient-to-b from-[#2b3242] to-[#1b2233]"
+        class="w-full h-full"
+        :style="{ background: 'var(--console-game-card-bg)' }"
       />
       <!-- Selected highlight radial glow -->
       <div
         class="absolute inset-0 opacity-0 pointer-events-none"
         :style="{
           background:
-            'radial-gradient(circle at center, var(--accent-2) 0%, transparent 70%)',
+            'radial-gradient(circle at center, var(--console-game-card-focus-border) 0%, transparent 70%)',
         }"
         :class="{ 'opacity-10': selected }"
       />
@@ -85,13 +89,15 @@ onMounted(() => {
       <!-- Favorite star icon -->
       <div v-if="isFavorited" class="absolute top-2 right-2 z-20">
         <div class="bg-black/50 backdrop-blur-sm rounded-full">
-          <v-icon size="27" style="color: #bda5cf"> mdi-star </v-icon>
+          <v-icon size="27" style="color: var(--console-game-card-star)">
+            mdi-star
+          </v-icon>
         </div>
       </div>
 
       <div
         v-if="!coverSrc"
-        class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-b from-transparent to-black/75 text-[#eaeaea] text-sm leading-tight z-10"
+        class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-b from-transparent to-black/75 text-[var(--console-game-card-text)] text-sm leading-tight z-10"
       >
         <div class="font-medium truncate">
           {{ rom.name || "Untitled Game" }}
@@ -100,7 +106,7 @@ onMounted(() => {
           v-if="
             rom.metadatum.first_release_date || rom.metadatum.companies?.length
           "
-          class="text-[#c8c8c8] text-xs opacity-90"
+          class="text-[var(--console-game-card-text)] text-xs opacity-90"
         >
           {{
             rom.metadatum.first_release_date

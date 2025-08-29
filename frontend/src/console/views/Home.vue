@@ -468,31 +468,55 @@ onUnmounted(() => {
     <div class="relative h-full flex flex-col">
       <div class="mt-8 ml-8 flex items-center gap-3 select-none pb-3">
         <RIsotipo :size="40" :avatar="false" />
-        <div class="text-white/90 font-bold text-[28px] drop-shadow-xl">
+        <div
+          class="font-bold text-[28px] drop-shadow-xl"
+          :style="{ color: 'var(--console-home-title-text)' }"
+        >
           Console
         </div>
       </div>
 
-      <div v-if="loading" class="text-center text-fgDim mt-16">
+      <div
+        v-if="loading"
+        class="text-center mt-16"
+        :style="{ color: 'var(--console-loading-text)' }"
+      >
         Loading platforms…
       </div>
-      <div v-else-if="error" class="text-center text-red-400 mt-16">
+      <div
+        v-else-if="error"
+        class="text-center mt-16"
+        :style="{ color: 'var(--console-error-text)' }"
+      >
         {{ error }}
       </div>
       <div v-else>
         <section ref="platformsSectionRef" class="pb-2">
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
+          <h2
+            class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
+            :style="{ color: 'var(--console-home-category-text)' }"
+          >
             Platforms
           </h2>
           <div class="relative h-[220px]">
             <button
-              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20"
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                border: `1px solid var(--console-home-carousel-button-border)`,
+                color: 'var(--console-home-carousel-button-text)',
+              }"
               @click="navigationFunctions.systems.prev"
             >
               ◀
             </button>
             <button
-              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20"
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                border: `1px solid var(--console-home-carousel-button-border)`,
+                color: 'var(--console-home-carousel-button-text)',
+              }"
               @click="navigationFunctions.systems.next"
             >
               ▶
@@ -520,18 +544,31 @@ onUnmounted(() => {
         </section>
 
         <section v-if="recent.length > 0" ref="recentSectionRef" class="pb-8">
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
+          <h2
+            class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
+            :style="{ color: 'var(--console-home-category-text)' }"
+          >
             Recently Played
           </h2>
           <div class="relative h-[400px]">
             <button
-              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20"
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                border: `1px solid var(--console-home-carousel-button-border)`,
+                color: 'var(--console-home-carousel-button-text)',
+              }"
               @click="navigationFunctions.recent.prev"
             >
               ◀
             </button>
             <button
-              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20"
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                border: `1px solid var(--console-home-carousel-button-border)`,
+                color: 'var(--console-home-carousel-button-text)',
+              }"
               @click="navigationFunctions.recent.next"
             >
               ▶
@@ -563,18 +600,31 @@ onUnmounted(() => {
           ref="collectionsSectionRef"
           class="pb-8"
         >
-          <h2 class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8">
+          <h2
+            class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
+            :style="{ color: 'var(--console-home-category-text)' }"
+          >
             Collections
           </h2>
           <div class="relative h-[400px]">
             <button
-              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                borderColor: 'var(--console-home-carousel-button-border)',
+                color: 'var(--console-home-carousel-button-text)',
+              }"
+              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20 border"
               @click="navigationFunctions.collections.prev"
             >
               ◀
             </button>
             <button
-              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 bg-black/70 border border-white/20 rounded-full flex items-center justify-center text-fg0 cursor-pointer transition-all backdrop-blur z-20 hover:bg-accent2/80 hover:border-accent2"
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                borderColor: 'var(--console-home-carousel-button-border)',
+                color: 'var(--console-home-carousel-button-text)',
+              }"
+              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20 border"
               @click="navigationFunctions.collections.next"
             >
               ▶
@@ -605,9 +655,14 @@ onUnmounted(() => {
 
       <div class="fixed top-4 right-4 z-20 flex gap-2">
         <button
-          class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
+          class="w-12 h-12 rounded-md cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:-translate-y-0.5 hover:shadow-lg"
+          :style="{
+            backgroundColor: 'var(--console-home-control-button-bg)',
+            border: `1px solid var(--console-home-control-button-border)`,
+            color: 'var(--console-home-control-button-text)',
+          }"
           :class="{
-            'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5':
+            'border-[var(--console-home-control-button-focus-border)] bg-[var(--console-home-control-button-focus-border)]/15 shadow-[0_0_0_2px_var(--console-home-control-button-focus-border),_0_0_18px_-4px_var(--console-home-control-button-focus-border)] -translate-y-0.5':
               navigationMode === 'controls' && controlIndex === 0,
           }"
           title="Exit Console Mode (F1)"
@@ -616,9 +671,14 @@ onUnmounted(() => {
           ⏻
         </button>
         <button
-          class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
+          class="w-12 h-12 rounded-md cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:-translate-y-0.5 hover:shadow-lg"
+          :style="{
+            backgroundColor: 'var(--console-home-control-button-bg)',
+            border: `1px solid var(--console-home-control-button-border)`,
+            color: 'var(--console-home-control-button-text)',
+          }"
           :class="{
-            'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5':
+            'border-[var(--console-home-control-button-focus-border)] bg-[var(--console-home-control-button-focus-border)]/15 shadow-[0_0_0_2px_var(--console-home-control-button-focus-border),_0_0_18px_-4px_var(--console-home-control-button-focus-border)] -translate-y-0.5':
               navigationMode === 'controls' && controlIndex === 1,
           }"
           title="Fullscreen (F11)"
@@ -627,9 +687,14 @@ onUnmounted(() => {
           ⛶
         </button>
         <button
-          class="w-12 h-12 bg-black/80 border border-white/20 rounded-md text-fg0 cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:bg-white/10 hover:border-white/40 hover:-translate-y-0.5 hover:shadow-lg"
+          class="w-12 h-12 rounded-md cursor-pointer flex items-center justify-center text-xl transition-all backdrop-blur hover:-translate-y-0.5 hover:shadow-lg"
+          :style="{
+            backgroundColor: 'var(--console-home-control-button-bg)',
+            border: `1px solid var(--console-home-control-button-border)`,
+            color: 'var(--console-home-control-button-text)',
+          }"
           :class="{
-            'border-[var(--accent-2)] bg-[var(--accent-2)]/15 shadow-[0_0_0_2px_var(--accent-2),_0_0_18px_-4px_var(--accent-2)] -translate-y-0.5':
+            'border-[var(--console-home-control-button-focus-border)] bg-[var(--console-home-control-button-focus-border)]/15 shadow-[0_0_0_2px_var(--console-home-control-button-focus-border),_0_0_18px_-4px_var(--console-home-control-button-focus-border)] -translate-y-0.5':
               navigationMode === 'controls' && controlIndex === 2,
           }"
           title="Settings"

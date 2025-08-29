@@ -61,16 +61,17 @@ onMounted(() => {
   <div class="flex flex-col items-center w-[250px] shrink-0">
     <button
       ref="el"
-      class="relative block bg-[var(--tile)] border-2 border-white/10 rounded-md p-0 cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200 w-full"
+      class="relative block bg-[var(--console-collection-card-bg)] border-2 border-white/10 rounded-md p-0 cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200 w-full"
       :class="{
-        '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--accent-2),_0_0_16px_var(--accent-2)]':
+        '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-collection-card-focus-border),_0_0_16px_var(--console-collection-card-focus-border)]':
           selected,
       }"
       @click="emit('click')"
       @focus="emit('focus')"
     >
       <div
-        class="w-full h-[350px] bg-[#2b3242] relative overflow-hidden rounded"
+        class="w-full h-[350px] relative overflow-hidden rounded"
+        :style="{ backgroundColor: 'var(--console-collection-card-bg)' }"
       >
         <!-- Favourite composite cover -->
         <template v-if="isFavorite && compositeReady">
@@ -101,11 +102,15 @@ onMounted(() => {
         <!-- Fallback (no cover) -->
         <div
           v-else
-          class="w-full h-full bg-gradient-to-b from-[#2b3242] to-[#1b2233] flex items-center justify-center"
+          class="w-full h-full flex items-center justify-center"
+          :style="{ background: 'var(--console-collection-card-bg-fallback)' }"
         >
           <div class="flex flex-col items-center justify-center select-none">
             <div class="text-3xl mb-2">🗂️</div>
-            <div class="text-white font-semibold text-center px-3 line-clamp-2">
+            <div
+              class="font-semibold text-center px-3 line-clamp-2"
+              :style="{ color: 'var(--console-card-text)' }"
+            >
               {{ collection.name }}
             </div>
           </div>
@@ -115,7 +120,7 @@ onMounted(() => {
           class="absolute inset-0 opacity-0 pointer-events-none"
           :style="{
             background:
-              'radial-gradient(circle at center, var(--accent-2) 0%, transparent 70%)',
+              'radial-gradient(circle at center, var(--console-collection-card-focus-border) 0%, transparent 70%)',
           }"
           :class="{ 'opacity-10': selected }"
         />
@@ -124,9 +129,13 @@ onMounted(() => {
           class="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10 bg-[length:200%_100%] animate-[shimmer_1.2s_linear_infinite]"
         />
         <div
-          class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-b from-transparent to-black/75 text-[#eaeaea] text-sm leading-tight z-10"
+          class="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-b from-transparent to-black/75 text-sm leading-tight z-10"
+          :style="{ color: 'var(--console-collection-card-text)' }"
         >
-          <div class="text-[#c8c8c8] text-xs opacity-90">
+          <div
+            class="text-xs opacity-90"
+            :style="{ color: 'var(--console-collection-card-text)' }"
+          >
             {{ collection.rom_count || 0 }} games
           </div>
         </div>
@@ -134,9 +143,12 @@ onMounted(() => {
     </button>
     <div
       class="mt-2 w-full text-center text-sm font-medium px-1 line-clamp-2 select-none"
-      :class="
-        selected ? 'text-[var(--accent-2)] drop-shadow' : 'text-[#eaeaea]'
-      "
+      :class="selected ? 'drop-shadow' : ''"
+      :style="{
+        color: selected
+          ? 'var(--console-collection-card-text-secondary)'
+          : 'var(--console-collection-card-text)',
+      }"
     >
       {{ collection.name }}
     </div>
