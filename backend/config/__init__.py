@@ -123,6 +123,7 @@ OIDC_TLS_CACERTFILE: Final = os.environ.get("OIDC_TLS_CACERTFILE", None)
 SCAN_TIMEOUT: Final = int(os.environ.get("SCAN_TIMEOUT", 60 * 60 * 4))  # 4 hours
 
 # TASKS
+TASK_TIMEOUT: Final = int(os.environ.get("TASK_TIMEOUT", 60 * 5))  # 5 minutes
 ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: Final = str_to_bool(
     os.environ.get("ENABLE_RESCAN_ON_FILESYSTEM_CHANGE", "false")
 )

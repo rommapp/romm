@@ -211,6 +211,7 @@ async def _identify_rom(
         return scan_stats
 
     # Build rom files object before scanning
+    log.debug(f"Calculating file hashes for {rom.fs_name}...")
     rom_files, rom_crc_c, rom_md5_h, rom_sha1_h, rom_ra_h = (
         await fs_rom_handler.get_rom_files(rom)
     )
@@ -224,6 +225,7 @@ async def _identify_rom(
         }
     )
 
+    log.debug(f"Scanning {rom.fs_name}...")
     scanned_rom = await scan_rom(
         scan_type=scan_type,
         platform=platform,
@@ -510,7 +512,7 @@ async def scan_platforms(
         if len(missed_platforms) > 0:
             log.warning(f"{hl('Missing')} platforms from filesystem:")
             for p in missed_platforms:
-                log.warning(f" - {p.slug}")
+                log.warning(f" - {p.slug} ({p.fs_slug})")
 
         log.info(f"{emoji.EMOJI_CHECK_MARK} Scan completed")
         await sm.emit("scan:done", scan_stats.__dict__)
