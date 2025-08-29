@@ -71,6 +71,11 @@ const dataSources = computed(() => {
       condition: props.rom.hasheous_id,
       url: `https://hasheous.org/index.html?page=dataobjectdetail&type=game&id=${props.rom.hasheous_id}`,
     },
+    {
+      name: "Flashpoint Project",
+      condition: props.rom.flashpoint_id,
+      url: `https://flashpointproject.github.io/flashpoint-database/search/#${props.rom.flashpoint_id}`,
+    },
   ].filter((source) => source.condition);
 });
 

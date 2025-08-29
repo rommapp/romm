@@ -13,7 +13,7 @@ from logger.logger import log
 from unidecode import unidecode as uc
 from utils.context import ctx_httpx_client
 
-from .base_hander import (
+from .base_handler import (
     PS2_OPL_REGEX,
     SONY_SERIAL_REGEX,
     SWITCH_PRODUCT_ID_REGEX,
@@ -21,7 +21,7 @@ from .base_hander import (
     BaseRom,
     MetadataHandler,
 )
-from .base_hander import UniversalPlatformSlug as UPS
+from .base_handler import UniversalPlatformSlug as UPS
 
 # Used to display the IGDB API status in the frontend
 IGDB_API_ENABLED: Final = bool(IGDB_CLIENT_ID) and bool(IGDB_CLIENT_SECRET)
@@ -1477,7 +1477,7 @@ IGDB_PLATFORM_LIST: dict[UPS, SlugToIGDB] = {
         "family_slug": "",
         "generation": -1,
         "id": 82,
-        "name": "Web browser",
+        "name": "Browser (Flash/HTML5)",
         "slug": "browser",
         "url": "https://www.igdb.com/platforms/browser",
         "url_logo": "https://images.igdb.com/igdb/image/upload/t_1080p/plmx.jpg",
@@ -5095,7 +5095,7 @@ IGDB_PLATFORM_VERSIONS: dict[str, SlugToIGDBVersion] = {
     },
     "web-browser": {
         "id": 86,
-        "name": "Web browser",
+        "name": "Browser (Flash/HTML5)",
         "platform_slug": UPS.BROWSER,
         "slug": "web-browser",
         "url": "https://www.igdb.com/platforms/browser/version/web-browser",

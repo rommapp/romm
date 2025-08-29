@@ -34,6 +34,7 @@ def test_heartbeat(client):
     assert isinstance(metadata["PLAYMATCH_API_ENABLED"], bool)
     assert isinstance(metadata["HASHEOUS_API_ENABLED"], bool)
     assert isinstance(metadata["TGDB_API_ENABLED"], bool)
+    assert isinstance(metadata["FLASHPOINT_API_ENABLED"], bool)
 
     assert "FILESYSTEM" in heartbeat
     filesystem = heartbeat["FILESYSTEM"]

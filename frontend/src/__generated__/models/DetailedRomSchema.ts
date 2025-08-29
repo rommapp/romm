@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { RomFileSchema } from './RomFileSchema';
+import type { RomFlashpointMetadata } from './RomFlashpointMetadata';
 import type { RomHasheousMetadata } from './RomHasheousMetadata';
 import type { RomIGDBMetadata } from './RomIGDBMetadata';
 import type { RomLaunchboxMetadata } from './RomLaunchboxMetadata';
@@ -27,6 +28,7 @@ export type DetailedRomSchema = {
     launchbox_id: (number | null);
     hasheous_id: (number | null);
     tgdb_id: (number | null);
+    flashpoint_id: (string | null);
     platform_id: number;
     platform_slug: string;
     platform_fs_slug: string;
@@ -50,6 +52,7 @@ export type DetailedRomSchema = {
     ss_metadata: (RomSSMetadata | null);
     launchbox_metadata: (RomLaunchboxMetadata | null);
     hasheous_metadata: (RomHasheousMetadata | null);
+    flashpoint_metadata: (RomFlashpointMetadata | null);
     path_cover_small: (string | null);
     path_cover_large: (string | null);
     url_cover: (string | null);

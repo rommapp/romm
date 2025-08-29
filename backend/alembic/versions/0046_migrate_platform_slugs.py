@@ -9,7 +9,7 @@ Create Date: 2025-07-24 15:24:04.331946
 import sqlalchemy as sa
 from alembic import op
 from config.config_manager import config_manager as cm
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 
 revision = "0046_migrate_platform_slugs"
 down_revision = "0045_roms_metadata_update"

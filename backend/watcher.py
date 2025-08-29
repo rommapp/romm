@@ -8,6 +8,7 @@ from typing import cast
 import sentry_sdk
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
+    FLASHPOINT_API_ENABLED,
     HASHEOUS_API_ENABLED,
     LAUNCHBOX_API_ENABLED,
     LIBRARY_BASE_PATH,
@@ -103,6 +104,7 @@ def process_changes(changes: Sequence[Change]) -> None:
             MetadataSource.LB: LAUNCHBOX_API_ENABLED,
             MetadataSource.HASHEOUS: HASHEOUS_API_ENABLED,
             MetadataSource.SGDB: STEAMGRIDDB_API_ENABLED,
+            MetadataSource.FLASHPOINT: FLASHPOINT_API_ENABLED,
         }
         metadata_sources = [source for source, flag in source_mapping.items() if flag]
         if not metadata_sources:

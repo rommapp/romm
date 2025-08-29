@@ -8,6 +8,7 @@ export type SearchRomSchema = {
     moby_id?: (number | null);
     ss_id?: (number | null);
     sgdb_id?: (number | null);
+    flashpoint_id?: (string | null);
     platform_id: number;
     name: string;
     slug?: string;
@@ -16,5 +17,8 @@ export type SearchRomSchema = {
     moby_url_cover?: string;
     ss_url_cover?: string;
     sgdb_url_cover?: string;
+    flashpoint_url_cover?: string;
+    is_unidentified: boolean;
+    is_identified: boolean;
 };
 

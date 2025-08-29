@@ -2,6 +2,7 @@ from config import (
     DISABLE_EMULATOR_JS,
     DISABLE_RUFFLE_RS,
     DISABLE_USERPASS_LOGIN,
+    FLASHPOINT_API_ENABLED,
     HASHEOUS_API_ENABLED,
     LAUNCHBOX_API_ENABLED,
     OIDC_ENABLED,
@@ -57,6 +58,7 @@ async def heartbeat() -> HeartbeatResponse:
             "HASHEOUS_API_ENABLED": HASHEOUS_API_ENABLED,
             "PLAYMATCH_API_ENABLED": PLAYMATCH_API_ENABLED,
             "TGDB_API_ENABLED": TGDB_API_ENABLED,
+            "FLASHPOINT_API_ENABLED": FLASHPOINT_API_ENABLED,
         },
         "FILESYSTEM": {
             "FS_PLATFORMS": await fs_platform_handler.get_platforms(),

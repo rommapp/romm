@@ -1,7 +1,7 @@
 import asyncio
 import re
 
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from handler.metadata.base_handler import UniversalPlatformSlug as UPS
 from logger.formatter import LIGHTMAGENTA
 from logger.formatter import highlight as hl
 from logger.logger import log
