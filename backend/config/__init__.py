@@ -149,14 +149,14 @@ ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: Final = str_to_bool(
 )
 SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON: Final = os.environ.get(
     "SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON",
-    "0 5 * * *",  # At 5:00 AM every day
+    "0 4 * * *",  # At 4:00 AM every day
 )
 ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP: Final = str_to_bool(
     os.environ.get("ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP", "false")
 )
 SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON: Final = os.environ.get(
     "SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON",
-    "0 6 * * *",  # At 6:00 AM every day
+    "0 4 * * *",  # At 4:00 AM every day
 )
 
 # EMULATION
