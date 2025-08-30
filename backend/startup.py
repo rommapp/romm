@@ -4,6 +4,7 @@ import asyncio
 
 import sentry_sdk
 from config import (
+    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     ENABLE_SCHEDULED_RESCAN,
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB,
@@ -21,6 +22,7 @@ from handler.redis_handler import async_cache
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
 from opentelemetry import trace
+from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
 from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
@@ -48,6 +50,9 @@ async def main() -> None:
         if ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA:
             log.info("Starting scheduled update launchbox metadata")
             update_launchbox_metadata_task.init()
+        if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+            log.info("Starting scheduled convert images to webp")
+            convert_images_to_webp_task.init()
 
         log.info("Initializing cache with fixtures data")
         await conditionally_set_cache(

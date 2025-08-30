@@ -1,4 +1,4 @@
-import api from "@/services/api/index";
+import api from "@/services/api";
 import type { DetailedRom } from "@/stores/roms";
 import type { StateSchema } from "@/__generated__";
 

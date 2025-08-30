@@ -1,5 +1,5 @@
 import type { UserSchema, InviteLinkSchema } from "@/__generated__";
-import api from "@/services/api/index";
+import api from "@/services/api";
 import type { User } from "@/stores/users";
 
 export const userApi = api;

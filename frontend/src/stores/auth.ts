@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-
+import userApi from "@/services/api/user";
 import type { User } from "./users";
 
 export default defineStore("auth", {
@@ -15,7 +15,17 @@ export default defineStore("auth", {
   },
 
   actions: {
-    setUser(user: User | null) {
+    async fetchCurrentUser(): Promise<User | null> {
+      try {
+        const response = await userApi.fetchCurrentUser();
+        this.user = response.data;
+        return this.user;
+      } catch (error) {
+        console.error("Error fetching current user: ", error);
+        return this.user;
+      }
+    },
+    setCurrentUser(user: User | null) {
       this.user = user;
     },
     reset() {

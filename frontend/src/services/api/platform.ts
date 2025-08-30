@@ -1,4 +1,4 @@
-import api from "@/services/api/index";
+import api from "@/services/api";
 import type { Platform } from "@/stores/platforms";
 
 export const platformApi = api;

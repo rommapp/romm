@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import api from "@/services/api/index";
+import api from "@/services/api";
 import { formatBytes } from "@/utils";
 import { onBeforeMount, ref } from "vue";
 import { useI18n } from "vue-i18n";

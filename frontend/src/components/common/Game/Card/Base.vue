@@ -19,6 +19,9 @@ import { useDisplay } from "vuetify";
 import VanillaTilt from "vanilla-tilt";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import storeHeartbeat from "@/stores/heartbeat";
+
+const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 
 const props = withDefaults(
   defineProps<{
@@ -91,6 +94,8 @@ const handleCloseMenu = () => {
 
 const galleryViewStore = storeGalleryView();
 const collectionsStore = storeCollections();
+const heartbeatStore = storeHeartbeat();
+
 const computedAspectRatio = computed(() => {
   const ratio =
     props.aspectRatio ||
@@ -132,16 +137,30 @@ interface TiltHTMLElement extends HTMLElement {
 
 const tiltCard = ref<TiltHTMLElement | null>(null);
 
-const largeCover = computed(() =>
-  romsStore.isSimpleRom(props.rom)
-    ? props.rom.path_cover_large
-    : props.rom.igdb_url_cover ||
+const isWebpEnabled = computed(
+  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+);
+
+const largeCover = computed(() => {
+  if (!romsStore.isSimpleRom(props.rom))
+    return (
+      props.rom.igdb_url_cover ||
       props.rom.moby_url_cover ||
-      props.rom.ss_url_cover,
-);
-const smallCover = computed(() =>
-  romsStore.isSimpleRom(props.rom) ? props.rom.path_cover_small : "",
-);
+      props.rom.ss_url_cover
+    );
+  const pathCoverLarge = isWebpEnabled
+    ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
+    : props.rom.path_cover_large;
+  return pathCoverLarge || "";
+});
+
+const smallCover = computed(() => {
+  if (!romsStore.isSimpleRom(props.rom)) return "";
+  const pathCoverSmall = isWebpEnabled
+    ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
+    : props.rom.path_cover_small;
+  return pathCoverSmall || "";
+});
 
 const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
   event.preventDefault();
@@ -344,13 +363,6 @@ onBeforeUnmount(() => {
                   />
                 </v-expand-transition>
               </div>
-              <template #error>
-                <v-img
-                  cover
-                  :src="fallbackCoverImage"
-                  :aspect-ratio="computedAspectRatio"
-                ></v-img>
-              </template>
               <template #placeholder>
                 <v-img
                   cover
@@ -366,6 +378,14 @@ onBeforeUnmount(() => {
                     />
                   </template>
                 </v-img>
+              </template>
+              <template #error>
+                <v-img
+                  cover
+                  eager
+                  :src="fallbackCoverImage"
+                  :aspect-ratio="computedAspectRatio"
+                />
               </template>
             </v-img>
           </v-hover>

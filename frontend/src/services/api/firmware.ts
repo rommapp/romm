@@ -1,5 +1,5 @@
 import type { FirmwareSchema, AddFirmwareResponse } from "@/__generated__";
-import api from "@/services/api/index";
+import api from "@/services/api";
 
 export const firmwareApi = api;
 
