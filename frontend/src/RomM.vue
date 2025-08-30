@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import languageStore from "@/stores/language";
+import consoleStore from "@/stores/console";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useIdle } from "@vueuse/core";
 
 const { locale } = useI18n();
 const storeLanguage = languageStore();
+const storeConsole = consoleStore();
+const { consoleMode } = storeToRefs(storeConsole);
 const { defaultLanguage, languages } = storeToRefs(storeLanguage);
 const selectedLanguage = ref(
   languages.value.find(
@@ -14,10 +18,14 @@ const selectedLanguage = ref(
 );
 locale.value = selectedLanguage.value.value;
 storeLanguage.setLanguage(selectedLanguage.value);
+
+const { idle: mouseIdle } = useIdle(100, {
+  events: ["mousemove", "mousedown", "wheel", "touchstart"],
+});
 </script>
 
 <template>
-  <v-app>
+  <v-app id="application" :class="{ 'mouse-hidden': consoleMode && mouseIdle }">
     <v-main id="main" class="no-transition">
       <router-view v-slot="{ Component }">
         <component :is="Component" />
@@ -38,6 +46,11 @@ storeLanguage.setLanguage(selectedLanguage.value);
 <style scoped>
 #main.no-transition {
   transition: none;
+}
+
+#application.mouse-hidden,
+#application.mouse-hidden * {
+  cursor: none !important;
 }
 
 .fade-enter-active,

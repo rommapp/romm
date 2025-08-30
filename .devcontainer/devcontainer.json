@@ -33,7 +33,6 @@
         "ms-python.python",
         "ms-python.pylint",
         "ms-python.black-formatter",
-        "bradlc.vscode-tailwindcss",
         "vue.volar",
         "ms-vscode.vscode-typescript-next"
       ],
