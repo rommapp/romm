@@ -37,6 +37,15 @@ def clear_database():
         s.query(User).delete(synchronize_session="evaluate")
 
 
+@pytest.fixture(scope="module")
+def vcr_config():
+    """Fixture to configure VCR.py settings."""
+    return {
+        # Default `match_on`, plus raw_body.
+        "match_on": ["method", "scheme", "host", "port", "path", "query", "raw_body"],
+    }
+
+
 @pytest.fixture
 def platform():
     platform = Platform(
