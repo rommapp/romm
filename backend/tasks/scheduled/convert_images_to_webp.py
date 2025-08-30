@@ -120,7 +120,9 @@ class ConvertImagesToWebPTask(PeriodicTask):
         image_files = [
             p
             for p in self.resources_path.rglob("**/cover/*")
-            if p.is_file() and p.suffix.lower() in ImageConverter.SUPPORTED_EXTENSIONS
+            if p.is_file()
+            and not p.is_symlink()
+            and p.suffix.lower() in ImageConverter.SUPPORTED_EXTENSIONS
         ]
 
         return sorted(image_files)  # Sort for consistent processing order
