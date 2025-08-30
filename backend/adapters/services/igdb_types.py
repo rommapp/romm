@@ -1,10 +1,21 @@
 from __future__ import annotations
 
 import enum
-from typing import Literal, NewType, TypedDict
+from typing import Literal, NewType, TypedDict, TypeGuard
 
 # https://api-docs.igdb.com/#expander
 type ExpandableField[T] = T | int
+
+
+def mark_expanded[T](value: ExpandableField[T]) -> TypeGuard[T]:
+    """Type guard to narrow an `ExpandableField` to its expanded type."""
+    return True
+
+
+def mark_list_expanded[T](value: list[ExpandableField[T]]) -> TypeGuard[list[T]]:
+    """Type guard to narrow an `ExpandableField` list to its expanded type."""
+    return True
+
 
 # TODO: Add missing structures until all are implemented.
 UnimplementedEntity = NewType("UnimplementedEntity", dict)
@@ -95,7 +106,7 @@ class AgeRating(IGDBEntity, total=False):
     category: AgeRatingCategory
     checksum: str  # uuid
     content_descriptions: list[ExpandableField[AgeRatingContentDescription]]
-    rating: AgeRatingRating
+    rating_category: AgeRatingRating
     rating_cover_url: str
     synopsis: str
 
