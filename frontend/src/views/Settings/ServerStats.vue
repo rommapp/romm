@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import SummaryStats from "@/components/Settings/ServerStats/SummaryStats.vue";
 import PlatformsStats from "@/components/Settings/ServerStats/PlatformsStats.vue";
-import api from "@/services/api/index";
+import api from "@/services/api";
 import { onBeforeMount, ref } from "vue";
 
 const stats = ref({
