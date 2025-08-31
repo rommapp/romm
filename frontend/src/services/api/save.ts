@@ -1,4 +1,4 @@
-import api from "@/services/api/index";
+import api from "@/services/api";
 import type { DetailedRom } from "@/stores/roms";
 import type { SaveSchema } from "@/__generated__";
 

@@ -3,12 +3,13 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
-from config import RESOURCES_BASE_PATH
+from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from fastapi import status
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
 from PIL import Image, ImageFile, UnidentifiedImageError
+from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 
 from .base_handler import CoverSize, FSHandler
@@ -17,6 +18,7 @@ from .base_handler import CoverSize, FSHandler
 class FSResourcesHandler(FSHandler):
     def __init__(self) -> None:
         super().__init__(base_path=RESOURCES_BASE_PATH)
+        self.image_converter = ImageConverter()
 
     def get_platform_resources_path(self, platform_id: int) -> str:
         return os.path.join("roms", str(platform_id))
@@ -73,6 +75,11 @@ class FSResourcesHandler(FSHandler):
                     ) as f:
                         async for chunk in response.aiter_raw():
                             await f.write(chunk)
+
+                    if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                        self.image_converter.convert_to_webp(
+                            self.validate_path(f"{cover_file}/{size.value}.png")
+                        )
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
             return None
@@ -82,6 +89,11 @@ class FSResourcesHandler(FSHandler):
                 image_path = self.validate_path(f"{cover_file}/{size.value}.png")
                 with Image.open(image_path) as img:
                     self.resize_cover_to_small(img, save_path=str(image_path))
+
+                if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                    self.image_converter.convert_to_webp(
+                        self.validate_path(f"{cover_file}/{size.value}.png")
+                    )
             except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
                 return None
