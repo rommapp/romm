@@ -181,6 +181,9 @@ function onFilterClick(filter: FilterType, value: string) {
         <v-row no-gutters class="mt-4">
           <v-col class="text-caption">
             <MdPreview
+              no-highlight
+              no-katex
+              no-mermaid
               class="py-4 px-6"
               :model-value="rom.summary ?? ''"
               :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
