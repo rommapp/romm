@@ -313,15 +313,22 @@ watch(
             <template #content>
               <MdEditor
                 v-if="editingNote"
+                no-highlight
+                no-katex
+                no-mermaid
+                no-prettier
+                no-upload-img
                 :disabled="!scopes.includes('roms.user.write')"
                 v-model="romUser.note_raw_markdown"
                 :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                 language="en-US"
                 :preview="false"
-                :no-upload-img="true"
               />
               <MdPreview
                 v-else
+                no-highlight
+                no-katex
+                no-mermaid
                 :model-value="romUser.note_raw_markdown"
                 :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                 language="en-US"
@@ -348,6 +355,9 @@ watch(
                   </v-expansion-panel-title>
                   <v-expansion-panel-text class="bg-surface">
                     <MdPreview
+                      no-highlight
+                      no-katex
+                      no-mermaid
                       :model-value="note.note_raw_markdown"
                       :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
                       language="en-US"

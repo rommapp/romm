@@ -34,6 +34,9 @@ emitter?.on("showNoteDialog", (romToShow) => {
       </v-card-title>
       <v-card-text class="pa-4">
         <MdPreview
+          no-highlight
+          no-katex
+          no-mermaid
           v-if="rom?.rom_user?.note_raw_markdown"
           :model-value="rom?.rom_user?.note_raw_markdown"
           :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
