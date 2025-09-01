@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { type FilterType } from "@/stores/galleryFilter";
 import RDialog from "@/components/common/RDialog.vue";
-import RAvatar from "@/components/common/Collection/RAvatar.vue";
-import type { DetailedRom } from "@/stores/roms";
+import { type DetailedRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
