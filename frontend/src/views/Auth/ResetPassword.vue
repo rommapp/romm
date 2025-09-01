@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
-import { refetchCSRFToken } from "@/services/api/index";
+import { refetchCSRFToken } from "@/services/api";
 import type { Events } from "@/types/emitter";
-import userApi from "@/services/api/user";
 import type { Emitter } from "mitt";
 import storeAuth from "@/stores/auth";
 import { inject, ref } from "vue";
@@ -10,7 +9,7 @@ import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
-const auth = storeAuth();
+const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const route = useRoute();
 const router = useRouter();
@@ -26,8 +25,7 @@ async function resetPassword() {
     .then(async () => {
       await refetchCSRFToken();
       try {
-        const { data: userData } = await userApi.fetchCurrentUser();
-        auth.setUser(userData);
+        await authStore.fetchCurrentUser();
       } catch (error) {
         console.error("Error setting a new password: ", error);
       }

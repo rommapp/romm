@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AboutDialog from "@/components/Settings/AboutDialog.vue";
 import identityApi from "@/services/api/identity";
-import { refetchCSRFToken } from "@/services/api/index";
+import { refetchCSRFToken } from "@/services/api";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";

@@ -93,7 +93,7 @@ onMounted(() => {
 
       <v-card-text
         id="r-dialog-content"
-        class="pa-1 d-flex flex-column"
+        class="pa-0 d-flex flex-column"
         :class="{ scroll: scrollContent }"
       >
         <v-row

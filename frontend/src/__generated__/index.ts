@@ -10,6 +10,7 @@ export type { Body_add_platform_api_platforms_post } from './models/Body_add_pla
 export type { Body_add_user_api_users_post } from './models/Body_add_user_api_users_post';
 export type { Body_create_user_from_invite_api_users_register_post } from './models/Body_create_user_from_invite_api_users_register_post';
 export type { Body_delete_roms_api_roms_delete_post } from './models/Body_delete_roms_api_roms_delete_post';
+export type { Body_refresh_retro_achievements_api_users__id__ra_refresh_post } from './models/Body_refresh_retro_achievements_api_users__id__ra_refresh_post';
 export type { Body_request_password_reset_api_forgot_password_post } from './models/Body_request_password_reset_api_forgot_password_post';
 export type { Body_reset_password_api_reset_password_post } from './models/Body_reset_password_api_reset_password_post';
 export type { Body_token_api_token_post } from './models/Body_token_api_token_post';
@@ -66,6 +67,7 @@ export type { StatsReturn } from './models/StatsReturn';
 export type { SystemDict } from './models/SystemDict';
 export type { TaskExecutionResponse } from './models/TaskExecutionResponse';
 export type { TaskInfo } from './models/TaskInfo';
+export type { TasksDict } from './models/TasksDict';
 export type { TaskStatusResponse } from './models/TaskStatusResponse';
 export type { TinfoilFeedFileSchema } from './models/TinfoilFeedFileSchema';
 export type { TinfoilFeedSchema } from './models/TinfoilFeedSchema';

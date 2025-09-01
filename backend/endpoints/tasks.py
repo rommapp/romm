@@ -13,6 +13,7 @@ from handler.auth.constants import Scope
 from handler.redis_handler import low_prio_queue
 from rq.job import Job
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
+from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.update_launchbox_metadata import update_launchbox_metadata_task
 from tasks.scheduled.update_switch_titledb import update_switch_titledb_task
@@ -28,6 +29,7 @@ scheduled_tasks: dict[str, Task] = {
     "scan_library": scan_library_task,
     "update_launchbox_metadata": update_launchbox_metadata_task,
     "update_switch_titledb": update_switch_titledb_task,
+    "convert_images_to_webp": convert_images_to_webp_task,
 }
 
 manual_tasks: dict[str, Task] = {
@@ -54,7 +56,7 @@ async def list_tasks(request: Request) -> GroupedTasksDict:
     Args:
         request (Request): FastAPI Request object
     Returns:
-        Dictionary with tasks grouped by their type (scheduled, manual, watcher)
+        GroupedTasksDict: Dictionary with tasks grouped by their type (scheduled, manual, watcher)
     """
     # Initialize the grouped tasks dictionary
     grouped_tasks: GroupedTasksDict = {

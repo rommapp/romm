@@ -7,6 +7,7 @@ import mkcert from "vite-plugin-mkcert";
 // Utilities
 import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
+import tailwindcss from "@tailwindcss/vite";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -24,6 +25,7 @@ export default defineConfig(({ mode }) => {
       target: "esnext",
     },
     plugins: [
+      tailwindcss(),
       vue({
         template: { transformAssetUrls },
       }),

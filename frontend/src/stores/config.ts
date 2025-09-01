@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 
 import type { ConfigResponse } from "@/__generated__";
+import api from "@/services/api";
 
 type ExclusionTypes =
   | "EXCLUDED_PLATFORMS"
@@ -27,8 +28,15 @@ export default defineStore("config", {
   }),
 
   actions: {
-    set(data: ConfigResponse) {
-      this.config = data;
+    async fetchConfig(): Promise<ConfigResponse> {
+      try {
+        const response = await api.get("/config");
+        this.config = response.data;
+        return this.config;
+      } catch (error) {
+        console.error("Error fetching config: ", error);
+        return this.config;
+      }
     },
     addPlatformBinding(fsSlug: string, slug: string) {
       this.config.PLATFORMS_BINDING[fsSlug] = slug;
