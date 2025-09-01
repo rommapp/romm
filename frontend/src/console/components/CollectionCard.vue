@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watchEffect } from "vue";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import { getFavoriteCoverImage } from "@/utils/covers";
 import { collectionElementRegistry } from "@/console/composables/useElementRegistry";
+import { getFavoriteCoverImage } from "@/utils/covers";
+import { computed, onMounted, ref, watchEffect } from "vue";
 
 const props = defineProps<{
   collection: CollectionSchema;

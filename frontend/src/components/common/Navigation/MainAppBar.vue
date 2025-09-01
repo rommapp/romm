@@ -1,16 +1,16 @@
 <script setup lang="ts">
+import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
+import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
+import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
+import ConsoleModeBtn from "@/components/common/Navigation/ConsoleModeBtn.vue";
 import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
 import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
-import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
+import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
 import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
 import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
+import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
-import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
-import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
-import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
-import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
-import ConsoleModeBtn from "@/components/common/Navigation/ConsoleModeBtn.vue";
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";

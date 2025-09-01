@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { type FilterType } from "@/stores/galleryFilter";
+import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import RDialog from "@/components/common/RDialog.vue";
-import { type DetailedRom } from "@/stores/roms";
 import { ROUTES } from "@/plugins/router";
+import { type FilterType } from "@/stores/galleryFilter";
+import storeHeartbeat from "@/stores/heartbeat";
+import type { DetailedRom } from "@/stores/roms";
+import { get } from "lodash";
+import { MdPreview } from "md-editor-v3";
+import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay, useTheme } from "vuetify";
-import { useI18n } from "vue-i18n";
-import { MdPreview } from "md-editor-v3";
-import { get } from "lodash";
-import storeHeartbeat from "@/stores/heartbeat";
-import { storeToRefs } from "pinia";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();

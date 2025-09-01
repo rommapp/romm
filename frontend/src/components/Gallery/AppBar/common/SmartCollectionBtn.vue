@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import storeGalleryFilter from "@/stores/galleryFilter";
+import type { Events } from "@/types/emitter";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { computed, inject } from "vue";
 import { useI18n } from "vue-i18n";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import { storeToRefs } from "pinia";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();

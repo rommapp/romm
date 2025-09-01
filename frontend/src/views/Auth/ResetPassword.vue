@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import identityApi from "@/services/api/identity";
 import { refetchCSRFToken } from "@/services/api";
+import identityApi from "@/services/api/identity";
+import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import storeAuth from "@/stores/auth";
 import { inject, ref } from "vue";
-import { useRouter, useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { useRouter, useRoute } from "vue-router";
 
 const { t } = useI18n();
 const authStore = storeAuth();

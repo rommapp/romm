@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { useTheme, useDisplay } from "vuetify";
 import type { DetailedRom } from "@/stores/roms";
 import VuePdfApp from "vue3-pdf-app";
+import { useTheme, useDisplay } from "vuetify";
 
 defineProps<{ rom: DetailedRom }>();
 const { xs } = useDisplay();

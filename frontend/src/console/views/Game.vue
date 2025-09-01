@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, nextTick } from "vue";
-import { formatDistanceToNow } from "date-fns";
-import { useRoute, useRouter } from "vue-router";
-import romApi from "@/services/api/rom";
-import stateApi from "@/services/api/state";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
-import ScreenshotLightbox from "@/console/components/ScreenshotLightbox.vue";
 import BackButton from "@/console/components/BackButton.vue";
-import NavigationText from "@/console/components/NavigationText.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
+import NavigationText from "@/console/components/NavigationText.vue";
+import ScreenshotLightbox from "@/console/components/ScreenshotLightbox.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
-import { getSupportedEJSCores } from "@/utils";
+import romApi from "@/services/api/rom";
+import stateApi from "@/services/api/state";
 import storeRoms from "@/stores/roms";
+import { getSupportedEJSCores } from "@/utils";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
+import { formatDistanceToNow } from "date-fns";
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 type FocusZone =
   | "play"

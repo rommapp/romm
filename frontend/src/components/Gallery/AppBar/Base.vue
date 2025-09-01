@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
-import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
-import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
-import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
-import SmartCollectionBtn from "@/components/Gallery/AppBar/common/SmartCollectionBtn.vue";
-import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
 import CharIndexBar from "@/components/Gallery/AppBar/common/CharIndexBar.vue";
 import ContextualRandomBtn from "@/components/Gallery/AppBar/common/ContextualRandomBtn.vue";
+import FilterBtn from "@/components/Gallery/AppBar/common/FilterBtn.vue";
+import FilterDrawer from "@/components/Gallery/AppBar/common/FilterDrawer/Base.vue";
+import GalleryViewBtn from "@/components/Gallery/AppBar/common/GalleryViewBtn.vue";
+import SelectingBtn from "@/components/Gallery/AppBar/common/SelectingBtn.vue";
+import SmartCollectionBtn from "@/components/Gallery/AppBar/common/SmartCollectionBtn.vue";
 import { calculateMainLayoutWidth } from "@/utils";
 
 withDefaults(

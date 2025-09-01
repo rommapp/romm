@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import {
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
   is3DSCIARom,
 } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
-import { computed, inject, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 
 const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();

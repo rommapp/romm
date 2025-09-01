@@ -1,4 +1,5 @@
 import App from "@/RomM.vue";
+import "@/console/index.css";
 import { registerPlugins } from "@/plugins";
 import router from "@/plugins/router";
 import storeAuth from "@/stores/auth";
@@ -8,7 +9,6 @@ import storeTasks from "@/stores/tasks";
 import "@/styles/common.css";
 import "@/styles/fonts.css";
 import "@/styles/scrollbar.css";
-import "@/console/index.css";
 import { createApp } from "vue";
 
 async function initializeData() {

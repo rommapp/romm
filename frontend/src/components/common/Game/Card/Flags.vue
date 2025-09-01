@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from "vue";
 import { type SimpleRom } from "@/stores/roms";
 import {
   languageToEmoji,
@@ -8,6 +7,7 @@ import {
   getTextForStatus,
 } from "@/utils";
 import { identity, isNull } from "lodash";
+import { computed } from "vue";
 
 const props = defineProps<{ rom: SimpleRom }>();
 const showRegions = isNull(localStorage.getItem("settings.showRegions"))
