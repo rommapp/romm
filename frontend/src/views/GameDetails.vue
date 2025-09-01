@@ -21,6 +21,7 @@ import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+
 // Dynamic import for PDFViewer
 const PdfViewer = defineAsyncComponent(
   () => import("@/components/Details/PDFViewer.vue"),
