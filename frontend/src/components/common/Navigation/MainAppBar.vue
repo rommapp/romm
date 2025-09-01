@@ -10,6 +10,7 @@ import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue"
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
+import ConsoleModeBtn from "@/components/common/Navigation/ConsoleModeBtn.vue";
 import storeNavigation from "@/stores/navigation";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
@@ -56,6 +57,7 @@ function collapse() {
       <platforms-btn withTag />
       <collections-btn withTag />
       <scan-btn withTag />
+      <console-mode-btn withTag />
     </v-bottom-navigation>
   </template>
 
@@ -121,6 +123,7 @@ function collapse() {
       block
       tabindex="7"
     />
+    <console-mode-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
 
     <template #append>
       <upload-btn

@@ -34,6 +34,11 @@ export const ROUTES = {
   ADMINISTRATION: "administration",
   SERVER_STATS: "server-stats",
   NOT_FOUND: "404",
+  CONSOLE_HOME: "console-home",
+  CONSOLE_PLATFORM: "console-platform",
+  CONSOLE_COLLECTION: "console-collection",
+  CONSOLE_ROM: "console-rom",
+  CONSOLE_PLAY: "console-play",
 } as const;
 
 const routes = [
@@ -221,6 +226,38 @@ const routes = [
         path: ":pathMatch(.*)*",
         name: ROUTES.NOT_FOUND,
         component: () => import("@/views/404.vue"),
+      },
+    ],
+  },
+  // Console mode (separate UI namespace under /console)
+  {
+    path: "/console",
+    component: () => import("@/console/Layout.vue"),
+    children: [
+      {
+        path: "",
+        name: ROUTES.CONSOLE_HOME,
+        component: () => import("@/console/views/Home.vue"),
+      },
+      {
+        path: "platform/:id",
+        name: ROUTES.CONSOLE_PLATFORM,
+        component: () => import("@/console/views/GamesList.vue"),
+      },
+      {
+        path: "collection/:id",
+        name: ROUTES.CONSOLE_COLLECTION,
+        component: () => import("@/console/views/GamesList.vue"),
+      },
+      {
+        path: "rom/:rom",
+        name: ROUTES.CONSOLE_ROM,
+        component: () => import("@/console/views/Game.vue"),
+      },
+      {
+        path: "rom/:rom/play",
+        name: ROUTES.CONSOLE_PLAY,
+        component: () => import("@/console/views/Play.vue"),
       },
     ],
   },

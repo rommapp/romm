@@ -1,20 +1,17 @@
 <script setup lang="ts">
 import identityApi from "@/services/api/identity";
-import { refetchCSRFToken } from "@/services/api/index";
+import { refetchCSRFToken } from "@/services/api";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
-import userApi from "@/services/api/user";
 import type { Emitter } from "mitt";
 import storeAuth from "@/stores/auth";
-import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();
-const auth = storeAuth();
-const { user } = storeToRefs(auth);
+const authStore = storeAuth();
 const emitter = inject<Emitter<Events>>("emitter");
 const router = useRouter();
 const username = ref("");
@@ -39,8 +36,7 @@ async function login() {
     .then(async () => {
       await refetchCSRFToken();
       try {
-        const { data: userData } = await userApi.fetchCurrentUser();
-        auth.setUser(userData);
+        await authStore.fetchCurrentUser();
       } catch (userError) {
         console.error("Error loading user: ", userError);
       }

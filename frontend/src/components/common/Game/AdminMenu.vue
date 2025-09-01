@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
-import storeCollections, { type Collection } from "@/stores/collections";
+import storeCollections from "@/stores/collections";
+import storeRoms from "@/stores/roms";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
-import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import socket from "@/services/socket";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
 import romApi from "@/services/api/rom";
+import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: SimpleRom }>();
@@ -20,73 +19,12 @@ const emitter = inject<Emitter<Events>>("emitter");
 const heartbeat = storeHeartbeat();
 const auth = storeAuth();
 const collectionsStore = storeCollections();
+const { toggleFavorite } = useFavoriteToggle(emitter);
 const romsStore = storeRoms();
-const { favoriteCollection } = storeToRefs(collectionsStore);
 const scanningStore = storeScanning();
 
 async function switchFromFavourites() {
-  if (!favoriteCollection.value) {
-    await collectionApi
-      .createCollection({
-        collection: { name: "Favourites" },
-      })
-      .then(({ data }) => {
-        collectionsStore.addCollection(data);
-        favoriteCollection.value = data;
-        emitter?.emit("snackbarShow", {
-          msg: `Collection ${data.name} created successfully!`,
-          icon: "mdi-check-bold",
-          color: "green",
-          timeout: 2000,
-        });
-      })
-      .catch((error) => {
-        console.log(error);
-        emitter?.emit("snackbarShow", {
-          msg: error.response.data.detail,
-          icon: "mdi-close-circle",
-          color: "red",
-        });
-        return;
-      });
-  }
-  if (!collectionsStore.isFavorite(props.rom)) {
-    favoriteCollection.value?.rom_ids.push(props.rom.id);
-  } else {
-    if (favoriteCollection.value) {
-      favoriteCollection.value.rom_ids =
-        favoriteCollection.value.rom_ids.filter((id) => id !== props.rom.id);
-      if (romsStore.currentCollection?.name.toLowerCase() == "favourites") {
-        romsStore.remove([props.rom]);
-      }
-    }
-  }
-  await collectionApi
-    .updateCollection({ collection: favoriteCollection.value as Collection })
-    .then(({ data }) => {
-      emitter?.emit("snackbarShow", {
-        msg: `${props.rom.name} ${
-          collectionsStore.isFavorite(props.rom) ? "added to" : "removed from"
-        } ${favoriteCollection.value?.name} successfully!`,
-        icon: "mdi-check-bold",
-        color: "green",
-        timeout: 2000,
-      });
-      favoriteCollection.value = data;
-      collectionsStore.updateCollection(data);
-    })
-    .catch((error) => {
-      console.log(error);
-      emitter?.emit("snackbarShow", {
-        msg: error.response.data.detail,
-        icon: "mdi-close-circle",
-        color: "red",
-      });
-      return;
-    })
-    .finally(() => {
-      emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
-    });
+  await toggleFavorite(props.rom);
 }
 
 async function resetLastPlayed() {

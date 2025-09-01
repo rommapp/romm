@@ -3,7 +3,7 @@ import type {
   SearchRomSchema,
   RomUserSchema,
 } from "@/__generated__";
-import api from "@/services/api/index";
+import api from "@/services/api";
 import socket from "@/services/socket";
 import storeUpload from "@/stores/upload";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
