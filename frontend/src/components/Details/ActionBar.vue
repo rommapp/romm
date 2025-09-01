@@ -1,19 +1,13 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
+import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
-import storeHeartbeat from "@/stores/heartbeat";
-import storeConfig from "@/stores/config";
 import type { DetailedRom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
-import {
-  getDownloadLink,
-  is3DSCIARom,
-  isEJSEmulationSupported,
-  isRuffleEmulationSupported,
-} from "@/utils";
+import { getDownloadLink, is3DSCIARom } from "@/utils";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
 import { storeToRefs } from "pinia";
@@ -21,28 +15,10 @@ import { useI18n } from "vue-i18n";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();
-const heartbeatStore = storeHeartbeat();
 const emitter = inject<Emitter<Events>>("emitter");
-const playInfoIcon = ref("mdi-play");
 const qrCodeIcon = ref("mdi-qrcode");
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
 const auth = storeAuth();
 const { t } = useI18n();
-
-const platformSlug = computed(() =>
-  props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
-    ? config.value.PLATFORMS_VERSIONS[props.rom.platform_slug]
-    : props.rom.platform_slug,
-);
-
-const ejsEmulationSupported = computed(() => {
-  return isEJSEmulationSupported(platformSlug.value, heartbeatStore.value);
-});
-
-const ruffleEmulationSupported = computed(() => {
-  return isRuffleEmulationSupported(platformSlug.value, heartbeatStore.value);
-});
 
 const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
@@ -105,34 +81,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         >
         <v-icon icon="mdi-content-copy" />
       </v-btn>
-      <v-btn
-        v-if="ejsEmulationSupported"
-        :disabled="rom.missing_from_fs"
-        class="flex-grow-1"
-        @click="
-          $router.push({
-            name: 'emulatorjs',
-            params: { rom: rom?.id },
-          })
-        "
-        :aria-label="`Play ${rom.name}`"
-      >
-        <v-icon :icon="playInfoIcon" />
-      </v-btn>
-      <v-btn
-        v-if="ruffleEmulationSupported"
-        :disabled="rom.missing_from_fs"
-        class="flex-grow-1"
-        @click="
-          $router.push({
-            name: 'ruffle',
-            params: { rom: rom?.id },
-          })
-        "
-        :aria-label="`Play ${rom.name}`"
-      >
-        <v-icon :icon="playInfoIcon" />
-      </v-btn>
+      <play-btn :rom="rom" class="flex-grow-1" />
       <v-btn
         v-if="is3DSRom"
         :disabled="rom.missing_from_fs"

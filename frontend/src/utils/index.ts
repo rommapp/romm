@@ -1,4 +1,5 @@
 import cronstrue from "cronstrue";
+import type { Config } from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
 import type { Heartbeat } from "@/stores/heartbeat";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
@@ -456,16 +457,19 @@ const gl =
  *
  * @param platformSlug The platform slug.
  * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
  * @returns True if supported, false otherwise.
  */
 export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
+  config?: Config,
 ) {
+  if (heartbeat.EMULATION.DISABLE_EMULATOR_JS) return false;
+
+  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
   return (
-    !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
-    getSupportedEJSCores(platformSlug).length > 0 &&
-    gl instanceof WebGLRenderingContext
+    getSupportedEJSCores(slug).length > 0 && gl instanceof WebGLRenderingContext
   );
 }
 
@@ -521,15 +525,36 @@ export function getControlSchemeForPlatform(
  *
  * @param platformSlug The platform slug.
  * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
  * @returns True if supported, false otherwise.
  */
 export function isRuffleEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
+  config?: Config,
+) {
+  if (heartbeat.EMULATION.DISABLE_RUFFLE_RS) return false;
+
+  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  return ["flash", "browser"].includes(slug.toLowerCase());
+}
+
+/**
+ * Check whether any kind of emulation is supported for a given platform.
+ *
+ * @param platformSlug The platform slug.
+ * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
+ * @returns True if any emulation is supported, false otherwise.
+ */
+export function isAnyEmulationSupported(
+  platformSlug: string,
+  heartbeat: Heartbeat,
+  config?: Config,
 ) {
   return (
-    ["flash", "browser"].includes(platformSlug.toLowerCase()) &&
-    !heartbeat.EMULATION.DISABLE_RUFFLE_RS
+    isEJSEmulationSupported(platformSlug, heartbeat, config) ||
+    isRuffleEmulationSupported(platformSlug, heartbeat, config)
   );
 }
 

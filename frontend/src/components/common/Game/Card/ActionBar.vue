@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
+import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import romApi from "@/services/api/rom";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
@@ -7,12 +8,7 @@ import storeConfig from "@/stores/config";
 import type { SimpleRom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
-import {
-  isEJSEmulationSupported,
-  isRuffleEmulationSupported,
-  is3DSCIARom,
-} from "@/utils";
-import { ROUTES } from "@/plugins/router";
+import { isAnyEmulationSupported, is3DSCIARom } from "@/utils";
 import type { Emitter } from "mitt";
 import { computed, inject, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
@@ -22,6 +18,7 @@ const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
 const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();
 const heartbeatStore = storeHeartbeat();
+const { value: heartbeat } = storeToRefs(heartbeatStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
 const { config } = storeToRefs(configStore);
@@ -32,18 +29,12 @@ const computedSize = computed(() => {
   return props.sizeActionBar === 1 ? "small" : "x-small";
 });
 
-const platformSlug = computed(() => {
-  return props.rom.platform_slug in config.value.PLATFORMS_VERSIONS
-    ? config.value.PLATFORMS_VERSIONS[props.rom.platform_slug]
-    : props.rom.platform_slug;
-});
-
-const ejsEmulationSupported = computed(() => {
-  return isEJSEmulationSupported(platformSlug.value, heartbeatStore.value);
-});
-
-const ruffleEmulationSupported = computed(() => {
-  return isRuffleEmulationSupported(platformSlug.value, heartbeatStore.value);
+const isEmulationSupported = computed(() => {
+  return isAnyEmulationSupported(
+    props.rom.platform_slug,
+    heartbeat.value,
+    config.value,
+  );
 });
 
 const is3DSRom = computed(() => {
@@ -71,43 +62,15 @@ watch(menuOpen, (val) => {
         :aria-label="`${t('rom.download')} ${rom.name}`"
       />
     </v-col>
-    <v-col
-      v-if="ejsEmulationSupported || ruffleEmulationSupported"
-      class="d-flex"
-    >
-      <v-btn
-        v-if="ejsEmulationSupported"
-        :disabled="rom.missing_from_fs"
+    <v-col v-if="isEmulationSupported" class="d-flex">
+      <play-btn
+        :rom="rom"
+        :iconEmbedded="true"
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
         :size="computedSize"
-        @click="
-          $router.push({
-            name: ROUTES.EMULATORJS,
-            params: { rom: rom?.id },
-          })
-        "
-        icon="mdi-play"
         variant="text"
         rounded="0"
-        :aria-label="`Play ${rom.name}`"
-      />
-      <v-btn
-        v-if="ruffleEmulationSupported"
-        :disabled="rom.missing_from_fs"
-        @click.prevent
-        class="action-bar-btn-small flex-grow-1"
-        :size="computedSize"
-        @click="
-          $router.push({
-            name: ROUTES.RUFFLE,
-            params: { rom: rom?.id },
-          })
-        "
-        icon="mdi-play"
-        variant="text"
-        rounded="0"
-        :aria-label="`Play ${rom.name}`"
       />
     </v-col>
     <v-col v-if="is3DSRom" class="d-flex">
