@@ -17,16 +17,8 @@ import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import {
-  inject,
-  onBeforeMount,
-  ref,
-  watch,
-  defineAsyncComponent,
-  onMounted,
-  onBeforeUnmount,
-} from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
+import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 
@@ -51,8 +43,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const noRomError = ref(false);
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
-const { currentRom, fetchingRoms, filteredRoms } = storeToRefs(romsStore);
-const router = useRouter();
+const { currentRom, fetchingRoms } = storeToRefs(romsStore);
 
 async function fetchDetails() {
   fetchingRoms.value = true;
@@ -69,20 +60,6 @@ async function fetchDetails() {
       emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
       fetchingRoms.value = false;
     });
-}
-
-function handleKeyDown(event: KeyboardEvent) {
-  const currentIndex = filteredRoms.value.findIndex(
-    (rom) => rom.id === currentRom.value?.id,
-  );
-  if (event.key === "ArrowLeft" && currentIndex > 0) {
-    router.push(`/rom/${filteredRoms.value[currentIndex - 1].id}`);
-  } else if (
-    event.key === "ArrowRight" &&
-    currentIndex < filteredRoms.value.length - 1
-  ) {
-    router.push(`/rom/${filteredRoms.value[currentIndex + 1].id}`);
-  }
 }
 
 onBeforeMount(async () => {
@@ -106,14 +83,6 @@ onBeforeMount(async () => {
 
   const downloadStore = storeDownload();
   downloadStore.reset();
-});
-
-onMounted(() => {
-  document.addEventListener("keydown", handleKeyDown);
-});
-
-onBeforeUnmount(() => {
-  document.removeEventListener("keydown", handleKeyDown);
 });
 
 watch(
