@@ -17,6 +17,7 @@ import {
   loadEmulatorJSState,
   createQuickLoadButton,
   createSaveQuitButton,
+  createExitEmulationButton,
 } from "./utils";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
@@ -103,6 +104,10 @@ window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
 window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
 window.EJS_backgroundColor = theme.current.value.colors.background;
+window.EJS_Buttons = {
+  // Disable the standard exit button to implement our own
+  exitEmulation: false,
+};
 // Force saving saves and states to the browser
 window.EJS_defaultOptions = {
   "save-state-location": "browser",
@@ -310,6 +315,13 @@ window.EJS_onGameStart = async () => {
           });
         });
     }
+  });
+
+  const exitEmulation = createExitEmulationButton();
+  exitEmulation.addEventListener("click", async () => {
+    if (!romRef.value || !window.EJS_emulator) return window.history.back();
+    romsStore.update(romRef.value);
+    window.history.back();
   });
 
   const saveAndQuit = createSaveQuitButton();
