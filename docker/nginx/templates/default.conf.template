@@ -8,6 +8,18 @@ map $http_x_forwarded_proto $forwardscheme {
     https https;
 }
 
+# COEP and COOP headers for cross-origin isolation, which are set only for the
+# EmulatorJS player path, to enable SharedArrayBuffer support, which is needed
+# for multi-threaded cores.
+map $request_uri $coep_header {
+    default        "";
+    ~^/rom/.*/ejs$ "require-corp";
+}
+map $request_uri $coop_header {
+    default        "";
+    ~^/rom/.*/ejs$ "same-origin";
+}
+
 server {
     root /var/www/html;
     listen ${ROMM_PORT};
@@ -19,13 +31,14 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $forwardscheme;
 
-
     location / {
         try_files $uri $uri/ /index.html;
         proxy_redirect off;
         add_header Access-Control-Allow-Origin *;
         add_header Access-Control-Allow-Methods *;
         add_header Access-Control-Allow-Headers *;
+        add_header Cross-Origin-Embedder-Policy $coep_header;
+        add_header Cross-Origin-Opener-Policy $coop_header;
     }
 
     # Static files
