@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { Platform } from "@/stores/platforms";
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
 import storeNavigation from "@/stores/navigation";
+import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 import { ref, watch, computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { mdAndUp, smAndDown } = useDisplay();

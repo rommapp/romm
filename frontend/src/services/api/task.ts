@@ -1,9 +1,9 @@
-import api from "@/services/api";
 import {
   type TaskExecutionResponse,
   type TaskStatusResponse,
   type TaskInfo,
 } from "@/__generated__";
+import api from "@/services/api";
 
 async function getTasks(): Promise<{
   data: Record<string, TaskInfo[]>;

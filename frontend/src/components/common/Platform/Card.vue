@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from "vue";
-import type { Platform } from "@/stores/platforms";
-import { ROUTES } from "@/plugins/router";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
+import type { Platform } from "@/stores/platforms";
 import VanillaTilt from "vanilla-tilt";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
 
 const props = withDefaults(

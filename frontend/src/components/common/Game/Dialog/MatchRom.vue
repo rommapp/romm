@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import type { SearchRomSchema } from "@/__generated__";
-import GameCard from "@/components/common/Game/Card/Base.vue";
-import RDialog from "@/components/common/RDialog.vue";
-import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import RDialog from "@/components/common/RDialog.vue";
+import romApi from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storePlatforms from "@/stores/platforms";
-import romApi from "@/services/api/rom";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { getMissingCoverImage } from "@/utils/covers";
 import type { Emitter } from "mitt";
 import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
-import { getMissingCoverImage } from "@/utils/covers";
 
 type MatchedSource = {
   url_cover: string | undefined;

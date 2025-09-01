@@ -1,22 +1,22 @@
 <script setup lang="ts">
+import FabOverlay from "@/components/Gallery/FabOverlay.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
 import PlatformBinding from "@/components/Settings/LibraryManagement/Config/PlatformBinding.vue";
 import PlatformVersions from "@/components/Settings/LibraryManagement/Config/PlatformVersions.vue";
 import GameTable from "@/components/common/Game/Table.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
-import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import type { Emitter } from "mitt";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
+import storeRoms, { MAX_FETCH_LIMIT } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { debounce, throttle } from "lodash";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { ref, onMounted, inject, onBeforeUnmount, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { debounce, throttle } from "lodash";
 
 const { t } = useI18n();
 const tab = ref<"config" | "missing">("config");

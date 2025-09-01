@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import { ROUTES } from "@/plugins/router";
 import type { CollectionType } from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
 import storeHeartbeat from "@/stores/heartbeat";
-import { ROUTES } from "@/plugins/router";
-import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
+import VanillaTilt from "vanilla-tilt";
 import { computed, ref, watchEffect, onMounted, onBeforeUnmount } from "vue";
 import { useDisplay } from "vuetify";
-import VanillaTilt from "vanilla-tilt";
-import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
 
 const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 

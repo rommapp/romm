@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { SimpleRom } from "@/stores/roms";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
-import { formatBytes } from "@/utils";
 import { ROUTES } from "@/plugins/router";
+import type { SimpleRom } from "@/stores/roms";
+import { formatBytes } from "@/utils";
 
 withDefaults(
   defineProps<{

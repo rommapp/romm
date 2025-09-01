@@ -1,5 +1,5 @@
-import { defineStore } from "pinia";
 import { type RomFileSchema } from "@/__generated__";
+import { defineStore } from "pinia";
 
 export default defineStore("download", {
   state: () => ({

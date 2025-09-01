@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import FirmwareBtn from "@/components/Gallery/AppBar/Platform/FirmwareBtn.vue";
 import FirmwareDrawer from "@/components/Gallery/AppBar/Platform/FirmwareDrawer.vue";
 import PlatformInfoDrawer from "@/components/Gallery/AppBar/Platform/PlatformInfoDrawer.vue";
-import storeRoms from "@/stores/roms";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import storeNavigation from "@/stores/navigation";
+import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 

@@ -2,10 +2,10 @@
 import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeCollections from "@/stores/collections";
-import { computed, ref } from "vue";
-import { useDisplay } from "vuetify";
 import { isNull } from "lodash";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { smAndDown } = useDisplay();

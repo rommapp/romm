@@ -13,12 +13,12 @@ import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
+import { identity } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
-import { identity } from "lodash";
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");
