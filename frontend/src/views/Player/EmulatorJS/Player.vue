@@ -106,7 +106,7 @@ window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powere
 window.EJS_backgroundColor = theme.current.value.colors.background;
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
-  exitEmulation: false
+  exitEmulation: false,
 };
 // Force saving saves and states to the browser
 window.EJS_defaultOptions = {
