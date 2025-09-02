@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
-import { getPlatformTheme } from "@/console/constants/platforms";
 import { systemElementRegistry } from "@/console/composables/useElementRegistry";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
+import { getPlatformTheme } from "@/console/constants/platforms";
 import type { Platform } from "@/stores/platforms";
+import { computed, onMounted, ref } from "vue";
 
 const props = defineProps<{
   platform: Platform;

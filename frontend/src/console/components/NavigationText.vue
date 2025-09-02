@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
 import ArrowKeysIcon from "./icons/ArrowKeysIcon.vue";
 import DPadIcon from "./icons/DPadIcon.vue";
 import FaceButtons from "./icons/FaceButtons.vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 
 interface Props {
   showNavigation?: boolean;

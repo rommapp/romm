@@ -8,12 +8,12 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
+import { getMissingCoverImage } from "@/utils/covers";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
-import { getMissingCoverImage } from "@/utils/covers";
 
 const { t } = useI18n();
 const { lgAndUp } = useDisplay();

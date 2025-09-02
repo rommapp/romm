@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import AboutDialog from "@/components/Settings/AboutDialog.vue";
-import identityApi from "@/services/api/identity";
+import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
+import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { storeToRefs, getActivePinia, type StateTree } from "pinia";
 import { inject, ref, watch, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const navigationStore = storeNavigation();

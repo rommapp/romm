@@ -1,6 +1,6 @@
+import { resolveAsset, clearAssetCache } from "@/console/utils/assetResolver";
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import { resolveAsset, clearAssetCache } from "@/console/utils/assetResolver";
 
 export const useConsoleTheme = defineStore("consoleTheme", () => {
   const themeName = ref<string>("default");

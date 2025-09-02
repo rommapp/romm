@@ -2,11 +2,11 @@
 import PlatformCard from "@/components/common/Platform/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
-import { isNull } from "lodash";
 import { views } from "@/utils";
-import { useI18n } from "vue-i18n";
+import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();

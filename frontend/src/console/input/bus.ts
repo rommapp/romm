@@ -1,5 +1,5 @@
-import type { InputAction, InputListener } from "./actions";
 import { sfxForAction, playSfx } from "../utils/sfx";
+import type { InputAction, InputListener } from "./actions";
 
 export class InputBus {
   private scopes: Array<Set<InputListener>> = [];

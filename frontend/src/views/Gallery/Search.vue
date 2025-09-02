@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import GalleryAppBarSearch from "@/components/Gallery/AppBar/Search/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
-import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
-import GameCard from "@/components/common/Game/Card/Base.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
+import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
+import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
 import { isNull, throttle } from "lodash";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
 
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);

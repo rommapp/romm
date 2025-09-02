@@ -6,8 +6,8 @@ import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
 import { computed } from "vue";
+import { useDisplay } from "vuetify";
 
 const { xs } = useDisplay();
 const navigationStore = storeNavigation();
