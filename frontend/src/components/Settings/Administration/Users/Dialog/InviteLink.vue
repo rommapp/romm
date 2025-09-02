@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import RDialog from "@/components/common/RDialog.vue";
+import userApi from "@/services/api/user";
 import type { Events } from "@/types/emitter";
 import { getRoleIcon } from "@/utils";
-import userApi from "@/services/api/user";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { lgAndUp } = useDisplay();

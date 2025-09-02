@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { CollectionType } from "@/stores/collections";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import { ROUTES } from "@/plugins/router";
+import type { CollectionType } from "@/stores/collections";
 import { computed } from "vue";
 
 const props = withDefaults(

@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import RDialog from "@/components/common/RDialog.vue";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import RDialog from "@/components/common/RDialog.vue";
 import { get3DSCIAFiles, getDownloadLink, is3DSCIAFile } from "@/utils";
 import type { Emitter } from "mitt";
+import qrcode from "qrcode";
 import { inject, nextTick, ref } from "vue";
 import { useDisplay } from "vuetify";
-import qrcode from "qrcode";
 
 const { lgAndUp } = useDisplay();
 const show = ref(false);

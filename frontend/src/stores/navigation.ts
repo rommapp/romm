@@ -1,6 +1,6 @@
-import { defineStore } from "pinia";
 import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
+import { defineStore } from "pinia";
 
 const defaultNavigationState = {
   activePlatformsDrawer: false,

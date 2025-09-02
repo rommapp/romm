@@ -3,8 +3,8 @@ import Saves from "@/components/Details/Saves.vue";
 import States from "@/components/Details/States.vue";
 import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 defineProps<{ rom: DetailedRom }>();

@@ -1,5 +1,5 @@
-import { defineStore } from "pinia";
 import type { SimpleRom } from "@/stores/roms";
+import { defineStore } from "pinia";
 
 interface ScanningPlatforms {
   name: string;

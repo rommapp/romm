@@ -1,6 +1,6 @@
+import type { StateSchema } from "@/__generated__";
 import api from "@/services/api";
 import type { DetailedRom } from "@/stores/roms";
-import type { StateSchema } from "@/__generated__";
 
 export const stateApi = api;
 

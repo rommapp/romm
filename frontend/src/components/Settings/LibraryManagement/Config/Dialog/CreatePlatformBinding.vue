@@ -3,14 +3,14 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import platformApi from "@/services/api/platform";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeConfig from "@/stores/config";
+import storeHeartbeat from "@/stores/heartbeat";
 import { type Platform } from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();

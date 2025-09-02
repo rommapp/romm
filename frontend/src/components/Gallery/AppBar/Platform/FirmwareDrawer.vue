@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { FirmwareSchema } from "@/__generated__";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
 import UploadFirmwareDialog from "@/components/common/Platform/Dialog/UploadFirmware.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import storeAuth from "@/stores/auth";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
@@ -11,8 +11,8 @@ import { formatBytes, calculateMainLayoutWidth } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref, computed } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { xs, mdAndUp } = useDisplay();

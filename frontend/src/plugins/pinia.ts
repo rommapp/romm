@@ -1,6 +1,6 @@
+import router from "@/plugins/router";
 import { createPinia } from "pinia";
 import { markRaw } from "vue";
-import router from "@/plugins/router";
 
 const pinia = createPinia();
 pinia.use(({ store }) => {

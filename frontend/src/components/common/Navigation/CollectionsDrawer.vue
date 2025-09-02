@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import storeCollections from "@/stores/collections";
-import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
 import CreateSmartCollectionDialog from "@/components/common/Collection/Dialog/CreateSmartCollection.vue";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
+import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
+import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch, computed } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import { isNull } from "lodash";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const navigationStore = storeNavigation();

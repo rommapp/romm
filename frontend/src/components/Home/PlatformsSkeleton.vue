@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import RSection from "@/components/common/RSection.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import RSection from "@/components/common/RSection.vue";
 import { views } from "@/utils";
-import { ref } from "vue";
 import { isNull } from "lodash";
+import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
