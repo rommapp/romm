@@ -60,9 +60,9 @@ emulatorjs:
   controls: # https://emulatorjs.org/docs4devs/control-mapping/
     snes9x:
       0: # Player 1
-        0:
-          value: x # Default mapping for keyboard
-          value2: BUTTON_2 # Default mapping for connected controller
+        0: # A MAPPING FOR EACH BUTTON MUST BE SET!
+          value: x # Mapping for keyboard
+          value2: BUTTON_2 # Mapping for connected controller
       1: # Player 2
       2: # Player 3
       3: # Player 4
