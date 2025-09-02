@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from config.config_manager import EjsControlsButton
+from config.config_manager import EjsControls
 
 
 class ConfigResponse(TypedDict):
@@ -14,4 +14,4 @@ class ConfigResponse(TypedDict):
     PLATFORMS_VERSIONS: dict[str, str]
     EJS_DEBUG: bool
     EJS_OPTIONS: dict[str, dict[str, str]]
-    EJS_CONTROLS: dict[str, dict[int, dict[int, EjsControlsButton]]]
+    EJS_CONTROLS: dict[str, EjsControls]

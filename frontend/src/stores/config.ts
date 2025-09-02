@@ -79,12 +79,32 @@ export default defineStore("config", {
     },
     getEJSControls(
       core: string | null,
-    ): Record<string, Record<string, EjsControlsButton>> {
-      const defaultControls = this.config.EJS_CONTROLS["default"] || {};
+    ): Record<number, Record<number, EjsControlsButton>> {
+      const defaultControls = {
+        0: this.config.EJS_CONTROLS["default"]?.["_0"] || {},
+        1: this.config.EJS_CONTROLS["default"]?.["_1"] || {},
+        2: this.config.EJS_CONTROLS["default"]?.["_2"] || {},
+        3: this.config.EJS_CONTROLS["default"]?.["_3"] || {},
+      };
       if (!core) return defaultControls;
+
       return {
-        ...defaultControls,
-        ...this.config.EJS_CONTROLS[core],
+        0: {
+          ...(this.config.EJS_CONTROLS[core]?.["_0"] || {}),
+          ...defaultControls[0],
+        },
+        1: {
+          ...(this.config.EJS_CONTROLS[core]?.["_1"] || {}),
+          ...defaultControls[1],
+        },
+        2: {
+          ...(this.config.EJS_CONTROLS[core]?.["_2"] || {}),
+          ...defaultControls[2],
+        },
+        3: {
+          ...(this.config.EJS_CONTROLS[core]?.["_3"] || {}),
+          ...defaultControls[3],
+        },
       };
     },
     reset() {},

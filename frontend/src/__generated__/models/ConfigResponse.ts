@@ -2,7 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
-import type { EjsControlsButton } from './EjsControlsButton';
+import type { EjsControls } from './EjsControls';
 export type ConfigResponse = {
     EXCLUDED_PLATFORMS: Array<string>;
     EXCLUDED_SINGLE_EXT: Array<string>;
@@ -14,6 +14,6 @@ export type ConfigResponse = {
     PLATFORMS_VERSIONS: Record<string, string>;
     EJS_DEBUG: boolean;
     EJS_OPTIONS: Record<string, Record<string, string>>;
-    EJS_CONTROLS: Record<string, Record<string, Record<string, EjsControlsButton>>>;
+    EJS_CONTROLS: Record<string, EjsControls>;
 };
 

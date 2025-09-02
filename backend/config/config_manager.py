@@ -31,8 +31,18 @@ SQLITE_DB_BASE_PATH: Final = f"{ROMM_BASE_PATH}/database"
 
 
 class EjsControlsButton(TypedDict):
-    value: NotRequired[str]
-    value2: NotRequired[str]
+    value: NotRequired[str]  # Keyboard key
+    value2: NotRequired[str]  # Controller button
+
+
+class EjsControls(TypedDict):
+    _0: dict[int, EjsControlsButton]  # button_number -> EjsControlsButton
+    _1: dict[int, EjsControlsButton]
+    _2: dict[int, EjsControlsButton]
+    _3: dict[int, EjsControlsButton]
+
+
+EjsOption = dict[str, str]  # option_name -> option_value
 
 
 class Config:
@@ -46,14 +56,10 @@ class Config:
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
-    EJS_DEBUG: bool
-    EJS_OPTIONS: dict[
-        str, dict[str, str]
-    ]  # dict[core_name, dict[option_name, option_value]]
-    EJS_CONTROLS: dict[
-        str, dict[int, dict[int, EjsControlsButton]]
-    ]  # dict[core_name, dict[player_number, dict[button_number, EjsControlsButton]]]
     HIGH_PRIO_STRUCTURE_PATH: str
+    EJS_DEBUG: bool
+    EJS_OPTIONS: dict[str, EjsOption]  # core_name -> EjsOption
+    EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
 
     def __init__(self, **entries):
         self.__dict__.update(entries)
@@ -163,8 +169,24 @@ class ConfigManager:
             ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
             EJS_OPTIONS=pydash.get(self._raw_config, "emulatorjs.options", {}),
-            EJS_CONTROLS=pydash.get(self._raw_config, "emulatorjs.controls", {}),
+            EJS_CONTROLS=self._get_ejs_controls(),
         )
+
+    def _get_ejs_controls(self) -> dict[str, EjsControls]:
+        """Get EJS controls with default player entries for each core"""
+        raw_controls = pydash.get(self._raw_config, "emulatorjs.controls", {})
+        controls = {}
+
+        for core, core_controls in raw_controls.items():
+            # Create EjsControls object with default empty player dictionaries
+            controls[core] = EjsControls(
+                _0=core_controls.get(0, {}),
+                _1=core_controls.get(1, {}),
+                _2=core_controls.get(2, {}),
+                _3=core_controls.get(3, {}),
+            )
+
+        return controls
 
     def _validate_config(self):
         """Validates the config.yml file"""
