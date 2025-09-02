@@ -21,7 +21,7 @@ const defaultConfig = {
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
   EJS_DEBUG: false,
-  EJS_OPTIONS: {},
+  EJS_SETTINGS: {},
   EJS_CONTROLS: {},
 } as ConfigResponse;
 
@@ -70,11 +70,11 @@ export default defineStore("config", {
       return Object.keys(this.config).includes(type);
     },
     getEJSCoreOptions(core: string | null): Record<string, string | boolean> {
-      const defaultOptions = this.config.EJS_OPTIONS["default"] || {};
+      const defaultOptions = this.config.EJS_SETTINGS["default"] || {};
       if (!core) return defaultOptions;
       return {
         ...defaultOptions,
-        ...this.config.EJS_OPTIONS[core],
+        ...this.config.EJS_SETTINGS[core],
       };
     },
     getEJSControls(

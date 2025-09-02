@@ -50,7 +50,7 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 # EmulatorJS per-core options
 emulatorjs:
   debug: true # Available options will be logged to the browser consolewhen the emulator is started
-  options:
+  settings:
     parallel_n64: # Use the exact core name
       vsync: disable
     snes9x:
