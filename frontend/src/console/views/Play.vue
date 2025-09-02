@@ -15,10 +15,16 @@ import NavigationText from "@/console/components/NavigationText.vue";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
 import api from "@/services/api";
 import { ROUTES } from "@/plugins/router";
+import storeConfig from "@/stores/config";
+import storeLanguage from "@/stores/language";
+import { storeToRefs } from "pinia";
 
 const route = useRoute();
 const router = useRouter();
 const { getBezelImagePath } = useThemeAssets();
+const configStore = storeConfig();
+const languageStore = storeLanguage();
+const { selectedLanguage } = storeToRefs(languageStore);
 const romId = Number(route.params.rom);
 const initialSaveId = route.query.save ? Number(route.query.save) : null;
 const initialStateId = route.query.state ? Number(route.query.state) : null;
@@ -383,10 +389,16 @@ async function boot() {
   //   window.EJS_fullscreenOnLoaded = true;
   window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
   window.EJS_backgroundColor = "#000000"; // Match original which uses theme colors, but #000000 should work fine
+  const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_defaultOptions = {
     "save-state-location": "browser",
     rewindEnabled: "enabled",
+    ...coreOptions,
   };
+  window.EJS_defaultControls = configStore.getEJSControls(core);
+  window.EJS_language = selectedLanguage.value.value.replace("_", "-");
+  window.EJS_disableAutoLang = true;
+  window.EJS_DEBUG_XX = configStore.config.EJS_DEBUG;
 
   // Set a valid game name (affects per-game settings keys)
   window.EJS_gameName = rom.fs_name_no_tags

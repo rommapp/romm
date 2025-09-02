@@ -3,6 +3,8 @@ import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { saveApi as api } from "@/services/api/save";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import storeConfig from "@/stores/config";
+import storePlaying from "@/stores/playing";
+import storeLanguage from "@/stores/language";
 import {
   areThreadsRequiredForEJSCore,
   getSupportedEJSCores,
@@ -22,14 +24,14 @@ import {
 } from "./utils";
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
-import storePlaying from "@/stores/playing";
-import languageStore from "@/stores/language";
 import { storeToRefs } from "pinia";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 const romsStore = storeRoms();
+const playingStore = storePlaying();
 const configStore = storeConfig();
+const languageStore = storeLanguage();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -43,10 +45,8 @@ const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
-const playingStore = storePlaying();
 const { playing, fullScreen } = storeToRefs(playingStore);
-const storeLanguage = languageStore();
-const { selectedLanguage } = storeToRefs(storeLanguage);
+const { selectedLanguage } = storeToRefs(languageStore);
 
 // Declare global variables for EmulatorJS
 declare global {

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { useI18n } from "vue-i18n";
-import languageStore from "@/stores/language";
+import storeLanguage from "@/stores/language";
 import { storeToRefs } from "pinia";
 
 const { locale } = useI18n();
-const storeLanguage = languageStore();
-const { languages, selectedLanguage } = storeToRefs(storeLanguage);
+const languageStore = storeLanguage();
+const { languages, selectedLanguage } = storeToRefs(languageStore);
 
 function changeLanguage() {
   locale.value = selectedLanguage.value.value;
