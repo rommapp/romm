@@ -6,14 +6,14 @@ import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
 import storeHeartbeat from "@/stores/heartbeat";
 import { type Platform } from "@/stores/platforms";
-import storeUpload from "@/stores/upload";
 import storeScanning from "@/stores/scanning";
+import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { xs, mdAndUp, smAndUp } = useDisplay();

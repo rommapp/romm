@@ -1,7 +1,7 @@
 import type { HeartbeatResponse } from "@/__generated__";
-import { defineStore } from "pinia";
 import i18n from "@/locales";
 import api from "@/services/api";
+import { defineStore } from "pinia";
 
 export type Heartbeat = HeartbeatResponse;
 export type MetadataOption = {

@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import romApi from "@/services/api/rom";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
+import NavigationText from "@/console/components/NavigationText.vue";
+import { useInputScope } from "@/console/composables/useInputScope";
+import { useThemeAssets } from "@/console/composables/useThemeAssets";
+import { ROUTES } from "@/plugins/router";
+import api from "@/services/api";
+import firmwareApi from "@/services/api/firmware";
+import romApi from "@/services/api/rom";
+import storeConfig from "@/stores/config";
+import storeLanguage from "@/stores/language";
 import {
   getSupportedEJSCores,
   getControlSchemeForPlatform,
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
-import firmwareApi from "@/services/api/firmware";
-import { useInputScope } from "@/console/composables/useInputScope";
-import NavigationText from "@/console/components/NavigationText.vue";
-import { useThemeAssets } from "@/console/composables/useThemeAssets";
-import api from "@/services/api";
-import { ROUTES } from "@/plugins/router";
-import storeConfig from "@/stores/config";
-import storeLanguage from "@/stores/language";
 import { storeToRefs } from "pinia";
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
 const router = useRouter();

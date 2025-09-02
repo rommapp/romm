@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { SearchCoverSchema } from "@/__generated__";
+import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import sgdbApi from "@/services/api/sgdb";
-import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import storeGalleryView from "@/stores/galleryView";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";

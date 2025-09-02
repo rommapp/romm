@@ -1,3 +1,5 @@
+import type { InputAction } from "../input/actions";
+
 let sfxEnabled = true;
 
 export function setSfxEnabled(enabled: boolean): void {
@@ -241,7 +243,6 @@ export function playSfx(kind: SfxType) {
 }
 
 // map input actions to sfx categories
-import type { InputAction } from "../input/actions";
 export function sfxForAction(action: InputAction): SfxType | undefined {
   switch (action) {
     case "moveLeft":

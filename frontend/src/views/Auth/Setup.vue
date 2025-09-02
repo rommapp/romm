@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import router from "@/plugins/router";
+import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
-import userApi from "@/services/api/user";
 import api from "@/services/api";
+import userApi from "@/services/api/user";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { xs } = useDisplay();

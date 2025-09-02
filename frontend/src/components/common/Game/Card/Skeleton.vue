@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import storePlatforms from "@/stores/platforms";
 import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
+import { isNull } from "lodash";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
-import { isNull } from "lodash";
 
 const props = withDefaults(
   defineProps<{

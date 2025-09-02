@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import romApi from "@/services/api/rom";
-import collectionApi from "@/services/api/collection";
+import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
+import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
+import useFavoriteToggle from "@/composables/useFavoriteToggle";
+import BackButton from "@/console/components/BackButton.vue";
 import GameCard from "@/console/components/GameCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
-import BackButton from "@/console/components/BackButton.vue";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
-import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import { useInputScope } from "@/console/composables/useInputScope";
-import type { InputAction } from "@/console/input/actions";
-import { useSpatialNav } from "@/console/composables/useSpatialNav";
-import { useRovingDom } from "@/console/composables/useRovingDom";
 import { gamesListElementRegistry } from "@/console/composables/useElementRegistry";
-import consoleStore from "@/stores/console";
-import useFavoriteToggle from "@/composables/useFavoriteToggle";
+import { useInputScope } from "@/console/composables/useInputScope";
+import { useRovingDom } from "@/console/composables/useRovingDom";
+import { useSpatialNav } from "@/console/composables/useSpatialNav";
+import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
+import collectionApi from "@/services/api/collection";
+import romApi from "@/services/api/rom";
+import consoleStore from "@/stores/console";
+import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
 const router = useRouter();

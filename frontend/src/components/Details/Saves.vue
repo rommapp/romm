@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import type { SaveSchema } from "@/__generated__";
+import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import storeAuth from "@/stores/auth";
 import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";

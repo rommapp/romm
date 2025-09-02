@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
-import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import GameTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
@@ -13,8 +13,8 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import type { Emitter } from "mitt";
 import { isNull, throttle } from "lodash";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";

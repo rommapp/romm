@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import storeLanguage from "@/stores/language";
 import storeConsole from "@/stores/console";
+import storeLanguage from "@/stores/language";
+import { useIdle } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { useIdle } from "@vueuse/core";
 
 const { locale } = useI18n();
 const languageStore = storeLanguage();

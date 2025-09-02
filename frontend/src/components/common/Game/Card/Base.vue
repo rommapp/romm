@@ -2,24 +2,24 @@
 import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
-import Sources from "@/components/common/Game/Card/Sources.vue";
-import storePlatforms from "@/stores/platforms";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import Sources from "@/components/common/Game/Card/Sources.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
-import { ROUTES } from "@/plugins/router";
+import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
-import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
+import type { Events } from "@/types/emitter";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { isNull } from "lodash";
-import { useDisplay } from "vuetify";
-import VanillaTilt from "vanilla-tilt";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
-import storeHeartbeat from "@/stores/heartbeat";
+import VanillaTilt from "vanilla-tilt";
+import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
+import { useDisplay } from "vuetify";
 
 const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 

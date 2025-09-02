@@ -2,11 +2,11 @@
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
 import storeHeartbeat from "@/stores/heartbeat";
-import storeConfig from "@/stores/config";
 import type { DetailedRom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import {
   getDownloadLink,
@@ -15,8 +15,8 @@ import {
   isRuffleEmulationSupported,
 } from "@/utils";
 import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
 import { storeToRefs } from "pinia";
+import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 const props = defineProps<{ rom: DetailedRom }>();

@@ -1,3 +1,5 @@
+import type { InputAction } from "./actions";
+
 export interface InputConfig {
   rtl: boolean;
   repeat: { initialDelayMs: number; repeatEveryMs: number };
@@ -18,8 +20,6 @@ export interface InputConfig {
     buttons: Record<number, import("./actions").InputAction | undefined>;
   };
 }
-
-import type { InputAction } from "./actions";
 
 export const defaultInputConfig: InputConfig = {
   rtl: false,

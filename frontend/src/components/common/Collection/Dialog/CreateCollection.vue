@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RDialog from "@/components/common/RDialog.vue";
+import { ROUTES } from "@/plugins/router";
 import collectionApi, {
   type UpdatedCollection,
 } from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
+import { getMissingCoverImage } from "@/utils/covers";
 import type { Emitter } from "mitt";
 import { computed, inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import { getMissingCoverImage } from "@/utils/covers";
 import { useRouter } from "vue-router";
-import { ROUTES } from "@/plugins/router";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();

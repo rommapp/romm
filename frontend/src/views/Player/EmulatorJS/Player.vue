@@ -1,18 +1,4 @@
 <script setup lang="ts">
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import { saveApi as api } from "@/services/api/save";
-import storeRoms, { type DetailedRom } from "@/stores/roms";
-import storeConfig from "@/stores/config";
-import storePlaying from "@/stores/playing";
-import storeLanguage from "@/stores/language";
-import {
-  areThreadsRequiredForEJSCore,
-  getSupportedEJSCores,
-  getControlSchemeForPlatform,
-  getDownloadPath,
-} from "@/utils";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { useTheme } from "vuetify";
 import {
   saveSave,
   saveState,
@@ -22,9 +8,23 @@ import {
   createSaveQuitButton,
   createExitEmulationButton,
 } from "./utils";
-import type { Emitter } from "mitt";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import { saveApi as api } from "@/services/api/save";
+import storeConfig from "@/stores/config";
+import storeLanguage from "@/stores/language";
+import storePlaying from "@/stores/playing";
+import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import {
+  areThreadsRequiredForEJSCore,
+  getSupportedEJSCores,
+  getControlSchemeForPlatform,
+  getDownloadPath,
+} from "@/utils";
+import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { useTheme } from "vuetify";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 

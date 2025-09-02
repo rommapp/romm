@@ -2,9 +2,9 @@
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
 import RSection from "@/components/common/RSection.vue";
-import storeCollection from "@/stores/collections";
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
+import storeCollection from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
