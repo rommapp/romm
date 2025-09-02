@@ -56,7 +56,6 @@ declare global {
     EJS_player: string;
     EJS_pathtodata: string;
     EJS_color: string;
-    EJS_defaultOptions: object;
     EJS_gameID: number;
     EJS_gameName: string;
     EJS_backgroundImage: string;
@@ -72,6 +71,8 @@ declare global {
     EJS_fullscreenOnLoaded: boolean;
     EJS_threads: boolean;
     EJS_controlScheme: string | null;
+    EJS_defaultOptions: object;
+    EJS_defaultControls: object;
     EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     EJS_language: string;
     EJS_disableAutoLang: boolean;
@@ -124,13 +125,14 @@ window.EJS_defaultOptions = {
   rewindEnabled: "enabled",
   ...coreOptions,
 };
+window.EJS_defaultControls = configStore.getEJSControls(props.core);
 // Set a valid game name
 window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
 window.EJS_language = selectedLanguage.value.value.replace("_", "-");
 window.EJS_disableAutoLang = true;
-window.EJS_DEBUG_XX = true;
+window.EJS_DEBUG_XX = configStore.config.EJS_DEBUG;
 
 onMounted(() => {
   window.scrollTo(0, 0);

@@ -19,9 +19,15 @@ def test_config_loader():
     assert loader.config.PLATFORMS_VERSIONS == {"naomi": "arcade"}
     assert loader.config.ROMS_FOLDER_NAME == "ROMS"
     assert loader.config.FIRMWARE_FOLDER_NAME == "BIOS"
-    assert loader.config.EJS_CORE_OPTIONS == {
+    assert loader.config.EJS_DEBUG
+    assert loader.config.EJS_OPTIONS == {
         "parallel_n64": {"vsync": "disable"},
         "snes9x": {"snes9x_region": "ntsc"},
+    }
+    assert loader.config.EJS_CONTROLS == {
+        "snes9x": {
+            0: {0: {"value": "x", "value2": "BUTTON_2"}},
+        },
     }
 
 
@@ -42,4 +48,6 @@ def test_empty_config_loader():
     assert loader.config.PLATFORMS_VERSIONS == {}
     assert loader.config.ROMS_FOLDER_NAME == "roms"
     assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
-    assert loader.config.EJS_CORE_OPTIONS == {}
+    assert not loader.config.EJS_DEBUG
+    assert loader.config.EJS_OPTIONS == {}
+    assert loader.config.EJS_CONTROLS == {}

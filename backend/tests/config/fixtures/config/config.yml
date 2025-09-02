@@ -31,7 +31,15 @@ filesystem:
   firmware_folder: "BIOS"
 
 emulatorjs:
-  parallel_n64:
-    vsync: disable
-  snes9x:
-    snes9x_region: ntsc
+  debug: true
+  options:
+    parallel_n64:
+      vsync: disable
+    snes9x:
+      snes9x_region: ntsc
+  controls:
+    snes9x:
+      0:
+        0:
+          value: x
+          value2: BUTTON_2
