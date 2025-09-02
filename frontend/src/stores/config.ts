@@ -20,6 +20,7 @@ const defaultConfig = {
   EXCLUDED_MULTI_PARTS_FILES: [],
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
+  EJS_CORE_OPTIONS: {},
 } as ConfigResponse;
 
 export default defineStore("config", {
@@ -65,6 +66,14 @@ export default defineStore("config", {
     },
     isExclusionType(type: string): type is ExclusionTypes {
       return Object.keys(this.config).includes(type);
+    },
+    getEJSCoreOptions(core: string | null): Record<string, string | boolean> {
+      const defaultOptions = this.config.EJS_CORE_OPTIONS["default"];
+      if (!core) return defaultOptions;
+      return {
+        ...defaultOptions,
+        ...this.config.EJS_CORE_OPTIONS[core],
+      };
     },
     reset() {},
   },

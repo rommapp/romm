@@ -2,6 +2,7 @@
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { saveApi as api } from "@/services/api/save";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
+import storeConfig from "@/stores/config";
 import {
   areThreadsRequiredForEJSCore,
   getSupportedEJSCores,
@@ -22,11 +23,14 @@ import {
 import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
 import storePlaying from "@/stores/playing";
+import languageStore from "@/stores/language";
 import { storeToRefs } from "pinia";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 const romsStore = storeRoms();
+const configStore = storeConfig();
+
 const props = defineProps<{
   rom: DetailedRom;
   save: SaveSchema | null;
@@ -41,6 +45,8 @@ const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
 const playingStore = storePlaying();
 const { playing, fullScreen } = storeToRefs(playingStore);
+const storeLanguage = languageStore();
+const { selectedLanguage } = storeToRefs(storeLanguage);
 
 // Declare global variables for EmulatorJS
 declare global {
@@ -67,6 +73,9 @@ declare global {
     EJS_threads: boolean;
     EJS_controlScheme: string | null;
     EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    EJS_language: string;
+    EJS_disableAutoLang: boolean;
+    EJS_DEBUG_XX: boolean;
     EJS_Buttons: Record<string, boolean>;
     EJS_VirtualGamepadSettings: {};
     EJS_onGameStart: () => void;
@@ -108,15 +117,20 @@ window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
 };
-// Force saving saves and states to the browser
+const coreOptions = configStore.getEJSCoreOptions(props.core);
 window.EJS_defaultOptions = {
+  // Force saving saves and states to the browser
   "save-state-location": "browser",
   rewindEnabled: "enabled",
+  ...coreOptions,
 };
 // Set a valid game name
 window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
+window.EJS_language = selectedLanguage.value.value.replace("_", "-");
+window.EJS_disableAutoLang = true;
+window.EJS_DEBUG_XX = true;
 
 onMounted(() => {
   window.scrollTo(0, 0);

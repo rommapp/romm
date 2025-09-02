@@ -29,3 +29,9 @@ system:
 filesystem:
   roms_folder: "ROMS"
   firmware_folder: "BIOS"
+
+emulatorjs:
+  parallel_n64:
+    vsync: disable
+  snes9x:
+    snes9x_region: ntsc
