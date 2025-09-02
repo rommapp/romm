@@ -35,6 +35,7 @@ def get_config() -> ConfigResponse:
             EXCLUDED_MULTI_PARTS_FILES=cfg.EXCLUDED_MULTI_PARTS_FILES,
             PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
             PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
+            EJS_CORE_OPTIONS=cfg.EJS_CORE_OPTIONS,
         )
     except ConfigNotReadableException as exc:
         log.critical(exc.message)

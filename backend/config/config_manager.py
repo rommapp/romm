@@ -41,6 +41,7 @@ class Config:
     PLATFORMS_VERSIONS: dict[str, str]
     ROMS_FOLDER_NAME: str
     FIRMWARE_FOLDER_NAME: str
+    EJS_CORE_OPTIONS: dict[str, dict[str, str]]
     HIGH_PRIO_STRUCTURE_PATH: str
 
     def __init__(self, **entries):
@@ -149,6 +150,7 @@ class ConfigManager:
             FIRMWARE_FOLDER_NAME=pydash.get(
                 self._raw_config, "filesystem.firmware_folder", "bios"
             ),
+            EJS_CORE_OPTIONS=pydash.get(self._raw_config, "emulatorjs", {}),
         )
 
     def _validate_config(self):
@@ -230,6 +232,17 @@ class ConfigManager:
                 "Invalid config.yml: filesystem.firmware_folder cannot be an empty string"
             )
             sys.exit(3)
+
+        if not isinstance(self.config.EJS_CORE_OPTIONS, dict):
+            log.critical("Invalid config.yml: emulatorjs must be a dictionary")
+            sys.exit(3)
+        else:
+            for core, options in self.config.EJS_CORE_OPTIONS.items():
+                if not isinstance(options, dict):
+                    log.critical(
+                        f"Invalid config.yml: emulatorjs.{core} must be a dictionary"
+                    )
+                    sys.exit(3)
 
     def get_config(self) -> Config:
         with open(self.config_file) as config_file:

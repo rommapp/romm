@@ -46,3 +46,12 @@ system:
 
 # The folder name where your roms are located
 filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
+
+# EmulatorJS per-core options
+emulatorjs:
+  parallel_n64: # Use the exact core name
+    vsync: disable
+  snes9x:
+    snes9x_region: ntsc
+  default: # These settings apply to all cores
+    fps: show
