@@ -20,7 +20,7 @@ def test_config_loader():
     assert loader.config.ROMS_FOLDER_NAME == "ROMS"
     assert loader.config.FIRMWARE_FOLDER_NAME == "BIOS"
     assert loader.config.EJS_DEBUG
-    assert loader.config.EJS_OPTIONS == {
+    assert loader.config.EJS_SETTINGS == {
         "parallel_n64": {"vsync": "disable"},
         "snes9x": {"snes9x_region": "ntsc"},
     }
@@ -49,5 +49,5 @@ def test_empty_config_loader():
     assert loader.config.ROMS_FOLDER_NAME == "roms"
     assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
     assert not loader.config.EJS_DEBUG
-    assert loader.config.EJS_OPTIONS == {}
+    assert loader.config.EJS_SETTINGS == {}
     assert loader.config.EJS_CONTROLS == {}

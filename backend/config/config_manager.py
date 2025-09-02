@@ -58,7 +58,7 @@ class Config:
     FIRMWARE_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
-    EJS_OPTIONS: dict[str, EjsOption]  # core_name -> EjsOption
+    EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
 
     def __init__(self, **entries):
@@ -168,7 +168,7 @@ class ConfigManager:
                 self._raw_config, "filesystem.firmware_folder", "bios"
             ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
-            EJS_OPTIONS=pydash.get(self._raw_config, "emulatorjs.options", {}),
+            EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
         )
 
@@ -272,14 +272,14 @@ class ConfigManager:
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
             sys.exit(3)
 
-        if not isinstance(self.config.EJS_OPTIONS, dict):
-            log.critical("Invalid config.yml: emulatorjs must be a dictionary")
+        if not isinstance(self.config.EJS_SETTINGS, dict):
+            log.critical("Invalid config.yml: emulatorjs.settings must be a dictionary")
             sys.exit(3)
         else:
-            for core, options in self.config.EJS_OPTIONS.items():
+            for core, options in self.config.EJS_SETTINGS.items():
                 if not isinstance(options, dict):
                     log.critical(
-                        f"Invalid config.yml: emulatorjs.{core} must be a dictionary"
+                        f"Invalid config.yml: emulatorjs.settings.{core} must be a dictionary"
                     )
                     sys.exit(3)
 
