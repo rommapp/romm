@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { formatBytes } from "@/utils";
 import PlatformListItem from "@/components/common/Platform/ListItem.vue";
 import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
+import { formatBytes } from "@/utils";
 import { storeToRefs } from "pinia";
 import { ref, computed } from "vue";
 import { useI18n } from "vue-i18n";

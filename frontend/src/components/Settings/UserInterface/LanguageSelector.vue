@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
 import storeLanguage from "@/stores/language";
 import { storeToRefs } from "pinia";
+import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 const { locale } = useI18n();
 const languageStore = storeLanguage();

@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
-import storeHeartbeat from "@/stores/heartbeat";
-import storeAuth from "@/stores/auth";
 import storeGalleryFilter from "@/stores/galleryFilter";
+import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import {
   formatBytes,
@@ -18,7 +19,6 @@ import {
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";

@@ -1,18 +1,18 @@
 <script setup lang="ts">
+import type { RomUserStatus } from "@/__generated__";
 import RetroAchievements from "@/components/Details/RetroAchievements.vue";
 import RSection from "@/components/common/RSection.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
-import type { RomUserStatus } from "@/__generated__";
 import { getTextForStatus, getEmojiForStatus } from "@/utils";
+import { debounce } from "lodash";
 import { MdEditor, MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
-import { debounce } from "lodash";
-import { ref, watch } from "vue";
-import { useDisplay, useTheme } from "vuetify";
-import { useI18n } from "vue-i18n";
 import { storeToRefs } from "pinia";
+import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay, useTheme } from "vuetify";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();

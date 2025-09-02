@@ -1,33 +1,33 @@
 <script setup lang="ts">
-import { storeToRefs } from "pinia";
-import { onMounted, onUnmounted, ref, nextTick, watch } from "vue";
-import { useRouter } from "vue-router";
-import platformApi from "@/services/api/platform";
-import romApi from "@/services/api/rom";
-import collectionApi from "@/services/api/collection";
-import storeCollections from "@/stores/collections";
+import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
+import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
+import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
+import RIsotipo from "@/components/common/RIsotipo.vue";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
-import SystemCard from "@/console/components/SystemCard.vue";
-import GameCard from "@/console/components/GameCard.vue";
 import CollectionCard from "@/console/components/CollectionCard.vue";
+import GameCard from "@/console/components/GameCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
 import SettingsModal from "@/console/components/SettingsModal.vue";
-import RIsotipo from "@/components/common/RIsotipo.vue";
-import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
-import { isSupportedPlatform } from "@/console/constants/platforms";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
-import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import { useInputScope } from "@/console/composables/useInputScope";
-import type { InputAction } from "@/console/input/actions";
-import { useSpatialNav } from "@/console/composables/useSpatialNav";
-import { useRovingDom } from "@/console/composables/useRovingDom";
+import SystemCard from "@/console/components/SystemCard.vue";
 import {
   systemElementRegistry,
   recentElementRegistry,
   collectionElementRegistry,
 } from "@/console/composables/useElementRegistry";
-import consoleStore from "@/stores/console";
+import { useInputScope } from "@/console/composables/useInputScope";
+import { useRovingDom } from "@/console/composables/useRovingDom";
+import { useSpatialNav } from "@/console/composables/useSpatialNav";
+import { isSupportedPlatform } from "@/console/constants/platforms";
+import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
+import collectionApi from "@/services/api/collection";
+import platformApi from "@/services/api/platform";
+import romApi from "@/services/api/rom";
+import storeCollections from "@/stores/collections";
+import consoleStore from "@/stores/console";
+import { storeToRefs } from "pinia";
+import { onMounted, onUnmounted, ref, nextTick, watch } from "vue";
+import { useRouter } from "vue-router";
 
 const router = useRouter();
 const collectionsStore = storeCollections();

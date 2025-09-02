@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import RomListItem from "@/components/common/Game/ListItem.vue";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
-import { ROUTES } from "@/plugins/router";
 import { isNull } from "lodash";
 import { nextTick, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
 const DEFAULT_BACKGROUND_COLOR = "#0D1117";

@@ -1,8 +1,8 @@
+import { type SaveSchema } from "@/__generated__";
+import { type StateSchema } from "@/__generated__";
 import saveApi from "@/services/api/save";
 import stateApi from "@/services/api/state";
 import { type DetailedRom } from "@/stores/roms";
-import { type SaveSchema } from "@/__generated__";
-import { type StateSchema } from "@/__generated__";
 
 function buildStateName(rom: DetailedRom): string {
   const romName = rom.fs_name_no_ext.trim();

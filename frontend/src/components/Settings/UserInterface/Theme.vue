@@ -4,8 +4,8 @@ import RSection from "@/components/common/RSection.vue";
 import { autoThemeKey, themes } from "@/styles/themes";
 import { isKeyof } from "@/types";
 import { computed, ref } from "vue";
-import { useTheme } from "vuetify";
 import { useI18n } from "vue-i18n";
+import { useTheme } from "vuetify";
 
 const { t } = useI18n();
 const theme = useTheme();

@@ -1,6 +1,6 @@
-import { defineStore } from "pinia";
-import userApi from "@/services/api/user";
 import type { User } from "./users";
+import userApi from "@/services/api/user";
+import { defineStore } from "pinia";
 
 export default defineStore("auth", {
   state: () => ({

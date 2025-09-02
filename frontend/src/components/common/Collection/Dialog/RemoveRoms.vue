@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
+import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import RDialog from "@/components/common/RDialog.vue";
+import { ROUTES } from "@/plugins/router";
 import type { UpdatedCollection } from "@/services/api/collection";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
@@ -10,10 +11,9 @@ import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref, watch } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import { ROUTES } from "@/plugins/router";
+import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();

@@ -4,19 +4,19 @@ import DeleteCollectionDialog from "@/components/common/Collection/Dialog/Delete
 import DeleteSmartCollectionDialog from "@/components/common/Collection/Dialog/DeleteSmartCollection.vue";
 import RSection from "@/components/common/RSection.vue";
 import type { UpdatedCollection } from "@/services/api/collection";
-import storeCollection from "@/stores/collections";
 import collectionApi from "@/services/api/collection";
 import storeAuth from "@/stores/auth";
+import storeCollection from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
+import { getCollectionCoverImage } from "@/utils/covers";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
-import { getCollectionCoverImage } from "@/utils/covers";
 
 const { t } = useI18n();
 const { smAndDown } = useDisplay();
