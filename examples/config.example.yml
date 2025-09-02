@@ -49,9 +49,20 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 
 # EmulatorJS per-core options
 emulatorjs:
-  parallel_n64: # Use the exact core name
-    vsync: disable
-  snes9x:
-    snes9x_region: ntsc
-  default: # These settings apply to all cores
-    fps: show
+  debug: true # Available options will be logged to the browser consolewhen the emulator is started
+  options:
+    parallel_n64: # Use the exact core name
+      vsync: disable
+    snes9x:
+      snes9x_region: ntsc
+    default: # These settings apply to all cores
+      fps: show
+  controls: # https://emulatorjs.org/docs4devs/control-mapping/
+    snes9x:
+      0: # Player 1
+        0:
+          value: x # Default mapping for keyboard
+          value2: BUTTON_2 # Default mapping for connected controller
+      1: # Player 2
+      2: # Player 3
+      3: # Player 4
