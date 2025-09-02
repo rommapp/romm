@@ -89,20 +89,20 @@ export default defineStore("config", {
 
       return {
         0: {
-          ...(this.config.EJS_CONTROLS[core]?.["_0"] || {}),
           ...defaultControls[0],
+          ...(this.config.EJS_CONTROLS[core]?.["_0"] || {}),
         },
         1: {
-          ...(this.config.EJS_CONTROLS[core]?.["_1"] || {}),
           ...defaultControls[1],
+          ...(this.config.EJS_CONTROLS[core]?.["_1"] || {}),
         },
         2: {
-          ...(this.config.EJS_CONTROLS[core]?.["_2"] || {}),
           ...defaultControls[2],
+          ...(this.config.EJS_CONTROLS[core]?.["_2"] || {}),
         },
         3: {
-          ...(this.config.EJS_CONTROLS[core]?.["_3"] || {}),
           ...defaultControls[3],
+          ...(this.config.EJS_CONTROLS[core]?.["_3"] || {}),
         },
       };
     },
