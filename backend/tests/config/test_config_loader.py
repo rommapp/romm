@@ -26,7 +26,10 @@ def test_config_loader():
     }
     assert loader.config.EJS_CONTROLS == {
         "snes9x": {
-            0: {0: {"value": "x", "value2": "BUTTON_2"}},
+            "_0": {0: {"value": "x", "value2": "BUTTON_2"}},
+            "_1": {},
+            "_2": {},
+            "_3": {},
         },
     }
 
