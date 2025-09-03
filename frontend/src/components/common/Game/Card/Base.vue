@@ -137,9 +137,8 @@ interface TiltHTMLElement extends HTMLElement {
 
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
-const isWebpEnabled = computed(
-  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
-);
+const isWebpEnabled =
+  heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP;
 
 const largeCover = computed(() => {
   if (!romsStore.isSimpleRom(props.rom))
