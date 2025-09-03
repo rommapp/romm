@@ -12,7 +12,8 @@ import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import { isNull, throttle } from "lodash";
+import { useLocalStorage } from "@vueuse/core";
+import { throttle } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
@@ -36,10 +37,7 @@ const isHovering = ref(false);
 const hoveringRomId = ref();
 const openedMenu = ref(false);
 const openedMenuRomId = ref();
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
 function onHover(emitData: { isHovering: boolean; id: number }) {

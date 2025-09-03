@@ -1,6 +1,7 @@
 import { themes, dark, light, autoThemeKey } from "@/styles/themes";
 import { isKeyof } from "@/types";
 import "@mdi/font/css/materialdesignicons.css";
+import { useLocalStorage } from "@vueuse/core";
 import { createVuetify } from "vuetify";
 import "vuetify/styles";
 
@@ -10,14 +11,13 @@ mediaMatch.addEventListener("change", (event) => {
 });
 
 function getTheme() {
-  const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
+  const storedTheme = useLocalStorage("settings.theme", autoThemeKey);
 
   if (
-    !isNaN(storedTheme) &&
-    storedTheme !== autoThemeKey &&
-    isKeyof(storedTheme, themes)
+    storedTheme.value !== autoThemeKey &&
+    isKeyof(storedTheme.value, themes)
   ) {
-    return themes[storedTheme];
+    return themes[storedTheme.value];
   }
 
   return mediaMatch.matches ? "dark" : "light";

@@ -13,11 +13,12 @@ import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import { isNull, throttle } from "lodash";
+import { useLocalStorage } from "@vueuse/core";
+import { throttle } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
+import { onBeforeRouteUpdate, useRoute } from "vue-router";
 
 const props = defineProps<{
   collections: CollectionType[];
@@ -38,16 +39,12 @@ const {
   fetchTotalRoms,
 } = storeToRefs(romsStore);
 const noCollectionError = ref(false);
-const router = useRouter();
 const emitter = inject<Emitter<Events>>("emitter");
 const isHovering = ref(false);
 const hoveringRomId = ref();
 const openedMenu = ref(false);
 const openedMenuRomId = ref();
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
 async function fetchRoms() {

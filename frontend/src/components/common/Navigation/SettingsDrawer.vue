@@ -7,9 +7,10 @@ import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
+import { useActiveElement } from "@vueuse/core";
 import type { Emitter } from "mitt";
-import { storeToRefs, getActivePinia, type StateTree } from "pinia";
-import { inject, ref, watch, computed } from "vue";
+import { getActivePinia, storeToRefs, type StateTree } from "pinia";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -23,6 +24,7 @@ const emitter = inject<Emitter<Events>>("emitter");
 const { activeSettingsDrawer } = storeToRefs(navigationStore);
 const { smAndDown, mdAndUp } = useDisplay();
 const tabIndex = computed(() => (activeSettingsDrawer.value ? 0 : -1));
+const activeElement = useActiveElement();
 
 async function logout() {
   identityApi.logout().then(async () => {
@@ -46,19 +48,17 @@ async function logout() {
   });
 }
 
-// Ref to store the element that triggered the drawer
-const triggerElement = ref<HTMLElement | null>(null);
-// Watch for changes in the navigation drawer state
+const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activeSettingsDrawer, (isOpen) => {
   if (isOpen) {
     // Store the currently focused element before opening the drawer
-    triggerElement.value = document.activeElement as HTMLElement;
+    triggerElement.value = activeElement.value;
   }
 });
 
 function onClose() {
   activeSettingsDrawer.value = false;
-  // Focus the element that triggered the drawer
+  // Refocus the trigger element for keyboard navigation
   triggerElement.value?.focus();
 }
 </script>

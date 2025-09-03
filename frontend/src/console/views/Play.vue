@@ -7,18 +7,42 @@ import { ROUTES } from "@/plugins/router";
 import api from "@/services/api";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
+import storeConfig from "@/stores/config";
+import storeLanguage from "@/stores/language";
 import {
   getSupportedEJSCores,
   getControlSchemeForPlatform,
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
 import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
+
+const createPlayerStorage = (romId: number, platformSlug: string) => ({
+  initialSaveId: useLocalStorage(
+    `player:${romId}:initial_save_id`,
+    null as string | null,
+  ),
+  initialStateId: useLocalStorage(
+    `player:${romId}:initial_state_id`,
+    null as string | null,
+  ),
+  disc: useLocalStorage(`player:${romId}:disc`, null as string | null),
+  core: useLocalStorage(`player:${platformSlug}:core`, null as string | null),
+  biosId: useLocalStorage(
+    `player:${platformSlug}:bios_id`,
+    null as string | null,
+  ),
+});
 
 const route = useRoute();
 const router = useRouter();
 const { getBezelImagePath } = useThemeAssets();
+const configStore = storeConfig();
+const languageStore = storeLanguage();
+const { selectedLanguage } = storeToRefs(languageStore);
 const romId = Number(route.params.rom);
 const initialSaveId = route.query.save ? Number(route.query.save) : null;
 const initialStateId = route.query.state ? Number(route.query.state) : null;
@@ -293,6 +317,9 @@ async function boot() {
   const { data: rom } = await romApi.getRom({ romId });
   romRef.value = rom;
 
+  // Create player storage instances
+  const playerStorage = createPlayerStorage(rom.id, rom.platform_slug);
+
   const selectedInitialSave = initialSaveId
     ? rom.user_saves?.find((s) => s.id === initialSaveId)
     : null;
@@ -306,9 +333,10 @@ async function boot() {
 
   // Configure EmulatorJS globals
   const supported = getSupportedEJSCores(rom.platform_slug);
-  const storedCore = localStorage.getItem(`player:${rom.platform_slug}:core`);
   const core =
-    storedCore && supported.includes(storedCore) ? storedCore : supported[0];
+    playerStorage.core.value && supported.includes(playerStorage.core.value)
+      ? playerStorage.core.value
+      : supported[0];
 
   window.EJS_core = core;
   window.EJS_controlScheme = getControlSchemeForPlatform(rom.platform_slug);
@@ -317,21 +345,16 @@ async function boot() {
 
   if (initialSaveId) {
     // Persist chosen save ID for later logic
-    localStorage.setItem(
-      `player:${rom.id}:initial_save_id`,
-      String(initialSaveId),
-    );
+    playerStorage.initialSaveId.value = String(initialSaveId);
   }
   if (initialStateId) {
-    localStorage.setItem(
-      `player:${rom.id}:initial_state_id`,
-      String(initialStateId),
-    );
+    playerStorage.initialStateId.value = String(initialStateId);
   }
 
   // Disc selection persistence
-  const storedDisc = localStorage.getItem(`player:${rom.id}:disc`);
-  const discId = storedDisc ? parseInt(storedDisc) : null;
+  const discId = playerStorage.disc.value
+    ? parseInt(playerStorage.disc.value)
+    : null;
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
     fileIDs: discId ? [discId] : [],
@@ -342,11 +365,8 @@ async function boot() {
     const { data: firmware } = await firmwareApi.getFirmware({
       platformId: rom.platform_id,
     });
-    const storedBiosID = localStorage.getItem(
-      `player:${rom.platform_slug}:bios_id`,
-    );
-    const bios = storedBiosID
-      ? firmware.find((f) => f.id === parseInt(storedBiosID))
+    const bios = playerStorage.biosId.value
+      ? firmware.find((f) => f.id === parseInt(playerStorage.biosId.value!))
       : null;
 
     window.EJS_biosUrl = bios
@@ -383,10 +403,16 @@ async function boot() {
   //   window.EJS_fullscreenOnLoaded = true;
   window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/powered_by_emulatorjs.png`;
   window.EJS_backgroundColor = "#000000"; // Match original which uses theme colors, but #000000 should work fine
+  const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_defaultOptions = {
     "save-state-location": "browser",
     rewindEnabled: "enabled",
+    ...coreOptions,
   };
+  window.EJS_defaultControls = configStore.getEJSControls(core);
+  window.EJS_language = selectedLanguage.value.value.replace("_", "-");
+  window.EJS_disableAutoLang = true;
+  window.EJS_DEBUG_XX = configStore.config.EJS_DEBUG;
 
   // Set a valid game name (affects per-game settings keys)
   window.EJS_gameName = rom.fs_name_no_tags
