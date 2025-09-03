@@ -16,7 +16,6 @@ import { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { useLocalStorage } from "@vueuse/core";
-import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import VanillaTilt from "vanilla-tilt";
 import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";

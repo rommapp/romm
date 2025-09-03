@@ -6,7 +6,6 @@ import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import { useLocalStorage } from "@vueuse/core";
-import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch, computed } from "vue";

@@ -7,7 +7,7 @@ import {
   getTextForStatus,
 } from "@/utils";
 import { useLocalStorage } from "@vueuse/core";
-import { identity, isNull } from "lodash";
+import { identity } from "lodash";
 import { computed } from "vue";
 
 const props = defineProps<{ rom: SimpleRom }>();

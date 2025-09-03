@@ -11,10 +11,6 @@ export function getSfxEnabled(): boolean {
   return sfxEnabled.value;
 }
 
-export function initializeSfx(): void {
-  // No need to initialize since useLocalStorage handles it automatically
-}
-
 let ctx: AudioContext | null = null;
 function ensureCtx() {
   if (ctx) return ctx;

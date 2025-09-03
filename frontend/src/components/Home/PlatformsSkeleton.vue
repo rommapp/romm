@@ -3,8 +3,6 @@ import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import RSection from "@/components/common/RSection.vue";
 import { views } from "@/utils";
 import { useLocalStorage } from "@vueuse/core";
-import { isNull } from "lodash";
-import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();

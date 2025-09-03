@@ -4,7 +4,7 @@ import RSection from "@/components/common/RSection.vue";
 import { type CollectionType } from "@/stores/collections";
 import { views } from "@/utils";
 import { useLocalStorage } from "@vueuse/core";
-import { isNull, throttle } from "lodash";
+import { throttle } from "lodash";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
