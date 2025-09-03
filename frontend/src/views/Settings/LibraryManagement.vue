@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { debounce, throttle } from "lodash";
+import { useWindowScroll } from "@vueuse/core";
+import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { ref, onMounted, inject, onBeforeUnmount, computed } from "vue";
+import { ref, onMounted, inject, onUnmounted, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
@@ -146,29 +147,29 @@ function resetMissingRoms() {
   galleryFilterStore.resetFilters();
 }
 
-const onScroll = throttle(() => {
+const { y: windowY } = useWindowScroll({ throttle: 500 });
+
+watch(windowY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = window.scrollY === 0;
+    scrolledToTop.value = windowY.value === 0;
     if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
   }, 100);
-}, 500);
+});
 
 onMounted(() => {
   resetMissingRoms();
   fetchRoms();
-  window.addEventListener("scroll", onScroll);
 });
 
-onBeforeUnmount(() => {
+onUnmounted(() => {
   resetMissingRoms();
-  window.removeEventListener("scroll", onScroll);
 });
 </script>
 
