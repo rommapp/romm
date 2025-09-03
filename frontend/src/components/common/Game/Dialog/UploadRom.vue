@@ -10,6 +10,7 @@ import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
+import { useDropZone } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -24,6 +25,8 @@ const selectedPlatform = ref<Platform | null>(null);
 const supportedPlatforms = ref<Platform[]>();
 const heartbeat = storeHeartbeat();
 const uploadStore = storeUpload();
+const dropZoneRef = ref<HTMLDivElement>();
+
 const HEADERS = [
   {
     title: "Name",
@@ -33,6 +36,7 @@ const HEADERS = [
   },
   { title: "", align: "end", key: "actions", sortable: false },
 ] as const;
+
 const emitter = inject<Emitter<Events>>("emitter");
 emitter?.on("showUploadRomDialog", (platformWhereUpload) => {
   if (platformWhereUpload) {
@@ -147,6 +151,23 @@ function triggerFileInput() {
   fileInput?.click();
 }
 
+function handleFileInputChange(event: Event) {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    const newFiles = Array.from(target.files);
+    // Add new files to existing list, avoiding duplicates
+    const uniqueNewFiles = newFiles.filter(
+      (newFile) =>
+        !filesToUpload.value.some(
+          (existingFile) => existingFile.name === newFile.name,
+        ),
+    );
+    filesToUpload.value = [...filesToUpload.value, ...uniqueNewFiles];
+  }
+  // Clear the input so the same files can be selected again if needed
+  target.value = "";
+}
+
 function removeRomFromList(romName: string) {
   filesToUpload.value = filesToUpload.value.filter(
     (rom) => rom.name !== romName,
@@ -158,6 +179,25 @@ function closeDialog() {
   filesToUpload.value = [];
   selectedPlatform.value = null;
 }
+
+function onDrop(files: File[] | null) {
+  if (files && files.length > 0) {
+    // Add new files to existing list, avoiding duplicates
+    const newFiles = files.filter(
+      (newFile) =>
+        !filesToUpload.value.some(
+          (existingFile) => existingFile.name === newFile.name,
+        ),
+    );
+    filesToUpload.value = [...filesToUpload.value, ...newFiles];
+  }
+}
+
+const { isOverDropZone } = useDropZone(dropZoneRef, {
+  onDrop,
+  multiple: true,
+  preventDefaultForUnhandled: true,
+});
 </script>
 
 <template>
@@ -165,12 +205,12 @@ function closeDialog() {
     @close="closeDialog"
     v-model="show"
     icon="mdi-cloud-upload-outline"
-    :width="mdAndUp ? '50vw' : '95vw'"
+    :width="mdAndUp ? '40vw' : '95vw'"
     scroll-content
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>
-        <v-col cols="10" sm="8" lg="9">
+        <v-col>
           <v-autocomplete
             v-model="selectedPlatform"
             :label="t('common.platform')"
@@ -213,66 +253,116 @@ function closeDialog() {
             </template>
           </v-autocomplete>
         </v-col>
-        <v-col>
-          <v-btn
-            block
-            icon=""
-            class="text-primary bg-toplayer"
-            variant="text"
-            rounded="0"
-            @click="triggerFileInput"
-          >
-            <v-icon :class="{ 'mr-2': !xs }"> mdi-plus </v-icon
-            ><span v-if="!xs">{{ t("common.add") }}</span>
-          </v-btn>
-          <v-file-input
-            id="file-input"
-            v-model="filesToUpload"
-            class="file-input"
-            multiple
-            required
-          />
-        </v-col>
       </v-row>
     </template>
     <template #content>
-      <v-data-table-virtual
-        v-if="filesToUpload.length > 0"
-        :item-value="(item) => item.name"
-        :items="filesToUpload"
-        :width="mdAndUp ? '60vw' : '95vw'"
-        :headers="HEADERS"
-        hide-default-header
+      <!-- Dropzone Area -->
+      <div
+        ref="dropZoneRef"
+        class="dropzone-container min-h-[200px] rounded-lg transition-all duration-300 ease-in-out ma-3"
+        :class="{
+          'dropzone-active': isOverDropZone,
+          'dropzone-has-files': filesToUpload.length > 0,
+        }"
       >
-        <template #item.name="{ item }">
-          <v-list-item class="px-0">
-            <v-row no-gutters>
-              <v-col>
-                {{ item.name }}
-              </v-col>
-            </v-row>
-            <v-row no-gutters v-if="!smAndUp">
-              <v-col>
-                <v-chip size="x-small" label>{{
-                  formatBytes(item.size)
-                }}</v-chip>
-              </v-col>
-            </v-row>
-            <template #append>
-              <v-chip v-if="smAndUp" class="ml-2" size="x-small" label>{{
-                formatBytes(item.size)
-              }}</v-chip>
-            </template>
-          </v-list-item>
-        </template>
-        <template #item.actions="{ item }">
-          <v-btn-group divided density="compact">
-            <v-btn @click="removeRomFromList(item.name)">
-              <v-icon class="text-romm-red"> mdi-close </v-icon>
+        <!-- Dropzone Visual Feedback -->
+        <div
+          v-if="filesToUpload.length === 0"
+          class="flex flex-col items-center justify-center h-full min-h-[250px] p-8 text-center transition-all duration-300 ease-in-out"
+        >
+          <v-icon
+            :class="{ 'animate-pulse-glow': isOverDropZone }"
+            size="48"
+            color="primary"
+            class="transition-all duration-300 ease-in-out"
+          >
+            {{
+              isOverDropZone ? "mdi-cloud-upload" : "mdi-cloud-upload-outline"
+            }}
+          </v-icon>
+          <h3 class="text-h6 mt-4 mb-2">
+            {{
+              isOverDropZone
+                ? t("common.dropzone-drag-over")
+                : t("common.dropzone-title")
+            }}
+          </h3>
+          <p class="text-body-2 text-medium-emphasis mb-4">
+            {{ t("common.dropzone-description") }}
+          </p>
+          <v-btn color="primary" variant="outlined" @click="triggerFileInput">
+            <v-icon start>mdi-plus</v-icon>
+            {{ t("common.add") }}
+          </v-btn>
+        </div>
+
+        <!-- Files List -->
+        <div v-if="filesToUpload.length > 0" class="p-4">
+          <div class="d-flex align-center justify-space-between mb-3">
+            <h4 class="text-h6">
+              {{
+                t("common.upload-files-selected", {
+                  count: filesToUpload.length,
+                })
+              }}
+            </h4>
+            <v-btn
+              color="primary"
+              variant="outlined"
+              size="small"
+              @click="triggerFileInput"
+            >
+              <v-icon start>mdi-plus</v-icon>
+              {{ t("common.add") }}
             </v-btn>
-          </v-btn-group>
-        </template>
-      </v-data-table-virtual>
+          </div>
+
+          <v-data-table-virtual
+            :item-value="(item) => item.name"
+            :items="filesToUpload"
+            :headers="HEADERS"
+            hide-default-header
+            class="elevation-1"
+          >
+            <template #item.name="{ item }">
+              <v-list-item class="pa-0">
+                <v-row no-gutters>
+                  <v-col>
+                    {{ item.name }}
+                  </v-col>
+                </v-row>
+                <v-row no-gutters v-if="!smAndUp">
+                  <v-col>
+                    <v-chip size="x-small" label>{{
+                      formatBytes(item.size)
+                    }}</v-chip>
+                  </v-col>
+                </v-row>
+                <template #append>
+                  <v-chip v-if="smAndUp" class="ml-2" size="x-small" label>{{
+                    formatBytes(item.size)
+                  }}</v-chip>
+                </template>
+              </v-list-item>
+            </template>
+            <template #item.actions="{ item }">
+              <v-btn @click="removeRomFromList(item.name)">
+                <v-icon class="text-romm-red"> mdi-close </v-icon>
+              </v-btn>
+            </template>
+          </v-data-table-virtual>
+        </div>
+
+        <!-- Hidden file input -->
+        <input
+          id="file-input"
+          type="file"
+          multiple
+          class="opacity-0 pointer-events-none"
+          style="display: none"
+          @change="handleFileInputChange"
+        />
+      </div>
     </template>
     <template #append>
       <v-divider />
@@ -298,3 +388,39 @@ function closeDialog() {
     </template>
   </r-dialog>
 </template>
+
+<style scoped>
+.dropzone-container {
+  border: 2px dashed rgba(var(--v-theme-primary), 0.3);
+}
+
+.dropzone-container.dropzone-active {
+  border: 2px dashed rgba(var(--v-theme-primary));
+  background-color: rgba(var(--v-theme-primary), 0.05);
+}
+
+.dropzone-container.dropzone-has-files {
+  border: none;
+  background-color: rgba(var(--v-theme-surface), 0.5);
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0% {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 0 rgba(var(--v-theme-primary), 0));
+  }
+  50% {
+    transform: scale(1.1);
+    filter: brightness(1.2)
+      drop-shadow(0 0 20px rgba(var(--v-theme-primary), 0.6));
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 0 rgba(var(--v-theme-primary), 0));
+  }
+}
+</style>
