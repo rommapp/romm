@@ -13,8 +13,26 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
+import { useLocalStorage } from "@vueuse/core";
 import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
 import { useRoute, useRouter } from "vue-router";
+
+const createPlayerStorage = (romId: number, platformSlug: string) => ({
+  initialSaveId: useLocalStorage(
+    `player:${romId}:initial_save_id`,
+    null as string | null,
+  ),
+  initialStateId: useLocalStorage(
+    `player:${romId}:initial_state_id`,
+    null as string | null,
+  ),
+  disc: useLocalStorage(`player:${romId}:disc`, null as string | null),
+  core: useLocalStorage(`player:${platformSlug}:core`, null as string | null),
+  biosId: useLocalStorage(
+    `player:${platformSlug}:bios_id`,
+    null as string | null,
+  ),
+});
 
 const route = useRoute();
 const router = useRouter();
@@ -293,6 +311,9 @@ async function boot() {
   const { data: rom } = await romApi.getRom({ romId });
   romRef.value = rom;
 
+  // Create player storage instances
+  const playerStorage = createPlayerStorage(rom.id, rom.platform_slug);
+
   const selectedInitialSave = initialSaveId
     ? rom.user_saves?.find((s) => s.id === initialSaveId)
     : null;
@@ -306,9 +327,10 @@ async function boot() {
 
   // Configure EmulatorJS globals
   const supported = getSupportedEJSCores(rom.platform_slug);
-  const storedCore = localStorage.getItem(`player:${rom.platform_slug}:core`);
   const core =
-    storedCore && supported.includes(storedCore) ? storedCore : supported[0];
+    playerStorage.core.value && supported.includes(playerStorage.core.value)
+      ? playerStorage.core.value
+      : supported[0];
 
   window.EJS_core = core;
   window.EJS_controlScheme = getControlSchemeForPlatform(rom.platform_slug);
@@ -317,21 +339,16 @@ async function boot() {
 
   if (initialSaveId) {
     // Persist chosen save ID for later logic
-    localStorage.setItem(
-      `player:${rom.id}:initial_save_id`,
-      String(initialSaveId),
-    );
+    playerStorage.initialSaveId.value = String(initialSaveId);
   }
   if (initialStateId) {
-    localStorage.setItem(
-      `player:${rom.id}:initial_state_id`,
-      String(initialStateId),
-    );
+    playerStorage.initialStateId.value = String(initialStateId);
   }
 
   // Disc selection persistence
-  const storedDisc = localStorage.getItem(`player:${rom.id}:disc`);
-  const discId = storedDisc ? parseInt(storedDisc) : null;
+  const discId = playerStorage.disc.value
+    ? parseInt(playerStorage.disc.value)
+    : null;
   window.EJS_gameUrl = getDownloadPath({
     rom: rom,
     fileIDs: discId ? [discId] : [],
@@ -342,11 +359,8 @@ async function boot() {
     const { data: firmware } = await firmwareApi.getFirmware({
       platformId: rom.platform_id,
     });
-    const storedBiosID = localStorage.getItem(
-      `player:${rom.platform_slug}:bios_id`,
-    );
-    const bios = storedBiosID
-      ? firmware.find((f) => f.id === parseInt(storedBiosID))
+    const bios = playerStorage.biosId.value
+      ? firmware.find((f) => f.id === parseInt(playerStorage.biosId.value!))
       : null;
 
     window.EJS_biosUrl = bios

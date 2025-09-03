@@ -327,7 +327,7 @@ const currentStateId = computed(
   () => rom.value?.user_states?.[selectedStateIndex.value]?.id,
 );
 
-function relativeTime(date: string | Date) {
+function formatRelativeDate(date: string | Date) {
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
 
@@ -624,7 +624,7 @@ onUnmounted(() => {
                             selectedStateIndex === i,
                         }"
                         :aria-label="
-                          'State from ' + relativeTime(st.updated_at)
+                          'State from ' + formatRelativeDate(st.updated_at)
                         "
                         @click="startWithState(i)"
                       >
@@ -649,7 +649,7 @@ onUnmounted(() => {
                           class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-black/0 px-2 pt-4 pb-1 text-[10px] text-white/80 tracking-wide flex justify-between items-end"
                         >
                           <span class="truncate max-w-[90%]">{{
-                            relativeTime(st.updated_at)
+                            formatRelativeDate(st.updated_at)
                           }}</span>
                         </div>
                       </button>

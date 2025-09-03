@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
-import { isNull } from "lodash";
+import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
 
@@ -22,11 +22,7 @@ const { smAndDown } = useDisplay();
 const platformsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 
-const showActionBarAlways = isNull(
-  localStorage.getItem("settings.showActionBar"),
-)
-  ? false
-  : localStorage.getItem("settings.showActionBar") === "true";
+const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
 
 const showActionBar = computed(() => smAndDown.value || showActionBarAlways);
 

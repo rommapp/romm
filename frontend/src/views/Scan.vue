@@ -8,6 +8,7 @@ import socket from "@/services/socket";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch, type DefineComponent } from "vue";
 import { useI18n } from "vue-i18n";
@@ -29,12 +30,10 @@ const expansionPanels = ref<DefineComponent | null>(null);
 useAutoScroll(scanLog, expansionPanels);
 
 const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
-const storedMetadataSources = computed<string[]>(() => {
-  const storedSources = localStorage.getItem(
-    LOCAL_STORAGE_METADATA_SOURCES_KEY,
-  );
-  return storedSources ? JSON.parse(storedSources) : [];
-});
+const storedMetadataSources = useLocalStorage(
+  LOCAL_STORAGE_METADATA_SOURCES_KEY,
+  [] as string[],
+);
 const metadataSources = ref<MetadataOption[]>(
   metadataOptions.value.filter((m) =>
     storedMetadataSources.value.includes(m.value),
@@ -100,10 +99,7 @@ async function scan() {
   if (!socket.connected) socket.connect();
 
   // Store selected meta sources in storage
-  localStorage.setItem(
-    LOCAL_STORAGE_METADATA_SOURCES_KEY,
-    JSON.stringify(metadataSources.value.map((s) => s.value)),
-  );
+  storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
   socket.emit("scan", {
     platforms: platformsToScan.value,

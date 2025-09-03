@@ -19,7 +19,7 @@ import {
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
-import { isNull } from "lodash";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
@@ -32,9 +32,7 @@ withDefaults(
     showPlatformIcon: false,
   },
 );
-const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
-  ? true
-  : localStorage.getItem("settings.showSiblings") === "true";
+const showSiblings = useLocalStorage("settings.showSiblings", true);
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();

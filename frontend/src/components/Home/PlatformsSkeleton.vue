@@ -2,15 +2,11 @@
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import RSection from "@/components/common/RSection.vue";
 import { views } from "@/utils";
-import { isNull } from "lodash";
-import { ref } from "vue";
+import { useLocalStorage } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
-const storedPlatforms = localStorage.getItem("settings.gridPlatforms");
-const gridPlatforms = ref(
-  isNull(storedPlatforms) ? false : storedPlatforms === "true",
-);
+const gridPlatforms = useLocalStorage("settings.gridPlatforms", false);
 const PLATFORM_SKELETON_COUNT = 12;
 </script>
 

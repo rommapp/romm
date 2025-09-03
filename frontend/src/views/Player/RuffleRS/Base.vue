@@ -4,7 +4,7 @@ import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
 import { getDownloadPath } from "@/utils";
-import { isNull } from "lodash";
+import { useLocalStorage } from "@vueuse/core";
 import { nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
@@ -16,8 +16,7 @@ const { t } = useI18n();
 const route = useRoute();
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
-const storedFSOP = localStorage.getItem("fullScreenOnPlay");
-const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
+const fullScreenOnPlay = useLocalStorage("fullScreenOnPlay", true);
 const backgroundColor = ref(DEFAULT_BACKGROUND_COLOR);
 
 declare global {
@@ -57,7 +56,6 @@ function onPlay() {
 
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
-  localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
 function onBackgroundColorChange() {
