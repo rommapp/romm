@@ -11,12 +11,12 @@ const props = defineProps<{
   selected?: boolean;
 }>();
 const emit = defineEmits(["click", "mouseenter", "focus"]);
-const el = useTemplateRef<HTMLButtonElement>("system-card");
+const systemCardRef = useTemplateRef<HTMLButtonElement>("system-card-ref");
 const { getSystemImagePath } = useThemeAssets();
 
 onMounted(() => {
-  if (el.value) {
-    systemElementRegistry.registerElement(props.index, el.value);
+  if (systemCardRef.value) {
+    systemElementRegistry.registerElement(props.index, systemCardRef.value);
   }
 });
 
@@ -44,7 +44,7 @@ const theme = computed(() => {
 
 <template>
   <button
-    ref="system-card"
+    ref="system-card-ref"
     class="relative w-[280px] h-[160px] rounded-xl border-2 border-white/10 cursor-pointer overflow-hidden shrink-0 shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)] transition-all"
     :class="{
       '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--system-accent),_0_0_16px_var(--system-accent)]':

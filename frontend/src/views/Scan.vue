@@ -24,8 +24,8 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<number[]>([]);
 const panels = ref<number[]>([]);
-const scanLog = useTemplateRef<HTMLDivElement>("scan-log");
-const expansionPanels = useTemplateRef<HTMLDivElement>("expansion-panels");
+const scanLog = useTemplateRef<HTMLDivElement>("scan-log-ref");
+const expansionPanels = useTemplateRef<HTMLDivElement>("expansion-panels-ref");
 
 useAutoScroll(scanLog, expansionPanels);
 
@@ -316,7 +316,7 @@ async function stopScan() {
     </div>
 
     <!-- Scan log -->
-    <v-row no-gutters class="scan-log overflow-y-scroll" ref="scan-log">
+    <v-row no-gutters class="scan-log overflow-y-scroll" ref="scan-log-ref">
       <v-col>
         <v-card
           elevation="0"
@@ -325,7 +325,7 @@ async function stopScan() {
         >
           <v-card-text class="pa-0">
             <v-expansion-panels
-              ref="expansion-panels"
+              ref="expansion-panels-ref"
               v-model="panels"
               multiple
               flat

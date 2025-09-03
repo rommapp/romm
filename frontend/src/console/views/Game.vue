@@ -48,14 +48,14 @@ const showDescription = ref(false);
 const showDetails = ref(false);
 const showLightbox = ref(false);
 const selectedShot = ref(0);
-const screenshotsRef = useTemplateRef<HTMLDivElement>("screenshots");
+const screenshotsRef = useTemplateRef<HTMLDivElement>("screenshots-ref");
 const screenshotELs = ref<HTMLButtonElement[]>([]);
-const saveStatesRef = useTemplateRef<HTMLDivElement>("save-states");
+const saveStatesRef = useTemplateRef<HTMLDivElement>("save-states-ref");
 const saveStatesELs = ref<HTMLButtonElement[]>([]);
 const descriptionOverlayRef = useTemplateRef<HTMLDivElement>(
-  "description-overlay",
+  "description-overlay-ref",
 );
-const detailsOverlayRef = useTemplateRef<HTMLDivElement>("details-overlay");
+const detailsOverlayRef = useTemplateRef<HTMLDivElement>("details-overlay-ref");
 
 const releaseYear = computed(() => {
   const firstReleaseDate = rom.value?.metadatum?.first_release_date;
@@ -614,7 +614,7 @@ onUnmounted(() => {
                     SAVE STATES
                   </h3>
                   <div
-                    ref="save-states"
+                    ref="save-states-ref"
                     class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
                   >
                     <div class="flex items-center gap-3 py-1 px-2 min-w-max">
@@ -688,7 +688,7 @@ onUnmounted(() => {
                 Screenshots
               </h3>
               <div
-                ref="screenshots"
+                ref="screenshots-ref"
                 class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
               >
                 <div
@@ -750,7 +750,7 @@ onUnmounted(() => {
 
       <!-- Description Modal -->
       <v-dialog
-        ref="description-overlay"
+        ref="description-overlay-ref"
         :model-value="showDescription"
         :width="1000"
         scroll-strategy="block"
@@ -790,7 +790,7 @@ onUnmounted(() => {
 
       <!-- Details Modal -->
       <v-dialog
-        ref="details-overlay"
+        ref="details-overlay-ref"
         :model-value="showDetails"
         :width="1000"
         scroll-strategy="block"

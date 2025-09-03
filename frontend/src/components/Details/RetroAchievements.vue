@@ -45,10 +45,11 @@ const isAchievementEarned = computed(
 
 const isAchievementEarnedHarcore = computed(
   () => (achievement: RAGameRomAchievement) => {
-    return (
-      earnedAchievements.value.find(
-        (earned) => earned.id === (achievement.badge_id ?? ""),
-      )?.date_hardcore ?? false
+    return earnedAchievements.value.some(
+      (earned) =>
+        achievement.badge_id &&
+        earned.id === achievement.badge_id &&
+        earned.date_hardcore,
     );
   },
 );

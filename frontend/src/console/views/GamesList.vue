@@ -41,7 +41,7 @@ const selectedIndex = ref(0);
 const loadedMap = ref<Record<number, boolean>>({});
 const inAlphabet = ref(false);
 const alphaIndex = ref(0);
-const gridRef = useTemplateRef<HTMLDivElement>("game-grid");
+const gridRef = useTemplateRef<HTMLDivElement>("game-grid-ref");
 
 // Initialize selection from store
 if (platformId != null) {
@@ -351,7 +351,7 @@ function markLoaded(id: number) {
           No games found.
         </div>
         <div
-          ref="game-grid"
+          ref="game-grid-ref"
           class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
           @wheel.prevent
         >
