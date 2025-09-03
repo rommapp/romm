@@ -1,44 +1,35 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
-import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { is3DSCIARom } from "@/utils";
 
 const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
+const { t } = useI18n();
 const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();
-const heartbeatStore = storeHeartbeat();
-const { value: heartbeat } = storeToRefs(heartbeatStore);
 const emitter = inject<Emitter<Events>>("emitter");
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
 const auth = storeAuth();
-const { t } = useI18n();
+const playBtnRef = ref<InstanceType<typeof PlayBtn>>();
 
 const computedSize = computed(() => {
   return props.sizeActionBar === 1 ? "small" : "x-small";
 });
 
-const isEmulationSupported = computed(() => {
-  return isAnyEmulationSupported(
-    props.rom.platform_slug,
-    heartbeat.value,
-    config.value,
-  );
-});
-
 const is3DSRom = computed(() => {
   return is3DSCIARom(props.rom);
+});
+
+const isEmulationSupported = computed(() => {
+  // Default to true if playBtnRef is not set
+  return playBtnRef.value?.isEmulationSupported ?? true;
 });
 
 const menuOpen = ref(false);
@@ -64,8 +55,9 @@ watch(menuOpen, (val) => {
     </v-col>
     <v-col v-if="isEmulationSupported" class="d-flex">
       <play-btn
+        ref="playBtnRef"
         :rom="rom"
-        :iconEmbedded="true"
+        icon-embedded
         @click.prevent
         class="action-bar-btn-small flex-grow-1"
         :size="computedSize"

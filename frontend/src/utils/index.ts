@@ -539,25 +539,6 @@ export function isRuffleEmulationSupported(
   return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
-/**
- * Check whether any kind of emulation is supported for a given platform.
- *
- * @param platformSlug The platform slug.
- * @param heartbeat The heartbeat object.
- * @param config Optional configuration object.
- * @returns True if any emulation is supported, false otherwise.
- */
-export function isAnyEmulationSupported(
-  platformSlug: string,
-  heartbeat: Heartbeat,
-  config?: Config,
-) {
-  return (
-    isEJSEmulationSupported(platformSlug, heartbeat, config) ||
-    isRuffleEmulationSupported(platformSlug, heartbeat, config)
-  );
-}
-
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
 
 /**
