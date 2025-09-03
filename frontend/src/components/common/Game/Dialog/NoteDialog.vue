@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { SimpleRom } from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import { MdPreview } from "md-editor-v3";
 import "md-editor-v3/lib/style.css";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
+import type { SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");

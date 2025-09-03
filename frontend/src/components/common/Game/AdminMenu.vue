@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject } from "vue";
+import { useI18n } from "vue-i18n";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -9,9 +12,6 @@ import storeRoms from "@/stores/roms";
 import type { SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: SimpleRom }>();

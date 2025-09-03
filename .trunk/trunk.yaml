@@ -50,6 +50,9 @@ lint:
         - frontend/src/__generated__/**
         - docker/Dockerfile
         - docker/nginx/js/**
+    - linters: [oxipng]
+      paths:
+        - .github/resources/aikido-badge.png
   files:
     - name: vue
       extensions: [vue]

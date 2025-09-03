@@ -1,9 +1,9 @@
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import collectionApi from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 
 export function useFavoriteToggle(emitter?: Emitter<Events>) {
   const collectionsStore = storeCollections();

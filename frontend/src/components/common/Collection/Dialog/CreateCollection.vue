@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { computed, inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import { ROUTES } from "@/plugins/router";
@@ -9,11 +14,6 @@ import storeCollections from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
-import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();

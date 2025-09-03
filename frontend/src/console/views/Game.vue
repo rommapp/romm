@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { formatDistanceToNow } from "date-fns";
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import BackButton from "@/console/components/BackButton.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
@@ -12,9 +15,6 @@ import stateApi from "@/services/api/state";
 import storeRoms from "@/stores/roms";
 import { getSupportedEJSCores } from "@/utils";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
-import { formatDistanceToNow } from "date-fns";
-import { computed, onMounted, onUnmounted, ref, watch, nextTick } from "vue";
-import { useRoute, useRouter } from "vue-router";
 
 type FocusZone =
   | "play"

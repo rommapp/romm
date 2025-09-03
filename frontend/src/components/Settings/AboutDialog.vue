@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { ref, inject } from "vue";
+import { useI18n } from "vue-i18n";
 import RDialog from "@/components/common/RDialog.vue";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { ref, inject } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
@@ -15,10 +19,6 @@ import {
   areThreadsRequiredForEJSCore,
   getDownloadPath,
 } from "@/utils";
-import { useLocalStorage } from "@vueuse/core";
-import { storeToRefs } from "pinia";
-import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
-import { useRoute, useRouter } from "vue-router";
 
 const createPlayerStorage = (romId: number, platformSlug: string) => ({
   initialSaveId: useLocalStorage(

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import PlatformCard from "@/components/common/Platform/Card.vue";
-import RSection from "@/components/common/RSection.vue";
-import storePlatforms from "@/stores/platforms";
-import { views } from "@/utils";
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import PlatformCard from "@/components/common/Platform/Card.vue";
+import RSection from "@/components/common/RSection.vue";
+import storePlatforms from "@/stores/platforms";
+import { views } from "@/utils";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();

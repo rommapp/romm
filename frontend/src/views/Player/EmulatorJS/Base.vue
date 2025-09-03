@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { saveSave, saveState } from "./utils";
+import { useLocalStorage } from "@vueuse/core";
+import { formatDistanceToNow } from "date-fns";
+import { storeToRefs } from "pinia";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import EmptyStates from "@/components/common/EmptyStates/EmptyStates.vue";
@@ -14,13 +20,7 @@ import { formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
-import { useLocalStorage } from "@vueuse/core";
-import { formatDistanceToNow } from "date-fns";
-import { storeToRefs } from "pinia";
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
+import { saveSave, saveState } from "./utils";
 
 const EMULATORJS_VERSION = "4.2.3";
 

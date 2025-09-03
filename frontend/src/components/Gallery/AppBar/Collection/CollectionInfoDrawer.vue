@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { computed, inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
 import DeleteSmartCollectionDialog from "@/components/common/Collection/Dialog/DeleteSmartCollection.vue";
@@ -12,11 +17,6 @@ import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getCollectionCoverImage } from "@/utils/covers";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { computed, inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { smAndDown } = useDisplay();

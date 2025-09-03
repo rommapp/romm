@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RomListItem from "@/components/common/Game/ListItem.vue";
@@ -9,11 +14,6 @@ import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();
