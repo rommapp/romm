@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import { useActiveElement } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { getActivePinia, storeToRefs, type StateTree } from "pinia";
+import { computed, inject, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import AboutDialog from "@/components/Settings/AboutDialog.vue";
 import { ROUTES } from "@/plugins/router";
 import { refetchCSRFToken } from "@/services/api";
@@ -7,13 +14,6 @@ import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
-import { useActiveElement } from "@vueuse/core";
-import type { Emitter } from "mitt";
-import { getActivePinia, storeToRefs, type StateTree } from "pinia";
-import { computed, inject, ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const navigationStore = storeNavigation();

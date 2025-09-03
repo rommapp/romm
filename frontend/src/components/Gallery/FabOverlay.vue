@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import socket from "@/services/socket";
@@ -9,12 +15,6 @@ import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
 
 const { smAndDown } = useDisplay();
 const romsStore = storeRoms();

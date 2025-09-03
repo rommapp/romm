@@ -1,3 +1,5 @@
+import { isNull, isUndefined } from "lodash";
+import { defineStore } from "pinia";
 import type { SearchRomSchema } from "@/__generated__";
 import type { DetailedRomSchema, SimpleRomSchema } from "@/__generated__/";
 import romApi from "@/services/api/rom";
@@ -9,8 +11,6 @@ import {
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
-import { isNull, isUndefined } from "lodash";
-import { defineStore } from "pinia";
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 

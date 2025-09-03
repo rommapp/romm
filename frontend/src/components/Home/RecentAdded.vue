@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import GameCard from "@/components/common/Game/Card/Base.vue";
-import RSection from "@/components/common/RSection.vue";
-import storeRoms from "@/stores/roms";
-import { views } from "@/utils";
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
+import GameCard from "@/components/common/Game/Card/Base.vue";
+import RSection from "@/components/common/RSection.vue";
+import storeRoms from "@/stores/roms";
+import { views } from "@/utils";
 
 const { t } = useI18n();
 const romsStore = storeRoms();

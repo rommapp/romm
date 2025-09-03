@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 import type { FirmwareSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
 import firmwareApi from "@/services/api/firmware";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const { mdAndUp, lgAndUp, xs, smAndUp } = useDisplay();
 const show = ref(false);

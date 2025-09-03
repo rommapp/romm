@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import storeGalleryFilter from "@/stores/galleryFilter";
-import storeRoms from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, nextTick, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const router = useRouter();

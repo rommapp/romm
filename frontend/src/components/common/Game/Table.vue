@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
+import { useRouter } from "vue-router";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
@@ -19,10 +23,6 @@ import {
   languageToEmoji,
   regionToEmoji,
 } from "@/utils";
-import { useLocalStorage } from "@vueuse/core";
-import { storeToRefs } from "pinia";
-import { computed } from "vue";
-import { useRouter } from "vue-router";
 
 withDefaults(
   defineProps<{

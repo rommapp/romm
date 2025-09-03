@@ -1,9 +1,9 @@
-import { themes, dark, light, autoThemeKey } from "@/styles/themes";
-import { isKeyof } from "@/types";
 import "@mdi/font/css/materialdesignicons.css";
 import { useLocalStorage } from "@vueuse/core";
 import { createVuetify } from "vuetify";
 import "vuetify/styles";
+import { themes, dark, light, autoThemeKey } from "@/styles/themes";
+import { isKeyof } from "@/types";
 
 const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
 mediaMatch.addEventListener("change", (event) => {

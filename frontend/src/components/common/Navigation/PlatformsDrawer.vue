@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import PlatformListItem from "@/components/common/Platform/ListItem.vue";
-import storeNavigation from "@/stores/navigation";
-import type { Platform } from "@/stores/platforms";
-import storePlatforms from "@/stores/platforms";
 import { useActiveElement, useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref, watch, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import PlatformListItem from "@/components/common/Platform/ListItem.vue";
+import storeNavigation from "@/stores/navigation";
+import type { Platform } from "@/stores/platforms";
+import storePlatforms from "@/stores/platforms";
 
 type GroupByType = "family_name" | "generation" | "category" | null;
 
