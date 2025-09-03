@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     and_,
+    case,
     cast,
     delete,
     false,
@@ -505,47 +506,89 @@ class DBRomsHandler(DBBaseHandler):
                     func.row_number()
                     .over(
                         partition_by=func.coalesce(
-                            func.concat(
-                                "igdb-",
-                                base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.igdb_id,
+                            case(
+                                (
+                                    base_subquery.c.igdb_id.isnot(None),
+                                    func.concat(
+                                        "igdb-",
+                                        base_subquery.c.platform_id,
+                                        "-",
+                                        base_subquery.c.igdb_id,
+                                    ),
+                                ),
+                                else_=None,
                             ),
-                            func.concat(
-                                "ss-",
-                                base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.ss_id,
+                            case(
+                                (
+                                    base_subquery.c.ss_id.isnot(None),
+                                    func.concat(
+                                        "ss-",
+                                        base_subquery.c.platform_id,
+                                        "-",
+                                        base_subquery.c.ss_id,
+                                    ),
+                                ),
+                                else_=None,
                             ),
-                            func.concat(
-                                "moby-",
-                                base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.moby_id,
+                            case(
+                                (
+                                    base_subquery.c.moby_id.isnot(None),
+                                    func.concat(
+                                        "moby-",
+                                        base_subquery.c.platform_id,
+                                        "-",
+                                        base_subquery.c.moby_id,
+                                    ),
+                                ),
+                                else_=None,
                             ),
-                            func.concat(
-                                "ra-",
-                                base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.ra_id,
+                            case(
+                                (
+                                    base_subquery.c.ra_id.isnot(None),
+                                    func.concat(
+                                        "ra-",
+                                        base_subquery.c.platform_id,
+                                        "-",
+                                        base_subquery.c.ra_id,
+                                    ),
+                                ),
+                                else_=None,
                             ),
-                            func.concat(
-                                "hasheous-",
-                                base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.hasheous_id,
+                            case(
+                                (
+                                    base_subquery.c.hasheous_id.isnot(None),
+                                    func.concat(
+                                        "hasheous-",
+                                        base_subquery.c.platform_id,
+                                        "-",
+                                        base_subquery.c.hasheous_id,
+                                    ),
+                                ),
+                                else_=None,
                             ),
-                            func.concat(
-                                "launchbox-",
-                                base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.launchbox_id,
+                            case(
+                                (
+                                    base_subquery.c.launchbox_id.isnot(None),
+                                    func.concat(
+                                        "launchbox-",
+                                        base_subquery.c.platform_id,
+                                        "-",
+                                        base_subquery.c.launchbox_id,
+                                    ),
+                                ),
+                                else_=None,
                             ),
-                            func.concat(
-                                "tgdb-",
-                                base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.tgdb_id,
+                            case(
+                                (
+                                    base_subquery.c.tgdb_id.isnot(None),
+                                    func.concat(
+                                        "tgdb-",
+                                        base_subquery.c.platform_id,
+                                        "-",
+                                        base_subquery.c.tgdb_id,
+                                    ),
+                                ),
+                                else_=None,
                             ),
                             func.concat(
                                 "romm-",
