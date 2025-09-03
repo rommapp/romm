@@ -10,6 +10,7 @@ import Stats from "@/components/Home/Stats.vue";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { onBeforeMount, ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -29,18 +30,22 @@ const {
   fetchingVirtualCollections,
 } = storeToRefs(collectionsStore);
 
-function getSettingValue(key: string, defaultValue: boolean = true): boolean {
-  const stored = localStorage.getItem(`settings.${key}`);
-  return stored === null ? defaultValue : stored === "true";
-}
-
-const showStats = getSettingValue("showStats");
-const showRecentRoms = getSettingValue("showRecentRoms");
-const showContinuePlaying = getSettingValue("showContinuePlaying");
-const showPlatforms = getSettingValue("showPlatforms");
-const showCollections = getSettingValue("showCollections");
-const showVirtualCollections = getSettingValue("showVirtualCollections");
-const showSmartCollections = getSettingValue("showSmartCollections");
+const showStats = useLocalStorage("settings.showStats", true);
+const showRecentRoms = useLocalStorage("settings.showRecentRoms", true);
+const showContinuePlaying = useLocalStorage(
+  "settings.showContinuePlaying",
+  true,
+);
+const showPlatforms = useLocalStorage("settings.showPlatforms", true);
+const showCollections = useLocalStorage("settings.showCollections", true);
+const showVirtualCollections = useLocalStorage(
+  "settings.showVirtualCollections",
+  true,
+);
+const showSmartCollections = useLocalStorage(
+  "settings.showSmartCollections",
+  true,
+);
 
 const fetchingRecentAdded = ref(false);
 const fetchingContinuePlaying = ref(false);

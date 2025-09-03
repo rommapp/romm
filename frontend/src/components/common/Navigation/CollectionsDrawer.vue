@@ -5,6 +5,7 @@ import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
+import { useLocalStorage } from "@vueuse/core";
 import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -27,11 +28,10 @@ const emitter = inject<Emitter<Events>>("emitter");
 const visibleVirtualCollections = ref(72);
 const tabIndex = computed(() => (activeCollectionsDrawer.value ? 0 : -1));
 
-const showVirtualCollections = isNull(
-  localStorage.getItem("settings.showVirtualCollections"),
-)
-  ? true
-  : localStorage.getItem("settings.showVirtualCollections") === "true";
+const showVirtualCollections = useLocalStorage(
+  "settings.showVirtualCollections",
+  true,
+);
 
 async function addCollection() {
   emitter?.emit("showCreateCollectionDialog", null);

@@ -9,8 +9,11 @@ import {
 import storeGalleryFilter from "@/stores/galleryFilter";
 import { type Platform } from "@/stores/platforms";
 import type { ExtractPiniaStoreType } from "@/types";
+import { useLocalStorage } from "@vueuse/core";
 import { isNull, isUndefined } from "lodash";
 import { defineStore } from "pinia";
+
+const groupRomsStorage = useLocalStorage("settings.groupRoms", true);
 
 type GalleryFilterStore = ExtractPiniaStoreType<typeof storeGalleryFilter>;
 
@@ -66,9 +69,7 @@ export default defineStore("roms", {
 
   actions: {
     _shouldGroupRoms(): boolean {
-      return isNull(localStorage.getItem("settings.groupRoms"))
-        ? true
-        : localStorage.getItem("settings.groupRoms") === "true";
+      return groupRomsStorage.value;
     },
     setCurrentPlatform(platform: Platform | null) {
       this.currentPlatform = platform;

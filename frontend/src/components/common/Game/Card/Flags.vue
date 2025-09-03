@@ -6,19 +6,14 @@ import {
   getEmojiForStatus,
   getTextForStatus,
 } from "@/utils";
+import { useLocalStorage } from "@vueuse/core";
 import { identity, isNull } from "lodash";
 import { computed } from "vue";
 
 const props = defineProps<{ rom: SimpleRom }>();
-const showRegions = isNull(localStorage.getItem("settings.showRegions"))
-  ? true
-  : localStorage.getItem("settings.showRegions") === "true";
-const showLanguages = isNull(localStorage.getItem("settings.showLanguages"))
-  ? true
-  : localStorage.getItem("settings.showLanguages") === "true";
-const showStatus = isNull(localStorage.getItem("settings.showStatus"))
-  ? true
-  : localStorage.getItem("settings.showStatus") === "true";
+const showRegions = useLocalStorage("settings.showRegions", true);
+const showLanguages = useLocalStorage("settings.showLanguages", true);
+const showStatus = useLocalStorage("settings.showStatus", true);
 
 const playingStatus = computed(() => {
   const { now_playing, backlogged, status } = props.rom?.rom_user ?? {};
