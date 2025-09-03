@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import storeConsole from "@/stores/console";
 import storeLanguage from "@/stores/language";
-import { useIdle } from "@vueuse/core";
+import { useIdle, useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -11,10 +11,10 @@ const languageStore = storeLanguage();
 const consoleStore = storeConsole();
 const { consoleMode } = storeToRefs(consoleStore);
 const { defaultLanguage, languages } = storeToRefs(languageStore);
+const localeStorage = useLocalStorage("settings.locale", "");
 const selectedLanguage = ref(
-  languages.value.find(
-    (lang) => lang.value === localStorage.getItem("settings.locale"),
-  ) || defaultLanguage.value,
+  languages.value.find((lang) => lang.value === localeStorage.value) ||
+    defaultLanguage.value,
 );
 locale.value = selectedLanguage.value.value;
 languageStore.setLanguage(selectedLanguage.value);

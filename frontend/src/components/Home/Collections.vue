@@ -3,7 +3,8 @@ import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import { type CollectionType } from "@/stores/collections";
 import { views } from "@/utils";
-import { isNull, throttle } from "lodash";
+import { useLocalStorage } from "@vueuse/core";
+import { throttle } from "lodash";
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 const props = defineProps<{
@@ -15,24 +16,14 @@ const props = defineProps<{
     | "gridSmartCollections";
 }>();
 
-const storedCollections = localStorage.getItem(`settings.${props.setting}`);
-const gridCollections = ref(
-  isNull(storedCollections) ? false : storedCollections === "true",
-);
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const gridCollections = useLocalStorage(`settings.${props.setting}`, false);
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const visibleCollections = ref(72);
 const isHovering = ref(false);
 const hoveringCollectionId = ref();
 
 function toggleGridCollections() {
   gridCollections.value = !gridCollections.value;
-  localStorage.setItem(
-    `settings.${props.setting}`,
-    gridCollections.value.toString(),
-  );
 }
 
 function onHover(emitData: { isHovering: boolean; id: number }) {

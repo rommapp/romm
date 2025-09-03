@@ -12,6 +12,7 @@ import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
 import storeNavigation from "@/stores/navigation";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
 
@@ -19,12 +20,14 @@ const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
 const { mainBarCollapsed } = storeToRefs(navigationStore);
 
+const mainBarCollapsedStorage = useLocalStorage(
+  "settings.mainBarCollapsed",
+  false,
+);
+
 function collapse() {
   mainBarCollapsed.value = !mainBarCollapsed.value;
-  localStorage.setItem(
-    "settings.mainBarCollapsed",
-    mainBarCollapsed.value.toString(),
-  );
+  mainBarCollapsedStorage.value = mainBarCollapsed.value;
 }
 </script>
 <template>

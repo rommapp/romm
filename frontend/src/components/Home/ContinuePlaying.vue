@@ -3,7 +3,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeRoms from "@/stores/roms";
 import { views } from "@/utils";
-import { isNull } from "lodash";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -11,16 +11,11 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 const romsStore = storeRoms();
 const { continuePlayingRoms } = storeToRefs(romsStore);
-const storedContinuePlaying = localStorage.getItem(
+const gridContinuePlayingRoms = useLocalStorage(
   "settings.gridContinuePlayingRoms",
+  false,
 );
-const gridContinuePlayingRoms = ref(
-  isNull(storedContinuePlaying) ? false : storedContinuePlaying === "true",
-);
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const isHovering = ref(false);
 const hoveringRomId = ref();
 const openedMenu = ref(false);
@@ -28,10 +23,6 @@ const openedMenuRomId = ref();
 
 function toggleGridContinuePlaying() {
   gridContinuePlayingRoms.value = !gridContinuePlayingRoms.value;
-  localStorage.setItem(
-    "settings.gridContinuePlayingRoms",
-    gridContinuePlayingRoms.value.toString(),
-  );
 }
 
 function onHover(emitData: { isHovering: boolean; id: number }) {

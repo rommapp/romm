@@ -21,6 +21,7 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
+import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref } from "vue";
