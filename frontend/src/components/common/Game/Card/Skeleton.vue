@@ -14,7 +14,7 @@ const props = withDefaults(
   {
     platformId: undefined,
     aspectRatio: undefined,
-    type: "image, avatar, chip, chip, actions",
+    type: undefined,
   },
 );
 
@@ -23,8 +23,9 @@ const platformsStore = storePlatforms();
 const galleryViewStore = storeGalleryView();
 
 const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
-
-const showActionBar = computed(() => smAndDown.value || showActionBarAlways);
+const showActionBar = computed(
+  () => smAndDown.value || showActionBarAlways.value,
+);
 
 const computedAspectRatio = computed(() => {
   const ratio =
@@ -33,13 +34,19 @@ const computedAspectRatio = computed(() => {
     galleryViewStore.defaultAspectRatioCover;
   return parseFloat(ratio.toString());
 });
+
+const computedType = computed(() => {
+  if (props.type) return props.type;
+  if (showActionBar.value) return "image, avatar, chip, chip, actions";
+  return "image, avatar, chip, chip";
+});
 </script>
 
 <template>
   <v-skeleton-loader
     class="card-skeleton"
     :class="{ 'show-action-bar': showActionBar }"
-    :type="type"
+    :type="computedType"
     :style="{ aspectRatio: computedAspectRatio }"
   />
 </template>

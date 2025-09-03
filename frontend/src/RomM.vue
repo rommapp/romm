@@ -11,9 +11,9 @@ const languageStore = storeLanguage();
 const consoleStore = storeConsole();
 const { consoleMode } = storeToRefs(consoleStore);
 const { defaultLanguage, languages } = storeToRefs(languageStore);
-const localeStorage = useLocalStorage("settings.locale", "");
+const storedLocale = useLocalStorage("settings.locale", "");
 const selectedLanguage = ref(
-  languages.value.find((lang) => lang.value === localeStorage.value) ||
+  languages.value.find((lang) => lang.value === storedLocale.value) ||
     defaultLanguage.value,
 );
 locale.value = selectedLanguage.value.value;
