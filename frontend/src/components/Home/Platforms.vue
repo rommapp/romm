@@ -14,7 +14,7 @@ const { filledPlatforms } = storeToRefs(platformsStore);
 const gridPlatforms = useLocalStorage("settings.gridPlatforms", false);
 const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const isHovering = ref(false);
-const hoveringPlatformId = ref();
+const hoveringPlatformId = ref<number>();
 
 function toggleGridPlatforms() {
   gridPlatforms.value = !gridPlatforms.value;

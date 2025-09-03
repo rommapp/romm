@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import VanillaTilt from "vanilla-tilt";
-import { computed, ref, watchEffect, onMounted, onBeforeUnmount } from "vue";
+import {
+  computed,
+  ref,
+  watchEffect,
+  onMounted,
+  onBeforeUnmount,
+  useTemplateRef,
+} from "vue";
 import { useDisplay } from "vuetify";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { ROUTES } from "@/plugins/router";
@@ -108,7 +115,7 @@ interface TiltHTMLElement extends HTMLElement {
 }
 const emit = defineEmits(["hover"]);
 
-const tiltCard = ref<TiltHTMLElement | null>(null);
+const tiltCard = useTemplateRef<TiltHTMLElement>("tilt-card");
 
 // Determine the correct route for this collection type
 const collectionRoute = computed(() => {
@@ -158,7 +165,7 @@ onBeforeUnmount(() => {
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
-    <div data-tilt ref="tiltCard">
+    <div data-tilt ref="tilt-card">
       <v-card
         v-bind="{
           ...hoverProps,

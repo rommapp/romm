@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  ref,
+  nextTick,
+  useTemplateRef,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
@@ -34,7 +41,7 @@ const selectedIndex = ref(0);
 const loadedMap = ref<Record<number, boolean>>({});
 const inAlphabet = ref(false);
 const alphaIndex = ref(0);
-const gridRef = ref<HTMLDivElement>();
+const gridRef = useTemplateRef<HTMLDivElement>("game-grid");
 
 // Initialize selection from store
 if (platformId != null) {
@@ -344,7 +351,7 @@ function markLoaded(id: number) {
           No games found.
         </div>
         <div
-          ref="gridRef"
+          ref="game-grid"
           class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
           @wheel.prevent
         >

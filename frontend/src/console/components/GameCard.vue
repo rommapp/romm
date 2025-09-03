@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, useTemplateRef } from "vue";
 import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
 import {
   recentElementRegistry,
@@ -23,7 +23,7 @@ const coverSrc = computed(
     "",
 );
 const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
-const el = ref<HTMLElement>();
+const el = useTemplateRef<HTMLButtonElement>("game-card");
 
 // Check if this game is in the favorites collection
 const collectionsStore = storeCollections();
@@ -44,7 +44,7 @@ onMounted(() => {
 
 <template>
   <button
-    ref="el"
+    ref="game-card"
     class="relative block border-2 border-white/10 rounded-md p-0 cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200"
     :class="{
       '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-card-focus-border),_0_0_16px_var(--console-game-card-focus-border)]':

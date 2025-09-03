@@ -2,7 +2,14 @@
 import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import VanillaTilt from "vanilla-tilt";
-import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
+import {
+  computed,
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  inject,
+  useTemplateRef,
+} from "vue";
 import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
@@ -128,7 +135,7 @@ interface TiltHTMLElement extends HTMLElement {
   };
 }
 
-const tiltCard = ref<TiltHTMLElement | null>(null);
+const tiltCard = useTemplateRef<TiltHTMLElement>("tilt-card");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -183,7 +190,7 @@ onBeforeUnmount(() => {
 
 <template>
   <v-hover v-slot="{ isHovering: isOuterHovering, props: hoverProps }">
-    <div data-tilt ref="tiltCard">
+    <div data-tilt ref="tilt-card">
       <v-card
         :style="{
           ...(disableViewTransition
