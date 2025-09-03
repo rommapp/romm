@@ -1,6 +1,6 @@
+import { defineStore } from "pinia";
 import type { UserSchema } from "@/__generated__";
 import i18n from "@/locales";
-import { defineStore } from "pinia";
 
 export type User = UserSchema;
 

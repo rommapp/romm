@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import platformApi from "@/services/api/platform";
@@ -10,10 +14,6 @@ import storeScanning from "@/stores/scanning";
 import storeUpload from "@/stores/upload";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { xs, mdAndUp, smAndUp } = useDisplay();

@@ -1,10 +1,10 @@
+import { computed, type ComputedRef } from "vue";
 import {
   resolveAsset,
   type AssetType,
   type SupportedFormat,
 } from "@/console/utils/assetResolver";
 import { useConsoleTheme } from "@/stores/consoleTheme";
-import { computed, type ComputedRef } from "vue";
 
 // provides reactive asset paths for theme-aware components
 // this is the single source of truth for all asset path resolution

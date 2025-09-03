@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption.vue";
-import RSection from "@/components/common/RSection.vue";
-import storeCollections from "@/stores/collections";
 import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption.vue";
+import RSection from "@/components/common/RSection.vue";
+import storeCollections from "@/stores/collections";
 
 const { t } = useI18n();
 const { smAndDown } = useDisplay();

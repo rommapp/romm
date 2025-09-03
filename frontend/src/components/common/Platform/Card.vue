@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import VanillaTilt from "vanilla-tilt";
+import { ref, onMounted, onBeforeUnmount } from "vue";
+import { useDisplay } from "vuetify";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
-import VanillaTilt from "vanilla-tilt";
-import { ref, onMounted, onBeforeUnmount } from "vue";
-import { useDisplay } from "vuetify";
 
 const props = withDefaults(
   defineProps<{ platform: Platform; enable3DTilt?: boolean }>(),

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { computed, inject, onBeforeUnmount, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
 import EmptyManualMatch from "@/components/common/EmptyStates/EmptyManualMatch.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
@@ -11,11 +16,6 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage } from "@/utils/covers";
-import type { Emitter } from "mitt";
-import { computed, inject, onBeforeUnmount, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { useRoute } from "vue-router";
-import { useDisplay } from "vuetify";
 
 type MatchedSource = {
   url_cover: string | undefined;

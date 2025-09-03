@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { computed, inject, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
@@ -13,10 +17,6 @@ import {
   isRuffleEmulationSupported,
   is3DSCIARom,
 } from "@/utils";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { computed, inject, ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
 
 const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
 const emit = defineEmits(["menu-open", "menu-close"]);

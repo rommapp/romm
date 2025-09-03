@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchievement";
-import storeAuth from "@/stores/auth";
-import type { DetailedRom } from "@/stores/roms";
 import { ref, onMounted, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchievement";
+import storeAuth from "@/stores/auth";
+import type { DetailedRom } from "@/stores/roms";
 
 const { smAndDown } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();

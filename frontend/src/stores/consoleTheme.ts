@@ -1,7 +1,7 @@
-import { resolveAsset, clearAssetCache } from "@/console/utils/assetResolver";
 import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed } from "vue";
+import { resolveAsset, clearAssetCache } from "@/console/utils/assetResolver";
 
 export const useConsoleTheme = defineStore("consoleTheme", () => {
   const themeName = useLocalStorage("console-theme", "default");

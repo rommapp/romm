@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { RECENT_ROMS_LIMIT } from "@/services/api/rom";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import { views } from "@/utils";
-import { storeToRefs } from "pinia";
 
 const props = withDefaults(
   defineProps<{

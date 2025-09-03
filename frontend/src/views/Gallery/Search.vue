@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { throttle } from "lodash";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import GalleryAppBarSearch from "@/components/Gallery/AppBar/Search/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
@@ -12,12 +18,6 @@ import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import { useLocalStorage } from "@vueuse/core";
-import { throttle } from "lodash";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
 
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);

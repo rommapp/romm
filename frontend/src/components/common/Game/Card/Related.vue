@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { IGDBRelatedGame } from "@/__generated__";
 import storeGalleryView from "@/stores/galleryView";
 import { getMissingCoverImage } from "@/utils/covers";
-import { computed } from "vue";
 
 const props = defineProps<{
   game: IGDBRelatedGame;
