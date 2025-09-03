@@ -2,7 +2,14 @@
 import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import VanillaTilt from "vanilla-tilt";
-import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
+import {
+  computed,
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  inject,
+  useTemplateRef,
+} from "vue";
 import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
@@ -128,7 +135,7 @@ interface TiltHTMLElement extends HTMLElement {
   };
 }
 
-const tiltCard = ref<TiltHTMLElement | null>(null);
+const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -163,8 +170,8 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
 };
 
 onMounted(() => {
-  if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
-    VanillaTilt.init(tiltCard.value, {
+  if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
+    VanillaTilt.init(tiltCardRef.value, {
       max: 20,
       speed: 400,
       scale: 1.1,
@@ -175,15 +182,15 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (tiltCard.value?.vanillaTilt && props.enable3DTilt) {
-    tiltCard.value.vanillaTilt.destroy();
+  if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
+    tiltCardRef.value.vanillaTilt.destroy();
   }
 });
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering: isOuterHovering, props: hoverProps }">
-    <div data-tilt ref="tiltCard">
+    <div data-tilt ref="tilt-card-ref">
       <v-card
         :style="{
           ...(disableViewTransition

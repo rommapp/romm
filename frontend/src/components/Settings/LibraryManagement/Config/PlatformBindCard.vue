@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 
-const emit = defineEmits(["clickEdit", "clickDelete"]);
+const emit = defineEmits(["click-edit", "click-delete"]);
 defineProps<{
   slug: string;
   fsSlug: string;
@@ -26,7 +26,7 @@ defineProps<{
                 size="x-small"
                 icon="mdi-pencil"
                 class="ml-0"
-                @click="$emit('clickEdit')"
+                @click="$emit('click-edit')"
               />
             </v-slide-x-reverse-transition>
             <v-slide-x-reverse-transition>
@@ -37,7 +37,7 @@ defineProps<{
                 size="x-small"
                 icon="mdi-delete"
                 class="text-romm-red"
-                @click="$emit('clickDelete')"
+                @click="$emit('click-delete')"
               />
             </v-slide-x-reverse-transition>
           </template>

@@ -19,7 +19,7 @@ const gridCollections = useLocalStorage(`settings.${props.setting}`, false);
 const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const visibleCollections = ref(72);
 const isHovering = ref(false);
-const hoveringCollectionId = ref();
+const hoveringCollectionId = ref<number>();
 
 function toggleGridCollections() {
   gridCollections.value = !gridCollections.value;
