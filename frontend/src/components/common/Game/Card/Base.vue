@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import VanillaTilt from "vanilla-tilt";
+import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
+import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
@@ -15,11 +20,6 @@ import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
-import { useLocalStorage } from "@vueuse/core";
-import type { Emitter } from "mitt";
-import VanillaTilt from "vanilla-tilt";
-import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
-import { useDisplay } from "vuetify";
 
 const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 

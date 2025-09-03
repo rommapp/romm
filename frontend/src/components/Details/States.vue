@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import type { StateSchema } from "@/__generated__";
 import EmptySates from "@/components/common/EmptyStates/EmptyStates.vue";
 import storeAuth from "@/stores/auth";
@@ -6,10 +10,6 @@ import { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const auth = storeAuth();

@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import NavigationText from "@/console/components/NavigationText.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { getSfxEnabled, setSfxEnabled } from "@/console/utils/sfx";
 import { useConsoleTheme } from "@/stores/consoleTheme";
-import { ref, computed, onMounted, onUnmounted } from "vue";
 
 const props = defineProps<{
   modelValue: boolean;

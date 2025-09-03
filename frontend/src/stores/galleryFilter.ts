@@ -1,6 +1,6 @@
+import { defineStore } from "pinia";
 import type { PlatformSchema } from "@/__generated__";
 import { romStatusMap } from "@/utils";
-import { defineStore } from "pinia";
 
 export type Platform = PlatformSchema;
 

@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const user = ref<UserItem | null>(null);
 const show = ref(false);

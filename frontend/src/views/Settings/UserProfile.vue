@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref, onMounted, onUnmounted } from "vue";
+import { useI18n } from "vue-i18n";
 import RetroAchievements from "@/components/Settings/UserProfile/RetroAchievements.vue";
 import RSection from "@/components/common/RSection.vue";
 import userApi from "@/services/api/user";
@@ -7,10 +11,6 @@ import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref, onMounted, onUnmounted } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const auth = storeAuth();

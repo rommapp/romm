@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import AddBtn from "@/components/Settings/LibraryManagement/Config/AddBtn.vue";
 import CreatePlatformBindingDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreatePlatformBinding.vue";
 import DeletePlatformBindingDialog from "@/components/Settings/LibraryManagement/Config/Dialog/DeletePlatformBinding.vue";
@@ -7,10 +11,6 @@ import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");

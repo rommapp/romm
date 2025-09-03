@@ -1,6 +1,6 @@
+import { inject, onMounted, onUnmounted } from "vue";
 import type { InputListener } from "@/console/input/actions";
 import { InputBus, InputBusSymbol } from "@/console/input/bus";
-import { inject, onMounted, onUnmounted } from "vue";
 
 export function useInputScope() {
   const bus = inject<InputBus>(InputBusSymbol);

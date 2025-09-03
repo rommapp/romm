@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
+import { onMounted, onUnmounted, ref, nextTick, watch } from "vue";
+import { useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
 import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
@@ -25,9 +28,6 @@ import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import consoleStore from "@/stores/console";
-import { storeToRefs } from "pinia";
-import { onMounted, onUnmounted, ref, nextTick, watch } from "vue";
-import { useRouter } from "vue-router";
 
 const router = useRouter();
 const collectionsStore = storeCollections();

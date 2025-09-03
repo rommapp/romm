@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { computed, ref, watch, type DefineComponent } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
@@ -8,11 +13,6 @@ import socket from "@/services/socket";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import { useLocalStorage } from "@vueuse/core";
-import { storeToRefs } from "pinia";
-import { computed, ref, watch, type DefineComponent } from "vue";
-import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import type { Events } from "@/types/emitter";
 
 const showSortBar = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
