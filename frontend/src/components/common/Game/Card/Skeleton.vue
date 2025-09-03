@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import storeGalleryView from "@/stores/galleryView";
-import storePlatforms from "@/stores/platforms";
 import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
+import storeGalleryView from "@/stores/galleryView";
+import storePlatforms from "@/stores/platforms";
 
 const props = withDefaults(
   defineProps<{

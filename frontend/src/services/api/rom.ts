@@ -1,3 +1,4 @@
+import type { AxiosProgressEvent } from "axios";
 import type {
   BulkOperationResponse,
   SearchRomSchema,
@@ -10,7 +11,6 @@ import storeHeartbeat from "@/stores/heartbeat";
 import type { DetailedRom, SimpleRom } from "@/stores/roms";
 import storeUpload from "@/stores/upload";
 import { getDownloadPath, getStatusKeyForText } from "@/utils";
-import type { AxiosProgressEvent } from "axios";
 
 export const romApi = api;
 

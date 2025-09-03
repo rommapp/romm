@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
 import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
 import {
   recentElementRegistry,
   gamesListElementRegistry,
 } from "@/console/composables/useElementRegistry";
 import storeCollections from "@/stores/collections";
-import { computed, onMounted, ref } from "vue";
 
 const props = defineProps<{
   rom: SimpleRomSchema;

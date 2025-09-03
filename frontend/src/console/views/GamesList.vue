@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
@@ -14,8 +16,6 @@ import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import consoleStore from "@/stores/console";
-import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
-import { useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
 const router = useRouter();

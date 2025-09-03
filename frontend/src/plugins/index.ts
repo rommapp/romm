@@ -1,10 +1,10 @@
+import mitt from "mitt";
+import type { App } from "vue";
+import i18n from "@/locales";
+import type { Events } from "@/types/emitter";
 import { configureMDEditor } from "./mdeditor";
 import pinia from "./pinia";
 import vuetify from "./vuetify";
-import i18n from "@/locales";
-import type { Events } from "@/types/emitter";
-import mitt from "mitt";
-import type { App } from "vue";
 
 export function registerPlugins(app: App) {
   configureMDEditor();

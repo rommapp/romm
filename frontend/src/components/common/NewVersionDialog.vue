@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import storeHeartbeat from "@/stores/heartbeat";
 import { useLocalStorage } from "@vueuse/core";
 import semver from "semver";
 import { onMounted, ref } from "vue";
+import storeHeartbeat from "@/stores/heartbeat";
 
 const heartbeat = storeHeartbeat();
 const { VERSION } = heartbeat.value.SYSTEM;

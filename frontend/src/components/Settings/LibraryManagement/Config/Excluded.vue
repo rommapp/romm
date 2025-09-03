@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import CreateExclusionDialog from "@/components/Settings/LibraryManagement/Config/Dialog/CreateExclusion.vue";
 import ExcludedCard from "@/components/Settings/LibraryManagement/Config/ExcludedCard.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeAuth from "@/stores/auth";
 import storeConfig from "@/stores/config";
-import { ref } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const configStore = storeConfig();

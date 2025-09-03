@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, onBeforeUnmount, ref } from "vue";
+import { useDisplay } from "vuetify";
 import type { SearchCoverSchema } from "@/__generated__";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import sgdbApi from "@/services/api/sgdb";
 import storeGalleryView from "@/stores/galleryView";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, onBeforeUnmount, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const { lgAndUp } = useDisplay();
 const galleryViewStore = storeGalleryView();

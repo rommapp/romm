@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import NavigationText from "./NavigationText.vue";
 import { useActiveElement } from "@vueuse/core";
 import { computed, onMounted } from "vue";
+import NavigationText from "./NavigationText.vue";
 
 const props = defineProps<{ urls: string[]; startIndex?: number }>();
 const emit = defineEmits(["update:modelValue", "close"]);

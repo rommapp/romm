@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { computed, inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import romApi from "@/services/api/rom";
@@ -14,10 +18,6 @@ import {
   isEJSEmulationSupported,
   isRuffleEmulationSupported,
 } from "@/utils";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { computed, inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();

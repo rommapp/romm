@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { identity } from "lodash";
+import { computed } from "vue";
 import { type SimpleRom } from "@/stores/roms";
 import {
   languageToEmoji,
@@ -6,9 +9,6 @@ import {
   getEmojiForStatus,
   getTextForStatus,
 } from "@/utils";
-import { useLocalStorage } from "@vueuse/core";
-import { identity } from "lodash";
-import { computed } from "vue";
 
 const props = defineProps<{ rom: SimpleRom }>();
 const showRegions = useLocalStorage("settings.showRegions", true);

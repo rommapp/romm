@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
+import { useDisplay } from "vuetify";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import { defaultAvatarPath } from "@/utils";
-import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
 
 const auth = storeAuth();
 const navigationStore = storeNavigation();

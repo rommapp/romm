@@ -1,11 +1,4 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/RDialog.vue";
-import { ROUTES } from "@/plugins/router";
-import collectionApi from "@/services/api/collection";
-import storeCollections from "@/stores/collections";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import type { Events } from "@/types/emitter";
-import { getStatusKeyForText } from "@/utils";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { ref, computed } from "vue";
@@ -13,6 +6,13 @@ import { inject } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import RDialog from "@/components/common/RDialog.vue";
+import { ROUTES } from "@/plugins/router";
+import collectionApi from "@/services/api/collection";
+import storeCollections from "@/stores/collections";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import type { Events } from "@/types/emitter";
+import { getStatusKeyForText } from "@/utils";
 
 const { t } = useI18n();
 const galleryFilterStore = storeGalleryFilter();

@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import {
-  saveSave,
-  saveState,
-  loadEmulatorJSSave,
-  loadEmulatorJSState,
-  createQuickLoadButton,
-  createSaveQuitButton,
-  createExitEmulationButton,
-} from "./utils";
+import { useLocalStorage } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { useTheme } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { saveApi as api } from "@/services/api/save";
 import storeConfig from "@/stores/config";
@@ -21,11 +17,15 @@ import {
   getControlSchemeForPlatform,
   getDownloadPath,
 } from "@/utils";
-import { useLocalStorage } from "@vueuse/core";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { useTheme } from "vuetify";
+import {
+  saveSave,
+  saveState,
+  loadEmulatorJSSave,
+  loadEmulatorJSState,
+  createQuickLoadButton,
+  createSaveQuitButton,
+  createExitEmulationButton,
+} from "./utils";
 
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 

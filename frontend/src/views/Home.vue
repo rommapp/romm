@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { onBeforeMount, ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
 import Collections from "@/components/Home/Collections.vue";
 import ContinuePlaying from "@/components/Home/ContinuePlaying.vue";
 import EmptyHome from "@/components/Home/EmptyHome.vue";
@@ -10,10 +14,6 @@ import Stats from "@/components/Home/Stats.vue";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
-import { useLocalStorage } from "@vueuse/core";
-import { storeToRefs } from "pinia";
-import { onBeforeMount, ref, computed } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const romsStore = storeRoms();

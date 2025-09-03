@@ -1,5 +1,5 @@
-import { ROUTES } from "@/plugins/router";
 import { defineStore } from "pinia";
+import { ROUTES } from "@/plugins/router";
 
 export type NavigationMode = "systems" | "recent" | "collections" | "controls";
 

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import BaseCollection from "./BaseCollection.vue";
+import { storeToRefs } from "pinia";
 import storeCollections, {
   type Collection,
   type CollectionType,
 } from "@/stores/collections";
 import storeRoms from "@/stores/roms";
-import { storeToRefs } from "pinia";
+import BaseCollection from "./BaseCollection.vue";
 
 const collectionsStore = storeCollections();
 const { allCollections } = storeToRefs(collectionsStore);

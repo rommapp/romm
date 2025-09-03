@@ -1,5 +1,5 @@
-import type { SnackbarStatus } from "@/types/emitter";
 import { defineStore } from "pinia";
+import type { SnackbarStatus } from "@/types/emitter";
 
 export default defineStore("notifications", {
   state: () => ({
