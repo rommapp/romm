@@ -10,7 +10,7 @@ import { defaultAvatarPath, getRoleIcon } from "@/utils";
 import { useActiveElement } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { getActivePinia, storeToRefs, type StateTree } from "pinia";
-import { inject, ref, watch, computed } from "vue";
+import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -48,7 +48,6 @@ async function logout() {
   });
 }
 
-// Ref to store the element that triggered the drawer
 const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activeSettingsDrawer, (isOpen) => {
   if (isOpen) {
@@ -59,7 +58,7 @@ watch(activeSettingsDrawer, (isOpen) => {
 
 function onClose() {
   activeSettingsDrawer.value = false;
-  // Focus the element that triggered the drawer
+  // Refocus the trigger element for keyboard navigation
   triggerElement.value?.focus();
 }
 </script>

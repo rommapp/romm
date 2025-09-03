@@ -41,7 +41,6 @@ function clear() {
   filterText.value = "";
 }
 
-// Ref to store the element that triggered the drawer
 const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activeCollectionsDrawer, (isOpen) => {
   if (isOpen) {
@@ -66,6 +65,12 @@ function onScroll() {
   }
 }
 
+function onClose() {
+  activeCollectionsDrawer.value = false;
+  // Refocus the trigger element for keyboard navigation
+  triggerElement.value?.focus();
+}
+
 onMounted(() => {
   const collectionsDrawer = document.querySelector(
     "#collections-drawer .v-navigation-drawer__content",
@@ -79,12 +84,6 @@ onBeforeUnmount(() => {
   );
   collectionsDrawer?.removeEventListener("scroll", onScroll);
 });
-
-function onClose() {
-  activeCollectionsDrawer.value = false;
-  // Focus the element that triggered the drawer
-  triggerElement.value?.focus();
-}
 </script>
 <template>
   <v-navigation-drawer

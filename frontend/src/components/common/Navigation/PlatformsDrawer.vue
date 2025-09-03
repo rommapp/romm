@@ -78,7 +78,6 @@ watch(
   { immediate: true },
 );
 
-// Ref to store the element that triggered the drawer
 const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activePlatformsDrawer, (isOpen) => {
   if (isOpen) {
@@ -93,7 +92,7 @@ const clear = () => {
 
 const onClose = () => {
   activePlatformsDrawer.value = false;
-  // Focus the element that triggered the drawer
+  // Refocus the trigger element for keyboard navigation
   triggerElement.value?.focus();
 };
 </script>
@@ -115,7 +114,6 @@ const onClose = () => {
     :border="0"
     @update:model-value="clear"
     @keydown.esc="onClose"
-    v-click-outside="onClose"
   >
     <template #prepend>
       <v-text-field
