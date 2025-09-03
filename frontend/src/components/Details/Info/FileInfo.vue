@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import type { RomFileSchema } from "@/__generated__";
 import VersionSwitcher from "@/components/Details/VersionSwitcher.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
@@ -7,8 +9,6 @@ import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
 import { formatBytes } from "@/utils";
-import { ref, watch } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: DetailedRom }>();

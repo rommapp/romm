@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import type { DetailedRom } from "@/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const router = useRouter();

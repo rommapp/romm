@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import ThemeOption from "@/components/Settings/UserInterface/ThemeOption.vue";
-import RSection from "@/components/common/RSection.vue";
-import { autoThemeKey, themes } from "@/styles/themes";
-import { isKeyof } from "@/types";
 import { useLocalStorage } from "@vueuse/core";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useTheme } from "vuetify";
+import ThemeOption from "@/components/Settings/UserInterface/ThemeOption.vue";
+import RSection from "@/components/common/RSection.vue";
+import { autoThemeKey, themes } from "@/styles/themes";
+import { isKeyof } from "@/types";
 
 const { t } = useI18n();
 const theme = useTheme();

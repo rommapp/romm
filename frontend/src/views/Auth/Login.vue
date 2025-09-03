@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { refetchCSRFToken } from "@/services/api";
 import identityApi from "@/services/api/identity";
 import storeAuth from "@/stores/auth";
 import storeHeartbeat from "@/stores/heartbeat";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
 
 const { t } = useI18n();
 const heartbeatStore = storeHeartbeat();

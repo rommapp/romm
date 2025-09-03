@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import { debounce } from "lodash";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, nextTick, onMounted, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import SearchTextField from "@/components/Gallery/AppBar/Search/SearchTextField.vue";
 import FilterDuplicatesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterDuplicatesBtn.vue";
 import FilterFavouritesBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterFavouritesBtn.vue";
@@ -14,13 +21,6 @@ import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { debounce } from "lodash";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, nextTick, onMounted, watch } from "vue";
-import { useI18n } from "vue-i18n";
-import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
 
 withDefaults(
   defineProps<{

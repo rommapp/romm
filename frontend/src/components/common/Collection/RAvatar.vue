@@ -1,9 +1,9 @@
 <script setup lang="ts">
+import { computed, ref, watchEffect } from "vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import { type CollectionType } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
-import { computed, ref, watchEffect } from "vue";
 
 const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 

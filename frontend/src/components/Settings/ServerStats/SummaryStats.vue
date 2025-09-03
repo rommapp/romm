@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import RSection from "@/components/common/RSection.vue";
 import { formatBytes } from "@/utils";
-import { useI18n } from "vue-i18n";
 
 defineProps<{
   stats: {

@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, nextTick, ref } from "vue";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import stateApi from "@/services/api/state";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, nextTick, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const { xs, mdAndUp } = useDisplay();
 const show = ref(false);

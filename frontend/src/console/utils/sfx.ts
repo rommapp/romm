@@ -1,5 +1,5 @@
-import type { InputAction } from "../input/actions";
 import { useLocalStorage } from "@vueuse/core";
+import type { InputAction } from "../input/actions";
 
 const sfxEnabled = useLocalStorage("console-sfx-enabled", true);
 

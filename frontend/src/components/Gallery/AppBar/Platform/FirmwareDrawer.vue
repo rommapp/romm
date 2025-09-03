@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref, computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import type { FirmwareSchema } from "@/__generated__";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import DeleteFirmwareDialog from "@/components/common/Platform/Dialog/DeleteFirmware.vue";
@@ -8,11 +13,6 @@ import storeGalleryView from "@/stores/galleryView";
 import storeRoms from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, calculateMainLayoutWidth } from "@/utils";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, ref, computed } from "vue";
-import { useI18n } from "vue-i18n";
-import { useDisplay } from "vuetify";
 
 const { t } = useI18n();
 const { xs, mdAndUp } = useDisplay();

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import Saves from "@/components/Details/Saves.vue";
-import States from "@/components/Details/States.vue";
-import type { DetailedRom } from "@/stores/roms";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import Saves from "@/components/Details/Saves.vue";
+import States from "@/components/Details/States.vue";
+import type { DetailedRom } from "@/stores/roms";
 
 const { t } = useI18n();
 defineProps<{ rom: DetailedRom }>();

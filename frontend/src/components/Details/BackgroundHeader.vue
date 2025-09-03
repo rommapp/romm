@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import storeRoms from "@/stores/roms";
-import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
+import storeRoms from "@/stores/roms";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 
 const romsStore = storeRoms();
 const { currentRom, filteredRoms } = storeToRefs(romsStore);

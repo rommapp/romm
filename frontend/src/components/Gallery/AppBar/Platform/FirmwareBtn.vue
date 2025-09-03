@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import storeGalleryView from "@/stores/galleryView";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import storeGalleryView from "@/stores/galleryView";
 
 const { t } = useI18n();
 const galleryViewStore = storeGalleryView();

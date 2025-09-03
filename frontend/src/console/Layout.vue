@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import { useIdle } from "@vueuse/core";
+import { onMounted, onUnmounted, provide } from "vue";
+import { type RouteLocationNormalized } from "vue-router";
+import { useRouter } from "vue-router";
 import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import { attachGamepad } from "@/console/input/gamepad";
 import { attachKeyboard } from "@/console/input/keyboard";
 import { ROUTES } from "@/plugins/router";
 import { useConsoleTheme } from "@/stores/consoleTheme";
-import { useIdle } from "@vueuse/core";
-import { onMounted, onUnmounted, provide } from "vue";
-import { type RouteLocationNormalized } from "vue-router";
-import { useRouter } from "vue-router";
 
 const router = useRouter();
 const bus = new InputBus();

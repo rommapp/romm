@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ROUTES } from "@/plugins/router";
 import { useRoute, useRouter } from "vue-router";
+import { ROUTES } from "@/plugins/router";
 
 withDefaults(
   defineProps<{

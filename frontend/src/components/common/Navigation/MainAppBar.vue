@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { useDisplay } from "vuetify";
 import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
 import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
 import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
@@ -12,9 +15,6 @@ import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
 import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
 import UserBtn from "@/components/common/Navigation/UserBtn.vue";
 import storeNavigation from "@/stores/navigation";
-import { useLocalStorage } from "@vueuse/core";
-import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
 
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();

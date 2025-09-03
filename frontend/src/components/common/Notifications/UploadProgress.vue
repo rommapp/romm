@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import storeUpload from "@/stores/upload";
-import { formatBytes } from "@/utils";
 import { storeToRefs } from "pinia";
 import { ref, watch } from "vue";
 import { useDisplay } from "vuetify";
+import storeUpload from "@/stores/upload";
+import { formatBytes } from "@/utils";
 
 const { xs } = useDisplay();
 const uploadStore = storeUpload();
