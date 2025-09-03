@@ -2,7 +2,6 @@
 import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import { attachGamepad } from "@/console/input/gamepad";
 import { attachKeyboard } from "@/console/input/keyboard";
-import { initializeSfx } from "@/console/utils/sfx";
 import { ROUTES } from "@/plugins/router";
 import { useConsoleTheme } from "@/stores/consoleTheme";
 import { useIdle } from "@vueuse/core";
@@ -54,7 +53,6 @@ let detachGamepad: (() => void) | null = null;
 
 onMounted(() => {
   themeStore.initializeTheme();
-  initializeSfx();
 
   // Establish a root input scope so child views can subscribe safely
   bus.pushScope();
