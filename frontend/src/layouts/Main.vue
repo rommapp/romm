@@ -22,7 +22,7 @@ import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import storePlatforms from "@/stores/platforms";
 import type { Events } from "@/types/emitter";
-import { isNull } from "lodash";
+import { useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { inject, onBeforeMount, ref } from "vue";
 
@@ -35,19 +35,13 @@ emitter?.on("refreshDrawer", async () => {
   platformsStore.fetchPlatforms();
 });
 
-const showVirtualCollections = isNull(
-  localStorage.getItem("settings.showVirtualCollections"),
-)
-  ? true
-  : localStorage.getItem("settings.showVirtualCollections") === "true";
-
-const storedVirtualCollectionType = localStorage.getItem(
-  "settings.virtualCollectionType",
+const showVirtualCollections = useLocalStorage(
+  "settings.showVirtualCollections",
+  true,
 );
-const virtualCollectionTypeRef = ref(
-  isNull(storedVirtualCollectionType)
-    ? "collection"
-    : storedVirtualCollectionType,
+const virtualCollectionTypeRef = useLocalStorage(
+  "settings.virtualCollectionType",
+  "collection",
 );
 
 function unhackNavbar() {
