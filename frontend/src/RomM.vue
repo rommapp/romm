@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import consoleStore from "@/stores/console";
-import languageStore from "@/stores/language";
+import storeConsole from "@/stores/console";
+import storeLanguage from "@/stores/language";
 import { useIdle, useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 const { locale } = useI18n();
-const storeLanguage = languageStore();
-const storeConsole = consoleStore();
-const { consoleMode } = storeToRefs(storeConsole);
-const { defaultLanguage, languages } = storeToRefs(storeLanguage);
+const languageStore = storeLanguage();
+const consoleStore = storeConsole();
+const { consoleMode } = storeToRefs(consoleStore);
+const { defaultLanguage, languages } = storeToRefs(languageStore);
 const localeStorage = useLocalStorage("settings.locale", "");
 const selectedLanguage = ref(
   languages.value.find((lang) => lang.value === localeStorage.value) ||
     defaultLanguage.value,
 );
 locale.value = selectedLanguage.value.value;
-storeLanguage.setLanguage(selectedLanguage.value);
+languageStore.setLanguage(selectedLanguage.value);
 
 const { idle: mouseIdle } = useIdle(100, {
   events: ["mousemove", "mousedown", "wheel", "touchstart"],

@@ -10,6 +10,8 @@ import {
 } from "./utils";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { saveApi as api } from "@/services/api/save";
+import storeConfig from "@/stores/config";
+import storeLanguage from "@/stores/language";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
@@ -28,6 +30,10 @@ import { useTheme } from "vuetify";
 const INVALID_CHARS_REGEX = /[#<$+%>!`&*'|{}/\\?"=@:^\r\n]/gi;
 
 const romsStore = storeRoms();
+const playingStore = storePlaying();
+const configStore = storeConfig();
+const languageStore = storeLanguage();
+
 const props = defineProps<{
   rom: DetailedRom;
   save: SaveSchema | null;
@@ -40,8 +46,8 @@ const romRef = ref<DetailedRom>(props.rom);
 const saveRef = ref<SaveSchema | null>(props.save);
 const theme = useTheme();
 const emitter = inject<Emitter<Events>>("emitter");
-const playingStore = storePlaying();
 const { playing, fullScreen } = storeToRefs(playingStore);
+const { selectedLanguage } = storeToRefs(languageStore);
 
 // Declare global variables for EmulatorJS
 declare global {
@@ -51,7 +57,6 @@ declare global {
     EJS_player: string;
     EJS_pathtodata: string;
     EJS_color: string;
-    EJS_defaultOptions: object;
     EJS_gameID: number;
     EJS_gameName: string;
     EJS_backgroundImage: string;
@@ -67,7 +72,12 @@ declare global {
     EJS_fullscreenOnLoaded: boolean;
     EJS_threads: boolean;
     EJS_controlScheme: string | null;
+    EJS_defaultOptions: object;
+    EJS_defaultControls: object;
     EJS_emulator: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    EJS_language: string;
+    EJS_disableAutoLang: boolean;
+    EJS_DEBUG_XX: boolean;
     EJS_Buttons: Record<string, boolean>;
     EJS_VirtualGamepadSettings: {};
     EJS_onGameStart: () => void;
@@ -109,15 +119,21 @@ window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
   exitEmulation: false,
 };
-// Force saving saves and states to the browser
+const coreOptions = configStore.getEJSCoreOptions(props.core);
 window.EJS_defaultOptions = {
+  // Force saving saves and states to the browser
   "save-state-location": "browser",
   rewindEnabled: "enabled",
+  ...coreOptions,
 };
+window.EJS_defaultControls = configStore.getEJSControls(props.core);
 // Set a valid game name
 window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
   .trim();
+window.EJS_language = selectedLanguage.value.value.replace("_", "-");
+window.EJS_disableAutoLang = true;
+window.EJS_DEBUG_XX = configStore.config.EJS_DEBUG;
 
 onMounted(() => {
   window.scrollTo(0, 0);

@@ -1,4 +1,4 @@
-import type { ConfigResponse } from "@/__generated__";
+import type { ConfigResponse, EjsControlsButton } from "@/__generated__";
 import api from "@/services/api";
 import { defineStore } from "pinia";
 
@@ -19,6 +19,9 @@ const defaultConfig = {
   EXCLUDED_MULTI_PARTS_FILES: [],
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
+  EJS_DEBUG: false,
+  EJS_SETTINGS: {},
+  EJS_CONTROLS: {},
 } as ConfigResponse;
 
 export default defineStore("config", {
@@ -64,6 +67,44 @@ export default defineStore("config", {
     },
     isExclusionType(type: string): type is ExclusionTypes {
       return Object.keys(this.config).includes(type);
+    },
+    getEJSCoreOptions(core: string | null): Record<string, string | boolean> {
+      const defaultOptions = this.config.EJS_SETTINGS["default"] || {};
+      if (!core) return defaultOptions;
+      return {
+        ...defaultOptions,
+        ...this.config.EJS_SETTINGS[core],
+      };
+    },
+    getEJSControls(
+      core: string | null,
+    ): Record<number, Record<number, EjsControlsButton>> {
+      const defaultControls = {
+        0: this.config.EJS_CONTROLS["default"]?.["_0"] || {},
+        1: this.config.EJS_CONTROLS["default"]?.["_1"] || {},
+        2: this.config.EJS_CONTROLS["default"]?.["_2"] || {},
+        3: this.config.EJS_CONTROLS["default"]?.["_3"] || {},
+      };
+      if (!core) return defaultControls;
+
+      return {
+        0: {
+          ...defaultControls[0],
+          ...(this.config.EJS_CONTROLS[core]?.["_0"] || {}),
+        },
+        1: {
+          ...defaultControls[1],
+          ...(this.config.EJS_CONTROLS[core]?.["_1"] || {}),
+        },
+        2: {
+          ...defaultControls[2],
+          ...(this.config.EJS_CONTROLS[core]?.["_2"] || {}),
+        },
+        3: {
+          ...defaultControls[3],
+          ...(this.config.EJS_CONTROLS[core]?.["_3"] || {}),
+        },
+      };
     },
     reset() {},
   },
