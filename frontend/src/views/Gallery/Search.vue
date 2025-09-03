@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
-import { throttle } from "lodash";
+import { useLocalStorage, useWindowScroll } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { inject, onMounted, onUnmounted, ref, watch } from "vue";
 import GalleryAppBarSearch from "@/components/Gallery/AppBar/Search/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
@@ -24,7 +22,6 @@ const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
-const router = useRouter();
 const {
   filteredRoms,
   selectedRoms,
@@ -117,27 +114,27 @@ function fetchRoms() {
     });
 }
 
-const onScroll = throttle(() => {
+const { y: windowY } = useWindowScroll({ throttle: 500 });
+
+watch(windowY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = window.scrollY === 0;
+    scrolledToTop.value = windowY.value === 0;
     if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
   }, 100);
-}, 500);
+});
 
 onMounted(async () => {
   scrolledToTop.value = true;
-  window.addEventListener("scroll", onScroll);
 });
 
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
+onUnmounted(() => {
   searchTerm.value = "";
 });
 </script>

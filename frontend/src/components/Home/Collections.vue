@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
-import { throttle } from "lodash";
-import { onBeforeUnmount, onMounted, ref } from "vue";
+import { useLocalStorage, useWindowScroll } from "@vueuse/core";
+import { ref, watch } from "vue";
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import { type CollectionType } from "@/stores/collections";
@@ -31,21 +30,16 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
   hoveringCollectionId.value = emitData.id;
 }
 
-const onScroll = throttle(() => {
+const { y: windowY } = useWindowScroll({ throttle: 100 });
+
+// Watch for scroll changes and trigger the throttled function
+watch(windowY, () => {
   if (
-    window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+    window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
     visibleCollections.value < props.collections.length
   ) {
     visibleCollections.value += 72;
   }
-}, 100);
-
-onMounted(() => {
-  window.addEventListener("scroll", onScroll);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
 });
 </script>
 <template>
