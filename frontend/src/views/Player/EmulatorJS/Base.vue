@@ -16,7 +16,6 @@ import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
 import { useLocalStorage } from "@vueuse/core";
 import { formatDistanceToNow } from "date-fns";
-import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";

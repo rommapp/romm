@@ -20,7 +20,6 @@ import {
   regionToEmoji,
 } from "@/utils";
 import { useLocalStorage } from "@vueuse/core";
-import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useRouter } from "vue-router";

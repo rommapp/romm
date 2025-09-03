@@ -3,7 +3,6 @@ import InterfaceOption from "@/components/Settings/UserInterface/InterfaceOption
 import RSection from "@/components/common/RSection.vue";
 import storeCollections from "@/stores/collections";
 import { useLocalStorage } from "@vueuse/core";
-import { isNull } from "lodash";
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";

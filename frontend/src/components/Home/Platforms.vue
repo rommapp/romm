@@ -4,7 +4,6 @@ import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
 import { views } from "@/utils";
 import { useLocalStorage } from "@vueuse/core";
-import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useI18n } from "vue-i18n";
