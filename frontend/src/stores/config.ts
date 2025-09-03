@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import type { ConfigResponse, EjsControlsButton } from "@/__generated__";
 import api from "@/services/api";
 
+export type Config = ConfigResponse;
 type ExclusionTypes =
   | "EXCLUDED_PLATFORMS"
   | "EXCLUDED_SINGLE_EXT"

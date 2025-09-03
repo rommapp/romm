@@ -5,24 +5,17 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
+import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
-import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
 import storeGalleryFilter from "@/stores/galleryFilter";
-import storeHeartbeat from "@/stores/heartbeat";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import {
-  formatBytes,
-  isEJSEmulationSupported,
-  isRuffleEmulationSupported,
-  languageToEmoji,
-  regionToEmoji,
-} from "@/utils";
+import { formatBytes, languageToEmoji, regionToEmoji } from "@/utils";
 
 withDefaults(
   defineProps<{
@@ -38,9 +31,6 @@ const downloadStore = storeDownload();
 const romsStore = storeRoms();
 const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
   storeToRefs(romsStore);
-const heartbeatStore = storeHeartbeat();
-const configStore = storeConfig();
-const { config } = storeToRefs(configStore);
 const auth = storeAuth();
 const galleryFilterStore = storeGalleryFilter();
 
@@ -100,22 +90,6 @@ const selectedRomIDs = computed(() => selectedRoms.value.map((rom) => rom.id));
 function rowClick(_: Event, row: { item: SimpleRom }) {
   router.push({ name: ROUTES.ROM, params: { rom: row.item.id } });
   romsStore.resetSelection();
-}
-
-function getTruePlatformSlug(platformSlug: string) {
-  return platformSlug in config.value.PLATFORMS_VERSIONS
-    ? config.value.PLATFORMS_VERSIONS[platformSlug]
-    : platformSlug;
-}
-
-function checkIfEJSEmulationSupported(platformSlug: string) {
-  const slug = getTruePlatformSlug(platformSlug);
-  return isEJSEmulationSupported(slug, heartbeatStore.value);
-}
-
-function checkIfRuffleEmulationSupported(platformSlug: string) {
-  const slug = getTruePlatformSlug(platformSlug);
-  return isRuffleEmulationSupported(slug, heartbeatStore.value);
 }
 
 function updateSelectAll() {
@@ -317,34 +291,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         >
           <v-icon>mdi-download</v-icon>
         </v-btn>
-        <v-btn
-          v-if="checkIfEJSEmulationSupported(item.platform_slug)"
-          :disabled="item.missing_from_fs"
-          variant="text"
-          size="small"
-          @click.stop="
-            $router.push({
-              name: ROUTES.EMULATORJS,
-              params: { rom: item?.id },
-            })
-          "
-        >
-          <v-icon>mdi-play</v-icon>
-        </v-btn>
-        <v-btn
-          v-if="checkIfRuffleEmulationSupported(item.platform_slug)"
-          :disabled="item.missing_from_fs"
-          variant="text"
-          size="small"
-          @click.stop="
-            $router.push({
-              name: ROUTES.RUFFLE,
-              params: { rom: item?.id },
-            })
-          "
-        >
-          <v-icon>mdi-play</v-icon>
-        </v-btn>
+        <play-btn :rom="item" @click.stop variant="text" size="small" />
         <v-menu
           v-if="
             auth.scopes.includes('roms.write') ||
