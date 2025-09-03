@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { onMounted, onUnmounted, ref, nextTick, watch } from "vue";
+import {
+  onMounted,
+  onUnmounted,
+  ref,
+  nextTick,
+  watch,
+  useTemplateRef,
+} from "vue";
 import { useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
@@ -48,13 +55,12 @@ const selectedIndex = ref(storeConsole.platformIndex);
 const recentIndex = ref(storeConsole.recentIndex);
 const collectionsIndex = ref(storeConsole.collectionsIndex);
 const controlIndex = ref(storeConsole.controlIndex);
-const scrollContainerRef = ref<HTMLDivElement>();
-const systemsRef = ref<HTMLDivElement>();
-const recentRef = ref<HTMLDivElement>();
-const collectionsRef = ref<HTMLDivElement>();
-const platformsSectionRef = ref<HTMLElement>();
-const recentSectionRef = ref<HTMLElement>();
-const collectionsSectionRef = ref<HTMLElement>();
+const platformsRef = useTemplateRef<HTMLDivElement>("platforms");
+const recentRef = useTemplateRef<HTMLDivElement>("recent");
+const collectionsRef = useTemplateRef<HTMLDivElement>("collections");
+const platformsSectionRef = useTemplateRef<HTMLElement>("platforms-section");
+const recentSectionRef = useTemplateRef<HTMLElement>("recent-section");
+const collectionsSectionRef = useTemplateRef<HTMLElement>("collections");
 
 const systemElementAt = (i: number) => systemElementRegistry.getElement(i);
 const recentElementAt = (i: number) => recentElementRegistry.getElement(i);
@@ -102,8 +108,8 @@ useRovingDom(collectionsIndex, collectionElementAt, {
 watch(selectedIndex, (newIdx) => {
   if (!isVerticalScrolling) {
     const el = systemElementAt(newIdx);
-    if (el && systemsRef.value) {
-      centerInCarousel(systemsRef.value, el, "smooth");
+    if (el && platformsRef.value) {
+      centerInCarousel(platformsRef.value, el, "smooth");
     }
   }
 });
@@ -232,7 +238,7 @@ function scrollToCurrentRow() {
     const behavior: ScrollBehavior = "smooth";
     switch (navigationMode.value) {
       case "systems":
-        scrollContainerRef.value?.scrollTo({ top: 0, behavior });
+        platformsSectionRef.value?.scrollTo({ top: 0, behavior });
         break;
       case "recent":
         recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
@@ -434,7 +440,7 @@ onMounted(async () => {
   scrollToCurrentRow();
 
   // Center carousels
-  centerInCarousel(systemsRef.value, systemElementAt(selectedIndex.value));
+  centerInCarousel(platformsRef.value, systemElementAt(selectedIndex.value));
   centerInCarousel(recentRef.value, recentElementAt(recentIndex.value));
   centerInCarousel(
     collectionsRef.value,
@@ -461,7 +467,6 @@ onUnmounted(() => {
 
 <template>
   <div
-    ref="scrollContainerRef"
     class="relative h-screen overflow-y-auto overflow-x-hidden"
     @wheel.prevent
   >
@@ -491,7 +496,7 @@ onUnmounted(() => {
         {{ error }}
       </div>
       <div v-else>
-        <section ref="platformsSectionRef" class="pb-2">
+        <section ref="platforms-section" class="pb-2">
           <h2
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
@@ -522,7 +527,7 @@ onUnmounted(() => {
               ▶
             </button>
             <div
-              ref="systemsRef"
+              ref="platforms"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >
@@ -543,7 +548,7 @@ onUnmounted(() => {
           </div>
         </section>
 
-        <section v-if="recent.length > 0" ref="recentSectionRef" class="pb-8">
+        <section v-if="recent.length > 0" ref="recent-section" class="pb-8">
           <h2
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
@@ -574,7 +579,7 @@ onUnmounted(() => {
               ▶
             </button>
             <div
-              ref="recentRef"
+              ref="recent"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >
@@ -597,7 +602,7 @@ onUnmounted(() => {
 
         <section
           v-if="collections.length > 0"
-          ref="collectionsSectionRef"
+          ref="collections-section"
           class="pb-8"
         >
           <h2
@@ -630,7 +635,7 @@ onUnmounted(() => {
               ▶
             </button>
             <div
-              ref="collectionsRef"
+              ref="collections"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >

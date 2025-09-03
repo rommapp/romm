@@ -14,9 +14,9 @@ const { recentRoms } = storeToRefs(romsStore);
 const gridRecentRoms = useLocalStorage("settings.gridRecentRoms", false);
 const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const isHovering = ref(false);
-const hoveringRomId = ref();
+const hoveringRomId = ref<number>();
 const openedMenu = ref(false);
-const openedMenuRomId = ref();
+const openedMenuRomId = ref<number>();
 
 function toggleGridRecentRoms() {
   gridRecentRoms.value = !gridRecentRoms.value;
@@ -34,7 +34,7 @@ function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
 
 function onClosedMenu() {
   openedMenu.value = false;
-  openedMenuRomId.value = null;
+  openedMenuRomId.value = undefined;
 }
 </script>
 <template>

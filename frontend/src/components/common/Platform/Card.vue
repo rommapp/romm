@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import VanillaTilt from "vanilla-tilt";
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { onMounted, onBeforeUnmount, useTemplateRef } from "vue";
 import { useDisplay } from "vuetify";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
@@ -20,7 +20,7 @@ interface TiltHTMLElement extends HTMLElement {
 }
 const emit = defineEmits(["hover"]);
 
-const tiltCard = ref<TiltHTMLElement | null>(null);
+const tiltCard = useTemplateRef<TiltHTMLElement>("tilt-card");
 
 onMounted(() => {
   if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
@@ -43,7 +43,7 @@ onBeforeUnmount(() => {
 
 <template>
   <v-hover v-slot="{ isHovering, props }">
-    <div data-tilt ref="tiltCard">
+    <div data-tilt ref="tilt-card">
       <v-card
         v-bind="props"
         class="bg-toplayer"

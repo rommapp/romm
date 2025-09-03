@@ -17,9 +17,9 @@ const gridContinuePlayingRoms = useLocalStorage(
 );
 const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const isHovering = ref(false);
-const hoveringRomId = ref();
+const hoveringRomId = ref<number>();
 const openedMenu = ref(false);
-const openedMenuRomId = ref();
+const openedMenuRomId = ref<number>();
 
 function toggleGridContinuePlaying() {
   gridContinuePlayingRoms.value = !gridContinuePlayingRoms.value;
@@ -37,7 +37,7 @@ function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
 
 function onClosedMenu() {
   openedMenu.value = false;
-  openedMenuRomId.value = null;
+  openedMenuRomId.value = undefined;
 }
 </script>
 <template>

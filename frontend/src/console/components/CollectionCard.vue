@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watchEffect } from "vue";
+import { computed, onMounted, ref, watchEffect, useTemplateRef } from "vue";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import { collectionElementRegistry } from "@/console/composables/useElementRegistry";
 import { getFavoriteCoverImage } from "@/utils/covers";
@@ -11,7 +11,7 @@ const props = defineProps<{
   loaded?: boolean;
 }>();
 const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
-const el = ref<HTMLElement>();
+const el = useTemplateRef<HTMLButtonElement>("collection-card");
 
 const isFavorite = computed(() => props.collection.is_favorite);
 const coverSrc = computed(
@@ -60,7 +60,7 @@ onMounted(() => {
 <template>
   <div class="flex flex-col items-center w-[250px] shrink-0">
     <button
-      ref="el"
+      ref="collection-card"
       class="relative block bg-[var(--console-collection-card-bg)] border-2 border-white/10 rounded-md p-0 cursor-pointer overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.3),_inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-200 w-full"
       :class="{
         '-translate-y-[2px] scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-collection-card-focus-border),_0_0_16px_var(--console-collection-card-focus-border)]':
