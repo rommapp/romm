@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { useLocalStorage } from "@vueuse/core";
-import { throttle } from "lodash";
+import { useLocalStorage, useWindowScroll } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { inject, onMounted, ref, watch } from "vue";
 import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import GalleryAppBarCollection from "@/components/Gallery/AppBar/Collection/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
@@ -138,19 +137,21 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-const onScroll = throttle(() => {
+const { y: windowY } = useWindowScroll({ throttle: 500 });
+
+watch(windowY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = window.scrollY === 0;
+    scrolledToTop.value = windowY.value === 0;
     if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > allRoms.value.length
     ) {
       await fetchRoms();
     }
   }, 100);
-}, 500);
+});
 
 function resetGallery() {
   romsStore.reset();
@@ -185,8 +186,6 @@ onMounted(async () => {
           document.title = `${collection.name}`;
           await fetchRoms();
         }
-
-        window.addEventListener("scroll", onScroll);
       }
     },
     { immediate: true }, // Ensure watcher is triggered immediately
@@ -221,10 +220,6 @@ onBeforeRouteUpdate(async (to, from) => {
     },
     { immediate: true }, // Ensure watcher is triggered immediately
   );
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
 });
 </script>
 
