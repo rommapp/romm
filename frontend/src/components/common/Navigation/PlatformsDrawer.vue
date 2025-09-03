@@ -3,34 +3,28 @@ import PlatformListItem from "@/components/common/Platform/ListItem.vue";
 import storeNavigation from "@/stores/navigation";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref, watch, computed } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 
+type GroupByType = "family_name" | "generation" | "category" | null;
+
 const { t } = useI18n();
 const { mdAndUp, smAndDown } = useDisplay();
-
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
-
-const ALLOWED_GROUP_BY = ["family_name", "generation", "category"] as const;
-type GroupByType = (typeof ALLOWED_GROUP_BY)[number] | null;
-
 const textFieldRef = ref();
 const triggerElement = ref<HTMLElement | null>(null);
 const openPanels = ref<number[]>([]);
 
-const initializeGroupBy = (): GroupByType => {
-  const stored = localStorage.getItem("settings.platformsGroupBy");
-  return stored && ALLOWED_GROUP_BY.includes(stored as any)
-    ? (stored as GroupByType)
-    : null;
-};
-
-const groupBy = ref<GroupByType>(initializeGroupBy());
+const groupBy = useLocalStorage<GroupByType | null>(
+  "settings.platformsGroupBy",
+  null,
+);
 
 const tabIndex = computed(() => (activePlatformsDrawer.value ? 0 : -1));
 

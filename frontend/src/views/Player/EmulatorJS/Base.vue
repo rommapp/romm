@@ -14,6 +14,7 @@ import { formatTimestamp, getSupportedEJSCores } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import Player from "@/views/Player/EmulatorJS/Player.vue";
+import { useLocalStorage } from "@vueuse/core";
 import { formatDistanceToNow } from "date-fns";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
@@ -42,8 +43,7 @@ const selectedCore = ref<string | null>(null);
 const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
-const storedFSOP = localStorage.getItem("fullScreenOnPlay");
-const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
+const fullScreenOnPlay = useLocalStorage("fullScreenOnPlay", true);
 
 function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
@@ -90,7 +90,6 @@ function onPlay() {
 
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
-  localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
 async function onlyQuit() {

@@ -15,6 +15,7 @@ import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
+import { useLocalStorage } from "@vueuse/core";
 import { isNull } from "lodash";
 import type { Emitter } from "mitt";
 import VanillaTilt from "vanilla-tilt";
@@ -110,15 +111,8 @@ const fallbackCoverImage = computed(() =>
 );
 const activeMenu = ref(false);
 
-const showActionBarAlways = isNull(
-  localStorage.getItem("settings.showActionBar"),
-)
-  ? false
-  : localStorage.getItem("settings.showActionBar") === "true";
-
-const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
-  ? true
-  : localStorage.getItem("settings.showSiblings") === "true";
+const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
+const showSiblings = useLocalStorage("settings.showSiblings", true);
 
 const hasNotes = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return false;

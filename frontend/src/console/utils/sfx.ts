@@ -1,21 +1,18 @@
 import type { InputAction } from "../input/actions";
+import { useLocalStorage } from "@vueuse/core";
 
-let sfxEnabled = true;
+const sfxEnabled = useLocalStorage("console-sfx-enabled", true);
 
 export function setSfxEnabled(enabled: boolean): void {
-  sfxEnabled = enabled;
-  localStorage.setItem("console-sfx-enabled", enabled ? "true" : "false");
+  sfxEnabled.value = enabled;
 }
 
 export function getSfxEnabled(): boolean {
-  return sfxEnabled;
+  return sfxEnabled.value;
 }
 
 export function initializeSfx(): void {
-  const saved = localStorage.getItem("console-sfx-enabled");
-  if (saved !== null) {
-    sfxEnabled = saved === "true";
-  }
+  // No need to initialize since useLocalStorage handles it automatically
 }
 
 let ctx: AudioContext | null = null;
@@ -130,7 +127,7 @@ function playClick(opts: ClickOpts = {}) {
 }
 
 export function playSfx(kind: SfxType) {
-  if (!sfxEnabled) return;
+  if (!sfxEnabled.value) return;
 
   // Lazy resume (required on some browsers until user gesture)
   ensureCtx()

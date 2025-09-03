@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import storeHeartbeat from "@/stores/heartbeat";
+import { useLocalStorage } from "@vueuse/core";
 import semver from "semver";
 import { onMounted, ref } from "vue";
 
@@ -7,9 +8,10 @@ const heartbeat = storeHeartbeat();
 const { VERSION } = heartbeat.value.SYSTEM;
 const GITHUB_VERSION = ref(VERSION);
 const latestVersionDismissed = ref(VERSION === "development");
+const dismissedVersion = useLocalStorage("dismissedVersion", "");
 
 function dismissVersionBanner() {
-  localStorage.setItem("dismissedVersion", GITHUB_VERSION.value);
+  dismissedVersion.value = GITHUB_VERSION.value;
   latestVersionDismissed.value = true;
 }
 
@@ -26,7 +28,7 @@ async function fetchLatestVersion() {
       // Hide if the version is not valid
       !semver.valid(VERSION) ||
       // Hide if the version is the same as the dismissed version
-      json.tag_name === localStorage.getItem("dismissedVersion") ||
+      json.tag_name === dismissedVersion.value ||
       // Hide if the version is less than 2 hours old
       publishedAt.getTime() + 2 * 60 * 60 * 1000 > Date.now();
   } catch (error) {

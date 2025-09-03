@@ -3,6 +3,7 @@ import GameCard from "@/components/common/Game/Card/Base.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeRoms from "@/stores/roms";
 import { views } from "@/utils";
+import { useLocalStorage } from "@vueuse/core";
 import { isNull } from "lodash";
 import { storeToRefs } from "pinia";
 import { ref } from "vue";
@@ -11,14 +12,8 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 const romsStore = storeRoms();
 const { recentRoms } = storeToRefs(romsStore);
-const storedGridRecentRoms = localStorage.getItem("settings.gridRecentRoms");
-const gridRecentRoms = ref(
-  isNull(storedGridRecentRoms) ? false : storedGridRecentRoms === "true",
-);
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const gridRecentRoms = useLocalStorage("settings.gridRecentRoms", false);
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const isHovering = ref(false);
 const hoveringRomId = ref();
 const openedMenu = ref(false);
@@ -26,10 +21,6 @@ const openedMenuRomId = ref();
 
 function toggleGridRecentRoms() {
   gridRecentRoms.value = !gridRecentRoms.value;
-  localStorage.setItem(
-    "settings.gridRecentRoms",
-    gridRecentRoms.value.toString(),
-  );
 }
 
 function onHover(emitData: { isHovering: boolean; id: number }) {
