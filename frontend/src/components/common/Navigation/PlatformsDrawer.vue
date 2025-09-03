@@ -3,7 +3,7 @@ import PlatformListItem from "@/components/common/Platform/ListItem.vue";
 import storeNavigation from "@/stores/navigation";
 import type { Platform } from "@/stores/platforms";
 import storePlatforms from "@/stores/platforms";
-import { useLocalStorage } from "@vueuse/core";
+import { useActiveElement, useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { ref, watch, computed } from "vue";
 import { useI18n } from "vue-i18n";
@@ -13,14 +13,12 @@ type GroupByType = "family_name" | "generation" | "category" | null;
 
 const { t } = useI18n();
 const { mdAndUp, smAndDown } = useDisplay();
+const activeElement = useActiveElement();
 const navigationStore = storeNavigation();
 const platformsStore = storePlatforms();
 const { filteredPlatforms, filterText } = storeToRefs(platformsStore);
 const { activePlatformsDrawer } = storeToRefs(navigationStore);
-const textFieldRef = ref();
-const triggerElement = ref<HTMLElement | null>(null);
 const openPanels = ref<number[]>([]);
-
 const groupBy = useLocalStorage<GroupByType | null>(
   "settings.platformsGroupBy",
   null,
@@ -80,9 +78,12 @@ watch(
   { immediate: true },
 );
 
+// Ref to store the element that triggered the drawer
+const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activePlatformsDrawer, (isOpen) => {
   if (isOpen) {
-    triggerElement.value = document.activeElement as HTMLElement;
+    // Store the currently focused element before opening the drawer
+    triggerElement.value = activeElement.value;
   }
 });
 
@@ -92,6 +93,7 @@ const clear = () => {
 
 const onClose = () => {
   activePlatformsDrawer.value = false;
+  // Focus the element that triggered the drawer
   triggerElement.value?.focus();
 };
 </script>
@@ -113,10 +115,10 @@ const onClose = () => {
     :border="0"
     @update:model-value="clear"
     @keydown.esc="onClose"
+    v-click-outside="onClose"
   >
     <template #prepend>
       <v-text-field
-        ref="textFieldRef"
         v-model="filterText"
         :label="t('platform.search-platform')"
         :tabindex="tabIndex"

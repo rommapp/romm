@@ -5,7 +5,7 @@ import CollectionListItem from "@/components/common/Collection/ListItem.vue";
 import storeCollections from "@/stores/collections";
 import storeNavigation from "@/stores/navigation";
 import type { Events } from "@/types/emitter";
-import { useLocalStorage } from "@vueuse/core";
+import { useActiveElement, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch, computed } from "vue";
@@ -15,6 +15,7 @@ import { useDisplay } from "vuetify";
 const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { mdAndUp, smAndDown } = useDisplay();
+const activeElement = useActiveElement();
 const collectionsStore = storeCollections();
 const {
   filteredCollections,
@@ -41,15 +42,11 @@ function clear() {
 }
 
 // Ref to store the element that triggered the drawer
-const triggerElement = ref<HTMLElement | null>(null);
-// Watch for changes in the navigation drawer state
-const textFieldRef = ref();
+const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activeCollectionsDrawer, (isOpen) => {
   if (isOpen) {
     // Store the currently focused element before opening the drawer
-    triggerElement.value = document.activeElement as HTMLElement;
-    // Focus the text field when the drawer is opened
-    // textFieldRef.value?.focus();
+    triggerElement.value = activeElement.value;
   }
 });
 
@@ -110,7 +107,6 @@ function onClose() {
   >
     <template #prepend>
       <v-text-field
-        ref="textFieldRef"
         aria-label="Search collections"
         :tabindex="tabIndex"
         v-model="filterText"
