@@ -1,30 +1,33 @@
 <script setup lang="ts">
-import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
-import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
-import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
-import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
-import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
-import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
-import UserBtn from "@/components/common/Navigation/UserBtn.vue";
-import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
-import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
-import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
-import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
-import ConsoleModeBtn from "@/components/common/Navigation/ConsoleModeBtn.vue";
-import storeNavigation from "@/stores/navigation";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
 import { useDisplay } from "vuetify";
+import UploadRomDialog from "@/components/common/Game/Dialog/UploadRom.vue";
+import CollectionsBtn from "@/components/common/Navigation/CollectionsBtn.vue";
+import CollectionsDrawer from "@/components/common/Navigation/CollectionsDrawer.vue";
+import ConsoleModeBtn from "@/components/common/Navigation/ConsoleModeBtn.vue";
+import HomeBtn from "@/components/common/Navigation/HomeBtn.vue";
+import PlatformsBtn from "@/components/common/Navigation/PlatformsBtn.vue";
+import PlatformsDrawer from "@/components/common/Navigation/PlatformsDrawer.vue";
+import ScanBtn from "@/components/common/Navigation/ScanBtn.vue";
+import SearchBtn from "@/components/common/Navigation/SearchBtn.vue";
+import SettingsDrawer from "@/components/common/Navigation/SettingsDrawer.vue";
+import UploadBtn from "@/components/common/Navigation/UploadBtn.vue";
+import UserBtn from "@/components/common/Navigation/UserBtn.vue";
+import storeNavigation from "@/stores/navigation";
 
 const { smAndDown } = useDisplay();
 const navigationStore = storeNavigation();
 const { mainBarCollapsed } = storeToRefs(navigationStore);
 
+const mainBarCollapsedStorage = useLocalStorage(
+  "settings.mainBarCollapsed",
+  false,
+);
+
 function collapse() {
   mainBarCollapsed.value = !mainBarCollapsed.value;
-  localStorage.setItem(
-    "settings.mainBarCollapsed",
-    mainBarCollapsed.value.toString(),
-  );
+  mainBarCollapsedStorage.value = mainBarCollapsed.value;
 }
 </script>
 <template>
@@ -123,7 +126,13 @@ function collapse() {
       block
       tabindex="7"
     />
-    <console-mode-btn :withTag="!mainBarCollapsed" rounded class="mt-2" block />
+    <console-mode-btn
+      :withTag="!mainBarCollapsed"
+      rounded
+      class="mt-2"
+      block
+      tabindex="8"
+    />
 
     <template #append>
       <upload-btn
@@ -131,10 +140,10 @@ function collapse() {
         rounded
         class="mt-2 mb-6"
         block
-        tabindex="8"
+        tabindex="9"
       />
       <v-row no-gutters class="my-2 justify-center">
-        <user-btn tabindex="9" aria-label="Settings menu" />
+        <user-btn tabindex="10" aria-label="Settings menu" />
       </v-row>
     </template>
   </v-navigation-drawer>

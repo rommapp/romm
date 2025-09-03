@@ -14,6 +14,7 @@ from sqlalchemy import (
     String,
     Text,
     and_,
+    case,
     cast,
     delete,
     false,
@@ -26,6 +27,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
+from sqlalchemy.sql.elements import KeyedColumnElement
 
 from .base_handler import DBBaseHandler
 
@@ -78,6 +80,23 @@ EJS_SUPPORTED_PLATFORMS = [
 ]
 
 STRIP_ARTICLES_REGEX = r"^(the|a|an)\s+"
+
+
+def _create_metadata_id_case(
+    prefix: str, id_column: KeyedColumnElement, platform_id_column: KeyedColumnElement
+):
+    return case(
+        (
+            id_column.isnot(None),
+            func.concat(
+                f"{prefix}-",
+                platform_id_column,
+                "-",
+                id_column,
+            ),
+        ),
+        else_=None,
+    )
 
 
 def with_details(func):
@@ -505,52 +524,40 @@ class DBRomsHandler(DBBaseHandler):
                     func.row_number()
                     .over(
                         partition_by=func.coalesce(
-                            func.concat(
-                                "igdb-",
-                                base_subquery.c.platform_id,
-                                "-",
+                            _create_metadata_id_case(
+                                "igdb",
                                 base_subquery.c.igdb_id,
-                            ),
-                            func.concat(
-                                "ss-",
                                 base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.ss_id,
                             ),
-                            func.concat(
-                                "moby-",
-                                base_subquery.c.platform_id,
-                                "-",
+                            _create_metadata_id_case(
+                                "ss", base_subquery.c.ss_id, base_subquery.c.platform_id
+                            ),
+                            _create_metadata_id_case(
+                                "moby",
                                 base_subquery.c.moby_id,
-                            ),
-                            func.concat(
-                                "ra-",
                                 base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.ra_id,
                             ),
-                            func.concat(
-                                "hasheous-",
-                                base_subquery.c.platform_id,
-                                "-",
+                            _create_metadata_id_case(
+                                "ra", base_subquery.c.ra_id, base_subquery.c.platform_id
+                            ),
+                            _create_metadata_id_case(
+                                "hasheous",
                                 base_subquery.c.hasheous_id,
-                            ),
-                            func.concat(
-                                "launchbox-",
                                 base_subquery.c.platform_id,
-                                "-",
+                            ),
+                            _create_metadata_id_case(
+                                "launchbox",
                                 base_subquery.c.launchbox_id,
-                            ),
-                            func.concat(
-                                "tgdb-",
                                 base_subquery.c.platform_id,
-                                "-",
-                                base_subquery.c.tgdb_id,
                             ),
-                            func.concat(
+                            _create_metadata_id_case(
+                                "tgdb",
+                                base_subquery.c.tgdb_id,
+                                base_subquery.c.platform_id,
+                            ),
+                            _create_metadata_id_case(
                                 "romm-",
                                 base_subquery.c.platform_id,
-                                "-",
                                 base_subquery.c.id,
                             ),
                         ),

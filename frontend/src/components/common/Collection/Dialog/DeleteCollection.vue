@@ -1,15 +1,15 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import RAvatarCollection from "@/components/common/Collection/RAvatar.vue";
 import RDialog from "@/components/common/RDialog.vue";
+import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import storeCollections, { type Collection } from "@/stores/collections";
 import type { Events } from "@/types/emitter";
-import { ROUTES } from "@/plugins/router";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useRouter } from "vue-router";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const router = useRouter();

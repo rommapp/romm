@@ -1,14 +1,8 @@
-import {
-  onUnmounted,
-  watchEffect,
-  nextTick,
-  type Ref,
-  type DefineComponent,
-} from "vue";
+import { onUnmounted, watchEffect, nextTick, type ShallowRef } from "vue";
 
 export const useAutoScroll = (
-  scrollContainer: Ref<DefineComponent | null>,
-  observedElement: Ref<DefineComponent | null>,
+  scrollContainer: ShallowRef,
+  observedElement: ShallowRef,
   options = {},
 ) => {
   const config = { always: false, smooth: false, deep: false, ...options };

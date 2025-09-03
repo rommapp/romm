@@ -1,12 +1,12 @@
 import cronstrue from "cronstrue";
-import type { Config } from "@/stores/config";
-import type { SimpleRom } from "@/stores/roms";
-import type { Heartbeat } from "@/stores/heartbeat";
-import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
-import { storeToRefs } from "pinia";
+import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import type { Config } from "@/stores/config";
+import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
+import type { SimpleRom } from "@/stores/roms";
 
 /**
  * Views configuration object.

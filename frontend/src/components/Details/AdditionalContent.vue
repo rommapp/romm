@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import RelatedCard from "@/components/common/Game/Card/Related.vue";
 import type { DetailedRom } from "@/stores/roms";
-import { computed } from "vue";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const combined = computed(() => [

@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { SimpleRom } from "@/stores/roms";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
-import { computed } from "vue";
 
 const props = withDefaults(defineProps<{ rom: SimpleRom; size?: number }>(), {
   size: 45,

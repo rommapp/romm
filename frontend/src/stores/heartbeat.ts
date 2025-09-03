@@ -1,5 +1,5 @@
-import type { HeartbeatResponse } from "@/__generated__";
 import { defineStore } from "pinia";
+import type { HeartbeatResponse } from "@/__generated__";
 import i18n from "@/locales";
 import api from "@/services/api";
 

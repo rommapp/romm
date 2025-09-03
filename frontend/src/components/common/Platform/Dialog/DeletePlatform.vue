@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import RDialog from "@/components/common/RDialog.vue";
-import platformApi from "@/services/api/platform";
-import storePlatforms, { type Platform } from "@/stores/platforms";
-import type { Events } from "@/types/emitter";
-import configApi from "@/services/api/config";
-import storeConfig from "@/stores/config";
-import { ROUTES } from "@/plugins/router";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import RDialog from "@/components/common/RDialog.vue";
+import { ROUTES } from "@/plugins/router";
+import configApi from "@/services/api/config";
+import platformApi from "@/services/api/platform";
+import storeConfig from "@/stores/config";
+import storePlatforms, { type Platform } from "@/stores/platforms";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const router = useRouter();

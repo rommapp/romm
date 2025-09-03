@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import CollectionCard from "@/components/common/Collection/Card.vue";
-import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
-import RSection from "@/components/common/RSection.vue";
-import storeCollection from "@/stores/collections";
-import collectionApi from "@/services/api/collection";
-import storeAuth from "@/stores/auth";
-import storeNavigation from "@/stores/navigation";
-import storeRoms from "@/stores/roms";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import CollectionCard from "@/components/common/Collection/Card.vue";
+import DeleteCollectionDialog from "@/components/common/Collection/Dialog/DeleteCollection.vue";
+import RSection from "@/components/common/RSection.vue";
+import collectionApi from "@/services/api/collection";
+import storeAuth from "@/stores/auth";
+import storeCollection from "@/stores/collections";
+import storeNavigation from "@/stores/navigation";
+import storeRoms from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const { smAndDown } = useDisplay();

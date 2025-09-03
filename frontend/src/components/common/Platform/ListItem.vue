@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { inject, computed } from "vue";
-import type { Events } from "@/types/emitter";
-import taskApi from "@/services/api/task";
 import type { Emitter } from "mitt";
+import { inject, computed } from "vue";
+import taskApi from "@/services/api/task";
 import storeRunningTasks from "@/stores/runningTasks";
+import type { Events } from "@/types/emitter";
 
 const props = withDefaults(
   defineProps<{

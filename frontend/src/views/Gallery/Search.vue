@@ -1,29 +1,27 @@
 <script setup lang="ts">
+import { useLocalStorage, useWindowScroll } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onMounted, onUnmounted, ref, watch } from "vue";
 import GalleryAppBarSearch from "@/components/Gallery/AppBar/Search/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
-import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
-import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
-import GameCard from "@/components/common/Game/Card/Base.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
 import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
+import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
+import EmptySearch from "@/components/common/EmptyStates/EmptySearch.vue";
+import GameCard from "@/components/common/Game/Card/Base.vue";
 import GameTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
-import { views } from "@/utils";
-import { isNull, throttle } from "lodash";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
-import type { Emitter } from "mitt";
 import type { Events } from "@/types/emitter";
+import { views } from "@/utils";
 
 const galleryViewStore = storeGalleryView();
 const { scrolledToTop, currentView } = storeToRefs(galleryViewStore);
 const galleryFilterStore = storeGalleryFilter();
 const { searchTerm } = storeToRefs(galleryFilterStore);
 const romsStore = storeRoms();
-const router = useRouter();
 const {
   filteredRoms,
   selectedRoms,
@@ -33,13 +31,10 @@ const {
 } = storeToRefs(romsStore);
 const emitter = inject<Emitter<Events>>("emitter");
 const isHovering = ref(false);
-const hoveringRomId = ref();
+const hoveringRomId = ref<number>();
 const openedMenu = ref(false);
-const openedMenuRomId = ref();
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const openedMenuRomId = ref<number>();
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
 function onHover(emitData: { isHovering: boolean; id: number }) {
@@ -54,7 +49,7 @@ function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
 
 function onClosedMenu() {
   openedMenu.value = false;
-  openedMenuRomId.value = null;
+  openedMenuRomId.value = undefined;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -119,27 +114,27 @@ function fetchRoms() {
     });
 }
 
-const onScroll = throttle(() => {
+const { y: windowY } = useWindowScroll({ throttle: 500 });
+
+watch(windowY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = window.scrollY === 0;
+    scrolledToTop.value = windowY.value === 0;
     if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
     }
   }, 100);
-}, 500);
+});
 
 onMounted(async () => {
   scrolledToTop.value = true;
-  window.addEventListener("scroll", onScroll);
 });
 
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
+onUnmounted(() => {
   searchTerm.value = "";
 });
 </script>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import storeRoms from "@/stores/roms";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import storeRoms from "@/stores/roms";
 
 defineProps<{
   fetchRoms: () => void;

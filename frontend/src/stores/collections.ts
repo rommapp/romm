@@ -1,12 +1,12 @@
+import { uniqBy } from "lodash";
+import { defineStore } from "pinia";
 import type {
   CollectionSchema,
   VirtualCollectionSchema,
   SmartCollectionSchema,
 } from "@/__generated__";
-import { uniqBy } from "lodash";
-import { defineStore } from "pinia";
-import type { SimpleRom } from "./roms";
 import collectionApi from "@/services/api/collection";
+import type { SimpleRom } from "./roms";
 
 export type Collection = CollectionSchema;
 export type VirtualCollection = VirtualCollectionSchema;

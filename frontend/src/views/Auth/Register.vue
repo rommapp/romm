@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
+import { inject, ref, onBeforeMount } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter, useRoute } from "vue-router";
 import userApi from "@/services/api/user";
 import storeUsers from "@/stores/users";
-import { inject, ref, onBeforeMount } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import { useI18n } from "vue-i18n";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const emitter = inject<Emitter<Events>>("emitter");

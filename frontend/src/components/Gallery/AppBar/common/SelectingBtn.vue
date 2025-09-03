@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import storeRoms from "@/stores/roms";
 import { useI18n } from "vue-i18n";
+import storeRoms from "@/stores/roms";
 
 const { t } = useI18n();
 const romsStore = storeRoms();

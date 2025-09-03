@@ -1,25 +1,32 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import VanillaTilt from "vanilla-tilt";
+import {
+  computed,
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  inject,
+  useTemplateRef,
+} from "vue";
+import { useDisplay } from "vuetify";
 import type { SearchRomSchema } from "@/__generated__";
 import ActionBar from "@/components/common/Game/Card/ActionBar.vue";
 import Flags from "@/components/common/Game/Card/Flags.vue";
-import Sources from "@/components/common/Game/Card/Sources.vue";
-import storePlatforms from "@/stores/platforms";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
+import Sources from "@/components/common/Game/Card/Sources.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";
-import { ROUTES } from "@/plugins/router";
+import storeHeartbeat from "@/stores/heartbeat";
+import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
 import { type SimpleRom } from "@/stores/roms";
-import { computed, ref, onMounted, onBeforeUnmount, inject } from "vue";
-import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
-import { isNull } from "lodash";
-import { useDisplay } from "vuetify";
-import VanillaTilt from "vanilla-tilt";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import storeHeartbeat from "@/stores/heartbeat";
+import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 
 const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 
@@ -110,15 +117,8 @@ const fallbackCoverImage = computed(() =>
 );
 const activeMenu = ref(false);
 
-const showActionBarAlways = isNull(
-  localStorage.getItem("settings.showActionBar"),
-)
-  ? false
-  : localStorage.getItem("settings.showActionBar") === "true";
-
-const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
-  ? true
-  : localStorage.getItem("settings.showSiblings") === "true";
+const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
+const showSiblings = useLocalStorage("settings.showSiblings", true);
 
 const hasNotes = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return false;
@@ -135,7 +135,7 @@ interface TiltHTMLElement extends HTMLElement {
   };
 }
 
-const tiltCard = ref<TiltHTMLElement | null>(null);
+const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
 const isWebpEnabled = computed(
   () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
@@ -170,8 +170,8 @@ const showNoteDialog = (event: MouseEvent | KeyboardEvent) => {
 };
 
 onMounted(() => {
-  if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
-    VanillaTilt.init(tiltCard.value, {
+  if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
+    VanillaTilt.init(tiltCardRef.value, {
       max: 20,
       speed: 400,
       scale: 1.1,
@@ -182,15 +182,15 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (tiltCard.value?.vanillaTilt && props.enable3DTilt) {
-    tiltCard.value.vanillaTilt.destroy();
+  if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
+    tiltCardRef.value.vanillaTilt.destroy();
   }
 });
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering: isOuterHovering, props: hoverProps }">
-    <div data-tilt ref="tiltCard">
+    <div data-tilt ref="tilt-card-ref">
       <v-card
         :style="{
           ...(disableViewTransition

@@ -1,12 +1,12 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
-import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
 import storeConfig from "@/stores/config";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const { mdAndUp, smAndDown } = useDisplay();

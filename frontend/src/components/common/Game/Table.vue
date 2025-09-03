@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
+import { useRouter } from "vue-router";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
-import storeDownload from "@/stores/download";
 import storeAuth from "@/stores/auth";
+import storeDownload from "@/stores/download";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import { formatBytes, languageToEmoji, regionToEmoji } from "@/utils";
-import { ROUTES } from "@/plugins/router";
-import { isNull } from "lodash";
-import { storeToRefs } from "pinia";
-import { computed } from "vue";
-import { useRouter } from "vue-router";
 
 withDefaults(
   defineProps<{
@@ -25,9 +25,7 @@ withDefaults(
     showPlatformIcon: false,
   },
 );
-const showSiblings = isNull(localStorage.getItem("settings.showSiblings"))
-  ? true
-  : localStorage.getItem("settings.showSiblings") === "true";
+const showSiblings = useLocalStorage("settings.showSiblings", true);
 const router = useRouter();
 const downloadStore = storeDownload();
 const romsStore = storeRoms();

@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import { useLocalStorage, useWindowScroll } from "@vueuse/core";
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onMounted, ref, watch } from "vue";
+import { onBeforeRouteUpdate, useRoute } from "vue-router";
 import GalleryAppBar from "@/components/Gallery/AppBar/Platform/Base.vue";
 import FabOverlay from "@/components/Gallery/FabOverlay.vue";
+import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
+import Skeleton from "@/components/Gallery/Skeleton.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import EmptyPlatform from "@/components/common/EmptyStates/EmptyPlatform.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
-import Skeleton from "@/components/Gallery/Skeleton.vue";
-import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import GameTable from "@/components/common/Game/Table.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
@@ -13,11 +18,6 @@ import storePlatforms from "@/stores/platforms";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { views } from "@/utils";
-import type { Emitter } from "mitt";
-import { isNull, throttle } from "lodash";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { onBeforeRouteUpdate, useRoute } from "vue-router";
 
 const route = useRoute();
 const galleryViewStore = storeGalleryView();
@@ -38,13 +38,10 @@ const {
 const noPlatformError = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const isHovering = ref(false);
-const hoveringRomId = ref();
+const hoveringRomId = ref<number>();
 const openedMenu = ref(false);
-const openedMenuRomId = ref();
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const openedMenuRomId = ref<number>();
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 let timeout: ReturnType<typeof setTimeout>;
 
 async function fetchRoms() {
@@ -90,7 +87,7 @@ function onOpenedMenu(emitData: { openedMenu: boolean; id: number }) {
 
 function onClosedMenu() {
   openedMenu.value = false;
-  openedMenuRomId.value = null;
+  openedMenuRomId.value = undefined;
 }
 
 function onGameClick(emitData: { rom: SimpleRom; event: MouseEvent }) {
@@ -139,19 +136,21 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-const onScroll = throttle(() => {
+const { y: windowY } = useWindowScroll({ throttle: 500 });
+
+watch(windowY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = window.scrollY === 0;
+    scrolledToTop.value = windowY.value === 0;
     if (
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 60 &&
+      window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > allRoms.value.length
     ) {
       await fetchRoms();
     }
   }, 100);
-}, 500);
+});
 
 function resetGallery() {
   romsStore.reset();
@@ -185,8 +184,6 @@ onMounted(async () => {
             document.title = `${platform.display_name}`;
             await fetchRoms();
           }
-
-          window.addEventListener("scroll", onScroll);
         } else {
           noPlatformError.value = true;
         }
@@ -227,10 +224,6 @@ onBeforeRouteUpdate(async (to, from) => {
     },
     { immediate: true }, // Ensure watcher is triggered immediately
   );
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener("scroll", onScroll);
 });
 </script>
 

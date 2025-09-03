@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import storeCollections from "@/stores/collections";
-import CollectionListItem from "@/components/common/Collection/ListItem.vue";
-import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
-import CreateSmartCollectionDialog from "@/components/common/Collection/Dialog/CreateSmartCollection.vue";
-import storeNavigation from "@/stores/navigation";
-import type { Events } from "@/types/emitter";
+import { useActiveElement, useLocalStorage } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, ref, watch, computed } from "vue";
-import { useDisplay } from "vuetify";
 import { useI18n } from "vue-i18n";
-import { isNull } from "lodash";
+import { useDisplay } from "vuetify";
+import CreateCollectionDialog from "@/components/common/Collection/Dialog/CreateCollection.vue";
+import CreateSmartCollectionDialog from "@/components/common/Collection/Dialog/CreateSmartCollection.vue";
+import CollectionListItem from "@/components/common/Collection/ListItem.vue";
+import storeCollections from "@/stores/collections";
+import storeNavigation from "@/stores/navigation";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const navigationStore = storeNavigation();
 const { mdAndUp, smAndDown } = useDisplay();
+const activeElement = useActiveElement();
 const collectionsStore = storeCollections();
 const {
   filteredCollections,
@@ -27,11 +28,10 @@ const emitter = inject<Emitter<Events>>("emitter");
 const visibleVirtualCollections = ref(72);
 const tabIndex = computed(() => (activeCollectionsDrawer.value ? 0 : -1));
 
-const showVirtualCollections = isNull(
-  localStorage.getItem("settings.showVirtualCollections"),
-)
-  ? true
-  : localStorage.getItem("settings.showVirtualCollections") === "true";
+const showVirtualCollections = useLocalStorage(
+  "settings.showVirtualCollections",
+  true,
+);
 
 async function addCollection() {
   emitter?.emit("showCreateCollectionDialog", null);
@@ -41,16 +41,11 @@ function clear() {
   filterText.value = "";
 }
 
-// Ref to store the element that triggered the drawer
-const triggerElement = ref<HTMLElement | null>(null);
-// Watch for changes in the navigation drawer state
-const textFieldRef = ref();
+const triggerElement = ref<HTMLElement | null | undefined>(undefined);
 watch(activeCollectionsDrawer, (isOpen) => {
   if (isOpen) {
     // Store the currently focused element before opening the drawer
-    triggerElement.value = document.activeElement as HTMLElement;
-    // Focus the text field when the drawer is opened
-    // textFieldRef.value?.focus();
+    triggerElement.value = activeElement.value;
   }
 });
 
@@ -70,6 +65,12 @@ function onScroll() {
   }
 }
 
+function onClose() {
+  activeCollectionsDrawer.value = false;
+  // Refocus the trigger element for keyboard navigation
+  triggerElement.value?.focus();
+}
+
 onMounted(() => {
   const collectionsDrawer = document.querySelector(
     "#collections-drawer .v-navigation-drawer__content",
@@ -83,12 +84,6 @@ onBeforeUnmount(() => {
   );
   collectionsDrawer?.removeEventListener("scroll", onScroll);
 });
-
-function onClose() {
-  activeCollectionsDrawer.value = false;
-  // Focus the element that triggered the drawer
-  triggerElement.value?.focus();
-}
 </script>
 <template>
   <v-navigation-drawer
@@ -111,7 +106,6 @@ function onClose() {
   >
     <template #prepend>
       <v-text-field
-        ref="textFieldRef"
         aria-label="Search collections"
         :tabindex="tabIndex"
         v-model="filterText"

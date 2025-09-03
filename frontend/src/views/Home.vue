@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { onBeforeMount, ref, computed } from "vue";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
+import { onBeforeMount, ref, computed } from "vue";
 import { useI18n } from "vue-i18n";
-import Stats from "@/components/Home/Stats.vue";
 import Collections from "@/components/Home/Collections.vue";
-import Platforms from "@/components/Home/Platforms.vue";
-import PlatformsSkeleton from "@/components/Home/PlatformsSkeleton.vue";
-import RecentAddedSkeleton from "@/components/Home/RecentAddedSkeleton.vue";
-import RecentAdded from "@/components/Home/RecentAdded.vue";
 import ContinuePlaying from "@/components/Home/ContinuePlaying.vue";
 import EmptyHome from "@/components/Home/EmptyHome.vue";
+import Platforms from "@/components/Home/Platforms.vue";
+import PlatformsSkeleton from "@/components/Home/PlatformsSkeleton.vue";
+import RecentAdded from "@/components/Home/RecentAdded.vue";
+import RecentAddedSkeleton from "@/components/Home/RecentAddedSkeleton.vue";
+import Stats from "@/components/Home/Stats.vue";
 import storeCollections from "@/stores/collections";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
@@ -29,18 +30,22 @@ const {
   fetchingVirtualCollections,
 } = storeToRefs(collectionsStore);
 
-function getSettingValue(key: string, defaultValue: boolean = true): boolean {
-  const stored = localStorage.getItem(`settings.${key}`);
-  return stored === null ? defaultValue : stored === "true";
-}
-
-const showStats = getSettingValue("showStats");
-const showRecentRoms = getSettingValue("showRecentRoms");
-const showContinuePlaying = getSettingValue("showContinuePlaying");
-const showPlatforms = getSettingValue("showPlatforms");
-const showCollections = getSettingValue("showCollections");
-const showVirtualCollections = getSettingValue("showVirtualCollections");
-const showSmartCollections = getSettingValue("showSmartCollections");
+const showStats = useLocalStorage("settings.showStats", true);
+const showRecentRoms = useLocalStorage("settings.showRecentRoms", true);
+const showContinuePlaying = useLocalStorage(
+  "settings.showContinuePlaying",
+  true,
+);
+const showPlatforms = useLocalStorage("settings.showPlatforms", true);
+const showCollections = useLocalStorage("settings.showCollections", true);
+const showVirtualCollections = useLocalStorage(
+  "settings.showVirtualCollections",
+  true,
+);
+const showSmartCollections = useLocalStorage(
+  "settings.showSmartCollections",
+  true,
+);
 
 const fetchingRecentAdded = ref(false);
 const fetchingContinuePlaying = ref(false);

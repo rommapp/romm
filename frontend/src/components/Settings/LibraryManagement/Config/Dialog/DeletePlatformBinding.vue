@@ -1,19 +1,19 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useDisplay } from "vuetify";
 import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import storeConfig from "@/stores/config";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
 
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const emitter = inject<Emitter<Events>>("emitter");
 const configStore = storeConfig();
-const platformBindingFSSlugToDelete = ref();
-const platformBindingSlugToDelete = ref();
+const platformBindingFSSlugToDelete = ref("");
+const platformBindingSlugToDelete = ref("");
 emitter?.on("showDeletePlatformBindingDialog", ({ fsSlug, slug }) => {
   platformBindingFSSlugToDelete.value = fsSlug;
   platformBindingSlugToDelete.value = slug;

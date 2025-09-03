@@ -1,17 +1,17 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { computed, inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import CopyRomDownloadLinkDialog from "@/components/common/Game/Dialog/CopyDownloadLink.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import romApi from "@/services/api/rom";
+import storeAuth from "@/stores/auth";
 import storeDownload from "@/stores/download";
 import type { DetailedRom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
 import type { Events } from "@/types/emitter";
 import { getDownloadLink, is3DSCIARom } from "@/utils";
-import type { Emitter } from "mitt";
-import { computed, inject, ref } from "vue";
-import { storeToRefs } from "pinia";
-import { useI18n } from "vue-i18n";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const downloadStore = storeDownload();

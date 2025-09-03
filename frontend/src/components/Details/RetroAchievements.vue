@@ -1,19 +1,19 @@
 <script setup lang="ts">
-import type { DetailedRom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
 import { ref, onMounted, computed } from "vue";
-import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchievement";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
+import type { EarnedAchievement } from "@/__generated__/models/EarnedAchievement";
+import type { RAGameRomAchievement } from "@/__generated__/models/RAGameRomAchievement";
+import type { RAUserGameProgression } from "@/__generated__/models/RAUserGameProgression";
+import storeAuth from "@/stores/auth";
+import type { DetailedRom } from "@/stores/roms";
 
 const { smAndDown } = useDisplay();
 const props = defineProps<{ rom: DetailedRom }>();
 const { t } = useI18n();
 const auth = storeAuth();
-const targetRom = ref();
-const earnedAchievements = ref<
-  { id: string; date: string; hardcore: boolean }[]
->([]);
+const raUserAchivement = ref<RAUserGameProgression | undefined>();
+const earnedAchievements = ref<EarnedAchievement[]>([]);
 const achievementsPercentage = ref(0);
 const achievementsPercentageHardcore = ref(0);
 const showEarned = ref(false);
@@ -45,10 +45,11 @@ const isAchievementEarned = computed(
 
 const isAchievementEarnedHarcore = computed(
   () => (achievement: RAGameRomAchievement) => {
-    return (
-      earnedAchievements.value.find(
-        (earned) => earned.id === (achievement.badge_id ?? ""),
-      )?.hardcore ?? false
+    return earnedAchievements.value.some(
+      (earned) =>
+        achievement.badge_id &&
+        earned.id === achievement.badge_id &&
+        earned.date_hardcore,
     );
   },
 );
@@ -66,29 +67,24 @@ onMounted(() => {
     props.rom.merged_ra_metadata?.achievements ?? []
   ).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
   if (auth.user?.ra_progression?.results) {
-    targetRom.value = auth.user.ra_progression.results.find(
+    raUserAchivement.value = auth.user.ra_progression.results.find(
       (result) => result.rom_ra_id === props.rom.ra_id,
     );
-    if (targetRom.value) {
-      earnedAchievements.value = targetRom.value.earned_achievements.map(
-        (achievement: {
-          id: string;
-          date: string;
-          date_hardcore?: string | null;
-        }) => ({
-          id: achievement.id,
+    if (raUserAchivement.value) {
+      earnedAchievements.value = raUserAchivement.value.earned_achievements.map(
+        (achievement) => ({
+          ...achievement,
           date: achievement.date_hardcore || achievement.date,
-          hardcore: !!achievement.date_hardcore,
         }),
       );
       if (props.rom.merged_ra_metadata?.achievements) {
         achievementsPercentage.value = Math.round(
-          (targetRom.value.earned_achievements.length /
+          (raUserAchivement.value.earned_achievements.length /
             props.rom.merged_ra_metadata?.achievements.length) *
             100,
         );
         achievementsPercentageHardcore.value = Math.round(
-          (targetRom.value.earned_achievements.filter(
+          (raUserAchivement.value.earned_achievements.filter(
             (achievement: { date_hardcore?: string }) =>
               achievement.date_hardcore,
           ).length /
@@ -105,7 +101,7 @@ onMounted(() => {
     <template #prepend>
       <v-chip v-if="rom.merged_ra_metadata?.achievements" label rounded="0"
         ><v-icon class="mr-2">mdi-trophy</v-icon
-        >{{ targetRom?.earned_achievements.length ?? 0 }} /
+        >{{ raUserAchivement?.earned_achievements.length ?? 0 }} /
         {{ rom.merged_ra_metadata?.achievements.length }}</v-chip
       >
     </template>

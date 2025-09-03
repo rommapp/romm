@@ -1,14 +1,13 @@
 <script setup lang="ts">
+import { useIdle } from "@vueuse/core";
 import { onMounted, onUnmounted, provide } from "vue";
 import { type RouteLocationNormalized } from "vue-router";
-import { InputBus, InputBusSymbol } from "@/console/input/bus";
-import { attachKeyboard } from "@/console/input/keyboard";
-import { attachGamepad } from "@/console/input/gamepad";
-import { initializeSfx } from "@/console/utils/sfx";
-import { useConsoleTheme } from "@/stores/consoleTheme";
-import { ROUTES } from "@/plugins/router";
 import { useRouter } from "vue-router";
-import { useIdle } from "@vueuse/core";
+import { InputBus, InputBusSymbol } from "@/console/input/bus";
+import { attachGamepad } from "@/console/input/gamepad";
+import { attachKeyboard } from "@/console/input/keyboard";
+import { ROUTES } from "@/plugins/router";
+import { useConsoleTheme } from "@/stores/consoleTheme";
 
 const router = useRouter();
 const bus = new InputBus();
@@ -54,7 +53,6 @@ let detachGamepad: (() => void) | null = null;
 
 onMounted(() => {
   themeStore.initializeTheme();
-  initializeSfx();
 
   // Establish a root input scope so child views can subscribe safely
   bus.pushScope();

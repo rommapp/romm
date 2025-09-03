@@ -1,17 +1,17 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
 import { ref, computed } from "vue";
+import { inject } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
-import storeGalleryFilter from "@/stores/galleryFilter";
-import type { Events } from "@/types/emitter";
+import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import storeCollections from "@/stores/collections";
-import { storeToRefs } from "pinia";
-import type { Emitter } from "mitt";
-import { inject } from "vue";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
-import { ROUTES } from "@/plugins/router";
-import { useRouter } from "vue-router";
+import storeGalleryFilter from "@/stores/galleryFilter";
+import type { Events } from "@/types/emitter";
 import { getStatusKeyForText } from "@/utils";
 
 const { t } = useI18n();

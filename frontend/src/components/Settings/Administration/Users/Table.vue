@@ -1,17 +1,17 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import CreateUserDialog from "@/components/Settings/Administration/Users/Dialog/CreateUser.vue";
-import InviteLinkDialog from "@/components/Settings/Administration/Users/Dialog/InviteLink.vue";
 import DeleteUserDialog from "@/components/Settings/Administration/Users/Dialog/DeleteUser.vue";
+import InviteLinkDialog from "@/components/Settings/Administration/Users/Dialog/InviteLink.vue";
 import RSection from "@/components/common/RSection.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
 import storeUsers, { type User } from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import { defaultAvatarPath, formatTimestamp, getRoleIcon } from "@/utils";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, onMounted, ref } from "vue";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const userSearch = ref("");

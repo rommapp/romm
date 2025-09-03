@@ -1,13 +1,10 @@
-// Plugins
+import tailwindcss from "@tailwindcss/vite";
 import vue from "@vitejs/plugin-vue";
-import { VitePWA } from "vite-plugin-pwa";
-import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
-import mkcert from "vite-plugin-mkcert";
-
-// Utilities
 import { URL, fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
-import tailwindcss from "@tailwindcss/vite";
+import mkcert from "vite-plugin-mkcert";
+import { VitePWA } from "vite-plugin-pwa";
+import vuetify, { transformAssetUrls } from "vite-plugin-vuetify";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {

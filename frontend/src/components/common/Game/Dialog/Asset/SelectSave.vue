@@ -1,16 +1,16 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import type { SaveSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
-import type { DetailedRom } from "@/stores/roms";
 import storeAuth from "@/stores/auth";
+import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
-import { storeToRefs } from "pinia";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const auth = storeAuth();
