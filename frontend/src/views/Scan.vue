@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { computed, ref, watch, type DefineComponent } from "vue";
+import { computed, ref, useTemplateRef, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import RomListItem from "@/components/common/Game/ListItem.vue";
@@ -24,8 +24,8 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<number[]>([]);
 const panels = ref<number[]>([]);
-const scanLog = ref<DefineComponent | null>(null);
-const expansionPanels = ref<DefineComponent | null>(null);
+const scanLog = useTemplateRef<HTMLDivElement>("scan-log-ref");
+const expansionPanels = useTemplateRef<HTMLDivElement>("expansion-panels-ref");
 
 useAutoScroll(scanLog, expansionPanels);
 
@@ -316,7 +316,7 @@ async function stopScan() {
     </div>
 
     <!-- Scan log -->
-    <v-row no-gutters class="scan-log overflow-y-scroll" ref="scanLog">
+    <v-row no-gutters class="scan-log overflow-y-scroll" ref="scan-log-ref">
       <v-col>
         <v-card
           elevation="0"
@@ -325,7 +325,7 @@ async function stopScan() {
         >
           <v-card-text class="pa-0">
             <v-expansion-panels
-              ref="expansionPanels"
+              ref="expansion-panels-ref"
               v-model="panels"
               multiple
               flat
