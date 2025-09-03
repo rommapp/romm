@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import languageStore from "@/stores/language";
+import storeLanguage from "@/stores/language";
+import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 const { locale } = useI18n();
-const storeLanguage = languageStore();
-const { languages, selectedLanguage } = storeToRefs(storeLanguage);
+const languageStore = storeLanguage();
+const { languages, selectedLanguage } = storeToRefs(languageStore);
+
+const localeStorage = useLocalStorage("settings.locale", "");
 
 function changeLanguage() {
   locale.value = selectedLanguage.value.value;
-  localStorage.setItem("settings.locale", selectedLanguage.value.value);
+  localeStorage.value = selectedLanguage.value.value;
 }
 </script>
 <template>

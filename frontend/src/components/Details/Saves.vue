@@ -118,7 +118,7 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
             'border-selected': selectedSaves.some((s) => s.id === save.id),
           }"
           :elevation="isHovering ? 20 : 3"
-          @click="(e) => onCardClick(save, e)"
+          @click="(e: MouseEvent) => onCardClick(save, e)"
         >
           <v-card-text class="pa-2">
             <v-row no-gutters>
