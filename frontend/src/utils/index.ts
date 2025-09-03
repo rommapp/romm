@@ -3,6 +3,7 @@ import { storeToRefs } from "pinia";
 import { computed } from "vue";
 import { useDisplay } from "vuetify";
 import type { RomFileSchema, RomUserStatus } from "@/__generated__";
+import type { Config } from "@/stores/config";
 import type { Heartbeat } from "@/stores/heartbeat";
 import storeNavigation from "@/stores/navigation";
 import type { SimpleRom } from "@/stores/roms";
@@ -456,16 +457,19 @@ const gl =
  *
  * @param platformSlug The platform slug.
  * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
  * @returns True if supported, false otherwise.
  */
 export function isEJSEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
+  config?: Config,
 ) {
+  if (heartbeat.EMULATION.DISABLE_EMULATOR_JS) return false;
+
+  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
   return (
-    !heartbeat.EMULATION.DISABLE_EMULATOR_JS &&
-    getSupportedEJSCores(platformSlug).length > 0 &&
-    gl instanceof WebGLRenderingContext
+    getSupportedEJSCores(slug).length > 0 && gl instanceof WebGLRenderingContext
   );
 }
 
@@ -521,16 +525,18 @@ export function getControlSchemeForPlatform(
  *
  * @param platformSlug The platform slug.
  * @param heartbeat The heartbeat object.
+ * @param config Optional configuration object.
  * @returns True if supported, false otherwise.
  */
 export function isRuffleEmulationSupported(
   platformSlug: string,
   heartbeat: Heartbeat,
+  config?: Config,
 ) {
-  return (
-    ["flash", "browser"].includes(platformSlug.toLowerCase()) &&
-    !heartbeat.EMULATION.DISABLE_RUFFLE_RS
-  );
+  if (heartbeat.EMULATION.DISABLE_RUFFLE_RS) return false;
+
+  const slug = config?.PLATFORMS_VERSIONS[platformSlug] || platformSlug;
+  return ["flash", "browser"].includes(slug.toLowerCase());
 }
 
 type PlayingStatus = RomUserStatus | "backlogged" | "now_playing" | "hidden";
