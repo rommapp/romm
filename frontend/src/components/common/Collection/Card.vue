@@ -115,7 +115,7 @@ interface TiltHTMLElement extends HTMLElement {
 }
 const emit = defineEmits(["hover"]);
 
-const tiltCard = useTemplateRef<TiltHTMLElement>("tilt-card");
+const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
 // Determine the correct route for this collection type
 const collectionRoute = computed(() => {
@@ -145,8 +145,8 @@ const collectionRoute = computed(() => {
 });
 
 onMounted(() => {
-  if (tiltCard.value && !smAndDown.value && props.enable3DTilt) {
-    VanillaTilt.init(tiltCard.value, {
+  if (tiltCardRef.value && !smAndDown.value && props.enable3DTilt) {
+    VanillaTilt.init(tiltCardRef.value, {
       max: 20,
       speed: 400,
       scale: 1.1,
@@ -157,15 +157,15 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (tiltCard.value?.vanillaTilt && props.enable3DTilt) {
-    tiltCard.value.vanillaTilt.destroy();
+  if (tiltCardRef.value?.vanillaTilt && props.enable3DTilt) {
+    tiltCardRef.value.vanillaTilt.destroy();
   }
 });
 </script>
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
-    <div data-tilt ref="tilt-card">
+    <div data-tilt ref="tilt-card-ref">
       <v-card
         v-bind="{
           ...hoverProps,
