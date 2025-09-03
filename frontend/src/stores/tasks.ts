@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
-import tasksApi from "@/services/api/task";
 import type { TaskInfo } from "@/__generated__/models/TaskInfo";
+import tasksApi from "@/services/api/task";
 
 export default defineStore("tasks", {
   state: () => ({

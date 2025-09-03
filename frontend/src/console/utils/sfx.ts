@@ -1,19 +1,14 @@
-let sfxEnabled = true;
+import { useLocalStorage } from "@vueuse/core";
+import type { InputAction } from "../input/actions";
+
+const sfxEnabled = useLocalStorage("console-sfx-enabled", true);
 
 export function setSfxEnabled(enabled: boolean): void {
-  sfxEnabled = enabled;
-  localStorage.setItem("console-sfx-enabled", enabled ? "true" : "false");
+  sfxEnabled.value = enabled;
 }
 
 export function getSfxEnabled(): boolean {
-  return sfxEnabled;
-}
-
-export function initializeSfx(): void {
-  const saved = localStorage.getItem("console-sfx-enabled");
-  if (saved !== null) {
-    sfxEnabled = saved === "true";
-  }
+  return sfxEnabled.value;
 }
 
 let ctx: AudioContext | null = null;
@@ -128,7 +123,7 @@ function playClick(opts: ClickOpts = {}) {
 }
 
 export function playSfx(kind: SfxType) {
-  if (!sfxEnabled) return;
+  if (!sfxEnabled.value) return;
 
   // Lazy resume (required on some browsers until user gesture)
   ensureCtx()
@@ -241,7 +236,6 @@ export function playSfx(kind: SfxType) {
 }
 
 // map input actions to sfx categories
-import type { InputAction } from "../input/actions";
 export function sfxForAction(action: InputAction): SfxType | undefined {
   switch (action) {
     case "moveLeft":

@@ -1,6 +1,8 @@
+import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { ROUTES } from "@/plugins/router";
-import { isNull } from "lodash";
+
+const mainBarCollapsed = useLocalStorage("settings.mainBarCollapsed", false);
 
 const defaultNavigationState = {
   activePlatformsDrawer: false,
@@ -8,9 +10,7 @@ const defaultNavigationState = {
   activeSettingsDrawer: false,
   activePlatformInfoDrawer: false,
   activeCollectionInfoDrawer: false,
-  mainBarCollapsed: isNull(localStorage.getItem("settings.mainBarCollapsed"))
-    ? false
-    : localStorage.getItem("settings.mainBarCollapsed") === "true",
+  mainBarCollapsed: mainBarCollapsed.value,
 };
 
 export default defineStore("navigation", {

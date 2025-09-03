@@ -1,6 +1,6 @@
+import type { InputAction } from "./actions";
 import { InputBus } from "./bus";
 import { defaultInputConfig } from "./config";
-import type { InputAction } from "./actions";
 
 interface ButtonState {
   pressed: boolean;

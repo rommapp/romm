@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import storeAuth from "@/stores/auth";
-import storeCollections from "@/stores/collections";
-import storeRoms from "@/stores/roms";
-import storeHeartbeat from "@/stores/heartbeat";
-import type { SimpleRom } from "@/stores/roms";
-import storeScanning from "@/stores/scanning";
-import socket from "@/services/socket";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useI18n } from "vue-i18n";
-import romApi from "@/services/api/rom";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
+import romApi from "@/services/api/rom";
+import socket from "@/services/socket";
+import storeAuth from "@/stores/auth";
+import storeCollections from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
+import storeRoms from "@/stores/roms";
+import type { SimpleRom } from "@/stores/roms";
+import storeScanning from "@/stores/scanning";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const props = defineProps<{ rom: SimpleRom }>();

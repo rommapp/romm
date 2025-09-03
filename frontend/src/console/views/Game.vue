@@ -1,19 +1,27 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch, nextTick } from "vue";
 import { formatDistanceToNow } from "date-fns";
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  nextTick,
+  useTemplateRef,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
-import romApi from "@/services/api/rom";
-import stateApi from "@/services/api/state";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
-import ScreenshotLightbox from "@/console/components/ScreenshotLightbox.vue";
 import BackButton from "@/console/components/BackButton.vue";
-import NavigationText from "@/console/components/NavigationText.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
+import NavigationText from "@/console/components/NavigationText.vue";
+import ScreenshotLightbox from "@/console/components/ScreenshotLightbox.vue";
 import { useInputScope } from "@/console/composables/useInputScope";
 import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
-import { getSupportedEJSCores } from "@/utils";
+import romApi from "@/services/api/rom";
+import stateApi from "@/services/api/state";
 import storeRoms from "@/stores/roms";
+import { getSupportedEJSCores } from "@/utils";
 import { getMissingCoverImage, getUnmatchedCoverImage } from "@/utils/covers";
 
 type FocusZone =
@@ -40,12 +48,14 @@ const showDescription = ref(false);
 const showDetails = ref(false);
 const showLightbox = ref(false);
 const selectedShot = ref(0);
-const shotsRef = ref<HTMLDivElement | null>(null);
-const shotEls = ref<HTMLElement[]>([]);
-const statesRef = ref<HTMLDivElement | null>(null);
-const stateEls = ref<HTMLElement[]>([]);
-const descOverlayRef = ref<HTMLElement | null>(null);
-const detailsOverlayRef = ref<HTMLElement | null>(null);
+const screenshotsRef = useTemplateRef<HTMLDivElement>("screenshots-ref");
+const screenshotELs = ref<HTMLButtonElement[]>([]);
+const saveStatesRef = useTemplateRef<HTMLDivElement>("save-states-ref");
+const saveStatesELs = ref<HTMLButtonElement[]>([]);
+const descriptionOverlayRef = useTemplateRef<HTMLDivElement>(
+  "description-overlay-ref",
+);
+const detailsOverlayRef = useTemplateRef<HTMLDivElement>("details-overlay-ref");
 
 const releaseYear = computed(() => {
   const firstReleaseDate = rom.value?.metadatum?.first_release_date;
@@ -327,7 +337,7 @@ const currentStateId = computed(
   () => rom.value?.user_states?.[selectedStateIndex.value]?.id,
 );
 
-function relativeTime(date: string | Date) {
+function formatRelativeDate(date: string | Date) {
   return formatDistanceToNow(new Date(date), { addSuffix: true });
 }
 
@@ -362,19 +372,19 @@ async function deleteState(index: number) {
   }
 }
 
-function registerShotEl(el: HTMLElement | null, idx: number) {
+function registerShotEl(el: HTMLButtonElement | null, idx: number) {
   if (!el) return;
-  shotEls.value[idx] = el;
+  screenshotELs.value[idx] = el;
 }
 
-function registerStateEl(el: HTMLElement | null, idx: number) {
+function registerStateEl(el: HTMLButtonElement | null, idx: number) {
   if (!el) return;
-  stateEls.value[idx] = el;
+  saveStatesELs.value[idx] = el;
 }
 
 function scrollShotsToSelected() {
-  const container = shotsRef.value;
-  const el = shotEls.value[selectedShot.value];
+  const container = screenshotsRef.value;
+  const el = screenshotELs.value[selectedShot.value];
   if (!container || !el) return;
   const cr = container.getBoundingClientRect();
   const er = el.getBoundingClientRect();
@@ -383,8 +393,8 @@ function scrollShotsToSelected() {
 }
 
 function scrollStatesToSelected() {
-  const container = statesRef.value;
-  const el = stateEls.value[selectedStateIndex.value];
+  const container = saveStatesRef.value;
+  const el = saveStatesELs.value[selectedStateIndex.value];
   if (!container || !el) return;
   const cr = container.getBoundingClientRect();
   const er = el.getBoundingClientRect();
@@ -426,7 +436,7 @@ onMounted(async () => {
 
 // Focus overlays when opened so Esc works even if window handlers exist
 watch(showDescription, (v) => {
-  if (v) nextTick(() => descOverlayRef.value?.focus?.());
+  if (v) nextTick(() => descriptionOverlayRef.value?.focus?.());
 });
 watch(showDetails, (v) => {
   if (v) nextTick(() => detailsOverlayRef.value?.focus?.());
@@ -604,7 +614,7 @@ onUnmounted(() => {
                     SAVE STATES
                   </h3>
                   <div
-                    ref="statesRef"
+                    ref="save-states-ref"
                     class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
                   >
                     <div class="flex items-center gap-3 py-1 px-2 min-w-max">
@@ -612,7 +622,8 @@ onUnmounted(() => {
                         v-for="(st, i) in rom.user_states"
                         :key="st.id"
                         :ref="
-                          (el) => registerStateEl(el as HTMLElement | null, i)
+                          (el) =>
+                            registerStateEl(el as HTMLButtonElement | null, i)
                         "
                         :style="{
                           borderColor: 'var(--console-game-state-card-border)',
@@ -624,7 +635,7 @@ onUnmounted(() => {
                             selectedStateIndex === i,
                         }"
                         :aria-label="
-                          'State from ' + relativeTime(st.updated_at)
+                          'State from ' + formatRelativeDate(st.updated_at)
                         "
                         @click="startWithState(i)"
                       >
@@ -649,7 +660,7 @@ onUnmounted(() => {
                           class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-black/0 px-2 pt-4 pb-1 text-[10px] text-white/80 tracking-wide flex justify-between items-end"
                         >
                           <span class="truncate max-w-[90%]">{{
-                            relativeTime(st.updated_at)
+                            formatRelativeDate(st.updated_at)
                           }}</span>
                         </div>
                       </button>
@@ -677,7 +688,7 @@ onUnmounted(() => {
                 Screenshots
               </h3>
               <div
-                ref="shotsRef"
+                ref="screenshots-ref"
                 class="w-full overflow-x-auto overflow-y-hidden no-scrollbar"
               >
                 <div
@@ -686,7 +697,10 @@ onUnmounted(() => {
                   <button
                     v-for="(src, idx) in screenshotUrls"
                     :key="`${idx}-${src}`"
-                    :ref="(el) => registerShotEl(el as HTMLElement | null, idx)"
+                    :ref="
+                      (el) =>
+                        registerShotEl(el as HTMLButtonElement | null, idx)
+                    "
                     class="relative h-32 md:h-40 aspect-[16/9] rounded-md flex-none overflow-hidden cursor-pointer transition-all duration-200 border-2"
                     :class="{
                       'scale-[1.03] shadow-[0_8px_28px_rgba(0,0,0,0.35),_0_0_0_2px_var(--console-game-screenshot-thumbnail-focus-border),_0_0_16px_var(--console-game-screenshot-thumbnail-focus-border)]':
@@ -736,6 +750,7 @@ onUnmounted(() => {
 
       <!-- Description Modal -->
       <v-dialog
+        ref="description-overlay-ref"
         :model-value="showDescription"
         :width="1000"
         scroll-strategy="block"
@@ -775,6 +790,7 @@ onUnmounted(() => {
 
       <!-- Details Modal -->
       <v-dialog
+        ref="details-overlay-ref"
         :model-value="showDetails"
         :width="1000"
         scroll-strategy="block"

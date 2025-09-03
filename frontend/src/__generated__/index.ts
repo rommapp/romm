@@ -24,6 +24,8 @@ export type { ConfigResponse } from './models/ConfigResponse';
 export type { CustomLimitOffsetPage_SimpleRomSchema_ } from './models/CustomLimitOffsetPage_SimpleRomSchema_';
 export type { DetailedRomSchema } from './models/DetailedRomSchema';
 export type { EarnedAchievement } from './models/EarnedAchievement';
+export type { EjsControls } from './models/EjsControls';
+export type { EjsControlsButton } from './models/EjsControlsButton';
 export type { EmulationDict } from './models/EmulationDict';
 export type { FilesystemDict } from './models/FilesystemDict';
 export type { FirmwareSchema } from './models/FirmwareSchema';

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import userApi from "@/services/api/user";
 import storeAuth from "@/stores/auth";
@@ -6,10 +10,6 @@ import storeUsers from "@/stores/users";
 import type { Events } from "@/types/emitter";
 import type { UserItem } from "@/types/user";
 import { defaultAvatarPath, getRoleIcon } from "@/utils";
-import type { Emitter } from "mitt";
-import { inject, ref } from "vue";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const user = ref<UserItem | null>(null);

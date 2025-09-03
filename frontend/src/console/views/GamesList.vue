@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  ref,
+  nextTick,
+  useTemplateRef,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
-import romApi from "@/services/api/rom";
-import collectionApi from "@/services/api/collection";
+import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
+import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
+import useFavoriteToggle from "@/composables/useFavoriteToggle";
+import BackButton from "@/console/components/BackButton.vue";
 import GameCard from "@/console/components/GameCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
-import BackButton from "@/console/components/BackButton.vue";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
-import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import { useInputScope } from "@/console/composables/useInputScope";
-import type { InputAction } from "@/console/input/actions";
-import { useSpatialNav } from "@/console/composables/useSpatialNav";
-import { useRovingDom } from "@/console/composables/useRovingDom";
 import { gamesListElementRegistry } from "@/console/composables/useElementRegistry";
-import consoleStore from "@/stores/console";
-import useFavoriteToggle from "@/composables/useFavoriteToggle";
+import { useInputScope } from "@/console/composables/useInputScope";
+import { useRovingDom } from "@/console/composables/useRovingDom";
+import { useSpatialNav } from "@/console/composables/useSpatialNav";
+import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
+import collectionApi from "@/services/api/collection";
+import romApi from "@/services/api/rom";
+import consoleStore from "@/stores/console";
 
 const route = useRoute();
 const router = useRouter();
@@ -34,7 +41,7 @@ const selectedIndex = ref(0);
 const loadedMap = ref<Record<number, boolean>>({});
 const inAlphabet = ref(false);
 const alphaIndex = ref(0);
-const gridRef = ref<HTMLDivElement>();
+const gridRef = useTemplateRef<HTMLDivElement>("game-grid-ref");
 
 // Initialize selection from store
 if (platformId != null) {
@@ -344,7 +351,7 @@ function markLoaded(id: number) {
           No games found.
         </div>
         <div
-          ref="gridRef"
+          ref="game-grid-ref"
           class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
           @wheel.prevent
         >

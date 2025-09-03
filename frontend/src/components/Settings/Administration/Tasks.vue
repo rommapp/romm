@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import Task from "@/components/Settings/Administration/TaskOption.vue";
-import RSection from "@/components/common/RSection.vue";
-import { convertCronExperssion } from "@/utils";
-import storeTasks from "@/stores/tasks";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
+import Task from "@/components/Settings/Administration/TaskOption.vue";
+import RSection from "@/components/common/RSection.vue";
+import storeTasks from "@/stores/tasks";
+import { convertCronExperssion } from "@/utils";
 
 const tasksStore = storeTasks();
 const { watcherTasks, scheduledTasks, manualTasks } = storeToRefs(tasksStore);

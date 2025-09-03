@@ -1,14 +1,14 @@
 <script setup lang="ts">
+import type { Emitter } from "mitt";
+import { storeToRefs } from "pinia";
+import { inject, onBeforeUnmount } from "vue";
+import { useI18n } from "vue-i18n";
 import socket from "@/services/socket";
 import storeAuth from "@/stores/auth";
 import storeNavigation from "@/stores/navigation";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
 import storeScanning from "@/stores/scanning";
 import type { Events } from "@/types/emitter";
-import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount } from "vue";
-import { useI18n } from "vue-i18n";
 
 withDefaults(
   defineProps<{

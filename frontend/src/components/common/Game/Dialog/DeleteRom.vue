@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import RomListItem from "@/components/common/Game/ListItem.vue";
-import RDialog from "@/components/common/RDialog.vue";
-import romApi from "@/services/api/rom";
-import storeRoms, { type SimpleRom } from "@/stores/roms";
-import configApi from "@/services/api/config";
-import type { Events } from "@/types/emitter";
-import storeConfig from "@/stores/config";
-import { ROUTES } from "@/plugins/router";
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { useRouter, useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
+import RomListItem from "@/components/common/Game/ListItem.vue";
+import RDialog from "@/components/common/RDialog.vue";
+import { ROUTES } from "@/plugins/router";
+import configApi from "@/services/api/config";
+import romApi from "@/services/api/rom";
+import storeConfig from "@/stores/config";
+import storeRoms, { type SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const { mdAndUp } = useDisplay();

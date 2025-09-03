@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import storeCollections from "@/stores/collections";
-import { type SimpleRom } from "@/stores/roms";
-import storeAuth from "@/stores/auth";
-import type { Events } from "@/types/emitter";
 import type { Emitter } from "mitt";
 import { inject } from "vue";
 import { useFavoriteToggle } from "@/composables/useFavoriteToggle";
+import storeAuth from "@/stores/auth";
+import storeCollections from "@/stores/collections";
+import { type SimpleRom } from "@/stores/roms";
+import type { Events } from "@/types/emitter";
 
 const props = defineProps<{ rom: SimpleRom }>();
 const collectionsStore = storeCollections();

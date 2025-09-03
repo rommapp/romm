@@ -1,33 +1,40 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { onMounted, onUnmounted, ref, nextTick, watch } from "vue";
+import {
+  onMounted,
+  onUnmounted,
+  ref,
+  nextTick,
+  watch,
+  useTemplateRef,
+} from "vue";
 import { useRouter } from "vue-router";
-import platformApi from "@/services/api/platform";
-import romApi from "@/services/api/rom";
-import collectionApi from "@/services/api/collection";
-import storeCollections from "@/stores/collections";
+import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
+import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
+import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
+import RIsotipo from "@/components/common/RIsotipo.vue";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
-import SystemCard from "@/console/components/SystemCard.vue";
-import GameCard from "@/console/components/GameCard.vue";
 import CollectionCard from "@/console/components/CollectionCard.vue";
+import GameCard from "@/console/components/GameCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
 import SettingsModal from "@/console/components/SettingsModal.vue";
-import RIsotipo from "@/components/common/RIsotipo.vue";
-import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
-import { isSupportedPlatform } from "@/console/constants/platforms";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
-import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import { useInputScope } from "@/console/composables/useInputScope";
-import type { InputAction } from "@/console/input/actions";
-import { useSpatialNav } from "@/console/composables/useSpatialNav";
-import { useRovingDom } from "@/console/composables/useRovingDom";
+import SystemCard from "@/console/components/SystemCard.vue";
 import {
   systemElementRegistry,
   recentElementRegistry,
   collectionElementRegistry,
 } from "@/console/composables/useElementRegistry";
-import consoleStore from "@/stores/console";
+import { useInputScope } from "@/console/composables/useInputScope";
+import { useRovingDom } from "@/console/composables/useRovingDom";
+import { useSpatialNav } from "@/console/composables/useSpatialNav";
+import { isSupportedPlatform } from "@/console/constants/platforms";
+import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
+import collectionApi from "@/services/api/collection";
+import platformApi from "@/services/api/platform";
+import romApi from "@/services/api/rom";
+import storeCollections from "@/stores/collections";
+import consoleStore from "@/stores/console";
 
 const router = useRouter();
 const collectionsStore = storeCollections();
@@ -37,10 +44,10 @@ const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
 const { subscribe } = useInputScope();
 
 const platforms = ref<PlatformSchema[]>([]);
-const recent = ref<SimpleRomSchema[]>([]);
+const recentRoms = ref<SimpleRomSchema[]>([]);
 const collections = ref<CollectionSchema[]>([]);
-const loading = ref(true);
-const error = ref("");
+const loadingPlatforms = ref(true);
+const errorMessage = ref("");
 const showSettings = ref(false);
 
 // Navigation indices
@@ -48,13 +55,16 @@ const selectedIndex = ref(storeConsole.platformIndex);
 const recentIndex = ref(storeConsole.recentIndex);
 const collectionsIndex = ref(storeConsole.collectionsIndex);
 const controlIndex = ref(storeConsole.controlIndex);
-const scrollContainerRef = ref<HTMLDivElement>();
-const systemsRef = ref<HTMLDivElement>();
-const recentRef = ref<HTMLDivElement>();
-const collectionsRef = ref<HTMLDivElement>();
-const platformsSectionRef = ref<HTMLElement>();
-const recentSectionRef = ref<HTMLElement>();
-const collectionsSectionRef = ref<HTMLElement>();
+const scrollContainerRef = useTemplateRef<HTMLDivElement>(
+  "scroll-container-ref",
+);
+const platformsRef = useTemplateRef<HTMLDivElement>("platforms-ref");
+const recentRef = useTemplateRef<HTMLDivElement>("recent-ref");
+const collectionsRef = useTemplateRef<HTMLDivElement>("collections-ref");
+const recentSectionRef = useTemplateRef<HTMLElement>("recent-section-ref");
+const collectionsSectionRef = useTemplateRef<HTMLElement>(
+  "collections-section-ref",
+);
 
 const systemElementAt = (i: number) => systemElementRegistry.getElement(i);
 const recentElementAt = (i: number) => recentElementRegistry.getElement(i);
@@ -69,8 +79,8 @@ const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(
 );
 const { moveLeft: moveRecentLeft, moveRight: moveRecentRight } = useSpatialNav(
   recentIndex,
-  () => recent.value.length || 1,
-  () => recent.value.length,
+  () => recentRoms.value.length || 1,
+  () => recentRoms.value.length,
 );
 const { moveLeft: moveCollectionLeft, moveRight: moveCollectionRight } =
   useSpatialNav(
@@ -102,8 +112,8 @@ useRovingDom(collectionsIndex, collectionElementAt, {
 watch(selectedIndex, (newIdx) => {
   if (!isVerticalScrolling) {
     const el = systemElementAt(newIdx);
-    if (el && systemsRef.value) {
-      centerInCarousel(systemsRef.value, el, "smooth");
+    if (el && platformsRef.value) {
+      centerInCarousel(platformsRef.value, el, "smooth");
     }
   }
 });
@@ -157,7 +167,7 @@ const navigationFunctions = {
       const before = recentIndex.value;
       moveRecentLeft();
       if (recentIndex.value === before) {
-        recentIndex.value = Math.max(0, recent.value.length - 1);
+        recentIndex.value = Math.max(0, recentRoms.value.length - 1);
       }
     },
     next: () => {
@@ -168,11 +178,11 @@ const navigationFunctions = {
       }
     },
     confirm: () => {
-      if (!recent.value[recentIndex.value]) return false;
+      if (!recentRoms.value[recentIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_ROM,
-        params: { rom: recent.value[recentIndex.value].id },
-        query: { id: recent.value[recentIndex.value].platform_id },
+        params: { rom: recentRoms.value[recentIndex.value].id },
+        query: { id: recentRoms.value[recentIndex.value].platform_id },
       });
       return true;
     },
@@ -347,7 +357,8 @@ function handleAction(action: InputAction): boolean {
         return true;
       }
       if (currentMode === "collections") {
-        navigationMode.value = recent.value.length > 0 ? "recent" : "systems";
+        navigationMode.value =
+          recentRoms.value.length > 0 ? "recent" : "systems";
         scrollToCurrentRow();
         return true;
       }
@@ -356,7 +367,7 @@ function handleAction(action: InputAction): boolean {
     case "moveDown":
       if (currentMode === "systems") {
         navigationMode.value =
-          recent.value.length > 0
+          recentRoms.value.length > 0
             ? "recent"
             : collections.value.length > 0
               ? "collections"
@@ -386,8 +397,8 @@ function handleAction(action: InputAction): boolean {
       return true;
 
     case "toggleFavorite":
-      if (currentMode === "recent" && recent.value[recentIndex.value]) {
-        toggleFavoriteComposable(recent.value[recentIndex.value]);
+      if (currentMode === "recent" && recentRoms.value[recentIndex.value]) {
+        toggleFavoriteComposable(recentRoms.value[recentIndex.value]);
         return true;
       }
       return false;
@@ -409,7 +420,7 @@ onMounted(async () => {
     platforms.value = plats.filter(
       (p) => p.rom_count > 0 && isSupportedPlatform(p.slug),
     );
-    recent.value = recents.items ?? [];
+    recentRoms.value = recents.items ?? [];
     collections.value = cols ?? [];
 
     collectionsStore.setCollections(cols ?? []);
@@ -419,14 +430,14 @@ onMounted(async () => {
       ),
     );
   } catch (err: unknown) {
-    error.value = err instanceof Error ? err.message : "Failed to load";
+    errorMessage.value = err instanceof Error ? err.message : "Failed to load";
   } finally {
-    loading.value = false;
+    loadingPlatforms.value = false;
   }
 
   // Restore indices within bounds
   if (selectedIndex.value >= platforms.value.length) selectedIndex.value = 0;
-  if (recentIndex.value >= recent.value.length) recentIndex.value = 0;
+  if (recentIndex.value >= recentRoms.value.length) recentIndex.value = 0;
   if (collectionsIndex.value >= collections.value.length)
     collectionsIndex.value = 0;
 
@@ -434,7 +445,7 @@ onMounted(async () => {
   scrollToCurrentRow();
 
   // Center carousels
-  centerInCarousel(systemsRef.value, systemElementAt(selectedIndex.value));
+  centerInCarousel(platformsRef.value, systemElementAt(selectedIndex.value));
   centerInCarousel(recentRef.value, recentElementAt(recentIndex.value));
   centerInCarousel(
     collectionsRef.value,
@@ -461,7 +472,7 @@ onUnmounted(() => {
 
 <template>
   <div
-    ref="scrollContainerRef"
+    ref="scroll-container-ref"
     class="relative h-screen overflow-y-auto overflow-x-hidden"
     @wheel.prevent
   >
@@ -477,21 +488,21 @@ onUnmounted(() => {
       </div>
 
       <div
-        v-if="loading"
+        v-if="loadingPlatforms"
         class="text-center mt-16"
         :style="{ color: 'var(--console-loading-text)' }"
       >
         Loading platforms…
       </div>
       <div
-        v-else-if="error"
+        v-else-if="errorMessage"
         class="text-center mt-16"
-        :style="{ color: 'var(--console-error-text)' }"
+        :style="{ color: 'var(--console-errorMessage-text)' }"
       >
-        {{ error }}
+        {{ errorMessage }}
       </div>
       <div v-else>
-        <section ref="platformsSectionRef" class="pb-2">
+        <section class="pb-2">
           <h2
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
@@ -522,7 +533,7 @@ onUnmounted(() => {
               ▶
             </button>
             <div
-              ref="systemsRef"
+              ref="platforms-ref"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >
@@ -543,7 +554,11 @@ onUnmounted(() => {
           </div>
         </section>
 
-        <section v-if="recent.length > 0" ref="recentSectionRef" class="pb-8">
+        <section
+          v-if="recentRoms.length > 0"
+          ref="recent-section-ref"
+          class="pb-8"
+        >
           <h2
             class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
             :style="{ color: 'var(--console-home-category-text)' }"
@@ -574,13 +589,13 @@ onUnmounted(() => {
               ▶
             </button>
             <div
-              ref="recentRef"
+              ref="recent-ref"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >
               <div class="flex items-center gap-4 h-full px-12 min-w-max">
                 <GameCard
-                  v-for="(g, i) in recent"
+                  v-for="(g, i) in recentRoms"
                   :key="`${g.platform_id}-${g.id}`"
                   :rom="g"
                   :index="i"
@@ -597,7 +612,7 @@ onUnmounted(() => {
 
         <section
           v-if="collections.length > 0"
-          ref="collectionsSectionRef"
+          ref="collections-section-ref"
           class="pb-8"
         >
           <h2
@@ -630,7 +645,7 @@ onUnmounted(() => {
               ▶
             </button>
             <div
-              ref="collectionsRef"
+              ref="collections-ref"
               class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
               @wheel.prevent
             >

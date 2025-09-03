@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import FavBtn from "@/components/common/Game/FavBtn.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
-import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import { ROUTES } from "@/plugins/router";
-import type { DetailedRom } from "@/stores/roms";
-import storePlatforms from "@/stores/platforms";
 import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
 import { computed } from "vue";
+import { useDisplay } from "vuetify";
+import FavBtn from "@/components/common/Game/FavBtn.vue";
+import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { ROUTES } from "@/plugins/router";
+import storePlatforms from "@/stores/platforms";
+import type { DetailedRom } from "@/stores/roms";
 
 const props = defineProps<{ rom: DetailedRom }>();
 const { smAndDown } = useDisplay();

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import RSection from "@/components/common/RSection.vue";
-import storeAuth from "@/stores/auth";
-import { inject, ref } from "vue";
 import type { Emitter } from "mitt";
-import type { Events } from "@/types/emitter";
-import userApi from "@/services/api/user";
+import { inject, ref } from "vue";
 import { watch } from "vue";
 import { useI18n } from "vue-i18n";
+import RSection from "@/components/common/RSection.vue";
+import userApi from "@/services/api/user";
+import storeAuth from "@/stores/auth";
+import type { Events } from "@/types/emitter";
 
 const { t } = useI18n();
 const valid = ref(false);

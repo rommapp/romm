@@ -1,16 +1,16 @@
+import { storeToRefs } from "pinia";
 import {
   createRouter,
   createWebHistory,
   type NavigationGuardWithThis,
 } from "vue-router";
-import storeHeartbeat from "@/stores/heartbeat";
-import storeAuth from "@/stores/auth";
-import storeRoms from "@/stores/roms";
-import { storeToRefs } from "pinia";
-import type { User } from "@/stores/users";
+import i18n from "@/locales";
 import { startViewTransition } from "@/plugins/transition";
 import romApi from "@/services/api/rom";
-import i18n from "@/locales";
+import storeAuth from "@/stores/auth";
+import storeHeartbeat from "@/stores/heartbeat";
+import storeRoms from "@/stores/roms";
+import type { User } from "@/stores/users";
 
 export const ROUTES = {
   SETUP: "setup",

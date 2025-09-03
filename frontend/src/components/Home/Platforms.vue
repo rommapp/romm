@@ -1,33 +1,23 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 import PlatformCard from "@/components/common/Platform/Card.vue";
 import RSection from "@/components/common/RSection.vue";
 import storePlatforms from "@/stores/platforms";
-import { isNull } from "lodash";
 import { views } from "@/utils";
-import { useI18n } from "vue-i18n";
-import { storeToRefs } from "pinia";
-import { ref } from "vue";
 
 const { t } = useI18n();
 const platformsStore = storePlatforms();
 const { filledPlatforms } = storeToRefs(platformsStore);
-const storedPlatforms = localStorage.getItem("settings.gridPlatforms");
-const gridPlatforms = ref(
-  isNull(storedPlatforms) ? false : storedPlatforms === "true",
-);
-const storedEnable3DEffect = localStorage.getItem("settings.enable3DEffect");
-const enable3DEffect = ref(
-  isNull(storedEnable3DEffect) ? false : storedEnable3DEffect === "true",
-);
+const gridPlatforms = useLocalStorage("settings.gridPlatforms", false);
+const enable3DEffect = useLocalStorage("settings.enable3DEffect", false);
 const isHovering = ref(false);
-const hoveringPlatformId = ref();
+const hoveringPlatformId = ref<number>();
 
 function toggleGridPlatforms() {
   gridPlatforms.value = !gridPlatforms.value;
-  localStorage.setItem(
-    "settings.gridPlatforms",
-    gridPlatforms.value.toString(),
-  );
 }
 
 function onHover(emitData: { isHovering: boolean; id: number }) {

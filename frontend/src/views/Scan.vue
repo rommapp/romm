@@ -1,17 +1,18 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { storeToRefs } from "pinia";
+import { computed, ref, useTemplateRef, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useDisplay } from "vuetify";
 import RomListItem from "@/components/common/Game/ListItem.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
+import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import { useAutoScroll } from "@/composables/useAutoScroll";
+import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
 import storeHeartbeat, { type MetadataOption } from "@/stores/heartbeat";
 import storePlatforms from "@/stores/platforms";
 import storeScanning from "@/stores/scanning";
-import { ROUTES } from "@/plugins/router";
-import { storeToRefs } from "pinia";
-import { computed, ref, watch, type DefineComponent } from "vue";
-import { useDisplay } from "vuetify";
-import { useI18n } from "vue-i18n";
-import { useAutoScroll } from "@/composables/useAutoScroll";
 
 const LOCAL_STORAGE_METADATA_SOURCES_KEY = "scan.metadataSources";
 
@@ -23,18 +24,16 @@ const platforms = storePlatforms();
 const heartbeat = storeHeartbeat();
 const platformsToScan = ref<number[]>([]);
 const panels = ref<number[]>([]);
-const scanLog = ref<DefineComponent | null>(null);
-const expansionPanels = ref<DefineComponent | null>(null);
+const scanLog = useTemplateRef<HTMLDivElement>("scan-log-ref");
+const expansionPanels = useTemplateRef<HTMLDivElement>("expansion-panels-ref");
 
 useAutoScroll(scanLog, expansionPanels);
 
 const metadataOptions = computed(() => heartbeat.getAllMetadataOptions());
-const storedMetadataSources = computed<string[]>(() => {
-  const storedSources = localStorage.getItem(
-    LOCAL_STORAGE_METADATA_SOURCES_KEY,
-  );
-  return storedSources ? JSON.parse(storedSources) : [];
-});
+const storedMetadataSources = useLocalStorage(
+  LOCAL_STORAGE_METADATA_SOURCES_KEY,
+  [] as string[],
+);
 const metadataSources = ref<MetadataOption[]>(
   metadataOptions.value.filter((m) =>
     storedMetadataSources.value.includes(m.value),
@@ -100,10 +99,7 @@ async function scan() {
   if (!socket.connected) socket.connect();
 
   // Store selected meta sources in storage
-  localStorage.setItem(
-    LOCAL_STORAGE_METADATA_SOURCES_KEY,
-    JSON.stringify(metadataSources.value.map((s) => s.value)),
-  );
+  storedMetadataSources.value = metadataSources.value.map((s) => s.value);
 
   socket.emit("scan", {
     platforms: platformsToScan.value,
@@ -320,7 +316,7 @@ async function stopScan() {
     </div>
 
     <!-- Scan log -->
-    <v-row no-gutters class="scan-log overflow-y-scroll" ref="scanLog">
+    <v-row no-gutters class="scan-log overflow-y-scroll" ref="scan-log-ref">
       <v-col>
         <v-card
           elevation="0"
@@ -329,7 +325,7 @@ async function stopScan() {
         >
           <v-card-text class="pa-0">
             <v-expansion-panels
-              ref="expansionPanels"
+              ref="expansion-panels-ref"
               v-model="panels"
               multiple
               flat

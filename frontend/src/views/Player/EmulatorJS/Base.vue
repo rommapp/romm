@@ -1,26 +1,26 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { formatDistanceToNow } from "date-fns";
+import { storeToRefs } from "pinia";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
+import { useDisplay } from "vuetify";
+import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import EmptySaves from "@/components/common/EmptyStates/EmptySaves.vue";
 import EmptyStates from "@/components/common/EmptyStates/EmptyStates.vue";
-import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
-import { formatDistanceToNow } from "date-fns";
 import RomListItem from "@/components/common/Game/ListItem.vue";
+import { ROUTES } from "@/plugins/router";
 import firmwareApi from "@/services/api/firmware";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
 import storePlaying from "@/stores/playing";
 import storeRoms, { type DetailedRom } from "@/stores/roms";
 import { formatTimestamp, getSupportedEJSCores } from "@/utils";
-import { ROUTES } from "@/plugins/router";
-import Player from "@/views/Player/EmulatorJS/Player.vue";
-import { isNull } from "lodash";
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
-import { useI18n } from "vue-i18n";
-import { saveSave, saveState } from "./utils";
-import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
 import { getEmptyCoverImage } from "@/utils/covers";
-import { useDisplay } from "vuetify";
-import { storeToRefs } from "pinia";
+import CacheDialog from "@/views/Player/EmulatorJS/CacheDialog.vue";
+import Player from "@/views/Player/EmulatorJS/Player.vue";
+import { saveSave, saveState } from "./utils";
 
 const EMULATORJS_VERSION = "4.2.3";
 
@@ -42,8 +42,7 @@ const selectedCore = ref<string | null>(null);
 const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
-const storedFSOP = localStorage.getItem("fullScreenOnPlay");
-const fullScreenOnPlay = ref(isNull(storedFSOP) ? true : storedFSOP === "true");
+const fullScreenOnPlay = useLocalStorage("fullScreenOnPlay", true);
 
 function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
@@ -90,7 +89,6 @@ function onPlay() {
 
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
-  localStorage.setItem("fullScreenOnPlay", fullScreenOnPlay.value.toString());
 }
 
 async function onlyQuit() {

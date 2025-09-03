@@ -1,13 +1,13 @@
 <script setup lang="ts">
+import { storeToRefs } from "pinia";
+import { computed } from "vue";
+import { useDisplay } from "vuetify";
 import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 import CollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/CollectionInfoDrawer.vue";
 import SmartCollectionInfoDrawer from "@/components/Gallery/AppBar/Collection/SmartCollectionInfoDrawer.vue";
 import RAvatar from "@/components/common/Collection/RAvatar.vue";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
-import { storeToRefs } from "pinia";
-import { useDisplay } from "vuetify";
-import { computed } from "vue";
 
 const { xs } = useDisplay();
 const navigationStore = storeNavigation();

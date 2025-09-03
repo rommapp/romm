@@ -1,16 +1,16 @@
 <script setup lang="ts">
+import { useLocalStorage } from "@vueuse/core";
+import { computed } from "vue";
+import { useI18n } from "vue-i18n";
+import { useTheme } from "vuetify";
 import ThemeOption from "@/components/Settings/UserInterface/ThemeOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import { autoThemeKey, themes } from "@/styles/themes";
 import { isKeyof } from "@/types";
-import { computed, ref } from "vue";
-import { useTheme } from "vuetify";
-import { useI18n } from "vue-i18n";
 
 const { t } = useI18n();
 const theme = useTheme();
-const storedTheme = parseInt(localStorage.getItem("settings.theme") ?? "");
-const selectedTheme = ref(isNaN(storedTheme) ? autoThemeKey : storedTheme);
+const selectedTheme = useLocalStorage("settings.theme", autoThemeKey);
 const themeOptions = computed(() => [
   {
     name: "dark",
@@ -27,7 +27,6 @@ const themeOptions = computed(() => [
 ]);
 
 function toggleTheme() {
-  localStorage.setItem("settings.theme", selectedTheme.value.toString());
   const mediaMatch = window.matchMedia("(prefers-color-scheme: dark)");
   if (selectedTheme.value === autoThemeKey) {
     theme.global.name.value = mediaMatch.matches ? "dark" : "light";

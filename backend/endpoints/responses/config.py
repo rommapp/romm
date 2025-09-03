@@ -1,5 +1,7 @@
 from typing import TypedDict
 
+from config.config_manager import EjsControls
+
 
 class ConfigResponse(TypedDict):
     EXCLUDED_PLATFORMS: list[str]
@@ -10,3 +12,6 @@ class ConfigResponse(TypedDict):
     EXCLUDED_MULTI_PARTS_FILES: list[str]
     PLATFORMS_BINDING: dict[str, str]
     PLATFORMS_VERSIONS: dict[str, str]
+    EJS_DEBUG: bool
+    EJS_SETTINGS: dict[str, dict[str, str]]
+    EJS_CONTROLS: dict[str, EjsControls]
