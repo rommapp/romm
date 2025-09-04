@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useLocalStorage, useWindowScroll } from "@vueuse/core";
+import { useLocalStorage, useScroll } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref, watch } from "vue";
@@ -137,7 +137,7 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-const { y: windowY } = useWindowScroll({ throttle: 500 });
+const { y: windowY } = useScroll(document.body, { throttle: 500 });
 
 watch(windowY, () => {
   clearTimeout(timeout);
