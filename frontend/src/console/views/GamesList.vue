@@ -6,7 +6,6 @@ import {
   ref,
   nextTick,
   useTemplateRef,
-  watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
@@ -30,7 +29,7 @@ const route = useRoute();
 const router = useRouter();
 const storeConsole = consoleStore();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
-const { setSelectedGame, clearSelectedGame } = useSelectedGameBackground();
+const { setSelectedGame } = useSelectedGameBackground();
 
 const isCollectionRoute = route.name === ROUTES.CONSOLE_COLLECTION;
 const platformId = isCollectionRoute ? null : Number(route.params.id);
@@ -327,22 +326,6 @@ function markLoaded(id: number) {
 function handleGameSelect(rom: SimpleRom) {
   setSelectedGame(rom);
 }
-
-function handleGameDeselect() {
-  clearSelectedGame();
-}
-
-// Watch for changes in selected index to handle background clearing
-watch(
-  [selectedIndex, roms],
-  ([newIndex, newRoms]) => {
-    // Clear background if no games or invalid selection
-    if (newRoms.length === 0 || newIndex < 0 || newIndex >= newRoms.length) {
-      clearSelectedGame();
-    }
-  },
-  { immediate: true },
-);
 </script>
 
 <template>
