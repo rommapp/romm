@@ -20,13 +20,10 @@ const defaultSystemImagePath = computed(
   >
     <div class="grid grid-cols-3 gap-4 h-100">
       <div
-        class="col-span-2 font-bold text-center px-2 py-4 text-2xl text-wrap text-balance uppercase"
+        class="col-span-2 font-bold text-center px-2 pt-6 pb-4 text-2xl text-wrap text-balance uppercase"
         :style="{ color: 'var(--system-accent)' }"
       >
         {{ platformName }}
-      </div>
-      <div class="col-span-1 flex items-center justify-end">
-        <div class="text-9xl" style="margin-right: -50%">🎮</div>
       </div>
     </div>
   </v-img>
