@@ -123,6 +123,7 @@ class ConvertImagesToWebPTask(PeriodicTask):
             if p.is_file()
             and not p.is_symlink()
             and p.suffix.lower() in ImageConverter.SUPPORTED_EXTENSIONS
+            and not p.with_suffix(".webp").exists()
         ]
 
         return sorted(image_files)  # Sort for consistent processing order
