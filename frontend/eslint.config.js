@@ -36,10 +36,5 @@ export default tseslint.config(
         ...globals.browser,
       },
     },
-    rules: {
-      "vue/multi-word-component-names": "off",
-      // Vuetify supports modifier syntax of { [x: `item.${string}`]: ... }
-      "vue/valid-v-slot": "off",
-    },
   },
 );
