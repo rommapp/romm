@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeUnmount, onMounted, ref } from "vue";
+import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
 import { useTheme } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
 import { saveApi as api } from "@/services/api/save";
@@ -367,6 +367,10 @@ window.EJS_onGameStart = async () => {
     window.history.back();
   });
 };
+
+onUnmounted(() => {
+  window.location.reload();
+});
 </script>
 
 <template>

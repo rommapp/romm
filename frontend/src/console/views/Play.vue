@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import { storeToRefs } from "pinia";
-import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
+import {
+  onMounted,
+  onBeforeUnmount,
+  ref,
+  watch,
+  nextTick,
+  onUnmounted,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { DetailedRomSchema } from "@/__generated__/models/DetailedRomSchema";
 import NavigationText from "@/console/components/NavigationText.vue";
@@ -649,6 +656,10 @@ onBeforeUnmount(() => {
   window.EJS_emulator?.callEvent?.("exit");
   detachKey?.();
   detachPad?.();
+});
+
+onUnmounted(() => {
+  window.location.reload();
 });
 </script>
 
