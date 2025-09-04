@@ -57,7 +57,7 @@ const theme = computed(() => {
     @focus="emit('focus')"
   >
     <div
-      class="absolute inset-0"
+      class="absolute inset-0 m-px!"
       :style="{ background: 'var(--system-bg)', opacity: 0.9 }"
     />
     <div class="absolute inset-0 flex items-center justify-center">
