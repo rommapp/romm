@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
               cover
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
-              :key="rom.id"
+              :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
               :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
             >
