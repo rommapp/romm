@@ -18,10 +18,14 @@ const defaultSystemImagePath = computed(
     v-if="themeStore.themeName === 'default'"
     :src="defaultSystemImagePath"
   >
-    <div class="grid grid-cols-3 gap-4 h-100">
+    <div class="w-[66%] h-100">
       <div
-        class="col-span-2 font-bold text-center px-2 pt-6 pb-4 text-2xl text-wrap text-balance uppercase"
-        :style="{ color: 'var(--system-accent)' }"
+        class="h-100 w-100 font-bold text-center px-2 pt-5 pb-4 text-2xl uppercase overflow-hidden text-ellipsis whitespace-nowrap"
+        :style="{
+          color: 'var(--system-accent)',
+          textShadow:
+            '0 -3rem 0 #372869, 0 -1.5rem 0 #372869, 0 1.5rem 0 #372869, 0 3rem 0 #372869, 0 4.5rem 0 #372869, 0 6rem 0 #372869, 0 7.5rem 0 #372869',
+        }"
       >
         {{ platformName }}
       </div>
