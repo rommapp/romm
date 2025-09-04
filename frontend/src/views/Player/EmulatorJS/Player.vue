@@ -369,6 +369,7 @@ window.EJS_onGameStart = async () => {
 };
 
 onUnmounted(() => {
+  // Force full reload to reset COEP/COOP, so cross-origin isolation is turned off.
   window.location.reload();
 });
 </script>
