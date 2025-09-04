@@ -24,6 +24,8 @@ import {
   systemElementRegistry,
   recentElementRegistry,
   collectionElementRegistry,
+  smartCollectionElementRegistry,
+  virtualCollectionElementRegistry,
 } from "@/console/composables/useElementRegistry";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useRovingDom } from "@/console/composables/useRovingDom";
@@ -91,9 +93,9 @@ const recentElementAt = (i: number) => recentElementRegistry.getElement(i);
 const collectionElementAt = (i: number) =>
   collectionElementRegistry.getElement(i);
 const smartCollectionElementAt = (i: number) =>
-  collectionElementRegistry.getElement(i);
+  smartCollectionElementRegistry.getElement(i);
 const virtualCollectionElementAt = (i: number) =>
-  collectionElementRegistry.getElement(i);
+  virtualCollectionElementRegistry.getElement(i);
 
 // Spatial navigation
 const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(

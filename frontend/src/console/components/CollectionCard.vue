@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watchEffect, useTemplateRef } from "vue";
-import { collectionElementRegistry } from "@/console/composables/useElementRegistry";
+import {
+  collectionElementRegistry,
+  smartCollectionElementRegistry,
+  virtualCollectionElementRegistry,
+} from "@/console/composables/useElementRegistry";
 import type { CollectionType } from "@/stores/collections";
 import storeHeartbeat from "@/stores/heartbeat";
 import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
@@ -82,15 +86,25 @@ watchEffect(() => {
 
 const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
 const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
-const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
-const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 
 onMounted(() => {
   if (!collectionCardRef.value) return;
-  collectionElementRegistry.registerElement(
-    props.index,
-    collectionCardRef.value,
-  );
+  if (props.collection.is_smart) {
+    smartCollectionElementRegistry.registerElement(
+      props.index,
+      collectionCardRef.value,
+    );
+  } else if (props.collection.is_virtual) {
+    virtualCollectionElementRegistry.registerElement(
+      props.index,
+      collectionCardRef.value,
+    );
+  } else {
+    collectionElementRegistry.registerElement(
+      props.index,
+      collectionCardRef.value,
+    );
+  }
 });
 </script>
 

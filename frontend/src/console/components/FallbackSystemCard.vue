@@ -32,7 +32,7 @@ const defaultSystemImagePath = computed(
     </div>
   </v-img>
   <div v-else class="flex items-center justify-center h-100 pb-5 pt-1 px-1">
-    <div class="font-bold text-4xl font-bold text-white uppercase">
+    <div class="text-4xl font-bold text-white uppercase">
       {{ platformName }}
     </div>
   </div>
