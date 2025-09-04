@@ -5,13 +5,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
 
+from PIL import Image, UnidentifiedImageError
+
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     RESOURCES_BASE_PATH,
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
 )
 from logger.logger import log
-from PIL import Image, UnidentifiedImageError
 from tasks.tasks import PeriodicTask
 
 

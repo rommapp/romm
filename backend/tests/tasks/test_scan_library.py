@@ -1,6 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
 from handler.metadata.hasheous_handler import HasheousHandler
 from handler.metadata.igdb_handler import IGDBHandler
 from handler.metadata.launchbox_handler import LaunchboxHandler

@@ -9,6 +9,7 @@ Create Date: 2023-04-10 23:02:37.472055
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.exc import OperationalError
+
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.

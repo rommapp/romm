@@ -3,11 +3,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 import yarl
+from fastapi import HTTPException, status
+
 from adapters.services.retroachievements import (
     RetroAchievementsService,
     auth_middleware,
 )
-from fastapi import HTTPException, status
 
 INVALID_GAME_ID = 999999
 

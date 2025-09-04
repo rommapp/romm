@@ -8,9 +8,10 @@ Create Date: 2025-05-14 18:10:23.522345
 import os
 
 from alembic import op
+from sqlalchemy.sql import text
+
 from config import ASSETS_BASE_PATH
 from logger.logger import log
-from sqlalchemy.sql import text
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.

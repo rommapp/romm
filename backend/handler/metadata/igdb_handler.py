@@ -3,6 +3,8 @@ from typing import Final, NotRequired, TypedDict
 
 import httpx
 import pydash
+from fastapi import status
+
 from adapters.services.igdb import IGDBService
 from adapters.services.igdb_types import (
     Game,
@@ -11,7 +13,6 @@ from adapters.services.igdb_types import (
     mark_list_expanded,
 )
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
-from fastapi import status
 from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.context import ctx_httpx_client

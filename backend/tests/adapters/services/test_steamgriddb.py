@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
+from fastapi import HTTPException, status
+
 from adapters.services.steamgriddb import (
     SteamGridDBService,
     auth_middleware,
@@ -16,7 +18,6 @@ from adapters.services.steamgriddb_types import (
     SGDBTag,
     SGDBType,
 )
-from fastapi import HTTPException, status
 
 INVALID_GAME_ID = 999999
 

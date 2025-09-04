@@ -7,6 +7,8 @@ from typing import Literal, cast
 import aiohttp
 import aiohttp.client_exceptions
 import yarl
+from aiohttp.client import ClientTimeout
+
 from adapters.services.steamgriddb_types import (
     SGDBDimension,
     SGDBGame,
@@ -17,7 +19,6 @@ from adapters.services.steamgriddb_types import (
     SGDBTag,
     SGDBType,
 )
-from aiohttp.client import ClientTimeout
 from config import STEAMGRIDDB_API_KEY
 from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
 from logger.logger import log
