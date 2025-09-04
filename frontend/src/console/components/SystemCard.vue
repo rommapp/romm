@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, useTemplateRef } from "vue";
+import FallbackSystemCard from "@/console/components/FallbackSystemCard.vue";
 import { systemElementRegistry } from "@/console/composables/useElementRegistry";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
 import { getPlatformTheme } from "@/console/constants/platforms";
@@ -25,7 +26,6 @@ const theme = computed(() => {
   if (platformTheme) {
     return {
       name: platformTheme.label,
-      shortName: platformTheme.shortName || platformTheme.label,
       image: getSystemImagePath(props.platform.slug).value,
       background: platformTheme.background,
       accent: platformTheme.accent,
@@ -34,7 +34,6 @@ const theme = computed(() => {
 
   return {
     name: props.platform.name,
-    shortName: props.platform.name,
     image: undefined,
     background: "var(--console-system-card-bg-fallback)",
     accent: "var(--console-system-accent-fallback)",
@@ -69,32 +68,10 @@ const theme = computed(() => {
         class="w-full h-full object-cover"
       >
         <template #error>
-          <div
-            class="absolute inset-0 flex flex-col items-center justify-center"
-          >
-            <div class="text-2xl mb-2">🎮</div>
-            <div
-              class="font-bold text-center"
-              :style="{ color: 'var(--console-system-card-text)' }"
-            >
-              {{ theme.shortName }}
-            </div>
-          </div>
+          <fallback-system-card :platform-name="platform.name" />
         </template>
       </v-img>
-      <div
-        v-else
-        class="absolute inset-0 flex flex-col items-center justify-center"
-        :style="{ background: 'var(--system-bg)' }"
-      >
-        <div class="text-2xl mb-2">🎮</div>
-        <div
-          class="font-bold text-center"
-          :style="{ color: 'var(--console-system-card-text)' }"
-        >
-          {{ theme.shortName }}
-        </div>
-      </div>
+      <fallback-system-card v-else :platform-name="platform.name" />
     </div>
     <div
       class="absolute inset-0 opacity-0 pointer-events-none"
