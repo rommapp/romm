@@ -31,18 +31,21 @@ const isEmulationSupported = computed(() => {
   );
 });
 
-function goToPlayer(rom: SimpleRom) {
+async function goToPlayer(rom: SimpleRom) {
   if (
     isEJSEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
   ) {
-    router.push({
+    await router.push({
       name: ROUTES.EMULATORJS,
       params: { rom: rom.id },
     });
+    // Force full reload to retrieve COEP/COOP headers from nginx, needed to enable multi-threading
+    // in EmulatorJS.
+    router.go(0);
   } else if (
     isRuffleEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
   ) {
-    router.push({
+    await router.push({
       name: ROUTES.RUFFLE,
       params: { rom: rom.id },
     });
