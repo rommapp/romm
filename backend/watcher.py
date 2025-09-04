@@ -8,8 +8,6 @@ from typing import cast
 import sentry_sdk
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
-    HASHEOUS_API_ENABLED,
-    LAUNCHBOX_API_ENABLED,
     LIBRARY_BASE_PATH,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
     SCAN_TIMEOUT,
@@ -18,11 +16,15 @@ from config import (
 from config.config_manager import config_manager as cm
 from endpoints.sockets.scan import scan_platforms
 from handler.database import db_platform_handler
-from handler.metadata.igdb_handler import IGDB_API_ENABLED
-from handler.metadata.moby_handler import MOBY_API_ENABLED
-from handler.metadata.ra_handler import RA_API_ENABLED
-from handler.metadata.sgdb_handler import STEAMGRIDDB_API_ENABLED
-from handler.metadata.ss_handler import SS_API_ENABLED
+from handler.metadata import (
+    meta_hasheous_handler,
+    meta_igdb_handler,
+    meta_launchbox_handler,
+    meta_moby_handler,
+    meta_ra_handler,
+    meta_sgdb_handler,
+    meta_ss_handler,
+)
 from handler.scan_handler import MetadataSource, ScanType
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
@@ -96,13 +98,13 @@ def process_changes(changes: Sequence[Change]) -> None:
 
         # Check whether any metadata source is enabled.
         source_mapping: dict[str, bool] = {
-            MetadataSource.IGDB: IGDB_API_ENABLED,
-            MetadataSource.SS: SS_API_ENABLED,
-            MetadataSource.MOBY: MOBY_API_ENABLED,
-            MetadataSource.RA: RA_API_ENABLED,
-            MetadataSource.LB: LAUNCHBOX_API_ENABLED,
-            MetadataSource.HASHEOUS: HASHEOUS_API_ENABLED,
-            MetadataSource.SGDB: STEAMGRIDDB_API_ENABLED,
+            MetadataSource.IGDB: meta_igdb_handler.is_enabled(),
+            MetadataSource.SS: meta_ss_handler.is_enabled(),
+            MetadataSource.MOBY: meta_moby_handler.is_enabled(),
+            MetadataSource.RA: meta_ra_handler.is_enabled(),
+            MetadataSource.LB: meta_launchbox_handler.is_enabled(),
+            MetadataSource.HASHEOUS: meta_hasheous_handler.is_enabled(),
+            MetadataSource.SGDB: meta_sgdb_handler.is_enabled(),
         }
         metadata_sources = [source for source, flag in source_mapping.items() if flag]
         if not metadata_sources:

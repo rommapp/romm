@@ -123,6 +123,11 @@ class HasheousHandler(MetadataHandler):
             else "JNoFBA-jEh4HbxuxEHM6MVzydKoAXs9eCcp2dvcg5LRCnpp312voiWmjuaIssSzS"
         )
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        """Return whether this metadata handler is enabled."""
+        return HASHEOUS_API_ENABLED
+
     async def _request(
         self,
         url: str,
@@ -213,7 +218,7 @@ class HasheousHandler(MetadataHandler):
             hasheous_id=None, igdb_id=None, tgdb_id=None, ra_id=None
         )
 
-        if not HASHEOUS_API_ENABLED:
+        if not self.is_enabled():
             return fallback_rom
 
         filtered_files = [
@@ -314,7 +319,7 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def get_igdb_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
-        if not HASHEOUS_API_ENABLED:
+        if not self.is_enabled():
             return hasheous_rom
 
         igdb_id = hasheous_rom.get("igdb_id", None)
@@ -358,7 +363,7 @@ class HasheousHandler(MetadataHandler):
         )
 
     async def get_ra_game(self, hasheous_rom: HasheousRom) -> HasheousRom:
-        if not HASHEOUS_API_ENABLED:
+        if not self.is_enabled():
             return hasheous_rom
 
         ra_id = hasheous_rom.get("ra_id", None)
