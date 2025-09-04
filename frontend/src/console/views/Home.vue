@@ -11,7 +11,6 @@ import {
 import { useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
 import type { SmartCollectionSchema } from "@/__generated__/models/SmartCollectionSchema";
 import type { VirtualCollectionSchema } from "@/__generated__/models/VirtualCollectionSchema";
 import RIsotipo from "@/components/common/RIsotipo.vue";
@@ -28,6 +27,7 @@ import {
 } from "@/console/composables/useElementRegistry";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useRovingDom } from "@/console/composables/useRovingDom";
+import { useSelectedGameBackground } from "@/console/composables/useSelectedGameBackground";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { isSupportedPlatform } from "@/console/constants/platforms";
 import type { InputAction } from "@/console/input/actions";
@@ -37,16 +37,18 @@ import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import consoleStore from "@/stores/console";
+import type { SimpleRom } from "@/stores/roms";
 
 const router = useRouter();
 const collectionsStore = storeCollections();
 const storeConsole = consoleStore();
 const { navigationMode } = storeToRefs(storeConsole);
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
+const { setSelectedGame, clearSelectedGame } = useSelectedGameBackground();
 const { subscribe } = useInputScope();
 
 const platforms = ref<PlatformSchema[]>([]);
-const recentRoms = ref<SimpleRomSchema[]>([]);
+const recentRoms = ref<SimpleRom[]>([]);
 const collections = ref<CollectionSchema[]>([]);
 const smartCollections = ref<SmartCollectionSchema[]>([]);
 const virtualCollections = ref<VirtualCollectionSchema[]>([]);
@@ -439,12 +441,20 @@ function goPlatform(platformId: number) {
   router.push({ name: ROUTES.CONSOLE_PLATFORM, params: { id: platformId } });
 }
 
-function goGame(game: SimpleRomSchema) {
+function goGame(game: SimpleRom) {
   router.push({
     name: ROUTES.CONSOLE_ROM,
     params: { rom: game.id },
     query: { id: game.platform_id },
   });
+}
+
+function handleGameSelect(rom: SimpleRom) {
+  setSelectedGame(rom);
+}
+
+function handleGameDeselect() {
+  clearSelectedGame();
 }
 
 function goCollection(collectionId: number) {
@@ -832,6 +842,8 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goGame(g)"
                   @focus="recentIndex = i"
+                  @select="handleGameSelect"
+                  @deselect="handleGameDeselect"
                 />
               </div>
             </div>
