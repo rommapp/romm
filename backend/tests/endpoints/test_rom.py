@@ -3,9 +3,10 @@ from unittest.mock import patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from main import app
+
 from handler.filesystem.roms_handler import FSRomsHandler
 from handler.metadata.igdb_handler import IGDBHandler, IGDBRom
-from main import app
 
 
 @pytest.fixture

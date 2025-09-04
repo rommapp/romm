@@ -5,11 +5,12 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import pydash
+from unidecode import unidecode as uc
+
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
-from unidecode import unidecode as uc
 
 from .base_hander import (
     PS2_OPL_REGEX,

@@ -6,6 +6,9 @@ from typing import cast
 
 import aiohttp
 import yarl
+from aiohttp.client import ClientTimeout
+from fastapi import HTTPException, status
+
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
     RAGameInfoAndUserProgress,
@@ -13,9 +16,7 @@ from adapters.services.retroachievements_types import (
     RAUserCompletionProgress,
     RAUserCompletionProgressResult,
 )
-from aiohttp.client import ClientTimeout
 from config import RETROACHIEVEMENTS_API_KEY
-from fastapi import HTTPException, status
 from logger.logger import log
 from utils.context import ctx_aiohttp_session
 

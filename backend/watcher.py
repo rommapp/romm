@@ -6,6 +6,9 @@ from datetime import timedelta
 from typing import cast
 
 import sentry_sdk
+from opentelemetry import trace
+from rq.job import Job
+
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     LIBRARY_BASE_PATH,
@@ -29,8 +32,6 @@ from handler.scan_handler import MetadataSource, ScanType
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
-from opentelemetry import trace
-from rq.job import Job
 from tasks.tasks import tasks_scheduler
 from utils import get_version
 

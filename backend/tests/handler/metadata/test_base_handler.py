@@ -3,6 +3,7 @@ import re
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from handler.metadata.base_hander import (
     LEADING_ARTICLE_PATTERN,
     MAME_XML_KEY,

@@ -3,12 +3,13 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
-from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from fastapi import status
+from PIL import Image, ImageFile, UnidentifiedImageError
+
+from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
-from PIL import Image, ImageFile, UnidentifiedImageError
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 

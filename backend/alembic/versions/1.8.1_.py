@@ -8,6 +8,7 @@ Create Date: 2023-04-17 12:03:19.163501
 
 import sqlalchemy as sa
 from alembic import op
+
 from utils.database import CustomJSON, is_postgresql
 
 # revision identifiers, used by Alembic.

@@ -1,4 +1,5 @@
 import socketio  # type: ignore
+
 from config import REDIS_URL
 from utils import json as json_module
 

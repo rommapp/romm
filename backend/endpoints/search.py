@@ -1,9 +1,10 @@
 import asyncio
 
+from fastapi import HTTPException, Request, status
+
 from decorators.auth import protected_route
 from endpoints.responses.search import SearchCoverSchema, SearchRomSchema
 from exceptions.endpoint_exceptions import SGDBInvalidAPIKeyException
-from fastapi import HTTPException, Request, status
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler
 from handler.metadata import (

@@ -1,5 +1,8 @@
 import alembic.config
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from config.config_manager import ConfigManager
 from handler.auth import auth_handler
 from handler.database import (
@@ -14,8 +17,6 @@ from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
 from models.user import Role, User
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 engine = create_engine(ConfigManager.get_db_engine(), pool_pre_ping=True)
 session = sessionmaker(bind=engine, expire_on_commit=False)

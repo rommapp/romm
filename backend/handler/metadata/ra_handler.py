@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import NotRequired, TypedDict
 
 import pydash
+
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,

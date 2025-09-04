@@ -1,9 +1,10 @@
-from config import KIOSK_MODE
 from fastapi.security.http import HTTPBasic
-from handler.auth import auth_handler, oauth_handler
-from models.user import User
 from starlette.authentication import AuthCredentials, AuthenticationBackend
 from starlette.requests import HTTPConnection
+
+from config import KIOSK_MODE
+from handler.auth import auth_handler, oauth_handler
+from models.user import User
 
 from .constants import READ_SCOPES
 

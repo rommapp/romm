@@ -5,13 +5,6 @@ from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from config import FRONTEND_RESOURCES_PATH
-from models.base import (
-    FILE_EXTENSION_MAX_LENGTH,
-    FILE_NAME_MAX_LENGTH,
-    FILE_PATH_MAX_LENGTH,
-    BaseModel,
-)
 from sqlalchemy import (
     TIMESTAMP,
     BigInteger,
@@ -24,6 +17,14 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from config import FRONTEND_RESOURCES_PATH
+from models.base import (
+    FILE_EXTENSION_MAX_LENGTH,
+    FILE_NAME_MAX_LENGTH,
+    FILE_PATH_MAX_LENGTH,
+    BaseModel,
+)
 from utils.database import CustomJSON
 
 if TYPE_CHECKING:
