@@ -17,28 +17,30 @@ const { config } = storeToRefs(configStore);
 const { value: heartbeat } = storeToRefs(heartbeatStore);
 
 const isEmulationSupported = computed(() => {
-  const platformSlug = props.rom.platform_slug;
-  const heartbeatValue = heartbeat.value;
-  const configValue = config.value;
-
   return (
-    isEJSEmulationSupported(platformSlug, heartbeatValue, configValue) ||
-    isRuffleEmulationSupported(platformSlug, heartbeatValue, configValue)
+    isEJSEmulationSupported(
+      props.rom.platform_slug,
+      heartbeat.value,
+      config.value,
+    ) ||
+    isRuffleEmulationSupported(
+      props.rom.platform_slug,
+      heartbeat.value,
+      config.value,
+    )
   );
 });
 
 function goToPlayer(rom: SimpleRom) {
-  const platformSlug = rom.platform_slug;
-  const heartbeatValue = heartbeat.value;
-  const configValue = config.value;
-
-  if (isEJSEmulationSupported(platformSlug, heartbeatValue, configValue)) {
+  if (
+    isEJSEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
+  ) {
     router.push({
       name: ROUTES.EMULATORJS,
       params: { rom: rom.id },
     });
   } else if (
-    isRuffleEmulationSupported(platformSlug, heartbeatValue, configValue)
+    isRuffleEmulationSupported(rom.platform_slug, heartbeat.value, config.value)
   ) {
     router.push({
       name: ROUTES.RUFFLE,
