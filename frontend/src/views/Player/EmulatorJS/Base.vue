@@ -232,7 +232,6 @@ onBeforeUnmount(async () => {
 </script>
 
 <template>
-  <!-- TODO: hide main app bar on play if fullscreen -->
   <v-row v-if="rom" class="justify-center scroll px-2" no-gutters>
     <v-col
       v-if="gameRunning"
@@ -264,14 +263,17 @@ onBeforeUnmount(async () => {
         <v-col>
           <v-img
             class="mx-auto"
-            width="250"
-            src="/assets/emulatorjs/powered_by_emulatorjs.png"
+            width="150"
+            src="/assets/emulatorjs/emulatorjs.png"
           />
-          <v-divider class="my-4" />
-          <rom-list-item :rom="rom" with-filename with-size />
         </v-col>
       </v-row>
 
+      <v-row class="mt-12" no-gutters>
+        <v-col>
+          <rom-list-item :rom="rom" with-filename with-size />
+        </v-col>
+      </v-row>
       <v-row v-if="!gameRunning" no-gutters>
         <v-col>
           <!-- disc selector -->
