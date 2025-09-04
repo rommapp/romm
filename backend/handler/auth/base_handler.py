@@ -2,20 +2,21 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY, ROMM_BASE_URL
-from decorators.auth import oauth
-from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
 from fastapi import HTTPException, status
-from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
-from handler.redis_handler import redis_client
 from joserfc import jwt
 from joserfc.errors import BadSignatureError, DecodeError
 from joserfc.jwk import OctKey
+from passlib.context import CryptContext
+from starlette.requests import HTTPConnection
+
+from config import OIDC_ENABLED, ROMM_AUTH_SECRET_KEY, ROMM_BASE_URL
+from decorators.auth import oauth
+from exceptions.auth_exceptions import OAuthCredentialsException, UserDisabledException
+from handler.auth.constants import ALGORITHM, DEFAULT_OAUTH_TOKEN_EXPIRY, TokenPurpose
+from handler.redis_handler import redis_client
 from logger.formatter import CYAN
 from logger.formatter import highlight as hl
 from logger.logger import log
-from passlib.context import CryptContext
-from starlette.requests import HTTPConnection
 
 
 class AuthHandler:

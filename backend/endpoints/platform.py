@@ -1,13 +1,14 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
+from fastapi import Body
+from fastapi import Path as PathVar
+from fastapi import Request, status
+
 from decorators.auth import protected_route
 from endpoints.responses.platform import PlatformSchema
 from exceptions.endpoint_exceptions import PlatformNotFoundInDatabaseException
 from exceptions.fs_exceptions import PlatformAlreadyExistsException
-from fastapi import Body
-from fastapi import Path as PathVar
-from fastapi import Request, status
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler
 from handler.filesystem import fs_platform_handler

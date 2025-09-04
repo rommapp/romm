@@ -1,11 +1,12 @@
 import functools
 from collections.abc import Sequence
 
+from sqlalchemy import delete, or_, select, update
+from sqlalchemy.orm import Query, Session, selectinload
+
 from decorators.database import begin_session
 from models.platform import Platform
 from models.rom import Rom
-from sqlalchemy import delete, or_, select, update
-from sqlalchemy.orm import Query, Session, selectinload
 
 from .base_handler import DBBaseHandler
 

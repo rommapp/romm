@@ -1,10 +1,11 @@
 import logging
 import time
 
-from config import DEV_SQL_ECHO
-from config.config_manager import ConfigManager
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
+
+from config import DEV_SQL_ECHO
+from config.config_manager import ConfigManager
 
 sync_engine = create_engine(
     ConfigManager.get_db_engine(), pool_pre_ping=True, echo=False

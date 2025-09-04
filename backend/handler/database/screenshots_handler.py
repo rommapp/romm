@@ -1,11 +1,12 @@
 from collections.abc import Sequence
 from functools import partial
 
-from decorators.database import begin_session
-from models.assets import Screenshot
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Delete, Select, Update
+
+from decorators.database import begin_session
+from models.assets import Screenshot
 
 from .base_handler import DBBaseHandler
 

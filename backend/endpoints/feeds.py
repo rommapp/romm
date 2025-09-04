@@ -1,5 +1,8 @@
 from collections.abc import Sequence
 
+from fastapi import Request
+from starlette.datastructures import URLPath
+
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH, FRONTEND_RESOURCES_PATH
 from decorators.auth import protected_route
 from endpoints.responses.feeds import (
@@ -13,13 +16,11 @@ from endpoints.responses.feeds import (
     WebrcadeFeedItemSchema,
     WebrcadeFeedSchema,
 )
-from fastapi import Request
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.metadata import meta_igdb_handler
 from handler.metadata.base_hander import SWITCH_PRODUCT_ID_REGEX, SWITCH_TITLEDB_REGEX
 from models.rom import Rom
-from starlette.datastructures import URLPath
 from utils.router import APIRouter
 
 router = APIRouter(

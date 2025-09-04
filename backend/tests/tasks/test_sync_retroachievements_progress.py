@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+
 from handler.database.users_handler import DBUsersHandler
 from handler.metadata.ra_handler import RAHandler
 from tasks.scheduled.sync_retroachievements_progress import (

@@ -3,11 +3,12 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import pydash
+from unidecode import unidecode as uc
+
 from adapters.services.mobygames import MobyGamesService
 from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
-from unidecode import unidecode as uc
 
 from .base_hander import (
     PS2_OPL_REGEX,

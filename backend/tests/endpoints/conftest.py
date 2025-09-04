@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+
 from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 from handler.auth import oauth_handler
 
