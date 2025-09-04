@@ -44,8 +44,6 @@ watch(
   (isSelected) => {
     if (isSelected && coverSrc.value) {
       emit("select", props.rom);
-    } else if (!isSelected) {
-      emit("deselect");
     }
   },
   { immediate: true },

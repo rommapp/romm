@@ -457,6 +457,23 @@ function handleGameDeselect() {
   clearSelectedGame();
 }
 
+// Watch for changes in recent index to handle background clearing
+watch(
+  [recentIndex, recentRoms, navigationMode],
+  ([newIndex, newRoms, mode]) => {
+    // Clear background if not in recent mode, no games, or invalid selection
+    if (
+      mode !== "recent" ||
+      newRoms.length === 0 ||
+      newIndex < 0 ||
+      newIndex >= newRoms.length
+    ) {
+      clearSelectedGame();
+    }
+  },
+  { immediate: true },
+);
+
 function goCollection(collectionId: number) {
   router.push({
     name: ROUTES.CONSOLE_COLLECTION,
@@ -843,7 +860,6 @@ onUnmounted(() => {
                   @click="goGame(g)"
                   @focus="recentIndex = i"
                   @select="handleGameSelect"
-                  @deselect="handleGameDeselect"
                 />
               </div>
             </div>
