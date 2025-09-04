@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useWindowScroll } from "@vueuse/core";
+import { useScroll } from "@vueuse/core";
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -147,7 +147,7 @@ function resetMissingRoms() {
   galleryFilterStore.resetFilters();
 }
 
-const { y: windowY } = useWindowScroll({ throttle: 500 });
+const { y: windowY } = useScroll(document.body, { throttle: 500 });
 
 watch(windowY, () => {
   clearTimeout(timeout);
