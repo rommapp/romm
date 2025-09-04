@@ -1,21 +1,24 @@
 import json
 from datetime import datetime
-from typing import NotRequired, TypedDict
+from typing import Final, NotRequired, TypedDict
 
 import pydash
 from config import LAUNCHBOX_API_ENABLED, str_to_bool
 from handler.redis_handler import async_cache
 from logger.logger import log
-from tasks.scheduled.update_launchbox_metadata import (  # LAUNCHBOX_MAME_KEY,
-    LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY,
-    LAUNCHBOX_METADATA_DATABASE_ID_KEY,
-    LAUNCHBOX_METADATA_IMAGE_KEY,
-    LAUNCHBOX_METADATA_NAME_KEY,
-    update_launchbox_metadata_task,
-)
 
 from .base_hander import BaseRom, MetadataHandler
 from .base_hander import UniversalPlatformSlug as UPS
+
+LAUNCHBOX_PLATFORMS_KEY: Final[str] = "romm:launchbox_platforms"
+LAUNCHBOX_METADATA_DATABASE_ID_KEY: Final[str] = "romm:launchbox_metadata_database_id"
+LAUNCHBOX_METADATA_NAME_KEY: Final[str] = "romm:launchbox_metadata_name"
+LAUNCHBOX_METADATA_ALTERNATE_NAME_KEY: Final[str] = (
+    "romm:launchbox_metadata_alternate_name"
+)
+LAUNCHBOX_METADATA_IMAGE_KEY: Final[str] = "romm:launchbox_metadata_image"
+LAUNCHBOX_MAME_KEY: Final[str] = "romm:launchbox_mame"
+LAUNCHBOX_FILES_KEY: Final[str] = "romm:launchbox_files"
 
 
 class LaunchboxPlatform(TypedDict):
@@ -115,11 +118,20 @@ def extract_metadata_from_launchbox_rom(
 
 
 class LaunchboxHandler(MetadataHandler):
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return LAUNCHBOX_API_ENABLED
+
     async def _get_rom_from_metadata(
         self, file_name: str, platform_slug: str
     ) -> dict | None:
         if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
             log.info("Fetching the Launchbox Metadata.xml file...")
+
+            from tasks.scheduled.update_launchbox_metadata import (
+                update_launchbox_metadata_task,
+            )
+
             await update_launchbox_metadata_task.run(force=True)
 
             if not (await async_cache.exists(LAUNCHBOX_METADATA_NAME_KEY)):
@@ -215,7 +227,7 @@ class LaunchboxHandler(MetadataHandler):
 
         fallback_rom = LaunchboxRom(launchbox_id=None)
 
-        if not LAUNCHBOX_API_ENABLED:
+        if not self.is_enabled():
             return fallback_rom
 
         # We replace " - " with ": " to match Launchbox's naming convention
@@ -254,7 +266,7 @@ class LaunchboxHandler(MetadataHandler):
         return LaunchboxRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
     async def get_rom_by_id(self, database_id: int) -> LaunchboxRom:
-        if not LAUNCHBOX_API_ENABLED:
+        if not self.is_enabled():
             return LaunchboxRom(launchbox_id=None)
 
         metadata_database_index_entry = await async_cache.hget(
@@ -281,7 +293,7 @@ class LaunchboxHandler(MetadataHandler):
         return LaunchboxRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
     async def get_matched_rom_by_id(self, database_id: int) -> LaunchboxRom | None:
-        if not LAUNCHBOX_API_ENABLED:
+        if not self.is_enabled():
             return None
 
         return await self.get_rom_by_id(database_id)

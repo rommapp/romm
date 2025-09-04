@@ -24,6 +24,12 @@ from handler.metadata.base_hander import (
 from handler.redis_handler import async_cache
 
 
+class ExampleMetadataHandler(MetadataHandler):
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return True
+
+
 class TestNormalizeSearchTerm:
     """Test the _normalize_search_term function."""
 
@@ -102,7 +108,7 @@ class TestMetadataHandlerMethods:
 
     @pytest.fixture
     def handler(self):
-        return MetadataHandler()
+        return ExampleMetadataHandler()
 
     def test_normalize_cover_url_with_url(self, handler: MetadataHandler):
         """Test URL normalization with valid URL."""
