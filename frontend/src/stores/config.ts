@@ -84,10 +84,10 @@ export default defineStore("config", {
       if (!core) {
         if (!defaultControls) return null;
         return {
-          0: defaultControls["_0"],
-          1: defaultControls["_1"],
-          2: defaultControls["_2"],
-          3: defaultControls["_3"],
+          0: defaultControls["_0"] || {},
+          1: defaultControls["_1"] || {},
+          2: defaultControls["_2"] || {},
+          3: defaultControls["_3"] || {},
         };
       }
 
@@ -95,29 +95,29 @@ export default defineStore("config", {
       if (!coreControls) return null;
       if (!defaultControls) {
         return {
-          0: coreControls["_0"],
-          1: coreControls["_1"],
-          2: coreControls["_2"],
-          3: coreControls["_3"],
+          0: coreControls["_0"] || {},
+          1: coreControls["_1"] || {},
+          2: coreControls["_2"] || {},
+          3: coreControls["_3"] || {},
         };
       }
 
       return {
         0: {
-          ...defaultControls["_0"],
-          ...coreControls["_0"],
+          ...(defaultControls["_0"] || {}),
+          ...(coreControls["_0"] || {}),
         },
         1: {
-          ...defaultControls["_1"],
-          ...coreControls["_1"],
+          ...(defaultControls["_1"] || {}),
+          ...(coreControls["_1"] || {}),
         },
         2: {
-          ...defaultControls["_2"],
-          ...coreControls["_2"],
+          ...(defaultControls["_2"] || {}),
+          ...(coreControls["_2"] || {}),
         },
         3: {
-          ...defaultControls["_3"],
-          ...coreControls["_3"],
+          ...(defaultControls["_3"] || {}),
+          ...(coreControls["_3"] || {}),
         },
       };
     },

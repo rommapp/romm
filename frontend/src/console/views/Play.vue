@@ -416,7 +416,8 @@ async function boot() {
     rewindEnabled: "enabled",
     ...coreOptions,
   };
-  window.EJS_defaultControls = configStore.getEJSControls(core);
+  const ejsControls = configStore.getEJSControls(core);
+  if (ejsControls) window.EJS_defaultControls = ejsControls;
   window.EJS_language = selectedLanguage.value.value.replace("_", "-");
   window.EJS_disableAutoLang = true;
   window.EJS_DEBUG_XX = configStore.config.EJS_DEBUG;
