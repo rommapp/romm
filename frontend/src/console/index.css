@@ -170,6 +170,7 @@ body,
       )
       center/cover fixed,
     #38286a !important;
+  backdrop-filter: blur(20px) brightness(0.3);
   min-height: 100vh;
   width: 100%;
 }

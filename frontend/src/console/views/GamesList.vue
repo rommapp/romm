@@ -9,7 +9,6 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import BackButton from "@/console/components/BackButton.vue";
 import GameCard from "@/console/components/GameCard.vue";
@@ -17,23 +16,26 @@ import NavigationHint from "@/console/components/NavigationHint.vue";
 import { gamesListElementRegistry } from "@/console/composables/useElementRegistry";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useRovingDom } from "@/console/composables/useRovingDom";
+import { useSelectedGameBackground } from "@/console/composables/useSelectedGameBackground";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import consoleStore from "@/stores/console";
+import type { SimpleRom } from "@/stores/roms";
 
 const route = useRoute();
 const router = useRouter();
 const storeConsole = consoleStore();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
+const { setSelectedGame, clearSelectedGame } = useSelectedGameBackground();
 
 const isCollectionRoute = route.name === ROUTES.CONSOLE_COLLECTION;
 const platformId = isCollectionRoute ? null : Number(route.params.id);
 const collectionId = isCollectionRoute ? Number(route.params.id) : null;
 
-const roms = ref<SimpleRomSchema[]>([]);
+const roms = ref<SimpleRom[]>([]);
 const collection = ref<CollectionSchema | null>(null);
 const loading = ref(true);
 const error = ref("");
@@ -230,7 +232,7 @@ function mouseSelect(i: number) {
   selectedIndex.value = i;
 }
 
-function selectAndOpen(i: number, rom: SimpleRomSchema) {
+function selectAndOpen(i: number, rom: SimpleRom) {
   selectedIndex.value = i;
   // Don't navigate if we're in alphabet mode
   if (inAlphabet.value) return;
@@ -320,6 +322,14 @@ onUnmounted(() => {
 function markLoaded(id: number) {
   loadedMap.value[id] = true;
 }
+
+function handleGameSelect(rom: SimpleRom) {
+  setSelectedGame(rom);
+}
+
+function handleGameDeselect() {
+  clearSelectedGame();
+}
 </script>
 
 <template>
@@ -366,6 +376,8 @@ function markLoaded(id: number) {
             @click="selectAndOpen(i, rom)"
             @focus="mouseSelect(i)"
             @loaded="markLoaded(rom.id)"
+            @select="handleGameSelect"
+            @deselect="handleGameDeselect"
           />
         </div>
       </div>

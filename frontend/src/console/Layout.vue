@@ -85,10 +85,12 @@ onUnmounted(() => {
       @contextmenu.prevent
       @dragstart.prevent
     />
-    <router-view v-slot="{ Component, route }">
-      <transition :name="getTransitionName(route)" mode="out-in" appear>
-        <component :is="Component" :key="route.path" />
-      </transition>
-    </router-view>
+    <div class="backdrop-blur-xl backdrop-brightness-0.3">
+      <router-view v-slot="{ Component, route }">
+        <transition :name="getTransitionName(route)" mode="out-in" appear>
+          <component :is="Component" :key="route.path" />
+        </transition>
+      </router-view>
+    </div>
   </div>
 </template>
