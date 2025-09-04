@@ -125,7 +125,8 @@ window.EJS_defaultOptions = {
   rewindEnabled: "enabled",
   ...coreOptions,
 };
-window.EJS_defaultControls = configStore.getEJSControls(props.core);
+const ejsControls = configStore.getEJSControls(props.core);
+if (ejsControls) window.EJS_defaultControls = ejsControls;
 // Set a valid game name
 window.EJS_gameName = romRef.value.fs_name_no_tags
   .replace(INVALID_CHARS_REGEX, "")
