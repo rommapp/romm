@@ -55,46 +55,46 @@ REDIS_URL: Final = yarl.URL.build(
 )
 
 # IGDB
-IGDB_CLIENT_ID: Final = os.environ.get(
+IGDB_CLIENT_ID: Final[str] = os.environ.get(
     "IGDB_CLIENT_ID", os.environ.get("CLIENT_ID", "")
 ).strip()
-IGDB_CLIENT_SECRET: Final = os.environ.get(
+IGDB_CLIENT_SECRET: Final[str] = os.environ.get(
     "IGDB_CLIENT_SECRET", os.environ.get("CLIENT_SECRET", "")
 ).strip()
 
 # MOBYGAMES
-MOBYGAMES_API_KEY: Final = os.environ.get("MOBYGAMES_API_KEY", "").strip()
+MOBYGAMES_API_KEY: Final[str] = os.environ.get("MOBYGAMES_API_KEY", "").strip()
 
 # SCREENSCRAPER
-SCREENSCRAPER_USER: Final = os.environ.get("SCREENSCRAPER_USER", "")
-SCREENSCRAPER_PASSWORD: Final = os.environ.get("SCREENSCRAPER_PASSWORD", "")
+SCREENSCRAPER_USER: Final[str] = os.environ.get("SCREENSCRAPER_USER", "")
+SCREENSCRAPER_PASSWORD: Final[str] = os.environ.get("SCREENSCRAPER_PASSWORD", "")
 
 # STEAMGRIDDB
-STEAMGRIDDB_API_KEY: Final = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
+STEAMGRIDDB_API_KEY: Final[str] = os.environ.get("STEAMGRIDDB_API_KEY", "").strip()
 
 # RETROACHIEVEMENTS
-RETROACHIEVEMENTS_API_KEY: Final = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
-REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final = int(
+RETROACHIEVEMENTS_API_KEY: Final[str] = os.environ.get("RETROACHIEVEMENTS_API_KEY", "")
+REFRESH_RETROACHIEVEMENTS_CACHE_DAYS: Final[int] = int(
     os.environ.get("REFRESH_RETROACHIEVEMENTS_CACHE_DAYS", 30)
 )
 
 # LAUNCHBOX
-LAUNCHBOX_API_ENABLED: Final = str_to_bool(
+LAUNCHBOX_API_ENABLED: Final[bool] = str_to_bool(
     os.environ.get("LAUNCHBOX_API_ENABLED", "false")
 )
 
 # PLAYMATCH
-PLAYMATCH_API_ENABLED: Final = str_to_bool(
+PLAYMATCH_API_ENABLED: Final[bool] = str_to_bool(
     os.environ.get("PLAYMATCH_API_ENABLED", "false")
 )
 
 # HASHEOUS
-HASHEOUS_API_ENABLED: Final = str_to_bool(
+HASHEOUS_API_ENABLED: Final[bool] = str_to_bool(
     os.environ.get("HASHEOUS_API_ENABLED", "false")
 )
 
 # THEGAMESDB
-TGDB_API_ENABLED: Final = str_to_bool(os.environ.get("TGDB_API_ENABLED", "false"))
+TGDB_API_ENABLED: Final[bool] = str_to_bool(os.environ.get("TGDB_API_ENABLED", "false"))
 
 # AUTH
 ROMM_AUTH_SECRET_KEY: Final = os.environ.get("ROMM_AUTH_SECRET_KEY")

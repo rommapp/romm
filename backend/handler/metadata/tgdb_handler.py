@@ -1,5 +1,7 @@
 from typing import NotRequired, TypedDict
 
+from config import TGDB_API_ENABLED
+
 from .base_hander import MetadataHandler
 from .base_hander import UniversalPlatformSlug as UPS
 
@@ -21,6 +23,10 @@ class TGDBHandler(MetadataHandler):
         self.BASE_URL = "https://api.thegamesdb.net/v1"
         self.platform_endpoint = f"{self.BASE_URL}/Lookup/Platforms"
         self.games_endpoint = f"{self.BASE_URL}/Lookup/ByHash"
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return TGDB_API_ENABLED
 
     def get_platform(self, slug: str) -> TGDBPlatform:
         if slug not in TGDB_PLATFORM_LIST:
