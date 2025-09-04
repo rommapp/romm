@@ -165,7 +165,7 @@ onUnmounted(() => {
           }"
         >
           <game-card
-            :key="rom.updated_at"
+            :key="rom.id"
             :rom="rom"
             titleOnHover
             pointerOnHover

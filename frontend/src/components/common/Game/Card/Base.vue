@@ -137,8 +137,9 @@ interface TiltHTMLElement extends HTMLElement {
 
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
-const isWebpEnabled =
-  heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP;
+const isWebpEnabled = computed(
+  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+);
 
 const largeCover = computed(() => {
   if (!romsStore.isSimpleRom(props.rom))
@@ -147,7 +148,7 @@ const largeCover = computed(() => {
       props.rom.moby_url_cover ||
       props.rom.ss_url_cover
     );
-  const pathCoverLarge = isWebpEnabled
+  const pathCoverLarge = isWebpEnabled.value
     ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_large;
   return pathCoverLarge || "";
@@ -155,7 +156,7 @@ const largeCover = computed(() => {
 
 const smallCover = computed(() => {
   if (!romsStore.isSimpleRom(props.rom)) return "";
-  const pathCoverSmall = isWebpEnabled
+  const pathCoverSmall = isWebpEnabled.value
     ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_small;
   return pathCoverSmall || "";
@@ -237,7 +238,7 @@ onBeforeUnmount(() => {
               cover
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
-              :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
+              :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
               :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
             >

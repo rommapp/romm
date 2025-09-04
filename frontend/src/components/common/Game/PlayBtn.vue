@@ -48,8 +48,6 @@ function goToPlayer(rom: SimpleRom) {
     });
   }
 }
-
-defineExpose({ isEmulationSupported });
 </script>
 
 <template>
