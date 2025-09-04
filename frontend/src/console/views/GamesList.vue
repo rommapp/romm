@@ -6,6 +6,7 @@ import {
   ref,
   nextTick,
   useTemplateRef,
+  watch,
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
@@ -330,6 +331,18 @@ function handleGameSelect(rom: SimpleRom) {
 function handleGameDeselect() {
   clearSelectedGame();
 }
+
+// Watch for changes in selected index to handle background clearing
+watch(
+  [selectedIndex, roms],
+  ([newIndex, newRoms]) => {
+    // Clear background if no games or invalid selection
+    if (newRoms.length === 0 || newIndex < 0 || newIndex >= newRoms.length) {
+      clearSelectedGame();
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -377,7 +390,6 @@ function handleGameDeselect() {
             @focus="mouseSelect(i)"
             @loaded="markLoaded(rom.id)"
             @select="handleGameSelect"
-            @deselect="handleGameDeselect"
           />
         </div>
       </div>

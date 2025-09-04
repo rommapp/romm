@@ -170,7 +170,6 @@ body,
       )
       center/cover fixed,
     #38286a !important;
-  backdrop-filter: blur(20px) brightness(0.3);
   min-height: 100vh;
   width: 100%;
 }
@@ -181,6 +180,7 @@ body,
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  backdrop-filter: blur(20px) brightness(0.8);
 }
 
 .console-root > * {
