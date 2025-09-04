@@ -2,6 +2,7 @@ import logging
 from pprint import pformat
 
 from colorama import Fore, Style, init
+
 from config import FORCE_COLOR, NO_COLOR
 
 RED = Fore.RED

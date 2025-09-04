@@ -4,6 +4,9 @@ from typing import Final, NotRequired, TypedDict
 
 import pydash
 import yaml
+from sqlalchemy import URL
+from yaml.loader import SafeLoader
+
 from config import (
     DB_HOST,
     DB_NAME,
@@ -22,8 +25,6 @@ from exceptions.config_exceptions import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from sqlalchemy import URL
-from yaml.loader import SafeLoader
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"

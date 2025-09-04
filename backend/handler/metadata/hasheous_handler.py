@@ -4,8 +4,9 @@ from typing import Any, NotRequired, TypedDict
 
 import httpx
 import pydash
-from config import DEV_MODE, HASHEOUS_API_ENABLED
 from fastapi import HTTPException, status
+
+from config import DEV_MODE, HASHEOUS_API_ENABLED
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version

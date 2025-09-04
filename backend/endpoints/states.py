@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 
+from fastapi import HTTPException, Request, UploadFile, status
+
 from decorators.auth import protected_route
 from endpoints.responses.assets import StateSchema
 from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from fastapi import HTTPException, Request, UploadFile, status
 from handler.auth.constants import Scope
 from handler.database import db_rom_handler, db_screenshot_handler, db_state_handler
 from handler.filesystem import fs_asset_handler

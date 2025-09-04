@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import anyio
 import pytest
+
 from handler.metadata.launchbox_handler import (
     LAUNCHBOX_FILES_KEY,
     LAUNCHBOX_MAME_KEY,

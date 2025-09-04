@@ -1,10 +1,11 @@
 from collections.abc import Sequence
 
-from decorators.database import begin_session
-from models.user import Role, User
 from sqlalchemy import and_, delete, func, not_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Delete, Select, Update
+
+from decorators.database import begin_session
+from models.user import Role, User
 
 from .base_handler import DBBaseHandler
 

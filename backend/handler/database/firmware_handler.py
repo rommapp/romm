@@ -1,9 +1,10 @@
 from collections.abc import Sequence
 
-from decorators.database import begin_session
-from models.firmware import Firmware
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.orm import Session
+
+from decorators.database import begin_session
+from models.firmware import Firmware
 
 from .base_handler import DBBaseHandler
 

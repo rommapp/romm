@@ -8,6 +8,7 @@ Create Date: 2025-08-22 04:42:22.367888
 
 import sqlalchemy as sa
 from alembic import op
+
 from models.firmware import Firmware
 from utils.database import is_postgresql
 

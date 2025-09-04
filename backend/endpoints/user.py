@@ -1,11 +1,12 @@
 from typing import Annotated, Any, cast
 
-from decorators.auth import protected_route
-from endpoints.forms.identity import UserForm
-from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from fastapi import Body, Form, HTTPException
 from fastapi import Path as PathVar
 from fastapi import Request, status
+
+from decorators.auth import protected_route
+from endpoints.forms.identity import UserForm
+from endpoints.responses.identity import InviteLinkSchema, UserSchema
 from handler.auth import auth_handler
 from handler.auth.constants import Scope
 from handler.database import db_user_handler

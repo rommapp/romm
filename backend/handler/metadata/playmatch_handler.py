@@ -4,8 +4,9 @@ from typing import NotRequired, TypedDict
 
 import httpx
 import yarl
-from config import PLAYMATCH_API_ENABLED
 from fastapi import HTTPException, status
+
+from config import PLAYMATCH_API_ENABLED
 from handler.metadata.base_hander import MetadataHandler
 from logger.logger import log
 from models.rom import RomFile

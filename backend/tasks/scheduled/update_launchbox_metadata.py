@@ -3,11 +3,12 @@ import zipfile
 from io import BytesIO
 from typing import Any
 
+from defusedxml import ElementTree as ET
+
 from config import (
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA,
     SCHEDULED_UPDATE_LAUNCHBOX_METADATA_CRON,
 )
-from defusedxml import ElementTree as ET
 from handler.metadata import meta_launchbox_handler
 from handler.metadata.launchbox_handler import (
     LAUNCHBOX_FILES_KEY,

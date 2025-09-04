@@ -4,13 +4,14 @@ from http import HTTPStatus
 from unittest import mock
 
 import pytest
-from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
 from fastapi import status
 from fastapi.testclient import TestClient
+from main import app
+
+from endpoints.auth import ACCESS_TOKEN_EXPIRE_MINUTES
 from handler.auth import oauth_handler
 from handler.database.users_handler import DBUsersHandler
 from handler.redis_handler import sync_cache
-from main import app
 from models.user import Role
 
 

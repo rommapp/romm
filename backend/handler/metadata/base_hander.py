@@ -7,9 +7,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Final, NotRequired, TypedDict
 
+from strsimpy.jaro_winkler import JaroWinkler
+
 from handler.redis_handler import async_cache
 from logger.logger import log
-from strsimpy.jaro_winkler import JaroWinkler
 from tasks.scheduled.update_switch_titledb import (
     SWITCH_PRODUCT_ID_KEY,
     SWITCH_TITLEDB_INDEX_KEY,
