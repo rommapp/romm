@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useLocalStorage, useWindowScroll } from "@vueuse/core";
+import { useLocalStorage, useScroll } from "@vueuse/core";
 import { ref, watch } from "vue";
 import CollectionCard from "@/components/common/Collection/Card.vue";
 import RSection from "@/components/common/RSection.vue";
@@ -30,12 +30,12 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
   hoveringCollectionId.value = emitData.id;
 }
 
-const { y: windowY } = useWindowScroll({ throttle: 100 });
+const { y: documentY } = useScroll(document.body, { throttle: 100 });
 
 // Watch for scroll changes and trigger the throttled function
-watch(windowY, () => {
+watch(documentY, () => {
   if (
-    window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
+    window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
     visibleCollections.value < props.collections.length
   ) {
     visibleCollections.value += 72;

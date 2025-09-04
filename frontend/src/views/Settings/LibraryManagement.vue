@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useWindowScroll } from "@vueuse/core";
+import { useScroll } from "@vueuse/core";
 import { debounce } from "lodash";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
@@ -147,15 +147,15 @@ function resetMissingRoms() {
   galleryFilterStore.resetFilters();
 }
 
-const { y: windowY } = useWindowScroll({ throttle: 500 });
+const { y: documentY } = useScroll(document.body, { throttle: 500 });
 
-watch(windowY, () => {
+watch(documentY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = windowY.value === 0;
+    scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
+      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > filteredRoms.value.length
     ) {
       await fetchRoms();
