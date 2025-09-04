@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watchEffect, useTemplateRef } from "vue";
-import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import { collectionElementRegistry } from "@/console/composables/useElementRegistry";
-import { getFavoriteCoverImage } from "@/utils/covers";
+import type { CollectionType } from "@/stores/collections";
+import storeHeartbeat from "@/stores/heartbeat";
+import { getCollectionCoverImage, getFavoriteCoverImage } from "@/utils/covers";
+
+const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 
 const props = defineProps<{
-  collection: CollectionSchema;
+  collection: CollectionType;
   index: number;
   selected?: boolean;
   loaded?: boolean;
@@ -15,43 +18,72 @@ const collectionCardRef = useTemplateRef<HTMLButtonElement>(
   "collection-card-ref",
 );
 
-const isFavorite = computed(() => props.collection.is_favorite);
-const coverSrc = computed(
-  () =>
-    props.collection.path_cover_large ||
-    props.collection.path_cover_small ||
-    props.collection.url_cover ||
-    "",
+const heartbeatStore = storeHeartbeat();
+
+const memoizedCovers = ref({
+  large: ["", ""],
+  small: ["", ""],
+});
+
+const collectionCoverImage = computed(() =>
+  props.collection.name?.toLowerCase() == "favourites"
+    ? getFavoriteCoverImage(props.collection.name)
+    : getCollectionCoverImage(props.collection.name),
 );
 
-// Composite favourite logic (two diagonally split images)
-const firstCover = ref("");
-const secondCover = ref("");
-const compositeReady = ref(false);
-
 watchEffect(() => {
-  if (!isFavorite.value) {
-    compositeReady.value = false;
+  // Check if it's a regular collection with covers or a smart collection with covers
+  const isRegularOrSmartWithCovers =
+    !props.collection.is_virtual &&
+    props.collection.path_cover_large &&
+    props.collection.path_cover_small;
+
+  const isWebpEnabled =
+    heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP;
+  const pathCoverLarge = isWebpEnabled
+    ? props.collection.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
+    : props.collection.path_cover_large;
+  const pathCoverSmall = isWebpEnabled
+    ? props.collection.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
+    : props.collection.path_cover_small;
+
+  if (isRegularOrSmartWithCovers) {
+    memoizedCovers.value = {
+      large: [pathCoverLarge || "", pathCoverLarge || ""],
+      small: [pathCoverSmall || "", pathCoverSmall || ""],
+    };
     return;
   }
-  const large = props.collection.path_covers_large || [];
-  const small = props.collection.path_covers_small || [];
-  // Choose source list preferring large
-  const source = large.length ? large : small;
-  if (source.length >= 2) {
-    const shuffled = [...source].sort(() => Math.random() - 0.5);
-    firstCover.value = shuffled[0];
-    secondCover.value = shuffled[1];
-  } else if (source.length === 1) {
-    firstCover.value = source[0];
-    secondCover.value = getFavoriteCoverImage(props.collection.name);
-  } else {
-    const gen = getFavoriteCoverImage(props.collection.name);
-    firstCover.value = gen;
-    secondCover.value = gen;
+
+  // Handle virtual collections which have plural covers arrays
+  const largeCoverUrls = props.collection.path_covers_large.map((url) =>
+    isWebpEnabled ? url.replace(EXTENSION_REGEX, ".webp") : url,
+  );
+  const smallCoverUrls = props.collection.path_covers_small.map((url) =>
+    isWebpEnabled ? url.replace(EXTENSION_REGEX, ".webp") : url,
+  );
+
+  if (largeCoverUrls.length < 2) {
+    memoizedCovers.value = {
+      large: [collectionCoverImage.value, collectionCoverImage.value],
+      small: [collectionCoverImage.value, collectionCoverImage.value],
+    };
+    return;
   }
-  compositeReady.value = true;
+
+  const shuffledLarge = [...largeCoverUrls].sort(() => Math.random() - 0.5);
+  const shuffledSmall = [...smallCoverUrls].sort(() => Math.random() - 0.5);
+
+  memoizedCovers.value = {
+    large: [shuffledLarge[0], shuffledLarge[1]],
+    small: [shuffledSmall[0], shuffledSmall[1]],
+  };
 });
+
+const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
+const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
+const firstSmallCover = computed(() => memoizedCovers.value.small[0]);
+const secondSmallCover = computed(() => memoizedCovers.value.small[1]);
 
 onMounted(() => {
   if (!collectionCardRef.value) return;
@@ -78,35 +110,45 @@ onMounted(() => {
         class="w-full h-[350px] relative overflow-hidden rounded"
         :style="{ backgroundColor: 'var(--console-collection-card-bg)' }"
       >
-        <!-- Favourite composite cover -->
-        <template v-if="isFavorite && compositeReady">
+        <!-- Split cover display for virtual collections or collections without single covers -->
+        <template
+          v-if="
+            collection.is_virtual ||
+            !collection.path_cover_large ||
+            !collection.path_cover_small
+          "
+        >
           <div class="absolute inset-0">
             <img
               class="absolute inset-0 w-full h-full object-cover [clip-path:polygon(0_0,100%_0,0_100%,0_100%)]"
-              :src="firstCover"
+              :src="firstLargeCover"
               :alt="collection.name + ' cover 1'"
               loading="lazy"
+              @load="emit('loaded')"
+              @error="emit('loaded')"
             />
             <img
               class="absolute inset-0 w-full h-full object-cover [clip-path:polygon(0_100%,100%_0,100%_100%)]"
-              :src="secondCover"
+              :src="secondLargeCover"
               :alt="collection.name + ' cover 2'"
               loading="lazy"
+              @load="emit('loaded')"
+              @error="emit('loaded')"
             />
           </div>
         </template>
-        <!-- Standard single cover -->
+        <!-- Standard single cover for regular/smart collections -->
         <img
-          v-else-if="coverSrc"
+          v-else
           class="w-full h-full object-cover"
-          :src="coverSrc"
+          :src="firstLargeCover"
           :alt="collection.name"
           @load="emit('loaded')"
           @error="emit('loaded')"
         />
         <!-- Fallback (no cover) -->
         <div
-          v-else
+          v-if="!firstLargeCover && !secondLargeCover"
           class="w-full h-full flex items-center justify-center"
           :style="{ background: 'var(--console-collection-card-bg-fallback)' }"
         >

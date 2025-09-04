@@ -37,6 +37,8 @@ export const ROUTES = {
   CONSOLE_HOME: "console-home",
   CONSOLE_PLATFORM: "console-platform",
   CONSOLE_COLLECTION: "console-collection",
+  CONSOLE_SMART_COLLECTION: "console-smart-collection",
+  CONSOLE_VIRTUAL_COLLECTION: "console-virtual-collection",
   CONSOLE_ROM: "console-rom",
   CONSOLE_PLAY: "console-play",
 } as const;
@@ -247,6 +249,16 @@ const routes = [
       {
         path: "collection/:id",
         name: ROUTES.CONSOLE_COLLECTION,
+        component: () => import("@/console/views/GamesList.vue"),
+      },
+      {
+        path: "collection/smart/:id",
+        name: ROUTES.CONSOLE_SMART_COLLECTION,
+        component: () => import("@/console/views/GamesList.vue"),
+      },
+      {
+        path: "collection/virtual/:id",
+        name: ROUTES.CONSOLE_VIRTUAL_COLLECTION,
         component: () => import("@/console/views/GamesList.vue"),
       },
       {
