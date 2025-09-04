@@ -27,4 +27,6 @@ export function useElementRegistry() {
 export const systemElementRegistry = useElementRegistry();
 export const recentElementRegistry = useElementRegistry();
 export const collectionElementRegistry = useElementRegistry();
+export const smartCollectionElementRegistry = useElementRegistry();
+export const virtualCollectionElementRegistry = useElementRegistry();
 export const gamesListElementRegistry = useElementRegistry();
