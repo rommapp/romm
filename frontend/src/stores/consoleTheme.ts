@@ -69,5 +69,6 @@ export const useConsoleTheme = defineStore("consoleTheme", () => {
     themeDisplayName,
     setTheme,
     initializeTheme,
+    updateBackgroundCSS,
   };
 });
