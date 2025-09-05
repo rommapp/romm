@@ -29,10 +29,8 @@ emitter?.on("showCreateCollectionDialog", () => {
   show.value = true;
   removeCover.value = false;
 });
-emitter?.on("updateUrlCover", (url_cover) => {
-  if (!collection.value) return;
-  collection.value.url_cover = url_cover;
-  setArtwork(url_cover);
+emitter?.on("updateUrlCover", (coverUrl) => {
+  setArtwork(coverUrl);
 });
 
 const missingCoverImage = computed(() =>
@@ -57,9 +55,10 @@ function previewImage(event: Event) {
   }
 }
 
-function setArtwork(imageUrl: string) {
-  if (!imageUrl) return;
-  imagePreviewUrl.value = imageUrl;
+function setArtwork(coverUrl: string) {
+  if (!coverUrl || !collection.value) return;
+  collection.value.url_cover = coverUrl;
+  imagePreviewUrl.value = coverUrl;
   removeCover.value = false;
 }
 
@@ -165,7 +164,7 @@ function closeDialog() {
                 :show-title="false"
                 :with-link="false"
                 :collection="collection"
-                :src="imagePreviewUrl"
+                :coverSrc="imagePreviewUrl"
                 title-on-hover
               >
                 <template #append-inner>
