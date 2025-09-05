@@ -43,7 +43,7 @@ const memoizedCovers = ref({
   small: ["", ""],
 });
 
-const collectionCoverImage = computed(() =>
+const fallbackCollectionCover = computed(() =>
   props.collection.name?.toLowerCase() == "favourites"
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
@@ -83,8 +83,8 @@ watchEffect(() => {
 
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
-      large: [collectionCoverImage.value, collectionCoverImage.value],
-      small: [collectionCoverImage.value, collectionCoverImage.value],
+      large: [fallbackCollectionCover.value, fallbackCollectionCover.value],
+      small: [fallbackCollectionCover.value, fallbackCollectionCover.value],
     };
     return;
   }
@@ -107,7 +107,7 @@ watch(
     if (
       isSelected &&
       firstLargeCover.value &&
-      firstLargeCover.value !== collectionCoverImage.value
+      firstLargeCover.value !== fallbackCollectionCover.value
     ) {
       emit("select", firstLargeCover.value);
     } else if (isSelected) {
