@@ -20,6 +20,7 @@ import GameCard from "@/console/components/GameCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
 import SettingsModal from "@/console/components/SettingsModal.vue";
 import SystemCard from "@/console/components/SystemCard.vue";
+import useBackgroundArt from "@/console/composables/useBackgroundArt";
 import {
   systemElementRegistry,
   recentElementRegistry,
@@ -29,7 +30,6 @@ import {
 } from "@/console/composables/useElementRegistry";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useRovingDom } from "@/console/composables/useRovingDom";
-import { useSelectedGameBackground } from "@/console/composables/useSelectedGameBackground";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { isSupportedPlatform } from "@/console/constants/platforms";
 import type { InputAction } from "@/console/input/actions";
@@ -46,7 +46,8 @@ const collectionsStore = storeCollections();
 const storeConsole = consoleStore();
 const { navigationMode } = storeToRefs(storeConsole);
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
-const { setSelectedGame, clearSelectedGame } = useSelectedGameBackground();
+const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
+  useBackgroundArt();
 const { subscribe } = useInputScope();
 
 const platforms = ref<PlatformSchema[]>([]);
@@ -59,7 +60,7 @@ const errorMessage = ref("");
 const showSettings = ref(false);
 
 // Navigation indices
-const selectedIndex = ref(storeConsole.platformIndex);
+const platformIndex = ref(storeConsole.platformIndex);
 const recentIndex = ref(storeConsole.recentIndex);
 const collectionsIndex = ref(storeConsole.collectionsIndex);
 const smartCollectionsIndex = ref(storeConsole.smartCollectionsIndex);
@@ -99,7 +100,7 @@ const virtualCollectionElementAt = (i: number) =>
 
 // Spatial navigation
 const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(
-  selectedIndex,
+  platformIndex,
   () => platforms.value.length || 1,
   () => platforms.value.length,
 );
@@ -131,7 +132,7 @@ const {
   () => virtualCollections.value.length,
 );
 
-useRovingDom(selectedIndex, systemElementAt, {
+useRovingDom(platformIndex, systemElementAt, {
   inline: "center",
   block: "nearest",
   behavior: "smooth",
@@ -141,29 +142,29 @@ useRovingDom(recentIndex, recentElementAt, {
   inline: "center",
   block: "nearest",
   behavior: "smooth",
-  scroll: false, // same as above
+  scroll: false,
 });
 useRovingDom(collectionsIndex, collectionElementAt, {
   inline: "center",
   block: "nearest",
   behavior: "smooth",
-  scroll: false, // same as above
+  scroll: false,
 });
 useRovingDom(smartCollectionsIndex, smartCollectionElementAt, {
   inline: "center",
   block: "nearest",
   behavior: "smooth",
-  scroll: false, // same as above
+  scroll: false,
 });
 useRovingDom(virtualCollectionsIndex, virtualCollectionElementAt, {
   inline: "center",
   block: "nearest",
   behavior: "smooth",
-  scroll: false, // same as above
+  scroll: false,
 });
 
 // carousel scrolling that respects vertical scroll state
-watch(selectedIndex, (newIdx) => {
+watch(platformIndex, (newIdx) => {
   if (!isVerticalScrolling) {
     const el = systemElementAt(newIdx);
     if (el && platformsRef.value) {
@@ -212,24 +213,24 @@ watch(virtualCollectionsIndex, (newIdx) => {
 const navigationFunctions = {
   systems: {
     prev: () => {
-      const before = selectedIndex.value;
+      const before = platformIndex.value;
       moveSystemLeft();
-      if (selectedIndex.value === before) {
-        selectedIndex.value = Math.max(0, platforms.value.length - 1);
+      if (platformIndex.value === before) {
+        platformIndex.value = Math.max(0, platforms.value.length - 1);
       }
     },
     next: () => {
-      const before = selectedIndex.value;
+      const before = platformIndex.value;
       moveSystemRight();
-      if (selectedIndex.value === before) {
-        selectedIndex.value = 0;
+      if (platformIndex.value === before) {
+        platformIndex.value = 0;
       }
     },
     confirm: () => {
-      if (!platforms.value[selectedIndex.value]) return false;
+      if (!platforms.value[platformIndex.value]) return false;
       router.push({
         name: ROUTES.CONSOLE_PLATFORM,
-        params: { id: platforms.value[selectedIndex.value].id },
+        params: { id: platforms.value[platformIndex.value].id },
       });
       return true;
     },
@@ -366,6 +367,9 @@ let isVerticalScrolling = false;
 function scrollToCurrentRow() {
   isVerticalScrolling = true;
 
+  // clear background art when switching sections
+  clearSelectedBackgroundArt();
+
   // promise resolves when the scroll animation finishes
   verticalScrollPromise = new Promise((resolve) => {
     const behavior: ScrollBehavior = "smooth";
@@ -451,30 +455,15 @@ function goGame(game: SimpleRom) {
   });
 }
 
-function handleGameSelect(rom: SimpleRom) {
-  setSelectedGame(rom);
+function handleGameSelected(rom: SimpleRom) {
+  setSelectedBackgroundArt(
+    rom.path_cover_large || rom.path_cover_small || rom.url_cover || "",
+  );
 }
 
-function handleGameDeselect() {
-  clearSelectedGame();
+function handleCollectionSelected(coverUrl: string) {
+  setSelectedBackgroundArt(coverUrl);
 }
-
-// Watch for changes in recent index to handle background clearing
-watch(
-  [recentIndex, recentRoms, navigationMode],
-  ([newIndex, newRoms, mode]) => {
-    // Clear background if not in recent mode, no games, or invalid selection
-    if (
-      mode !== "recent" ||
-      newRoms.length === 0 ||
-      newIndex < 0 ||
-      newIndex >= newRoms.length
-    ) {
-      clearSelectedGame();
-    }
-  },
-  { immediate: true },
-);
 
 function goCollection(collectionId: number) {
   router.push({
@@ -679,7 +668,7 @@ onMounted(async () => {
   }
 
   // Restore indices within bounds
-  if (selectedIndex.value >= platforms.value.length) selectedIndex.value = 0;
+  if (platformIndex.value >= platforms.value.length) platformIndex.value = 0;
   if (recentIndex.value >= recentRoms.value.length) recentIndex.value = 0;
   if (collectionsIndex.value >= collections.value.length)
     collectionsIndex.value = 0;
@@ -692,7 +681,7 @@ onMounted(async () => {
   scrollToCurrentRow();
 
   // Center carousels
-  centerInCarousel(platformsRef.value, systemElementAt(selectedIndex.value));
+  centerInCarousel(platformsRef.value, systemElementAt(platformIndex.value));
   centerInCarousel(recentRef.value, recentElementAt(recentIndex.value));
   centerInCarousel(
     collectionsRef.value,
@@ -714,7 +703,7 @@ let off: (() => void) | null = null;
 
 onUnmounted(() => {
   storeConsole.setHomeState({
-    platformIndex: selectedIndex.value,
+    platformIndex: platformIndex.value,
     recentIndex: recentIndex.value,
     collectionsIndex: collectionsIndex.value,
     smartCollectionsIndex: smartCollectionsIndex.value,
@@ -801,10 +790,10 @@ onUnmounted(() => {
                   :platform="p"
                   :index="i"
                   :selected="
-                    navigationMode === 'systems' && i === selectedIndex
+                    navigationMode === 'systems' && i === platformIndex
                   "
                   @click="goPlatform(p.id)"
-                  @focus="selectedIndex = i"
+                  @focus="platformIndex = i"
                 />
               </div>
             </div>
@@ -861,7 +850,7 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goGame(g)"
                   @focus="recentIndex = i"
-                  @select="handleGameSelect"
+                  @select="handleGameSelected"
                 />
               </div>
             </div>
@@ -919,6 +908,7 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goCollection(c.id)"
                   @focus="collectionsIndex = i"
+                  @select="handleCollectionSelected"
                 />
               </div>
             </div>
@@ -977,6 +967,7 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goSmartCollection(c.id)"
                   @focus="smartCollectionsIndex = i"
+                  @select="handleCollectionSelected"
                 />
               </div>
             </div>
@@ -1035,6 +1026,7 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goVirtualCollection(c.id)"
                   @focus="virtualCollectionsIndex = i"
+                  @select="handleCollectionSelected"
                 />
               </div>
             </div>

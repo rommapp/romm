@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watchEffect, useTemplateRef } from "vue";
+import {
+  computed,
+  onMounted,
+  ref,
+  watchEffect,
+  useTemplateRef,
+  watch,
+} from "vue";
 import {
   collectionElementRegistry,
   smartCollectionElementRegistry,
@@ -17,7 +24,7 @@ const props = defineProps<{
   selected?: boolean;
   loaded?: boolean;
 }>();
-const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
+const emit = defineEmits(["click", "mouseenter", "focus", "loaded", "select"]);
 const collectionCardRef = useTemplateRef<HTMLButtonElement>(
   "collection-card-ref",
 );
@@ -86,6 +93,16 @@ watchEffect(() => {
 
 const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
 const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
+
+watch(
+  () => props.selected,
+  (isSelected) => {
+    if (isSelected && collectionCoverImage.value) {
+      emit("select", firstLargeCover.value);
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   if (!collectionCardRef.value) return;
