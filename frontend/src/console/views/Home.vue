@@ -11,7 +11,8 @@ import {
 import { useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
 import type { PlatformSchema } from "@/__generated__/models/PlatformSchema";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
+import type { SmartCollectionSchema } from "@/__generated__/models/SmartCollectionSchema";
+import type { VirtualCollectionSchema } from "@/__generated__/models/VirtualCollectionSchema";
 import RIsotipo from "@/components/common/RIsotipo.vue";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import CollectionCard from "@/console/components/CollectionCard.vue";
@@ -23,9 +24,12 @@ import {
   systemElementRegistry,
   recentElementRegistry,
   collectionElementRegistry,
+  smartCollectionElementRegistry,
+  virtualCollectionElementRegistry,
 } from "@/console/composables/useElementRegistry";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useRovingDom } from "@/console/composables/useRovingDom";
+import { useSelectedGameBackground } from "@/console/composables/useSelectedGameBackground";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import { isSupportedPlatform } from "@/console/constants/platforms";
 import type { InputAction } from "@/console/input/actions";
@@ -35,17 +39,21 @@ import platformApi from "@/services/api/platform";
 import romApi from "@/services/api/rom";
 import storeCollections from "@/stores/collections";
 import consoleStore from "@/stores/console";
+import type { SimpleRom } from "@/stores/roms";
 
 const router = useRouter();
 const collectionsStore = storeCollections();
 const storeConsole = consoleStore();
 const { navigationMode } = storeToRefs(storeConsole);
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
+const { setSelectedGame, clearSelectedGame } = useSelectedGameBackground();
 const { subscribe } = useInputScope();
 
 const platforms = ref<PlatformSchema[]>([]);
-const recentRoms = ref<SimpleRomSchema[]>([]);
+const recentRoms = ref<SimpleRom[]>([]);
 const collections = ref<CollectionSchema[]>([]);
+const smartCollections = ref<SmartCollectionSchema[]>([]);
+const virtualCollections = ref<VirtualCollectionSchema[]>([]);
 const loadingPlatforms = ref(true);
 const errorMessage = ref("");
 const showSettings = ref(false);
@@ -54,6 +62,8 @@ const showSettings = ref(false);
 const selectedIndex = ref(storeConsole.platformIndex);
 const recentIndex = ref(storeConsole.recentIndex);
 const collectionsIndex = ref(storeConsole.collectionsIndex);
+const smartCollectionsIndex = ref(storeConsole.smartCollectionsIndex);
+const virtualCollectionsIndex = ref(storeConsole.virtualCollectionsIndex);
 const controlIndex = ref(storeConsole.controlIndex);
 const scrollContainerRef = useTemplateRef<HTMLDivElement>(
   "scroll-container-ref",
@@ -61,15 +71,31 @@ const scrollContainerRef = useTemplateRef<HTMLDivElement>(
 const platformsRef = useTemplateRef<HTMLDivElement>("platforms-ref");
 const recentRef = useTemplateRef<HTMLDivElement>("recent-ref");
 const collectionsRef = useTemplateRef<HTMLDivElement>("collections-ref");
+const smartCollectionsRef = useTemplateRef<HTMLDivElement>(
+  "smart-collections-ref",
+);
+const virtualCollectionsRef = useTemplateRef<HTMLDivElement>(
+  "virtual-collections-ref",
+);
 const recentSectionRef = useTemplateRef<HTMLElement>("recent-section-ref");
 const collectionsSectionRef = useTemplateRef<HTMLElement>(
   "collections-section-ref",
+);
+const smartCollectionsSectionRef = useTemplateRef<HTMLElement>(
+  "smart-collections-section-ref",
+);
+const virtualCollectionsSectionRef = useTemplateRef<HTMLElement>(
+  "virtual-collections-section-ref",
 );
 
 const systemElementAt = (i: number) => systemElementRegistry.getElement(i);
 const recentElementAt = (i: number) => recentElementRegistry.getElement(i);
 const collectionElementAt = (i: number) =>
   collectionElementRegistry.getElement(i);
+const smartCollectionElementAt = (i: number) =>
+  smartCollectionElementRegistry.getElement(i);
+const virtualCollectionElementAt = (i: number) =>
+  virtualCollectionElementRegistry.getElement(i);
 
 // Spatial navigation
 const { moveLeft: moveSystemLeft, moveRight: moveSystemRight } = useSpatialNav(
@@ -88,6 +114,22 @@ const { moveLeft: moveCollectionLeft, moveRight: moveCollectionRight } =
     () => collections.value.length || 1,
     () => collections.value.length,
   );
+const {
+  moveLeft: moveSmartCollectionLeft,
+  moveRight: moveSmartCollectionRight,
+} = useSpatialNav(
+  smartCollectionsIndex,
+  () => smartCollections.value.length || 1,
+  () => smartCollections.value.length,
+);
+const {
+  moveLeft: moveVirtualCollectionLeft,
+  moveRight: moveVirtualCollectionRight,
+} = useSpatialNav(
+  virtualCollectionsIndex,
+  () => virtualCollections.value.length || 1,
+  () => virtualCollections.value.length,
+);
 
 useRovingDom(selectedIndex, systemElementAt, {
   inline: "center",
@@ -102,6 +144,18 @@ useRovingDom(recentIndex, recentElementAt, {
   scroll: false, // same as above
 });
 useRovingDom(collectionsIndex, collectionElementAt, {
+  inline: "center",
+  block: "nearest",
+  behavior: "smooth",
+  scroll: false, // same as above
+});
+useRovingDom(smartCollectionsIndex, smartCollectionElementAt, {
+  inline: "center",
+  block: "nearest",
+  behavior: "smooth",
+  scroll: false, // same as above
+});
+useRovingDom(virtualCollectionsIndex, virtualCollectionElementAt, {
   inline: "center",
   block: "nearest",
   behavior: "smooth",
@@ -132,6 +186,24 @@ watch(collectionsIndex, (newIdx) => {
     const el = collectionElementAt(newIdx);
     if (el && collectionsRef.value) {
       centerInCarousel(collectionsRef.value, el, "smooth");
+    }
+  }
+});
+
+watch(smartCollectionsIndex, (newIdx) => {
+  if (!isVerticalScrolling) {
+    const el = smartCollectionElementAt(newIdx);
+    if (el && smartCollectionsRef.value) {
+      centerInCarousel(smartCollectionsRef.value, el, "smooth");
+    }
+  }
+});
+
+watch(virtualCollectionsIndex, (newIdx) => {
+  if (!isVerticalScrolling) {
+    const el = virtualCollectionElementAt(newIdx);
+    if (el && virtualCollectionsRef.value) {
+      centerInCarousel(virtualCollectionsRef.value, el, "smooth");
     }
   }
 });
@@ -211,6 +283,63 @@ const navigationFunctions = {
       return true;
     },
   },
+  smartCollections: {
+    prev: () => {
+      const before = smartCollectionsIndex.value;
+      moveSmartCollectionLeft();
+      if (smartCollectionsIndex.value === before) {
+        smartCollectionsIndex.value = Math.max(
+          0,
+          smartCollections.value.length - 1,
+        );
+      }
+    },
+    next: () => {
+      const before = smartCollectionsIndex.value;
+      moveSmartCollectionRight();
+      if (smartCollectionsIndex.value === before) {
+        smartCollectionsIndex.value = 0;
+      }
+    },
+    confirm: () => {
+      if (!smartCollections.value[smartCollectionsIndex.value]) return false;
+      router.push({
+        name: ROUTES.CONSOLE_SMART_COLLECTION,
+        params: { id: smartCollections.value[smartCollectionsIndex.value].id },
+      });
+      return true;
+    },
+  },
+  virtualCollections: {
+    prev: () => {
+      const before = virtualCollectionsIndex.value;
+      moveVirtualCollectionLeft();
+      if (virtualCollectionsIndex.value === before) {
+        virtualCollectionsIndex.value = Math.max(
+          0,
+          virtualCollections.value.length - 1,
+        );
+      }
+    },
+    next: () => {
+      const before = virtualCollectionsIndex.value;
+      moveVirtualCollectionRight();
+      if (virtualCollectionsIndex.value === before) {
+        virtualCollectionsIndex.value = 0;
+      }
+    },
+    confirm: () => {
+      if (!virtualCollections.value[virtualCollectionsIndex.value])
+        return false;
+      router.push({
+        name: ROUTES.CONSOLE_VIRTUAL_COLLECTION,
+        params: {
+          id: virtualCollections.value[virtualCollectionsIndex.value].id,
+        },
+      });
+      return true;
+    },
+  },
   controls: {
     prev: () => {
       controlIndex.value = (controlIndex.value - 1 + 3) % 3;
@@ -249,6 +378,18 @@ function scrollToCurrentRow() {
         break;
       case "collections":
         collectionsSectionRef.value?.scrollIntoView({
+          behavior,
+          block: "start",
+        });
+        break;
+      case "smartCollections":
+        smartCollectionsSectionRef.value?.scrollIntoView({
+          behavior,
+          block: "start",
+        });
+        break;
+      case "virtualCollections":
+        virtualCollectionsSectionRef.value?.scrollIntoView({
           behavior,
           block: "start",
         });
@@ -302,7 +443,7 @@ function goPlatform(platformId: number) {
   router.push({ name: ROUTES.CONSOLE_PLATFORM, params: { id: platformId } });
 }
 
-function goGame(game: SimpleRomSchema) {
+function goGame(game: SimpleRom) {
   router.push({
     name: ROUTES.CONSOLE_ROM,
     params: { rom: game.id },
@@ -310,9 +451,48 @@ function goGame(game: SimpleRomSchema) {
   });
 }
 
+function handleGameSelect(rom: SimpleRom) {
+  setSelectedGame(rom);
+}
+
+function handleGameDeselect() {
+  clearSelectedGame();
+}
+
+// Watch for changes in recent index to handle background clearing
+watch(
+  [recentIndex, recentRoms, navigationMode],
+  ([newIndex, newRoms, mode]) => {
+    // Clear background if not in recent mode, no games, or invalid selection
+    if (
+      mode !== "recent" ||
+      newRoms.length === 0 ||
+      newIndex < 0 ||
+      newIndex >= newRoms.length
+    ) {
+      clearSelectedGame();
+    }
+  },
+  { immediate: true },
+);
+
 function goCollection(collectionId: number) {
   router.push({
     name: ROUTES.CONSOLE_COLLECTION,
+    params: { id: collectionId },
+  });
+}
+
+function goSmartCollection(collectionId: number) {
+  router.push({
+    name: ROUTES.CONSOLE_SMART_COLLECTION,
+    params: { id: collectionId },
+  });
+}
+
+function goVirtualCollection(collectionId: string) {
+  router.push({
+    name: ROUTES.CONSOLE_VIRTUAL_COLLECTION,
     params: { id: collectionId },
   });
 }
@@ -362,6 +542,28 @@ function handleAction(action: InputAction): boolean {
         scrollToCurrentRow();
         return true;
       }
+      if (currentMode === "smartCollections") {
+        navigationMode.value =
+          collections.value.length > 0
+            ? "collections"
+            : recentRoms.value.length > 0
+              ? "recent"
+              : "systems";
+        scrollToCurrentRow();
+        return true;
+      }
+      if (currentMode === "virtualCollections") {
+        navigationMode.value =
+          smartCollections.value.length > 0
+            ? "smartCollections"
+            : collections.value.length > 0
+              ? "collections"
+              : recentRoms.value.length > 0
+                ? "recent"
+                : "systems";
+        scrollToCurrentRow();
+        return true;
+      }
       return false;
 
     case "moveDown":
@@ -371,14 +573,46 @@ function handleAction(action: InputAction): boolean {
             ? "recent"
             : collections.value.length > 0
               ? "collections"
-              : "controls";
+              : smartCollections.value.length > 0
+                ? "smartCollections"
+                : virtualCollections.value.length > 0
+                  ? "virtualCollections"
+                  : "controls";
         scrollToCurrentRow();
         return true;
       }
       if (currentMode === "recent") {
         navigationMode.value =
-          collections.value.length > 0 ? "collections" : "controls";
+          collections.value.length > 0
+            ? "collections"
+            : smartCollections.value.length > 0
+              ? "smartCollections"
+              : virtualCollections.value.length > 0
+                ? "virtualCollections"
+                : "controls";
         scrollToCurrentRow();
+        return true;
+      }
+      if (currentMode === "collections") {
+        navigationMode.value =
+          smartCollections.value.length > 0
+            ? "smartCollections"
+            : virtualCollections.value.length > 0
+              ? "virtualCollections"
+              : "controls";
+        scrollToCurrentRow();
+        return true;
+      }
+      if (currentMode === "smartCollections") {
+        navigationMode.value =
+          virtualCollections.value.length > 0
+            ? "virtualCollections"
+            : "controls";
+        scrollToCurrentRow();
+        return true;
+      }
+      if (currentMode === "virtualCollections") {
+        navigationMode.value = "controls";
         return true;
       }
       if (currentMode === "controls") {
@@ -410,18 +644,27 @@ function handleAction(action: InputAction): boolean {
 
 onMounted(async () => {
   try {
-    const [{ data: plats }, { data: recents }, { data: cols }] =
-      await Promise.all([
-        platformApi.getPlatforms(),
-        romApi.getRecentPlayedRoms(),
-        collectionApi.getCollections(),
-      ]);
+    const [
+      { data: plats },
+      { data: recents },
+      { data: cols },
+      { data: smartCols },
+      { data: virtualCols },
+    ] = await Promise.all([
+      platformApi.getPlatforms(),
+      romApi.getRecentPlayedRoms(),
+      collectionApi.getCollections(),
+      collectionApi.getSmartCollections(),
+      collectionApi.getVirtualCollections({ type: "collection" }),
+    ]);
 
     platforms.value = plats.filter(
       (p) => p.rom_count > 0 && isSupportedPlatform(p.slug),
     );
     recentRoms.value = recents.items ?? [];
     collections.value = cols ?? [];
+    smartCollections.value = smartCols ?? [];
+    virtualCollections.value = virtualCols ?? [];
 
     collectionsStore.setCollections(cols ?? []);
     collectionsStore.setFavoriteCollection(
@@ -440,6 +683,10 @@ onMounted(async () => {
   if (recentIndex.value >= recentRoms.value.length) recentIndex.value = 0;
   if (collectionsIndex.value >= collections.value.length)
     collectionsIndex.value = 0;
+  if (smartCollectionsIndex.value >= smartCollections.value.length)
+    smartCollectionsIndex.value = 0;
+  if (virtualCollectionsIndex.value >= virtualCollections.value.length)
+    virtualCollectionsIndex.value = 0;
 
   await nextTick();
   scrollToCurrentRow();
@@ -450,6 +697,14 @@ onMounted(async () => {
   centerInCarousel(
     collectionsRef.value,
     collectionElementAt(collectionsIndex.value),
+  );
+  centerInCarousel(
+    smartCollectionsRef.value,
+    smartCollectionElementAt(smartCollectionsIndex.value),
+  );
+  centerInCarousel(
+    virtualCollectionsRef.value,
+    virtualCollectionElementAt(virtualCollectionsIndex.value),
   );
 
   off = subscribe(handleAction);
@@ -462,6 +717,8 @@ onUnmounted(() => {
     platformIndex: selectedIndex.value,
     recentIndex: recentIndex.value,
     collectionsIndex: collectionsIndex.value,
+    smartCollectionsIndex: smartCollectionsIndex.value,
+    virtualCollectionsIndex: virtualCollectionsIndex.value,
     controlIndex: controlIndex.value,
     navigationMode: navigationMode.value,
   });
@@ -604,6 +861,7 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goGame(g)"
                   @focus="recentIndex = i"
+                  @select="handleGameSelect"
                 />
               </div>
             </div>
@@ -661,6 +919,122 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goCollection(c.id)"
                   @focus="collectionsIndex = i"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          v-if="smartCollections.length > 0"
+          ref="smart-collections-section-ref"
+          class="pb-8"
+        >
+          <h2
+            class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
+            :style="{ color: 'var(--console-home-category-text)' }"
+          >
+            Smart Collections
+          </h2>
+          <div class="relative h-[400px]">
+            <button
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                borderColor: 'var(--console-home-carousel-button-border)',
+                color: 'var(--console-home-carousel-button-text)',
+              }"
+              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20 border"
+              @click="navigationFunctions.smartCollections.prev"
+            >
+              ◀
+            </button>
+            <button
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                borderColor: 'var(--console-home-carousel-button-border)',
+                color: 'var(--console-home-carousel-button-text)',
+              }"
+              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20 border"
+              @click="navigationFunctions.smartCollections.next"
+            >
+              ▶
+            </button>
+            <div
+              ref="smart-collections-ref"
+              class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
+              @wheel.prevent
+            >
+              <div class="flex items-center gap-4 h-full px-12 min-w-max">
+                <CollectionCard
+                  v-for="(c, i) in smartCollections"
+                  :key="`smart-collection-${c.id}`"
+                  :collection="c"
+                  :index="i"
+                  :selected="
+                    navigationMode === 'smartCollections' &&
+                    i === smartCollectionsIndex
+                  "
+                  :loaded="true"
+                  @click="goSmartCollection(c.id)"
+                  @focus="smartCollectionsIndex = i"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          v-if="virtualCollections.length > 0"
+          ref="virtual-collections-section-ref"
+          class="pb-8"
+        >
+          <h2
+            class="text-xl font-bold text-fg0 mb-3 drop-shadow pl-8 pr-8"
+            :style="{ color: 'var(--console-home-category-text)' }"
+          >
+            Virtual Collections
+          </h2>
+          <div class="relative h-[400px]">
+            <button
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                borderColor: 'var(--console-home-carousel-button-border)',
+                color: 'var(--console-home-carousel-button-text)',
+              }"
+              class="absolute top-1/2 -translate-y-1/2 left-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20 border"
+              @click="navigationFunctions.virtualCollections.prev"
+            >
+              ◀
+            </button>
+            <button
+              :style="{
+                backgroundColor: 'var(--console-home-carousel-button-bg)',
+                borderColor: 'var(--console-home-carousel-button-border)',
+                color: 'var(--console-home-carousel-button-text)',
+              }"
+              class="absolute top-1/2 -translate-y-1/2 right-2 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all backdrop-blur z-20 border"
+              @click="navigationFunctions.virtualCollections.next"
+            >
+              ▶
+            </button>
+            <div
+              ref="virtual-collections-ref"
+              class="w-full h-full overflow-x-auto overflow-y-hidden no-scrollbar [scrollbar-width:none] [-ms-overflow-style:none]"
+              @wheel.prevent
+            >
+              <div class="flex items-center gap-4 h-full px-12 min-w-max">
+                <CollectionCard
+                  v-for="(c, i) in virtualCollections"
+                  :key="`virtual-collection-${c.id}`"
+                  :collection="c"
+                  :index="i"
+                  :selected="
+                    navigationMode === 'virtualCollections' &&
+                    i === virtualCollectionsIndex
+                  "
+                  :loaded="true"
+                  @click="goVirtualCollection(c.id)"
+                  @focus="virtualCollectionsIndex = i"
                 />
               </div>
             </div>

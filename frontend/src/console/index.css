@@ -180,6 +180,7 @@ body,
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  backdrop-filter: blur(20px) brightness(0.8);
 }
 
 .console-root > * {
