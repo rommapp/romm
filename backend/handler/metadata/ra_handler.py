@@ -222,7 +222,6 @@ class RAHandler(MetadataHandler):
                     if rom_details.get("ImageTitle")
                     else ""
                 ),
-                url_manual=rom_details.get("GuideURL") or "",
                 url_screenshots=pydash.compact(
                     [
                         (
@@ -251,7 +250,6 @@ class RAHandler(MetadataHandler):
                     if rom_details.get("ImageTitle")
                     else ""
                 ),
-                url_manual=rom_details.get("GuideURL") or "",
                 url_screenshots=pydash.compact(
                     [
                         (
