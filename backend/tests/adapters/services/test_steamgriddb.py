@@ -84,8 +84,10 @@ class TestSteamGridDBServiceUnit:
     async def test_request_success(self, service):
         """Test successful API request."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {"data": [{"id": 1, "name": "Test Game"}]}
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(
+            return_value={"data": [{"id": 1, "name": "Test Game"}]}
+        )
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 
@@ -146,7 +148,7 @@ class TestSteamGridDBServiceUnit:
     async def test_request_json_decode_error(self, service):
         """Test handling of JSON decode error."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
         mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
         mock_session.get.return_value = mock_response
@@ -804,8 +806,8 @@ class TestSteamGridDBServiceEdgeCases:
     async def test_request_with_custom_timeout(self, service):
         """Test request with custom timeout."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {"data": []}
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"data": []})
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 
