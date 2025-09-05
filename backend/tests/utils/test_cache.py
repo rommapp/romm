@@ -50,7 +50,11 @@ class TestConditionallySetCache:
         """Test skipping load when cache already exists and file hash matches."""
         fake_md5_hash = "d41d8cd98f00b204e9800998ecf8427e"
         mocker.patch(
-            "hashlib.md5", return_value=AsyncMock(hexdigest=lambda: fake_md5_hash)
+            "hashlib.md5",
+            return_value=AsyncMock(
+                hexdigest=lambda: fake_md5_hash,
+                update=lambda x: None,
+            ),
         )
         mock_cache_exists = mocker.patch.object(
             AsyncRedis, "exists", side_effect=AsyncMock(return_value=True)
