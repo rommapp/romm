@@ -33,6 +33,7 @@ const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
+    coverSrc?: string;
     aspectRatio?: string | number;
     width?: string | number;
     height?: string | number;
@@ -49,6 +50,7 @@ const props = withDefaults(
     enable3DTilt?: boolean;
   }>(),
   {
+    coverSrc: undefined,
     aspectRatio: undefined,
     width: undefined,
     height: undefined,
@@ -142,6 +144,7 @@ const isWebpEnabled = computed(
 );
 
 const largeCover = computed(() => {
+  if (props.coverSrc) return props.coverSrc;
   if (!romsStore.isSimpleRom(props.rom))
     return (
       props.rom.igdb_url_cover ||
@@ -155,6 +158,7 @@ const largeCover = computed(() => {
 });
 
 const smallCover = computed(() => {
+  if (props.coverSrc) return props.coverSrc;
   if (!romsStore.isSimpleRom(props.rom)) return "";
   const pathCoverSmall = isWebpEnabled.value
     ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")

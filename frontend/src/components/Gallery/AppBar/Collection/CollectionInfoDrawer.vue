@@ -47,9 +47,8 @@ const collectionCoverImage = computed(() =>
   getCollectionCoverImage(updatedCollection.value.name),
 );
 
-emitter?.on("updateUrlCover", (url_cover) => {
-  updatedCollection.value.url_cover = url_cover;
-  setArtwork(url_cover);
+emitter?.on("updateUrlCover", (coverUrl) => {
+  setArtwork(coverUrl);
 });
 
 function showEditable() {
@@ -83,9 +82,10 @@ function previewImage(event: Event) {
   }
 }
 
-function setArtwork(imageUrl: string) {
-  if (!imageUrl) return;
-  imagePreviewUrl.value = imageUrl;
+function setArtwork(coverUrl: string) {
+  if (!coverUrl) return;
+  updatedCollection.value.url_cover = coverUrl;
+  imagePreviewUrl.value = coverUrl;
   removeCover.value = false;
 }
 
@@ -185,7 +185,7 @@ async function updateCollection() {
             :show-title="false"
             :with-link="false"
             :collection="currentCollection"
-            :src="imagePreviewUrl"
+            :coverSrc="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
               <v-btn-group rounded="0" divided density="compact">

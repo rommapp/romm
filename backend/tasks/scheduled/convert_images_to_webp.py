@@ -58,7 +58,7 @@ class ImageConverter:
         target_mode = self.MODE_CONVERSIONS.get(img.mode, "RGB")
         return img.convert(target_mode)
 
-    def convert_to_webp(self, image_path: Path) -> bool:
+    def convert_to_webp(self, image_path: Path, force: bool = False) -> bool:
         """Convert a single image to WebP format.
         Args:
             image_path: Path to the source image
@@ -68,7 +68,7 @@ class ImageConverter:
         webp_path = image_path.with_suffix(".webp")
 
         # Skip if WebP already exists
-        if webp_path.exists():
+        if webp_path.exists() and not force:
             log.debug(f"WebP already exists for {image_path}")
             return True
 
