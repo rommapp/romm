@@ -232,7 +232,7 @@ onBeforeUnmount(async () => {
 </script>
 
 <template>
-  <v-row v-if="rom" class="justify-center scroll px-2" no-gutters>
+  <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
     <v-col
       v-if="gameRunning"
       cols="12"
@@ -259,21 +259,24 @@ onBeforeUnmount(async () => {
       :xl="!gameRunning ? 6 : 2"
     >
       <!-- Header -->
-      <v-row class="mt-6" no-gutters>
+      <v-row no-gutters>
         <v-col>
           <v-img
             class="mx-auto"
             width="150"
-            src="/assets/emulatorjs/emulatorjs.png"
+            src="/assets/emulatorjs/emulatorjs.svg"
           />
         </v-col>
       </v-row>
 
-      <v-row class="mt-12" no-gutters>
+      <v-divider class="my-4" />
+
+      <v-row no-gutters>
         <v-col>
           <rom-list-item :rom="rom" with-filename with-size />
         </v-col>
       </v-row>
+
       <v-row v-if="!gameRunning" no-gutters>
         <v-col>
           <!-- disc selector -->
