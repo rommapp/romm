@@ -15,10 +15,10 @@ import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import BackButton from "@/console/components/BackButton.vue";
 import GameCard from "@/console/components/GameCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
+import useBackgroundArt from "@/console/composables/useBackgroundArt";
 import { gamesListElementRegistry } from "@/console/composables/useElementRegistry";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useRovingDom } from "@/console/composables/useRovingDom";
-import { useSelectedGameBackground } from "@/console/composables/useSelectedGameBackground";
 import { useSpatialNav } from "@/console/composables/useSpatialNav";
 import type { InputAction } from "@/console/input/actions";
 import { ROUTES } from "@/plugins/router";
@@ -31,7 +31,8 @@ const route = useRoute();
 const router = useRouter();
 const storeConsole = consoleStore();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
-const { setSelectedGame } = useSelectedGameBackground();
+const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
+  useBackgroundArt();
 
 const isCollectionRoute = route.name === ROUTES.CONSOLE_COLLECTION;
 const isSmartCollectionRoute = route.name === ROUTES.CONSOLE_SMART_COLLECTION;
@@ -383,8 +384,12 @@ function markLoaded(id: number) {
   loadedMap.value[id] = true;
 }
 
-function handleGameSelect(rom: SimpleRom) {
-  setSelectedGame(rom);
+function handleItemSelected(coverUrl: string) {
+  setSelectedBackgroundArt(coverUrl);
+}
+
+function handleItemDeselected() {
+  clearSelectedBackgroundArt();
 }
 </script>
 
@@ -432,7 +437,8 @@ function handleGameSelect(rom: SimpleRom) {
             @click="selectAndOpen(i, rom)"
             @focus="mouseSelect(i)"
             @loaded="markLoaded(rom.id)"
-            @select="handleGameSelect"
+            @select="handleItemSelected"
+            @deselect="handleItemDeselected"
           />
         </div>
       </div>

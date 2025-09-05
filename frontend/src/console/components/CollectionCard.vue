@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watchEffect, useTemplateRef } from "vue";
+import {
+  computed,
+  onMounted,
+  ref,
+  watchEffect,
+  useTemplateRef,
+  watch,
+} from "vue";
 import {
   collectionElementRegistry,
   smartCollectionElementRegistry,
@@ -17,7 +24,14 @@ const props = defineProps<{
   selected?: boolean;
   loaded?: boolean;
 }>();
-const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
+const emit = defineEmits([
+  "click",
+  "mouseenter",
+  "focus",
+  "loaded",
+  "select",
+  "deselect",
+]);
 const collectionCardRef = useTemplateRef<HTMLButtonElement>(
   "collection-card-ref",
 );
@@ -29,7 +43,7 @@ const memoizedCovers = ref({
   small: ["", ""],
 });
 
-const collectionCoverImage = computed(() =>
+const fallbackCollectionCover = computed(() =>
   props.collection.name?.toLowerCase() == "favourites"
     ? getFavoriteCoverImage(props.collection.name)
     : getCollectionCoverImage(props.collection.name),
@@ -69,8 +83,8 @@ watchEffect(() => {
 
   if (largeCoverUrls.length < 2) {
     memoizedCovers.value = {
-      large: [collectionCoverImage.value, collectionCoverImage.value],
-      small: [collectionCoverImage.value, collectionCoverImage.value],
+      large: [fallbackCollectionCover.value, fallbackCollectionCover.value],
+      small: [fallbackCollectionCover.value, fallbackCollectionCover.value],
     };
     return;
   }
@@ -86,6 +100,22 @@ watchEffect(() => {
 
 const firstLargeCover = computed(() => memoizedCovers.value.large[0]);
 const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
+
+watch(
+  () => props.selected,
+  (isSelected) => {
+    if (
+      isSelected &&
+      firstLargeCover.value &&
+      firstLargeCover.value !== fallbackCollectionCover.value
+    ) {
+      emit("select", firstLargeCover.value);
+    } else if (isSelected) {
+      emit("deselect");
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   if (!collectionCardRef.value) return;

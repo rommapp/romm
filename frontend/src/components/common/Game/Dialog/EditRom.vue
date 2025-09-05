@@ -36,8 +36,6 @@ emitter?.on("showEditRomDialog", (romToEdit: UpdateRom | undefined) => {
   removeCover.value = false;
 });
 emitter?.on("updateUrlCover", (url_cover) => {
-  if (!rom.value) return;
-  rom.value.url_cover = url_cover;
   setArtwork(url_cover);
 });
 const computedAspectRatio = computed(() => {
@@ -68,9 +66,10 @@ function previewImage(event: Event) {
   }
 }
 
-function setArtwork(imageUrl: string) {
-  if (!imageUrl) return;
-  imagePreviewUrl.value = imageUrl;
+function setArtwork(coverUrl: string) {
+  if (!coverUrl || !rom.value) return;
+  rom.value.url_cover = coverUrl;
+  imagePreviewUrl.value = coverUrl;
   removeCover.value = false;
 }
 
@@ -211,7 +210,7 @@ function closeDialog() {
             <game-card
               width="240"
               :rom="rom"
-              :src="imagePreviewUrl"
+              :coverSrc="imagePreviewUrl"
               disableViewTransition
               :showPlatformIcon="false"
               :showActionBar="false"

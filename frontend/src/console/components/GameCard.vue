@@ -15,6 +15,7 @@ const props = defineProps<{
   isRecent?: boolean;
   registry?: "recent" | "gamesList";
 }>();
+
 const coverSrc = computed(
   () =>
     props.rom.path_cover_large ||
@@ -43,7 +44,9 @@ watch(
   () => props.selected,
   (isSelected) => {
     if (isSelected && coverSrc.value) {
-      emit("select", props.rom);
+      emit("select", coverSrc.value);
+    } else if (isSelected) {
+      emit("deselect");
     }
   },
   { immediate: true },
