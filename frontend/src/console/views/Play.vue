@@ -408,7 +408,7 @@ async function boot() {
   window.EJS_alignStartButton = "center";
   window.EJS_startOnLoaded = true;
   //   window.EJS_fullscreenOnLoaded = true;
-  window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/emulatorjs.png`;
+  window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/emulatorjs.svg`;
   window.EJS_backgroundColor = "#000000"; // Match original which uses theme colors, but #000000 should work fine
   const coreOptions = configStore.getEJSCoreOptions(core);
   window.EJS_defaultOptions = {
