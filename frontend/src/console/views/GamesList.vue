@@ -31,7 +31,8 @@ const route = useRoute();
 const router = useRouter();
 const storeConsole = consoleStore();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
-const { setSelectedBackgroundArt } = useBackgroundArt();
+const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
+  useBackgroundArt();
 
 const isCollectionRoute = route.name === ROUTES.CONSOLE_COLLECTION;
 const isSmartCollectionRoute = route.name === ROUTES.CONSOLE_SMART_COLLECTION;
@@ -383,10 +384,12 @@ function markLoaded(id: number) {
   loadedMap.value[id] = true;
 }
 
-function handleGameSelected(rom: SimpleRom) {
-  setSelectedBackgroundArt(
-    rom.path_cover_large || rom.path_cover_small || rom.url_cover || "",
-  );
+function handleItemSelected(coverUrl: string) {
+  setSelectedBackgroundArt(coverUrl);
+}
+
+function handleItemDeselected() {
+  clearSelectedBackgroundArt();
 }
 </script>
 
@@ -434,7 +437,8 @@ function handleGameSelected(rom: SimpleRom) {
             @click="selectAndOpen(i, rom)"
             @focus="mouseSelect(i)"
             @loaded="markLoaded(rom.id)"
-            @select="handleGameSelected"
+            @select="handleItemSelected"
+            @deselect="handleItemDeselected"
           />
         </div>
       </div>
