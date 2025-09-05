@@ -694,6 +694,7 @@ async def update_rom(
     )
 
     new_fs_name = str(data.get("fs_name") or rom.fs_name)
+    new_fs_name = sanitize_filename(new_fs_name)
     cleaned_data.update(
         {
             "fs_name": new_fs_name,
@@ -767,7 +768,6 @@ async def update_rom(
     should_update_fs = new_fs_name != rom.fs_name
     if should_update_fs:
         try:
-            new_fs_name = sanitize_filename(new_fs_name)
             await fs_rom_handler.rename_fs_rom(
                 old_name=rom.fs_name,
                 new_name=new_fs_name,
