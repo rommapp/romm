@@ -43,7 +43,14 @@ watch(
   () => props.selected,
   (isSelected) => {
     if (isSelected && coverSrc.value) {
-      emit("select", props.rom);
+      emit(
+        "select",
+        props.rom.path_cover_large ||
+          props.rom.path_cover_small ||
+          props.rom.url_cover,
+      );
+    } else if (isSelected) {
+      emit("deselect");
     }
   },
   { immediate: true },

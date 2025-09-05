@@ -455,14 +455,12 @@ function goGame(game: SimpleRom) {
   });
 }
 
-function handleGameSelected(rom: SimpleRom) {
-  setSelectedBackgroundArt(
-    rom.path_cover_large || rom.path_cover_small || rom.url_cover || "",
-  );
+function handleItemSelected(coverUrl: string) {
+  setSelectedBackgroundArt(coverUrl);
 }
 
-function handleCollectionSelected(coverUrl: string) {
-  setSelectedBackgroundArt(coverUrl);
+function handleItemDeselected() {
+  clearSelectedBackgroundArt();
 }
 
 function goCollection(collectionId: number) {
@@ -850,7 +848,8 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goGame(g)"
                   @focus="recentIndex = i"
-                  @select="handleGameSelected"
+                  @select="handleItemSelected"
+                  @deselect="handleItemDeselected"
                 />
               </div>
             </div>
@@ -908,7 +907,8 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goCollection(c.id)"
                   @focus="collectionsIndex = i"
-                  @select="handleCollectionSelected"
+                  @select="handleItemSelected"
+                  @deselect="handleItemDeselected"
                 />
               </div>
             </div>
@@ -967,7 +967,8 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goSmartCollection(c.id)"
                   @focus="smartCollectionsIndex = i"
-                  @select="handleCollectionSelected"
+                  @select="handleItemSelected"
+                  @deselect="handleItemDeselected"
                 />
               </div>
             </div>
@@ -1026,7 +1027,8 @@ onUnmounted(() => {
                   :loaded="true"
                   @click="goVirtualCollection(c.id)"
                   @focus="virtualCollectionsIndex = i"
-                  @select="handleCollectionSelected"
+                  @select="handleItemSelected"
+                  @deselect="handleItemDeselected"
                 />
               </div>
             </div>

@@ -24,7 +24,14 @@ const props = defineProps<{
   selected?: boolean;
   loaded?: boolean;
 }>();
-const emit = defineEmits(["click", "mouseenter", "focus", "loaded", "select"]);
+const emit = defineEmits([
+  "click",
+  "mouseenter",
+  "focus",
+  "loaded",
+  "select",
+  "deselect",
+]);
 const collectionCardRef = useTemplateRef<HTMLButtonElement>(
   "collection-card-ref",
 );
@@ -97,8 +104,14 @@ const secondLargeCover = computed(() => memoizedCovers.value.large[1]);
 watch(
   () => props.selected,
   (isSelected) => {
-    if (isSelected && collectionCoverImage.value) {
+    if (
+      isSelected &&
+      firstLargeCover.value &&
+      firstLargeCover.value !== collectionCoverImage.value
+    ) {
       emit("select", firstLargeCover.value);
+    } else if (isSelected) {
+      emit("deselect");
     }
   },
   { immediate: true },
