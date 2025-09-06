@@ -96,6 +96,22 @@ function goBackToPlatform() {
     return;
   }
 
+  if (qp.smartCollection) {
+    router.push({
+      name: ROUTES.CONSOLE_SMART_COLLECTION,
+      params: { id: qp.smartCollection },
+    });
+    return;
+  }
+
+  if (qp.virtualCollection) {
+    router.push({
+      name: ROUTES.CONSOLE_VIRTUAL_COLLECTION,
+      params: { id: qp.virtualCollection },
+    });
+    return;
+  }
+
   if (rom.value?.platform_id) {
     router.push({
       name: ROUTES.CONSOLE_PLATFORM,

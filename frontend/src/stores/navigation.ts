@@ -2,7 +2,7 @@ import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { ROUTES } from "@/plugins/router";
 
-const mainBarCollapsed = useLocalStorage("settings.mainBarCollapsed", false);
+const mainBarCollapsed = useLocalStorage("ui.mainBarCollapsed", false);
 
 const defaultNavigationState = {
   activePlatformsDrawer: false,

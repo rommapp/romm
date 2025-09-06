@@ -31,6 +31,8 @@ export default defineStore("console", {
         name === ROUTES.CONSOLE_HOME ||
         name === ROUTES.CONSOLE_PLATFORM ||
         name === ROUTES.CONSOLE_COLLECTION ||
+        name === ROUTES.CONSOLE_SMART_COLLECTION ||
+        name === ROUTES.CONSOLE_VIRTUAL_COLLECTION ||
         name === ROUTES.CONSOLE_ROM ||
         name === ROUTES.CONSOLE_PLAY
       );

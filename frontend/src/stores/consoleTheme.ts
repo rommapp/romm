@@ -4,7 +4,7 @@ import { computed } from "vue";
 import { resolveAsset, clearAssetCache } from "@/console/utils/assetResolver";
 
 export const useConsoleTheme = defineStore("consoleTheme", () => {
-  const themeName = useLocalStorage("console-theme", "default");
+  const themeName = useLocalStorage("console.theme", "default");
   const availableThemes = ["default", "neon"];
 
   function setTheme(newThemeName: string): void {

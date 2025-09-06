@@ -660,6 +660,10 @@ onBeforeUnmount(() => {
 });
 
 onUnmounted(() => {
+  if (document.fullscreenElement) {
+    // Remember to re-enable fullscreen after exiting the game
+    sessionStorage.setItem("emulation.fullScreenPostPlay", "true");
+  }
   // Force full reload to reset COEP/COOP, so cross-origin isolation is turned off.
   window.location.reload();
 });
