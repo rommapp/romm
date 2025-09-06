@@ -21,7 +21,7 @@ const defaultConfig = {
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
   EJS_DEBUG: false,
-  EJS_CACHE_LIMIT: 1073741824,
+  EJS_CACHE_LIMIT: null,
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
 } as ConfigResponse;
