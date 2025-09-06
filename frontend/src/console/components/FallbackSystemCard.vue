@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useConsoleTheme } from "@/console/composables/useConsoleTheme";
 import { useThemeAssets } from "@/console/composables/useThemeAssets";
-import { useConsoleTheme } from "@/stores/consoleTheme";
 
 defineProps<{ platformName: string }>();
 

@@ -165,16 +165,33 @@ body,
 .console-root {
   background:
     var(
-        --theme-background,
+        --console-root-background,
         url("/assets/console/default/backgrounds/background.svg")
       )
       center/cover fixed,
-    #38286a !important;
+    #38286a;
   min-height: 100vh;
   width: 100%;
 }
 
 .console-root::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    var(
+        --console-root-foreground,
+        url("/assets/console/default/backgrounds/background.svg")
+      )
+      center/cover fixed,
+    #38286a;
+  opacity: var(--console-root-opacity, 0);
+  transition: opacity 0.3s ease-in-out;
+}
+
+.console-root::after {
   content: "";
   position: fixed;
   inset: 0;

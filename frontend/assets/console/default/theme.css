@@ -168,7 +168,3 @@
   --console-play-save-status-text: var(--console-accent-secondary);
   --console-play-save-separator-border: rgba(255, 255, 255, 0.1);
 }
-
-.console-root::before {
-  background: rgba(0, 0, 0, 0.15);
-}

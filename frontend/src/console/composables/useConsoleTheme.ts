@@ -1,11 +1,13 @@
 import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
 import { computed } from "vue";
+import useBackgroundArt from "@/console/composables/useBackgroundArt";
 import { resolveAsset, clearAssetCache } from "@/console/utils/assetResolver";
 
 export const useConsoleTheme = defineStore("consoleTheme", () => {
   const themeName = useLocalStorage("console.theme", "default");
   const availableThemes = ["default", "neon"];
+  const { setSelectedBackgroundArt } = useBackgroundArt();
 
   function setTheme(newThemeName: string): void {
     clearAssetCache();
@@ -45,11 +47,7 @@ export const useConsoleTheme = defineStore("consoleTheme", () => {
       "svg",
       themeName.value,
     );
-    const backgroundUrl = `url("${backgroundPath}")`;
-    document.documentElement.style.setProperty(
-      "--theme-background",
-      backgroundUrl,
-    );
+    setSelectedBackgroundArt(backgroundPath);
   }
 
   const themeDisplayName = computed(() => {
