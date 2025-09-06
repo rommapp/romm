@@ -59,6 +59,7 @@ class Config:
     FIRMWARE_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
+    EJS_CACHE_LIMIT: int | None
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
 
@@ -169,6 +170,9 @@ class ConfigManager:
                 self._raw_config, "filesystem.firmware_folder", "bios"
             ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
+            EJS_CACHE_LIMIT=pydash.get(
+                self._raw_config, "emulatorjs.cache_limit", None
+            ),
             EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
         )
@@ -271,6 +275,14 @@ class ConfigManager:
 
         if not isinstance(self.config.EJS_DEBUG, bool):
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
+            sys.exit(3)
+
+        if self.config.EJS_CACHE_LIMIT is not None and not isinstance(
+            self.config.EJS_CACHE_LIMIT, int
+        ):
+            log.critical(
+                "Invalid config.yml: emulatorjs.cache_limit must be an integer"
+            )
             sys.exit(3)
 
         if not isinstance(self.config.EJS_SETTINGS, dict):
