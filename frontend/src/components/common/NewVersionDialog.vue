@@ -8,7 +8,7 @@ const heartbeat = storeHeartbeat();
 const { VERSION } = heartbeat.value.SYSTEM;
 const GITHUB_VERSION = ref(VERSION);
 const latestVersionDismissed = ref(VERSION === "development");
-const dismissedVersion = useLocalStorage("dismissedVersion", "");
+const dismissedVersion = useLocalStorage("ui.dismissedVersion", "");
 
 function dismissVersionBanner() {
   dismissedVersion.value = GITHUB_VERSION.value;

@@ -1,7 +1,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import type { InputAction } from "../input/actions";
 
-const sfxEnabled = useLocalStorage("console-sfx-enabled", true);
+const sfxEnabled = useLocalStorage("console.sfxEnabled", true);
 
 export function setSfxEnabled(enabled: boolean): void {
   sfxEnabled.value = enabled;

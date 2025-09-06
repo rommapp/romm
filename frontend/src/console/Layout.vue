@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useIdle } from "@vueuse/core";
+import { useIdle, useSessionStorage } from "@vueuse/core";
 import { onMounted, onUnmounted, provide } from "vue";
 import { type RouteLocationNormalized } from "vue-router";
 import { useRouter } from "vue-router";
@@ -13,6 +13,11 @@ const router = useRouter();
 const bus = new InputBus();
 const themeStore = useConsoleTheme();
 provide(InputBusSymbol, bus);
+
+const fullScreenPostPlay = useSessionStorage(
+  "emulation.fullScreenPostPlay",
+  false,
+);
 
 // Define route hierarchy for transition direction logic
 const routeHierarchy = {
@@ -58,6 +63,12 @@ onMounted(() => {
   bus.pushScope();
   detachKeyboard = attachKeyboard(bus);
   detachGamepad = attachGamepad(bus);
+
+  // Re-enable fullscreen if it was enabled after exiting the game
+  if (fullScreenPostPlay.value) {
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    fullScreenPostPlay.value = false;
+  }
 });
 
 onUnmounted(() => {
