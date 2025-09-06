@@ -328,7 +328,9 @@ function play() {
       data: {},
       updateLastPlayed: true,
     })
-    .catch(() => {});
+    .catch((error) => {
+      console.error(error);
+    });
 
   const query: Record<string, number> = {};
 

@@ -26,7 +26,9 @@ function enterConsoleMode() {
   if (!document.fullscreenElement) {
     // Attempt fullscreen after a small delay to allow navigation transition
     setTimeout(() => {
-      document.documentElement.requestFullscreen?.().catch(() => {});
+      document.documentElement.requestFullscreen?.().catch((error) => {
+        console.error("Error requesting fullscreen", error);
+      });
     }, 50);
   }
 }

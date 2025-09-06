@@ -128,7 +128,9 @@ export function playSfx(kind: SfxType) {
   // Lazy resume (required on some browsers until user gesture)
   ensureCtx()
     ?.resume()
-    .catch(() => {});
+    .catch((error) => {
+      console.error("Error resuming audio", error);
+    });
   switch (kind) {
     case "move":
       playClick({

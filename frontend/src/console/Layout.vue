@@ -66,7 +66,9 @@ onMounted(() => {
 
   // Re-enable fullscreen if it was enabled after exiting the game
   if (fullScreenPostPlay.value) {
-    document.documentElement.requestFullscreen?.().catch(() => {});
+    document.documentElement.requestFullscreen?.().catch((error) => {
+      console.error("Error requesting fullscreen", error);
+    });
     fullScreenPostPlay.value = false;
   }
 });
