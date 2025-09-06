@@ -53,6 +53,6 @@ def test_empty_config_loader():
     assert loader.config.ROMS_FOLDER_NAME == "roms"
     assert loader.config.FIRMWARE_FOLDER_NAME == "bios"
     assert not loader.config.EJS_DEBUG
-    assert not loader.config.EJS_CACHE_LIMIT
+    assert loader.config.EJS_CACHE_LIMIT is None
     assert loader.config.EJS_SETTINGS == {}
     assert loader.config.EJS_CONTROLS == {}

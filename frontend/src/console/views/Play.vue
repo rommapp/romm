@@ -422,7 +422,7 @@ async function boot() {
   window.EJS_disableAutoLang = true;
 
   const { EJS_DEBUG, EJS_CACHE_LIMIT } = configStore.config;
-  if (EJS_CACHE_LIMIT) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+  if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
   window.EJS_DEBUG_XX = EJS_DEBUG;
 
   // Set a valid game name (affects per-game settings keys)
