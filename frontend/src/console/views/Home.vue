@@ -433,7 +433,7 @@ function exitConsoleMode() {
   if (document.fullscreenElement) {
     document.exitFullscreen?.();
   }
-  router.push({ name: "home" });
+  router.push({ name: ROUTES.HOME });
 }
 
 function toggleFullscreen() {
