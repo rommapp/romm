@@ -153,6 +153,7 @@ class VirtualCollection(BaseModel):
         return [
             f"{FRONTEND_RESOURCES_PATH}/{cover}?ts={self.updated_at}"
             for cover in self.path_covers_s
+            if cover
         ]
 
     @property
@@ -160,6 +161,7 @@ class VirtualCollection(BaseModel):
         return [
             f"{FRONTEND_RESOURCES_PATH}/{cover}?ts={self.updated_at}"
             for cover in self.path_covers_l
+            if cover
         ]
 
     __table_args__ = (

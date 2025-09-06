@@ -2,8 +2,10 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import { ROUTES } from "@/plugins/router";
 import { saveApi as api } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import storeLanguage from "@/stores/language";
@@ -32,6 +34,7 @@ const romsStore = storeRoms();
 const playingStore = storePlaying();
 const configStore = storeConfig();
 const languageStore = storeLanguage();
+const router = useRouter();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -336,14 +339,14 @@ window.EJS_onGameStart = async () => {
 
   const exitEmulation = createExitEmulationButton();
   exitEmulation.addEventListener("click", async () => {
-    if (!romRef.value || !window.EJS_emulator) return window.history.back();
+    if (!romRef.value || !window.EJS_emulator) return immediateExit();
     romsStore.update(romRef.value);
-    window.history.back();
+    immediateExit();
   });
 
   const saveAndQuit = createSaveQuitButton();
   saveAndQuit.addEventListener("click", async () => {
-    if (!romRef.value || !window.EJS_emulator) return window.history.back();
+    if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
     const stateFile = window.EJS_emulator.gameManager.getState();
     const saveFile = window.EJS_emulator.gameManager.getSaveFile();
@@ -365,9 +368,17 @@ window.EJS_onGameStart = async () => {
     });
 
     romsStore.update(romRef.value);
-    window.history.back();
+    immediateExit();
   });
 };
+
+function immediateExit() {
+  router
+    .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
+    .catch((error) => {
+      console.error("Error navigating to console rom", error);
+    });
+}
 
 onUnmounted(() => {
   // Force full reload to reset COEP/COOP, so cross-origin isolation is turned off.

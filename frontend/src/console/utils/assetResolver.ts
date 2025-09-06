@@ -1,4 +1,4 @@
-import { useConsoleTheme } from "@/stores/consoleTheme";
+import { useConsoleTheme } from "@/console/composables/useConsoleTheme";
 
 // supported image formats
 export type SupportedFormat = "svg" | "png" | "jpg" | "jpeg" | "webp";

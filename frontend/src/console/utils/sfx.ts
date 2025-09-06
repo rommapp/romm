@@ -1,7 +1,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import type { InputAction } from "../input/actions";
 
-const sfxEnabled = useLocalStorage("console-sfx-enabled", true);
+const sfxEnabled = useLocalStorage("console.sfxEnabled", true);
 
 export function setSfxEnabled(enabled: boolean): void {
   sfxEnabled.value = enabled;
@@ -128,7 +128,9 @@ export function playSfx(kind: SfxType) {
   // Lazy resume (required on some browsers until user gesture)
   ensureCtx()
     ?.resume()
-    .catch(() => {});
+    .catch((error) => {
+      console.error("Error resuming audio", error);
+    });
   switch (kind) {
     case "move":
       playClick({

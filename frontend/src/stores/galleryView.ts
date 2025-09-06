@@ -1,7 +1,7 @@
 import { useLocalStorage } from "@vueuse/core";
 import { defineStore } from "pinia";
 
-const currentViewStorage = useLocalStorage("currentView", 0);
+const currentViewStorage = useLocalStorage("ui.currentView", 0);
 
 const defaultGalleryState = {
   currentView: currentViewStorage.value,
