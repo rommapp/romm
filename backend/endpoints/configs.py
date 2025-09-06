@@ -37,6 +37,7 @@ def get_config() -> ConfigResponse:
             PLATFORMS_BINDING=cfg.PLATFORMS_BINDING,
             PLATFORMS_VERSIONS=cfg.PLATFORMS_VERSIONS,
             EJS_DEBUG=cfg.EJS_DEBUG,
+            EJS_CACHE_LIMIT=cfg.EJS_CACHE_LIMIT,
             EJS_CONTROLS=cfg.EJS_CONTROLS,
             EJS_SETTINGS=cfg.EJS_SETTINGS,
         )

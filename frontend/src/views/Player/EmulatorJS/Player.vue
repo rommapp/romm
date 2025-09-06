@@ -80,6 +80,7 @@ declare global {
     EJS_language: string;
     EJS_disableAutoLang: boolean;
     EJS_DEBUG_XX: boolean;
+    EJS_CacheLimit: number;
     EJS_Buttons: Record<string, boolean>;
     EJS_VirtualGamepadSettings: {};
     EJS_onGameStart: () => void;
@@ -136,7 +137,10 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
   .trim();
 window.EJS_language = selectedLanguage.value.value.replace("_", "-");
 window.EJS_disableAutoLang = true;
-window.EJS_DEBUG_XX = configStore.config.EJS_DEBUG;
+
+const { EJS_DEBUG, EJS_CACHE_LIMIT } = configStore.config;
+if (EJS_CACHE_LIMIT) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+window.EJS_DEBUG_XX = EJS_DEBUG;
 
 onMounted(() => {
   window.scrollTo(0, 0);
