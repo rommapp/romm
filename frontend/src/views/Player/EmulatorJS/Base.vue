@@ -42,7 +42,7 @@ const selectedCore = ref<string | null>(null);
 const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
-const fullScreenOnPlay = useLocalStorage("fullScreenOnPlay", true);
+const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 
 function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {

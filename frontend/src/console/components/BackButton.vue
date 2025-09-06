@@ -9,7 +9,8 @@ const props = defineProps<{
 const router = useRouter();
 
 function goBack() {
-  props.onBack?.() ?? router.back();
+  if (props.onBack) props.onBack();
+  else router.back();
 }
 </script>
 

@@ -16,7 +16,7 @@ const { t } = useI18n();
 const route = useRoute();
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
-const fullScreenOnPlay = useLocalStorage("fullScreenOnPlay", true);
+const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 const backgroundColor = ref(DEFAULT_BACKGROUND_COLOR);
 
 declare global {

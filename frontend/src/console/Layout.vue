@@ -1,24 +1,31 @@
 <script setup lang="ts">
-import { useIdle } from "@vueuse/core";
+import { useIdle, useSessionStorage } from "@vueuse/core";
 import { onMounted, onUnmounted, provide } from "vue";
 import { type RouteLocationNormalized } from "vue-router";
 import { useRouter } from "vue-router";
+import { useConsoleTheme } from "@/console/composables/useConsoleTheme";
 import { InputBus, InputBusSymbol } from "@/console/input/bus";
 import { attachGamepad } from "@/console/input/gamepad";
 import { attachKeyboard } from "@/console/input/keyboard";
 import { ROUTES } from "@/plugins/router";
-import { useConsoleTheme } from "@/stores/consoleTheme";
 
 const router = useRouter();
 const bus = new InputBus();
 const themeStore = useConsoleTheme();
 provide(InputBusSymbol, bus);
 
+const fullScreenPostPlay = useSessionStorage(
+  "emulation.fullScreenPostPlay",
+  false,
+);
+
 // Define route hierarchy for transition direction logic
 const routeHierarchy = {
   [ROUTES.CONSOLE_HOME]: 0,
   [ROUTES.CONSOLE_PLATFORM]: 1,
   [ROUTES.CONSOLE_COLLECTION]: 1,
+  [ROUTES.CONSOLE_SMART_COLLECTION]: 1,
+  [ROUTES.CONSOLE_VIRTUAL_COLLECTION]: 1,
   [ROUTES.CONSOLE_ROM]: 2,
   [ROUTES.CONSOLE_PLAY]: 3,
 };
@@ -58,6 +65,14 @@ onMounted(() => {
   bus.pushScope();
   detachKeyboard = attachKeyboard(bus);
   detachGamepad = attachGamepad(bus);
+
+  // Re-enable fullscreen if it was enabled after exiting the game
+  if (fullScreenPostPlay.value) {
+    document.documentElement.requestFullscreen?.().catch((error) => {
+      console.error("Error requesting fullscreen", error);
+    });
+    fullScreenPostPlay.value = false;
+  }
 });
 
 onUnmounted(() => {
