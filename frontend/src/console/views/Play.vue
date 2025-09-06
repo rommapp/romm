@@ -420,7 +420,10 @@ async function boot() {
   if (ejsControls) window.EJS_defaultControls = ejsControls;
   window.EJS_language = selectedLanguage.value.value.replace("_", "-");
   window.EJS_disableAutoLang = true;
-  window.EJS_DEBUG_XX = configStore.config.EJS_DEBUG;
+
+  const { EJS_DEBUG, EJS_CACHE_LIMIT } = configStore.config;
+  if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+  window.EJS_DEBUG_XX = EJS_DEBUG;
 
   // Set a valid game name (affects per-game settings keys)
   window.EJS_gameName = rom.fs_name_no_tags
