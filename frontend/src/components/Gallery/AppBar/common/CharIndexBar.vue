@@ -47,6 +47,10 @@ async function fetchRoms() {
         loading: false,
         scrim: false,
       });
+    })
+    .finally(() => {
+      // Scroll to the top of the gallery
+      document.body.scrollTo({ top: 0, behavior: "smooth" });
     });
 }
 
