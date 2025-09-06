@@ -55,7 +55,7 @@ function enterConsoleMode() {
           class="text-caption text-center"
           :class="{ 'text-primary': route.path.startsWith('/console') }"
         >
-          Play
+          Console
         </span>
       </v-expand-transition>
     </div>
