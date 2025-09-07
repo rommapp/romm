@@ -42,7 +42,9 @@ const selectedCore = ref<string | null>(null);
 const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
+const pictureInPicture = ref(false);
 const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
+const pipSupported = ref("documentPictureInPicture" in window);
 
 function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
@@ -89,6 +91,69 @@ function onPlay() {
 
 function onFullScreenChange() {
   fullScreenOnPlay.value = !fullScreenOnPlay.value;
+}
+
+async function togglePictureInPicture() {
+  if (!pipSupported.value) return;
+
+  const gameWrapper = document.getElementById("game-wrapper");
+  if (!gameWrapper) return;
+
+  if (pictureInPicture.value) {
+    // @ts-ignore
+    const pipWindow = window.documentPictureInPicture.window;
+    if (!pipWindow) {
+      pictureInPicture.value = false;
+      return;
+    }
+
+    const game = pipWindow?.document.getElementById("game");
+    if (!game) return;
+
+    gameWrapper.appendChild(game);
+    pipWindow?.close();
+
+    pictureInPicture.value = false;
+  } else {
+    const game = document.getElementById("game");
+    if (!game) return;
+
+    // @ts-ignore
+    const pipWindow = await window.documentPictureInPicture.requestWindow({
+      width: game.clientWidth,
+      height: game.clientHeight,
+    });
+
+    pipWindow.document.body.append(game);
+
+    pipWindow.addEventListener("pagehide", () => {
+      gameWrapper.appendChild(game);
+      pictureInPicture.value = false;
+    });
+
+    // Copy styles to the pip window
+    Array.from(document.styleSheets).forEach((styleSheet) => {
+      try {
+        const cssRules = Array.from(styleSheet.cssRules)
+          .map((rule) => rule.cssText)
+          .join("");
+        const style = document.createElement("style");
+
+        style.textContent = cssRules;
+        pipWindow.document.head.appendChild(style);
+      } catch (e) {
+        const link = document.createElement("link");
+
+        link.rel = "stylesheet";
+        link.type = styleSheet.type;
+        link.media = styleSheet.media.mediaText;
+        if (styleSheet.href) link.href = styleSheet.href;
+        pipWindow.document.head.appendChild(link);
+      }
+    });
+
+    pictureInPicture.value = true;
+  }
 }
 
 async function onlyQuit() {
@@ -758,6 +823,17 @@ onBeforeUnmount(async () => {
         >
           {{ t("play.save-and-quit") }}
         </v-btn>
+        <v-btn
+          v-if="pipSupported"
+          :class="{ 'mt-2': gameRunning || smAndDown, 'pl-1': !smAndDown }"
+          block
+          variant="flat"
+          prepend-icon="mdi-picture-in-picture-bottom-right-outline"
+          @click="togglePictureInPicture"
+        >
+          {{ t("play.toggle-picture-in-picture") }}
+          ></v-btn
+        >
       </v-row>
       <cache-dialog v-if="!gameRunning" />
     </v-col>
