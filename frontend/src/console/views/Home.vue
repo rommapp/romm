@@ -231,37 +231,30 @@ const navigationFunctions = {
   },
 };
 
-let verticalScrollPromise: Promise<void> | null = null;
 let isVerticalScrolling = false;
 
 function scrollToCurrentRow() {
   isVerticalScrolling = true;
 
-  // promise resolves when the scroll animation finishes
-  verticalScrollPromise = new Promise((resolve) => {
-    const behavior: ScrollBehavior = "smooth";
-    switch (navigationMode.value) {
-      case "systems":
-        scrollContainerRef.value?.scrollTo({ top: 0, behavior });
-        break;
-      case "recent":
-        recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
-        break;
-      case "collections":
-        collectionsSectionRef.value?.scrollIntoView({
-          behavior,
-          block: "start",
-        });
-        break;
-    }
+  const behavior: ScrollBehavior = "smooth";
+  switch (navigationMode.value) {
+    case "systems":
+      scrollContainerRef.value?.scrollTo({ top: 0, behavior });
+      break;
+    case "recent":
+      recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
+      break;
+    case "collections":
+      collectionsSectionRef.value?.scrollIntoView({
+        behavior,
+        block: "start",
+      });
+      break;
+  }
 
-    // resolve after animation
-    setTimeout(() => {
-      isVerticalScrolling = false;
-      verticalScrollPromise = null;
-      resolve();
-    }, 400); // match smooth scroll duration
-  });
+  setTimeout(() => {
+    isVerticalScrolling = false;
+  }, 400);
 }
 
 function centerInCarousel(
@@ -292,9 +285,11 @@ function exitConsoleMode() {
 }
 
 function toggleFullscreen() {
-  document.fullscreenElement
-    ? document.exitFullscreen?.()
-    : document.documentElement.requestFullscreen?.();
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+  } else {
+    document.documentElement.requestFullscreen?.();
+  }
 }
 
 // Navigation handlers

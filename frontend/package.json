@@ -25,7 +25,7 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "generate": "openapi --input http://127.0.0.1:3000/openapi.json --output ./src/__generated__ --client axios --useOptions --useUnionTypes --exportServices false --exportSchemas false --exportCore false",
-    "lint": "eslint ./src/composables --ext .vue,.js,.ts --fix"
+    "lint": "eslint ./src/console --ext .vue,.js,.ts --fix"
   },
   "dependencies": {
     "@mdi/font": "7.4.47",
