@@ -22,7 +22,7 @@ export default tseslint.config(
       "dist-ssr",
       "coverage",
       "*.local",
-      "__generated__",
+      "__generated__/**",
       "*.config.js",
     ],
     languageOptions: {
