@@ -55,6 +55,8 @@
   "show-stats-desc": "Pokaż podsumowanie statystyk na stronie głównej",
   "show-actionbar": "Pokaż pasek akcji",
   "show-actionbar-desc": "Zawsze pokazuj pasek akcji na karcie gry",
+  "show-game-titles": "Pokaż tytuły gier",
+  "show-game-titles-desc": "Zawsze pokazuj tytuły gier na kartach",
   "show-virtual-collections": "Pokaż automatyczne kolekcje",
   "show-virtual-collections-desc": "Wyświetlane na stronie głównej i w panelu kolekcji",
   "theme": "Motyw",
