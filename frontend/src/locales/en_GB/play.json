@@ -1,20 +1,21 @@
 {
   "back-to-gallery": "Back to gallery",
   "back-to-game-details": "Back to game details",
+  "background-color": "Background color",
+  "change-save": "Change save",
+  "change-state": "Change state",
   "clear-cache": "Clear EmulatorJS Cache",
   "clear-cache-description": "Any saves or states stored on the server will not be affected.",
   "clear-cache-title": "Are you sure you want to clear the EmulatorJS cache?",
   "clear-cache-warning": "This will remove all saves and states stored in the browser.",
+  "deselect-save": "Deselect save",
+  "deselect-state": "Deselect state",
   "full-screen": "Full screen",
   "play": "Play",
   "quit": "Quit",
   "save-and-quit": "Save and quit",
+  "select-background-color": "Select background color",
   "select-save": "Select save",
-  "change-save": "Change save",
-  "deselect-save": "Deselect save",
   "select-state": "Select state",
-  "change-state": "Change state",
-  "deselect-state": "Deselect state",
-  "background-color": "Background color",
-  "select-background-color": "Select background color"
+  "toggle-picture-in-picture": "Toggle Picture-in-Picture"
 }

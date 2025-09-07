@@ -1,20 +1,21 @@
 {
   "back-to-gallery": "Înapoi la galerie",
   "back-to-game-details": "Înapoi la detaliile jocului",
+  "background-color": "Culoare de fundal",
+  "change-save": "Schimbă salvare",
+  "change-state": "Schimbă stare",
   "clear-cache": "Șterge cache-ul EmulatorJS",
   "clear-cache-description": "Nu va afecta nicio salvare sau stare stocată pe server.",
   "clear-cache-title": "Ești sigur că vrei să ștergi cache-ul EmulatorJS?",
   "clear-cache-warning": "Acest lucru va elimina toate salvările și stările stocate în browser.",
+  "deselect-save": "Deselectează salvare",
+  "deselect-state": "Deselectează stare",
   "full-screen": "Ecran complet",
   "play": "Joacă",
   "quit": "Ieși",
   "save-and-quit": "Salvează și ieși",
+  "select-background-color": "Selectează culoarea de fundal",
   "select-save": "Selectează salvare",
-  "change-save": "Schimbă salvare",
-  "deselect-save": "Deselectează salvare",
   "select-state": "Selectează stare",
-  "change-state": "Schimbă stare",
-  "deselect-state": "Deselectează stare",
-  "background-color": "Culoare de fundal",
-  "select-background-color": "Selectează culoarea de fundal"
+  "toggle-picture-in-picture": "Comută imagine în imagine"
 }

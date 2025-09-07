@@ -1,20 +1,21 @@
 {
   "back-to-gallery": "Ritorna alla galleria",
   "back-to-game-details": "Ritorna ai dettagli del gioco",
+  "background-color": "Colore di sfondo",
+  "change-save": "Cambia Salvataggio",
+  "change-state": "Cambia Stato",
   "clear-cache": "Pulisci cache",
   "clear-cache-description": "Pulisci la cache del gioco. Questo non rimuoverà i salvataggi o i file di configurazione.",
   "clear-cache-title": "Pulisci cache del gioco",
   "clear-cache-warning": "Sei sicuro di voler pulire la cache del gioco?",
+  "deselect-save": "Deseleziona Salvataggio",
+  "deselect-state": "Deseleziona Stato",
   "full-screen": "Schermo Intero",
   "play": "Gioca",
   "quit": "Esci",
   "save-and-quit": "Salva e esci",
+  "select-background-color": "Seleziona colore di sfondo",
   "select-save": "Seleziona Salvataggio",
-  "change-save": "Cambia Salvataggio",
-  "deselect-save": "Deseleziona Salvataggio",
   "select-state": "Seleziona Stato",
-  "change-state": "Cambia Stato",
-  "deselect-state": "Deseleziona Stato",
-  "background-color": "Colore di sfondo",
-  "select-background-color": "Seleziona colore di sfondo"
+  "toggle-picture-in-picture": "Attiva/disattiva Picture-in-Picture"
 }
