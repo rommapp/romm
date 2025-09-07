@@ -217,7 +217,7 @@ async function updateRom(
     fs_name:
       renameFromSource.value && selectedMatchRom.value
         ? rom.value.fs_name.replace(
-            rom.value.fs_name_no_ext,
+            rom.value.fs_name_no_tags,
             selectedMatchRom.value.name,
           )
         : rom.value.fs_name,
@@ -532,20 +532,20 @@ onBeforeUnmount(() => {
                 <v-list-item v-if="rom && renameFromSource" class="mt-2">
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
-                  <span>{{ t("rom.rename-file-part3") }}</span
-                  ><span class="text-primary ml-1">{{ rom.fs_name }}</span>
+                  <span>{{ t("rom.rename-file-part3") }}</span>
+                  <span class="text-primary ml-1">{{ rom.fs_name }}</span>
                   <br />
-                  <span class="mx-1">{{ t("rom.rename-file-part4") }}</span
-                  ><span class="text-secondary">{{
+                  <span class="mx-1">{{ t("rom.rename-file-part4") }}</span>
+                  <span class="text-secondary">{{
                     rom.fs_name.replace(
-                      rom.fs_name_no_ext,
+                      rom.fs_name_no_tags,
                       selectedMatchRom.name,
                     )
                   }}</span>
                   <br />
-                  <span class="text-caption font-italic font-weight-bold"
-                    >*{{ t("rom.rename-file-part5") }}</span
-                  >
+                  <span class="text-caption font-italic font-weight-bold">
+                    *{{ t("rom.rename-file-part5") }}
+                  </span>
                 </v-list-item>
               </v-col>
             </v-row>
