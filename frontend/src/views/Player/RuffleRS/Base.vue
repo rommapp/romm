@@ -1,5 +1,4 @@
 <script setup lang="ts">
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useLocalStorage } from "@vueuse/core";
 import { nextTick, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
@@ -8,6 +7,7 @@ import RomListItem from "@/components/common/Game/ListItem.vue";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import type { DetailedRom } from "@/stores/roms";
+import type { RuffleSourceAPI } from "@/types/ruffle";
 import { getDownloadPath } from "@/utils";
 
 const RUFFLE_VERSION = "0.2.0-nightly.2025.8.14";
@@ -19,40 +19,6 @@ const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
 const fullScreenOnPlay = useLocalStorage("fullScreenOnPlay", true);
 const backgroundColor = ref(DEFAULT_BACKGROUND_COLOR);
-
-interface LegacyRuffleAPI {
-  onFSCommand: ((command: string, args: string) => void) | null;
-  config: any;
-  readonly loadedConfig: any;
-  get readyState(): ReadyState;
-  get metadata(): any;
-  reload(): Promise<void>;
-  load(options: string | any): Promise<void>;
-  play(): void;
-  get isPlaying(): boolean;
-  get volume(): number;
-  set volume(value: number);
-  get fullscreenEnabled(): boolean;
-  get isFullscreen(): boolean;
-  setFullscreen(isFull: boolean): void;
-  enterFullscreen(): void;
-  exitFullscreen(): void;
-  pause(): void;
-  set traceObserver(observer: ((message: string) => void) | null);
-  downloadSwf(): Promise<void>;
-  displayMessage(message: string): void;
-}
-
-interface RufflePlayerElement extends HTMLElement, LegacyRuffleAPI {
-  ruffle(version?: number): any;
-}
-
-interface RuffleSourceAPI {
-  version: string;
-  polyfill(): void;
-  pluginPolyfill(): void;
-  createPlayer(): RufflePlayerElement;
-}
 
 declare global {
   interface Window {
