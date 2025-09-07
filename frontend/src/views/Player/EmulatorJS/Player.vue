@@ -78,7 +78,7 @@ declare global {
     EJS_disableAutoLang: boolean;
     EJS_DEBUG_XX: boolean;
     EJS_Buttons: Record<string, boolean>;
-    EJS_VirtualGamepadSettings: {};
+    EJS_VirtualGamepadSettings: Record<string, unknown>;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
       screenshot: Uint8Array;

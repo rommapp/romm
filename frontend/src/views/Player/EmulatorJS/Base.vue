@@ -236,10 +236,10 @@ onBeforeUnmount(async () => {
   <v-row v-if="rom" class="justify-center scroll px-2" no-gutters>
     <v-col
       v-if="gameRunning"
+      id="game-wrapper"
       cols="12"
       md="8"
       xl="10"
-      id="game-wrapper"
       class="bg-background pr-2"
       rounded
     >
@@ -277,8 +277,8 @@ onBeforeUnmount(async () => {
           <!-- disc selector -->
           <v-select
             v-if="rom.multi"
-            class="mt-4"
             v-model="selectedDisc"
+            class="mt-4"
             hide-details
             variant="outlined"
             density="compact"
@@ -295,8 +295,8 @@ onBeforeUnmount(async () => {
           <!-- core selector -->
           <v-select
             v-if="supportedCores.length > 1"
-            class="mt-4"
             v-model="selectedCore"
+            class="mt-4"
             hide-details
             variant="outlined"
             prepend-inner-icon="mdi-chip"
@@ -313,8 +313,8 @@ onBeforeUnmount(async () => {
           <!-- bios selector -->
           <v-select
             v-if="firmwareOptions.length > 0"
-            class="mt-4"
             v-model="selectedFirmware"
+            class="mt-4"
             hide-details
             variant="outlined"
             density="compact"
@@ -347,12 +347,12 @@ onBeforeUnmount(async () => {
                   class="asset-selector"
                   prepend-icon="mdi-file"
                   :color="openStateSelector ? 'primary' : ''"
-                  @click="switchStateSelector"
                   :disabled="
                     !rom.user_states.some(
                       (s) => !s.emulator || s.emulator === selectedCore,
                     )
                   "
+                  @click="switchStateSelector"
                 >
                   {{
                     selectedState
@@ -375,15 +375,15 @@ onBeforeUnmount(async () => {
                               selectedState.screenshot?.download_path ??
                               getEmptyCoverImage(selectedState.file_name)
                             "
-                          >
-                          </v-img>
+                          />
                         </v-col>
                         <v-col class="pl-2 d-flex flex-column" cols="6">
                           <v-row
                             class="px-1 text-caption text-primary"
                             no-gutters
-                            >{{ selectedState.file_name }}</v-row
                           >
+                            {{ selectedState.file_name }}
+                          </v-row>
                           <v-row no-gutters>
                             <v-col cols="12">
                               <v-list-item rounded class="px-1 text-caption">
@@ -462,15 +462,15 @@ onBeforeUnmount(async () => {
                               selectedSave.screenshot?.download_path ??
                               getEmptyCoverImage(selectedSave.file_name)
                             "
-                          >
-                          </v-img>
+                          />
                         </v-col>
                         <v-col class="pl-2 d-flex flex-column" cols="6">
                           <v-row
                             class="px-1 text-caption text-primary"
                             no-gutters
-                            >{{ selectedSave.file_name }}</v-row
                           >
+                            {{ selectedSave.file_name }}
+                          </v-row>
                           <v-row no-gutters>
                             <v-col cols="12">
                               <v-list-item rounded class="px-1 text-caption">
@@ -514,73 +514,75 @@ onBeforeUnmount(async () => {
           <!-- state display -->
           <v-expand-transition>
             <v-row v-if="openStateSelector" class="mt-2" no-gutters>
-              <v-col
-                cols="6"
-                sm="4"
-                class="pa-1"
-                v-if="rom.user_states.length > 0"
-                v-for="state in rom.user_states
-                  .filter((s) => !s.emulator || s.emulator === selectedCore)
-                  .sort((a, b) => {
-                    return (
-                      new Date(b.updated_at).getTime() -
-                      new Date(a.updated_at).getTime()
-                    );
-                  })"
-              >
-                <v-hover v-slot="{ isHovering, props }">
-                  <v-card
-                    :style="{
-                      zIndex: selectedState?.id === state.id ? 11 : undefined,
-                    }"
-                    v-bind="props"
-                    class="bg-toplayer transform-scale"
-                    :class="{
-                      'on-hover': isHovering,
-                      'border-selected': selectedState?.id === state.id,
-                    }"
-                    :elevation="isHovering ? 20 : 3"
-                    @click="selectState(state)"
-                  >
-                    <v-card-text class="pa-2">
-                      <v-row no-gutters>
-                        <v-col cols="12">
-                          <v-img
-                            rounded
-                            :src="
-                              state.screenshot?.download_path ??
-                              getEmptyCoverImage(state.file_name)
-                            "
-                          >
-                          </v-img>
-                        </v-col>
-                      </v-row>
-                      <v-row
-                        class="py-2 px-1 text-caption text-primary"
-                        no-gutters
-                        >{{ state.file_name }}</v-row
-                      >
-                      <v-row class="ga-1" no-gutters>
-                        <v-col cols="12">
-                          <v-list-item rounded class="pa-1 text-caption">
-                            Updated: {{ formatTimestamp(state.updated_at) }}
-                            <span class="ml-1 text-grey text-caption"
-                              >({{
-                                formatRelativeDate(state.updated_at)
-                              }})</span
-                            >
-                          </v-list-item>
-                        </v-col>
-                        <v-col v-if="state.emulator" cols="12" class="mt-1">
-                          <v-chip size="x-small" color="orange" label>
-                            {{ state.emulator }}
-                          </v-chip>
-                        </v-col>
-                      </v-row>
-                    </v-card-text>
-                  </v-card>
-                </v-hover>
-              </v-col>
+              <template v-if="rom.user_states.length > 0">
+                <v-col
+                  v-for="state in rom.user_states
+                    .filter((s) => !s.emulator || s.emulator === selectedCore)
+                    .sort((a, b) => {
+                      return (
+                        new Date(b.updated_at).getTime() -
+                        new Date(a.updated_at).getTime()
+                      );
+                    })"
+                  :key="state.id"
+                  cols="6"
+                  sm="4"
+                  class="pa-1"
+                >
+                  <v-hover v-slot="{ isHovering, props }">
+                    <v-card
+                      :style="{
+                        zIndex: selectedState?.id === state.id ? 11 : undefined,
+                      }"
+                      v-bind="props"
+                      class="bg-toplayer transform-scale"
+                      :class="{
+                        'on-hover': isHovering,
+                        'border-selected': selectedState?.id === state.id,
+                      }"
+                      :elevation="isHovering ? 20 : 3"
+                      @click="selectState(state)"
+                    >
+                      <v-card-text class="pa-2">
+                        <v-row no-gutters>
+                          <v-col cols="12">
+                            <v-img
+                              rounded
+                              :src="
+                                state.screenshot?.download_path ??
+                                getEmptyCoverImage(state.file_name)
+                              "
+                            />
+                          </v-col>
+                        </v-row>
+                        <v-row
+                          class="py-2 px-1 text-caption text-primary"
+                          no-gutters
+                        >
+                          {{ state.file_name }}
+                        </v-row>
+                        <v-row class="ga-1" no-gutters>
+                          <v-col cols="12">
+                            <v-list-item rounded class="pa-1 text-caption">
+                              Updated: {{ formatTimestamp(state.updated_at) }}
+                              <span class="ml-1 text-grey text-caption"
+                                >({{
+                                  formatRelativeDate(state.updated_at)
+                                }})</span
+                              >
+                            </v-list-item>
+                          </v-col>
+                          <v-col v-if="state.emulator" cols="12" class="mt-1">
+                            <v-chip size="x-small" color="orange" label>
+                              {{ state.emulator }}
+                            </v-chip>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+                  </v-hover>
+                </v-col>
+              </template>
               <v-col v-else class="pa-1 mt-1">
                 <empty-states />
               </v-col>
@@ -590,69 +592,73 @@ onBeforeUnmount(async () => {
           <!-- save display -->
           <v-expand-transition>
             <v-row v-if="openSaveSelector" class="mt-2" no-gutters>
-              <v-col
-                cols="6"
-                sm="4"
-                class="pa-1"
-                v-if="rom.user_saves.length > 0"
-                v-for="save in rom.user_saves.sort((a, b) => {
-                  return (
-                    new Date(b.updated_at).getTime() -
-                    new Date(a.updated_at).getTime()
-                  );
-                })"
-              >
-                <v-hover v-slot="{ isHovering, props }">
-                  <v-card
-                    :style="{
-                      zIndex: selectedSave?.id === save.id ? 11 : undefined,
-                    }"
-                    v-bind="props"
-                    class="bg-toplayer transform-scale"
-                    :class="{
-                      'on-hover': isHovering,
-                      'border-selected': selectedSave?.id === save.id,
-                    }"
-                    :elevation="isHovering ? 20 : 3"
-                    @click="selectSave(save)"
-                  >
-                    <v-card-text class="pa-2">
-                      <v-row no-gutters>
-                        <v-col cols="12">
-                          <v-img
-                            rounded
-                            :src="
-                              save.screenshot?.download_path ??
-                              getEmptyCoverImage(save.file_name)
-                            "
-                          >
-                          </v-img>
-                        </v-col>
-                      </v-row>
-                      <v-row
-                        class="py-2 px-1 text-caption text-primary"
-                        no-gutters
-                        >{{ save.file_name }}</v-row
-                      >
-                      <v-row class="ga-1" no-gutters>
-                        <v-col cols="12">
-                          <v-list-item rounded class="pa-1 text-caption">
-                            Updated: {{ formatTimestamp(save.updated_at) }}
-                            <span class="ml-1 text-grey text-caption"
-                              >({{ formatRelativeDate(save.updated_at) }})</span
-                            >
-                          </v-list-item>
-                        </v-col>
-                        <v-col v-if="save.emulator" cols="12" class="mt-1">
-                          <v-chip size="x-small" color="orange" label>
-                            {{ save.emulator }}
-                          </v-chip>
-                        </v-col>
-                      </v-row>
-                    </v-card-text>
-                  </v-card>
-                </v-hover>
-              </v-col>
+              <template v-if="rom.user_saves.length > 0">
+                <v-col
+                  v-for="save in rom.user_saves.sort((a, b) => {
+                    return (
+                      new Date(b.updated_at).getTime() -
+                      new Date(a.updated_at).getTime()
+                    );
+                  })"
+                  :key="save.id"
+                  cols="6"
+                  sm="4"
+                  class="pa-1"
+                >
+                  <v-hover v-slot="{ isHovering, props }">
+                    <v-card
+                      :style="{
+                        zIndex: selectedSave?.id === save.id ? 11 : undefined,
+                      }"
+                      v-bind="props"
+                      class="bg-toplayer transform-scale"
+                      :class="{
+                        'on-hover': isHovering,
+                        'border-selected': selectedSave?.id === save.id,
+                      }"
+                      :elevation="isHovering ? 20 : 3"
+                      @click="selectSave(save)"
+                    >
+                      <v-card-text class="pa-2">
+                        <v-row no-gutters>
+                          <v-col cols="12">
+                            <v-img
+                              rounded
+                              :src="
+                                save.screenshot?.download_path ??
+                                getEmptyCoverImage(save.file_name)
+                              "
+                            />
+                          </v-col>
+                        </v-row>
+                        <v-row
+                          class="py-2 px-1 text-caption text-primary"
+                          no-gutters
+                        >
+                          {{ save.file_name }}
+                        </v-row>
+                        <v-row class="ga-1" no-gutters>
+                          <v-col cols="12">
+                            <v-list-item rounded class="pa-1 text-caption">
+                              Updated: {{ formatTimestamp(save.updated_at) }}
+                              <span class="ml-1 text-grey text-caption"
+                                >({{
+                                  formatRelativeDate(save.updated_at)
+                                }})</span
+                              >
+                            </v-list-item>
+                          </v-col>
+                          <v-col v-if="save.emulator" cols="12" class="mt-1">
+                            <v-chip size="x-small" color="orange" label>
+                              {{ save.emulator }}
+                            </v-chip>
+                          </v-col>
+                        </v-row>
+                      </v-card-text>
+                    </v-card>
+                  </v-hover>
+                </v-col>
+              </template>
               <v-col v-else class="pa-1 mt-1">
                 <empty-saves />
               </v-col>
@@ -667,19 +673,21 @@ onBeforeUnmount(async () => {
           <v-col :class="{ 'pr-1': !smAndDown }">
             <v-btn
               block
-              @click="onFullScreenChange"
               variant="flat"
               :append-icon="
                 fullScreenOnPlay ? 'mdi-fullscreen' : 'mdi-fullscreen-exit'
               "
               :color="fullScreenOnPlay ? 'primary' : ''"
-              ><v-icon class="mr-2">{{
-                fullScreenOnPlay
-                  ? "mdi-checkbox-outline"
-                  : "mdi-checkbox-blank-outline"
-              }}</v-icon
-              >{{ t("play.full-screen") }}</v-btn
+              @click="onFullScreenChange"
             >
+              <v-icon class="mr-2">
+                {{
+                  fullScreenOnPlay
+                    ? "mdi-checkbox-outline"
+                    : "mdi-checkbox-blank-outline"
+                }} </v-icon
+              >{{ t("play.full-screen") }}
+            </v-btn>
           </v-col>
           <v-col
             :cols="smAndDown ? 12 : 8"
@@ -691,7 +699,8 @@ onBeforeUnmount(async () => {
               class="text-primary"
               prepend-icon="mdi-play"
               @click="onPlay"
-              >{{ t("play.play") }}
+            >
+              {{ t("play.play") }}
             </v-btn>
           </v-col>
         </v-row>
@@ -711,7 +720,8 @@ onBeforeUnmount(async () => {
                   params: { rom: rom?.id },
                 })
               "
-              >{{ t("play.back-to-game-details") }}
+            >
+              {{ t("play.back-to-game-details") }}
             </v-btn>
           </v-col>
           <v-col
@@ -729,7 +739,8 @@ onBeforeUnmount(async () => {
                   params: { platform: rom?.platform_id },
                 })
               "
-              >{{ t("play.back-to-gallery") }}
+            >
+              {{ t("play.back-to-gallery") }}
             </v-btn>
           </v-col>
         </v-row>
