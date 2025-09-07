@@ -108,11 +108,11 @@ function closeDialog() {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row no-gutters class="justify-center">
@@ -131,11 +131,11 @@ function closeDialog() {
     </template>
     <template #content>
       <v-data-table-virtual
+        v-model="romsToDeleteFromFs"
         :item-value="(item) => item.id"
         :items="roms"
         :width="mdAndUp ? '60vw' : '95vw'"
         :headers="HEADERS"
-        v-model="romsToDeleteFromFs"
         show-select
       >
         <template #item.name="{ item }">
@@ -156,12 +156,14 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center text-center pa-2" no-gutters>
         <v-col>
-          <v-chip @click="excludeOnDelete = !excludeOnDelete" variant="text"
-            ><v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">{{
-              excludeOnDelete
-                ? "mdi-checkbox-outline"
-                : "mdi-checkbox-blank-outline"
-            }}</v-icon>
+          <v-chip variant="text" @click="excludeOnDelete = !excludeOnDelete">
+            <v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">
+              {{
+                excludeOnDelete
+                  ? "mdi-checkbox-outline"
+                  : "mdi-checkbox-blank-outline"
+              }}
+            </v-icon>
             {{ t("common.exclude-on-delete") }}
           </v-chip>
         </v-col>
@@ -182,7 +184,7 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             Cancel
           </v-btn>
           <v-btn

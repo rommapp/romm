@@ -86,12 +86,12 @@ function closeDialog() {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-memory"
     empty-state-type="firmware"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="align-center" no-gutters>
@@ -114,20 +114,20 @@ function closeDialog() {
         >
           <template #item.name="{ item }">
             <v-list-item class="px-0">
-              <v-row no-gutters
-                ><v-col>{{ item.name }}</v-col></v-row
-              >
+              <v-row no-gutters>
+                <v-col>{{ item.name }}</v-col>
+              </v-row>
               <v-row v-if="xs" no-gutters>
                 <v-col>
-                  <v-chip class="ml-2" size="x-small" label>{{
-                    formatBytes(item.size)
-                  }}</v-chip>
+                  <v-chip class="ml-2" size="x-small" label>
+                    {{ formatBytes(item.size) }}
+                  </v-chip>
                 </v-col>
               </v-row>
               <template #append>
-                <v-chip v-if="!xs" class="ml-2" size="x-small" label>{{
-                  formatBytes(item.size)
-                }}</v-chip>
+                <v-chip v-if="!xs" class="ml-2" size="x-small" label>
+                  {{ formatBytes(item.size) }}
+                </v-chip>
               </template>
             </v-list-item>
           </template>

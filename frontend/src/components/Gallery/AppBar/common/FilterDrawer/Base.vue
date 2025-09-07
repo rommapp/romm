@@ -314,10 +314,10 @@ onMounted(async () => {
 
 <template>
   <v-navigation-drawer
+    v-model="activeFilterDrawer"
     mobile
     floating
     width="400"
-    v-model="activeFilterDrawer"
     :class="{
       'ml-2': activeFilterDrawer,
       'drawer-mobile': smAndDown && activeFilterDrawer,
@@ -364,8 +364,8 @@ onMounted(async () => {
         :tabindex="activeFilterDrawer ? 0 : -1"
       >
         <v-autocomplete
-          :tabindex="activeFilterDrawer ? 0 : -1"
           v-model="selectedPlatform"
+          :tabindex="activeFilterDrawer ? 0 : -1"
           hide-details
           prepend-inner-icon="mdi-controller"
           clearable
@@ -399,7 +399,7 @@ onMounted(async () => {
                   text="Missing platform from filesystem"
                   chip
                   chip-label
-                  chipDensity="compact"
+                  chip-density="compact"
                   class="ml-2"
                 />
                 <v-chip class="ml-2" size="x-small" label>
@@ -425,6 +425,7 @@ onMounted(async () => {
       </v-list-item>
       <v-list-item
         v-for="filter in filters"
+        :key="filter.label"
         :tabindex="activeFilterDrawer ? 0 : -1"
       >
         <v-autocomplete

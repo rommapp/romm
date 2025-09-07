@@ -41,18 +41,22 @@ function closeDialog() {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
     scroll-content
     :width="lgAndUp ? 400 : 400"
+    @close="closeDialog"
   >
     <template #content>
       <v-row no-gutters>
         <v-col cols="12" class="text-center px-4">
-          <h3 class="mt-5">{{ rom.name }}</h3>
-          <h4 class="text-primary">{{ rom.fs_name }}</h4>
-          <canvas id="qr-code"></canvas>
+          <h3 class="mt-5">
+            {{ rom.name }}
+          </h3>
+          <h4 class="text-primary">
+            {{ rom.fs_name }}
+          </h4>
+          <canvas id="qr-code" />
         </v-col>
       </v-row>
     </template>

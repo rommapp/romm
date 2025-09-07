@@ -42,10 +42,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props }">
-    <div data-tilt ref="tilt-card-ref">
+  <v-hover v-slot="{ isHovering, props: cardProps }">
+    <div ref="tilt-card-ref" data-tilt>
       <v-card
-        v-bind="props"
+        v-bind="cardProps"
         class="bg-toplayer"
         :class="{ 'on-hover': isHovering, 'transform-scale': !enable3DTilt }"
         :elevation="isHovering ? 20 : 3"

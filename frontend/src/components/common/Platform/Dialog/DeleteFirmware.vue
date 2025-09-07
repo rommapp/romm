@@ -73,11 +73,11 @@ function closeDialog() {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="mdAndUp ? '60vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row no-gutters class="justify-center">
@@ -96,11 +96,11 @@ function closeDialog() {
     </template>
     <template #content>
       <v-data-table-virtual
+        v-model="firmwaresToDeleteFromFs"
         :item-value="(item) => item.id"
         :items="firmwares"
         :width="mdAndUp ? '60vw' : '95vw'"
         :headers="HEADERS"
-        v-model="firmwaresToDeleteFromFs"
         show-select
       >
         <template #item.name="{ item }">
@@ -132,9 +132,9 @@ function closeDialog() {
             </v-row>
             <v-row v-if="!lgAndUp" no-gutters>
               <v-col>
-                <v-chip size="x-small" label>{{
-                  formatBytes(item.file_size_bytes)
-                }}</v-chip>
+                <v-chip size="x-small" label>
+                  {{ formatBytes(item.file_size_bytes) }}
+                </v-chip>
                 <v-chip
                   color="blue"
                   size="x-small"
@@ -145,12 +145,11 @@ function closeDialog() {
                 </v-chip>
               </v-col>
             </v-row>
-            <template> </template>
             <template #append>
               <template v-if="lgAndUp">
-                <v-chip size="x-small" label>{{
-                  formatBytes(item.file_size_bytes)
-                }}</v-chip>
+                <v-chip size="x-small" label>
+                  {{ formatBytes(item.file_size_bytes) }}
+                </v-chip>
                 <v-chip class="ml-1" color="blue" size="x-small" label>
                   <span class="text-truncate">{{ item.md5_hash }}</span>
                 </v-chip>
@@ -178,7 +177,7 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             Cancel
           </v-btn>
           <v-btn

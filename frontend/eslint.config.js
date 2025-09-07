@@ -39,6 +39,8 @@ export default tseslint.config(
     rules: {
       "vue/multi-word-component-names": "off",
       "vue/max-attributes-per-line": "off",
+      "vue/valid-v-slot": "off",
+      "vue/no-use-v-if-with-v-for": "off",
     },
   },
 );

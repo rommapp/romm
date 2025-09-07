@@ -91,10 +91,10 @@ async function createCollection() {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     router.push({ name: ROUTES.COLLECTION, params: { collection: data.id } });
     closeDialog();
-  } catch (error: any) {
+  } catch (error) {
     console.log(error);
     emitter?.emit("snackbarShow", {
-      msg: error.response.data.detail,
+      msg: "Failed to create collection",
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -110,10 +110,10 @@ function closeDialog() {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-bookmark-box-multiple"
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-card-title>{{ t("collection.create-collection") }}</v-card-title>
@@ -184,14 +184,14 @@ function closeDialog() {
                         })
                       "
                     >
-                      <v-icon size="large">mdi-image-search-outline</v-icon>
+                      <v-icon size="large"> mdi-image-search-outline </v-icon>
                     </v-btn>
                     <v-btn
                       size="small"
                       class="translucent"
                       @click="triggerFileInput"
                     >
-                      <v-icon size="large">mdi-pencil</v-icon>
+                      <v-icon size="large"> mdi-pencil </v-icon>
                       <v-file-input
                         id="file-input"
                         v-model="collection.artwork"
@@ -206,9 +206,9 @@ function closeDialog() {
                       class="translucent"
                       @click="removeArtwork"
                     >
-                      <v-icon size="large" class="text-romm-red"
-                        >mdi-delete</v-icon
-                      >
+                      <v-icon size="large" class="text-romm-red">
+                        mdi-delete
+                      </v-icon>
                     </v-btn>
                   </v-btn-group>
                 </template>

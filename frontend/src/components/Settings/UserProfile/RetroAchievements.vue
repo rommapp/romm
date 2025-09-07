@@ -107,8 +107,9 @@ watch(
           :variant="syncing ? 'plain' : 'flat'"
           type="submit"
           class="ml-4 text-romm-green bg-toplayer"
-          >{{ t("common.apply") }}</v-btn
         >
+          {{ t("common.apply") }}
+        </v-btn>
         <v-btn
           prepend-icon="mdi-sync"
           :disabled="syncing"

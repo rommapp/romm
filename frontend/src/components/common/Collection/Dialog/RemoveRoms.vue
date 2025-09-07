@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { inject, ref, watch } from "vue";
+import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -83,11 +83,11 @@ function closeDialog() {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-bookmark-remove-outline"
     scroll-content
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row no-gutters class="justify-center">
@@ -144,7 +144,7 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn

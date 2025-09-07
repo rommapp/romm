@@ -11,7 +11,8 @@ defineProps<{ title: string }>();
     <template #content>
       <v-row class="flex-nowrap overflow-x-auto pa-1" no-gutters>
         <v-col
-          v-for="_ in RECENT_ROMS_LIMIT"
+          v-for="index in RECENT_ROMS_LIMIT"
+          :key="index"
           class="align-self-end pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"

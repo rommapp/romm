@@ -73,10 +73,10 @@ function closeDialog() {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row no-gutters class="justify-center">
@@ -120,10 +120,11 @@ function closeDialog() {
                   size="x-small"
                   class="text-orange"
                   label
-                  >{{ item.emulator }}
+                >
+                  {{ item.emulator }}
                 </v-chip>
-                <v-chip class="ml-1" size="x-small" label
-                  >{{ formatBytes(item.file_size_bytes) }}
+                <v-chip class="ml-1" size="x-small" label>
+                  {{ formatBytes(item.file_size_bytes) }}
                 </v-chip>
               </template>
             </template>
@@ -144,7 +145,7 @@ function closeDialog() {
       </v-row>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             Cancel
           </v-btn>
           <v-btn

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import { computed, inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import AdminMenu from "@/components/common/Game/AdminMenu.vue";
@@ -49,21 +48,22 @@ async function copyDownloadLink(rom: DetailedRom) {
       <v-btn
         :disabled="downloadStore.value.includes(rom.id) || rom.missing_from_fs"
         class="flex-grow-1"
+        :aria-label="`Download ${rom.name}`"
         @click="
           romApi.downloadRom({
             rom,
             fileIDs: downloadStore.fileIDsToDownload,
           })
         "
-        :aria-label="`Download ${rom.name}`"
       >
         <v-tooltip
           activator="parent"
           location="top"
           transition="fade-transition"
           open-delay="1000"
-          >{{ t("rom.download") }} {{ rom.name }}</v-tooltip
         >
+          {{ t("rom.download") }} {{ rom.name }}
+        </v-tooltip>
         <v-icon icon="mdi-download" size="large" />
       </v-btn>
       <v-btn
@@ -77,8 +77,9 @@ async function copyDownloadLink(rom: DetailedRom) {
           location="top"
           transition="fade-transition"
           open-delay="1000"
-          >{{ t("rom.copy-link") }}</v-tooltip
         >
+          {{ t("rom.copy-link") }}
+        </v-tooltip>
         <v-icon icon="mdi-content-copy" />
       </v-btn>
       <play-btn :rom="rom" class="flex-grow-1" />
@@ -86,8 +87,8 @@ async function copyDownloadLink(rom: DetailedRom) {
         v-if="is3DSRom"
         :disabled="rom.missing_from_fs"
         class="flex-grow-1"
-        @click="emitter?.emit('showQRCodeDialog', rom)"
         :aria-label="`Show ${rom.name} QR code`"
+        @click="emitter?.emit('showQRCodeDialog', rom)"
       >
         <v-icon :icon="qrCodeIcon" />
       </v-btn>

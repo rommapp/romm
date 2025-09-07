@@ -64,10 +64,10 @@ function onClose() {
 </script>
 <template>
   <v-navigation-drawer
+    v-model="activeSettingsDrawer"
     mobile
     :location="smAndDown ? 'top' : 'left'"
     width="450"
-    v-model="activeSettingsDrawer"
     :class="{
       'my-2': mdAndUp || (smAndDown && activeSettingsDrawer),
       'ml-2': (mdAndUp && activeSettingsDrawer) || smAndDown,
@@ -88,13 +88,14 @@ function onClose() {
           "
           cover
           class="rounded"
-        >
-        </v-img>
+        />
       </v-list-img>
       <v-list-item :title="user?.username" class="mb-1 text-shadow text-white">
         <template v-if="user?.role" #subtitle>
           <span class="mr-1">{{ user.role }}</span>
-          <v-icon size="x-small">{{ getRoleIcon(user.role) }}</v-icon>
+          <v-icon size="x-small">
+            {{ getRoleIcon(user.role) }}
+          </v-icon>
         </template>
       </v-list-item>
     </v-list>
@@ -107,8 +108,9 @@ function onClose() {
         append-icon="mdi-account"
         aria-label="Profile"
         role="listitem"
-        >{{ t("common.profile") }}</v-list-item
       >
+        {{ t("common.profile") }}
+      </v-list-item>
       <v-list-item
         :tabindex="tabIndex"
         class="mt-1"
@@ -117,8 +119,9 @@ function onClose() {
         append-icon="mdi-palette"
         aria-label="User Interface"
         role="listitem"
-        >{{ t("common.user-interface") }}</v-list-item
       >
+        {{ t("common.user-interface") }}
+      </v-list-item>
       <v-list-item
         v-if="scopes.includes('platforms.write')"
         :tabindex="tabIndex"
@@ -128,7 +131,8 @@ function onClose() {
         aria-label="Library management"
         role="listitem"
         :to="{ name: ROUTES.LIBRARY_MANAGEMENT }"
-        >{{ t("common.library-management") }}
+      >
+        {{ t("common.library-management") }}
       </v-list-item>
       <v-list-item
         v-if="scopes.includes('users.write')"
@@ -139,7 +143,8 @@ function onClose() {
         append-icon="mdi-security"
         aria-label="Administration"
         role="listitem"
-        >{{ t("common.administration") }}
+      >
+        {{ t("common.administration") }}
       </v-list-item>
       <v-list-item
         v-if="auth.user?.role === 'admin'"
@@ -150,30 +155,33 @@ function onClose() {
         append-icon="mdi-server"
         aria-label="Server Stats"
         role="listitem"
-        >{{ t("common.server-stats") }}
+      >
+        {{ t("common.server-stats") }}
       </v-list-item>
       <v-list-item
         v-if="auth.user?.role === 'admin'"
         :tabindex="tabIndex"
         class="mt-1"
         rounded
-        @click="emitter?.emit('showAboutDialog', null)"
         append-icon="mdi-help-circle-outline"
         aria-label="About"
         role="listitem"
-        >{{ t("common.about") }}
+        @click="emitter?.emit('showAboutDialog', null)"
+      >
+        {{ t("common.about") }}
       </v-list-item>
     </v-list>
     <template v-if="scopes.includes('me.write')" #append>
       <v-btn
-        @click="logout"
         :tabindex="tabIndex"
         append-icon="mdi-location-exit"
         block
         aria-label="Logout"
         class="bg-toplayer text-romm-red"
-        >{{ t("common.logout") }}</v-btn
+        @click="logout"
       >
+        {{ t("common.logout") }}
+      </v-btn>
     </template>
   </v-navigation-drawer>
 

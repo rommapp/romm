@@ -82,9 +82,9 @@ function closeDialog() {
 </script>
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row class="align-center" no-gutters>
@@ -99,8 +99,8 @@ function closeDialog() {
       <v-row class="py-2 px-4 align-center" no-gutters>
         <v-col cols="6">
           <v-select
-            :items="heartbeat.value.FILESYSTEM.FS_PLATFORMS"
             v-model="fsSlugToCreate"
+            :items="heartbeat.value.FILESYSTEM.FS_PLATFORMS"
             :label="t('settings.platform-version')"
             variant="outlined"
             required
@@ -146,8 +146,8 @@ function closeDialog() {
               <v-list-item class="px-0" :title="item.raw.name ?? ''">
                 <template #prepend>
                   <platform-icon
-                    :size="35"
                     :key="item.raw.slug"
+                    :size="35"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
                     :fs-slug="item.raw.fs_slug"

@@ -33,25 +33,27 @@ withDefaults(
     }"
   >
     <template v-if="withAvatar" #prepend>
-      <slot name="prepend"></slot>
+      <slot name="prepend" />
       <r-avatar-rom :rom="rom" />
     </template>
-    <v-row v-if="withName" no-gutters
-      ><v-col>{{ rom.name }}</v-col></v-row
-    >
-    <v-row v-if="withFilename" no-gutters
-      ><v-col class="text-primary">{{ rom.fs_name }}</v-col></v-row
-    >
-    <slot name="append-body"></slot>
+    <v-row v-if="withName" no-gutters>
+      <v-col>{{ rom.name }}</v-col>
+    </v-row>
+    <v-row v-if="withFilename" no-gutters>
+      <v-col class="text-primary">
+        {{ rom.fs_name }}
+      </v-col>
+    </v-row>
+    <slot name="append-body" />
     <template #append>
       <v-row no-gutters>
         <v-col v-if="withSize" cols="auto">
-          <v-chip size="x-small" label>{{
-            formatBytes(rom.fs_size_bytes)
-          }}</v-chip>
+          <v-chip size="x-small" label>
+            {{ formatBytes(rom.fs_size_bytes) }}
+          </v-chip>
         </v-col>
         <v-col>
-          <slot name="append"></slot>
+          <slot name="append" />
         </v-col>
       </v-row>
     </template>

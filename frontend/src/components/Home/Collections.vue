@@ -50,9 +50,10 @@ watch(windowY, () => {
         icon
         rounded="0"
         @click="toggleGridCollections"
-        ><v-icon>{{
-          gridCollections ? "mdi-view-comfy" : "mdi-view-column"
-        }}</v-icon>
+      >
+        <v-icon>
+          {{ gridCollections ? "mdi-view-comfy" : "mdi-view-column" }}
+        </v-icon>
       </v-btn>
     </template>
     <template #content>
@@ -76,13 +77,13 @@ watch(windowY, () => {
           }"
         >
           <collection-card
+            :key="collection.id"
             show-rom-count
             transform-scale
-            :key="collection.id"
             :collection="collection"
             with-link
             title-on-hover
-            :enable3DTilt="enable3DEffect"
+            :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
           />
         </v-col>
