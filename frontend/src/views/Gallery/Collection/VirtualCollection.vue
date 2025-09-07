@@ -22,5 +22,5 @@ function setCurrentVirtualCollection(collection: CollectionType) {
     :collections="virtualCollections"
     :current-collection="currentVirtualCollection"
     :set-current-collection="setCurrentVirtualCollection"
-  ></base-collection>
+  />
 </template>

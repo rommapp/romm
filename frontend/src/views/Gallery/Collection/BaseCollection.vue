@@ -229,7 +229,7 @@ onBeforeRouteUpdate(async (to, from) => {
     <template
       v-if="currentCollection && fetchingRoms && filteredRoms.length === 0"
     >
-      <skeleton :romCount="currentCollection.rom_count" />
+      <skeleton :rom-count="currentCollection.rom_count" />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
@@ -255,15 +255,15 @@ onBeforeRouteUpdate(async (to, from) => {
             <game-card
               :key="rom.updated_at"
               :rom="rom"
-              titleOnHover
-              pointerOnHover
-              withLink
-              transformScale
-              showActionBar
-              showChips
-              :withBorderPrimary="selectedRoms?.includes(rom)"
-              :sizeActionBar="currentView"
-              :enable3DTilt="enable3DEffect"
+              title-on-hover
+              pointer-on-hover
+              with-link
+              transform-scale
+              show-action-bar
+              show-chips
+              :with-border-primary="selectedRoms?.includes(rom)"
+              :size-action-bar="currentView"
+              :enable3-d-tilt="enable3DEffect"
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
@@ -275,13 +275,13 @@ onBeforeRouteUpdate(async (to, from) => {
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row class="mr-13" v-if="currentView == 2" no-gutters>
+        <v-row v-if="currentView == 2" class="mr-13" no-gutters>
           <v-col class="my-4">
             <game-table show-platform-icon class="mx-2" />
           </v-col>
         </v-row>
 
-        <load-more-btn :fetchRoms="fetchRoms" />
+        <load-more-btn :fetch-roms="fetchRoms" />
         <fab-overlay />
       </template>
       <template v-else>
