@@ -100,7 +100,7 @@ watch(
 
 <template>
   <template v-if="currentRom && !fetchingRoms">
-    <background-header />
+    <BackgroundHeader />
 
     <v-row
       class="px-6 mb-6"
@@ -109,14 +109,14 @@ watch(
     >
       <v-col cols="auto">
         <v-container id="artwork-container" :width="270" class="pa-0">
-          <game-card
+          <GameCard
             :key="currentRom.updated_at"
             :rom="currentRom"
             :show-platform-icon="false"
             :show-action-bar="false"
           />
-          <action-bar class="mt-2" :rom="currentRom" />
-          <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
+          <ActionBar class="mt-2" :rom="currentRom" />
+          <RelatedGames v-if="mdAndUp" class="mt-4" :rom="currentRom" />
         </v-container>
       </v-col>
 
@@ -132,7 +132,7 @@ watch(
         "
       >
         <div :class="{ 'position-absolute title-desktop pl-4': mdAndUp }">
-          <title-info :rom="currentRom" />
+          <TitleInfo :rom="currentRom" />
         </div>
         <v-row
           :class="{ 'px-4': mdAndUp, 'justify-center': smAndDown }"
@@ -181,19 +181,19 @@ watch(
               <v-window-item value="details">
                 <v-row no-gutters>
                   <v-col>
-                    <file-info :rom="currentRom" />
-                    <game-info :rom="currentRom" />
+                    <FileInfo :rom="currentRom" />
+                    <GameInfo :rom="currentRom" />
                   </v-col>
                 </v-row>
               </v-window-item>
               <v-window-item value="manual">
-                <pdf-viewer v-if="currentRom.has_manual" :rom="currentRom" />
+                <PdfViewer v-if="currentRom.has_manual" :rom="currentRom" />
               </v-window-item>
               <v-window-item value="gamedata">
-                <game-data :rom="currentRom" />
+                <GameData :rom="currentRom" />
               </v-window-item>
               <v-window-item value="personal">
-                <personal :rom="currentRom" />
+                <Personal :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
@@ -203,7 +203,7 @@ watch(
                 "
                 value="additionalcontent"
               >
-                <additional-content :rom="currentRom" />
+                <AdditionalContent :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
@@ -214,7 +214,7 @@ watch(
                 "
                 value="relatedgames"
               >
-                <related-games :rom="currentRom" />
+                <RelatedGames :rom="currentRom" />
               </v-window-item>
             </v-window>
           </v-col>
@@ -230,13 +230,13 @@ watch(
         cols="auto"
       >
         <v-container width="270px" class="pa-0">
-          <additional-content class="mt-2" :rom="currentRom" />
+          <AdditionalContent class="mt-2" :rom="currentRom" />
         </v-container>
       </v-col>
     </v-row>
   </template>
 
-  <empty-game v-if="noRomError" />
+  <EmptyGame v-if="noRomError" />
 </template>
 
 <style scoped>

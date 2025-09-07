@@ -225,11 +225,11 @@ onBeforeRouteUpdate(async (to, from) => {
 
 <template>
   <template v-if="!noCollectionError">
-    <gallery-app-bar-collection />
+    <GalleryAppBarCollection />
     <template
       v-if="currentCollection && fetchingRoms && filteredRoms.length === 0"
     >
-      <skeleton :rom-count="currentCollection.rom_count" />
+      <Skeleton :rom-count="currentCollection.rom_count" />
     </template>
     <template v-else>
       <template v-if="filteredRoms.length > 0">
@@ -252,7 +252,7 @@ onBeforeRouteUpdate(async (to, from) => {
                   : 1,
             }"
           >
-            <game-card
+            <GameCard
               :key="rom.updated_at"
               :rom="rom"
               title-on-hover
@@ -277,18 +277,18 @@ onBeforeRouteUpdate(async (to, from) => {
         <!-- Gallery list view -->
         <v-row v-if="currentView == 2" class="mr-13" no-gutters>
           <v-col class="my-4">
-            <game-table show-platform-icon class="mx-2" />
+            <GameTable show-platform-icon class="mx-2" />
           </v-col>
         </v-row>
 
-        <load-more-btn :fetch-roms="fetchRoms" />
-        <fab-overlay />
+        <LoadMoreBtn :fetch-roms="fetchRoms" />
+        <FabOverlay />
       </template>
       <template v-else>
-        <empty-game v-if="props.collections.length > 0 && !fetchingRoms" />
+        <EmptyGame v-if="props.collections.length > 0 && !fetchingRoms" />
       </template>
     </template>
   </template>
 
-  <empty-collection v-else />
+  <EmptyCollection v-else />
 </template>

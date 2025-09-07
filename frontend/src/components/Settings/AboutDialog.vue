@@ -18,7 +18,7 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-help-circle-outline"
     scroll-content
@@ -28,7 +28,7 @@ function closeDialog() {
     <template #content>
       <v-row class="align-center pa-4" no-gutters>
         <v-col class="pa-4" cols="6">
-          <r-isotipo class="mr-2 mb-1" :size="20" /><span>RomM version</span>
+          <RIsotipo class="mr-2 mb-1" :size="20" /><span>RomM version</span>
           <v-divider class="my-2" />
           <v-hover v-slot="{ isHovering, props }">
             <a
@@ -103,5 +103,5 @@ function closeDialog() {
         </v-col>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

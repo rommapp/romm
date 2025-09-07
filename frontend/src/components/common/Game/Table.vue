@@ -161,14 +161,14 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     <template #item.name="{ item }">
       <v-list-item :min-width="400" class="px-0 py-2">
         <template #prepend>
-          <platform-icon
+          <PlatformIcon
             v-if="showPlatformIcon"
             class="mr-4"
             :size="30"
             :slug="item.platform_slug"
             :fs-slug="item.platform_fs_slug"
           />
-          <r-avatar-rom :rom="item" />
+          <RAvatarRom :rom="item" />
         </template>
         <v-row no-gutters>
           <v-col>{{ item.name }}</v-col>
@@ -179,7 +179,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           </v-col>
         </v-row>
         <template #append>
-          <missing-from-f-s-icon
+          <MissingFromFSIcon
             v-if="item.missing_from_fs"
             :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
             class="mr-1 mb-1 px-1"
@@ -281,7 +281,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     </template>
     <template #item.actions="{ item }">
       <v-btn-group density="compact">
-        <fav-btn :rom="item" />
+        <FavBtn :rom="item" />
         <v-btn
           :disabled="
             downloadStore.value.includes(item.id) || item.missing_from_fs
@@ -293,7 +293,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         >
           <v-icon>mdi-download</v-icon>
         </v-btn>
-        <play-btn :rom="item" variant="text" size="small" @click.stop />
+        <PlayBtn :rom="item" variant="text" size="small" @click.stop />
         <v-menu
           v-if="
             auth.scopes.includes('roms.write') ||
@@ -307,7 +307,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
               <v-icon>mdi-dots-vertical</v-icon>
             </v-btn>
           </template>
-          <admin-menu :rom="item" />
+          <AdminMenu :rom="item" />
         </v-menu>
       </v-btn-group>
     </template>

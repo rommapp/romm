@@ -110,7 +110,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-image-search-outline"
     :loading-condition="searching"
@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
                       />
                     </template>
                     <template #placeholder>
-                      <skeleton :aspect-ratio="coverAspectRatio" type="image" />
+                      <Skeleton :aspect-ratio="coverAspectRatio" type="image" />
                     </template>
                   </v-img>
                 </v-hover>
@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
         </v-expansion-panel>
       </v-expansion-panels>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
 <style lang="css">
 .v-expansion-panel-text__wrapper {

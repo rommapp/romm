@@ -82,7 +82,7 @@ async function copyDownloadLink(rom: DetailedRom) {
         </v-tooltip>
         <v-icon icon="mdi-content-copy" />
       </v-btn>
-      <play-btn :rom="rom" class="flex-grow-1" />
+      <PlayBtn :rom="rom" class="flex-grow-1" />
       <v-btn
         v-if="is3DSRom"
         :disabled="rom.missing_from_fs"
@@ -109,10 +109,10 @@ async function copyDownloadLink(rom: DetailedRom) {
             <v-icon icon="mdi-dots-vertical" size="large" />
           </v-btn>
         </template>
-        <admin-menu :rom="rom" />
+        <AdminMenu :rom="rom" />
       </v-menu>
     </v-btn-group>
 
-    <copy-rom-download-link-dialog />
+    <CopyRomDownloadLinkDialog />
   </div>
 </template>

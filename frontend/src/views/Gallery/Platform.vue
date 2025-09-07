@@ -229,11 +229,11 @@ onBeforeRouteUpdate(async (to, from) => {
 
 <template>
   <template v-if="!noPlatformError">
-    <gallery-app-bar />
+    <GalleryAppBar />
     <template
       v-if="currentPlatform && fetchingRoms && filteredRoms.length === 0"
     >
-      <skeleton
+      <Skeleton
         :platform-id="currentPlatform.id"
         :rom-count="currentPlatform.rom_count"
       />
@@ -259,7 +259,7 @@ onBeforeRouteUpdate(async (to, from) => {
                   : 1,
             }"
           >
-            <game-card
+            <GameCard
               :key="rom.updated_at"
               :rom="rom"
               title-on-hover
@@ -287,18 +287,18 @@ onBeforeRouteUpdate(async (to, from) => {
         <!-- Gallery list view -->
         <v-row v-if="currentView == 2" class="mr-13" no-gutters>
           <v-col class="my-4">
-            <game-table class="mx-2" />
+            <GameTable class="mx-2" />
           </v-col>
         </v-row>
 
-        <load-more-btn :fetch-roms="fetchRoms" />
+        <LoadMoreBtn :fetch-roms="fetchRoms" />
       </template>
       <template v-else>
-        <empty-game v-if="filteredPlatforms.length > 0 && !fetchingRoms" />
+        <EmptyGame v-if="filteredPlatforms.length > 0 && !fetchingRoms" />
       </template>
     </template>
-    <fab-overlay />
+    <FabOverlay />
   </template>
 
-  <empty-platform v-else />
+  <EmptyPlatform v-else />
 </template>

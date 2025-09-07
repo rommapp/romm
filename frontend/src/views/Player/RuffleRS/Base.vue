@@ -142,7 +142,7 @@ onMounted(async () => {
             src="/assets/ruffle/powered_by_ruffle.png"
           />
           <v-divider class="my-4" />
-          <rom-list-item :rom="rom" with-filename with-size />
+          <RomListItem :rom="rom" with-filename with-size />
           <v-divider class="my-4" />
         </v-col>
       </v-row>

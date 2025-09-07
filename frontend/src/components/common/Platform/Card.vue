@@ -64,7 +64,7 @@ onBeforeUnmount(() => {
       >
         <v-card-text>
           <v-row class="pa-1 justify-center align-center bg-background">
-            <missing-from-f-s-icon
+            <MissingFromFSIcon
               v-if="platform.missing_from_fs"
               text="Missing platform from filesystem"
               :size="15"
@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
             </div>
           </v-row>
           <v-row class="pa-1 justify-center">
-            <platform-icon
+            <PlatformIcon
               :key="platform.slug"
               :slug="platform.slug"
               :name="platform.name"

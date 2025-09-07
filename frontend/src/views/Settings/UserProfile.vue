@@ -137,7 +137,7 @@ onUnmounted(() => {
       </v-col>
     </v-row>
 
-    <r-section class="ma-4" icon="mdi-account" title="Account details">
+    <RSection class="ma-4" icon="mdi-account" title="Account details">
       <template #content>
         <v-text-field
           v-model="userToEdit.username"
@@ -200,8 +200,8 @@ onUnmounted(() => {
           {{ t("common.apply") }}
         </v-btn>
       </template>
-    </r-section>
+    </RSection>
 
-    <retro-achievements class="mx-4 mt-8" />
+    <RetroAchievements class="mx-4 mt-8" />
   </template>
 </template>

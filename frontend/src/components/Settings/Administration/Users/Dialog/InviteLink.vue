@@ -46,7 +46,7 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-share"
     :width="lgAndUp ? '60vw' : '95vw'"
@@ -81,5 +81,5 @@ function closeDialog() {
         </v-list-item>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

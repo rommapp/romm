@@ -95,7 +95,7 @@ const pdfViewerConfig = {
       <v-icon>mdi-download</v-icon>
     </button>
   </v-toolbar>
-  <vue-pdf-app
+  <VuePdfApp
     :id-config="pdfViewerConfig"
     :config="{ toolbar: false }"
     :theme="theme.name.value == 'dark' ? 'dark' : 'light'"

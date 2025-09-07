@@ -86,7 +86,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <r-section icon="mdi-account" title="Users" class="ma-2">
+  <RSection icon="mdi-account" title="Users" class="ma-2">
     <template #content>
       <v-text-field
         v-model="userSearch"
@@ -188,9 +188,9 @@ onMounted(() => {
         </template>
       </v-data-table-virtual>
     </template>
-  </r-section>
+  </RSection>
 
-  <create-user-dialog />
-  <invite-link-dialog />
-  <delete-user-dialog />
+  <CreateUserDialog />
+  <InviteLinkDialog />
+  <DeleteUserDialog />
 </template>

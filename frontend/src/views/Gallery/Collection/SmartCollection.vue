@@ -18,7 +18,7 @@ function setCurrentSmartCollection(collection: CollectionType) {
 </script>
 
 <template>
-  <base-collection
+  <BaseCollection
     :collections="smartCollections"
     :current-collection="currentSmartCollection"
     :set-current-collection="setCurrentSmartCollection"

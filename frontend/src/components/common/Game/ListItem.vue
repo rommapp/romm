@@ -34,7 +34,7 @@ withDefaults(
   >
     <template v-if="withAvatar" #prepend>
       <slot name="prepend" />
-      <r-avatar-rom :rom="rom" />
+      <RAvatarRom :rom="rom" />
     </template>
     <v-row v-if="withName" no-gutters>
       <v-col>{{ rom.name }}</v-col>

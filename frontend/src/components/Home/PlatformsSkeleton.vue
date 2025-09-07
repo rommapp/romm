@@ -10,7 +10,7 @@ const PLATFORM_SKELETON_COUNT = 12;
 </script>
 
 <template>
-  <r-section icon="mdi-shimmer" :title="t('common.platforms')">
+  <RSection icon="mdi-shimmer" :title="t('common.platforms')">
     <template #toolbar-append>
       <v-skeleton-loader type="button" />
     </template>
@@ -38,7 +38,7 @@ const PLATFORM_SKELETON_COUNT = 12;
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>
 
 <style>

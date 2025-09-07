@@ -22,7 +22,7 @@ export default tseslint.config(
       "dist-ssr",
       "coverage",
       "*.local",
-      "__generated__/**",
+      "src/__generated__/**",
       "*.config.js",
     ],
     languageOptions: {
@@ -41,6 +41,14 @@ export default tseslint.config(
       "vue/max-attributes-per-line": "off",
       "vue/valid-v-slot": "off",
       "vue/no-use-v-if-with-v-for": "off",
+      "vue/component-name-in-template-casing": [
+        "error",
+        "PascalCase",
+        {
+          registeredComponentsOnly: true,
+        },
+      ],
+      "vue/prop-name-casing": ["error", "camelCase"],
     },
   },
 );

@@ -194,5 +194,5 @@ function onCardClick(state: StateSchema, event: MouseEvent) {
       </v-hover>
     </v-col>
   </v-row>
-  <empty-sates v-else />
+  <EmptySates v-else />
 </template>

@@ -13,7 +13,7 @@ const emit = defineEmits(["click-edit", "click-delete"]);
     <v-card-text class="pa-1">
       <v-list-item class="bg-toplayer pa-1 text-truncate">
         <template #prepend>
-          <platform-icon :key="slug" class="mx-2" :slug="slug" />
+          <PlatformIcon :key="slug" class="mx-2" :slug="slug" />
         </template>
         <v-list-item class="bg-background pr-2 pl-2">
           <span>{{ fsSlug }}</span>

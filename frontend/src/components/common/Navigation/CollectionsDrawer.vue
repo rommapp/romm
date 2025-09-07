@@ -120,7 +120,7 @@ onBeforeUnmount(() => {
       />
     </template>
     <v-list tabindex="-1" lines="two" class="py-1 px-0">
-      <collection-list-item
+      <CollectionListItem
         v-for="collection in filteredCollections"
         :key="collection.id"
         :collection="collection"
@@ -141,7 +141,7 @@ onBeforeUnmount(() => {
         >
           {{ t("common.smart-collections").toUpperCase() }}
         </v-list-subheader>
-        <collection-list-item
+        <CollectionListItem
           v-for="collection in filteredSmartCollections"
           :key="collection.id"
           :collection="collection"
@@ -170,7 +170,7 @@ onBeforeUnmount(() => {
         >
           {{ t("common.virtual-collections").toUpperCase() }}
         </v-list-subheader>
-        <collection-list-item
+        <CollectionListItem
           v-for="collection in filteredVirtualCollections.slice(
             0,
             visibleVirtualCollections,
@@ -199,6 +199,6 @@ onBeforeUnmount(() => {
     </template>
   </v-navigation-drawer>
 
-  <create-collection-dialog />
-  <create-smart-collection-dialog />
+  <CreateCollectionDialog />
+  <CreateSmartCollectionDialog />
 </template>

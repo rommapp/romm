@@ -67,7 +67,7 @@ onMounted(() => {
     <v-card :min-height="height" :max-height="height">
       <v-toolbar density="compact" class="bg-toplayer">
         <v-icon v-if="icon" :icon="icon" class="ml-5" />
-        <r-isotipo v-if="showRommIcon" :size="30" class="mx-4" />
+        <RIsotipo v-if="showRommIcon" :size="30" class="mx-4" />
         <slot name="header" />
         <template #append>
           <v-btn
@@ -114,9 +114,9 @@ onMounted(() => {
           class="justify-center align-center flex-grow-1 my-4"
           no-gutters
         >
-          <empty-game v-if="emptyStateType == 'game'" />
-          <empty-platform v-else-if="emptyStateType == 'platform'" />
-          <empty-firmware v-else-if="emptyStateType == 'firmware'" />
+          <EmptyGame v-if="emptyStateType == 'game'" />
+          <EmptyPlatform v-else-if="emptyStateType == 'platform'" />
+          <EmptyFirmware v-else-if="emptyStateType == 'firmware'" />
           <slot v-else name="empty-state" />
         </v-row>
 

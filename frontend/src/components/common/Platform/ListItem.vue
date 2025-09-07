@@ -32,7 +32,7 @@ withDefaults(
     class="my-1 py-2"
   >
     <template #prepend>
-      <platform-icon
+      <PlatformIcon
         :slug="platform.slug"
         :name="platform.name"
         :fs-slug="platform.fs_slug"
@@ -50,7 +50,7 @@ withDefaults(
       </v-col>
     </v-row>
     <template v-if="showRomCount" #append>
-      <missing-from-f-s-icon
+      <MissingFromFSIcon
         v-if="platform.missing_from_fs"
         text="Missing platform from filesystem"
         chip

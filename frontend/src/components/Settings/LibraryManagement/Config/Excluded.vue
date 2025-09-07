@@ -51,7 +51,7 @@ const exclusions = [
 const editable = ref(false);
 </script>
 <template>
-  <r-section icon="mdi-cancel" :title="t('settings.excluded')">
+  <RSection icon="mdi-cancel" :title="t('settings.excluded')">
     <template #toolbar-append>
       <v-btn
         v-if="authStore.scopes.includes('platforms.write')"
@@ -64,7 +64,7 @@ const editable = ref(false);
       />
     </template>
     <template #content>
-      <excluded-card
+      <ExcludedCard
         v-for="exclusion in exclusions"
         :key="exclusion.type"
         class="mb-1"
@@ -74,7 +74,7 @@ const editable = ref(false);
         :icon="exclusion.icon"
         :editable="editable && authStore.scopes.includes('platforms.write')"
       />
-      <create-exclusion-dialog />
+      <CreateExclusionDialog />
     </template>
-  </r-section>
+  </RSection>
 </template>

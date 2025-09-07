@@ -72,7 +72,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
@@ -158,5 +158,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

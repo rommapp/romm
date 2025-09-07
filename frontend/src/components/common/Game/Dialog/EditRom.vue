@@ -196,7 +196,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-if="rom"
     v-model="show"
     icon="mdi-pencil-box"
@@ -208,7 +208,7 @@ function closeDialog() {
       <v-form v-model="validForm">
         <v-row class="d-flex justify-center" no-gutters>
           <v-col class="pa-4" cols="auto">
-            <game-card
+            <GameCard
               width="240"
               :rom="rom"
               :src="imagePreviewUrl"
@@ -259,7 +259,7 @@ function closeDialog() {
                   </v-btn>
                 </v-btn-group>
               </template>
-            </game-card>
+            </GameCard>
           </v-col>
           <v-col class="pa-4">
             <v-text-field
@@ -373,5 +373,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

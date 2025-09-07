@@ -37,7 +37,7 @@ const { fetchLimit } = storeToRefs(romsStore);
           :lg="views[currentView]['size-lg']"
           :xl="views[currentView]['size-xl']"
         >
-          <skeleton :platform-id="props.platformId" />
+          <Skeleton :platform-id="props.platformId" />
         </v-col>
       </v-row>
 

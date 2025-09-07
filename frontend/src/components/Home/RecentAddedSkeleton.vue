@@ -7,7 +7,7 @@ import { views } from "@/utils";
 defineProps<{ title: string }>();
 </script>
 <template>
-  <r-section icon="mdi-shimmer" :title="title">
+  <RSection icon="mdi-shimmer" :title="title">
     <template #content>
       <v-row class="flex-nowrap overflow-x-auto pa-1" no-gutters>
         <v-col
@@ -20,9 +20,9 @@ defineProps<{ title: string }>();
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <skeleton />
+          <Skeleton />
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

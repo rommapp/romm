@@ -40,7 +40,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-pencil-box"
     scroll-content
@@ -60,7 +60,7 @@ function closeDialog() {
         </v-col>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
 
 <style scoped>

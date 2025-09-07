@@ -113,7 +113,7 @@ function deleteSelectedFirmware() {
         <v-list-item :tabindex="tabIndex" role="listitem" class="px-0">
           <v-row no-gutters>
             <v-col>
-              <missing-from-f-s-icon
+              <MissingFromFSIcon
                 v-if="item.missing_from_fs"
                 class="mr-1"
                 text="Missing firmware from filesystem"
@@ -203,6 +203,6 @@ function deleteSelectedFirmware() {
       </template>
     </v-data-table-virtual>
   </v-navigation-drawer>
-  <upload-firmware-dialog />
-  <delete-firmware-dialog />
+  <UploadFirmwareDialog />
+  <DeleteFirmwareDialog />
 </template>

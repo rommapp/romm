@@ -327,37 +327,37 @@ onMounted(async () => {
     <v-list tabindex="-1">
       <template v-if="showSearchBar && xs">
         <v-list-item>
-          <search-text-field :tabindex="activeFilterDrawer ? 0 : -1" />
+          <SearchTextField :tabindex="activeFilterDrawer ? 0 : -1" />
         </v-list-item>
       </template>
       <v-list-item>
-        <filter-unmatched-btn :tabindex="activeFilterDrawer ? 0 : -1" />
-        <filter-matched-btn
+        <FilterUnmatchedBtn :tabindex="activeFilterDrawer ? 0 : -1" />
+        <FilterMatchedBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-favourites-btn
+        <FilterFavouritesBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-duplicates-btn
+        <FilterDuplicatesBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-playables-btn
+        <FilterPlayablesBtn
           v-if="showPlayablesFilter"
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-missing-btn
+        <FilterMissingBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-verified-btn
+        <FilterVerifiedBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-ra-btn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
+        <FilterRaBtn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
       </v-list-item>
       <v-list-item
         v-if="showPlatformsFilter"
@@ -385,7 +385,7 @@ onMounted(async () => {
               :subtitle="item.raw.fs_slug"
             >
               <template #prepend>
-                <platform-icon
+                <PlatformIcon
                   :key="item.raw.slug"
                   :size="35"
                   :slug="item.raw.slug"
@@ -394,7 +394,7 @@ onMounted(async () => {
                 />
               </template>
               <template #append>
-                <missing-from-f-s-icon
+                <MissingFromFSIcon
                   v-if="item.raw.missing_from_fs"
                   text="Missing platform from filesystem"
                   chip
@@ -410,7 +410,7 @@ onMounted(async () => {
           </template>
           <template #chip="{ item }">
             <v-chip>
-              <platform-icon
+              <PlatformIcon
                 :key="item.raw.slug"
                 :slug="item.raw.slug"
                 :name="item.raw.name"

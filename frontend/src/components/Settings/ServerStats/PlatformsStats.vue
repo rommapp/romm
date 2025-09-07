@@ -42,7 +42,7 @@ function getPlatformPercentage(
 </script>
 
 <template>
-  <r-section
+  <RSection
     icon="mdi-harddisk"
     :title="t('common.platforms-size')"
     elevation="0"
@@ -75,7 +75,7 @@ function getPlatformPercentage(
         >
           <v-row no-gutters class="d-flex justify-space-between align-center">
             <v-col cols="6">
-              <platform-list-item
+              <PlatformListItem
                 :key="platform.slug"
                 :platform="platform"
                 :show-rom-count="false"
@@ -109,5 +109,5 @@ function getPlatformPercentage(
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

@@ -88,7 +88,7 @@ watch(
 </script>
 
 <template>
-  <r-section icon="mdi-trophy" title="RetroAchievements">
+  <RSection icon="mdi-trophy" title="RetroAchievements">
     <template #content>
       <v-form v-model="valid" @submit.prevent="submitRACredentials">
         <v-text-field
@@ -129,5 +129,5 @@ watch(
         </v-btn>
       </v-form>
     </template>
-  </r-section>
+  </RSection>
 </template>

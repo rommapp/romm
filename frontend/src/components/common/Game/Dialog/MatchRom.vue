@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-search-web"
     :loading-condition="searching"
@@ -436,7 +436,7 @@ onBeforeUnmount(() => {
           sm="3"
           md="2"
         >
-          <game-card
+          <GameCard
             v-if="rom"
             :rom="matchedRom"
             transform-scale
@@ -502,7 +502,7 @@ onBeforeUnmount(() => {
                       cover
                     >
                       <template #placeholder>
-                        <skeleton
+                        <Skeleton
                           :aspect-ratio="computedAspectRatio"
                           type="image"
                         />
@@ -584,7 +584,7 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #empty-state>
-      <empty-manual-match />
+      <EmptyManualMatch />
     </template>
     <template #footer>
       <v-row no-gutters class="text-center">
@@ -605,5 +605,5 @@ onBeforeUnmount(() => {
         </v-col>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

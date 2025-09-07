@@ -26,7 +26,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
 }
 </script>
 <template>
-  <r-section icon="mdi-controller" :title="t('common.platforms')">
+  <RSection icon="mdi-controller" :title="t('common.platforms')">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle platforms grid view"
@@ -58,7 +58,7 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
             zIndex: isHovering && hoveringPlatformId === platform.id ? 1100 : 1,
           }"
         >
-          <platform-card
+          <PlatformCard
             :key="platform.slug"
             :platform="platform"
             :enable3-d-tilt="enable3DEffect"
@@ -67,5 +67,5 @@ function onHover(emitData: { isHovering: boolean; id: number }) {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

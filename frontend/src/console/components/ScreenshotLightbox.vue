@@ -103,7 +103,7 @@ onMounted(() => {
 
       <div class="lightbox-footer pa-4">
         <div class="d-flex justify-space-between align-center">
-          <navigation-text
+          <NavigationText
             :show-navigation="true"
             :show-select="false"
             :show-back="true"

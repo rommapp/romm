@@ -140,9 +140,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <gallery-app-bar-search />
+  <GalleryAppBarSearch />
   <template v-if="fetchingRoms && filteredRoms.length === 0">
-    <skeleton />
+    <Skeleton />
   </template>
   <template v-else>
     <template v-if="filteredRoms.length > 0">
@@ -164,7 +164,7 @@ onUnmounted(() => {
                 : 1,
           }"
         >
-          <game-card
+          <GameCard
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
@@ -191,16 +191,16 @@ onUnmounted(() => {
       <!-- Gallery list view -->
       <v-row v-else class="mr-13" no-gutters>
         <v-col class="my-4">
-          <game-table show-platform-icon class="mx-2" />
+          <GameTable show-platform-icon class="mx-2" />
         </v-col>
       </v-row>
 
-      <load-more-btn :fetch-roms="fetchRoms" />
-      <fab-overlay />
+      <LoadMoreBtn :fetch-roms="fetchRoms" />
+      <FabOverlay />
     </template>
     <template v-else>
-      <empty-game v-if="!fetchingRoms && initialSearch" />
-      <empty-search v-else-if="!initialSearch" />
+      <EmptyGame v-if="!fetchingRoms && initialSearch" />
+      <EmptySearch v-else-if="!initialSearch" />
     </template>
   </template>
 </template>
