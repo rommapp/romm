@@ -290,10 +290,6 @@ onMounted(async () => {
     selectedDisc.value = parseInt(storedDisc);
   }
 });
-
-onBeforeUnmount(async () => {
-  window.EJS_emulator?.callEvent("exit");
-});
 </script>
 
 <template>
@@ -832,8 +828,7 @@ onBeforeUnmount(async () => {
           @click="togglePictureInPicture"
         >
           {{ t("play.toggle-picture-in-picture") }}
-          ></v-btn
-        >
+        </v-btn>
       </v-row>
       <cache-dialog v-if="!gameRunning" />
     </v-col>
