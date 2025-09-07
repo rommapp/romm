@@ -12,7 +12,14 @@ const combined = computed(() => [
 </script>
 <template>
   <v-row no-gutters>
-    <v-col cols="4" sm="3" md="6" class="pa-1" v-for="game in combined">
+    <v-col
+      v-for="game in combined"
+      :key="game.id"
+      cols="4"
+      sm="3"
+      md="6"
+      class="pa-1"
+    >
       <related-card :game="game" />
     </v-col>
   </v-row>

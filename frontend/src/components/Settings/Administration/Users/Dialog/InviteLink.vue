@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
-import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import RDialog from "@/components/common/RDialog.vue";
 import userApi from "@/services/api/user";
 import type { Events } from "@/types/emitter";
 import { getRoleIcon } from "@/utils";
 
-const { t } = useI18n();
 const { lgAndUp } = useDisplay();
 const show = ref(false);
 const fullInviteLink = ref("");
@@ -49,21 +47,21 @@ function closeDialog() {
 </script>
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-share"
     :width="lgAndUp ? '60vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center text-center pa-2" no-gutters>
-        <v-btn-toggle class="ma-1" divided v-model="selectedRole">
+        <v-btn-toggle v-model="selectedRole" class="ma-1" divided>
           <v-btn
             v-for="role in roles"
             :key="role"
             variant="outlined"
             :value="role"
           >
-            <v-icon size="small" class="mr-2">{{ getRoleIcon(role) }}</v-icon
+            <v-icon size="small" class="mr-2"> {{ getRoleIcon(role) }} </v-icon
             >{{ role.charAt(0).toUpperCase() + role.slice(1) }}
           </v-btn>
         </v-btn-toggle>
@@ -73,14 +71,14 @@ function closeDialog() {
             variant="outlined"
             @click="createInviteLink"
           >
-            <v-icon size="small" class="mr-2">mdi-link</v-icon>Generate
+            <v-icon size="small" class="mr-2"> mdi-link </v-icon>Generate
           </v-btn>
         </v-btn-toggle>
       </v-row>
       <v-row v-show="fullInviteLink" class="text-center pa-2" no-gutters>
-        <v-list-item rounded class="bg-toplayer py-2">{{
-          fullInviteLink
-        }}</v-list-item>
+        <v-list-item rounded class="bg-toplayer py-2">
+          {{ fullInviteLink }}
+        </v-list-item>
       </v-row>
     </template>
   </r-dialog>

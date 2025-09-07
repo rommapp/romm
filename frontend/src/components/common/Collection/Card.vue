@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
 
 <template>
   <v-hover v-slot="{ isHovering, props: hoverProps }">
-    <div data-tilt ref="tilt-card-ref">
+    <div ref="tilt-card-ref" data-tilt>
       <v-card
         v-bind="{
           ...hoverProps,
@@ -224,7 +224,7 @@ onBeforeUnmount(() => {
                   >
                     <template #placeholder>
                       <skeleton
-                        :aspectRatio="
+                        :aspect-ratio="
                           galleryViewStore.defaultAspectRatioCollection
                         "
                         type="image"
@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
                   >
                     <template #placeholder>
                       <skeleton
-                        :aspectRatio="
+                        :aspect-ratio="
                           galleryViewStore.defaultAspectRatioCollection
                         "
                         type="image"
@@ -289,7 +289,7 @@ onBeforeUnmount(() => {
                 >
                   <template #placeholder>
                     <skeleton
-                      :aspectRatio="
+                      :aspect-ratio="
                         galleryViewStore.defaultAspectRatioCollection
                       "
                       type="image"
@@ -306,7 +306,7 @@ onBeforeUnmount(() => {
             </v-img>
           </template>
           <div class="position-absolute append-inner">
-            <slot name="append-inner"></slot>
+            <slot name="append-inner" />
           </div>
         </div>
         <v-chip

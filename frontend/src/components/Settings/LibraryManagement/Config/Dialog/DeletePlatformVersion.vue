@@ -43,17 +43,17 @@ function closeDialog() {
 </script>
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     :width="lgAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center pa-2 align-center" no-gutters>
         <span class="mr-1">Deleting platform binding</span>
         <platform-icon
-          class="mx-2"
           :key="slugToDelete"
+          class="mx-2"
           :slug="slugToDelete"
           :fs-slug="fsSlugToDelete"
         />

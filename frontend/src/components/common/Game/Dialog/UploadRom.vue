@@ -202,11 +202,11 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-cloud-upload-outline"
     :width="mdAndUp ? '40vw' : '95vw'"
     scroll-content
+    @close="closeDialog"
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>
@@ -229,8 +229,8 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
               >
                 <template #prepend>
                   <platform-icon
-                    :size="35"
                     :key="item.raw.slug"
+                    :size="35"
                     :name="item.raw.name"
                     :slug="item.raw.slug"
                     :fs-slug="item.raw.fs_slug"
@@ -242,8 +242,8 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
               <v-list-item class="px-0" :title="item.raw.name ?? ''">
                 <template #prepend>
                   <platform-icon
-                    :size="35"
                     :key="item.raw.slug"
+                    :size="35"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
                     :fs-slug="item.raw.fs_slug"
@@ -291,7 +291,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
             {{ t("common.dropzone-description") }}
           </p>
           <v-btn color="primary" variant="outlined" @click="triggerFileInput">
-            <v-icon start>mdi-plus</v-icon>
+            <v-icon start> mdi-plus </v-icon>
             {{ t("common.add") }}
           </v-btn>
         </div>
@@ -312,7 +312,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
               size="small"
               @click="triggerFileInput"
             >
-              <v-icon start>mdi-plus</v-icon>
+              <v-icon start> mdi-plus </v-icon>
               {{ t("common.add") }}
             </v-btn>
           </div>
@@ -331,17 +331,17 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
                     {{ item.name }}
                   </v-col>
                 </v-row>
-                <v-row no-gutters v-if="!smAndUp">
+                <v-row v-if="!smAndUp" no-gutters>
                   <v-col>
-                    <v-chip size="x-small" label>{{
-                      formatBytes(item.size)
-                    }}</v-chip>
+                    <v-chip size="x-small" label>
+                      {{ formatBytes(item.size) }}
+                    </v-chip>
                   </v-col>
                 </v-row>
                 <template #append>
-                  <v-chip v-if="smAndUp" class="ml-2" size="x-small" label>{{
-                    formatBytes(item.size)
-                  }}</v-chip>
+                  <v-chip v-if="smAndUp" class="ml-2" size="x-small" label>
+                    {{ formatBytes(item.size) }}
+                  </v-chip>
                 </template>
               </v-list-item>
             </template>
@@ -368,9 +368,9 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
       <v-divider />
       <v-row class="justify-center pa-2" no-gutters>
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog">{{
-            t("common.cancel")
-          }}</v-btn>
+          <v-btn class="bg-toplayer" @click="closeDialog">
+            {{ t("common.cancel") }}
+          </v-btn>
           <v-btn
             class="bg-toplayer text-romm-green"
             :disabled="filesToUpload.length == 0 || selectedPlatform == null"

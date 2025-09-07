@@ -30,10 +30,10 @@ const activeCollection = computed(() => {
     <template #prepend>
       <r-avatar
         v-if="activeCollection"
-        @click="navigationStore.switchActiveCollectionInfoDrawer"
         class="collection-icon cursor-pointer"
         :size="45"
         :collection="activeCollection"
+        @click="navigationStore.switchActiveCollectionInfoDrawer"
       />
     </template>
   </base-gallery-app-bar>

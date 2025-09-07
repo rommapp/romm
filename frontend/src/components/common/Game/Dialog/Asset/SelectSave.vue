@@ -1,20 +1,16 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { storeToRefs } from "pinia";
 import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import type { SaveSchema } from "@/__generated__";
 import RDialog from "@/components/common/RDialog.vue";
-import storeAuth from "@/stores/auth";
 import type { DetailedRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
 import { formatBytes, formatTimestamp } from "@/utils";
 import { getEmptyCoverImage } from "@/utils/covers";
 
 const { t } = useI18n();
-const auth = storeAuth();
-const { scopes } = storeToRefs(auth);
 const { mdAndUp } = useDisplay();
 const show = ref(false);
 const rom = ref<DetailedRom | null>(null);
@@ -40,12 +36,12 @@ function closeDialog() {
 
 <template>
   <r-dialog
-    @close="closeDialog"
+    id="select-save-dialog"
     v-model="show"
     icon="mdi-format-wrap-square"
     scroll-content
     :width="mdAndUp ? '50vw' : '95vw'"
-    id="select-save-dialog"
+    @close="closeDialog"
   >
     <template #header>
       <span class="text-h5 ml-4">{{ t("play.select-save") }}</span>
@@ -53,8 +49,9 @@ function closeDialog() {
     <template #content>
       <div v-if="rom" class="d-flex justify-center ga-4 flex-md-wrap py-6 px-2">
         <v-hover
-          v-if="rom.user_saves.length > 0"
           v-for="save in rom.user_saves"
+          v-if="rom.user_saves.length > 0"
+          :key="save.id"
           v-slot="{ isHovering, props }"
         >
           <v-card
@@ -82,7 +79,9 @@ function closeDialog() {
                   "
                 />
               </v-row>
-              <v-row class="mt-6 flex-grow-0">{{ save.file_name }}</v-row>
+              <v-row class="mt-6 flex-grow-0">
+                {{ save.file_name }}
+              </v-row>
               <v-row
                 class="mt-6 d-flex flex-md-wrap ga-2 flex-grow-0"
                 style="min-height: 20px"
@@ -107,8 +106,10 @@ function closeDialog() {
         </v-hover>
         <div v-else>
           <v-col class="text-center mt-6">
-            <v-icon size="x-large">mdi-help-rhombus-outline</v-icon>
-            <p class="text-h4 mt-2">{{ t("rom.no-states-found") }}</p>
+            <v-icon size="x-large"> mdi-help-rhombus-outline </v-icon>
+            <p class="text-h4 mt-2">
+              {{ t("rom.no-states-found") }}
+            </p>
           </v-col>
         </div>
       </div>

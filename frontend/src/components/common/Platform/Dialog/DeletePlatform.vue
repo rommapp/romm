@@ -33,7 +33,7 @@ async function deletePlatform() {
   show.value = false;
   await platformApi
     .deletePlatform({ platform: platform.value })
-    .then((response) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
         msg: "Platform deleted",
         icon: "mdi-check-bold",
@@ -72,11 +72,11 @@ function closeDialog() {
 <template>
   <r-dialog
     v-if="platform"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="lgAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
@@ -97,12 +97,14 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center text-center pa-2" no-gutters>
         <v-col>
-          <v-chip @click="excludeOnDelete = !excludeOnDelete" variant="text"
-            ><v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">{{
-              excludeOnDelete
-                ? "mdi-checkbox-outline"
-                : "mdi-checkbox-blank-outline"
-            }}</v-icon>
+          <v-chip variant="text" @click="excludeOnDelete = !excludeOnDelete">
+            <v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">
+              {{
+                excludeOnDelete
+                  ? "mdi-checkbox-outline"
+                  : "mdi-checkbox-blank-outline"
+              }}
+            </v-icon>
             {{ t("common.exclude-on-delete") }}
           </v-chip>
         </v-col>

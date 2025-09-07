@@ -56,11 +56,11 @@ function collapse() {
       elevation="0"
       class="bg-background align-center justify-center"
     >
-      <search-btn withTag />
-      <platforms-btn withTag />
-      <collections-btn withTag />
-      <scan-btn withTag />
-      <console-mode-btn withTag />
+      <search-btn with-tag />
+      <platforms-btn with-tag />
+      <collections-btn with-tag />
+      <scan-btn with-tag />
+      <console-mode-btn with-tag />
     </v-bottom-navigation>
   </template>
 
@@ -82,52 +82,55 @@ function collapse() {
     <v-row no-gutters class="justify-center mt-10">
       <v-divider class="mx-2" />
       <v-btn
+        id="collapseBtn"
         aria-label="Collapse main navbar"
         tabindex="2"
-        @click="collapse"
-        id="collapseBtn"
         size="small"
         density="comfortable"
         variant="flat"
         rounded
         icon
-        ><v-icon>{{
-          mainBarCollapsed
-            ? "mdi-chevron-double-right"
-            : "mdi-chevron-double-left"
-        }}</v-icon></v-btn
+        @click="collapse"
       >
+        <v-icon>
+          {{
+            mainBarCollapsed
+              ? "mdi-chevron-double-right"
+              : "mdi-chevron-double-left"
+          }}
+        </v-icon>
+      </v-btn>
     </v-row>
     <search-btn
-      :withTag="!mainBarCollapsed"
+      :with-tag="!mainBarCollapsed"
       rounded
       class="mt-4"
       block
       tabindex="3"
     />
     <platforms-btn
-      :withTag="!mainBarCollapsed"
+      :with-tag="!mainBarCollapsed"
       rounded
       class="mt-2"
       block
       tabindex="4"
     />
     <collections-btn
-      :withTag="!mainBarCollapsed"
+      :with-tag="!mainBarCollapsed"
       rounded
       class="mt-2"
       block
       tabindex="5"
     />
     <scan-btn
-      :withTag="!mainBarCollapsed"
+      :with-tag="!mainBarCollapsed"
       rounded
       class="mt-2"
       block
       tabindex="7"
     />
     <console-mode-btn
-      :withTag="!mainBarCollapsed"
+      :with-tag="!mainBarCollapsed"
       rounded
       class="mt-2"
       block
@@ -136,7 +139,7 @@ function collapse() {
 
     <template #append>
       <upload-btn
-        :withTag="!mainBarCollapsed"
+        :with-tag="!mainBarCollapsed"
         rounded
         class="mt-2 mb-6"
         block

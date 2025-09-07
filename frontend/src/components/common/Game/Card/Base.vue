@@ -189,17 +189,17 @@ onBeforeUnmount(() => {
 
 <template>
   <v-hover v-slot="{ isHovering: isOuterHovering, props: hoverProps }">
-    <div data-tilt ref="tilt-card-ref">
+    <div ref="tilt-card-ref" data-tilt>
       <v-card
         :style="{
           ...(disableViewTransition
             ? {}
             : { viewTransitionName: `card-${rom.id}` }),
         }"
-        :minWidth="width"
-        :maxWidth="width"
-        :minHeight="height"
-        :maxHeight="height"
+        :min-width="width"
+        :max-width="width"
+        :min-height="height"
+        :max-height="height"
         v-bind="{
           ...hoverProps,
           ...(withLink && rom.id
@@ -228,20 +228,20 @@ onBeforeUnmount(() => {
         "
       >
         <v-card-text class="pa-0">
-          <v-hover v-slot="{ isHovering, props }" open-delay="800">
+          <v-hover v-slot="{ isHovering, props: imgProps }" open-delay="800">
             <v-img
-              @click="handleClick"
-              @touchstart="handleTouchStart"
-              @touchend="handleTouchEnd"
-              v-bind="props"
+              v-bind="imgProps"
+              :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
               cover
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
-              :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
               :src="largeCover || fallbackCoverImage"
               :aspect-ratio="computedAspectRatio"
+              @click="handleClick"
+              @touchstart="handleTouchStart"
+              @touchend="handleTouchEnd"
             >
-              <template v-bind="props" v-if="titleOnHover">
+              <template v-if="titleOnHover">
                 <v-expand-transition>
                   <div
                     v-if="
@@ -290,8 +290,8 @@ onBeforeUnmount(() => {
                   <v-col cols="auto" class="px-0">
                     <platform-icon
                       v-if="showPlatformIcon"
-                      :size="25"
                       :key="rom.platform_slug"
+                      :size="25"
                       :slug="rom.platform_slug"
                       :name="rom.platform_name"
                       :fs-slug="rom.platform_fs_slug"
@@ -304,7 +304,7 @@ onBeforeUnmount(() => {
                       :text="`Missing from filesystem: ${rom.fs_path}/${rom.fs_name}`"
                       class="mr-1 mb-1 px-1"
                       chip
-                      chipDensity="compact"
+                      chip-density="compact"
                     />
                     <v-chip
                       v-if="rom.hasheous_id"
@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
                   </v-col>
                 </v-row>
                 <div class="position-absolute append-inner-right">
-                  <slot name="append-inner-right"> </slot>
+                  <slot name="append-inner-right" />
                 </div>
                 <v-expand-transition>
                   <action-bar
@@ -355,10 +355,10 @@ onBeforeUnmount(() => {
                       !smAndDown
                     "
                     class="translucent"
+                    :rom="rom"
+                    :size-action-bar="sizeActionBar"
                     @menu-open="handleOpenMenu"
                     @menu-close="handleCloseMenu"
-                    :rom="rom"
-                    :sizeActionBar="sizeActionBar"
                   />
                 </v-expand-transition>
               </div>
@@ -371,8 +371,8 @@ onBeforeUnmount(() => {
                 >
                   <template #placeholder>
                     <skeleton
-                      :platformId="rom.platform_id"
-                      :aspectRatio="computedAspectRatio"
+                      :platform-id="rom.platform_id"
+                      :aspect-ratio="computedAspectRatio"
                       type="image"
                     />
                   </template>
@@ -396,7 +396,7 @@ onBeforeUnmount(() => {
             romsStore.isSimpleRom(rom)
           "
           :rom="rom"
-          :sizeActionBar="sizeActionBar"
+          :size-action-bar="sizeActionBar"
         />
       </v-card>
     </div>

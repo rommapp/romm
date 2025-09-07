@@ -26,14 +26,16 @@ const { mdAndDown } = useDisplay();
           prepend-icon="mdi-content-save"
           class="rounded text-caption"
           value="saves"
-          >{{ t("common.saves") }}</v-tab
         >
+          {{ t("common.saves") }}
+        </v-tab>
         <v-tab
           prepend-icon="mdi-file"
           class="rounded text-caption"
           value="states"
-          >{{ t("common.states") }}</v-tab
         >
+          {{ t("common.states") }}
+        </v-tab>
       </v-tabs>
     </v-col>
     <v-col>

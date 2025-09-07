@@ -222,25 +222,25 @@ const toggle3DEffect = (value: boolean) => {
     class="ma-2"
   >
     <template #content>
-      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">{{
-        t("settings.home")
-      }}</v-chip>
+      <v-chip label variant="text" prepend-icon="mdi-home" class="ml-2 mt-1">
+        {{ t("settings.home") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
-          cols="12"
-          md="6"
           v-for="option in homeOptions"
           :key="option.title"
+          cols="12"
+          md="6"
         >
           <interface-option
+            v-model="option.model.value"
             class="ma-1"
             :title="option.title"
             :description="option.description"
             :icon="
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
-            v-model="option.model.value"
             @update:model-value="option.modelTrigger"
           />
         </v-col>
@@ -250,14 +250,15 @@ const toggle3DEffect = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-controller"
         class="ml-2 mt-4"
-        >{{ t("settings.platforms-drawer") }}</v-chip
       >
+        {{ t("settings.platforms-drawer") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="align-center py-1" no-gutters>
         <v-col
-          cols="12"
           v-for="option in platformsDrawerOptions"
           :key="option.title"
+          cols="12"
         >
           <v-select
             v-model="platformsGroupByRef"
@@ -280,17 +281,19 @@ const toggle3DEffect = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-view-grid"
         class="ml-2 mt-4"
-        >{{ t("settings.gallery") }}</v-chip
       >
+        {{ t("settings.gallery") }}
+      </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row class="py-1" no-gutters>
         <v-col
-          cols="12"
-          md="6"
           v-for="option in galleryOptions"
           :key="option.title"
+          cols="12"
+          md="6"
         >
           <interface-option
+            v-model="option.model.value"
             class="ma-1"
             :disabled="option.disabled"
             :title="option.title"
@@ -298,7 +301,6 @@ const toggle3DEffect = (value: boolean) => {
             :icon="
               option.model.value ? option.iconEnabled : option.iconDisabled
             "
-            v-model="option.model.value"
             @update:model-value="option.modelTrigger"
           />
         </v-col>
@@ -308,12 +310,14 @@ const toggle3DEffect = (value: boolean) => {
         variant="text"
         prepend-icon="mdi-view-grid"
         class="ml-2 mt-4"
-        >{{ t("common.virtual-collections") }}</v-chip
       >
+        {{ t("common.virtual-collections") }}
+      </v-chip>
       <v-divider class="border-opacity-25 mx-2 mb-2" />
       <v-row class="py-1 align-center" no-gutters>
         <v-col cols="12" md="6">
           <interface-option
+            v-model="showVirtualCollectionsRef"
             class="mx-2"
             :title="t('settings.show-virtual-collections')"
             :description="t('settings.show-virtual-collections-desc')"
@@ -322,7 +326,6 @@ const toggle3DEffect = (value: boolean) => {
                 ? 'mdi-bookmark-box-multiple'
                 : 'mdi-bookmark-box-multiple'
             "
-            v-model="showVirtualCollectionsRef"
             @update:model-value="toggleShowVirtualCollections"
           />
         </v-col>

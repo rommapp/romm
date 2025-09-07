@@ -45,16 +45,17 @@ function toggleTheme() {
       >
         <v-row no-gutters>
           <v-col
+            v-for="themeOption in themeOptions"
+            :key="themeOption.name"
             cols="4"
             sm="3"
             md="2"
             class="pa-2"
-            v-for="theme in themeOptions"
           >
             <theme-option
-              :key="theme.name"
-              :text="theme.name"
-              :icon="theme.icon"
+              :key="themeOption.name"
+              :text="themeOption.name"
+              :icon="themeOption.icon"
             />
           </v-col>
         </v-row>

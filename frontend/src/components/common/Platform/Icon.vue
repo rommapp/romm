@@ -3,11 +3,11 @@ withDefaults(
   defineProps<{
     slug: string;
     name?: string;
+    fsSlug?: string;
     size?: number;
     rounded?: number;
-    fsSlug?: string;
   }>(),
-  { size: 40, rounded: 0 },
+  { name: "", fsSlug: "", size: 40, rounded: 0 },
 );
 </script>
 
@@ -21,7 +21,7 @@ withDefaults(
               <template #error>
                 <v-img :src="`/assets/platforms/${slug.toLowerCase()}.ico`">
                   <template #error>
-                    <v-img src="/assets/platforms/default.ico"></v-img>
+                    <v-img src="/assets/platforms/default.ico" />
                   </template>
                 </v-img>
               </template>

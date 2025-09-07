@@ -111,7 +111,6 @@ onBeforeUnmount(() => {
 
 <template>
   <r-dialog
-    @close="closeDialog"
     v-model="show"
     icon="mdi-image-search-outline"
     :loading-condition="searching"
@@ -119,42 +118,43 @@ onBeforeUnmount(() => {
     empty-state-type="game"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #toolbar>
       <v-row class="align-center" no-gutters>
         <v-col cols="8" sm="9">
           <v-text-field
             id="search-text-field"
-            @keyup.enter="searchCovers"
-            @click:clear="searchText = ''"
-            class="bg-toplayer"
             v-model="searchText"
+            class="bg-toplayer"
             :disabled="searching"
             label="Search"
             hide-details
             clearable
+            @keyup.enter="searchCovers"
+            @click:clear="searchText = ''"
           />
         </v-col>
         <v-col cols="2" sm="2">
           <v-select
-            :disabled="searching"
             v-model="coverType"
+            :disabled="searching"
             hide-details
             label="Type"
-            @update:model-value="filterCovers"
             :items="['all', 'static', 'animated']"
+            @update:model-value="filterCovers"
           />
         </v-col>
         <v-col>
           <v-btn
             type="submit"
-            @click="searchCovers"
             class="bg-toplayer"
             variant="text"
             icon="mdi-search-web"
             block
             rounded="0"
             :disabled="searching"
+            @click="searchCovers"
           />
         </v-col>
       </v-row>
@@ -169,17 +169,20 @@ onBeforeUnmount(() => {
         <v-expansion-panel v-for="game in filteredCovers" :key="game.name">
           <v-expansion-panel-title class="bg-toplayer">
             <v-row no-gutters class="justify-center">
-              <v-list-item class="pa-0">{{ game.name }}</v-list-item>
+              <v-list-item class="pa-0">
+                {{ game.name }}
+              </v-list-item>
             </v-row>
           </v-expansion-panel-title>
           <v-expansion-panel-text class="py-1">
             <v-row no-gutters>
               <v-col
+                v-for="resource in game.resources"
+                :key="resource.url"
                 class="pa-1"
                 cols="4"
                 sm="3"
                 md="2"
-                v-for="resource in game.resources"
               >
                 <v-hover v-slot="{ isHovering, props: hoverProps }">
                   <!-- TODO: fix aspect ratio -->
@@ -187,10 +190,10 @@ onBeforeUnmount(() => {
                     v-bind="hoverProps"
                     :class="{ 'on-hover': isHovering }"
                     class="transform-scale pointer"
-                    @click="selectCover(resource.url)"
                     :aspect-ratio="coverAspectRatio"
                     :src="resource.thumb"
                     cover
+                    @click="selectCover(resource.url)"
                   >
                     <template #error>
                       <!-- TODO: fix aspect ratio -->
@@ -198,10 +201,10 @@ onBeforeUnmount(() => {
                         :src="resource.url"
                         cover
                         :aspect-ratio="galleryViewStore.defaultAspectRatioCover"
-                      ></v-img>
+                      />
                     </template>
                     <template #placeholder>
-                      <skeleton :aspectRatio="coverAspectRatio" type="image" />
+                      <skeleton :aspect-ratio="coverAspectRatio" type="image" />
                     </template>
                   </v-img>
                 </v-hover>

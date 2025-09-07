@@ -64,11 +64,11 @@ function closeDialog() {
 <template>
   <r-dialog
     v-if="collection"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="lgAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>

@@ -39,11 +39,11 @@ withDefaults(
         :size="40"
       />
     </template>
-    <v-row no-gutters
-      ><v-col
-        ><span class="text-body-1">{{ platform.display_name }}</span></v-col
-      ></v-row
-    >
+    <v-row no-gutters>
+      <v-col>
+        <span class="text-body-1">{{ platform.display_name }}</span>
+      </v-col>
+    </v-row>
     <v-row no-gutters>
       <v-col>
         <span class="text-caption text-grey">{{ platform.fs_slug }}</span>
@@ -55,7 +55,7 @@ withDefaults(
         text="Missing platform from filesystem"
         chip
         chip-label
-        chipDensity="compact"
+        chip-density="compact"
         class="ml-2"
       />
       <v-chip class="ml-2" size="x-small" label>

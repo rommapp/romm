@@ -66,6 +66,7 @@ const editable = ref(false);
     <template #content>
       <excluded-card
         v-for="exclusion in exclusions"
+        :key="exclusion.type"
         class="mb-1"
         :set="exclusion.set"
         :type="exclusion.type"

@@ -132,7 +132,7 @@ const hashMatches = computed(() => {
           target="_blank"
           class="mr-1"
         >
-          <v-chip class="pl-0 mt-1" size="small" @click.stop title="IGDB ID">
+          <v-chip class="pl-0 mt-1" size="small" title="IGDB ID" @click.stop>
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/igdb.png" />
             </v-avatar>
@@ -152,8 +152,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="MobyGames ID"
+            @click.stop
           >
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/moby.png" />
@@ -183,8 +183,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="ScreenScraper ID"
+            @click.stop
           >
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ss.png" style="margin-left: -2px" />
@@ -209,8 +209,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="LaunchBox ID"
+            @click.stop
           >
             <v-avatar
               class="mr-2"
@@ -240,8 +240,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="RetroAchievements ID"
+            @click.stop
           >
             <v-avatar class="mr-2" size="30" rounded="0">
               <v-img src="/assets/scrappers/ra.png" style="margin-left: -2px" />
@@ -259,8 +259,8 @@ const hashMatches = computed(() => {
           <v-chip
             class="pl-0 mt-1"
             size="small"
-            @click.stop
             title="Hasheous ID"
+            @click.stop
           >
             <v-avatar class="mr-2 bg-surface pa-1" size="30" rounded="0">
               <v-img src="/assets/scrappers/hasheous.png" />
