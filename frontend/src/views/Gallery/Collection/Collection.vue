@@ -22,5 +22,5 @@ function setCurrentCollection(collection: CollectionType) {
     :collections="allCollections"
     :current-collection="currentCollection"
     :set-current-collection="setCurrentCollection"
-  ></base-collection>
+  />
 </template>

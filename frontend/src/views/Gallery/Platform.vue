@@ -234,8 +234,8 @@ onBeforeRouteUpdate(async (to, from) => {
       v-if="currentPlatform && fetchingRoms && filteredRoms.length === 0"
     >
       <skeleton
-        :platformId="currentPlatform.id"
-        :romCount="currentPlatform.rom_count"
+        :platform-id="currentPlatform.id"
+        :rom-count="currentPlatform.rom_count"
       />
     </template>
     <template v-else>
@@ -262,18 +262,18 @@ onBeforeRouteUpdate(async (to, from) => {
             <game-card
               :key="rom.updated_at"
               :rom="rom"
-              titleOnHover
-              pointerOnHover
-              withLink
-              transformScale
-              showActionBar
-              showChips
-              :showPlatformIcon="false"
-              :withBorderPrimary="
+              title-on-hover
+              pointer-on-hover
+              with-link
+              transform-scale
+              show-action-bar
+              show-chips
+              :show-platform-icon="false"
+              :with-border-primary="
                 romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
               "
-              :sizeActionBar="currentView"
-              :enable3DTilt="enable3DEffect"
+              :size-action-bar="currentView"
+              :enable3-d-tilt="enable3DEffect"
               @click="onGameClick"
               @touchstart="onGameTouchStart"
               @touchend="onGameTouchEnd"
@@ -285,13 +285,13 @@ onBeforeRouteUpdate(async (to, from) => {
         </v-row>
 
         <!-- Gallery list view -->
-        <v-row class="mr-13" v-if="currentView == 2" no-gutters>
+        <v-row v-if="currentView == 2" class="mr-13" no-gutters>
           <v-col class="my-4">
             <game-table class="mx-2" />
           </v-col>
         </v-row>
 
-        <load-more-btn :fetchRoms="fetchRoms" />
+        <load-more-btn :fetch-roms="fetchRoms" />
       </template>
       <template v-else>
         <empty-game v-if="filteredPlatforms.length > 0 && !fetchingRoms" />

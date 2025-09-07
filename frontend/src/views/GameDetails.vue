@@ -108,12 +108,12 @@ watch(
       :class="{ 'justify-center': smAndDown }"
     >
       <v-col cols="auto">
-        <v-container :width="270" id="artwork-container" class="pa-0">
+        <v-container id="artwork-container" :width="270" class="pa-0">
           <game-card
             :key="currentRom.updated_at"
             :rom="currentRom"
-            :showPlatformIcon="false"
-            :showActionBar="false"
+            :show-platform-icon="false"
+            :show-action-bar="false"
           />
           <action-bar class="mt-2" :rom="currentRom" />
           <related-games v-if="mdAndUp" class="mt-4" :rom="currentRom" />
@@ -144,11 +144,13 @@ watch(
             show-arrows
             :class="{ 'mt-4': smAndDown }"
           >
-            <v-tab value="details"> {{ t("rom.details") }} </v-tab>
-            <v-tab value="manual" v-if="currentRom.has_manual">
+            <v-tab value="details">
+              {{ t("rom.details") }}
+            </v-tab>
+            <v-tab v-if="currentRom.has_manual" value="manual">
               {{ t("rom.manual") }}
             </v-tab>
-            <v-tab value="gamedata">Game data</v-tab>
+            <v-tab value="gamedata"> Game data </v-tab>
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
@@ -175,7 +177,7 @@ watch(
             </v-tab>
           </v-tabs>
           <v-col cols="12" class="px-1">
-            <v-window disabled v-model="tab" class="py-2">
+            <v-window v-model="tab" disabled class="py-2">
               <v-window-item value="details">
                 <v-row no-gutters>
                   <v-col>
@@ -220,12 +222,12 @@ watch(
       </v-col>
 
       <v-col
-        cols="auto"
         v-if="
           lgAndUp &&
           (currentRom.igdb_metadata?.expansions?.length ||
             currentRom.igdb_metadata?.dlcs?.length)
         "
+        cols="auto"
       >
         <v-container width="270px" class="pa-0">
           <additional-content class="mt-2" :rom="currentRom" />

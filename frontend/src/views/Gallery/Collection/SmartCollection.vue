@@ -22,5 +22,5 @@ function setCurrentSmartCollection(collection: CollectionType) {
     :collections="smartCollections"
     :current-collection="currentSmartCollection"
     :set-current-collection="setCurrentSmartCollection"
-  ></base-collection>
+  />
 </template>

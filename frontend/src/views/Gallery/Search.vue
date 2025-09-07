@@ -167,17 +167,17 @@ onUnmounted(() => {
           <game-card
             :key="rom.updated_at"
             :rom="rom"
-            titleOnHover
-            pointerOnHover
-            withLink
-            transformScale
-            showActionBar
-            showChips
-            :withBorderPrimary="
+            title-on-hover
+            pointer-on-hover
+            with-link
+            transform-scale
+            show-action-bar
+            show-chips
+            :with-border-primary="
               romsStore.isSimpleRom(rom) && selectedRoms?.includes(rom)
             "
-            :enable3DTilt="enable3DEffect"
-            :sizeActionBar="currentView"
+            :enable3-d-tilt="enable3DEffect"
+            :size-action-bar="currentView"
             @click="onGameClick"
             @touchstart="onGameTouchStart"
             @touchend="onGameTouchEnd"
@@ -189,13 +189,13 @@ onUnmounted(() => {
       </v-row>
 
       <!-- Gallery list view -->
-      <v-row class="mr-13" v-else="currentView == 2" no-gutters>
+      <v-row v-else class="mr-13" no-gutters>
         <v-col class="my-4">
           <game-table show-platform-icon class="mx-2" />
         </v-col>
       </v-row>
 
-      <load-more-btn :fetchRoms="fetchRoms" />
+      <load-more-btn :fetch-roms="fetchRoms" />
       <fab-overlay />
     </template>
     <template v-else>

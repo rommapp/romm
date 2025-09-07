@@ -7,5 +7,5 @@ const auth = storeAuth();
 </script>
 <template>
   <users-table />
-  <tasks class="mt-6" v-if="auth.scopes.includes('tasks.run')" />
+  <tasks v-if="auth.scopes.includes('tasks.run')" class="mt-6" />
 </template>
