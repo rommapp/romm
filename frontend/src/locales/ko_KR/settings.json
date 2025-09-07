@@ -55,6 +55,8 @@
   "show-stats-desc": "홈페이지에 통계 요약을 보여줍니다",
   "show-actionbar": "작업 표시줄 표시",
   "show-actionbar-desc": "게임 카드에서 항상 작업 표시줄을 표시",
+  "show-game-titles": "게임 제목 표시",
+  "show-game-titles-desc": "게임 카드에서 항상 게임 제목 표시",
   "show-virtual-collections": "자동 생성된 모음집 보이기",
   "show-virtual-collections-desc": "홈페이지와 모음집 사이드바에 표시됩니다",
   "theme": "테마",

@@ -55,6 +55,8 @@
   "show-stats-desc": "在主页上显示统计信息摘要",
   "show-actionbar": "显示操作栏",
   "show-actionbar-desc": "始终在游戏卡片中显示操作栏",
+  "show-game-titles": "显示游戏标题",
+  "show-game-titles-desc": "在游戏卡片上始终显示游戏标题",
   "show-virtual-collections": "显示自动生成的收藏",
   "show-virtual-collections-desc": "在主页和收藏侧边栏中显示",
   "theme": "主题",
