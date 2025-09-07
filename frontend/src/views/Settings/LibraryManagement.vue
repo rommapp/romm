@@ -182,15 +182,16 @@ onUnmounted(() => {
         slider-color="secondary"
         selected-class="bg-toplayer"
       >
-        <v-tab prepend-icon="mdi-cog" class="rounded" value="config"
-          >Config</v-tab
-        >
+        <v-tab prepend-icon="mdi-cog" class="rounded" value="config">
+          Config
+        </v-tab>
         <v-tab
           prepend-icon="mdi-folder-question"
           class="rounded"
           value="missing"
-          >Missing games</v-tab
         >
+          Missing games
+        </v-tab>
       </v-tabs>
     </v-col>
     <v-col>
@@ -266,8 +267,9 @@ onUnmounted(() => {
                 class="text-romm-red bg-toplayer"
                 variant="flat"
                 @click="cleanupAll"
-                >Clean up all</v-btn
               >
+                Clean up all
+              </v-btn>
             </v-col>
           </v-row>
           <game-table class="mx-2 mt-2" show-platform-icon />

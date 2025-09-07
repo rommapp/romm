@@ -120,6 +120,7 @@ const fallbackCoverImage = computed(() =>
 const activeMenu = ref(false);
 
 const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
+const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
 
 const hasNotes = computed(() => {
@@ -251,6 +252,7 @@ onBeforeUnmount(() => {
                   <div
                     v-if="
                       isHovering ||
+                      showGameTitleAlways ||
                       (romsStore.isSimpleRom(rom) && !rom.path_cover_large) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&
