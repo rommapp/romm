@@ -50,7 +50,7 @@ filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is
 # EmulatorJS per-core options
 emulatorjs:
   # debug: true # Available options will be logged to the browser console
-  # cache_limit: 100000000 # Cache limit per ROM (in bytes)
+  # cache_limit: null # Cache limit per ROM (in bytes)
   settings:
     parallel_n64: # Use the exact core name
     #   vsync: disable
