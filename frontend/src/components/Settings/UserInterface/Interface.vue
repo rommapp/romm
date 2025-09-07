@@ -162,8 +162,8 @@ const galleryOptions = computed(() => [
   {
     title: t("settings.show-game-titles"),
     description: t("settings.show-game-titles-desc"),
-    iconEnabled: "mdi-text-box-outline",
-    iconDisabled: "mdi-text-box-outline",
+    iconEnabled: "mdi-subtitles",
+    iconDisabled: "mdi-subtitles-outline",
     model: gameTitleRef,
     modelTrigger: toggleShowGameTitles,
   },
