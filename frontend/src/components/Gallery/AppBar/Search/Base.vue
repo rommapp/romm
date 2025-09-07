@@ -3,5 +3,5 @@ import BaseGalleryAppBar from "@/components/Gallery/AppBar/Base.vue";
 </script>
 
 <template>
-  <base-gallery-app-bar show-platforms-filter show-search-bar />
+  <BaseGalleryAppBar show-platforms-filter show-search-bar />
 </template>

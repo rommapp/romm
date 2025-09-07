@@ -109,7 +109,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-bookmark-box-multiple"
     :width="mdAndUp ? '45vw' : '95vw'"
@@ -160,7 +160,7 @@ function closeDialog() {
         <v-col>
           <v-row class="pa-2 justify-center" no-gutters>
             <v-col class="cover">
-              <collection-card
+              <CollectionCard
                 :key="collection.updated_at"
                 :show-title="false"
                 :with-link="false"
@@ -212,7 +212,7 @@ function closeDialog() {
                     </v-btn>
                   </v-btn-group>
                 </template>
-              </collection-card>
+              </CollectionCard>
             </v-col>
           </v-row>
         </v-col>
@@ -236,7 +236,7 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
 <style scoped>
 .cover {

@@ -131,7 +131,7 @@ async function updateCollection() {
               </template>
             </template>
           </div>
-          <collection-card
+          <CollectionCard
             :key="currentSmartCollection.updated_at"
             :show-title="false"
             :with-link="false"
@@ -231,7 +231,7 @@ async function updateCollection() {
         </v-card>
       </v-col>
     </v-row>
-    <r-section
+    <RSection
       v-if="
         auth.scopes.includes('collections.write') &&
         currentSmartCollection.user__username === auth.user?.username
@@ -261,10 +261,10 @@ async function updateCollection() {
           </v-btn>
         </div>
       </template>
-    </r-section>
+    </RSection>
   </v-navigation-drawer>
 
-  <delete-collection-dialog />
+  <DeleteCollectionDialog />
 </template>
 <style scoped>
 .append-top-right {

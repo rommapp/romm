@@ -175,7 +175,7 @@ async function createSmartCollection() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-playlist-plus"
     :width="mdAndUp ? '45vw' : '95vw'"
@@ -262,7 +262,7 @@ async function createSmartCollection() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
 <style scoped>
 .filters-preview {

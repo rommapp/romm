@@ -201,7 +201,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-cloud-upload-outline"
     :width="mdAndUp ? '40vw' : '95vw'"
@@ -228,7 +228,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
                 :title="item.raw.name ?? ''"
               >
                 <template #prepend>
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :size="35"
                     :name="item.raw.name"
@@ -241,7 +241,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
             <template #selection="{ item }">
               <v-list-item class="px-0" :title="item.raw.name ?? ''">
                 <template #prepend>
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
@@ -386,7 +386,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
 
 <style scoped>

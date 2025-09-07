@@ -42,7 +42,7 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-delete"
     :width="lgAndUp ? '45vw' : '95vw'"
@@ -51,7 +51,7 @@ function closeDialog() {
     <template #content>
       <v-row class="justify-center pa-2 align-center" no-gutters>
         <span class="mr-1">Deleting platform binding</span>
-        <platform-icon
+        <PlatformIcon
           :key="slugToDelete"
           class="mx-2"
           :slug="slugToDelete"
@@ -78,5 +78,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

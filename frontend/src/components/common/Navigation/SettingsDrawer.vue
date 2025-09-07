@@ -185,5 +185,5 @@ function onClose() {
     </template>
   </v-navigation-drawer>
 
-  <about-dialog />
+  <AboutDialog />
 </template>

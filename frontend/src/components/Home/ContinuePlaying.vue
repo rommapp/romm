@@ -41,7 +41,7 @@ function onClosedMenu() {
 }
 </script>
 <template>
-  <r-section icon="mdi-play" :title="t('home.continue-playing')">
+  <RSection icon="mdi-play" :title="t('home.continue-playing')">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle continue playing games grid view"
@@ -70,7 +70,7 @@ function onClosedMenu() {
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <game-card
+          <GameCard
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
@@ -87,5 +87,5 @@ function onClosedMenu() {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

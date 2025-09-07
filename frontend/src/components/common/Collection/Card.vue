@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
                     "
                   >
                     <template #placeholder>
-                      <skeleton
+                      <Skeleton
                         :aspect-ratio="
                           galleryViewStore.defaultAspectRatioCollection
                         "
@@ -256,7 +256,7 @@ onBeforeUnmount(() => {
                     "
                   >
                     <template #placeholder>
-                      <skeleton
+                      <Skeleton
                         :aspect-ratio="
                           galleryViewStore.defaultAspectRatioCollection
                         "
@@ -288,7 +288,7 @@ onBeforeUnmount(() => {
                   :aspect-ratio="galleryViewStore.defaultAspectRatioCollection"
                 >
                   <template #placeholder>
-                    <skeleton
+                    <Skeleton
                       :aspect-ratio="
                         galleryViewStore.defaultAspectRatioCollection
                       "

@@ -43,7 +43,7 @@ watch(windowY, () => {
 });
 </script>
 <template>
-  <r-section icon="mdi-bookmark-box-multiple" :title="props.title">
+  <RSection icon="mdi-bookmark-box-multiple" :title="props.title">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle collections grid view"
@@ -76,7 +76,7 @@ watch(windowY, () => {
               isHovering && hoveringCollectionId === collection.id ? 1100 : 1,
           }"
         >
-          <collection-card
+          <CollectionCard
             :key="collection.id"
             show-rom-count
             transform-scale
@@ -89,5 +89,5 @@ watch(windowY, () => {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

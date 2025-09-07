@@ -26,9 +26,9 @@ const activeCollection = computed(() => {
 </script>
 
 <template>
-  <base-gallery-app-bar show-platforms-filter :show-search-bar="!xs">
+  <BaseGalleryAppBar show-platforms-filter :show-search-bar="!xs">
     <template #prepend>
-      <r-avatar
+      <RAvatar
         v-if="activeCollection"
         class="collection-icon cursor-pointer"
         :size="45"
@@ -36,10 +36,10 @@ const activeCollection = computed(() => {
         @click="navigationStore.switchActiveCollectionInfoDrawer"
       />
     </template>
-  </base-gallery-app-bar>
+  </BaseGalleryAppBar>
 
-  <collection-info-drawer />
-  <smart-collection-info-drawer />
+  <CollectionInfoDrawer />
+  <SmartCollectionInfoDrawer />
 </template>
 
 <style scoped>

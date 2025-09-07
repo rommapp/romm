@@ -257,10 +257,10 @@ watch(
           </v-row>
         </v-tabs-window-item>
         <v-tabs-window-item value="ra">
-          <retro-achievements :rom="rom" />
+          <RetroAchievements :rom="rom" />
         </v-tabs-window-item>
         <v-tabs-window-item value="notes">
-          <r-section
+          <RSection
             icon="mdi-account"
             :title="t('rom.my-notes')"
             elevation="0"
@@ -341,8 +341,8 @@ watch(
                 class="py-4 px-6"
               />
             </template>
-          </r-section>
-          <r-section
+          </RSection>
+          <RSection
             v-if="publicNotes.length > 0"
             icon="mdi-account-multiple"
             :title="t('rom.public-notes')"
@@ -377,7 +377,7 @@ watch(
                 </v-expansion-panel>
               </v-expansion-panels>
             </template>
-          </r-section>
+          </RSection>
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

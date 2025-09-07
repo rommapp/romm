@@ -41,10 +41,10 @@ const { mdAndDown } = useDisplay();
     <v-col>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="saves">
-          <saves :rom="rom" />
+          <Saves :rom="rom" />
         </v-tabs-window-item>
         <v-tabs-window-item value="states">
-          <states :rom="rom" />
+          <States :rom="rom" />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

@@ -146,7 +146,7 @@ async function stopScan() {
                 :subtitle="item.raw.fs_slug"
               >
                 <template #prepend>
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
@@ -155,7 +155,7 @@ async function stopScan() {
                   />
                 </template>
                 <template #append>
-                  <missing-from-f-s-icon
+                  <MissingFromFSIcon
                     v-if="item.raw.missing_from_fs"
                     text="Missing platform from filesystem"
                     chip
@@ -171,7 +171,7 @@ async function stopScan() {
             </template>
             <template #chip="{ item }">
               <v-chip>
-                <platform-icon
+                <PlatformIcon
                   :key="item.raw.slug"
                   :slug="item.raw.slug"
                   :name="item.raw.name"
@@ -341,7 +341,7 @@ async function stopScan() {
                   <v-list-item class="pa-0">
                     <template #prepend>
                       <v-avatar rounded="0" size="40">
-                        <platform-icon
+                        <PlatformIcon
                           :key="platform.slug"
                           :slug="platform.slug"
                           :name="platform.name"
@@ -357,7 +357,7 @@ async function stopScan() {
                   </v-list-item>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text class="bg-toplayer">
-                  <rom-list-item
+                  <RomListItem
                     v-for="rom in platform.roms"
                     :key="rom.id"
                     class="pa-4"
@@ -446,7 +446,7 @@ async function stopScan() {
                         </v-avatar>
                       </v-chip>
                     </template>
-                  </rom-list-item>
+                  </RomListItem>
                   <v-list-item
                     v-if="platform.roms.length == 0"
                     class="text-center my-2"

@@ -19,7 +19,7 @@ const combined = computed(() => [
       lg="6"
       class="pa-1"
     >
-      <related-card :game="expansion" />
+      <RelatedCard :game="expansion" />
     </v-col>
   </v-row>
 </template>

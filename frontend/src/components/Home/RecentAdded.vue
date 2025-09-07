@@ -38,7 +38,7 @@ function onClosedMenu() {
 }
 </script>
 <template>
-  <r-section icon="mdi-shimmer" :title="t('home.recently-added')">
+  <RSection icon="mdi-shimmer" :title="t('home.recently-added')">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle recently games added grid view"
@@ -74,7 +74,7 @@ function onClosedMenu() {
                 : 1,
           }"
         >
-          <game-card
+          <GameCard
             :key="rom.updated_at"
             :rom="rom"
             title-on-hover
@@ -91,5 +91,5 @@ function onClosedMenu() {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

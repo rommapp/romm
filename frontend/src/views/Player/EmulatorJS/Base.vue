@@ -243,7 +243,7 @@ onBeforeUnmount(async () => {
       class="bg-background pr-2"
       rounded
     >
-      <player
+      <Player
         :rom="rom"
         :state="selectedState"
         :save="selectedSave"
@@ -268,7 +268,7 @@ onBeforeUnmount(async () => {
             src="/assets/emulatorjs/powered_by_emulatorjs.png"
           />
           <v-divider class="my-4" />
-          <rom-list-item :rom="rom" with-filename with-size />
+          <RomListItem :rom="rom" with-filename with-size />
         </v-col>
       </v-row>
 
@@ -584,7 +584,7 @@ onBeforeUnmount(async () => {
                 </v-col>
               </template>
               <v-col v-else class="pa-1 mt-1">
-                <empty-states />
+                <EmptyStates />
               </v-col>
             </v-row>
           </v-expand-transition>
@@ -660,7 +660,7 @@ onBeforeUnmount(async () => {
                 </v-col>
               </template>
               <v-col v-else class="pa-1 mt-1">
-                <empty-saves />
+                <EmptySaves />
               </v-col>
             </v-row>
           </v-expand-transition>
@@ -765,7 +765,7 @@ onBeforeUnmount(async () => {
           {{ t("play.save-and-quit") }}
         </v-btn>
       </v-row>
-      <cache-dialog v-if="!gameRunning" />
+      <CacheDialog v-if="!gameRunning" />
     </v-col>
   </v-row>
 </template>

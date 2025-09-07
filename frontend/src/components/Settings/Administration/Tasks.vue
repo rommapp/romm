@@ -40,7 +40,7 @@ const getManualTaskIcon = (taskName: string) => {
 };
 </script>
 <template>
-  <r-section icon="mdi-pulse" title="Tasks" class="ma-2">
+  <RSection icon="mdi-pulse" title="Tasks" class="ma-2">
     <template #toolbar-append />
     <template #content>
       <v-chip
@@ -54,7 +54,7 @@ const getManualTaskIcon = (taskName: string) => {
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
         <v-col v-for="task in watcherTasksUI" :key="task.name" cols="12" md="6">
-          <task-option
+          <TaskOption
             class="ma-3"
             :enabled="task.enabled"
             :title="task.title"
@@ -78,7 +78,7 @@ const getManualTaskIcon = (taskName: string) => {
           cols="12"
           md="6"
         >
-          <task-option
+          <TaskOption
             class="ma-3"
             :enabled="task.enabled"
             :title="task.title"
@@ -101,7 +101,7 @@ const getManualTaskIcon = (taskName: string) => {
         </v-chip>
         <v-divider class="border-opacity-25 ma-1" />
         <v-col v-for="task in manualTasksUI" :key="task.name" cols="12" md="6">
-          <task-option
+          <TaskOption
             class="ma-3"
             :title="task.title"
             :description="task.description"
@@ -113,5 +113,5 @@ const getManualTaskIcon = (taskName: string) => {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

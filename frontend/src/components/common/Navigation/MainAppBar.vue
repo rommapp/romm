@@ -41,12 +41,12 @@ function collapse() {
       left
     >
       <template #prepend>
-        <home-btn class="ml-1" />
+        <HomeBtn class="ml-1" />
       </template>
 
       <template #append>
-        <upload-btn class="mr-2" />
-        <user-btn class="mr-1" />
+        <UploadBtn class="mr-2" />
+        <UserBtn class="mr-1" />
       </template>
     </v-app-bar>
 
@@ -56,11 +56,11 @@ function collapse() {
       elevation="0"
       class="bg-background align-center justify-center"
     >
-      <search-btn with-tag />
-      <platforms-btn with-tag />
-      <collections-btn with-tag />
-      <scan-btn with-tag />
-      <console-mode-btn with-tag />
+      <SearchBtn with-tag />
+      <PlatformsBtn with-tag />
+      <CollectionsBtn with-tag />
+      <ScanBtn with-tag />
+      <ConsoleModeBtn with-tag />
     </v-bottom-navigation>
   </template>
 
@@ -75,7 +75,7 @@ function collapse() {
   >
     <template #prepend>
       <v-row no-gutters class="my-2 justify-center">
-        <home-btn aria-label="Home" tabindex="1" />
+        <HomeBtn aria-label="Home" tabindex="1" />
       </v-row>
     </template>
 
@@ -101,35 +101,35 @@ function collapse() {
         </v-icon>
       </v-btn>
     </v-row>
-    <search-btn
+    <SearchBtn
       :with-tag="!mainBarCollapsed"
       rounded
       class="mt-4"
       block
       tabindex="3"
     />
-    <platforms-btn
+    <PlatformsBtn
       :with-tag="!mainBarCollapsed"
       rounded
       class="mt-2"
       block
       tabindex="4"
     />
-    <collections-btn
+    <CollectionsBtn
       :with-tag="!mainBarCollapsed"
       rounded
       class="mt-2"
       block
       tabindex="5"
     />
-    <scan-btn
+    <ScanBtn
       :with-tag="!mainBarCollapsed"
       rounded
       class="mt-2"
       block
       tabindex="7"
     />
-    <console-mode-btn
+    <ConsoleModeBtn
       :with-tag="!mainBarCollapsed"
       rounded
       class="mt-2"
@@ -138,7 +138,7 @@ function collapse() {
     />
 
     <template #append>
-      <upload-btn
+      <UploadBtn
         :with-tag="!mainBarCollapsed"
         rounded
         class="mt-2 mb-6"
@@ -146,15 +146,15 @@ function collapse() {
         tabindex="9"
       />
       <v-row no-gutters class="my-2 justify-center">
-        <user-btn tabindex="10" aria-label="Settings menu" />
+        <UserBtn tabindex="10" aria-label="Settings menu" />
       </v-row>
     </template>
   </v-navigation-drawer>
 
-  <platforms-drawer />
-  <collections-drawer />
-  <upload-rom-dialog />
-  <settings-drawer />
+  <PlatformsDrawer />
+  <CollectionsDrawer />
+  <UploadRomDialog />
+  <SettingsDrawer />
 </template>
 <style scoped>
 #collapseBtn {

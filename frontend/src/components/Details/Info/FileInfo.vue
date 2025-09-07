@@ -50,7 +50,7 @@ watch(
           <span>{{ t("rom.file") }}</span>
         </v-col>
         <v-col>
-          <missing-from-f-s-icon
+          <MissingFromFSIcon
             v-if="rom.missing_from_fs"
             :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
             class="mr-2"
@@ -64,7 +64,7 @@ watch(
         <v-col>
           <v-row class="align-center" no-gutters>
             <v-col v-if="rom.missing_from_fs" cols="auto" class="pr-2">
-              <missing-from-f-s-icon
+              <MissingFromFSIcon
                 :text="`Missing game from filesystem: ${rom.fs_path}/${rom.fs_name}`"
                 :size="25"
               />
@@ -166,7 +166,7 @@ watch(
         </v-col>
         <v-col>
           <v-row class="align-center" no-gutters>
-            <version-switcher class="mr-2" :rom="rom" />
+            <VersionSwitcher class="mr-2" :rom="rom" />
             <v-tooltip
               v-if="auth.scopes.includes('roms.user.write')"
               location="top"

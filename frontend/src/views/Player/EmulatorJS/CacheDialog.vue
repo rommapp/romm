@@ -30,7 +30,7 @@ function closeDialog() {
   >
     {{ t("play.clear-cache") }}
   </v-btn>
-  <r-dialog v-model="show" icon="mdi-database-remove" @close="closeDialog">
+  <RDialog v-model="show" icon="mdi-database-remove" @close="closeDialog">
     <template #header>
       <v-row class="ml-2">
         {{ t("play.clear-cache") }}
@@ -58,5 +58,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

@@ -81,7 +81,7 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     :width="mdAndUp ? '45vw' : '95vw'"
     @close="closeDialog"
@@ -132,7 +132,7 @@ function closeDialog() {
                 :title="item.raw.name ?? ''"
               >
                 <template #prepend>
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
@@ -145,7 +145,7 @@ function closeDialog() {
             <template #selection="{ item }">
               <v-list-item class="px-0" :title="item.raw.name ?? ''">
                 <template #prepend>
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
@@ -180,5 +180,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

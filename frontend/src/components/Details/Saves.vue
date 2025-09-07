@@ -192,5 +192,5 @@ function onCardClick(save: SaveSchema, event: MouseEvent) {
       </v-hover>
     </v-col>
   </v-row>
-  <empty-saves v-else />
+  <EmptySaves v-else />
 </template>

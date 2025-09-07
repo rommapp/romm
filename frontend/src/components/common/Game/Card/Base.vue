@@ -275,8 +275,8 @@ onBeforeUnmount(() => {
               </template>
               <v-row no-gutters class="text-white px-1">
                 <v-col>
-                  <sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
-                  <flags
+                  <Sources v-if="!romsStore.isSimpleRom(rom)" :rom="rom" />
+                  <Flags
                     v-if="romsStore.isSimpleRom(rom) && showChips"
                     :rom="rom"
                   />
@@ -288,7 +288,7 @@ onBeforeUnmount(() => {
                   no-gutters
                 >
                   <v-col cols="auto" class="px-0">
-                    <platform-icon
+                    <PlatformIcon
                       v-if="showPlatformIcon"
                       :key="rom.platform_slug"
                       :size="25"
@@ -299,7 +299,7 @@ onBeforeUnmount(() => {
                     />
                   </v-col>
                   <v-col class="px-1 d-flex justify-end">
-                    <missing-from-f-s-icon
+                    <MissingFromFSIcon
                       v-if="rom.missing_from_fs"
                       :text="`Missing from filesystem: ${rom.fs_path}/${rom.fs_name}`"
                       class="mr-1 mb-1 px-1"
@@ -346,7 +346,7 @@ onBeforeUnmount(() => {
                   <slot name="append-inner-right" />
                 </div>
                 <v-expand-transition>
-                  <action-bar
+                  <ActionBar
                     v-if="
                       romsStore.isSimpleRom(rom) &&
                       showActionBar &&
@@ -370,7 +370,7 @@ onBeforeUnmount(() => {
                   :aspect-ratio="computedAspectRatio"
                 >
                   <template #placeholder>
-                    <skeleton
+                    <Skeleton
                       :platform-id="rom.platform_id"
                       :aspect-ratio="computedAspectRatio"
                       type="image"
@@ -389,7 +389,7 @@ onBeforeUnmount(() => {
             </v-img>
           </v-hover>
         </v-card-text>
-        <action-bar
+        <ActionBar
           v-if="
             (smAndDown || showActionBarAlways) &&
             showActionBar &&

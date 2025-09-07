@@ -20,6 +20,6 @@ onBeforeMount(() => {
 });
 </script>
 <template>
-  <summary-stats class="ma-2" :stats="stats" />
-  <platforms-stats class="ma-2" :total-filesize="stats.TOTAL_FILESIZE_BYTES" />
+  <SummaryStats class="ma-2" :stats="stats" />
+  <PlatformsStats class="ma-2" :total-filesize="stats.TOTAL_FILESIZE_BYTES" />
 </template>

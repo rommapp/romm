@@ -36,7 +36,7 @@ function toggleTheme() {
 }
 </script>
 <template>
-  <r-section icon="mdi-brush-variant" :title="t('settings.theme')" class="ma-2">
+  <RSection icon="mdi-brush-variant" :title="t('settings.theme')" class="ma-2">
     <template #content>
       <v-item-group
         v-model="selectedTheme"
@@ -52,7 +52,7 @@ function toggleTheme() {
             md="2"
             class="pa-2"
           >
-            <theme-option
+            <ThemeOption
               :key="themeOption.name"
               :text="themeOption.name"
               :icon="themeOption.icon"
@@ -61,5 +61,5 @@ function toggleTheme() {
         </v-row>
       </v-item-group>
     </template>
-  </r-section>
+  </RSection>
 </template>

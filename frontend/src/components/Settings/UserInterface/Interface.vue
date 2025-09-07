@@ -216,7 +216,7 @@ const toggle3DEffect = (value: boolean) => {
 };
 </script>
 <template>
-  <r-section
+  <RSection
     icon="mdi-palette-swatch-outline"
     :title="t('settings.interface')"
     class="ma-2"
@@ -233,7 +233,7 @@ const toggle3DEffect = (value: boolean) => {
           cols="12"
           md="6"
         >
-          <interface-option
+          <InterfaceOption
             v-model="option.model.value"
             class="ma-1"
             :title="option.title"
@@ -292,7 +292,7 @@ const toggle3DEffect = (value: boolean) => {
           cols="12"
           md="6"
         >
-          <interface-option
+          <InterfaceOption
             v-model="option.model.value"
             class="ma-1"
             :disabled="option.disabled"
@@ -316,7 +316,7 @@ const toggle3DEffect = (value: boolean) => {
       <v-divider class="border-opacity-25 mx-2 mb-2" />
       <v-row class="py-1 align-center" no-gutters>
         <v-col cols="12" md="6">
-          <interface-option
+          <InterfaceOption
             v-model="showVirtualCollectionsRef"
             class="mx-2"
             :title="t('settings.show-virtual-collections')"
@@ -351,5 +351,5 @@ const toggle3DEffect = (value: boolean) => {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

@@ -29,7 +29,7 @@ withDefaults(
     }"
     class="fixed bottom-4 right-20 px-8 py-3 rounded-lg backdrop-blur border z-[100] pointer-events-none select-none"
   >
-    <navigation-text
+    <NavigationText
       :show-navigation="showNavigation"
       :show-select="showSelect"
       :show-back="showBack"

@@ -62,7 +62,7 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="collection"
     v-model="show"
     icon="mdi-delete"
@@ -74,11 +74,7 @@ function closeDialog() {
       <v-row class="justify-center align-center pa-2" no-gutters>
         <span>{{ t("collection.removing-collection-1") }}</span>
         <v-chip class="pl-0 ml-1" label>
-          <r-avatar-collection
-            :collection="collection"
-            :size="35"
-            class="mr-2"
-          />
+          <RAvatarCollection :collection="collection" :size="35" class="mr-2" />
           {{ collection.name }}
         </v-chip>
         <span class="ml-1">{{ t("collection.removing-collection-2") }}</span>
@@ -96,5 +92,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

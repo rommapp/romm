@@ -107,7 +107,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-delete"
     scroll-content
@@ -139,7 +139,7 @@ function closeDialog() {
         show-select
       >
         <template #item.name="{ item }">
-          <rom-list-item :rom="item" with-filename with-size>
+          <RomListItem :rom="item" with-filename with-size>
             <template #append-body>
               <v-row v-if="romsToDeleteFromFs.includes(item.id)" no-gutters>
                 <v-col>
@@ -149,7 +149,7 @@ function closeDialog() {
                 </v-col>
               </v-row>
             </template>
-          </rom-list-item>
+          </RomListItem>
         </template>
       </v-data-table-virtual>
     </template>
@@ -197,5 +197,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

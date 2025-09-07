@@ -35,7 +35,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     id="select-save-dialog"
     v-model="show"
     icon="mdi-format-wrap-square"
@@ -121,5 +121,5 @@ function closeDialog() {
         </v-btn>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

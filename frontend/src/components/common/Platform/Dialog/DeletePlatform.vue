@@ -70,7 +70,7 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="platform"
     v-model="show"
     icon="mdi-delete"
@@ -81,7 +81,7 @@ function closeDialog() {
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
         <span class="mr-1">{{ t("platform.removing-platform-1") }}</span>
-        <platform-icon
+        <PlatformIcon
           :slug="platform.slug"
           :name="platform.name"
           :fs-slug="platform.fs_slug"
@@ -120,5 +120,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

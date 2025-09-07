@@ -197,9 +197,9 @@ onUnmounted(() => {
     <v-col>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="config">
-          <platform-binding class="mt-2" />
-          <platform-versions class="mt-4" />
-          <excluded class="mt-4" />
+          <PlatformBinding class="mt-2" />
+          <PlatformVersions class="mt-4" />
+          <Excluded class="mt-4" />
         </v-tabs-window-item>
         <v-tabs-window-item value="missing">
           <v-row class="mt-2 mr-2 align-center" no-gutters>
@@ -224,7 +224,7 @@ onUnmounted(() => {
                     :subtitle="item.raw.fs_slug"
                   >
                     <template #prepend>
-                      <platform-icon
+                      <PlatformIcon
                         :key="item.raw.slug"
                         :size="35"
                         :slug="item.raw.slug"
@@ -233,7 +233,7 @@ onUnmounted(() => {
                       />
                     </template>
                     <template #append>
-                      <missing-from-f-s-icon
+                      <MissingFromFSIcon
                         v-if="item.raw.missing_from_fs"
                         text="Missing platform from filesystem"
                         chip
@@ -248,7 +248,7 @@ onUnmounted(() => {
                   </v-list-item>
                 </template>
                 <template #chip="{ item }">
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
@@ -272,9 +272,9 @@ onUnmounted(() => {
               </v-btn>
             </v-col>
           </v-row>
-          <game-table class="mx-2 mt-2" show-platform-icon />
-          <load-more-btn :fetch-roms="fetchRoms" />
-          <fab-overlay />
+          <GameTable class="mx-2 mt-2" show-platform-icon />
+          <LoadMoreBtn :fetch-roms="fetchRoms" />
+          <FabOverlay />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

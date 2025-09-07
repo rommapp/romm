@@ -67,27 +67,27 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <notification />
-  <main-app-bar />
+  <Notification />
+  <MainAppBar />
   <router-view />
 
-  <match-rom-dialog />
-  <edit-rom-dialog />
-  <search-cover-dialog />
-  <add-roms-to-collection-dialog />
-  <remove-roms-from-collection-dialog />
-  <delete-rom-dialog />
-  <edit-user-dialog />
-  <note-dialog />
-  <show-q-r-code-dialog />
+  <MatchRomDialog />
+  <EditRomDialog />
+  <SearchCoverDialog />
+  <AddRomsToCollectionDialog />
+  <RemoveRomsFromCollectionDialog />
+  <DeleteRomDialog />
+  <EditUserDialog />
+  <NoteDialog />
+  <ShowQRCodeDialog />
 
-  <new-version-dialog />
-  <upload-progress />
+  <NewVersionDialog />
+  <UploadProgress />
 
-  <upload-saves-dialog />
-  <delete-saves-dialog />
-  <upload-states-dialog />
-  <delete-states-dialog />
-  <select-save-dialog />
-  <select-state-dialog />
+  <UploadSavesDialog />
+  <DeleteSavesDialog />
+  <UploadStatesDialog />
+  <DeleteStatesDialog />
+  <SelectSaveDialog />
+  <SelectStateDialog />
 </template>

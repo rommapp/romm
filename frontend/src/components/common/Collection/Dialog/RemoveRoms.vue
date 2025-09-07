@@ -82,7 +82,7 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-model="show"
     icon="mdi-bookmark-remove-outline"
     scroll-content
@@ -110,7 +110,7 @@ function closeDialog() {
         clearable
       >
         <template #item="{ props, item }">
-          <collection-list-item
+          <CollectionListItem
             :collection="item.raw"
             v-bind="props"
             :with-title="false"
@@ -118,11 +118,7 @@ function closeDialog() {
         </template>
         <template #chip="{ item }">
           <v-chip class="pl-0" label>
-            <r-avatar-collection
-              :collection="item.raw"
-              :size="35"
-              class="mr-2"
-            />
+            <RAvatarCollection :collection="item.raw" :size="35" class="mr-2" />
             {{ item.raw.name }}
           </v-chip>
         </template>
@@ -137,7 +133,7 @@ function closeDialog() {
         hide-default-header
       >
         <template #item.name="{ item }">
-          <rom-list-item :rom="item" with-filename with-size />
+          <RomListItem :rom="item" with-filename with-size />
         </template>
       </v-data-table-virtual>
     </template>
@@ -158,5 +154,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

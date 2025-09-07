@@ -65,7 +65,7 @@ const hashMatches = computed(() => {
       <v-col>
         <p class="text-h5 font-weight-bold pl-0 position-relative">
           <span>{{ rom.name }}</span>
-          <fav-btn class="ml-2" :rom="rom" />
+          <FavBtn class="ml-2" :rom="rom" />
         </p>
       </v-col>
     </v-row>
@@ -79,7 +79,7 @@ const hashMatches = computed(() => {
         <v-chip
           :to="{ name: ROUTES.PLATFORM, params: { platform: rom.platform_id } }"
         >
-          <missing-from-f-s-icon
+          <MissingFromFSIcon
             v-if="
               filteredPlatforms.find((p) => p.id === rom.platform_id)
                 ?.missing_from_fs
@@ -87,7 +87,7 @@ const hashMatches = computed(() => {
             class="mr-2"
             text="Missing platform from filesystem"
           />
-          <platform-icon
+          <PlatformIcon
             :key="rom.platform_slug"
             :slug="rom.platform_slug"
             :name="rom.platform_name"

@@ -239,7 +239,7 @@ watch(
               </template>
             </template>
           </div>
-          <platform-icon
+          <PlatformIcon
             :slug="currentPlatform.slug"
             :name="currentPlatform.name"
             :fs-slug="currentPlatform.fs_slug"
@@ -433,7 +433,7 @@ watch(
         </v-card>
       </v-col>
     </v-row>
-    <r-section
+    <RSection
       v-if="auth.scopes.includes('platforms.write')"
       icon="mdi-cog"
       :title="t('platform.settings')"
@@ -499,8 +499,8 @@ watch(
           </v-row>
         </v-item-group>
       </template>
-    </r-section>
-    <r-section
+    </RSection>
+    <RSection
       v-if="auth.scopes.includes('platforms.write')"
       icon="mdi-alert"
       icon-color="red"
@@ -523,10 +523,10 @@ watch(
           </v-btn>
         </div>
       </template>
-    </r-section>
+    </RSection>
   </v-navigation-drawer>
 
-  <delete-platform-dialog />
+  <DeletePlatformDialog />
 </template>
 <style scoped>
 .append-top-right {

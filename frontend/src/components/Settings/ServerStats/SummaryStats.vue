@@ -17,7 +17,7 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <r-section
+  <RSection
     icon="mdi-server"
     :title="t('rom.summary')"
     elevation="0"
@@ -79,5 +79,5 @@ const { t } = useI18n();
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

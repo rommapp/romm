@@ -54,7 +54,7 @@ watch(menuOpen, (val) => {
       />
     </v-col>
     <v-col v-if="isEmulationSupported" class="d-flex">
-      <play-btn
+      <PlayBtn
         ref="playBtnRef"
         :rom="rom"
         icon-embedded
@@ -99,7 +99,7 @@ watch(menuOpen, (val) => {
             @click.prevent
           />
         </template>
-        <admin-menu :rom="rom" />
+        <AdminMenu :rom="rom" />
       </v-menu>
     </v-col>
   </v-row>

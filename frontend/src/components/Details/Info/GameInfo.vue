@@ -252,7 +252,7 @@ function onFilterClick(filter: FilterType, value: string) {
                 />
               </template>
             </v-carousel>
-            <r-dialog v-model="show" :width="'95vw'">
+            <RDialog v-model="show" :width="'95vw'">
               <template #content>
                 <v-carousel
                   v-model="carousel"
@@ -299,7 +299,7 @@ function onFilterClick(filter: FilterType, value: string) {
                   </template>
                 </v-carousel>
               </template>
-            </r-dialog>
+            </RDialog>
           </v-col>
         </v-row>
       </template>
