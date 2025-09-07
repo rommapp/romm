@@ -27,9 +27,10 @@ function closeDialog() {
     variant="flat"
     prepend-icon="mdi-database-remove"
     @click="show = true"
-    >{{ t("play.clear-cache") }}
+  >
+    {{ t("play.clear-cache") }}
   </v-btn>
-  <r-dialog v-model="show" @close="closeDialog" icon="mdi-database-remove">
+  <r-dialog v-model="show" icon="mdi-database-remove" @close="closeDialog">
     <template #header>
       <v-row class="ml-2">
         {{ t("play.clear-cache") }}
