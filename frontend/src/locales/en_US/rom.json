@@ -60,6 +60,10 @@
   "summary": "Summary",
   "switch-version": "Switch version",
   "tags": "Tags",
+  "time-to-beat": "Time to Beat",
+  "hastily": "Hastily",
+  "normally": "Normally",
+  "completely": "Completely",
   "unmatch": "Unmatch ROM",
   "unselect-all": "Unselect all"
 }

@@ -201,3 +201,22 @@ class IGDBService:
             where=where,
             limit=limit,
         )
+
+    async def list_game_time_to_beats(
+        self,
+        *,
+        fields: Sequence[str] | None = None,
+        where: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict]:
+        """Retrieve game time to beat data.
+
+        Reference: https://api-docs.igdb.com/#game-time-to-beat
+        """
+        url = self.url.joinpath("game_time_to_beats")
+        return await self._request(
+            str(url),
+            fields=fields,
+            where=where,
+            limit=limit,
+        )

@@ -66,6 +66,14 @@ class IGDBRelatedGame(TypedDict):
     cover_url: str
 
 
+class IGDBTimeToBeat(TypedDict):
+    hurriedly: int | None
+    normally: int | None
+    completely: int | None
+    count: int | None
+    checksum: str | None
+
+
 class IGDBMetadata(TypedDict):
     total_rating: str
     aggregated_rating: str
@@ -86,6 +94,7 @@ class IGDBMetadata(TypedDict):
     expanded_games: list[IGDBRelatedGame]
     ports: list[IGDBRelatedGame]
     similar_games: list[IGDBRelatedGame]
+    time_to_beat: IGDBTimeToBeat | None
 
 
 class IGDBRom(BaseRom):
@@ -128,9 +137,11 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
     remasters = rom.get("remasters", [])
     similar_games = rom.get("similar_games", [])
     videos = rom.get("videos", [])
+    time_to_beat = rom.get("time_to_beat", None)
 
     # Narrow types for expandable fields we requested IGDB to be expanded.
     assert mark_expanded(franchise)
+    assert mark_expanded(time_to_beat)
     assert mark_list_expanded(age_ratings)
     assert mark_list_expanded(alternative_names)
     assert mark_list_expanded(collections)
@@ -147,6 +158,13 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
     assert mark_list_expanded(remasters)
     assert mark_list_expanded(similar_games)
     assert mark_list_expanded(videos)
+
+    # Fetch game time to beat
+    time_to_beat = await self.igdb_service.list_game_time_to_beats(
+        where=f"game={rom.get('id')}",
+        fields=["hastily", "normally", "completely", "count", "checksum"],
+        limit=1,
+    )
 
     return IGDBMetadata(
         {
@@ -202,6 +220,17 @@ def extract_metadata_from_igdb_rom(self: MetadataHandler, rom: Game) -> IGDBMeta
                 build_related_game(handler=self, rom=r, game_type="similar")
                 for r in similar_games
             ],
+            "time_to_beat": (
+                IGDBTimeToBeat(
+                    hurriedly=time_to_beat.get("hurriedly"),
+                    normally=time_to_beat.get("normally"),
+                    completely=time_to_beat.get("completely"),
+                    count=time_to_beat.get("count"),
+                    checksum=time_to_beat.get("checksum"),
+                )
+                if time_to_beat
+                else None
+            ),
         }
     )
 

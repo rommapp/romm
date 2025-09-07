@@ -332,6 +332,7 @@ class Game(IGDBEntity, total=False):
     summary: str
     tags: list[TagNumber]
     themes: list[ExpandableField[Theme]]
+    time_to_beat: ExpandableField[TimeToBeat]
     total_rating: float
     total_rating_count: int
     updated_at: int  # timestamp
@@ -500,3 +501,11 @@ class Screenshot(IGDBEntity, total=False):
     image_id: str
     url: str
     width: int
+
+
+class TimeToBeat(IGDBEntity, total=False):
+    hurriedly: int
+    normally: int
+    completely: int
+    count: int
+    checksum: str

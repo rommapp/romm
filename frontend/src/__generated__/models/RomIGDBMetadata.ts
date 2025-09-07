@@ -5,6 +5,7 @@
 import type { IGDBAgeRating } from './IGDBAgeRating';
 import type { IGDBMetadataPlatform } from './IGDBMetadataPlatform';
 import type { IGDBRelatedGame } from './IGDBRelatedGame';
+import type { IGDBTimeToBeat } from './IGDBTimeToBeat';
 export type RomIGDBMetadata = {
     total_rating?: string;
     aggregated_rating?: string;
@@ -25,5 +26,6 @@ export type RomIGDBMetadata = {
     expanded_games?: Array<IGDBRelatedGame>;
     ports?: Array<IGDBRelatedGame>;
     similar_games?: Array<IGDBRelatedGame>;
+    time_to_beat?: IGDBTimeToBeat;
 };
 

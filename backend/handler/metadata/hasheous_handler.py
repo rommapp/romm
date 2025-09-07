@@ -18,6 +18,7 @@ from .igdb_handler import (
     IGDB_AGE_RATINGS,
     IGDBMetadata,
     IGDBMetadataPlatform,
+    IGDBTimeToBeat,
 )
 from .ra_handler import RAMetadata
 
@@ -57,6 +58,7 @@ ACCEPTABLE_FILE_EXTENSIONS_BY_PLATFORM_SLUG = {"dc": ["cue"]}
 
 
 def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
+    print("ROM", rom)
     return IGDBMetadata(
         {
             "youtube_video_id": (
@@ -102,6 +104,17 @@ def extract_metadata_from_igdb_rom(rom: dict[str, Any]) -> IGDBMetadata:
             "remasters": [],
             "similar_games": [],
             "expanded_games": [],
+            "time_to_beat": (
+                IGDBTimeToBeat(
+                    hurriedly=rom.get("time_to_beat.hurriedly"),
+                    normally=rom.get("time_to_beat.normally"),
+                    completely=rom.get("time_to_beat.completely"),
+                    count=rom.get("time_to_beat.count"),
+                    checksum=rom.get("time_to_beat.checksum"),
+                )
+                if rom.get("time_to_beat")
+                else None
+            ),
         }
     )
 

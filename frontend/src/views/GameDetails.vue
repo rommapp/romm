@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
-import { inject, onBeforeMount, ref, watch, defineAsyncComponent } from "vue";
+import {
+  inject,
+  onBeforeMount,
+  ref,
+  watch,
+  defineAsyncComponent,
+  computed,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { useRoute } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -13,6 +20,7 @@ import FileInfo from "@/components/Details/Info/FileInfo.vue";
 import GameInfo from "@/components/Details/Info/GameInfo.vue";
 import Personal from "@/components/Details/Personal.vue";
 import RelatedGames from "@/components/Details/RelatedGames.vue";
+import TimeToBeat from "@/components/Details/TimeToBeat.vue";
 import TitleInfo from "@/components/Details/Title.vue";
 import EmptyGame from "@/components/common/EmptyStates/EmptyGame.vue";
 import GameCard from "@/components/common/Game/Card/Base.vue";
@@ -34,6 +42,7 @@ const tab = ref<
   | "manual"
   | "gamedata"
   | "personal"
+  | "timetobeat"
   | "additionalcontent"
   | "screenshots"
   | "relatedgames"
@@ -44,6 +53,17 @@ const noRomError = ref(false);
 const romsStore = storeRoms();
 const platformsStore = storePlatforms();
 const { currentRom, fetchingRoms } = storeToRefs(romsStore);
+
+const hasTimeToBeatData = computed(() => {
+  const timeToBeat = currentRom.value?.igdb_metadata?.time_to_beat;
+  if (!timeToBeat) return false;
+
+  return !!(
+    timeToBeat.hurriedly ||
+    timeToBeat.normally ||
+    timeToBeat.completely
+  );
+});
 
 async function fetchDetails() {
   fetchingRoms.value = true;
@@ -152,6 +172,9 @@ watch(
             <v-tab value="personal">
               {{ t("rom.personal") }}
             </v-tab>
+            <v-tab value="timetobeat" v-if="hasTimeToBeatData">
+              {{ t("rom.time-to-beat") }}
+            </v-tab>
             <v-tab
               v-if="
                 mdAndDown &&
@@ -192,6 +215,9 @@ watch(
               </v-window-item>
               <v-window-item value="personal">
                 <personal :rom="currentRom" />
+              </v-window-item>
+              <v-window-item v-if="hasTimeToBeatData" value="timetobeat">
+                <time-to-beat :rom="currentRom" />
               </v-window-item>
               <v-window-item
                 v-if="
