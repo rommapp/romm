@@ -44,6 +44,7 @@ const regionsRef = useLocalStorage("settings.showRegions", true);
 const languagesRef = useLocalStorage("settings.showLanguages", true);
 const statusRef = useLocalStorage("settings.showStatus", true);
 const actionBarRef = useLocalStorage("settings.showActionBar", false);
+const gameTitleRef = useLocalStorage("settings.showGameTitle", false);
 const enable3DEffectRef = useLocalStorage("settings.enable3DEffect", false);
 
 const homeOptions = computed(() => [
@@ -158,6 +159,14 @@ const galleryOptions = computed(() => [
     model: enable3DEffectRef,
     modelTrigger: toggle3DEffect,
   },
+  {
+    title: t("settings.show-game-titles"),
+    description: t("settings.show-game-titles-desc"),
+    iconEnabled: "mdi-text-box-outline",
+    iconDisabled: "mdi-text-box-outline",
+    model: gameTitleRef,
+    modelTrigger: toggleShowGameTitles,
+  },
 ]);
 
 const setPlatformDrawerGroupBy = (value: string) => {
@@ -213,6 +222,9 @@ const toggleActionBar = (value: boolean) => {
 };
 const toggle3DEffect = (value: boolean) => {
   enable3DEffectRef.value = value;
+};
+const toggleShowGameTitles = (value: boolean) => {
+  gameTitleRef.value = value;
 };
 </script>
 <template>
