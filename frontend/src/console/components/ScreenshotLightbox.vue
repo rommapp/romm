@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useActiveElement } from "@vueuse/core";
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import NavigationText from "./NavigationText.vue";
 
 const props = defineProps<{ urls: string[]; startIndex?: number }>();
 const emit = defineEmits(["update:modelValue", "close"]);
 
+const carouselIndex = ref(props.startIndex);
 const activeElement = useActiveElement();
 
 const isOpen = computed({
@@ -57,21 +58,21 @@ onMounted(() => {
       </div>
 
       <v-carousel
-        v-model="props.startIndex"
+        v-model="carouselIndex"
         hide-delimiter-background
         delimiter-icon="mdi-square"
         show-arrows="hover"
         hide-delimiters
         class="dialog-carousel"
       >
-        <template #prev="{ props }">
+        <template #prev="{ props: prevProps }">
           <v-btn
             v-if="urls.length > 1"
             icon="mdi-triangle"
             size="x-small"
             class="lightbox-nav-prev"
             :color="iconColor"
-            @click="props.onClick"
+            @click="prevProps.onClick"
           />
         </template>
 
@@ -88,14 +89,14 @@ onMounted(() => {
           </template>
         </v-carousel-item>
 
-        <template #next="{ props }">
+        <template #next="{ props: nextProps }">
           <v-btn
             v-if="urls.length > 1"
             icon="mdi-triangle"
             size="x-small"
             class="lightbox-nav-next"
             :color="iconColor"
-            @click="props.onClick"
+            @click="nextProps.onClick"
           />
         </template>
       </v-carousel>
@@ -117,7 +118,7 @@ onMounted(() => {
             }"
             class="px-2 py-1 rounded-lg text-xs"
           >
-            {{ props.startIndex ? props.startIndex + 1 : 1 }} /
+            {{ carouselIndex ? carouselIndex + 1 : 1 }} /
             {{ urls.length }}
           </div>
         </div>
