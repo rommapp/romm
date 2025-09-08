@@ -1,5 +1,8 @@
 from datetime import datetime, timezone
 
+from fastapi import HTTPException, Request
+from rq.job import Job
+
 from config import (
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE,
     RESCAN_ON_FILESYSTEM_CHANGE_DELAY,
@@ -8,10 +11,8 @@ from config import (
 from decorators.auth import protected_route
 from endpoints.responses import TaskExecutionResponse, TaskStatusResponse
 from endpoints.responses.tasks import GroupedTasksDict, TaskInfo
-from fastapi import HTTPException, Request
 from handler.auth.constants import Scope
 from handler.redis_handler import low_prio_queue
-from rq.job import Job
 from tasks.manual.cleanup_orphaned_resources import cleanup_orphaned_resources_task
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task

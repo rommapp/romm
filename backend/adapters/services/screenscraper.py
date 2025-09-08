@@ -6,10 +6,11 @@ from typing import Final, cast
 
 import aiohttp
 import yarl
-from adapters.services.screenscraper_types import SSGame
 from aiohttp.client import ClientTimeout
-from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from fastapi import HTTPException, status
+
+from adapters.services.screenscraper_types import SSGame
+from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
 from utils.context import ctx_aiohttp_session
 

@@ -4,8 +4,10 @@ from typing import NotRequired, TypedDict
 
 import httpx
 import yarl
-from config import PLAYMATCH_API_ENABLED
 from fastapi import HTTPException, status
+
+from config import PLAYMATCH_API_ENABLED
+from handler.metadata.base_hander import MetadataHandler
 from logger.logger import log
 from models.rom import RomFile
 from utils import get_version
@@ -38,7 +40,7 @@ class PlaymatchRomMatch(TypedDict):
     igdb_id: int | None
 
 
-class PlaymatchHandler:
+class PlaymatchHandler(MetadataHandler):
     """
     Handler for [Playmatch](https://github.com/RetroRealm/playmatch), a service for matching Roms by Hashes.
     """
@@ -46,6 +48,10 @@ class PlaymatchHandler:
     def __init__(self):
         self.base_url = "https://playmatch.retrorealm.dev/api"
         self.identify_url = f"{self.base_url}/identify/ids"
+
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return PLAYMATCH_API_ENABLED
 
     async def _request(self, url: str, query: dict) -> dict:
         """
@@ -100,7 +106,7 @@ class PlaymatchHandler:
         :return: A PlaymatchRomMatch objects containing the matched ROM information.
         :raises HTTPException: If the request fails or the service is unavailable.
         """
-        if not PLAYMATCH_API_ENABLED:
+        if not self.is_enabled():
             return PlaymatchRomMatch(igdb_id=None)
 
         first_file = next(

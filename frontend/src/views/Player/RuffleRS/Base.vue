@@ -17,7 +17,7 @@ const { t } = useI18n();
 const route = useRoute();
 const rom = ref<DetailedRom | null>(null);
 const gameRunning = ref(false);
-const fullScreenOnPlay = useLocalStorage("fullScreenOnPlay", true);
+const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 const backgroundColor = ref(DEFAULT_BACKGROUND_COLOR);
 
 declare global {
@@ -134,16 +134,17 @@ onMounted(async () => {
       :md="!gameRunning ? 8 : 4"
       :xl="!gameRunning ? 6 : 2"
     >
-      <v-row class="px-3 mt-6" no-gutters>
+      <v-row no-gutters>
         <v-col>
-          <v-img
-            class="mx-auto"
-            width="250"
-            src="/assets/ruffle/powered_by_ruffle.png"
-          />
-          <v-divider class="my-4" />
+          <v-img class="mx-auto" width="250" src="/assets/ruffle/ruffle.svg" />
+        </v-col>
+      </v-row>
+
+      <v-divider class="my-4" />
+
+      <v-row class="mb-4" no-gutters>
+        <v-col>
           <RomListItem :rom="rom" with-filename with-size />
-          <v-divider class="my-4" />
         </v-col>
       </v-row>
 

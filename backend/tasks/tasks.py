@@ -2,12 +2,13 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import httpx
+from rq.job import Job
+from rq_scheduler import Scheduler
+
 from config import TASK_TIMEOUT
 from exceptions.task_exceptions import SchedulerException
 from handler.redis_handler import low_prio_queue
 from logger.logger import log
-from rq.job import Job
-from rq_scheduler import Scheduler
 from utils.context import ctx_httpx_client
 
 tasks_scheduler = Scheduler(queue=low_prio_queue, connection=low_prio_queue.connection)

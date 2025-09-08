@@ -5,6 +5,9 @@ from itertools import batched
 from typing import Any, Final
 
 import socketio  # type: ignore
+from rq import Worker
+from rq.job import Job
+
 from config import DEV_MODE, REDIS_URL, SCAN_TIMEOUT
 from endpoints.responses.platform import PlatformSchema
 from endpoints.responses.rom import SimpleRomSchema
@@ -36,8 +39,6 @@ from logger.logger import log
 from models.firmware import Firmware
 from models.platform import Platform
 from models.rom import Rom, RomFile
-from rq import Worker
-from rq.job import Job
 from utils import emoji
 from utils.context import initialize_context
 

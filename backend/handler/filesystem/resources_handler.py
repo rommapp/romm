@@ -3,12 +3,13 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
-from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from fastapi import status
+from PIL import Image, ImageFile, UnidentifiedImageError
+
+from config import ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP, RESOURCES_BASE_PATH
 from logger.logger import log
 from models.collection import Collection
 from models.rom import Rom
-from PIL import Image, ImageFile, UnidentifiedImageError
 from tasks.scheduled.convert_images_to_webp import ImageConverter
 from utils.context import ctx_httpx_client
 
@@ -78,7 +79,8 @@ class FSResourcesHandler(FSHandler):
 
                     if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
                         self.image_converter.convert_to_webp(
-                            self.validate_path(f"{cover_file}/{size.value}.png")
+                            self.validate_path(f"{cover_file}/{size.value}.png"),
+                            force=True,
                         )
         except httpx.TransportError as exc:
             log.error(f"Unable to fetch cover at {url_cover}: {str(exc)}")
@@ -92,7 +94,7 @@ class FSResourcesHandler(FSHandler):
 
                 if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
                     self.image_converter.convert_to_webp(
-                        self.validate_path(f"{cover_file}/{size.value}.png")
+                        self.validate_path(f"{cover_file}/{size.value}.png"), force=True
                     )
             except UnidentifiedImageError as exc:
                 log.error(f"Unable to identify image {cover_file}: {str(exc)}")
@@ -172,6 +174,10 @@ class FSResourcesHandler(FSHandler):
             with Image.open(artwork) as img:
                 img.save(path_cover_l)
                 self.resize_cover_to_small(img, save_path=str(path_cover_s))
+
+                if ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP:
+                    self.image_converter.convert_to_webp(path_cover_l, force=True)
+                    self.image_converter.convert_to_webp(path_cover_s, force=True)
         except UnidentifiedImageError as exc:
             log.error(
                 f"Unable to identify image for {entity.fs_resources_path}: {str(exc)}"

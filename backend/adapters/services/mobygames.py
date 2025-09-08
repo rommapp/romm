@@ -6,10 +6,11 @@ from typing import Literal, overload
 
 import aiohttp
 import yarl
-from adapters.services.mobygames_types import MobyGame, MobyGameBrief, MobyOutputFormat
 from aiohttp.client import ClientTimeout
-from config import MOBYGAMES_API_KEY
 from fastapi import HTTPException, status
+
+from adapters.services.mobygames_types import MobyGame, MobyGameBrief, MobyOutputFormat
+from config import MOBYGAMES_API_KEY
 from logger.logger import log
 from utils.context import ctx_aiohttp_session
 

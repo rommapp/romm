@@ -8,6 +8,7 @@ Create Date: 2025-01-02 18:58:55.557123
 
 import sqlalchemy as sa
 from alembic import op
+
 from utils.database import CustomJSON
 
 # revision identifiers, used by Alembic.

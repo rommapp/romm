@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+
 from handler.filesystem.assets_handler import ASSETS_BASE_PATH, FSAssetsHandler
 from models.user import User
 

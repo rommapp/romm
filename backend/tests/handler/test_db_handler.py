@@ -1,3 +1,5 @@
+from sqlalchemy.exc import IntegrityError
+
 from handler.auth import auth_handler
 from handler.database import (
     db_platform_handler,
@@ -11,7 +13,6 @@ from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom
 from models.user import Role, User
-from sqlalchemy.exc import IntegrityError
 
 
 def test_platforms():

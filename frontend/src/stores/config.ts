@@ -21,6 +21,7 @@ const defaultConfig = {
   PLATFORMS_BINDING: {},
   PLATFORMS_VERSIONS: {},
   EJS_DEBUG: false,
+  EJS_CACHE_LIMIT: null,
   EJS_SETTINGS: {},
   EJS_CONTROLS: {},
 } as ConfigResponse;
@@ -79,31 +80,45 @@ export default defineStore("config", {
     },
     getEJSControls(
       core: string | null,
-    ): Record<number, Record<number, EjsControlsButton>> {
-      const defaultControls = {
-        0: this.config.EJS_CONTROLS["default"]?.["_0"] || {},
-        1: this.config.EJS_CONTROLS["default"]?.["_1"] || {},
-        2: this.config.EJS_CONTROLS["default"]?.["_2"] || {},
-        3: this.config.EJS_CONTROLS["default"]?.["_3"] || {},
-      };
-      if (!core) return defaultControls;
+    ): Record<number, Record<number, EjsControlsButton>> | null {
+      const defaultControls = this.config.EJS_CONTROLS["default"];
+      if (!core) {
+        if (!defaultControls) return null;
+        return {
+          0: defaultControls["_0"] || {},
+          1: defaultControls["_1"] || {},
+          2: defaultControls["_2"] || {},
+          3: defaultControls["_3"] || {},
+        };
+      }
+
+      const coreControls = this.config.EJS_CONTROLS[core];
+      if (!coreControls) return null;
+      if (!defaultControls) {
+        return {
+          0: coreControls["_0"] || {},
+          1: coreControls["_1"] || {},
+          2: coreControls["_2"] || {},
+          3: coreControls["_3"] || {},
+        };
+      }
 
       return {
         0: {
-          ...defaultControls[0],
-          ...(this.config.EJS_CONTROLS[core]?.["_0"] || {}),
+          ...(defaultControls["_0"] || {}),
+          ...(coreControls["_0"] || {}),
         },
         1: {
-          ...defaultControls[1],
-          ...(this.config.EJS_CONTROLS[core]?.["_1"] || {}),
+          ...(defaultControls["_1"] || {}),
+          ...(coreControls["_1"] || {}),
         },
         2: {
-          ...defaultControls[2],
-          ...(this.config.EJS_CONTROLS[core]?.["_2"] || {}),
+          ...(defaultControls["_2"] || {}),
+          ...(coreControls["_2"] || {}),
         },
         3: {
-          ...defaultControls[3],
-          ...(this.config.EJS_CONTROLS[core]?.["_3"] || {}),
+          ...(defaultControls["_3"] || {}),
+          ...(coreControls["_3"] || {}),
         },
       };
     },

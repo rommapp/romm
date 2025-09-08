@@ -7,12 +7,13 @@ from typing import TYPE_CHECKING
 
 import aiohttp
 import yarl
-from adapters.services.igdb_types import Game
 from aiohttp.client import ClientTimeout
-from config import IGDB_CLIENT_ID
 from fastapi import HTTPException, status
-from logger.logger import log
 from unidecode import unidecode
+
+from adapters.services.igdb_types import Game
+from config import IGDB_CLIENT_ID
+from logger.logger import log
 from utils.context import ctx_aiohttp_session
 
 if TYPE_CHECKING:

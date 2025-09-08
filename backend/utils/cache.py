@@ -4,8 +4,9 @@ from itertools import batched
 from pathlib import Path
 
 from anyio import open_file
-from logger.logger import log
 from redis.asyncio import Redis as AsyncRedis
+
+from logger.logger import log
 
 
 async def conditionally_set_cache(cache: AsyncRedis, key: str, file_path: Path) -> None:

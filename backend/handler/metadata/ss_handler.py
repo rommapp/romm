@@ -5,11 +5,12 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import pydash
+from unidecode import unidecode as uc
+
 from adapters.services.screenscraper import ScreenScraperService
 from adapters.services.screenscraper_types import SSGame, SSGameDate
 from config import SCREENSCRAPER_PASSWORD, SCREENSCRAPER_USER
 from logger.logger import log
-from unidecode import unidecode as uc
 
 from .base_hander import (
     PS2_OPL_REGEX,
@@ -21,8 +22,6 @@ from .base_hander import (
 )
 from .base_hander import UniversalPlatformSlug as UPS
 
-# Used to display the Screenscraper API status in the frontend
-SS_API_ENABLED: Final = bool(SCREENSCRAPER_USER) and bool(SCREENSCRAPER_PASSWORD)
 SS_DEV_ID: Final = base64.b64decode("enVyZGkxNQ==").decode()
 SS_DEV_PASSWORD: Final = base64.b64decode("eFRKd29PRmpPUUc=").decode()
 
@@ -276,6 +275,10 @@ class SSHandler(MetadataHandler):
     def __init__(self) -> None:
         self.ss_service = ScreenScraperService()
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(SCREENSCRAPER_USER and SCREENSCRAPER_PASSWORD)
+
     async def _search_rom(
         self, search_term: str, platform_ss_id: int, split_game_name: bool = False
     ) -> SSGame | None:
@@ -323,7 +326,7 @@ class SSHandler(MetadataHandler):
     async def get_rom(self, file_name: str, platform_ss_id: int) -> SSRom:
         from handler.filesystem import fs_rom_handler
 
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return SSRom(ss_id=None)
 
         if not platform_ss_id:
@@ -411,7 +414,7 @@ class SSHandler(MetadataHandler):
         return build_ss_rom(res)
 
     async def get_rom_by_id(self, ss_id: int) -> SSRom:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return SSRom(ss_id=None)
 
         res = await self.ss_service.get_game_info(game_id=ss_id)
@@ -421,7 +424,7 @@ class SSHandler(MetadataHandler):
         return build_ss_rom(res)
 
     async def get_matched_rom_by_id(self, ss_id: int) -> SSRom | None:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return None
 
         rom = await self.get_rom_by_id(ss_id)
@@ -430,7 +433,7 @@ class SSHandler(MetadataHandler):
     async def get_matched_roms_by_name(
         self, search_term: str, platform_ss_id: int | None
     ) -> list[SSRom]:
-        if not SS_API_ENABLED:
+        if not self.is_enabled():
             return []
 
         if not platform_ss_id:

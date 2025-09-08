@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+
 from handler.database.users_handler import DBUsersHandler
 from handler.metadata.ra_handler import RAHandler
 from tasks.scheduled.sync_retroachievements_progress import (
@@ -25,10 +26,11 @@ class TestSyncRetroAchievementsProgressTask:
         )
         assert task.description == "Updates RetroAchievements progress for all users"
 
-    @patch("tasks.scheduled.sync_retroachievements_progress.RA_API_ENABLED", False)
-    @patch("tasks.scheduled.sync_retroachievements_progress.log")
-    async def test_run_when_retroachievements_api_disabled(self, mock_log, task):
+    async def test_run_when_retroachievements_api_disabled(self, task, mocker):
         """Test run method when RetroAchievements API is disabled."""
+        mocker.patch.object(RAHandler, "is_enabled", return_value=False)
+        mock_log = mocker.patch("tasks.scheduled.sync_retroachievements_progress.log")
+
         await task.run()
 
         mock_log.warning.assert_called_once_with(

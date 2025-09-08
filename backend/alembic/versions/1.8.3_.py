@@ -7,6 +7,7 @@ Create Date: 2023-05-17 12:59:44.344356
 """
 
 from alembic import op
+
 from utils.database import is_postgresql
 
 # revision identifiers, used by Alembic.

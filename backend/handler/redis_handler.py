@@ -2,11 +2,12 @@ import os
 import sys
 from enum import Enum
 
-from config import IS_PYTEST_RUN, REDIS_URL
-from logger.logger import log
 from redis import Redis
 from redis.asyncio import Redis as AsyncRedis
 from rq import Queue
+
+from config import IS_PYTEST_RUN, REDIS_URL
+from logger.logger import log
 
 
 class QueuePrio(Enum):

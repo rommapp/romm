@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+
 from config.config_manager import LIBRARY_BASE_PATH, Config
 from handler.filesystem.roms_handler import FileHash, FSRomsHandler
 from models.platform import Platform

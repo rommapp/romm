@@ -53,6 +53,8 @@
   "show-status-desc": "Afișează pictogramele de status în galerie (în așteptare, în curs de joc, finalizat etc.)",
   "show-actionbar": "Afișează bara de acțiuni",
   "show-actionbar-desc": "Afișează întotdeauna bara de acțiuni în cardul jocului",
+  "show-game-titles": "Afișează titlurile jocurilor",
+  "show-game-titles-desc": "Afișează întotdeauna titlurile jocurilor pe carduri",
   "show-stats": "Afișează statistici",
   "show-stats-desc": "Afișează rezumatul statisticilor pe pagina principală",
   "show-virtual-collections": "Afișează colecțiile generate automat",

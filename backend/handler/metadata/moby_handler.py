@@ -3,11 +3,12 @@ from typing import Final, NotRequired, TypedDict
 from urllib.parse import quote
 
 import pydash
+from unidecode import unidecode as uc
+
 from adapters.services.mobygames import MobyGamesService
 from adapters.services.mobygames_types import MobyGame
 from config import MOBYGAMES_API_KEY
 from logger.logger import log
-from unidecode import unidecode as uc
 
 from .base_hander import (
     PS2_OPL_REGEX,
@@ -18,9 +19,6 @@ from .base_hander import (
     MetadataHandler,
 )
 from .base_hander import UniversalPlatformSlug as UPS
-
-# Used to display the Mobygames API status in the frontend
-MOBY_API_ENABLED: Final = bool(MOBYGAMES_API_KEY)
 
 PS1_MOBY_ID: Final = 6
 PS2_MOBY_ID: Final = 7
@@ -77,6 +75,10 @@ class MobyGamesHandler(MetadataHandler):
         self.moby_service = MobyGamesService()
         self.min_similarity_score = 0.6
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(MOBYGAMES_API_KEY)
+
     async def _search_rom(
         self, search_term: str, platform_moby_id: int, split_game_name: bool = False
     ) -> MobyGame | None:
@@ -128,7 +130,7 @@ class MobyGamesHandler(MetadataHandler):
     async def get_rom(self, fs_name: str, platform_moby_id: int) -> MobyGamesRom:
         from handler.filesystem import fs_rom_handler
 
-        if not MOBY_API_ENABLED:
+        if not self.is_enabled():
             return MobyGamesRom(moby_id=None)
 
         if not platform_moby_id:
@@ -222,7 +224,7 @@ class MobyGamesHandler(MetadataHandler):
         return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
     async def get_rom_by_id(self, moby_id: int) -> MobyGamesRom:
-        if not MOBY_API_ENABLED:
+        if not self.is_enabled():
             return MobyGamesRom(moby_id=None)
 
         roms = await self.moby_service.list_games(game_id=moby_id)
@@ -242,7 +244,7 @@ class MobyGamesHandler(MetadataHandler):
         return MobyGamesRom({k: v for k, v in rom.items() if v})  # type: ignore[misc]
 
     async def get_matched_rom_by_id(self, moby_id: int) -> MobyGamesRom | None:
-        if not MOBY_API_ENABLED:
+        if not self.is_enabled():
             return None
 
         rom = await self.get_rom_by_id(moby_id)
@@ -251,7 +253,7 @@ class MobyGamesHandler(MetadataHandler):
     async def get_matched_roms_by_name(
         self, search_term: str, platform_moby_id: int | None
     ) -> list[MobyGamesRom]:
-        if not MOBY_API_ENABLED:
+        if not self.is_enabled():
             return []
 
         if not platform_moby_id:

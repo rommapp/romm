@@ -1,9 +1,10 @@
+from fastapi import File, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
+
 from config import DISABLE_DOWNLOAD_ENDPOINT_AUTH
 from decorators.auth import protected_route
 from endpoints.responses import BulkOperationResponse
 from endpoints.responses.firmware import AddFirmwareResponse, FirmwareSchema
-from fastapi import File, HTTPException, Request, UploadFile, status
-from fastapi.responses import FileResponse
 from handler.auth.constants import Scope
 from handler.database import db_firmware_handler, db_platform_handler
 from handler.filesystem import fs_firmware_handler

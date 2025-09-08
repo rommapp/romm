@@ -1,6 +1,8 @@
 import json
 from io import BytesIO
 
+from fastapi import Request, UploadFile
+
 from config import str_to_bool
 from decorators.auth import protected_route
 from endpoints.responses.collection import (
@@ -13,7 +15,6 @@ from exceptions.endpoint_exceptions import (
     CollectionNotFoundInDatabaseException,
     CollectionPermissionError,
 )
-from fastapi import Request, UploadFile
 from handler.auth.constants import Scope
 from handler.database import db_collection_handler
 from handler.filesystem import fs_resource_handler

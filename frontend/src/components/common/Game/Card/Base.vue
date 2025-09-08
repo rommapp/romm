@@ -33,6 +33,7 @@ const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 const props = withDefaults(
   defineProps<{
     rom: SimpleRom | SearchRomSchema;
+    coverSrc?: string;
     aspectRatio?: string | number;
     width?: string | number;
     height?: string | number;
@@ -49,6 +50,7 @@ const props = withDefaults(
     enable3DTilt?: boolean;
   }>(),
   {
+    coverSrc: undefined,
     aspectRatio: undefined,
     width: undefined,
     height: undefined,
@@ -118,6 +120,7 @@ const fallbackCoverImage = computed(() =>
 const activeMenu = ref(false);
 
 const showActionBarAlways = useLocalStorage("settings.showActionBar", false);
+const showGameTitleAlways = useLocalStorage("settings.showGameTitle", false);
 const showSiblings = useLocalStorage("settings.showSiblings", true);
 
 const hasNotes = computed(() => {
@@ -137,25 +140,28 @@ interface TiltHTMLElement extends HTMLElement {
 
 const tiltCardRef = useTemplateRef<TiltHTMLElement>("tilt-card-ref");
 
-const isWebpEnabled =
-  heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP;
+const isWebpEnabled = computed(
+  () => heartbeatStore.value.TASKS?.ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
+);
 
 const largeCover = computed(() => {
+  if (props.coverSrc) return props.coverSrc;
   if (!romsStore.isSimpleRom(props.rom))
     return (
       props.rom.igdb_url_cover ||
       props.rom.moby_url_cover ||
       props.rom.ss_url_cover
     );
-  const pathCoverLarge = isWebpEnabled
+  const pathCoverLarge = isWebpEnabled.value
     ? props.rom.path_cover_large?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_large;
   return pathCoverLarge || "";
 });
 
 const smallCover = computed(() => {
+  if (props.coverSrc) return props.coverSrc;
   if (!romsStore.isSimpleRom(props.rom)) return "";
-  const pathCoverSmall = isWebpEnabled
+  const pathCoverSmall = isWebpEnabled.value
     ? props.rom.path_cover_small?.replace(EXTENSION_REGEX, ".webp")
     : props.rom.path_cover_small;
   return pathCoverSmall || "";
@@ -231,7 +237,7 @@ onBeforeUnmount(() => {
           <v-hover v-slot="{ isHovering, props: imgProps }" open-delay="800">
             <v-img
               v-bind="imgProps"
-              :key="romsStore.isSimpleRom(rom) ? rom.updated_at : ''"
+              :key="romsStore.isSimpleRom(rom) ? rom.id : rom.name"
               cover
               content-class="d-flex flex-column justify-space-between"
               :class="{ pointer: pointerOnHover }"
@@ -246,6 +252,7 @@ onBeforeUnmount(() => {
                   <div
                     v-if="
                       isHovering ||
+                      showGameTitleAlways ||
                       (romsStore.isSimpleRom(rom) && !rom.path_cover_large) ||
                       (!romsStore.isSimpleRom(rom) &&
                         !rom.igdb_url_cover &&

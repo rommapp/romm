@@ -26,7 +26,9 @@ function enterConsoleMode() {
   if (!document.fullscreenElement) {
     // Attempt fullscreen after a small delay to allow navigation transition
     setTimeout(() => {
-      document.documentElement.requestFullscreen?.().catch(() => {});
+      document.documentElement.requestFullscreen?.().catch((error) => {
+        console.error("Error requesting fullscreen", error);
+      });
     }, 50);
   }
 }
@@ -53,7 +55,7 @@ function enterConsoleMode() {
           class="text-caption text-center"
           :class="{ 'text-primary': route.path.startsWith('/console') }"
         >
-          Play
+          Console
         </span>
       </v-expand-transition>
     </div>

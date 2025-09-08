@@ -21,6 +21,7 @@ const EXTENSION_REGEX = /\.png|\.jpg|\.jpeg$/;
 const props = withDefaults(
   defineProps<{
     collection: CollectionType;
+    coverSrc?: string;
     transformScale?: boolean;
     showTitle?: boolean;
     titleOnHover?: boolean;
@@ -29,6 +30,7 @@ const props = withDefaults(
     enable3DTilt?: boolean;
   }>(),
   {
+    coverSrc: undefined,
     transformScale: false,
     showTitle: true,
     titleOnHover: false,
@@ -54,6 +56,14 @@ const collectionCoverImage = computed(() =>
 );
 
 watchEffect(() => {
+  if (props.coverSrc) {
+    memoizedCovers.value = {
+      large: [props.coverSrc, props.coverSrc],
+      small: [props.coverSrc, props.coverSrc],
+    };
+    return;
+  }
+
   // Check if it's a regular collection with covers or a smart collection with covers
   const isRegularOrSmartWithCovers =
     !props.collection.is_virtual &&

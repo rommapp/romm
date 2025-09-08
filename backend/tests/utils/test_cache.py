@@ -1,8 +1,9 @@
 from unittest.mock import AsyncMock
 
+from redis.asyncio import Redis as AsyncRedis
+
 from handler.metadata.base_hander import MAME_XML_KEY, METADATA_FIXTURES_DIR
 from handler.redis_handler import async_cache
-from redis.asyncio import Redis as AsyncRedis
 from utils.cache import conditionally_set_cache
 
 
@@ -49,7 +50,11 @@ class TestConditionallySetCache:
         """Test skipping load when cache already exists and file hash matches."""
         fake_md5_hash = "d41d8cd98f00b204e9800998ecf8427e"
         mocker.patch(
-            "hashlib.md5", return_value=AsyncMock(hexdigest=lambda: fake_md5_hash)
+            "hashlib.md5",
+            return_value=AsyncMock(
+                hexdigest=lambda: fake_md5_hash,
+                update=lambda x: None,
+            ),
         )
         mock_cache_exists = mocker.patch.object(
             AsyncRedis, "exists", side_effect=AsyncMock(return_value=True)

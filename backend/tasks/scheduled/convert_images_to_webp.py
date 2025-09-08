@@ -5,13 +5,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
 
+from PIL import Image, UnidentifiedImageError
+
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     RESOURCES_BASE_PATH,
     SCHEDULED_CONVERT_IMAGES_TO_WEBP_CRON,
 )
 from logger.logger import log
-from PIL import Image, UnidentifiedImageError
 from tasks.tasks import PeriodicTask
 
 
@@ -57,7 +58,7 @@ class ImageConverter:
         target_mode = self.MODE_CONVERSIONS.get(img.mode, "RGB")
         return img.convert(target_mode)
 
-    def convert_to_webp(self, image_path: Path) -> bool:
+    def convert_to_webp(self, image_path: Path, force: bool = False) -> bool:
         """Convert a single image to WebP format.
         Args:
             image_path: Path to the source image
@@ -67,7 +68,7 @@ class ImageConverter:
         webp_path = image_path.with_suffix(".webp")
 
         # Skip if WebP already exists
-        if webp_path.exists():
+        if webp_path.exists() and not force:
             log.debug(f"WebP already exists for {image_path}")
             return True
 

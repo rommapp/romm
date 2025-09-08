@@ -1,13 +1,21 @@
 import { defineStore } from "pinia";
 import { ROUTES } from "@/plugins/router";
 
-export type NavigationMode = "systems" | "recent" | "collections" | "controls";
+export type NavigationMode =
+  | "systems"
+  | "recent"
+  | "collections"
+  | "smartCollections"
+  | "virtualCollections"
+  | "controls";
 
 export default defineStore("console", {
   state: () => ({
     platformIndex: 0,
     recentIndex: 0,
     collectionsIndex: 0,
+    smartCollectionsIndex: 0,
+    virtualCollectionsIndex: 0,
     controlIndex: 0,
     navigationMode: "systems" as NavigationMode,
     perPlatformGameIndex: {} as Record<number, number>,
@@ -23,6 +31,8 @@ export default defineStore("console", {
         name === ROUTES.CONSOLE_HOME ||
         name === ROUTES.CONSOLE_PLATFORM ||
         name === ROUTES.CONSOLE_COLLECTION ||
+        name === ROUTES.CONSOLE_SMART_COLLECTION ||
+        name === ROUTES.CONSOLE_VIRTUAL_COLLECTION ||
         name === ROUTES.CONSOLE_ROM ||
         name === ROUTES.CONSOLE_PLAY
       );
@@ -33,6 +43,8 @@ export default defineStore("console", {
       platformIndex?: number;
       recentIndex?: number;
       collectionsIndex?: number;
+      smartCollectionsIndex?: number;
+      virtualCollectionsIndex?: number;
       controlIndex?: number;
       navigationMode?: NavigationMode;
     }) {
@@ -42,6 +54,10 @@ export default defineStore("console", {
         this.recentIndex = payload.recentIndex;
       if (payload.collectionsIndex !== undefined)
         this.collectionsIndex = payload.collectionsIndex;
+      if (payload.smartCollectionsIndex !== undefined)
+        this.smartCollectionsIndex = payload.smartCollectionsIndex;
+      if (payload.virtualCollectionsIndex !== undefined)
+        this.virtualCollectionsIndex = payload.virtualCollectionsIndex;
       if (payload.controlIndex !== undefined)
         this.controlIndex = payload.controlIndex;
       if (payload.navigationMode !== undefined)

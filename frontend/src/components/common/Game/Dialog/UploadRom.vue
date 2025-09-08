@@ -318,7 +318,7 @@ const { isOverDropZone } = useDropZone(dropZoneRef, {
           </div>
 
           <v-data-table-virtual
-            :item-value="(item) => item.name"
+            :item-value="(item: File) => item.name"
             :items="filesToUpload"
             :headers="HEADERS"
             hide-default-header
