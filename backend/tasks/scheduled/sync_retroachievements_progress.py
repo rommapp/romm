@@ -6,7 +6,7 @@ from config import (
 )
 from handler.database import db_user_handler
 from handler.metadata import meta_ra_handler
-from handler.metadata.ra_handler import RA_API_ENABLED, RAUserProgression
+from handler.metadata.ra_handler import RAUserProgression
 from logger.logger import log
 from tasks.tasks import PeriodicTask
 from utils.context import initialize_context
@@ -25,7 +25,7 @@ class SyncRetroAchievementsProgressTask(PeriodicTask):
 
     @initialize_context()
     async def run(self) -> None:
-        if not RA_API_ENABLED:
+        if not meta_ra_handler.is_enabled():
             log.warning("RetroAchievements API is not enabled, skipping progress sync")
             return None
 

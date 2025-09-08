@@ -5,6 +5,9 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
+from sqlalchemy import BigInteger, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from handler.redis_handler import sync_cache
 from models.base import (
     FILE_EXTENSION_MAX_LENGTH,
@@ -12,8 +15,6 @@ from models.base import (
     FILE_PATH_MAX_LENGTH,
     BaseModel,
 )
-from sqlalchemy import BigInteger, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from models.platform import Platform

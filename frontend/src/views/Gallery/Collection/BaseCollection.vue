@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useLocalStorage, useWindowScroll } from "@vueuse/core";
+import { useLocalStorage, useScroll } from "@vueuse/core";
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onMounted, ref, watch } from "vue";
@@ -137,15 +137,15 @@ function onGameTouchEnd() {
   clearTimeout(timeout);
 }
 
-const { y: windowY } = useWindowScroll({ throttle: 500 });
+const { y: documentY } = useScroll(document.body, { throttle: 500 });
 
-watch(windowY, () => {
+watch(documentY, () => {
   clearTimeout(timeout);
 
   window.setTimeout(async () => {
-    scrolledToTop.value = windowY.value === 0;
+    scrolledToTop.value = documentY.value === 0;
     if (
-      window.innerHeight + windowY.value >= document.body.offsetHeight - 60 &&
+      window.innerHeight + documentY.value >= document.body.offsetHeight - 60 &&
       fetchTotalRoms.value > allRoms.value.length
     ) {
       await fetchRoms();
@@ -253,7 +253,7 @@ onBeforeRouteUpdate(async (to, from) => {
             }"
           >
             <GameCard
-              :key="rom.updated_at"
+              :key="rom.id"
               :rom="rom"
               title-on-hover
               pointer-on-hover

@@ -9,11 +9,13 @@ import {
 } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { CollectionSchema } from "@/__generated__/models/CollectionSchema";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
+import type { SmartCollectionSchema } from "@/__generated__/models/SmartCollectionSchema";
+import type { VirtualCollectionSchema } from "@/__generated__/models/VirtualCollectionSchema";
 import useFavoriteToggle from "@/composables/useFavoriteToggle";
 import BackButton from "@/console/components/BackButton.vue";
 import GameCard from "@/console/components/GameCard.vue";
 import NavigationHint from "@/console/components/NavigationHint.vue";
+import useBackgroundArt from "@/console/composables/useBackgroundArt";
 import { gamesListElementRegistry } from "@/console/composables/useElementRegistry";
 import { useInputScope } from "@/console/composables/useInputScope";
 import { useRovingDom } from "@/console/composables/useRovingDom";
@@ -23,18 +25,36 @@ import { ROUTES } from "@/plugins/router";
 import collectionApi from "@/services/api/collection";
 import romApi from "@/services/api/rom";
 import consoleStore from "@/stores/console";
+import type { SimpleRom } from "@/stores/roms";
 
 const route = useRoute();
 const router = useRouter();
 const storeConsole = consoleStore();
 const { toggleFavorite: toggleFavoriteComposable } = useFavoriteToggle();
+const { setSelectedBackgroundArt, clearSelectedBackgroundArt } =
+  useBackgroundArt();
 
 const isCollectionRoute = route.name === ROUTES.CONSOLE_COLLECTION;
-const platformId = isCollectionRoute ? null : Number(route.params.id);
-const collectionId = isCollectionRoute ? Number(route.params.id) : null;
+const isSmartCollectionRoute = route.name === ROUTES.CONSOLE_SMART_COLLECTION;
+const isVirtualCollectionRoute =
+  route.name === ROUTES.CONSOLE_VIRTUAL_COLLECTION;
 
-const roms = ref<SimpleRomSchema[]>([]);
+const platformId =
+  isCollectionRoute || isSmartCollectionRoute || isVirtualCollectionRoute
+    ? null
+    : Number(route.params.id);
+const collectionId = isCollectionRoute ? Number(route.params.id) : null;
+const smartCollectionId = isSmartCollectionRoute
+  ? Number(route.params.id)
+  : null;
+const virtualCollectionId = isVirtualCollectionRoute
+  ? String(route.params.id)
+  : null;
+
+const roms = ref<SimpleRom[]>([]);
 const collection = ref<CollectionSchema | null>(null);
+const smartCollection = ref<SmartCollectionSchema | null>(null);
+const virtualCollection = ref<VirtualCollectionSchema | null>(null);
 const loading = ref(true);
 const error = ref("");
 const selectedIndex = ref(0);
@@ -48,6 +68,12 @@ if (platformId != null) {
   selectedIndex.value = storeConsole.getPlatformGameIndex(platformId);
 } else if (collectionId != null) {
   selectedIndex.value = storeConsole.getCollectionGameIndex(collectionId);
+} else if (smartCollectionId != null) {
+  selectedIndex.value = storeConsole.getCollectionGameIndex(smartCollectionId);
+} else if (virtualCollectionId != null) {
+  selectedIndex.value = storeConsole.getCollectionGameIndex(
+    Number(virtualCollectionId),
+  );
 }
 
 // Generate alphabet letters dynamically based on available games
@@ -83,6 +109,13 @@ function persistIndex() {
     storeConsole.setPlatformGameIndex(platformId, selectedIndex.value);
   } else if (collectionId != null) {
     storeConsole.setCollectionGameIndex(collectionId, selectedIndex.value);
+  } else if (smartCollectionId != null) {
+    storeConsole.setCollectionGameIndex(smartCollectionId, selectedIndex.value);
+  } else if (virtualCollectionId != null) {
+    storeConsole.setCollectionGameIndex(
+      Number(virtualCollectionId),
+      selectedIndex.value,
+    );
   }
 }
 
@@ -94,6 +127,12 @@ function navigateBack() {
 const headerTitle = computed(() => {
   if (isCollectionRoute) {
     return collection.value?.name || "Collection";
+  }
+  if (isSmartCollectionRoute) {
+    return smartCollection.value?.name || "Smart Collection";
+  }
+  if (isVirtualCollectionRoute) {
+    return virtualCollection.value?.name || "Virtual Collection";
   }
 
   return (
@@ -230,16 +269,18 @@ function mouseSelect(i: number) {
   selectedIndex.value = i;
 }
 
-function selectAndOpen(i: number, rom: SimpleRomSchema) {
+function selectAndOpen(i: number, rom: SimpleRom) {
   selectedIndex.value = i;
   // Don't navigate if we're in alphabet mode
   if (inAlphabet.value) return;
 
   persistIndex();
 
-  const query: Record<string, number> = {};
+  const query: Record<string, number | string> = {};
   if (platformId != null) query.id = platformId;
   if (isCollectionRoute) query.collection = collectionId!;
+  if (isSmartCollectionRoute) query.smartCollection = smartCollectionId!;
+  if (isVirtualCollectionRoute) query.virtualCollection = virtualCollectionId!;
 
   router.push({
     name: ROUTES.CONSOLE_ROM,
@@ -289,6 +330,28 @@ onMounted(async () => {
       roms.value = data.items ?? [];
       const { data: col } = await collectionApi.getCollection(collectionId);
       collection.value = col ?? null;
+    } else if (smartCollectionId != null) {
+      const { data } = await romApi.getRoms({
+        smartCollectionId: smartCollectionId,
+        limit: 500,
+        orderBy: "name",
+        orderDir: "asc",
+      });
+      roms.value = data.items ?? [];
+      const { data: smartCol } =
+        await collectionApi.getSmartCollection(smartCollectionId);
+      smartCollection.value = smartCol ?? null;
+    } else if (virtualCollectionId != null) {
+      const { data } = await romApi.getRoms({
+        virtualCollectionId: virtualCollectionId,
+        limit: 500,
+        orderBy: "name",
+        orderDir: "asc",
+      });
+      roms.value = data.items ?? [];
+      const { data: virtualCol } =
+        await collectionApi.getVirtualCollection(virtualCollectionId);
+      virtualCollection.value = virtualCol ?? null;
     }
     for (const r of roms.value) {
       if (!r.url_cover && !r.path_cover_large && !r.path_cover_small) {
@@ -319,6 +382,14 @@ onUnmounted(() => {
 
 function markLoaded(id: number) {
   loadedMap.value[id] = true;
+}
+
+function handleItemSelected(coverUrl: string) {
+  setSelectedBackgroundArt(coverUrl);
+}
+
+function handleItemDeselected() {
+  clearSelectedBackgroundArt();
 }
 </script>
 
@@ -366,6 +437,8 @@ function markLoaded(id: number) {
             @click="selectAndOpen(i, rom)"
             @focus="mouseSelect(i)"
             @loaded="markLoaded(rom.id)"
+            @select="handleItemSelected"
+            @deselect="handleItemDeselected"
           />
         </div>
       </div>

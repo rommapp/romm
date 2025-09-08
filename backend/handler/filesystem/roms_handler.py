@@ -13,6 +13,7 @@ from typing import IO, Any, Final, Literal, TypedDict
 
 import magic
 import zipfile_inflate64  # trunk-ignore(ruff/F401): Patches zipfile to support Enhanced Deflate
+
 from config import LIBRARY_BASE_PATH
 from config.config_manager import config_manager as cm
 from exceptions.fs_exceptions import (

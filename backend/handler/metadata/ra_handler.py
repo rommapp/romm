@@ -2,9 +2,10 @@ import json
 import os
 import time
 from datetime import datetime
-from typing import Final, NotRequired, TypedDict
+from typing import NotRequired, TypedDict
 
 import pydash
+
 from adapters.services.retroachievements import RetroAchievementsService
 from adapters.services.retroachievements_types import (
     RAGameExtendedDetails,
@@ -19,9 +20,6 @@ from models.rom import Rom
 
 from .base_hander import BaseRom, MetadataHandler
 from .base_hander import UniversalPlatformSlug as UPS
-
-# Used to display the Retroachievements API status in the frontend
-RA_API_ENABLED: Final = bool(RETROACHIEVEMENTS_API_KEY)
 
 
 class RAGamesPlatform(TypedDict):
@@ -125,6 +123,10 @@ class RAHandler(MetadataHandler):
         self.ra_service = RetroAchievementsService()
         self.HASHES_FILE_NAME = "ra_hashes.json"
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(RETROACHIEVEMENTS_API_KEY)
+
     def _get_hashes_file_path(self, platform_id: int) -> str:
         platform_resources_path = fs_resource_handler.get_platform_resources_path(
             platform_id
@@ -220,7 +222,6 @@ class RAHandler(MetadataHandler):
                     if rom_details.get("ImageTitle")
                     else ""
                 ),
-                url_manual=rom_details.get("GuideURL") or "",
                 url_screenshots=pydash.compact(
                     [
                         (
@@ -249,7 +250,6 @@ class RAHandler(MetadataHandler):
                     if rom_details.get("ImageTitle")
                     else ""
                 ),
-                url_manual=rom_details.get("GuideURL") or "",
                 url_screenshots=pydash.compact(
                     [
                         (

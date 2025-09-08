@@ -8,22 +8,6 @@ from urllib.parse import quote
 from zipfile import ZIP_DEFLATED, ZIP_STORED, ZipFile, ZipInfo
 
 from anyio import Path, open_file
-from config import (
-    DEV_MODE,
-    DISABLE_DOWNLOAD_ENDPOINT_AUTH,
-    LIBRARY_BASE_PATH,
-    str_to_bool,
-)
-from decorators.auth import protected_route
-from endpoints.responses import BulkOperationResponse
-from endpoints.responses.rom import (
-    DetailedRomSchema,
-    RomFileSchema,
-    RomUserSchema,
-    SimpleRomSchema,
-)
-from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
-from exceptions.fs_exceptions import RomAlreadyExistsException
 from fastapi import (
     Body,
     File,
@@ -40,6 +24,28 @@ from fastapi import (
 from fastapi.responses import Response
 from fastapi_pagination.ext.sqlalchemy import paginate
 from fastapi_pagination.limit_offset import LimitOffsetPage, LimitOffsetParams
+from pydantic import BaseModel
+from starlette.requests import ClientDisconnect
+from starlette.responses import FileResponse
+from streaming_form_data import StreamingFormDataParser
+from streaming_form_data.targets import FileTarget, NullTarget
+
+from config import (
+    DEV_MODE,
+    DISABLE_DOWNLOAD_ENDPOINT_AUTH,
+    LIBRARY_BASE_PATH,
+    str_to_bool,
+)
+from decorators.auth import protected_route
+from endpoints.responses import BulkOperationResponse
+from endpoints.responses.rom import (
+    DetailedRomSchema,
+    RomFileSchema,
+    RomUserSchema,
+    SimpleRomSchema,
+)
+from exceptions.endpoint_exceptions import RomNotFoundInDatabaseException
+from exceptions.fs_exceptions import RomAlreadyExistsException
 from handler.auth.constants import Scope
 from handler.database import db_platform_handler, db_rom_handler
 from handler.database.base_handler import sync_session
@@ -55,11 +61,6 @@ from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
 from models.rom import RomFile
-from pydantic import BaseModel
-from starlette.requests import ClientDisconnect
-from starlette.responses import FileResponse
-from streaming_form_data import StreamingFormDataParser
-from streaming_form_data.targets import FileTarget, NullTarget
 from utils.filesystem import sanitize_filename
 from utils.hashing import crc32_to_hex
 from utils.nginx import FileRedirectResponse, ZipContentLine, ZipResponse
@@ -693,6 +694,7 @@ async def update_rom(
     )
 
     new_fs_name = str(data.get("fs_name") or rom.fs_name)
+    new_fs_name = sanitize_filename(new_fs_name)
     cleaned_data.update(
         {
             "fs_name": new_fs_name,
@@ -766,7 +768,6 @@ async def update_rom(
     should_update_fs = new_fs_name != rom.fs_name
     if should_update_fs:
         try:
-            new_fs_name = sanitize_filename(new_fs_name)
             await fs_rom_handler.rename_fs_rom(
                 old_name=rom.fs_name,
                 new_name=new_fs_name,

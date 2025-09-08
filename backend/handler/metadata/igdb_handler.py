@@ -3,6 +3,8 @@ from typing import Final, NotRequired, TypedDict
 
 import httpx
 import pydash
+from fastapi import status
+
 from adapters.services.igdb import IGDBService
 from adapters.services.igdb_types import (
     Game,
@@ -11,7 +13,6 @@ from adapters.services.igdb_types import (
     mark_list_expanded,
 )
 from config import IGDB_CLIENT_ID, IGDB_CLIENT_SECRET, IS_PYTEST_RUN
-from fastapi import status
 from handler.redis_handler import async_cache
 from logger.logger import log
 from utils.context import ctx_httpx_client
@@ -25,9 +26,6 @@ from .base_hander import (
     MetadataHandler,
 )
 from .base_hander import UniversalPlatformSlug as UPS
-
-# Used to display the IGDB API status in the frontend
-IGDB_API_ENABLED: Final = bool(IGDB_CLIENT_ID) and bool(IGDB_CLIENT_SECRET)
 
 PS1_IGDB_ID: Final = 7
 PS2_IGDB_ID: Final = 8
@@ -213,6 +211,10 @@ class IGDBHandler(MetadataHandler):
         self.igdb_service = IGDBService(twitch_auth=TwitchAuth())
         self.pagination_limit = 200
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(IGDB_CLIENT_ID and IGDB_CLIENT_SECRET)
+
     async def _search_rom(
         self, search_term: str, platform_igdb_id: int, with_game_type: bool = False
     ) -> Game | None:
@@ -337,7 +339,7 @@ class IGDBHandler(MetadataHandler):
     async def get_rom(self, fs_name: str, platform_igdb_id: int) -> IGDBRom:
         from handler.filesystem import fs_rom_handler
 
-        if not IGDB_API_ENABLED:
+        if not self.is_enabled():
             return IGDBRom(igdb_id=None)
 
         if not platform_igdb_id:
@@ -432,7 +434,7 @@ class IGDBHandler(MetadataHandler):
         )
 
     async def get_rom_by_id(self, igdb_id: int) -> IGDBRom:
-        if not IGDB_API_ENABLED:
+        if not self.is_enabled():
             return IGDBRom(igdb_id=None)
 
         roms = await self.igdb_service.list_games(
@@ -463,7 +465,7 @@ class IGDBHandler(MetadataHandler):
         )
 
     async def get_matched_rom_by_id(self, igdb_id: int) -> IGDBRom | None:
-        if not IGDB_API_ENABLED:
+        if not self.is_enabled():
             return None
 
         rom = await self.get_rom_by_id(igdb_id)
@@ -472,7 +474,7 @@ class IGDBHandler(MetadataHandler):
     async def get_matched_roms_by_name(
         self, search_term: str, platform_igdb_id: int | None
     ) -> list[IGDBRom]:
-        if not IGDB_API_ENABLED:
+        if not self.is_enabled():
             return []
 
         if not platform_igdb_id:
@@ -561,8 +563,12 @@ class TwitchAuth(MetadataHandler):
         self.masked_params = self._mask_sensitive_values(self.params)
         self.timeout = 10
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return IGDBHandler.is_enabled()
+
     async def _update_twitch_token(self) -> str:
-        if not IGDB_API_ENABLED:
+        if not self.is_enabled():
             return ""
 
         token = None
@@ -608,7 +614,7 @@ class TwitchAuth(MetadataHandler):
         if IS_PYTEST_RUN:
             return "test_token"
 
-        if not IGDB_API_ENABLED:
+        if not self.is_enabled():
             return ""
 
         # Fetch the token cache

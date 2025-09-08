@@ -6,10 +6,16 @@ import AdminMenu from "@/components/common/Game/AdminMenu.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import storeConfig from "@/stores/config";
 import storeDownload from "@/stores/download";
+import storeHeartbeat from "@/stores/heartbeat";
 import type { SimpleRom } from "@/stores/roms";
 import type { Events } from "@/types/emitter";
-import { is3DSCIARom } from "@/utils";
+import {
+  is3DSCIARom,
+  isEJSEmulationSupported,
+  isRuffleEmulationSupported,
+} from "@/utils";
 
 const props = defineProps<{ rom: SimpleRom; sizeActionBar: number }>();
 const { t } = useI18n();
@@ -17,7 +23,8 @@ const emit = defineEmits(["menu-open", "menu-close"]);
 const downloadStore = storeDownload();
 const emitter = inject<Emitter<Events>>("emitter");
 const auth = storeAuth();
-const playBtnRef = ref<InstanceType<typeof PlayBtn>>();
+const configStore = storeConfig();
+const heartbeatStore = storeHeartbeat();
 
 const computedSize = computed(() => {
   return props.sizeActionBar === 1 ? "small" : "x-small";
@@ -28,8 +35,18 @@ const is3DSRom = computed(() => {
 });
 
 const isEmulationSupported = computed(() => {
-  // Default to true if playBtnRef is not set
-  return playBtnRef.value?.isEmulationSupported ?? true;
+  return (
+    isEJSEmulationSupported(
+      props.rom.platform_slug,
+      heartbeatStore.value,
+      configStore.config,
+    ) ||
+    isRuffleEmulationSupported(
+      props.rom.platform_slug,
+      heartbeatStore.value,
+      configStore.config,
+    )
+  );
 });
 
 const menuOpen = ref(false);
@@ -55,7 +72,6 @@ watch(menuOpen, (val) => {
     </v-col>
     <v-col v-if="isEmulationSupported" class="d-flex">
       <PlayBtn
-        ref="playBtnRef"
         :rom="rom"
         icon-embedded
         class="action-bar-btn-small flex-grow-1"

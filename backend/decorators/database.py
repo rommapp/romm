@@ -1,9 +1,10 @@
 import functools
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import ProgrammingError
+
 from handler.database.base_handler import sync_session
 from logger.logger import log
-from sqlalchemy.exc import ProgrammingError
 
 
 def begin_session(func):

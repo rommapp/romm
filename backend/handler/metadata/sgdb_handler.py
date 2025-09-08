@@ -8,9 +8,6 @@ from logger.logger import log
 
 from .base_hander import MetadataHandler
 
-# Used to display the Mobygames API status in the frontend
-STEAMGRIDDB_API_ENABLED: Final = bool(STEAMGRIDDB_API_KEY)
-
 
 class SGDBResource(TypedDict):
     thumb: str
@@ -33,8 +30,12 @@ class SGDBBaseHandler(MetadataHandler):
         self.sgdb_service = SteamGridDBService()
         self.min_similarity_score: Final = 0.98
 
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return bool(STEAMGRIDDB_API_KEY)
+
     async def get_details(self, search_term: str) -> list[SGDBResult]:
-        if not STEAMGRIDDB_API_ENABLED:
+        if not self.is_enabled():
             return []
 
         games = await self.sgdb_service.search_games(term=search_term)
@@ -51,7 +52,7 @@ class SGDBBaseHandler(MetadataHandler):
         return list(filter(None, results))
 
     async def get_details_by_names(self, game_names: list[str]) -> SGDBRom:
-        if not STEAMGRIDDB_API_ENABLED:
+        if not self.is_enabled():
             return SGDBRom(sgdb_id=None)
 
         for game_name in game_names:

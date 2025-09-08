@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 import yarl
+from fastapi import HTTPException, status
+
 from adapters.services.screenscraper import (
     LOGIN_ERROR_CHECK,
     SS_DEV_ID,
@@ -14,7 +16,6 @@ from adapters.services.screenscraper import (
     ScreenScraperService,
     auth_middleware,
 )
-from fastapi import HTTPException, status
 
 INVALID_GAME_ID = 999999
 INVALID_SYSTEM_ID = 999999
@@ -124,9 +125,13 @@ class TestScreenScraperServiceUnit:
     async def test_request_success(self, service):
         """Test successful API request."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {"response": {"jeu": {"id": "1", "noms": []}}}
-        mock_response.text.return_value = '{"response": {"jeu": {"id": "1"}}}'
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(
+            return_value={"response": {"jeu": {"id": "1", "noms": []}}}
+        )
+        mock_response.text = AsyncMock(
+            return_value='{"response": {"jeu": {"id": "1"}}}'
+        )
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 
@@ -147,8 +152,10 @@ class TestScreenScraperServiceUnit:
     async def test_request_login_error(self, service):
         """Test request with login error in response text."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.text.return_value = "Erreur de login: invalid credentials"
+        mock_response = MagicMock()
+        mock_response.text = AsyncMock(
+            return_value="Erreur de login: invalid credentials"
+        )
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 
@@ -183,9 +190,9 @@ class TestScreenScraperServiceUnit:
     async def test_request_timeout_with_retry(self, service):
         """Test request timeout with successful retry."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {"response": {"jeu": {}}}
-        mock_response.text.return_value = '{"response": {"jeu": {}}}'
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"response": {"jeu": {}}})
+        mock_response.text = AsyncMock(return_value='{"response": {"jeu": {}}}')
         mock_response.raise_for_status.return_value = None
 
         # First call times out, second succeeds
@@ -256,8 +263,8 @@ class TestScreenScraperServiceUnit:
     async def test_request_json_decode_error(self, service):
         """Test handling of JSON decode error."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.text.return_value = "Valid response text"
+        mock_response = MagicMock()
+        mock_response.text = AsyncMock(return_value="Valid response text")
         mock_response.raise_for_status.return_value = None
         mock_response.json.side_effect = json.JSONDecodeError("Expecting value", "", 0)
         mock_session.get.return_value = mock_response
@@ -724,9 +731,9 @@ class TestScreenScraperServicePerformance:
 
         # Simulate timeout on first call, success on retry
         timeout_error = aiohttp.ServerTimeoutError("Request timeout")
-        success_response = AsyncMock()
-        success_response.json.return_value = {"response": {"jeu": {}}}
-        success_response.text.return_value = '{"response": {"jeu": {}}}'
+        success_response = MagicMock()
+        success_response.json = AsyncMock(return_value={"response": {"jeu": {}}})
+        success_response.text = AsyncMock(return_value='{"response": {"jeu": {}}}')
         success_response.raise_for_status.return_value = None
 
         mock_session.get.side_effect = [timeout_error, success_response]
@@ -830,9 +837,9 @@ class TestScreenScraperServiceEdgeCases:
     async def test_request_with_custom_timeout(self, service):
         """Test request with custom timeout."""
         mock_session = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json.return_value = {"response": {}}
-        mock_response.text.return_value = '{"response": {}}'
+        mock_response = MagicMock()
+        mock_response.json = AsyncMock(return_value={"response": {}})
+        mock_response.text = AsyncMock(return_value='{"response": {}}')
         mock_response.raise_for_status.return_value = None
         mock_session.get.return_value = mock_response
 
@@ -856,8 +863,8 @@ class TestScreenScraperServiceEdgeCases:
 
         # First call times out, second call has login error
         timeout_error = aiohttp.ServerTimeoutError("Timeout")
-        login_error_response = AsyncMock()
-        login_error_response.text.return_value = "Erreur de login detected"
+        login_error_response = MagicMock()
+        login_error_response.text = AsyncMock(return_value="Erreur de login detected")
         login_error_response.raise_for_status.return_value = None
 
         mock_session.get.side_effect = [timeout_error, login_error_response]

@@ -4,6 +4,9 @@ from typing import Final, NotRequired, TypedDict
 
 import pydash
 import yaml
+from sqlalchemy import URL
+from yaml.loader import SafeLoader
+
 from config import (
     DB_HOST,
     DB_NAME,
@@ -22,8 +25,6 @@ from exceptions.config_exceptions import (
 from logger.formatter import BLUE
 from logger.formatter import highlight as hl
 from logger.logger import log
-from sqlalchemy import URL
-from yaml.loader import SafeLoader
 
 ROMM_USER_CONFIG_PATH: Final = f"{ROMM_BASE_PATH}/config"
 ROMM_USER_CONFIG_FILE: Final = f"{ROMM_USER_CONFIG_PATH}/config.yml"
@@ -58,6 +59,7 @@ class Config:
     FIRMWARE_FOLDER_NAME: str
     HIGH_PRIO_STRUCTURE_PATH: str
     EJS_DEBUG: bool
+    EJS_CACHE_LIMIT: int | None
     EJS_SETTINGS: dict[str, EjsOption]  # core_name -> EjsOption
     EJS_CONTROLS: dict[str, EjsControls]  # core_name -> EjsControls
 
@@ -168,6 +170,9 @@ class ConfigManager:
                 self._raw_config, "filesystem.firmware_folder", "bios"
             ),
             EJS_DEBUG=pydash.get(self._raw_config, "emulatorjs.debug", False),
+            EJS_CACHE_LIMIT=pydash.get(
+                self._raw_config, "emulatorjs.cache_limit", None
+            ),
             EJS_SETTINGS=pydash.get(self._raw_config, "emulatorjs.settings", {}),
             EJS_CONTROLS=self._get_ejs_controls(),
         )
@@ -270,6 +275,14 @@ class ConfigManager:
 
         if not isinstance(self.config.EJS_DEBUG, bool):
             log.critical("Invalid config.yml: emulatorjs.debug must be a boolean")
+            sys.exit(3)
+
+        if self.config.EJS_CACHE_LIMIT is not None and not isinstance(
+            self.config.EJS_CACHE_LIMIT, int
+        ):
+            log.critical(
+                "Invalid config.yml: emulatorjs.cache_limit must be an integer"
+            )
             sys.exit(3)
 
         if not isinstance(self.config.EJS_SETTINGS, dict):

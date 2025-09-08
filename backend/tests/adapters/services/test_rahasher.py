@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from adapters.services.rahasher import (
     RAHASHER_VALID_HASH_REGEX,
     RAHasherError,

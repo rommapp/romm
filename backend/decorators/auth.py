@@ -2,6 +2,13 @@ from typing import Any
 
 from authlib.integrations.starlette_client import OAuth
 from authlib.oidc.discovery import get_well_known_url
+from fastapi import Security
+from fastapi.security.http import HTTPBasic
+from fastapi.security.oauth2 import OAuth2PasswordBearer
+from fastapi.types import DecoratedCallable
+from starlette.authentication import requires
+from starlette.config import Config
+
 from config import (
     OIDC_CLIENT_ID,
     OIDC_CLIENT_SECRET,
@@ -11,10 +18,6 @@ from config import (
     OIDC_SERVER_APPLICATION_URL,
     OIDC_TLS_CACERTFILE,
 )
-from fastapi import Security
-from fastapi.security.http import HTTPBasic
-from fastapi.security.oauth2 import OAuth2PasswordBearer
-from fastapi.types import DecoratedCallable
 from handler.auth.constants import (
     EDIT_SCOPES_MAP,
     FULL_SCOPES_MAP,
@@ -22,8 +25,6 @@ from handler.auth.constants import (
     WRITE_SCOPES_MAP,
     Scope,
 )
-from starlette.authentication import requires
-from starlette.config import Config
 
 # Using the internal password flow
 oauth2_password_bearer = OAuth2PasswordBearer(

@@ -3,6 +3,7 @@ import re
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from handler.metadata.base_hander import (
     LEADING_ARTICLE_PATTERN,
     MAME_XML_KEY,
@@ -22,6 +23,12 @@ from handler.metadata.base_hander import (
     _normalize_search_term,
 )
 from handler.redis_handler import async_cache
+
+
+class ExampleMetadataHandler(MetadataHandler):
+    @classmethod
+    def is_enabled(cls) -> bool:
+        return True
 
 
 class TestNormalizeSearchTerm:
@@ -102,7 +109,7 @@ class TestMetadataHandlerMethods:
 
     @pytest.fixture
     def handler(self):
-        return MetadataHandler()
+        return ExampleMetadataHandler()
 
     def test_normalize_cover_url_with_url(self, handler: MetadataHandler):
         """Test URL normalization with valid URL."""

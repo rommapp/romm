@@ -1,20 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, useTemplateRef } from "vue";
-import type { SimpleRomSchema } from "@/__generated__/models/SimpleRomSchema";
+import { computed, onMounted, useTemplateRef, watch } from "vue";
 import {
   recentElementRegistry,
   gamesListElementRegistry,
 } from "@/console/composables/useElementRegistry";
 import storeCollections from "@/stores/collections";
+import type { SimpleRom } from "@/stores/roms";
 
 const props = defineProps<{
-  rom: SimpleRomSchema;
+  rom: SimpleRom;
   index: number;
   selected?: boolean;
   loaded?: boolean;
   isRecent?: boolean;
   registry?: "recent" | "gamesList";
 }>();
+
 const coverSrc = computed(
   () =>
     props.rom.path_cover_large ||
@@ -22,7 +23,14 @@ const coverSrc = computed(
     props.rom.url_cover ||
     "",
 );
-const emit = defineEmits(["click", "mouseenter", "focus", "loaded"]);
+const emit = defineEmits([
+  "click",
+  "mouseenter",
+  "focus",
+  "loaded",
+  "select",
+  "deselect",
+]);
 const gameCardRef = useTemplateRef<HTMLButtonElement>("game-card-ref");
 
 // Check if this game is in the favorites collection
@@ -30,6 +38,19 @@ const collectionsStore = storeCollections();
 const isFavorited = computed(() => {
   return collectionsStore.isFavorite(props.rom);
 });
+
+// Watch for selection changes and emit events
+watch(
+  () => props.selected,
+  (isSelected) => {
+    if (isSelected && coverSrc.value) {
+      emit("select", coverSrc.value);
+    } else if (isSelected) {
+      emit("deselect");
+    }
+  },
+  { immediate: true },
+);
 
 onMounted(() => {
   if (!gameCardRef.value) return;

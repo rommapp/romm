@@ -55,6 +55,8 @@
   "show-stats-desc": "Mostrar resumen de estadísticas en la página principal",
   "show-actionbar": "Mostrar barra de acciones",
   "show-actionbar-desc": "Mostrar siempre la barra de acciones en la tarjeta del juego",
+  "show-game-titles": "Mostrar títulos de juegos",
+  "show-game-titles-desc": "Mostrar títulos de juegos en las tarjetas siempre",
   "show-virtual-collections": "Mostrar colecciones generadas automáticamente",
   "show-virtual-collections-desc": "Mostrado en la página principal y en la barra lateral de colecciones.",
   "theme": "Tema",

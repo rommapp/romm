@@ -2,6 +2,8 @@ import sys
 from pathlib import Path
 
 from alembic import context
+from sqlalchemy import create_engine
+
 from config.config_manager import ConfigManager
 from logger.logger import unify_logger
 from models.assets import Save, Screenshot, State  # noqa
@@ -11,7 +13,6 @@ from models.firmware import Firmware  # noqa
 from models.platform import Platform  # noqa
 from models.rom import Rom, RomMetadata, SiblingRom  # noqa
 from models.user import User  # noqa
-from sqlalchemy import create_engine
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

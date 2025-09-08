@@ -42,7 +42,7 @@ const selectedCore = ref<string | null>(null);
 const selectedDisc = ref<number | null>(null);
 const supportedCores = ref<string[]>([]);
 const gameRunning = ref(false);
-const fullScreenOnPlay = useLocalStorage("fullScreenOnPlay", true);
+const fullScreenOnPlay = useLocalStorage("emulation.fullScreenOnPlay", true);
 
 function onPlay() {
   if (rom.value && auth.scopes.includes("roms.user.write")) {
@@ -232,8 +232,7 @@ onBeforeUnmount(async () => {
 </script>
 
 <template>
-  <!-- TODO: hide main app bar on play if fullscreen -->
-  <v-row v-if="rom" class="justify-center scroll px-2" no-gutters>
+  <v-row v-if="rom" class="align-center justify-center scroll h-100" no-gutters>
     <v-col
       v-if="gameRunning"
       id="game-wrapper"
@@ -260,14 +259,20 @@ onBeforeUnmount(async () => {
       :xl="!gameRunning ? 6 : 2"
     >
       <!-- Header -->
-      <v-row class="mt-6" no-gutters>
+      <v-row no-gutters>
         <v-col>
           <v-img
             class="mx-auto"
-            width="250"
-            src="/assets/emulatorjs/powered_by_emulatorjs.png"
+            width="150"
+            src="/assets/emulatorjs/emulatorjs.svg"
           />
-          <v-divider class="my-4" />
+        </v-col>
+      </v-row>
+
+      <v-divider class="my-4" />
+
+      <v-row no-gutters>
+        <v-col>
           <RomListItem :rom="rom" with-filename with-size />
         </v-col>
       </v-row>

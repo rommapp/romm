@@ -2,12 +2,6 @@ import functools
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from config import ROMM_DB_DRIVER
-from decorators.database import begin_session
-from handler.metadata.base_hander import UniversalPlatformSlug as UPS
-from models.assets import Save, Screenshot, State
-from models.platform import Platform
-from models.rom import Rom, RomFile, RomMetadata, RomUser
 from sqlalchemy import (
     Integer,
     Row,
@@ -28,6 +22,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Query, Session, joinedload, noload, selectinload
 from sqlalchemy.sql.elements import KeyedColumnElement
+
+from config import ROMM_DB_DRIVER
+from decorators.database import begin_session
+from handler.metadata.base_hander import UniversalPlatformSlug as UPS
+from models.assets import Save, Screenshot, State
+from models.platform import Platform
+from models.rom import Rom, RomFile, RomMetadata, RomUser
 
 from .base_handler import DBBaseHandler
 

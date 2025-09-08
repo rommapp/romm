@@ -3,6 +3,8 @@
 import asyncio
 
 import sentry_sdk
+from opentelemetry import trace
+
 from config import (
     ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP,
     ENABLE_SCHEDULED_RESCAN,
@@ -22,7 +24,6 @@ from handler.metadata.base_hander import (
 from handler.redis_handler import async_cache
 from logger.logger import log
 from models.firmware import FIRMWARE_FIXTURES_DIR, KNOWN_BIOS_KEY
-from opentelemetry import trace
 from tasks.scheduled.convert_images_to_webp import convert_images_to_webp_task
 from tasks.scheduled.scan_library import scan_library_task
 from tasks.scheduled.sync_retroachievements_progress import (

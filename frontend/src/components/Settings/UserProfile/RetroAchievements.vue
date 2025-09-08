@@ -39,7 +39,8 @@ async function refreshRetroAchievements(incremental = false) {
         timeout: 5000,
       });
     })
-    .catch(() => {
+    .catch((error) => {
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: `Unable to sync your RetroAchievements profile.`,
         icon: "mdi-close-circle",
@@ -69,7 +70,8 @@ async function submitRACredentials() {
       // Refresh the RetroAchievements data
       refreshRetroAchievements();
     })
-    .catch(() => {
+    .catch((error) => {
+      console.error(error);
       emitter?.emit("snackbarShow", {
         msg: `Unable to update your RetroAchievements settings.`,
         icon: "mdi-close-circle",
