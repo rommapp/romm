@@ -368,30 +368,30 @@ function scrollToCurrentRow() {
 
   const behavior: ScrollBehavior = "smooth";
   switch (navigationMode.value) {
-      case "systems":
-        scrollContainerRef.value?.scrollTo({ top: 0, behavior });
-        break;
-      case "recent":
-        recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
-        break;
-      case "collections":
-        collectionsSectionRef.value?.scrollIntoView({
-          behavior,
-          block: "start",
-        });
-        break;
-      case "smartCollections":
-        smartCollectionsSectionRef.value?.scrollIntoView({
-          behavior,
-          block: "start",
-        });
-        break;
-      case "virtualCollections":
-        virtualCollectionsSectionRef.value?.scrollIntoView({
-          behavior,
-          block: "start",
-        });
-        break;
+    case "systems":
+      scrollContainerRef.value?.scrollTo({ top: 0, behavior });
+      break;
+    case "recent":
+      recentSectionRef.value?.scrollIntoView({ behavior, block: "start" });
+      break;
+    case "collections":
+      collectionsSectionRef.value?.scrollIntoView({
+        behavior,
+        block: "start",
+      });
+      break;
+    case "smartCollections":
+      smartCollectionsSectionRef.value?.scrollIntoView({
+        behavior,
+        block: "start",
+      });
+      break;
+    case "virtualCollections":
+      virtualCollectionsSectionRef.value?.scrollIntoView({
+        behavior,
+        block: "start",
+      });
+      break;
   }
 
   setTimeout(() => {
