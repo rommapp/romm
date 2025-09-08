@@ -3,7 +3,7 @@ import VanillaTilt from "vanilla-tilt";
 import { onMounted, onBeforeUnmount, useTemplateRef } from "vue";
 import { useDisplay } from "vuetify";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 

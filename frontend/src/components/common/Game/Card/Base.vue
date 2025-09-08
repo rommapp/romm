@@ -17,7 +17,7 @@ import Flags from "@/components/common/Game/Card/Flags.vue";
 import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import Sources from "@/components/common/Game/Card/Sources.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import storeCollections from "@/stores/collections";
 import storeGalleryView from "@/stores/galleryView";

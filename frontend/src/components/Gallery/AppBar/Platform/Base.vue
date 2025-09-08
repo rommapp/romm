@@ -6,7 +6,7 @@ import FirmwareBtn from "@/components/Gallery/AppBar/Platform/FirmwareBtn.vue";
 import FirmwareDrawer from "@/components/Gallery/AppBar/Platform/FirmwareDrawer.vue";
 import PlatformInfoDrawer from "@/components/Gallery/AppBar/Platform/PlatformInfoDrawer.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeNavigation from "@/stores/navigation";
 import storeRoms from "@/stores/roms";
 

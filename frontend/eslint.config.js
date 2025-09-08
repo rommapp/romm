@@ -22,8 +22,9 @@ export default tseslint.config(
       "dist-ssr",
       "coverage",
       "*.local",
-      "src/__generated__/**",
+      "src/__generated__",
       "*.config.js",
+      "src/plugins/*.d.ts",
     ],
     languageOptions: {
       parserOptions: {

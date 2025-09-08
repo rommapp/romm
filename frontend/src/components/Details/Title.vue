@@ -4,7 +4,7 @@ import { computed } from "vue";
 import { useDisplay } from "vuetify";
 import FavBtn from "@/components/common/Game/FavBtn.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import storePlatforms from "@/stores/platforms";
 import type { DetailedRom } from "@/stores/roms";

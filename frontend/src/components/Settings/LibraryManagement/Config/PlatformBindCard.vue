@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 
 defineProps<{
   slug: string;
