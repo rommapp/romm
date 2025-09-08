@@ -16,7 +16,7 @@ import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterR
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";

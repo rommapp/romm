@@ -8,7 +8,7 @@ import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";

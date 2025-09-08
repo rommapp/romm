@@ -6,7 +6,7 @@ import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";

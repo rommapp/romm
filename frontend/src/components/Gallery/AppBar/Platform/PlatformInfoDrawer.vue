@@ -6,7 +6,7 @@ import { computed, inject, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import DeletePlatformDialog from "@/components/common/Platform/Dialog/DeletePlatform.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RSection from "@/components/common/RSection.vue";
 import platformApi from "@/services/api/platform";
 import socket from "@/services/socket";
