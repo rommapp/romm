@@ -186,7 +186,7 @@ async function updateCollection() {
             :show-title="false"
             :with-link="false"
             :collection="currentCollection"
-            :coverSrc="imagePreviewUrl"
+            :cover-src="imagePreviewUrl"
           >
             <template v-if="isEditable" #append-inner>
               <v-btn-group rounded="0" divided density="compact">
@@ -256,10 +256,9 @@ async function updateCollection() {
               :color="currentCollection.is_public ? 'primary' : ''"
             >
               <v-icon class="mr-1">
-                {{
-                  currentCollection.is_public ? "mdi-lock-open" : "mdi-lock"
-                }} </v-icon
-              >{{
+                {{ currentCollection.is_public ? "mdi-lock-open" : "mdi-lock" }}
+              </v-icon>
+              {{
                 currentCollection.is_public
                   ? t("collection.public")
                   : t("collection.private")

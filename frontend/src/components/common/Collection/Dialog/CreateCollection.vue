@@ -164,7 +164,7 @@ function closeDialog() {
                 :show-title="false"
                 :with-link="false"
                 :collection="collection"
-                :coverSrc="imagePreviewUrl"
+                :cover-src="imagePreviewUrl"
                 title-on-hover
               >
                 <template #append-inner>

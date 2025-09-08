@@ -210,10 +210,10 @@ function closeDialog() {
             <GameCard
               width="240"
               :rom="rom"
-              :coverSrc="imagePreviewUrl"
-              disableViewTransition
-              :showPlatformIcon="false"
-              :showActionBar="false"
+              :cover-src="imagePreviewUrl"
+              disable-view-transition
+              :show-platform-icon="false"
+              :show-action-bar="false"
             >
               <template #append-inner-right>
                 <v-btn-group divided density="compact" rounded="0">
