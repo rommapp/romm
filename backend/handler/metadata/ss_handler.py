@@ -102,7 +102,7 @@ ARCADE_SS_IDS: Final = [
     269,
 ]
 
-# Regex to detect ScreenScraper ID tags in filenames like (ss-12345)
+# Regex to detect ScreenScraper ID tags in filenames like (ssfr-12345)
 SS_TAG_REGEX = re.compile(r"\(ssfr-(\d+)\)", re.IGNORECASE)
 
 
