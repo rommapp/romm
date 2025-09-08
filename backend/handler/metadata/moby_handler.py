@@ -84,7 +84,7 @@ class MobyGamesHandler(MetadataHandler):
 
     @staticmethod
     def extract_mobygames_id_from_filename(fs_name: str) -> int | None:
-        """Extract MobyGames ID from filename tag like (mobygames-12345)."""
+        """Extract MobyGames ID from filename tag like (moby-12345)."""
         match = MOBYGAMES_TAG_REGEX.search(fs_name)
         if match:
             return int(match.group(1))
