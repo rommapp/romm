@@ -16,12 +16,12 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     accent: "#33b1ff",
   },
   arcade: {
-    label: "Arcade / MAME",
+    label: "Arcade/MAME",
     background: "linear-gradient(135deg,#d73266,#8b1538)",
     accent: "#d73266",
   },
   mame: {
-    label: "Arcade / MAME",
+    label: "Arcade/MAME",
     background: "linear-gradient(135deg,#d73266,#8b1538)",
     accent: "#d73266",
   },
@@ -75,23 +75,18 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     background: "linear-gradient(135deg,#42275a,#734b6d)",
     accent: "#b667d0",
   },
-  dos: {
-    label: "MS-DOS",
-    background: "linear-gradient(135deg,#203a43,#2c5364)",
-    accent: "#3fa7d6",
-  },
   n64: {
     label: "Nintendo 64",
     background: "linear-gradient(135deg,#ffd700,#ff8c00)",
     accent: "#ffd700",
   },
   nes: {
-    label: "Nintendo Entertainment System (NES)",
+    label: "NES",
     background: "linear-gradient(135deg,#cc2936,#8b1538)",
     accent: "#cc2936",
   },
   famicom: {
-    label: "Nintendo Family Computer (Famicom)",
+    label: "Famicom",
     background: "linear-gradient(135deg,#cc2936,#8b1538)",
     accent: "#cc2936",
   },
@@ -121,7 +116,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     accent: "#b44cff",
   },
   psx: {
-    label: "PlayStation (PS)",
+    label: "PlayStation",
     background: "linear-gradient(135deg,#4169e1,#191970)",
     accent: "#4169e1",
   },
@@ -146,7 +141,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     accent: "#ff6347",
   },
   genesis: {
-    label: "Sega Genesis / Megadrive",
+    label: "Sega Genesis/Megadrive",
     background: "linear-gradient(135deg,#1e90ff,#0f4c75)",
     accent: "#1e90ff",
   },
@@ -156,7 +151,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     accent: "#4f7fbf",
   },
   snes: {
-    label: "Super Nintendo Entertainment System (SNES)",
+    label: "SNES",
     background: "linear-gradient(135deg,#e22828,#f81414)",
     accent: "#e22828",
   },
@@ -166,7 +161,7 @@ const _SUPPORTED_PLATFORMS: Record<string, SupportedPlatform> = {
     accent: "#e22828",
   },
   tg16: {
-    label: "TurboGrafx-16 / PC Engine",
+    label: "TurboGrafx-16/PC Engine",
     background: "linear-gradient(135deg,#ff9966,#ff5e62)",
     accent: "#ff7b54",
   },
