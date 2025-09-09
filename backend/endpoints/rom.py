@@ -226,37 +226,86 @@ def get_roms(
             description="Whether to group roms by metadata ID (IGDB / Moby / ScreenScraper / RetroAchievements / LaunchBox)."
         ),
     ] = False,
-    selected_genre: Annotated[
-        str | None,
-        Query(description="Associated genre."),
+    genres: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated genre. Multiple values are allowed by repeating the"
+                " parameter, and results that match any of the values will be"
+                " returned."
+            ),
+            alias="genre",
+        ),
     ] = None,
-    selected_franchise: Annotated[
-        str | None,
-        Query(description="Associated franchise."),
+    franchises: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated franchise. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will"
+                " be returned."
+            ),
+            alias="franchise",
+        ),
     ] = None,
-    selected_collection: Annotated[
-        str | None,
-        Query(description="Associated collection."),
+    collections: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated collection. Multiple values are allowed by"
+                " repeating the parameter, and results that match any of the"
+                " values will be returned."
+            ),
+            alias="collection",
+        ),
     ] = None,
-    selected_company: Annotated[
-        str | None,
-        Query(description="Associated company."),
+    companies: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated company. Multiple values are allowed by repeating"
+                " the parameter, and results that match any of the values will"
+                " be returned."
+            ),
+            alias="company",
+        ),
     ] = None,
-    selected_age_rating: Annotated[
-        str | None,
-        Query(description="Associated age rating."),
+    age_ratings: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated age rating. Multiple values are allowed by"
+                " repeating the parameter, and results that match any of the"
+                " values will be returned."
+            ),
+            alias="age_rating",
+        ),
     ] = None,
     selected_status: Annotated[
         str | None,
         Query(description="Game status, set by the current user."),
     ] = None,
-    selected_region: Annotated[
-        str | None,
-        Query(description="Associated region tag."),
+    regions: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated region tag. Multiple values are allowed by"
+                " repeating the parameter, and results that match any of the"
+                " values will be returned."
+            ),
+            alias="region",
+        ),
     ] = None,
-    selected_language: Annotated[
-        str | None,
-        Query(description="Associated language tag."),
+    languages: Annotated[
+        list[str] | None,
+        Query(
+            description=(
+                "Associated language tag. Multiple values are allowed by"
+                " repeating the parameter, and results that match any of the"
+                " values will be returned."
+            ),
+            alias="language",
+        ),
     ] = None,
     order_by: Annotated[
         str,
@@ -292,14 +341,14 @@ def get_roms(
         has_ra=has_ra,
         missing=missing,
         verified=verified,
-        selected_genre=selected_genre,
-        selected_franchise=selected_franchise,
-        selected_collection=selected_collection,
-        selected_company=selected_company,
-        selected_age_rating=selected_age_rating,
+        genres=genres,
+        franchises=franchises,
+        collections=collections,
+        companies=companies,
+        age_ratings=age_ratings,
         selected_status=selected_status,
-        selected_region=selected_region,
-        selected_language=selected_language,
+        regions=regions,
+        languages=languages,
         group_by_meta_id=group_by_meta_id,
     )
 
