@@ -12,6 +12,7 @@ import PlatformIcon from "@/components/common/Platform/Icon.vue";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
+import storeCollections from "@/stores/collections";
 import storeDownload from "@/stores/download";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeRoms, { type SimpleRom } from "@/stores/roms";
@@ -33,6 +34,7 @@ const { filteredRoms, selectedRoms, fetchingRoms, fetchTotalRoms } =
   storeToRefs(romsStore);
 const auth = storeAuth();
 const galleryFilterStore = storeGalleryFilter();
+const collectionsStore = storeCollections();
 
 const HEADERS = [
   {
@@ -60,19 +62,19 @@ const HEADERS = [
     key: "first_release_date",
   },
   {
-    title: "Rating",
+    title: "⭐",
     align: "start",
     sortable: true,
     key: "average_rating",
   },
   {
-    title: "Languages",
+    title: "🔠",
     align: "start",
     sortable: false,
     key: "languages",
   },
   {
-    title: "Regions",
+    title: "🌎",
     align: "start",
     sortable: false,
     key: "regions",
@@ -159,7 +161,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
       />
     </template>
     <template #item.name="{ item }">
-      <v-list-item :min-width="400" class="px-0 py-2">
+      <v-list-item :min-width="400" class="px-0 py-2 d-flex game-list-item">
         <template #prepend>
           <platform-icon
             v-if="showPlatformIcon"
@@ -171,7 +173,17 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           <r-avatar-rom :rom="item" />
         </template>
         <v-row no-gutters>
-          <v-col>{{ item.name }}</v-col>
+          <v-col>
+            {{ item.name }}
+            <v-icon
+              v-if="collectionsStore.isFavorite(item)"
+              size="small"
+              color="primary"
+              class="ml-1"
+            >
+              mdi-star
+            </v-icon>
+          </v-col>
         </v-row>
         <v-row no-gutters>
           <v-col class="text-primary">
@@ -179,29 +191,79 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           </v-col>
         </v-row>
         <template #append>
-          <missing-from-f-s-icon
-            v-if="item.missing_from_fs"
-            :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
-            class="mr-1 mb-1 px-1"
-            chip
-            chipDensity="compact"
-          />
           <v-chip
             v-if="item.hasheous_id"
-            class="translucent text-white mr-1 mb-1 px-1"
-            density="compact"
+            class="bg-romm-green text-white mr-1 px-1 item-chip"
+            size="x-small"
             title="Verified with Hasheous"
           >
             <v-icon>mdi-check-decagram-outline</v-icon>
           </v-chip>
           <v-chip
+            v-if="item.igdb_id"
+            class="mr-1 pa-0 item-chip"
+            size="x-small"
+            title="IGDB match"
+          >
+            <v-avatar size="20" rounded>
+              <v-img src="/assets/scrappers/igdb.png" />
+            </v-avatar>
+          </v-chip>
+          <v-chip
+            v-if="item.ss_id"
+            class="mr-1 pa-0 item-chip"
+            size="x-small"
+            title="ScreenScraper match"
+          >
+            <v-avatar size="20" rounded>
+              <v-img src="/assets/scrappers/ss.png" />
+            </v-avatar>
+          </v-chip>
+          <v-chip
+            v-if="item.moby_id"
+            class="mr-1 pa-0 item-chip"
+            size="x-small"
+            title="MobyGames match"
+          >
+            <v-avatar size="20" rounded>
+              <v-img src="/assets/scrappers/moby.png" />
+            </v-avatar>
+          </v-chip>
+          <v-chip
+            v-if="item.launchbox_id"
+            class="mr-1 pa-0 item-chip"
+            size="x-small"
+            title="LaunchBox match"
+          >
+            <v-avatar size="20" style="background: #185a7c">
+              <v-img src="/assets/scrappers/launchbox.png" />
+            </v-avatar>
+          </v-chip>
+          <v-chip
+            v-if="item.ra_id"
+            class="mr-1 pa-0 item-chip"
+            size="x-small"
+            title="RetroAchievements match"
+          >
+            <v-avatar size="20" rounded>
+              <v-img src="/assets/scrappers/ra.png" />
+            </v-avatar>
+          </v-chip>
+          <v-chip
             v-if="item.siblings.length > 0 && showSiblings"
-            class="translucent text-white mr-1 mb-1 px-1"
-            density="compact"
+            class="translucent text-white mr-1 px-1 item-chip"
+            size="x-small"
             :title="`${item.siblings.length} sibling(s)`"
           >
             <v-icon>mdi-card-multiple-outline</v-icon>
           </v-chip>
+          <missing-from-f-s-icon
+            v-if="item.missing_from_fs"
+            :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
+            class="mr-1 px-1 item-chip"
+            chip
+            chipSize="x-small"
+          />
         </template>
       </v-list-item>
     </template>
@@ -279,7 +341,6 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     </template>
     <template #item.actions="{ item }">
       <v-btn-group density="compact">
-        <fav-btn :rom="item" />
         <v-btn
           :disabled="
             downloadStore.value.includes(item.id) || item.missing_from_fs
@@ -318,7 +379,35 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   font-size: 75%;
   opacity: 75%;
 }
+
 .v-data-table {
   width: calc(100% - 16px) !important;
+}
+
+@media (max-width: 1440px) {
+  .item-chip {
+    transform: scale(-1, 1);
+  }
+}
+</style>
+
+<style>
+.game-list-item .v-list-item__append {
+  margin-left: auto;
+  display: grid;
+  grid-template-rows: 24px;
+  grid-auto-flow: column;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1440px) {
+  .game-list-item .v-list-item__append {
+    grid-template-rows: 24px 24px;
+    transform: scale(-1, 1);
+  }
+}
+
+.game-list-item .v-list-item__append .v-list-item__spacer {
+  display: none;
 }
 </style>
