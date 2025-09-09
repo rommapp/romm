@@ -384,7 +384,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   width: calc(100% - 16px) !important;
 }
 
-@media (max-width: 1440px) {
+@media (max-width: 2160px) {
   .item-chip {
     transform: scale(-1, 1);
   }
@@ -400,7 +400,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
   flex-shrink: 0;
 }
 
-@media (max-width: 1440px) {
+@media (max-width: 2160px) {
   .game-list-item .v-list-item__append {
     grid-template-rows: 24px 24px;
     transform: scale(-1, 1);
