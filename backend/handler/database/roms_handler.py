@@ -29,7 +29,10 @@ from handler.metadata.base_hander import UniversalPlatformSlug as UPS
 from models.assets import Save, Screenshot, State
 from models.platform import Platform
 from models.rom import Rom, RomFile, RomMetadata, RomUser
-from utils.database import json_array_contains_value
+from utils.database import (
+    json_array_contains_all,
+    json_array_contains_any,
+)
 
 from .base_handler import DBBaseHandler
 
@@ -306,30 +309,60 @@ class DBRomsHandler(DBBaseHandler):
                 or_(*(Rom.hasheous_metadata[key].as_boolean() for key in keys_to_check))
             )
 
-    def filter_by_genre(self, query: Query, session: Session, value: str) -> Query:
-        return query.filter(
-            json_array_contains_value(RomMetadata.genres, value, session=session)
-        )
+    def filter_by_genres(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        return query.filter(op(RomMetadata.genres, values, session=session))
 
-    def filter_by_franchise(self, query: Query, session: Session, value: str) -> Query:
-        return query.filter(
-            json_array_contains_value(RomMetadata.franchises, value, session=session)
-        )
+    def filter_by_franchises(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        return query.filter(op(RomMetadata.franchises, values, session=session))
 
-    def filter_by_collection(self, query: Query, session: Session, value: str) -> Query:
-        return query.filter(
-            json_array_contains_value(RomMetadata.collections, value, session=session)
-        )
+    def filter_by_collections(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        return query.filter(op(RomMetadata.collections, values, session=session))
 
-    def filter_by_company(self, query: Query, session: Session, value: str) -> Query:
-        return query.filter(
-            json_array_contains_value(RomMetadata.companies, value, session=session)
-        )
+    def filter_by_companies(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        return query.filter(op(RomMetadata.companies, values, session=session))
 
-    def filter_by_age_rating(self, query: Query, session: Session, value: str) -> Query:
-        return query.filter(
-            json_array_contains_value(RomMetadata.age_ratings, value, session=session)
-        )
+    def filter_by_age_ratings(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        return query.filter(op(RomMetadata.age_ratings, values, session=session))
 
     def filter_by_status(self, query: Query, selected_status: str):
         status_filter = RomUser.status == selected_status
@@ -345,15 +378,27 @@ class DBRomsHandler(DBBaseHandler):
 
         return query.filter(status_filter, RomUser.hidden.is_(False))
 
-    def filter_by_region(self, query: Query, session: Session, value: str) -> Query:
-        return query.filter(
-            json_array_contains_value(Rom.regions, value, session=session)
-        )
+    def filter_by_regions(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        return query.filter(op(Rom.regions, values, session=session))
 
-    def filter_by_language(self, query: Query, session: Session, value: str) -> Query:
-        return query.filter(
-            json_array_contains_value(Rom.languages, value, session=session)
-        )
+    def filter_by_languages(
+        self,
+        query: Query,
+        *,
+        session: Session,
+        values: Sequence[str],
+        match_all: bool = False,
+    ) -> Query:
+        op = json_array_contains_all if match_all else json_array_contains_any
+        return query.filter(op(Rom.languages, values, session=session))
 
     @begin_session
     def filter_roms(
@@ -372,14 +417,14 @@ class DBRomsHandler(DBBaseHandler):
         missing: bool | None = None,
         verified: bool | None = None,
         group_by_meta_id: bool = False,
-        selected_genre: str | None = None,
-        selected_franchise: str | None = None,
-        selected_collection: str | None = None,
-        selected_company: str | None = None,
-        selected_age_rating: str | None = None,
+        genres: Sequence[str] | None = None,
+        franchises: Sequence[str] | None = None,
+        collections: Sequence[str] | None = None,
+        companies: Sequence[str] | None = None,
+        age_ratings: Sequence[str] | None = None,
         selected_status: str | None = None,
-        selected_region: str | None = None,
-        selected_language: str | None = None,
+        regions: Sequence[str] | None = None,
+        languages: Sequence[str] | None = None,
         user_id: int | None = None,
         session: Session = None,
     ) -> Query[Rom]:
@@ -519,39 +564,27 @@ class DBRomsHandler(DBBaseHandler):
                 )
             )
 
-        if (
-            selected_genre
-            or selected_franchise
-            or selected_collection
-            or selected_company
-            or selected_age_rating
-        ):
+        if genres or franchises or collections or companies or age_ratings:
             query = query.outerjoin(RomMetadata)
 
-        if selected_genre:
-            query = self.filter_by_genre(query, session=session, value=selected_genre)
-        if selected_franchise:
-            query = self.filter_by_franchise(
-                query, session=session, value=selected_franchise
+        if genres:
+            query = self.filter_by_genres(query, session=session, values=genres)
+        if franchises:
+            query = self.filter_by_franchises(query, session=session, values=franchises)
+        if collections:
+            query = self.filter_by_collections(
+                query, session=session, values=collections
             )
-        if selected_collection:
-            query = self.filter_by_collection(
-                query, session=session, value=selected_collection
+        if companies:
+            query = self.filter_by_companies(query, session=session, values=companies)
+        if age_ratings:
+            query = self.filter_by_age_ratings(
+                query, session=session, values=age_ratings
             )
-        if selected_company:
-            query = self.filter_by_company(
-                query, session=session, value=selected_company
-            )
-        if selected_age_rating:
-            query = self.filter_by_age_rating(
-                query, session=session, value=selected_age_rating
-            )
-        if selected_region:
-            query = self.filter_by_region(query, session=session, value=selected_region)
-        if selected_language:
-            query = self.filter_by_language(
-                query, session=session, value=selected_language
-            )
+        if regions:
+            query = self.filter_by_regions(query, session=session, values=regions)
+        if languages:
+            query = self.filter_by_languages(query, session=session, values=languages)
 
         # The RomUser table is already joined if user_id is set
         if selected_status and user_id:
@@ -633,14 +666,14 @@ class DBRomsHandler(DBBaseHandler):
             has_ra=kwargs.get("has_ra", None),
             missing=kwargs.get("missing", None),
             verified=kwargs.get("verified", None),
-            selected_genre=kwargs.get("selected_genre", None),
-            selected_franchise=kwargs.get("selected_franchise", None),
-            selected_collection=kwargs.get("selected_collection", None),
-            selected_company=kwargs.get("selected_company", None),
-            selected_age_rating=kwargs.get("selected_age_rating", None),
+            genres=kwargs.get("genres", None),
+            franchises=kwargs.get("franchises", None),
+            collections=kwargs.get("collections", None),
+            companies=kwargs.get("companies", None),
+            age_ratings=kwargs.get("age_ratings", None),
             selected_status=kwargs.get("selected_status", None),
-            selected_region=kwargs.get("selected_region", None),
-            selected_language=kwargs.get("selected_language", None),
+            regions=kwargs.get("regions", None),
+            languages=kwargs.get("languages", None),
             user_id=kwargs.get("user_id", None),
         )
         return session.scalars(roms).all()

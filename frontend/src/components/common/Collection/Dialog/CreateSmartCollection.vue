@@ -123,24 +123,22 @@ async function createSmartCollection() {
     if (filterRA.value) filterCriteria.has_ra = true;
     if (filterMissing.value) filterCriteria.missing = true;
     if (filterVerified.value) filterCriteria.verified = true;
-    if (selectedGenre.value)
-      filterCriteria.selected_genre = selectedGenre.value;
+    if (selectedGenre.value) filterCriteria.genres = [selectedGenre.value];
     if (selectedFranchise.value)
-      filterCriteria.selected_franchise = selectedFranchise.value;
+      filterCriteria.franchises = [selectedFranchise.value];
     if (selectedCollection.value)
-      filterCriteria.selected_collection = selectedCollection.value;
+      filterCriteria.collections = [selectedCollection.value];
     if (selectedCompany.value)
-      filterCriteria.selected_company = selectedCompany.value;
+      filterCriteria.companies = [selectedCompany.value];
     if (selectedAgeRating.value)
-      filterCriteria.selected_age_rating = selectedAgeRating.value;
+      filterCriteria.age_ratings = [selectedAgeRating.value];
     if (selectedStatus.value)
       filterCriteria.selected_status = getStatusKeyForText(
         selectedStatus.value,
       );
-    if (selectedRegion.value)
-      filterCriteria.selected_region = selectedRegion.value;
+    if (selectedRegion.value) filterCriteria.regions = [selectedRegion.value];
     if (selectedLanguage.value)
-      filterCriteria.selected_language = selectedLanguage.value;
+      filterCriteria.languages = [selectedLanguage.value];
 
     const { data } = await collectionApi.createSmartCollection({
       smartCollection: {
