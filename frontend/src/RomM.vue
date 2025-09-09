@@ -33,7 +33,7 @@ const { idle: mouseIdle } = useIdle(100, {
         <Transition name="fade" mode="out-in">
           <div v-if="!Component" id="app-loading-logo">
             <img
-              src="/assets/logos/romm_logo_xbox_one_circle_grayscale.svg"
+              src="/assets/logos/romm_logo_xbox_one_circle_boot.svg"
               alt="Romm Logo"
             />
           </div>
