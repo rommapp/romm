@@ -874,13 +874,17 @@ async def delete_roms(
     request: Request,
     roms: Annotated[
         list[int],
-        Body(description="List of rom ids to delete from database."),
+        Body(
+            description="List of rom ids to delete from database.",
+            embed=True,
+        ),
     ],
     delete_from_fs: Annotated[
         list[int],
         Body(
             description="List of rom ids to delete from filesystem.",
             default_factory=list,
+            embed=True,
         ),
     ],
 ) -> BulkOperationResponse:

@@ -25,7 +25,7 @@ emitter?.on("showNoteDialog", (romToShow) => {
   <v-dialog v-model="show" max-width="600">
     <v-card>
       <v-card-title class="d-flex align-center">
-        <v-icon class="mr-2">mdi-notebook</v-icon>
+        <v-icon class="mr-2"> mdi-notebook </v-icon>
         {{ t("rom.my-notes") }} - {{ rom?.name }}
         <v-spacer />
         <v-btn icon @click="show = false">
@@ -34,10 +34,10 @@ emitter?.on("showNoteDialog", (romToShow) => {
       </v-card-title>
       <v-card-text class="pa-4">
         <MdPreview
+          v-if="rom?.rom_user?.note_raw_markdown"
           no-highlight
           no-katex
           no-mermaid
-          v-if="rom?.rom_user?.note_raw_markdown"
           :model-value="rom?.rom_user?.note_raw_markdown"
           :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
           language="en-US"

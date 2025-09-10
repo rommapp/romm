@@ -28,7 +28,8 @@ const { fetchLimit } = storeToRefs(romsStore);
     <v-col>
       <v-row v-if="currentView != 2" no-gutters class="mx-1 mt-3 mr-14">
         <v-col
-          v-for="_ in Math.min(props.romCount, fetchLimit)"
+          v-for="index in Math.min(props.romCount, fetchLimit)"
+          :key="index"
           class="pa-1 align-self-end"
           :cols="views[currentView]['size-cols']"
           :sm="views[currentView]['size-sm']"
@@ -36,11 +37,11 @@ const { fetchLimit } = storeToRefs(romsStore);
           :lg="views[currentView]['size-lg']"
           :xl="views[currentView]['size-xl']"
         >
-          <skeleton :platformId="props.platformId" />
+          <Skeleton :platform-id="props.platformId" />
         </v-col>
       </v-row>
 
-      <v-row class="h-100 mr-13" v-if="currentView == 2" no-gutters>
+      <v-row v-if="currentView == 2" class="h-100 mr-13" no-gutters>
         <v-col class="h-100 pt-4 pb-2">
           <v-skeleton-loader
             class="mx-2"

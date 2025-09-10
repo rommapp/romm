@@ -426,7 +426,7 @@ function handleItemDeselected() {
           class="grid grid-cols-[repeat(auto-fill,minmax(250px,250px))] justify-center my-12 gap-5 px-13 md:px-16 lg:px-20 xl:px-28 py-8 relative z-10 w-full box-border overflow-x-hidden"
           @wheel.prevent
         >
-          <game-card
+          <GameCard
             v-for="(rom, i) in roms"
             :key="rom.id"
             :rom="rom"

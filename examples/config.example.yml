@@ -48,22 +48,22 @@ system:
 filesystem: {} # { roms_folder: 'roms' } For example if your folder structure is /home/user/library/roms_folder
 
 # EmulatorJS per-core options
-emulatorjs:
-  # debug: true # Available options will be logged to the browser console
-  # cache_limit: null # Cache limit per ROM (in bytes)
-  settings:
-    parallel_n64: # Use the exact core name
-    #   vsync: disable
-    snes9x:
-    #   snes9x_region: ntsc
-    default: # These settings apply to all cores
-    #   fps: show
-  controls: # https://emulatorjs.org/docs4devs/control-mapping/
-    snes9x:
-    #   0: # Player 1
-    #     0: # A MAPPING FOR EACH BUTTON MUST BE SET!
-    #       value: x # Mapping for keyboard
-    #       value2: BUTTON_2 # Mapping for connected controller
-    #   1: # Player 2
-    #   2: # Player 3
-    #   3: # Player 4
+# emulatorjs:
+#   debug: true # Available options will be logged to the browser console
+#   cache_limit: null # Cache limit per ROM (in bytes)
+#   settings:
+#     parallel_n64: # Use the exact core name
+#       vsync: disable
+#     snes9x:
+#       snes9x_region: ntsc
+#     default: # These settings apply to all cores
+#       fps: show
+#   controls: # https://emulatorjs.org/docs4devs/control-mapping/
+#     snes9x:
+#       0: # Player 1
+#         0: # A MAPPING FOR EACH BUTTON MUST BE SET!
+#           value: x # Mapping for keyboard
+#           value2: BUTTON_2 # Mapping for connected controller
+#       1: # Player 2
+#       2: # Player 3
+#       3: # Player 4

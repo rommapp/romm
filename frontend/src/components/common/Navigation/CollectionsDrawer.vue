@@ -88,11 +88,10 @@ onBeforeUnmount(() => {
 <template>
   <v-navigation-drawer
     id="collections-drawer"
+    v-model="activeCollectionsDrawer"
     mobile
     :location="smAndDown ? 'bottom' : 'left'"
-    @update:model-value="clear"
     width="500"
-    v-model="activeCollectionsDrawer"
     :class="{
       'my-2': mdAndUp || (smAndDown && activeCollectionsDrawer),
       'ml-2': (mdAndUp && activeCollectionsDrawer) || smAndDown,
@@ -102,27 +101,28 @@ onBeforeUnmount(() => {
     class="bg-surface pa-1"
     rounded
     :border="1"
+    @update:model-value="clear"
     @keydown.esc="onClose"
   >
     <template #prepend>
       <v-text-field
+        v-model="filterText"
         aria-label="Search collections"
         :tabindex="tabIndex"
-        v-model="filterText"
         prepend-inner-icon="mdi-filter-outline"
         clearable
         hide-details
-        @click:clear="clear"
-        @update:model-value=""
         single-line
         :label="t('collection.search-collection')"
         variant="solo-filled"
         density="compact"
-      ></v-text-field>
+        @click:clear="clear"
+      />
     </template>
     <v-list tabindex="-1" lines="two" class="py-1 px-0">
-      <collection-list-item
+      <CollectionListItem
         v-for="collection in filteredCollections"
+        :key="collection.id"
         :collection="collection"
         with-link
         :tabindex="tabIndex"
@@ -138,10 +138,12 @@ onBeforeUnmount(() => {
           :aria-label="t('common.smart-collections')"
           :tabindex="tabIndex"
           class="uppercase"
-          >{{ t("common.smart-collections").toUpperCase() }}</v-list-subheader
         >
-        <collection-list-item
+          {{ t("common.smart-collections").toUpperCase() }}
+        </v-list-subheader>
+        <CollectionListItem
           v-for="collection in filteredSmartCollections"
+          :key="collection.id"
           :collection="collection"
           with-link
           role="listitem"
@@ -165,13 +167,15 @@ onBeforeUnmount(() => {
           :aria-label="t('common.virtual-collections')"
           :tabindex="tabIndex"
           class="uppercase"
-          >{{ t("common.virtual-collections").toUpperCase() }}</v-list-subheader
         >
-        <collection-list-item
+          {{ t("common.virtual-collections").toUpperCase() }}
+        </v-list-subheader>
+        <CollectionListItem
           v-for="collection in filteredVirtualCollections.slice(
             0,
             visibleVirtualCollections,
           )"
+          :key="collection.id"
           :collection="collection"
           with-link
           role="listitem"
@@ -182,19 +186,19 @@ onBeforeUnmount(() => {
     </v-list>
     <template #append>
       <v-btn
-        @click="addCollection"
         variant="tonal"
         color="primary"
         prepend-icon="mdi-plus"
         :tabindex="tabIndex"
         size="large"
         block
+        @click="addCollection"
       >
         {{ t("collection.add-collection") }}
       </v-btn>
     </template>
   </v-navigation-drawer>
 
-  <create-collection-dialog />
-  <create-smart-collection-dialog />
+  <CreateCollectionDialog />
+  <CreateSmartCollectionDialog />
 </template>

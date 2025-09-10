@@ -283,8 +283,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-search-web"
     :loading-condition="searching"
@@ -292,6 +291,7 @@ onBeforeUnmount(() => {
     :empty-state-type="searched ? 'game' : undefined"
     scroll-content
     :width="lgAndUp ? '60vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <span class="ml-4">{{ t("common.filter") }}:</span>
@@ -305,9 +305,9 @@ onBeforeUnmount(() => {
             : 'IGDB source is not enabled'
         "
         open-delay="500"
-        ><template #activator="{ props }">
+      >
+        <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('IGDB')"
             v-bind="props"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
@@ -319,6 +319,7 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('IGDB')"
           >
             <v-img src="/assets/scrappers/igdb.png" />
           </v-avatar>
@@ -334,9 +335,9 @@ onBeforeUnmount(() => {
             : 'Mobygames source is not enabled'
         "
         open-delay="500"
-        ><template #activator="{ props }">
+      >
+        <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('Mobygames')"
             v-bind="props"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
@@ -348,9 +349,12 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('Mobygames')"
           >
-            <v-img src="/assets/scrappers/moby.png" /></v-avatar></template
-      ></v-tooltip>
+            <v-img src="/assets/scrappers/moby.png" />
+          </v-avatar>
+        </template>
+      </v-tooltip>
       <v-tooltip
         location="top"
         class="tooltip"
@@ -361,9 +365,9 @@ onBeforeUnmount(() => {
             : 'Screenscraper source is not enabled'
         "
         open-delay="500"
-        ><template #activator="{ props }">
+      >
+        <template #activator="{ props }">
           <v-avatar
-            @click="toggleSourceFilter('Screenscraper')"
             v-bind="props"
             class="ml-3 cursor-pointer opacity-40"
             :class="{
@@ -374,6 +378,7 @@ onBeforeUnmount(() => {
             }"
             size="30"
             rounded="1"
+            @click="toggleSourceFilter('Screenscraper')"
           >
             <v-img src="/assets/scrappers/ss.png" />
           </v-avatar>
@@ -384,60 +389,61 @@ onBeforeUnmount(() => {
       <v-row class="align-center" no-gutters>
         <v-col cols="6" sm="8">
           <v-text-field
-            autofocus
             id="search-text-field"
-            @keyup.enter="searchRom"
-            @click:clear="searchText = ''"
-            class="bg-toplayer"
             v-model="searchText"
+            autofocus
+            class="bg-toplayer"
             :disabled="searching"
             :label="t('common.search')"
             hide-details
             clearable
+            @keyup.enter="searchRom"
+            @click:clear="searchText = ''"
           />
         </v-col>
         <v-col cols="4" sm="3">
           <v-select
+            v-model="searchBy"
             :disabled="searching"
             :label="t('rom.by')"
             class="bg-toplayer"
             :items="['ID', 'Name']"
-            v-model="searchBy"
             hide-details
           />
         </v-col>
         <v-col>
           <v-btn
             type="submit"
-            @click="searchRom"
             class="bg-toplayer"
             variant="text"
             rounded="0"
             icon="mdi-search-web"
             block
             :disabled="searching"
+            @click="searchRom"
           />
         </v-col>
       </v-row>
     </template>
     <template #content>
-      <v-row class="align-content-start" v-show="!showSelectSource" no-gutters>
+      <v-row v-show="!showSelectSource" class="align-content-start" no-gutters>
         <v-col
+          v-for="matchedRom in filteredMatchedRoms"
+          v-show="!searching"
+          :key="matchedRom.name"
           class="pa-1"
           cols="4"
           sm="3"
           md="2"
-          v-show="!searching"
-          v-for="matchedRom in filteredMatchedRoms"
         >
-          <game-card
+          <GameCard
             v-if="rom"
-            @click="showSources(matchedRom)"
             :rom="matchedRom"
-            transformScale
-            titleOnHover
-            pointerOnHover
-            disableViewTransition
+            transform-scale
+            title-on-hover
+            pointer-on-hover
+            disable-view-transition
+            @click="showSources(matchedRom)"
           />
         </v-col>
       </v-row>
@@ -451,8 +457,8 @@ onBeforeUnmount(() => {
                   icon="mdi-arrow-left"
                   variant="flat"
                   size="small"
-                  @click="backToMatched"
                   style="float: left"
+                  @click="backToMatched"
                 />
                 {{ selectedMatchRom?.name }}
               </v-card-title>
@@ -472,7 +478,12 @@ onBeforeUnmount(() => {
           </v-col>
           <v-col cols="12">
             <v-row class="justify-center mt-4" no-gutters>
-              <v-col class="pa-1" cols="auto" v-for="source in sources">
+              <v-col
+                v-for="source in sources"
+                :key="source.name"
+                class="pa-1"
+                cols="auto"
+              >
                 <v-hover v-slot="{ isHovering, props }">
                   <v-card
                     :width="xs ? 150 : 220"
@@ -491,8 +502,8 @@ onBeforeUnmount(() => {
                       cover
                     >
                       <template #placeholder>
-                        <skeleton
-                          :aspectRatio="computedAspectRatio"
+                        <Skeleton
+                          :aspect-ratio="computedAspectRatio"
                           type="image"
                         />
                       </template>
@@ -510,25 +521,27 @@ onBeforeUnmount(() => {
               </v-col>
             </v-row>
           </v-col>
-          <v-col cols="12" v-if="selectedMatchRom">
+          <v-col v-if="selectedMatchRom" cols="12">
             <v-row class="mt-4 text-center" no-gutters>
               <v-col>
                 <v-chip
-                  @click="toggleRenameAsSource"
                   variant="text"
                   :disabled="selectedCover == undefined"
-                  ><v-icon
+                  @click="toggleRenameAsSource"
+                >
+                  <v-icon
                     :color="renameFromSource ? 'primary' : ''"
                     class="mr-1"
-                    >{{
+                  >
+                    {{
                       selectedCover && renameFromSource
                         ? "mdi-checkbox-outline"
                         : "mdi-checkbox-blank-outline"
-                    }}</v-icon
+                    }} </v-icon
                   >{{
                     t("rom.rename-file-part1", { source: selectedCover?.name })
-                  }}</v-chip
-                >
+                  }}
+                </v-chip>
                 <v-list-item v-if="rom && renameFromSource" class="mt-2">
                   <span>{{ t("rom.rename-file-part2") }}</span>
                   <br />
@@ -571,7 +584,7 @@ onBeforeUnmount(() => {
       </v-row>
     </template>
     <template #empty-state>
-      <empty-manual-match />
+      <EmptyManualMatch />
     </template>
     <template #footer>
       <v-row no-gutters class="text-center">
@@ -592,5 +605,5 @@ onBeforeUnmount(() => {
         </v-col>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

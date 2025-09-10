@@ -21,18 +21,20 @@ withDefaults(
   <v-card class="bg-background" elevation="0">
     <v-toolbar class="bg-toplayer px-1" density="compact">
       <v-toolbar-title class="text-button">
-        <v-icon :color="iconColor" class="mr-2">{{ icon }}</v-icon>
+        <v-icon :color="iconColor" class="mr-2">
+          {{ icon }}
+        </v-icon>
         {{ title }}
-        <slot name="toolbar-title-append"></slot>
+        <slot name="toolbar-title-append" />
       </v-toolbar-title>
-      <slot name="toolbar-append"></slot>
+      <slot name="toolbar-append" />
     </v-toolbar>
 
     <v-divider v-if="titleDivider" />
 
     <!-- Check style card-text -->
     <v-card-text :class="['pa-0', bgColor]">
-      <slot name="content"></slot>
+      <slot name="content" />
     </v-card-text>
   </v-card>
 </template>
