@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Emitter } from "mitt";
-import { inject, ref, watch } from "vue";
+import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
@@ -82,12 +82,12 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-bookmark-remove-outline"
     scroll-content
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row no-gutters class="justify-center">
@@ -110,7 +110,7 @@ function closeDialog() {
         clearable
       >
         <template #item="{ props, item }">
-          <collection-list-item
+          <CollectionListItem
             :collection="item.raw"
             v-bind="props"
             :with-title="false"
@@ -118,11 +118,7 @@ function closeDialog() {
         </template>
         <template #chip="{ item }">
           <v-chip class="pl-0" label>
-            <r-avatar-collection
-              :collection="item.raw"
-              :size="35"
-              class="mr-2"
-            />
+            <RAvatarCollection :collection="item.raw" :size="35" class="mr-2" />
             {{ item.raw.name }}
           </v-chip>
         </template>
@@ -137,14 +133,14 @@ function closeDialog() {
         hide-default-header
       >
         <template #item.name="{ item }">
-          <rom-list-item :rom="item" with-filename with-size />
+          <RomListItem :rom="item" with-filename with-size />
         </template>
       </v-data-table-virtual>
     </template>
     <template #append>
       <v-row class="justify-center my-2">
         <v-btn-group divided density="compact">
-          <v-btn class="bg-toplayer" @click="closeDialog" variant="flat">
+          <v-btn class="bg-toplayer" variant="flat" @click="closeDialog">
             {{ t("common.cancel") }}
           </v-btn>
           <v-btn
@@ -158,5 +154,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

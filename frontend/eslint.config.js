@@ -22,8 +22,9 @@ export default tseslint.config(
       "dist-ssr",
       "coverage",
       "*.local",
-      "__generated__",
+      "src/__generated__",
       "*.config.js",
+      "src/plugins/*.d.ts",
     ],
     languageOptions: {
       parserOptions: {
@@ -38,8 +39,18 @@ export default tseslint.config(
     },
     rules: {
       "vue/multi-word-component-names": "off",
-      // Vuetify supports modifier syntax of { [x: `item.${string}`]: ... }
+      "vue/max-attributes-per-line": "off",
       "vue/valid-v-slot": "off",
+      "vue/no-use-v-if-with-v-for": "off",
+      "vue/component-name-in-template-casing": [
+        "error",
+        "PascalCase",
+        {
+          registeredComponentsOnly: true,
+        },
+      ],
+      "vue/prop-name-casing": ["error", "camelCase"],
+      "vue/attribute-hyphenation": ["error", "always"],
     },
   },
 );

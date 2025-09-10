@@ -23,13 +23,13 @@ function setUnmatched() {
     :color="filterMatched ? 'primary' : ''"
     @click="setUnmatched"
   >
-    <v-icon :color="filterMatched ? 'primary' : ''">mdi-file-find</v-icon
+    <v-icon :color="filterMatched ? 'primary' : ''"> mdi-file-find </v-icon
     ><span
       class="ml-2"
       :class="{
         'text-primary': filterMatched,
       }"
       >{{ t("platform.show-matched") }}</span
-    ></v-btn
-  >
+    >
+  </v-btn>
 </template>

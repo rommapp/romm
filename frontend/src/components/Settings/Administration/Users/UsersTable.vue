@@ -86,7 +86,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <r-section icon="mdi-account" title="Users" class="ma-2">
+  <RSection icon="mdi-account" title="Users" class="ma-2">
     <template #content>
       <v-text-field
         v-model="userSearch"
@@ -149,7 +149,9 @@ onMounted(() => {
         </template>
         <template #item.role="{ item }">
           <v-list-item class="pa-0" min-width="100px">
-            <v-icon class="mr-2">{{ getRoleIcon(item.role) }}</v-icon>
+            <v-icon class="mr-2">
+              {{ getRoleIcon(item.role) }}
+            </v-icon>
             {{ item.role }}
           </v-list-item>
         </template>
@@ -158,8 +160,8 @@ onMounted(() => {
         </template>
         <template #item.enabled="{ item }">
           <v-switch
-            inset
             v-model="item.enabled"
+            inset
             color="primary"
             :disabled="item.id == auth.user?.id"
             hide-details
@@ -186,9 +188,9 @@ onMounted(() => {
         </template>
       </v-data-table-virtual>
     </template>
-  </r-section>
+  </RSection>
 
-  <create-user-dialog />
-  <invite-link-dialog />
-  <delete-user-dialog />
+  <CreateUserDialog />
+  <InviteLinkDialog />
+  <DeleteUserDialog />
 </template>

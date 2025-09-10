@@ -81,45 +81,45 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <empty-home v-if="isEmpty" />
+  <EmptyHome v-if="isEmpty" />
   <template v-else>
-    <stats v-if="showStats" />
+    <Stats v-if="showStats" />
 
     <template v-if="showRecentRoms">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="fetchingRecentAdded && recentRoms.length === 0"
         :title="t('home.recently-added')"
         class="ma-2"
       />
-      <recent-added v-else-if="recentRoms.length > 0" class="ma-2" />
+      <RecentAdded v-else-if="recentRoms.length > 0" class="ma-2" />
     </template>
 
     <template v-if="showContinuePlaying">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="fetchingContinuePlaying && continuePlayingRoms.length === 0"
         :title="t('home.continue-playing')"
         class="ma-2"
       />
-      <continue-playing
+      <ContinuePlaying
         v-else-if="continuePlayingRoms.length > 0"
         class="ma-2"
       />
     </template>
 
     <template v-if="showPlatforms">
-      <platforms-skeleton
+      <PlatformsSkeleton
         v-if="fetchingPlatforms && filledPlatforms.length === 0"
       />
-      <platforms v-else-if="filledPlatforms.length > 0" class="ma-2" />
+      <Platforms v-else-if="filledPlatforms.length > 0" class="ma-2" />
     </template>
 
     <template v-if="showCollections">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="fetchingCollections && filteredCollections.length === 0"
         :title="t('common.collections')"
         class="ma-2"
       />
-      <collections
+      <Collections
         v-if="filteredCollections.length > 0"
         :collections="filteredCollections"
         :title="t('common.collections')"
@@ -129,12 +129,12 @@ onBeforeMount(async () => {
     </template>
 
     <template v-if="showSmartCollections">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="fetchingSmartCollections && filteredSmartCollections.length === 0"
         :title="t('common.smart-collections')"
         class="ma-2"
       />
-      <collections
+      <Collections
         v-if="filteredSmartCollections.length > 0"
         :collections="filteredSmartCollections"
         :title="t('common.smart-collections')"
@@ -144,14 +144,14 @@ onBeforeMount(async () => {
     </template>
 
     <template v-if="showVirtualCollections">
-      <recent-added-skeleton
+      <RecentAddedSkeleton
         v-if="
           fetchingVirtualCollections && filteredVirtualCollections.length === 0
         "
         :title="t('common.virtual-collections')"
         class="ma-2"
       />
-      <collections
+      <Collections
         v-if="filteredVirtualCollections.length > 0"
         :collections="filteredVirtualCollections"
         :title="t('common.virtual-collections')"

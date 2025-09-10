@@ -2,8 +2,10 @@
 import type { Emitter } from "mitt";
 import { storeToRefs } from "pinia";
 import { inject, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import { useTheme } from "vuetify";
 import type { FirmwareSchema, SaveSchema, StateSchema } from "@/__generated__";
+import { ROUTES } from "@/plugins/router";
 import { saveApi as api } from "@/services/api/save";
 import storeConfig from "@/stores/config";
 import storeLanguage from "@/stores/language";
@@ -32,6 +34,7 @@ const romsStore = storeRoms();
 const playingStore = storePlaying();
 const configStore = storeConfig();
 const languageStore = storeLanguage();
+const router = useRouter();
 
 const props = defineProps<{
   rom: DetailedRom;
@@ -77,8 +80,9 @@ declare global {
     EJS_language: string;
     EJS_disableAutoLang: boolean;
     EJS_DEBUG_XX: boolean;
+    EJS_CacheLimit: number;
     EJS_Buttons: Record<string, boolean>;
-    EJS_VirtualGamepadSettings: {};
+    EJS_VirtualGamepadSettings: Record<string, unknown>;
     EJS_onGameStart: () => void;
     EJS_onSaveState: (args: {
       screenshot: Uint8Array;
@@ -112,7 +116,7 @@ window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/emulatorjs.png`;
+window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
 window.EJS_backgroundColor = theme.current.value.colors.background;
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own
@@ -133,7 +137,10 @@ window.EJS_gameName = romRef.value.fs_name_no_tags
   .trim();
 window.EJS_language = selectedLanguage.value.value.replace("_", "-");
 window.EJS_disableAutoLang = true;
-window.EJS_DEBUG_XX = configStore.config.EJS_DEBUG;
+
+const { EJS_DEBUG, EJS_CACHE_LIMIT } = configStore.config;
+if (EJS_CACHE_LIMIT !== null) window.EJS_CacheLimit = EJS_CACHE_LIMIT;
+window.EJS_DEBUG_XX = EJS_DEBUG;
 
 onMounted(() => {
   window.scrollTo(0, 0);
@@ -336,14 +343,14 @@ window.EJS_onGameStart = async () => {
 
   const exitEmulation = createExitEmulationButton();
   exitEmulation.addEventListener("click", async () => {
-    if (!romRef.value || !window.EJS_emulator) return window.history.back();
+    if (!romRef.value || !window.EJS_emulator) return immediateExit();
     romsStore.update(romRef.value);
-    window.history.back();
+    immediateExit();
   });
 
   const saveAndQuit = createSaveQuitButton();
   saveAndQuit.addEventListener("click", async () => {
-    if (!romRef.value || !window.EJS_emulator) return window.history.back();
+    if (!romRef.value || !window.EJS_emulator) return immediateExit();
 
     const stateFile = window.EJS_emulator.gameManager.getState();
     const saveFile = window.EJS_emulator.gameManager.getSaveFile();
@@ -365,9 +372,17 @@ window.EJS_onGameStart = async () => {
     });
 
     romsStore.update(romRef.value);
-    window.history.back();
+    immediateExit();
   });
 };
+
+function immediateExit() {
+  router
+    .push({ name: ROUTES.ROM, params: { rom: romRef.value.id } })
+    .catch((error) => {
+      console.error("Error navigating to console rom", error);
+    });
+}
 
 onUnmounted(() => {
   // Force full reload to reset COEP/COOP, so cross-origin isolation is turned off.

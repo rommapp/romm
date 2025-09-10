@@ -4,7 +4,7 @@ import { inject, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { useDisplay } from "vuetify";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import { ROUTES } from "@/plugins/router";
 import configApi from "@/services/api/config";
@@ -33,7 +33,7 @@ async function deletePlatform() {
   show.value = false;
   await platformApi
     .deletePlatform({ platform: platform.value })
-    .then((response) => {
+    .then(() => {
       emitter?.emit("snackbarShow", {
         msg: "Platform deleted",
         icon: "mdi-check-bold",
@@ -70,18 +70,18 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="platform"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-delete"
     scroll-content
     :width="lgAndUp ? '50vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center align-center pa-2" no-gutters>
         <span class="mr-1">{{ t("platform.removing-platform-1") }}</span>
-        <platform-icon
+        <PlatformIcon
           :slug="platform.slug"
           :name="platform.name"
           :fs-slug="platform.fs_slug"
@@ -97,12 +97,14 @@ function closeDialog() {
     <template #append>
       <v-row class="justify-center text-center pa-2" no-gutters>
         <v-col>
-          <v-chip @click="excludeOnDelete = !excludeOnDelete" variant="text"
-            ><v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">{{
-              excludeOnDelete
-                ? "mdi-checkbox-outline"
-                : "mdi-checkbox-blank-outline"
-            }}</v-icon>
+          <v-chip variant="text" @click="excludeOnDelete = !excludeOnDelete">
+            <v-icon :color="excludeOnDelete ? 'accent' : ''" class="mr-1">
+              {{
+                excludeOnDelete
+                  ? "mdi-checkbox-outline"
+                  : "mdi-checkbox-blank-outline"
+              }}
+            </v-icon>
             {{ t("common.exclude-on-delete") }}
           </v-chip>
         </v-col>
@@ -118,5 +120,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

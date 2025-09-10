@@ -32,6 +32,7 @@ filesystem:
 
 emulatorjs:
   debug: true
+  cache_limit: 1000
   settings:
     parallel_n64:
       vsync: disable

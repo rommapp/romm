@@ -26,6 +26,9 @@ PSP_MOBY_ID: Final = 46
 SWITCH_MOBY_ID: Final = 203
 ARCADE_MOBY_IDS: Final = [143, 36]
 
+# Regex to detect MobyGames ID tags in filenames like (moby-12345)
+MOBYGAMES_TAG_REGEX = re.compile(r"\(moby-(\d+)\)", re.IGNORECASE)
+
 
 class MobyGamesPlatform(TypedDict):
     slug: str
@@ -78,6 +81,14 @@ class MobyGamesHandler(MetadataHandler):
     @classmethod
     def is_enabled(cls) -> bool:
         return bool(MOBYGAMES_API_KEY)
+
+    @staticmethod
+    def extract_mobygames_id_from_filename(fs_name: str) -> int | None:
+        """Extract MobyGames ID from filename tag like (moby-12345)."""
+        match = MOBYGAMES_TAG_REGEX.search(fs_name)
+        if match:
+            return int(match.group(1))
+        return None
 
     async def _search_rom(
         self, search_term: str, platform_moby_id: int, split_game_name: bool = False
@@ -135,6 +146,21 @@ class MobyGamesHandler(MetadataHandler):
 
         if not platform_moby_id:
             return MobyGamesRom(moby_id=None)
+
+        # Check for MobyGames ID tag in filename first
+        mobygames_id_from_tag = self.extract_mobygames_id_from_filename(fs_name)
+        if mobygames_id_from_tag:
+            log.debug(f"Found MobyGames ID tag in filename: {mobygames_id_from_tag}")
+            rom_by_id = await self.get_rom_by_id(mobygames_id_from_tag)
+            if rom_by_id["moby_id"]:
+                log.debug(
+                    f"Successfully matched ROM by MobyGames ID tag: {fs_name} -> {mobygames_id_from_tag}"
+                )
+                return rom_by_id
+            else:
+                log.warning(
+                    f"MobyGames ID {mobygames_id_from_tag} from filename tag not found in MobyGames"
+                )
 
         search_term = fs_rom_handler.get_file_name_with_no_tags(fs_name)
         fallback_rom = MobyGamesRom(moby_id=None)

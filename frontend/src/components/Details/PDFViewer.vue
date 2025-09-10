@@ -23,8 +23,8 @@ const pdfViewerConfig = {
 <template>
   <v-toolbar class="bg-toplayer px-2" density="compact" :elevation="0">
     <button
-      class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.sidebarToggle"
+      class="pdfv-toolbar-btn"
       type="button"
     >
       <v-icon>mdi-menu</v-icon>
@@ -32,16 +32,16 @@ const pdfViewerConfig = {
     <v-spacer />
 
     <input
+      :id="pdfViewerConfig.pageNumber"
       class="px-1"
       style="width: 40px"
-      :id="pdfViewerConfig.pageNumber"
       type="number"
     />
-    <span class="ml-2" :id="pdfViewerConfig.numPages"></span>
+    <span :id="pdfViewerConfig.numPages" class="ml-2" />
     <button
+      :id="pdfViewerConfig.firstPage"
       class="pdfv-toolbar-btn"
       :class="{ 'ml-8': !xs, 'ml-4': xs }"
-      :id="pdfViewerConfig.firstPage"
       type="button"
     >
       <v-icon>mdi-page-first</v-icon>
@@ -49,60 +49,59 @@ const pdfViewerConfig = {
 
     <button
       v-show="!xs"
-      class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.previousPage"
+      class="pdfv-toolbar-btn"
       type="button"
     >
       <v-icon>mdi-chevron-left</v-icon>
     </button>
     <button
       v-show="!xs"
-      class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.nextPage"
+      class="pdfv-toolbar-btn"
       type="button"
     >
       <v-icon>mdi-chevron-right</v-icon>
     </button>
 
     <button
-      class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.lastPage"
+      class="pdfv-toolbar-btn"
       type="button"
     >
       <v-icon>mdi-page-last</v-icon>
     </button>
     <button
+      :id="pdfViewerConfig.zoomIn"
       class="pdfv-toolbar-btn"
       :class="{ 'ml-8': !xs, 'ml-4': xs }"
-      :id="pdfViewerConfig.zoomIn"
       type="button"
     >
       <v-icon>mdi-magnify-plus-outline</v-icon>
     </button>
     <button
-      class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.zoomOut"
+      class="pdfv-toolbar-btn"
       type="button"
     >
       <v-icon>mdi-magnify-minus-outline</v-icon>
     </button>
     <v-spacer />
     <button
-      class="pdfv-toolbar-btn"
       :id="pdfViewerConfig.download"
+      class="pdfv-toolbar-btn"
       type="button"
     >
       <v-icon>mdi-download</v-icon>
     </button>
   </v-toolbar>
-  <vue-pdf-app
+  <VuePdfApp
     :id-config="pdfViewerConfig"
     :config="{ toolbar: false }"
     :theme="theme.name.value == 'dark' ? 'dark' : 'light'"
     style="height: 100dvh"
     :pdf="`/assets/romm/resources/${rom.path_manual}`"
-  >
-  </vue-pdf-app>
+  />
 </template>
 
 <style scoped>

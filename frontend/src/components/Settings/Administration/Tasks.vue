@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
-import Task from "@/components/Settings/Administration/TaskOption.vue";
+import TaskOption from "@/components/Settings/Administration/TaskOption.vue";
 import RSection from "@/components/common/RSection.vue";
 import storeTasks from "@/stores/tasks";
 import { convertCronExperssion } from "@/utils";
@@ -40,8 +40,8 @@ const getManualTaskIcon = (taskName: string) => {
 };
 </script>
 <template>
-  <r-section icon="mdi-pulse" title="Tasks" class="ma-2">
-    <template #toolbar-append> </template>
+  <RSection icon="mdi-pulse" title="Tasks" class="ma-2">
+    <template #toolbar-append />
     <template #content>
       <v-chip
         label
@@ -53,13 +53,16 @@ const getManualTaskIcon = (taskName: string) => {
       </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
-        <v-col cols="12" md="6" v-for="task in watcherTasksUI">
-          <task
+        <v-col v-for="task in watcherTasksUI" :key="task.name" cols="12" md="6">
+          <TaskOption
             class="ma-3"
             :enabled="task.enabled"
             :title="task.title"
             :description="task.description"
             :icon="task.icon"
+            :name="task.name"
+            :manual-run="task.manual_run"
+            :cron-string="task.cron_string"
           />
         </v-col>
       </v-row>
@@ -69,16 +72,21 @@ const getManualTaskIcon = (taskName: string) => {
       </v-chip>
       <v-divider class="border-opacity-25 ma-1" />
       <v-row no-gutters class="align-center py-1">
-        <v-col cols="12" md="6" v-for="task in scheduledTasksUI">
-          <task
+        <v-col
+          v-for="task in scheduledTasksUI"
+          :key="task.name"
+          cols="12"
+          md="6"
+        >
+          <TaskOption
             class="ma-3"
             :enabled="task.enabled"
             :title="task.title"
             :description="task.description"
             :icon="task.icon"
             :name="task.name"
-            :manual_run="task.manual_run"
-            :cron_string="task.cron_string"
+            :manual-run="task.manual_run"
+            :cron-string="task.cron_string"
           />
         </v-col>
       </v-row>
@@ -92,17 +100,18 @@ const getManualTaskIcon = (taskName: string) => {
           Manual
         </v-chip>
         <v-divider class="border-opacity-25 ma-1" />
-        <v-col cols="12" md="6" v-for="task in manualTasksUI">
-          <task
+        <v-col v-for="task in manualTasksUI" :key="task.name" cols="12" md="6">
+          <TaskOption
             class="ma-3"
             :title="task.title"
             :description="task.description"
             :icon="task.icon"
             :name="task.name"
-            :manual_run="task.manual_run"
+            :manual-run="task.manual_run"
+            :cron-string="task.cron_string"
           />
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

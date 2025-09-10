@@ -70,7 +70,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
         <div class="split-image first-image">
           <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
             <template #placeholder>
-              <skeleton :aspect-ratio="1 / 1" type="image" />
+              <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
             <template #error>
               <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />
@@ -80,7 +80,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
         <div class="split-image second-image">
           <v-img cover :src="secondCover" :aspect-ratio="1 / 1">
             <template #placeholder>
-              <skeleton :aspect-ratio="1 / 1" type="image" />
+              <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
             <template #error>
               <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />
@@ -92,7 +92,7 @@ const secondCover = computed(() => memoizedCovers.value[1]);
         <div class="split-image first-image">
           <v-img cover :src="firstCover" :aspect-ratio="1 / 1">
             <template #placeholder>
-              <skeleton :aspect-ratio="1 / 1" type="image" />
+              <Skeleton :aspect-ratio="1 / 1" type="image" />
             </template>
             <template #error>
               <v-img cover :src="collectionCoverImage" :aspect-ratio="1 / 1" />

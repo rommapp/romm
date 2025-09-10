@@ -39,7 +39,6 @@ lint:
     - ruff@0.12.11
     - shellcheck@0.11.0
     - shfmt@3.6.0
-    - svgo@4.0.0
     - taplo@0.10.0
     - trivy@0.66.0
     - trufflehog@3.90.5

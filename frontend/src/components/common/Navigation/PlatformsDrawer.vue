@@ -151,7 +151,7 @@ const onClose = () => {
         </v-expansion-panel-title>
         <v-expansion-panel-text>
           <v-list tabindex="-1" lines="two" class="py-1 px-0">
-            <platform-list-item
+            <PlatformListItem
               v-for="platform in platforms"
               :key="platform.slug"
               :platform="platform"
@@ -167,7 +167,7 @@ const onClose = () => {
 
     <!-- Flat list view -->
     <v-list v-else tabindex="-1" lines="two" class="py-1 px-0">
-      <platform-list-item
+      <PlatformListItem
         v-for="platform in filteredPlatforms"
         :key="platform.slug"
         :platform="platform"
