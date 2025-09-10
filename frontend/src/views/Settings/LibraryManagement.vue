@@ -10,9 +10,9 @@ import LoadMoreBtn from "@/components/Gallery/LoadMoreBtn.vue";
 import Excluded from "@/components/Settings/LibraryManagement/Config/Excluded.vue";
 import PlatformBinding from "@/components/Settings/LibraryManagement/Config/PlatformBinding.vue";
 import PlatformVersions from "@/components/Settings/LibraryManagement/Config/PlatformVersions.vue";
-import GameTable from "@/components/common/Game/Table.vue";
+import GameTable from "@/components/common/Game/VirtualTable.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storeGalleryView from "@/stores/galleryView";
 import storePlatforms from "@/stores/platforms";
@@ -197,16 +197,16 @@ onUnmounted(() => {
     <v-col>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="config">
-          <platform-binding class="mt-2" />
-          <platform-versions class="mt-4" />
-          <excluded class="mt-4" />
+          <PlatformBinding class="mt-2" />
+          <PlatformVersions class="mt-4" />
+          <Excluded class="mt-4" />
         </v-tabs-window-item>
         <v-tabs-window-item value="missing">
           <v-row class="mt-2 mr-2 align-center" no-gutters>
             <v-col>
               <v-select
-                class="mx-2"
                 v-model="selectedPlatform"
+                class="mx-2"
                 hide-details
                 prepend-inner-icon="mdi-controller"
                 clearable
@@ -224,7 +224,7 @@ onUnmounted(() => {
                     :subtitle="item.raw.fs_slug"
                   >
                     <template #prepend>
-                      <platform-icon
+                      <PlatformIcon
                         :key="item.raw.slug"
                         :size="35"
                         :slug="item.raw.slug"
@@ -233,12 +233,12 @@ onUnmounted(() => {
                       />
                     </template>
                     <template #append>
-                      <missing-from-f-s-icon
+                      <MissingFromFSIcon
                         v-if="item.raw.missing_from_fs"
                         text="Missing platform from filesystem"
                         chip
                         chip-label
-                        chipDensity="compact"
+                        chip-density="compact"
                         class="ml-2"
                       />
                       <v-chip class="ml-2" size="x-small" label>
@@ -248,7 +248,7 @@ onUnmounted(() => {
                   </v-list-item>
                 </template>
                 <template #chip="{ item }">
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :slug="item.raw.slug"
                     :name="item.raw.name"
@@ -272,9 +272,9 @@ onUnmounted(() => {
               </v-btn>
             </v-col>
           </v-row>
-          <game-table class="mx-2 mt-2" show-platform-icon />
-          <load-more-btn :fetchRoms="fetchRoms" />
-          <fab-overlay />
+          <GameTable class="mx-2 mt-2" show-platform-icon />
+          <LoadMoreBtn :fetch-roms="fetchRoms" />
+          <FabOverlay />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-col>

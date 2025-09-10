@@ -41,11 +41,11 @@ function nextRom() {
 
 <template>
   <v-card
+    v-if="currentRom"
+    :key="currentRom.updated_at"
     elevation="0"
     rounded="0"
     class="w-100"
-    :key="currentRom.updated_at"
-    v-if="currentRom"
   >
     <v-img
       class="background-image"

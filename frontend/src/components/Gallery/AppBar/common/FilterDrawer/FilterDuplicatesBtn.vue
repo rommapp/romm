@@ -24,8 +24,8 @@ function setDuplicates() {
     block
     variant="tonal"
     :color="filterDuplicates ? 'primary' : ''"
-    @click="setDuplicates"
     :disabled="fetchTotalRoms > 10000"
+    @click="setDuplicates"
   >
     <v-icon :color="filterDuplicates ? 'primary' : ''">
       mdi-card-multiple

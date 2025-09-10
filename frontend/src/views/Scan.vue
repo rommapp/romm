@@ -6,7 +6,7 @@ import { useI18n } from "vue-i18n";
 import { useDisplay } from "vuetify";
 import RomListItem from "@/components/common/Game/ListItem.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { useAutoScroll } from "@/composables/useAutoScroll";
 import { ROUTES } from "@/plugins/router";
 import socket from "@/services/socket";
@@ -146,7 +146,7 @@ async function stopScan() {
                 :subtitle="item.raw.fs_slug"
               >
                 <template #prepend>
-                  <platform-icon
+                  <PlatformIcon
                     :key="item.raw.slug"
                     :size="35"
                     :slug="item.raw.slug"
@@ -155,12 +155,12 @@ async function stopScan() {
                   />
                 </template>
                 <template #append>
-                  <missing-from-f-s-icon
+                  <MissingFromFSIcon
                     v-if="item.raw.missing_from_fs"
                     text="Missing platform from filesystem"
                     chip
                     chip-label
-                    chipDensity="compact"
+                    chip-density="compact"
                     class="ml-2"
                   />
                   <v-chip class="ml-2" size="x-small" label>
@@ -171,7 +171,7 @@ async function stopScan() {
             </template>
             <template #chip="{ item }">
               <v-chip>
-                <platform-icon
+                <PlatformIcon
                   :key="item.raw.slug"
                   :slug="item.raw.slug"
                   :name="item.raw.name"
@@ -264,7 +264,9 @@ async function stopScan() {
           @click="scan"
         >
           <template #prepend>
-            <v-icon :color="scanning ? '' : 'primary'">mdi-magnify-scan</v-icon>
+            <v-icon :color="scanning ? '' : 'primary'">
+              mdi-magnify-scan
+            </v-icon>
           </template>
           {{ t("scan.scan") }}
           <template #loader>
@@ -284,7 +286,7 @@ async function stopScan() {
           @click="stopScan"
         >
           <template #prepend>
-            <v-icon :color="scanning ? 'red' : ''">mdi-alert-octagon</v-icon>
+            <v-icon :color="scanning ? 'red' : ''"> mdi-alert-octagon </v-icon>
           </template>
           {{ t("scan.abort") }}
         </v-btn>
@@ -316,7 +318,7 @@ async function stopScan() {
     </div>
 
     <!-- Scan log -->
-    <v-row no-gutters class="scan-log overflow-y-scroll" ref="scan-log-ref">
+    <v-row ref="scan-log-ref" no-gutters class="scan-log overflow-y-scroll">
       <v-col>
         <v-card
           elevation="0"
@@ -339,7 +341,7 @@ async function stopScan() {
                   <v-list-item class="pa-0">
                     <template #prepend>
                       <v-avatar rounded="0" size="40">
-                        <platform-icon
+                        <PlatformIcon
                           :key="platform.slug"
                           :slug="platform.slug"
                           :name="platform.name"
@@ -348,19 +350,16 @@ async function stopScan() {
                     </template>
                     {{ platform.name }}
                     <template #append>
-                      <v-chip
-                        class="ml-3"
-                        color="primary"
-                        size="x-small"
-                        label
-                        >{{ platform.roms.length }}</v-chip
-                      >
+                      <v-chip class="ml-3" color="primary" size="x-small" label>
+                        {{ platform.roms.length }}
+                      </v-chip>
                     </template>
                   </v-list-item>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text class="bg-toplayer">
-                  <rom-list-item
+                  <RomListItem
                     v-for="rom in platform.roms"
+                    :key="rom.id"
                     class="pa-4"
                     :rom="rom"
                     with-link
@@ -374,7 +373,7 @@ async function stopScan() {
                         label
                       >
                         Not identified
-                        <v-icon class="ml-1">mdi-close</v-icon>
+                        <v-icon class="ml-1"> mdi-close </v-icon>
                       </v-chip>
                       <v-chip
                         v-if="rom.hasheous_id"
@@ -447,7 +446,7 @@ async function stopScan() {
                         </v-avatar>
                       </v-chip>
                     </template>
-                  </rom-list-item>
+                  </RomListItem>
                   <v-list-item
                     v-if="platform.roms.length == 0"
                     class="text-center my-2"
@@ -479,11 +478,11 @@ async function stopScan() {
           size="small"
           class="mr-1 my-1"
         >
-          <v-icon left>mdi-controller</v-icon>
+          <v-icon left> mdi-controller </v-icon>
           <span v-if="xs" class="ml-2">{{
             t("scan.platforms-scanned-n", scanningPlatforms.length)
           }}</span>
-          <span class="ml-2" v-else>{{
+          <span v-else class="ml-2">{{
             t("scan.platforms-scanned-with-details", {
               n_platforms: scanningPlatforms.length,
               n_added_platforms: scanStats.added_platforms,
@@ -502,7 +501,7 @@ async function stopScan() {
           <span v-if="xs" class="ml-2">{{
             t("scan.roms-scanned-n", scanStats.scanned_roms)
           }}</span>
-          <span class="ml-2" v-else>{{
+          <span v-else class="ml-2">{{
             t("scan.roms-scanned-with-details", {
               n_roms: scanStats.scanned_roms,
               n_added_roms: scanStats.added_roms,
