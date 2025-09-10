@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
-import Skeleton from "@/components/common/Game/Card/Skeleton.vue";
 import RSection from "@/components/common/RSection.vue";
 import { views } from "@/utils";
 
@@ -11,7 +10,7 @@ const PLATFORM_SKELETON_COUNT = 12;
 </script>
 
 <template>
-  <r-section icon="mdi-shimmer" :title="t('common.platforms')">
+  <RSection icon="mdi-shimmer" :title="t('common.platforms')">
     <template #toolbar-append>
       <v-skeleton-loader type="button" />
     </template>
@@ -22,7 +21,8 @@ const PLATFORM_SKELETON_COUNT = 12;
         no-gutters
       >
         <v-col
-          v-for="_ in PLATFORM_SKELETON_COUNT"
+          v-for="index in PLATFORM_SKELETON_COUNT"
+          :key="index"
           class="align-self-end pa-1"
           :cols="views[0]['size-cols']"
           :sm="views[0]['size-sm']"
@@ -38,7 +38,7 @@ const PLATFORM_SKELETON_COUNT = 12;
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>
 
 <style>

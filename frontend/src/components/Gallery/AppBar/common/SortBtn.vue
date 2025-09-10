@@ -27,6 +27,8 @@ function showSortBar() {
         icon="mdi-sort"
         v-bind="props"
         :color="isShowSortBar ? 'primary' : ''"
-        @click="showSortBar" /></template
-  ></v-tooltip>
+        @click="showSortBar"
+      />
+    </template>
+  </v-tooltip>
 </template>

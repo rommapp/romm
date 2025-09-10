@@ -90,10 +90,10 @@ async function createCollection() {
     emitter?.emit("showLoadingDialog", { loading: false, scrim: false });
     router.push({ name: ROUTES.COLLECTION, params: { collection: data.id } });
     closeDialog();
-  } catch (error: any) {
+  } catch (error) {
     console.log(error);
     emitter?.emit("snackbarShow", {
-      msg: error.response.data.detail,
+      msg: "Failed to create collection",
       icon: "mdi-close-circle",
       color: "red",
     });
@@ -108,11 +108,11 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-bookmark-box-multiple"
     :width="mdAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-card-title>{{ t("collection.create-collection") }}</v-card-title>
@@ -159,12 +159,12 @@ function closeDialog() {
         <v-col>
           <v-row class="pa-2 justify-center" no-gutters>
             <v-col class="cover">
-              <collection-card
+              <CollectionCard
                 :key="collection.updated_at"
                 :show-title="false"
                 :with-link="false"
                 :collection="collection"
-                :coverSrc="imagePreviewUrl"
+                :cover-src="imagePreviewUrl"
                 title-on-hover
               >
                 <template #append-inner>
@@ -183,14 +183,14 @@ function closeDialog() {
                         })
                       "
                     >
-                      <v-icon size="large">mdi-image-search-outline</v-icon>
+                      <v-icon size="large"> mdi-image-search-outline </v-icon>
                     </v-btn>
                     <v-btn
                       size="small"
                       class="translucent"
                       @click="triggerFileInput"
                     >
-                      <v-icon size="large">mdi-pencil</v-icon>
+                      <v-icon size="large"> mdi-pencil </v-icon>
                       <v-file-input
                         id="file-input"
                         v-model="collection.artwork"
@@ -205,13 +205,13 @@ function closeDialog() {
                       class="translucent"
                       @click="removeArtwork"
                     >
-                      <v-icon size="large" class="text-romm-red"
-                        >mdi-delete</v-icon
-                      >
+                      <v-icon size="large" class="text-romm-red">
+                        mdi-delete
+                      </v-icon>
                     </v-btn>
                   </v-btn-group>
                 </template>
-              </collection-card>
+              </CollectionCard>
             </v-col>
           </v-row>
         </v-col>
@@ -235,7 +235,7 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
 <style scoped>
 .cover {

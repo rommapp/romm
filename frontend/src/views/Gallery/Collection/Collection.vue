@@ -18,9 +18,9 @@ function setCurrentCollection(collection: CollectionType) {
 </script>
 
 <template>
-  <base-collection
+  <BaseCollection
     :collections="allCollections"
     :current-collection="currentCollection"
     :set-current-collection="setCurrentCollection"
-  ></base-collection>
+  />
 </template>

@@ -81,12 +81,12 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
+  <RDialog
     v-if="user"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
     :width="lgAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #header>
       <v-row class="pl-2" no-gutters>
@@ -134,7 +134,9 @@ function closeDialog() {
             >
               <template #selection="{ item }">
                 <v-list-item class="pa-0">
-                  <v-icon class="mr-2">{{ getRoleIcon(item.title) }}</v-icon>
+                  <v-icon class="mr-2">
+                    {{ getRoleIcon(item.title) }}
+                  </v-icon>
                   {{ item.title }}
                 </v-list-item>
               </template>
@@ -204,5 +206,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>
