@@ -116,7 +116,7 @@ window.EJS_player = "#game";
 window.EJS_color = "#A453FF";
 window.EJS_alignStartButton = "center";
 window.EJS_startOnLoaded = true;
-window.EJS_backgroundImage = `${window.location.origin}/assets/emulatorjs/emulatorjs.svg`;
+window.EJS_backgroundImage = `${window.location.origin}/assets/logos/romm_logo_xbox_one_circle_boot.svg`;
 window.EJS_backgroundColor = theme.current.value.colors.background;
 window.EJS_Buttons = {
   // Disable the standard exit button to implement our own

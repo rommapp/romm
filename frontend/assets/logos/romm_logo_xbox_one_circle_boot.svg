@@ -3,10 +3,13 @@
     <style>
       .cls-1{fill:#f1f0f0}
       .cls-2{fill:#333}
-      .cls-3{fill:#232323}
+      .cls-3{fill:#232323,opacity:.54}
       .cls-4{fill:#989898}
       .cls-5{fill:#676767}
+      .cls-6 {fill:#232323}
       .cls-7{fill:none}
+      .cls-8{opacity: .18}
+      .cls-9{fill:#e8e8e8}
     </style>
     <clipPath id="logo-circle-clip">
       <circle cx="500" cy="414.09" r="382.47"/>
