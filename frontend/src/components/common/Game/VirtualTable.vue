@@ -8,7 +8,7 @@ import FavBtn from "@/components/common/Game/FavBtn.vue";
 import PlayBtn from "@/components/common/Game/PlayBtn.vue";
 import RAvatarRom from "@/components/common/Game/RAvatar.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import romApi from "@/services/api/rom";
 import storeAuth from "@/stores/auth";
@@ -125,13 +125,11 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
 
 <template>
   <v-data-table-virtual
-    @update:options="updateOptions"
-    @click:row="rowClick"
+    v-model="selectedRomIDs"
     :items-per-page="72"
     :items-length="fetchTotalRoms"
     :items="filteredRoms"
     :headers="HEADERS"
-    v-model="selectedRomIDs"
     show-select
     fixed-header
     fixed-footer
@@ -141,6 +139,8 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     hover
     density="compact"
     class="rounded bg-background"
+    @update:options="updateOptions"
+    @click:row="rowClick"
   >
     <template #header.data-table-select>
       <v-checkbox-btn
@@ -163,14 +163,14 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
     <template #item.name="{ item }">
       <v-list-item :min-width="400" class="px-0 py-2 d-flex game-list-item">
         <template #prepend>
-          <platform-icon
+          <PlatformIcon
             v-if="showPlatformIcon"
             class="mr-4"
             :size="30"
             :slug="item.platform_slug"
             :fs-slug="item.platform_fs_slug"
           />
-          <r-avatar-rom :rom="item" />
+          <RAvatarRom :rom="item" />
         </template>
         <v-row no-gutters>
           <v-col>
@@ -257,7 +257,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
           >
             <v-icon>mdi-card-multiple-outline</v-icon>
           </v-chip>
-          <missing-from-f-s-icon
+          <MissingFromFSIcon
             v-if="item.missing_from_fs"
             :text="`Missing from filesystem: ${item.fs_path}/${item.fs_name}`"
             class="mr-1 px-1 item-chip"
@@ -302,10 +302,11 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
       <span v-else>-</span>
     </template>
     <template #item.languages="{ item }">
-      <div class="text-no-wrap" v-if="item.languages.length > 0">
+      <div v-if="item.languages.length > 0" class="text-no-wrap">
         <span
-          class="emoji"
           v-for="language in item.languages.slice(0, 3)"
+          :key="language"
+          class="emoji"
           :title="`Languages: ${item.languages.join(', ')}`"
           :class="{ 'emoji-collection': item.regions.length > 3 }"
         >
@@ -322,10 +323,11 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
       <span v-else>-</span>
     </template>
     <template #item.regions="{ item }">
-      <div class="text-no-wrap" v-if="item.regions.length > 0">
+      <div v-if="item.regions.length > 0" class="text-no-wrap">
         <span
-          class="emoji"
           v-for="region in item.regions.slice(0, 3)"
+          :key="region"
+          class="emoji"
           :title="`Regions: ${item.regions.join(', ')}`"
           :class="{ 'emoji-collection': item.regions.length > 3 }"
         >
@@ -352,7 +354,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
         >
           <v-icon>mdi-download</v-icon>
         </v-btn>
-        <play-btn :rom="item" @click.stop variant="text" size="small" />
+        <PlayBtn :rom="item" variant="text" size="small" @click.stop />
         <v-menu
           v-if="
             auth.scopes.includes('roms.write') ||
@@ -366,7 +368,7 @@ function updateOptions({ sortBy }: { sortBy: SortBy }) {
               <v-icon>mdi-dots-vertical</v-icon>
             </v-btn>
           </template>
-          <admin-menu :rom="item" />
+          <AdminMenu :rom="item" />
         </v-menu>
       </v-btn-group>
     </template>

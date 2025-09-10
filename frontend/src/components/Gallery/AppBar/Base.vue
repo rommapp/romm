@@ -33,23 +33,23 @@ const { calculatedWidth } = calculateMainLayoutWidth();
   >
     <template #prepend>
       <slot name="prepend" />
-      <filter-btn />
-      <smart-collection-btn />
+      <FilterBtn />
+      <SmartCollectionBtn />
     </template>
-    <search-text-field v-if="showSearchBar" />
+    <SearchTextField v-if="showSearchBar" />
     <slot name="content" />
     <template #append>
-      <selecting-btn />
-      <gallery-view-btn />
-      <contextual-random-btn />
+      <SelectingBtn />
+      <GalleryViewBtn />
+      <ContextualRandomBtn />
       <slot name="append" />
     </template>
   </v-app-bar>
 
-  <filter-drawer
+  <FilterDrawer
     :show-playables-filter="showPlayablesFilter"
     :show-platforms-filter="showPlatformsFilter"
     :show-search-bar="showSearchBar"
   />
-  <char-index-bar />
+  <CharIndexBar />
 </template>

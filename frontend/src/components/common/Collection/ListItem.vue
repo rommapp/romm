@@ -66,7 +66,7 @@ const collectionRoute = computed(() => {
     class="my-1 py-2"
   >
     <template #prepend>
-      <r-avatar :size="45" :collection="collection" />
+      <RAvatar :size="45" :collection="collection" />
     </template>
     <v-row v-if="withTitle" no-gutters>
       <v-col>

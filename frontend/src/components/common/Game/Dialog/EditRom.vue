@@ -195,25 +195,25 @@ function closeDialog() {
 </script>
 
 <template>
-  <r-dialog
+  <RDialog
     v-if="rom"
-    @close="closeDialog"
     v-model="show"
     icon="mdi-pencil-box"
     scroll-content
     :width="lgAndUp ? '65vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-form v-model="validForm">
         <v-row class="d-flex justify-center" no-gutters>
           <v-col class="pa-4" cols="auto">
-            <game-card
+            <GameCard
               width="240"
               :rom="rom"
-              :coverSrc="imagePreviewUrl"
-              disableViewTransition
-              :showPlatformIcon="false"
-              :showActionBar="false"
+              :cover-src="imagePreviewUrl"
+              disable-view-transition
+              :show-platform-icon="false"
+              :show-action-bar="false"
             >
               <template #append-inner-right>
                 <v-btn-group divided density="compact" rounded="0">
@@ -230,14 +230,14 @@ function closeDialog() {
                       })
                     "
                   >
-                    <v-icon size="large">mdi-image-search-outline</v-icon>
+                    <v-icon size="large"> mdi-image-search-outline </v-icon>
                   </v-btn>
                   <v-btn
                     size="small"
                     class="translucent"
                     @click="triggerFileInput('cover-file-input')"
                   >
-                    <v-icon size="large">mdi-pencil</v-icon>
+                    <v-icon size="large"> mdi-pencil </v-icon>
                     <v-file-input
                       id="cover-file-input"
                       v-model="rom.artwork"
@@ -252,13 +252,13 @@ function closeDialog() {
                     class="translucent"
                     @click="removeArtwork"
                   >
-                    <v-icon size="large" class="text-romm-red"
-                      >mdi-delete</v-icon
-                    >
+                    <v-icon size="large" class="text-romm-red">
+                      mdi-delete
+                    </v-icon>
                   </v-btn>
                 </v-btn-group>
               </template>
-            </game-card>
+            </GameCard>
           </v-col>
           <v-col class="pa-4">
             <v-text-field
@@ -266,16 +266,16 @@ function closeDialog() {
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="t('common.name')"
               variant="outlined"
-              @keyup.enter="updateRom"
               class="my-2"
+              @keyup.enter="updateRom"
             />
             <v-text-field
               v-model="rom.fs_name"
               :rules="[(value: string) => !!value || t('common.required')]"
               :label="rom.multi ? t('rom.folder-name') : t('rom.filename')"
               variant="outlined"
-              @keyup.enter="updateRom"
               class="my-2"
+              @keyup.enter="updateRom"
             >
               <template #details>
                 <v-label class="text-caption text-wrap">
@@ -312,13 +312,13 @@ function closeDialog() {
                 }}</v-icon></span
               >
               <v-btn
-                @click="triggerFileInput('manual-file-input')"
                 class="bg-toplayer ml-3"
                 icon="mdi-cloud-upload-outline"
                 rounded="0"
                 size="small"
+                @click="triggerFileInput('manual-file-input')"
               >
-                <v-icon size="large">mdi-cloud-upload-outline</v-icon>
+                <v-icon size="large"> mdi-cloud-upload-outline </v-icon>
                 <v-file-input
                   id="manual-file-input"
                   v-model="manualFiles"
@@ -372,5 +372,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

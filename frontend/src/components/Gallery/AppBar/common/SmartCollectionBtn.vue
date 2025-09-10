@@ -22,9 +22,9 @@ function openCreateDialog() {
   <v-btn
     v-if="isFiltered || searchTerm"
     icon="mdi-playlist-plus"
-    @click="openCreateDialog"
     variant="text"
     :title="t('collection.add-collection')"
     color="primary"
+    @click="openCreateDialog"
   />
 </template>

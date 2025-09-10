@@ -41,16 +41,17 @@ function onClosedMenu() {
 }
 </script>
 <template>
-  <r-section icon="mdi-play" :title="t('home.continue-playing')">
+  <RSection icon="mdi-play" :title="t('home.continue-playing')">
     <template #toolbar-append>
       <v-btn
         aria-label="Toggle continue playing games grid view"
         icon
         rounded="0"
         @click="toggleGridContinuePlaying"
-        ><v-icon>{{
-          gridContinuePlayingRoms ? "mdi-view-comfy" : "mdi-view-column"
-        }}</v-icon>
+      >
+        <v-icon>
+          {{ gridContinuePlayingRoms ? "mdi-view-comfy" : "mdi-view-column" }}
+        </v-icon>
       </v-btn>
     </template>
     <template #content>
@@ -69,16 +70,16 @@ function onClosedMenu() {
           :lg="views[0]['size-lg']"
           :xl="views[0]['size-xl']"
         >
-          <game-card
+          <GameCard
             :key="rom.updated_at"
             :rom="rom"
-            titleOnHover
-            pointerOnHover
-            withLink
-            transformScale
-            showActionBar
-            showChips
-            :enable3DTilt="enable3DEffect"
+            title-on-hover
+            pointer-on-hover
+            with-link
+            transform-scale
+            show-action-bar
+            show-chips
+            :enable3-d-tilt="enable3DEffect"
             @hover="onHover"
             @openedmenu="onOpenedMenu"
             @closedmenu="onClosedMenu"
@@ -86,5 +87,5 @@ function onClosedMenu() {
         </v-col>
       </v-row>
     </template>
-  </r-section>
+  </RSection>
 </template>

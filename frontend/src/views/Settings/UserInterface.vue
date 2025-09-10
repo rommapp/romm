@@ -5,7 +5,7 @@ import Theme from "@/components/Settings/UserInterface/Theme.vue";
 </script>
 
 <template>
-  <language />
-  <theme />
-  <interface />
+  <Language />
+  <Theme />
+  <Interface />
 </template>

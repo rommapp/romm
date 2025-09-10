@@ -2,7 +2,7 @@
 import type { Emitter } from "mitt";
 import { inject, ref } from "vue";
 import { useDisplay } from "vuetify";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import RDialog from "@/components/common/RDialog.vue";
 import configApi from "@/services/api/config";
 import storeConfig from "@/stores/config";
@@ -42,18 +42,18 @@ function closeDialog() {
 }
 </script>
 <template>
-  <r-dialog
-    @close="closeDialog"
+  <RDialog
     v-model="show"
     icon="mdi-delete"
     :width="lgAndUp ? '45vw' : '95vw'"
+    @close="closeDialog"
   >
     <template #content>
       <v-row class="justify-center pa-2 align-center" no-gutters>
         <span class="mr-1">Deleting platform binding</span>
-        <platform-icon
-          class="mx-2"
+        <PlatformIcon
           :key="slugToDelete"
+          class="mx-2"
           :slug="slugToDelete"
           :fs-slug="fsSlugToDelete"
         />
@@ -78,5 +78,5 @@ function closeDialog() {
         </v-btn-group>
       </v-row>
     </template>
-  </r-dialog>
+  </RDialog>
 </template>

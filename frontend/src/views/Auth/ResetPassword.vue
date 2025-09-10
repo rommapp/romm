@@ -62,8 +62,8 @@ async function resetPassword() {
             :type="visibleNewPassword ? 'text' : 'password'"
             required
             :append-inner-icon="visibleNewPassword ? 'mdi-eye-off' : 'mdi-eye'"
-            @click:append-inner="visibleNewPassword = !visibleNewPassword"
             variant="underlined"
+            @click:append-inner="visibleNewPassword = !visibleNewPassword"
           />
           <v-text-field
             v-model="confirmPassword"
@@ -73,14 +73,14 @@ async function resetPassword() {
             :append-inner-icon="
               visibleConfirmNewPassword ? 'mdi-eye-off' : 'mdi-eye'
             "
+            variant="underlined"
             @click:append-inner="
               visibleConfirmNewPassword = !visibleConfirmNewPassword
             "
-            variant="underlined"
           />
           <span
-            class="text-red text-caption"
             v-if="newPassword !== confirmPassword && newPassword.length > 0"
+            class="text-red text-caption"
             >Passwords do not match</span
           >
           <v-btn

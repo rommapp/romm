@@ -82,34 +82,34 @@ onUnmounted(() => {
     <!-- Controller Mode -->
     <template v-if="hasController">
       <div v-if="showNavigation" class="flex items-center gap-2">
-        <d-pad-icon class="w-8 h-8 opacity-80" :modal="isModal" />
+        <DPadIcon class="w-8 h-8 opacity-80" :modal="isModal" />
         <span class="font-medium tracking-wide">Navigation</span>
       </div>
       <div v-if="showSelect" class="flex items-center gap-2">
-        <face-buttons highlight="south" :modal="isModal" />
+        <FaceButtons highlight="south" :modal="isModal" />
         <span class="font-medium tracking-wide">Select</span>
       </div>
       <div v-if="showBack" class="flex items-center gap-2">
-        <face-buttons highlight="east" :modal="isModal" />
+        <FaceButtons highlight="east" :modal="isModal" />
         <span class="font-medium tracking-wide">Back</span>
       </div>
       <div v-if="showToggleFavorite" class="flex items-center gap-2">
-        <face-buttons highlight="north" :modal="isModal" />
+        <FaceButtons highlight="north" :modal="isModal" />
         <span class="font-medium tracking-wide">Favorite</span>
       </div>
       <div v-if="showMenu" class="flex items-center gap-2">
-        <face-buttons highlight="west" :modal="isModal" />
+        <FaceButtons highlight="west" :modal="isModal" />
         <span class="font-medium tracking-wide">Menu</span>
       </div>
       <div v-if="showDelete" class="flex items-center gap-2">
-        <face-buttons highlight="west" :modal="isModal" />
+        <FaceButtons highlight="west" :modal="isModal" />
         <span class="font-medium tracking-wide">Delete</span>
       </div>
     </template>
     <!-- Keyboard Mode -->
     <template v-else>
       <div v-if="showNavigation" class="flex items-center gap-2">
-        <arrow-keys-icon :modal="isModal" />
+        <ArrowKeysIcon :modal="isModal" />
         <span class="font-medium tracking-wide">Navigation</span>
       </div>
       <div v-if="showSelect" class="flex items-center gap-2">
