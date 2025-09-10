@@ -16,7 +16,7 @@ import FilterRaBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterR
 import FilterUnmatchedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterUnmatchedBtn.vue";
 import FilterVerifiedBtn from "@/components/Gallery/AppBar/common/FilterDrawer/FilterVerifiedBtn.vue";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import storeGalleryFilter from "@/stores/galleryFilter";
 import storePlatforms from "@/stores/platforms";
 import storeRoms from "@/stores/roms";
@@ -314,10 +314,10 @@ onMounted(async () => {
 
 <template>
   <v-navigation-drawer
+    v-model="activeFilterDrawer"
     mobile
     floating
     width="400"
-    v-model="activeFilterDrawer"
     :class="{
       'ml-2': activeFilterDrawer,
       'drawer-mobile': smAndDown && activeFilterDrawer,
@@ -327,45 +327,45 @@ onMounted(async () => {
     <v-list tabindex="-1">
       <template v-if="showSearchBar && xs">
         <v-list-item>
-          <search-text-field :tabindex="activeFilterDrawer ? 0 : -1" />
+          <SearchTextField :tabindex="activeFilterDrawer ? 0 : -1" />
         </v-list-item>
       </template>
       <v-list-item>
-        <filter-unmatched-btn :tabindex="activeFilterDrawer ? 0 : -1" />
-        <filter-matched-btn
+        <FilterUnmatchedBtn :tabindex="activeFilterDrawer ? 0 : -1" />
+        <FilterMatchedBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-favourites-btn
+        <FilterFavouritesBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-duplicates-btn
+        <FilterDuplicatesBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-playables-btn
+        <FilterPlayablesBtn
           v-if="showPlayablesFilter"
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-missing-btn
+        <FilterMissingBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-verified-btn
+        <FilterVerifiedBtn
           class="mt-2"
           :tabindex="activeFilterDrawer ? 0 : -1"
         />
-        <filter-ra-btn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
+        <FilterRaBtn class="mt-2" :tabindex="activeFilterDrawer ? 0 : -1" />
       </v-list-item>
       <v-list-item
         v-if="showPlatformsFilter"
         :tabindex="activeFilterDrawer ? 0 : -1"
       >
         <v-autocomplete
-          :tabindex="activeFilterDrawer ? 0 : -1"
           v-model="selectedPlatform"
+          :tabindex="activeFilterDrawer ? 0 : -1"
           hide-details
           prepend-inner-icon="mdi-controller"
           clearable
@@ -385,7 +385,7 @@ onMounted(async () => {
               :subtitle="item.raw.fs_slug"
             >
               <template #prepend>
-                <platform-icon
+                <PlatformIcon
                   :key="item.raw.slug"
                   :size="35"
                   :slug="item.raw.slug"
@@ -394,12 +394,12 @@ onMounted(async () => {
                 />
               </template>
               <template #append>
-                <missing-from-f-s-icon
+                <MissingFromFSIcon
                   v-if="item.raw.missing_from_fs"
                   text="Missing platform from filesystem"
                   chip
                   chip-label
-                  chipDensity="compact"
+                  chip-density="compact"
                   class="ml-2"
                 />
                 <v-chip class="ml-2" size="x-small" label>
@@ -410,7 +410,7 @@ onMounted(async () => {
           </template>
           <template #chip="{ item }">
             <v-chip>
-              <platform-icon
+              <PlatformIcon
                 :key="item.raw.slug"
                 :slug="item.raw.slug"
                 :name="item.raw.name"
@@ -425,6 +425,7 @@ onMounted(async () => {
       </v-list-item>
       <v-list-item
         v-for="filter in filters"
+        :key="filter.label"
         :tabindex="activeFilterDrawer ? 0 : -1"
       >
         <v-autocomplete

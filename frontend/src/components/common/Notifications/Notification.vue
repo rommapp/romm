@@ -26,13 +26,13 @@ function closeDialog() {
 
 <template>
   <v-snackbar
-    transition="scroll-y-transition"
     v-model="show"
+    transition="scroll-y-transition"
     :timeout="snackbarStatus.timeout || 3000"
-    @timeout="closeDialog"
     absolute
     :location="xs ? 'top' : 'top right'"
     color="primary-darken"
+    @timeout="closeDialog"
   >
     <template #text>
       <v-row class="d-flex align-start flex-row flex-nowrap px-2">

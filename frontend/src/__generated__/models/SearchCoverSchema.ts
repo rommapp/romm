@@ -2,8 +2,9 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { SGDBResource } from './SGDBResource';
 export type SearchCoverSchema = {
     name: string;
-    resources: Array<any>;
+    resources: Array<SGDBResource>;
 };
 

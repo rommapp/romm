@@ -3,7 +3,7 @@ import VanillaTilt from "vanilla-tilt";
 import { onMounted, onBeforeUnmount, useTemplateRef } from "vue";
 import { useDisplay } from "vuetify";
 import MissingFromFSIcon from "@/components/common/MissingFromFSIcon.vue";
-import PlatformIcon from "@/components/common/Platform/Icon.vue";
+import PlatformIcon from "@/components/common/Platform/PlatformIcon.vue";
 import { ROUTES } from "@/plugins/router";
 import type { Platform } from "@/stores/platforms";
 
@@ -42,10 +42,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <v-hover v-slot="{ isHovering, props }">
-    <div data-tilt ref="tilt-card-ref">
+  <v-hover v-slot="{ isHovering, props: cardProps }">
+    <div ref="tilt-card-ref" data-tilt>
       <v-card
-        v-bind="props"
+        v-bind="cardProps"
         class="bg-toplayer"
         :class="{ 'on-hover': isHovering, 'transform-scale': !enable3DTilt }"
         :elevation="isHovering ? 20 : 3"
@@ -64,7 +64,7 @@ onBeforeUnmount(() => {
       >
         <v-card-text>
           <v-row class="pa-1 justify-center align-center bg-background">
-            <missing-from-f-s-icon
+            <MissingFromFSIcon
               v-if="platform.missing_from_fs"
               text="Missing platform from filesystem"
               :size="15"
@@ -77,7 +77,7 @@ onBeforeUnmount(() => {
             </div>
           </v-row>
           <v-row class="pa-1 justify-center">
-            <platform-icon
+            <PlatformIcon
               :key="platform.slug"
               :slug="platform.slug"
               :name="platform.name"
